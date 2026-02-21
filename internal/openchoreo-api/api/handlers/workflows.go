@@ -22,7 +22,7 @@ func (h *Handler) ListWorkflows(
 ) (gen.ListWorkflowsResponseObject, error) {
 	h.logger.Debug("ListWorkflows called", "namespaceName", request.NamespaceName)
 
-	workflows, err := h.services.WorkflowService.ListWorkflows(ctx, request.NamespaceName)
+	workflows, err := h.legacyServices.WorkflowService.ListWorkflows(ctx, request.NamespaceName)
 	if err != nil {
 		h.logger.Error("Failed to list workflows", "error", err)
 		return gen.ListWorkflows500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -66,7 +66,7 @@ func (h *Handler) ListWorkflowRuns(
 ) (gen.ListWorkflowRunsResponseObject, error) {
 	h.logger.Info("ListWorkflowRuns called", "namespaceName", request.NamespaceName)
 
-	runs, err := h.services.WorkflowRunService.ListWorkflowRuns(ctx, request.NamespaceName)
+	runs, err := h.legacyServices.WorkflowRunService.ListWorkflowRuns(ctx, request.NamespaceName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListWorkflowRuns403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -101,7 +101,7 @@ func (h *Handler) CreateWorkflowRun(
 	}
 
 	// Call service to create workflow run
-	workflowRun, err := h.services.WorkflowRunService.CreateWorkflowRun(ctx, request.NamespaceName, req)
+	workflowRun, err := h.legacyServices.WorkflowRunService.CreateWorkflowRun(ctx, request.NamespaceName, req)
 	if err != nil {
 		if errors.Is(err, services.ErrWorkflowNotFound) {
 			return gen.CreateWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("Workflow")}, nil
@@ -125,7 +125,7 @@ func (h *Handler) GetWorkflowRun(
 		"namespace", request.NamespaceName,
 		"runName", request.RunName)
 
-	workflowRun, err := h.services.WorkflowRunService.GetWorkflowRun(ctx, request.NamespaceName, request.RunName)
+	workflowRun, err := h.legacyServices.WorkflowRunService.GetWorkflowRun(ctx, request.NamespaceName, request.RunName)
 	if err != nil {
 		if errors.Is(err, services.ErrWorkflowRunNotFound) {
 			return gen.GetWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
@@ -149,7 +149,7 @@ func (h *Handler) GetWorkflowRunStatus(
 		"namespace", request.NamespaceName,
 		"runName", request.RunName)
 
-	status, err := h.services.WorkflowRunService.GetWorkflowRunStatus(ctx, request.NamespaceName, request.RunName, h.Config.ClusterGateway.URL)
+	status, err := h.legacyServices.WorkflowRunService.GetWorkflowRunStatus(ctx, request.NamespaceName, request.RunName, h.Config.ClusterGateway.URL)
 	if err != nil {
 		if errors.Is(err, services.ErrWorkflowRunNotFound) {
 			return gen.GetWorkflowRunStatus404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
@@ -193,7 +193,7 @@ func (h *Handler) GetWorkflowRunLogs(
 		step = *request.Params.Step
 	}
 
-	logs, err := h.services.WorkflowRunService.GetWorkflowRunLogs(ctx, request.NamespaceName, request.RunName,
+	logs, err := h.legacyServices.WorkflowRunService.GetWorkflowRunLogs(ctx, request.NamespaceName, request.RunName,
 		step, h.Config.ClusterGateway.URL, request.Params.SinceSeconds)
 	if err != nil {
 		if errors.Is(err, services.ErrWorkflowRunNotFound) {
@@ -238,7 +238,7 @@ func (h *Handler) GetWorkflowRunEvents(
 		step = *request.Params.Step
 	}
 
-	events, err := h.services.WorkflowRunService.GetWorkflowRunEvents(ctx, request.NamespaceName, request.RunName,
+	events, err := h.legacyServices.WorkflowRunService.GetWorkflowRunEvents(ctx, request.NamespaceName, request.RunName,
 		step, h.Config.ClusterGateway.URL)
 	if err != nil {
 		if errors.Is(err, services.ErrWorkflowRunNotFound) {

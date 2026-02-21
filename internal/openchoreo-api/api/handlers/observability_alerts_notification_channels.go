@@ -22,7 +22,7 @@ func (h *Handler) ListObservabilityAlertsNotificationChannels(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.observabilityAlertsNotificationChannelService.ListObservabilityAlertsNotificationChannels(ctx, request.NamespaceName, opts)
+	result, err := h.services.ObservabilityAlertsNotificationChannelService.ListObservabilityAlertsNotificationChannels(ctx, request.NamespaceName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list observability alerts notification channels", "error", err)
 		return gen.ListObservabilityAlertsNotificationChannels500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -58,7 +58,7 @@ func (h *Handler) CreateObservabilityAlertsNotificationChannel(
 	}
 	ncCR.Status = openchoreov1alpha1.ObservabilityAlertsNotificationChannelStatus{}
 
-	created, err := h.observabilityAlertsNotificationChannelService.CreateObservabilityAlertsNotificationChannel(ctx, request.NamespaceName, &ncCR)
+	created, err := h.services.ObservabilityAlertsNotificationChannelService.CreateObservabilityAlertsNotificationChannel(ctx, request.NamespaceName, &ncCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateObservabilityAlertsNotificationChannel403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -87,7 +87,7 @@ func (h *Handler) GetObservabilityAlertsNotificationChannel(
 ) (gen.GetObservabilityAlertsNotificationChannelResponseObject, error) {
 	h.logger.Debug("GetObservabilityAlertsNotificationChannel called", "namespaceName", request.NamespaceName, "channel", request.ObservabilityAlertsNotificationChannelName)
 
-	nc, err := h.observabilityAlertsNotificationChannelService.GetObservabilityAlertsNotificationChannel(ctx, request.NamespaceName, request.ObservabilityAlertsNotificationChannelName)
+	nc, err := h.services.ObservabilityAlertsNotificationChannelService.GetObservabilityAlertsNotificationChannel(ctx, request.NamespaceName, request.ObservabilityAlertsNotificationChannelName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetObservabilityAlertsNotificationChannel403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -129,7 +129,7 @@ func (h *Handler) UpdateObservabilityAlertsNotificationChannel(
 	// Ensure the name from the URL path is used
 	ncCR.Name = request.ObservabilityAlertsNotificationChannelName
 
-	updated, err := h.observabilityAlertsNotificationChannelService.UpdateObservabilityAlertsNotificationChannel(ctx, request.NamespaceName, &ncCR)
+	updated, err := h.services.ObservabilityAlertsNotificationChannelService.UpdateObservabilityAlertsNotificationChannel(ctx, request.NamespaceName, &ncCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateObservabilityAlertsNotificationChannel403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -158,7 +158,7 @@ func (h *Handler) DeleteObservabilityAlertsNotificationChannel(
 ) (gen.DeleteObservabilityAlertsNotificationChannelResponseObject, error) {
 	h.logger.Info("DeleteObservabilityAlertsNotificationChannel called", "namespaceName", request.NamespaceName, "channel", request.ObservabilityAlertsNotificationChannelName)
 
-	err := h.observabilityAlertsNotificationChannelService.DeleteObservabilityAlertsNotificationChannel(ctx, request.NamespaceName, request.ObservabilityAlertsNotificationChannelName)
+	err := h.services.ObservabilityAlertsNotificationChannelService.DeleteObservabilityAlertsNotificationChannel(ctx, request.NamespaceName, request.ObservabilityAlertsNotificationChannelName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteObservabilityAlertsNotificationChannel403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

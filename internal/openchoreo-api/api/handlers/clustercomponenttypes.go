@@ -23,7 +23,7 @@ func (h *Handler) ListClusterComponentTypes(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.clusterComponentTypeService.ListClusterComponentTypes(ctx, opts)
+	result, err := h.services.ClusterComponentTypeService.ListClusterComponentTypes(ctx, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListClusterComponentTypes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -62,7 +62,7 @@ func (h *Handler) CreateClusterComponentType(
 	}
 	cctCR.Status = openchoreov1alpha1.ClusterComponentTypeStatus{}
 
-	created, err := h.clusterComponentTypeService.CreateClusterComponentType(ctx, &cctCR)
+	created, err := h.services.ClusterComponentTypeService.CreateClusterComponentType(ctx, &cctCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateClusterComponentType403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -105,7 +105,7 @@ func (h *Handler) UpdateClusterComponentType(
 	// Ensure the name from the URL path is used
 	cctCR.Name = request.CctName
 
-	updated, err := h.clusterComponentTypeService.UpdateClusterComponentType(ctx, &cctCR)
+	updated, err := h.services.ClusterComponentTypeService.UpdateClusterComponentType(ctx, &cctCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateClusterComponentType403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -134,7 +134,7 @@ func (h *Handler) GetClusterComponentType(
 ) (gen.GetClusterComponentTypeResponseObject, error) {
 	h.logger.Debug("GetClusterComponentType called", "cctName", request.CctName)
 
-	cct, err := h.clusterComponentTypeService.GetClusterComponentType(ctx, request.CctName)
+	cct, err := h.services.ClusterComponentTypeService.GetClusterComponentType(ctx, request.CctName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetClusterComponentType403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -162,7 +162,7 @@ func (h *Handler) DeleteClusterComponentType(
 ) (gen.DeleteClusterComponentTypeResponseObject, error) {
 	h.logger.Info("DeleteClusterComponentType called", "cctName", request.CctName)
 
-	err := h.clusterComponentTypeService.DeleteClusterComponentType(ctx, request.CctName)
+	err := h.services.ClusterComponentTypeService.DeleteClusterComponentType(ctx, request.CctName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteClusterComponentType403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -185,7 +185,7 @@ func (h *Handler) GetClusterComponentTypeSchema(
 ) (gen.GetClusterComponentTypeSchemaResponseObject, error) {
 	h.logger.Debug("GetClusterComponentTypeSchema called", "name", request.CctName)
 
-	jsonSchema, err := h.clusterComponentTypeService.GetClusterComponentTypeSchema(ctx, request.CctName)
+	jsonSchema, err := h.services.ClusterComponentTypeService.GetClusterComponentTypeSchema(ctx, request.CctName)
 	if err != nil {
 		if errors.Is(err, clustercomponenttypesvc.ErrClusterComponentTypeNotFound) {
 			return gen.GetClusterComponentTypeSchema404JSONResponse{NotFoundJSONResponse: notFound("ClusterComponentType")}, nil

@@ -27,7 +27,7 @@ func (h *Handler) ListWorkloads(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.workloadService.ListWorkloads(ctx, request.NamespaceName, componentName, opts)
+	result, err := h.services.WorkloadService.ListWorkloads(ctx, request.NamespaceName, componentName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list workloads", "error", err)
 		return gen.ListWorkloads500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -63,7 +63,7 @@ func (h *Handler) CreateWorkload(
 	}
 	wCR.Status = openchoreov1alpha1.WorkloadStatus{}
 
-	created, err := h.workloadService.CreateWorkload(ctx, request.NamespaceName, &wCR)
+	created, err := h.services.WorkloadService.CreateWorkload(ctx, request.NamespaceName, &wCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateWorkload403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -95,7 +95,7 @@ func (h *Handler) GetWorkload(
 ) (gen.GetWorkloadResponseObject, error) {
 	h.logger.Debug("GetWorkload called", "namespaceName", request.NamespaceName, "workloadName", request.WorkloadName)
 
-	w, err := h.workloadService.GetWorkload(ctx, request.NamespaceName, request.WorkloadName)
+	w, err := h.services.WorkloadService.GetWorkload(ctx, request.NamespaceName, request.WorkloadName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetWorkload403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -137,7 +137,7 @@ func (h *Handler) UpdateWorkload(
 	// Ensure the name from the URL path is used
 	wCR.Name = request.WorkloadName
 
-	updated, err := h.workloadService.UpdateWorkload(ctx, request.NamespaceName, &wCR)
+	updated, err := h.services.WorkloadService.UpdateWorkload(ctx, request.NamespaceName, &wCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateWorkload403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -166,7 +166,7 @@ func (h *Handler) DeleteWorkload(
 ) (gen.DeleteWorkloadResponseObject, error) {
 	h.logger.Info("DeleteWorkload called", "namespaceName", request.NamespaceName, "workloadName", request.WorkloadName)
 
-	err := h.workloadService.DeleteWorkload(ctx, request.NamespaceName, request.WorkloadName)
+	err := h.services.WorkloadService.DeleteWorkload(ctx, request.NamespaceName, request.WorkloadName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteWorkload403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

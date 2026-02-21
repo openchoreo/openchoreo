@@ -22,7 +22,7 @@ func (h *Handler) ListBuildPlanes(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.buildPlaneService.ListBuildPlanes(ctx, request.NamespaceName, opts)
+	result, err := h.services.BuildPlaneService.ListBuildPlanes(ctx, request.NamespaceName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list build planes", "error", err)
 		return gen.ListBuildPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -47,7 +47,7 @@ func (h *Handler) GetBuildPlane(
 ) (gen.GetBuildPlaneResponseObject, error) {
 	h.logger.Debug("GetBuildPlane called", "namespaceName", request.NamespaceName, "buildPlaneName", request.BuildPlaneName)
 
-	buildPlane, err := h.buildPlaneService.GetBuildPlane(ctx, request.NamespaceName, request.BuildPlaneName)
+	buildPlane, err := h.services.BuildPlaneService.GetBuildPlane(ctx, request.NamespaceName, request.BuildPlaneName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -86,7 +86,7 @@ func (h *Handler) CreateBuildPlane(
 	}
 	bpCR.Status = openchoreov1alpha1.BuildPlaneStatus{}
 
-	created, err := h.buildPlaneService.CreateBuildPlane(ctx, request.NamespaceName, &bpCR)
+	created, err := h.services.BuildPlaneService.CreateBuildPlane(ctx, request.NamespaceName, &bpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -129,7 +129,7 @@ func (h *Handler) UpdateBuildPlane(
 	// Ensure the name from the URL path is used
 	bpCR.Name = request.BuildPlaneName
 
-	updated, err := h.buildPlaneService.UpdateBuildPlane(ctx, request.NamespaceName, &bpCR)
+	updated, err := h.services.BuildPlaneService.UpdateBuildPlane(ctx, request.NamespaceName, &bpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -158,7 +158,7 @@ func (h *Handler) DeleteBuildPlane(
 ) (gen.DeleteBuildPlaneResponseObject, error) {
 	h.logger.Info("DeleteBuildPlane called", "namespaceName", request.NamespaceName, "buildPlaneName", request.BuildPlaneName)
 
-	err := h.buildPlaneService.DeleteBuildPlane(ctx, request.NamespaceName, request.BuildPlaneName)
+	err := h.services.BuildPlaneService.DeleteBuildPlane(ctx, request.NamespaceName, request.BuildPlaneName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

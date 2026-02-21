@@ -23,7 +23,7 @@ func (h *Handler) ListNamespaces(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.namespaceService.ListNamespaces(ctx, opts)
+	result, err := h.services.NamespaceService.ListNamespaces(ctx, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListNamespaces403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -51,7 +51,7 @@ func (h *Handler) GetNamespace(
 ) (gen.GetNamespaceResponseObject, error) {
 	h.logger.Debug("GetNamespace called", "namespaceName", request.NamespaceName)
 
-	namespace, err := h.namespaceService.GetNamespace(ctx, request.NamespaceName)
+	namespace, err := h.services.NamespaceService.GetNamespace(ctx, request.NamespaceName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetNamespace403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -89,7 +89,7 @@ func (h *Handler) CreateNamespace(
 		return gen.CreateNamespace400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
 
-	created, err := h.namespaceService.CreateNamespace(ctx, &nsCR)
+	created, err := h.services.NamespaceService.CreateNamespace(ctx, &nsCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateNamespace403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -131,7 +131,7 @@ func (h *Handler) UpdateNamespace(
 	// Ensure the name from the URL path is used
 	nsCR.Name = request.NamespaceName
 
-	updated, err := h.namespaceService.UpdateNamespace(ctx, &nsCR)
+	updated, err := h.services.NamespaceService.UpdateNamespace(ctx, &nsCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateNamespace403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -160,7 +160,7 @@ func (h *Handler) DeleteNamespace(
 ) (gen.DeleteNamespaceResponseObject, error) {
 	h.logger.Info("DeleteNamespace called", "namespaceName", request.NamespaceName)
 
-	err := h.namespaceService.DeleteNamespace(ctx, request.NamespaceName)
+	err := h.services.NamespaceService.DeleteNamespace(ctx, request.NamespaceName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteNamespace403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

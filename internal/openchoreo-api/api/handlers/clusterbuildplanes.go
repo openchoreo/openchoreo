@@ -22,7 +22,7 @@ func (h *Handler) ListClusterBuildPlanes(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.clusterBuildPlaneService.ListClusterBuildPlanes(ctx, opts)
+	result, err := h.services.ClusterBuildPlaneService.ListClusterBuildPlanes(ctx, opts)
 	if err != nil {
 		h.logger.Error("Failed to list cluster build planes", "error", err)
 		return gen.ListClusterBuildPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -47,7 +47,7 @@ func (h *Handler) GetClusterBuildPlane(
 ) (gen.GetClusterBuildPlaneResponseObject, error) {
 	h.logger.Debug("GetClusterBuildPlane called", "clusterBuildPlaneName", request.ClusterBuildPlaneName)
 
-	cbp, err := h.clusterBuildPlaneService.GetClusterBuildPlane(ctx, request.ClusterBuildPlaneName)
+	cbp, err := h.services.ClusterBuildPlaneService.GetClusterBuildPlane(ctx, request.ClusterBuildPlaneName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetClusterBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -86,7 +86,7 @@ func (h *Handler) CreateClusterBuildPlane(
 	}
 	cbpCR.Status = openchoreov1alpha1.ClusterBuildPlaneStatus{}
 
-	created, err := h.clusterBuildPlaneService.CreateClusterBuildPlane(ctx, &cbpCR)
+	created, err := h.services.ClusterBuildPlaneService.CreateClusterBuildPlane(ctx, &cbpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateClusterBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -129,7 +129,7 @@ func (h *Handler) UpdateClusterBuildPlane(
 	// Ensure the name from the URL path is used
 	cbpCR.Name = request.ClusterBuildPlaneName
 
-	updated, err := h.clusterBuildPlaneService.UpdateClusterBuildPlane(ctx, &cbpCR)
+	updated, err := h.services.ClusterBuildPlaneService.UpdateClusterBuildPlane(ctx, &cbpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateClusterBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -158,7 +158,7 @@ func (h *Handler) DeleteClusterBuildPlane(
 ) (gen.DeleteClusterBuildPlaneResponseObject, error) {
 	h.logger.Info("DeleteClusterBuildPlane called", "clusterBuildPlaneName", request.ClusterBuildPlaneName)
 
-	err := h.clusterBuildPlaneService.DeleteClusterBuildPlane(ctx, request.ClusterBuildPlaneName)
+	err := h.services.ClusterBuildPlaneService.DeleteClusterBuildPlane(ctx, request.ClusterBuildPlaneName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteClusterBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

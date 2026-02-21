@@ -27,7 +27,7 @@ func (h *Handler) ListComponentReleases(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.componentReleaseService.ListComponentReleases(ctx, request.NamespaceName, componentName, opts)
+	result, err := h.services.ComponentReleaseService.ListComponentReleases(ctx, request.NamespaceName, componentName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list component releases", "error", err)
 		return gen.ListComponentReleases500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -56,7 +56,7 @@ func (h *Handler) GetComponentRelease(
 ) (gen.GetComponentReleaseResponseObject, error) {
 	h.logger.Debug("GetComponentRelease called", "namespaceName", request.NamespaceName, "componentReleaseName", request.ComponentReleaseName)
 
-	cr, err := h.componentReleaseService.GetComponentRelease(ctx, request.NamespaceName, request.ComponentReleaseName)
+	cr, err := h.services.ComponentReleaseService.GetComponentRelease(ctx, request.NamespaceName, request.ComponentReleaseName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetComponentRelease403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

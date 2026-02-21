@@ -23,7 +23,7 @@ func (h *Handler) ListClusterTraits(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.clusterTraitService.ListClusterTraits(ctx, opts)
+	result, err := h.services.ClusterTraitService.ListClusterTraits(ctx, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListClusterTraits403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -62,7 +62,7 @@ func (h *Handler) CreateClusterTrait(
 	}
 	ctCR.Status = openchoreov1alpha1.ClusterTraitStatus{}
 
-	created, err := h.clusterTraitService.CreateClusterTrait(ctx, &ctCR)
+	created, err := h.services.ClusterTraitService.CreateClusterTrait(ctx, &ctCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateClusterTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -105,7 +105,7 @@ func (h *Handler) UpdateClusterTrait(
 	// Ensure the name from the URL path is used
 	ctCR.Name = request.ClusterTraitName
 
-	updated, err := h.clusterTraitService.UpdateClusterTrait(ctx, &ctCR)
+	updated, err := h.services.ClusterTraitService.UpdateClusterTrait(ctx, &ctCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateClusterTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -134,7 +134,7 @@ func (h *Handler) GetClusterTrait(
 ) (gen.GetClusterTraitResponseObject, error) {
 	h.logger.Debug("GetClusterTrait called", "clusterTraitName", request.ClusterTraitName)
 
-	trait, err := h.clusterTraitService.GetClusterTrait(ctx, request.ClusterTraitName)
+	trait, err := h.services.ClusterTraitService.GetClusterTrait(ctx, request.ClusterTraitName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetClusterTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -162,7 +162,7 @@ func (h *Handler) DeleteClusterTrait(
 ) (gen.DeleteClusterTraitResponseObject, error) {
 	h.logger.Info("DeleteClusterTrait called", "clusterTraitName", request.ClusterTraitName)
 
-	err := h.clusterTraitService.DeleteClusterTrait(ctx, request.ClusterTraitName)
+	err := h.services.ClusterTraitService.DeleteClusterTrait(ctx, request.ClusterTraitName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteClusterTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -185,7 +185,7 @@ func (h *Handler) GetClusterTraitSchema(
 ) (gen.GetClusterTraitSchemaResponseObject, error) {
 	h.logger.Debug("GetClusterTraitSchema called", "name", request.ClusterTraitName)
 
-	jsonSchema, err := h.clusterTraitService.GetClusterTraitSchema(ctx, request.ClusterTraitName)
+	jsonSchema, err := h.services.ClusterTraitService.GetClusterTraitSchema(ctx, request.ClusterTraitName)
 	if err != nil {
 		if errors.Is(err, clustertraitsvc.ErrClusterTraitNotFound) {
 			return gen.GetClusterTraitSchema404JSONResponse{NotFoundJSONResponse: notFound("ClusterTrait")}, nil

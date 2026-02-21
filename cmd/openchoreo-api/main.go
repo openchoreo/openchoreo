@@ -31,29 +31,8 @@ import (
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
-	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
-	buildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/buildplane"
-	clusterbuildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterbuildplane"
-	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
-	clusterdataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterdataplane"
-	clusterobservabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane"
-	clustertraitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait"
-	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
-	componentreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentrelease"
-	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
-	dataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/dataplane"
-	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
-	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
-	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
-	observabilityalertsnotificationchannelsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityalertsnotificationchannel"
-	observabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityplane"
-	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
-	releasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/release"
-	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
-	secretreferencesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference"
-	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
-	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	"github.com/openchoreo/openchoreo/internal/server"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 	apilogger "github.com/openchoreo/openchoreo/internal/server/middleware/logger"
@@ -169,81 +148,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize services with PAP and PDP
-	services := services.NewServices(k8sClient, k8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL, gwClient)
+	// Initialize legacy services with PAP and PDP
+	legacySvc := legacyservices.NewServices(k8sClient, k8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL, gwClient)
 
 	// Initialize legacy HTTP handlers with unified config
-	legacyHandler := handlers.New(services, &cfg, logger.With("component", "legacy-handlers"))
+	legacyHandler := handlers.New(legacySvc, &cfg, logger.With("component", "legacy-handlers"))
 	legacyRoutes := legacyHandler.Routes()
 
-	// Initialize project service for the new K8s-native API design
-	projectService := projectsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "project-service"))
-
-	// Initialize build plane service for the new K8s-native API design
-	buildPlaneService := buildplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "buildplane-service"))
-
-	// Initialize cluster build plane service for the new K8s-native API design
-	clusterBuildPlaneService := clusterbuildplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "clusterbuildplane-service"))
-
-	// Initialize cluster component type service for the new K8s-native API design
-	clusterComponentTypeService := clustercomponenttypesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "clustercomponenttype-service"))
-
-	// Initialize cluster trait service for the new K8s-native API design
-	clusterTraitService := clustertraitsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "clustertrait-service"))
-
-	// Initialize cluster data plane service for the new K8s-native API design
-	clusterDataPlaneService := clusterdataplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "clusterdataplane-service"))
-
-	// Initialize cluster observability plane service for the new K8s-native API design
-	clusterObservabilityPlaneService := clusterobservabilityplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "clusterobservabilityplane-service"))
-
-	// Initialize data plane service for the new K8s-native API design
-	dataPlaneService := dataplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "dataplane-service"))
-
-	// Initialize namespace service for the new K8s-native API design
-	namespaceService := namespacesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "namespace-service"))
-
-	// Initialize deployment pipeline service for the new K8s-native API design
-	deploymentPipelineService := deploymentpipelinesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "deploymentpipeline-service"))
-
-	// Initialize component service for the new K8s-native API design
-	componentService := componentsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "component-service"))
-
-	// Initialize component release service for the new K8s-native API design
-	componentReleaseService := componentreleasesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "componentrelease-service"))
-
-	// Initialize component type service for the new K8s-native API design
-	componentTypeService := componenttypesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "componenttype-service"))
-
-	// Initialize environment service for the new K8s-native API design
-	environmentService := environmentsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "environment-service"))
-
-	// Initialize observability alerts notification channel service for the new K8s-native API design
-	observabilityAlertsNotificationChannelService := observabilityalertsnotificationchannelsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "observabilityalertsnotificationchannel-service"))
-
-	// Initialize observability plane service for the new K8s-native API design
-	observabilityPlaneService := observabilityplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "observabilityplane-service"))
-
-	// Initialize release service for the new K8s-native API design
-	releaseService := releasesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "release-service"))
-
-	// Initialize release binding service for the new K8s-native API design
-	releaseBindingService := releasebindingsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "releasebinding-service"))
-
-	// Initialize secret reference service for the new K8s-native API design
-	secretReferenceService := secretreferencesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "secretreference-service"))
-
-	// Initialize trait service for the new K8s-native API design
-	traitService := traitsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "trait-service"))
-
-	// Initialize workload service for the new K8s-native API design
-	workloadService := workloadsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "workload-service"))
-
-	// Initialize authz service with authz
-	authzService := authzsvc.NewServiceWithAuthz(runtime.pap, runtime.pdp, k8sClient, logger.With("component", "authz-service"))
+	// Initialize all handler services
+	services := handlerservices.NewServices(k8sClient, runtime.pap, runtime.pdp, logger)
 
 	// Initialize OpenAPI handlers
-	openapiHandler := openapihandlers.New(services, authzService, projectService, buildPlaneService, clusterBuildPlaneService, clusterComponentTypeService, clusterDataPlaneService, clusterObservabilityPlaneService, clusterTraitService, dataPlaneService, deploymentPipelineService, namespaceService, componentService, componentReleaseService, componentTypeService, environmentService, observabilityAlertsNotificationChannelService, observabilityPlaneService, releaseService, releaseBindingService, secretReferenceService, traitService, workloadService, logger.With("component", "openapi-handlers"), &cfg)
+	openapiHandler := openapihandlers.New(legacySvc, services, logger.With("component", "openapi-handlers"), &cfg)
 	strictHandler := gen.NewStrictHandler(openapiHandler, nil)
 
 	// Initialize middlewares for OpenAPI handler

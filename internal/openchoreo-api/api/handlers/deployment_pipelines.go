@@ -22,7 +22,7 @@ func (h *Handler) ListDeploymentPipelines(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.deploymentPipelineService.ListDeploymentPipelines(ctx, request.NamespaceName, opts)
+	result, err := h.services.DeploymentPipelineService.ListDeploymentPipelines(ctx, request.NamespaceName, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListDeploymentPipelines403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -61,7 +61,7 @@ func (h *Handler) CreateDeploymentPipeline(
 	}
 	dpCR.Status = openchoreov1alpha1.DeploymentPipelineStatus{}
 
-	created, err := h.deploymentPipelineService.CreateDeploymentPipeline(ctx, request.NamespaceName, &dpCR)
+	created, err := h.services.DeploymentPipelineService.CreateDeploymentPipeline(ctx, request.NamespaceName, &dpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateDeploymentPipeline403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -90,7 +90,7 @@ func (h *Handler) GetDeploymentPipeline(
 ) (gen.GetDeploymentPipelineResponseObject, error) {
 	h.logger.Debug("GetDeploymentPipeline called", "namespaceName", request.NamespaceName, "deploymentPipelineName", request.DeploymentPipelineName)
 
-	dp, err := h.deploymentPipelineService.GetDeploymentPipeline(ctx, request.NamespaceName, request.DeploymentPipelineName)
+	dp, err := h.services.DeploymentPipelineService.GetDeploymentPipeline(ctx, request.NamespaceName, request.DeploymentPipelineName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetDeploymentPipeline403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -132,7 +132,7 @@ func (h *Handler) UpdateDeploymentPipeline(
 	// Ensure the name from the URL path is used
 	dpCR.Name = request.DeploymentPipelineName
 
-	updated, err := h.deploymentPipelineService.UpdateDeploymentPipeline(ctx, request.NamespaceName, &dpCR)
+	updated, err := h.services.DeploymentPipelineService.UpdateDeploymentPipeline(ctx, request.NamespaceName, &dpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateDeploymentPipeline403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -161,7 +161,7 @@ func (h *Handler) DeleteDeploymentPipeline(
 ) (gen.DeleteDeploymentPipelineResponseObject, error) {
 	h.logger.Info("DeleteDeploymentPipeline called", "namespaceName", request.NamespaceName, "deploymentPipelineName", request.DeploymentPipelineName)
 
-	err := h.deploymentPipelineService.DeleteDeploymentPipeline(ctx, request.NamespaceName, request.DeploymentPipelineName)
+	err := h.services.DeploymentPipelineService.DeleteDeploymentPipeline(ctx, request.NamespaceName, request.DeploymentPipelineName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteDeploymentPipeline403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

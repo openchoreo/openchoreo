@@ -22,7 +22,7 @@ func (h *Handler) ListSecretReferences(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.secretReferenceService.ListSecretReferences(ctx, request.NamespaceName, opts)
+	result, err := h.services.SecretReferenceService.ListSecretReferences(ctx, request.NamespaceName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list secret references", "error", err)
 		return gen.ListSecretReferences500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -58,7 +58,7 @@ func (h *Handler) CreateSecretReference(
 	}
 	srCR.Status = openchoreov1alpha1.SecretReferenceStatus{}
 
-	created, err := h.secretReferenceService.CreateSecretReference(ctx, request.NamespaceName, &srCR)
+	created, err := h.services.SecretReferenceService.CreateSecretReference(ctx, request.NamespaceName, &srCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateSecretReference403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -87,7 +87,7 @@ func (h *Handler) GetSecretReference(
 ) (gen.GetSecretReferenceResponseObject, error) {
 	h.logger.Debug("GetSecretReference called", "namespaceName", request.NamespaceName, "secretReferenceName", request.SecretReferenceName)
 
-	sr, err := h.secretReferenceService.GetSecretReference(ctx, request.NamespaceName, request.SecretReferenceName)
+	sr, err := h.services.SecretReferenceService.GetSecretReference(ctx, request.NamespaceName, request.SecretReferenceName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetSecretReference403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -129,7 +129,7 @@ func (h *Handler) UpdateSecretReference(
 	// Ensure the name from the URL path is used
 	srCR.Name = request.SecretReferenceName
 
-	updated, err := h.secretReferenceService.UpdateSecretReference(ctx, request.NamespaceName, &srCR)
+	updated, err := h.services.SecretReferenceService.UpdateSecretReference(ctx, request.NamespaceName, &srCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateSecretReference403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -158,7 +158,7 @@ func (h *Handler) DeleteSecretReference(
 ) (gen.DeleteSecretReferenceResponseObject, error) {
 	h.logger.Info("DeleteSecretReference called", "namespaceName", request.NamespaceName, "secretReferenceName", request.SecretReferenceName)
 
-	err := h.secretReferenceService.DeleteSecretReference(ctx, request.NamespaceName, request.SecretReferenceName)
+	err := h.services.SecretReferenceService.DeleteSecretReference(ctx, request.NamespaceName, request.SecretReferenceName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteSecretReference403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

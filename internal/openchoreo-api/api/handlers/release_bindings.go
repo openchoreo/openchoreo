@@ -27,7 +27,7 @@ func (h *Handler) ListReleaseBindings(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.releaseBindingService.ListReleaseBindings(ctx, request.NamespaceName, componentName, opts)
+	result, err := h.services.ReleaseBindingService.ListReleaseBindings(ctx, request.NamespaceName, componentName, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListReleaseBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -77,7 +77,7 @@ func (h *Handler) CreateReleaseBinding(
 	rbCR.Namespace = request.NamespaceName
 	rbCR.Status = openchoreov1alpha1.ReleaseBindingStatus{}
 
-	created, err := h.releaseBindingService.CreateReleaseBinding(ctx, request.NamespaceName, &rbCR)
+	created, err := h.services.ReleaseBindingService.CreateReleaseBinding(ctx, request.NamespaceName, &rbCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateReleaseBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -109,7 +109,7 @@ func (h *Handler) GetReleaseBinding(
 ) (gen.GetReleaseBindingResponseObject, error) {
 	h.logger.Debug("GetReleaseBinding called", "namespaceName", request.NamespaceName, "releaseBindingName", request.ReleaseBindingName)
 
-	rb, err := h.releaseBindingService.GetReleaseBinding(ctx, request.NamespaceName, request.ReleaseBindingName)
+	rb, err := h.services.ReleaseBindingService.GetReleaseBinding(ctx, request.NamespaceName, request.ReleaseBindingName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetReleaseBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -155,7 +155,7 @@ func (h *Handler) UpdateReleaseBinding(
 	// Ensure the name from the URL path is used
 	rbCR.Name = request.ReleaseBindingName
 
-	updated, err := h.releaseBindingService.UpdateReleaseBinding(ctx, request.NamespaceName, &rbCR)
+	updated, err := h.services.ReleaseBindingService.UpdateReleaseBinding(ctx, request.NamespaceName, &rbCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateReleaseBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -184,7 +184,7 @@ func (h *Handler) DeleteReleaseBinding(
 ) (gen.DeleteReleaseBindingResponseObject, error) {
 	h.logger.Info("DeleteReleaseBinding called", "namespaceName", request.NamespaceName, "releaseBindingName", request.ReleaseBindingName)
 
-	err := h.releaseBindingService.DeleteReleaseBinding(ctx, request.NamespaceName, request.ReleaseBindingName)
+	err := h.services.ReleaseBindingService.DeleteReleaseBinding(ctx, request.NamespaceName, request.ReleaseBindingName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteReleaseBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

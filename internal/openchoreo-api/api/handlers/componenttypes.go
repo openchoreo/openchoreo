@@ -23,7 +23,7 @@ func (h *Handler) ListComponentTypes(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.componentTypeService.ListComponentTypes(ctx, request.NamespaceName, opts)
+	result, err := h.services.ComponentTypeService.ListComponentTypes(ctx, request.NamespaceName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list component types", "error", err)
 		return gen.ListComponentTypes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -59,7 +59,7 @@ func (h *Handler) CreateComponentType(
 	}
 	ctCR.Status = openchoreov1alpha1.ComponentTypeStatus{}
 
-	created, err := h.componentTypeService.CreateComponentType(ctx, request.NamespaceName, &ctCR)
+	created, err := h.services.ComponentTypeService.CreateComponentType(ctx, request.NamespaceName, &ctCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateComponentType403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -88,7 +88,7 @@ func (h *Handler) GetComponentType(
 ) (gen.GetComponentTypeResponseObject, error) {
 	h.logger.Debug("GetComponentType called", "namespaceName", request.NamespaceName, "ctName", request.CtName)
 
-	ct, err := h.componentTypeService.GetComponentType(ctx, request.NamespaceName, request.CtName)
+	ct, err := h.services.ComponentTypeService.GetComponentType(ctx, request.NamespaceName, request.CtName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetComponentType403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -130,7 +130,7 @@ func (h *Handler) UpdateComponentType(
 	// Ensure the name from the URL path is used
 	ctCR.Name = request.CtName
 
-	updated, err := h.componentTypeService.UpdateComponentType(ctx, request.NamespaceName, &ctCR)
+	updated, err := h.services.ComponentTypeService.UpdateComponentType(ctx, request.NamespaceName, &ctCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateComponentType403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -159,7 +159,7 @@ func (h *Handler) DeleteComponentType(
 ) (gen.DeleteComponentTypeResponseObject, error) {
 	h.logger.Info("DeleteComponentType called", "namespaceName", request.NamespaceName, "ctName", request.CtName)
 
-	err := h.componentTypeService.DeleteComponentType(ctx, request.NamespaceName, request.CtName)
+	err := h.services.ComponentTypeService.DeleteComponentType(ctx, request.NamespaceName, request.CtName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteComponentType403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -182,7 +182,7 @@ func (h *Handler) GetComponentTypeSchema(
 ) (gen.GetComponentTypeSchemaResponseObject, error) {
 	h.logger.Debug("GetComponentTypeSchema called", "namespaceName", request.NamespaceName, "ctName", request.CtName)
 
-	jsonSchema, err := h.componentTypeService.GetComponentTypeSchema(ctx, request.NamespaceName, request.CtName)
+	jsonSchema, err := h.services.ComponentTypeService.GetComponentTypeSchema(ctx, request.NamespaceName, request.CtName)
 	if err != nil {
 		if errors.Is(err, componenttypesvc.ErrComponentTypeNotFound) {
 			return gen.GetComponentTypeSchema404JSONResponse{NotFoundJSONResponse: notFound("Component type")}, nil

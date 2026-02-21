@@ -22,7 +22,7 @@ func (h *Handler) ListEnvironments(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.environmentService.ListEnvironments(ctx, request.NamespaceName, opts)
+	result, err := h.services.EnvironmentService.ListEnvironments(ctx, request.NamespaceName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list environments", "error", err)
 		return gen.ListEnvironments500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -58,7 +58,7 @@ func (h *Handler) CreateEnvironment(
 	}
 	envCR.Status = openchoreov1alpha1.EnvironmentStatus{}
 
-	created, err := h.environmentService.CreateEnvironment(ctx, request.NamespaceName, &envCR)
+	created, err := h.services.EnvironmentService.CreateEnvironment(ctx, request.NamespaceName, &envCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateEnvironment403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -90,7 +90,7 @@ func (h *Handler) GetEnvironment(
 ) (gen.GetEnvironmentResponseObject, error) {
 	h.logger.Debug("GetEnvironment called", "namespaceName", request.NamespaceName, "envName", request.EnvName)
 
-	environment, err := h.environmentService.GetEnvironment(ctx, request.NamespaceName, request.EnvName)
+	environment, err := h.services.EnvironmentService.GetEnvironment(ctx, request.NamespaceName, request.EnvName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetEnvironment403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -118,7 +118,7 @@ func (h *Handler) GetEnvironmentObserverURL(
 ) (gen.GetEnvironmentObserverURLResponseObject, error) {
 	h.logger.Debug("GetEnvironmentObserverURL called", "namespaceName", request.NamespaceName, "envName", request.EnvName)
 
-	result, err := h.environmentService.GetObserverURL(ctx, request.NamespaceName, request.EnvName)
+	result, err := h.services.EnvironmentService.GetObserverURL(ctx, request.NamespaceName, request.EnvName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetEnvironmentObserverURL403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -150,7 +150,7 @@ func (h *Handler) GetRCAAgentURL(
 ) (gen.GetRCAAgentURLResponseObject, error) {
 	h.logger.Debug("GetRCAAgentURL called", "namespaceName", request.NamespaceName, "envName", request.EnvName)
 
-	result, err := h.environmentService.GetRCAAgentURL(ctx, request.NamespaceName, request.EnvName)
+	result, err := h.services.EnvironmentService.GetRCAAgentURL(ctx, request.NamespaceName, request.EnvName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetRCAAgentURL403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

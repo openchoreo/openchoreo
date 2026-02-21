@@ -34,7 +34,7 @@ func (h *Handler) ListComponents(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.componentService.ListComponents(ctx, request.NamespaceName, projectName, opts)
+	result, err := h.services.ComponentService.ListComponents(ctx, request.NamespaceName, projectName, opts)
 	if err != nil {
 		if errors.Is(err, projectsvc.ErrProjectNotFound) {
 			return gen.ListComponents404JSONResponse{NotFoundJSONResponse: notFound("Project")}, nil
@@ -76,7 +76,7 @@ func (h *Handler) CreateComponent(
 	}
 	componentCR.Status = openchoreov1alpha1.ComponentStatus{}
 
-	created, err := h.componentService.CreateComponent(ctx, request.NamespaceName, &componentCR)
+	created, err := h.services.ComponentService.CreateComponent(ctx, request.NamespaceName, &componentCR)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.CreateComponent403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -280,7 +280,7 @@ func (h *Handler) GetComponent(
 ) (gen.GetComponentResponseObject, error) {
 	h.logger.Debug("GetComponent called", "namespaceName", request.NamespaceName, "componentName", request.ComponentName)
 
-	component, err := h.componentService.GetComponent(ctx, request.NamespaceName, request.ComponentName)
+	component, err := h.services.ComponentService.GetComponent(ctx, request.NamespaceName, request.ComponentName)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.GetComponent403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -323,7 +323,7 @@ func (h *Handler) UpdateComponent(
 	componentCR.Status = openchoreov1alpha1.ComponentStatus{}
 	componentCR.Name = request.ComponentName
 
-	updated, err := h.componentService.UpdateComponent(ctx, request.NamespaceName, &componentCR)
+	updated, err := h.services.ComponentService.UpdateComponent(ctx, request.NamespaceName, &componentCR)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.UpdateComponent403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -352,7 +352,7 @@ func (h *Handler) DeleteComponent(
 ) (gen.DeleteComponentResponseObject, error) {
 	h.logger.Info("DeleteComponent called", "namespaceName", request.NamespaceName, "componentName", request.ComponentName)
 
-	err := h.componentService.DeleteComponent(ctx, request.NamespaceName, request.ComponentName)
+	err := h.services.ComponentService.DeleteComponent(ctx, request.NamespaceName, request.ComponentName)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.DeleteComponent403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -375,7 +375,7 @@ func (h *Handler) GetComponentSchema(
 ) (gen.GetComponentSchemaResponseObject, error) {
 	h.logger.Debug("GetComponentSchema called", "namespaceName", request.NamespaceName, "componentName", request.ComponentName)
 
-	schema, err := h.componentService.GetComponentSchema(ctx, request.NamespaceName, request.ComponentName)
+	schema, err := h.services.ComponentService.GetComponentSchema(ctx, request.NamespaceName, request.ComponentName)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.GetComponentSchema403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -410,7 +410,7 @@ func (h *Handler) GetReleaseResourceTree(
 		"component", request.ComponentName,
 		"environment", request.EnvironmentName)
 
-	tree, err := h.services.ComponentService.GetReleaseResourceTree(
+	tree, err := h.legacyServices.ComponentService.GetReleaseResourceTree(
 		ctx,
 		request.NamespaceName,
 		request.ProjectName,
@@ -466,7 +466,7 @@ func (h *Handler) GetReleaseResourceEvents(
 		uid = *request.Params.Uid
 	}
 
-	resp, err := h.services.ComponentService.GetResourceEvents(
+	resp, err := h.legacyServices.ComponentService.GetResourceEvents(
 		ctx,
 		request.NamespaceName,
 		request.ProjectName,
@@ -510,7 +510,7 @@ func (h *Handler) DeployRelease(
 		return gen.DeployRelease400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	binding, err := h.componentService.DeployRelease(ctx, request.NamespaceName, request.ComponentName,
+	binding, err := h.services.ComponentService.DeployRelease(ctx, request.NamespaceName, request.ComponentName,
 		&componentsvc.DeployReleaseRequest{ReleaseName: request.Body.ReleaseName})
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
@@ -560,7 +560,7 @@ func (h *Handler) PromoteComponent(
 		return gen.PromoteComponent400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	binding, err := h.componentService.PromoteComponent(ctx, request.NamespaceName, request.ComponentName,
+	binding, err := h.services.ComponentService.PromoteComponent(ctx, request.NamespaceName, request.ComponentName,
 		&componentsvc.PromoteComponentRequest{
 			SourceEnvironment: request.Body.SourceEnv,
 			TargetEnvironment: request.Body.TargetEnv,
@@ -621,7 +621,7 @@ func (h *Handler) GenerateRelease(
 		releaseName = *request.Body.ReleaseName
 	}
 
-	release, err := h.componentService.GenerateRelease(ctx, request.NamespaceName, request.ComponentName,
+	release, err := h.services.ComponentService.GenerateRelease(ctx, request.NamespaceName, request.ComponentName,
 		&componentsvc.GenerateReleaseRequest{ReleaseName: releaseName})
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {

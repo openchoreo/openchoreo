@@ -23,7 +23,7 @@ func (h *Handler) ListTraits(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.traitService.ListTraits(ctx, request.NamespaceName, opts)
+	result, err := h.services.TraitService.ListTraits(ctx, request.NamespaceName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list traits", "error", err)
 		return gen.ListTraits500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -59,7 +59,7 @@ func (h *Handler) CreateTrait(
 	}
 	tCR.Status = openchoreov1alpha1.TraitStatus{}
 
-	created, err := h.traitService.CreateTrait(ctx, request.NamespaceName, &tCR)
+	created, err := h.services.TraitService.CreateTrait(ctx, request.NamespaceName, &tCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -88,7 +88,7 @@ func (h *Handler) GetTrait(
 ) (gen.GetTraitResponseObject, error) {
 	h.logger.Debug("GetTrait called", "namespaceName", request.NamespaceName, "traitName", request.TraitName)
 
-	t, err := h.traitService.GetTrait(ctx, request.NamespaceName, request.TraitName)
+	t, err := h.services.TraitService.GetTrait(ctx, request.NamespaceName, request.TraitName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -130,7 +130,7 @@ func (h *Handler) UpdateTrait(
 	// Ensure the name from the URL path is used
 	tCR.Name = request.TraitName
 
-	updated, err := h.traitService.UpdateTrait(ctx, request.NamespaceName, &tCR)
+	updated, err := h.services.TraitService.UpdateTrait(ctx, request.NamespaceName, &tCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -159,7 +159,7 @@ func (h *Handler) DeleteTrait(
 ) (gen.DeleteTraitResponseObject, error) {
 	h.logger.Info("DeleteTrait called", "namespaceName", request.NamespaceName, "traitName", request.TraitName)
 
-	err := h.traitService.DeleteTrait(ctx, request.NamespaceName, request.TraitName)
+	err := h.services.TraitService.DeleteTrait(ctx, request.NamespaceName, request.TraitName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -182,7 +182,7 @@ func (h *Handler) GetTraitSchema(
 ) (gen.GetTraitSchemaResponseObject, error) {
 	h.logger.Debug("GetTraitSchema called", "namespaceName", request.NamespaceName, "traitName", request.TraitName)
 
-	jsonSchema, err := h.traitService.GetTraitSchema(ctx, request.NamespaceName, request.TraitName)
+	jsonSchema, err := h.services.TraitService.GetTraitSchema(ctx, request.NamespaceName, request.TraitName)
 	if err != nil {
 		if errors.Is(err, traitsvc.ErrTraitNotFound) {
 			return gen.GetTraitSchema404JSONResponse{NotFoundJSONResponse: notFound("Trait")}, nil

@@ -24,7 +24,7 @@ func (h *Handler) ListComponentWorkflows(
 ) (gen.ListComponentWorkflowsResponseObject, error) {
 	h.logger.Debug("ListComponentWorkflows called", "namespaceName", request.NamespaceName)
 
-	workflows, err := h.services.ComponentWorkflowService.ListComponentWorkflows(ctx, request.NamespaceName)
+	workflows, err := h.legacyServices.ComponentWorkflowService.ListComponentWorkflows(ctx, request.NamespaceName)
 	if err != nil {
 		h.logger.Error("Failed to list component workflows", "error", err)
 		return gen.ListComponentWorkflows500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -71,7 +71,7 @@ func (h *Handler) UpdateComponentWorkflowParameters(
 	}
 
 	// Call service to update workflow parameters
-	component, err := h.services.ComponentService.UpdateComponentWorkflowParameters(
+	component, err := h.legacyServices.ComponentService.UpdateComponentWorkflowParameters(
 		ctx,
 		request.NamespaceName,
 		request.ProjectName,
@@ -118,7 +118,7 @@ func (h *Handler) ListComponentWorkflowRuns(
 		"projectName", request.ProjectName,
 		"componentName", request.ComponentName)
 
-	runs, err := h.services.ComponentWorkflowService.ListComponentWorkflowRuns(
+	runs, err := h.legacyServices.ComponentWorkflowService.ListComponentWorkflowRuns(
 		ctx,
 		request.NamespaceName,
 		request.ProjectName,
@@ -159,7 +159,7 @@ func (h *Handler) CreateComponentWorkflowRun(
 	}
 
 	// Call service to trigger workflow
-	workflowRun, err := h.services.ComponentWorkflowService.TriggerWorkflow(
+	workflowRun, err := h.legacyServices.ComponentWorkflowService.TriggerWorkflow(
 		ctx,
 		request.NamespaceName,
 		request.ProjectName,
@@ -194,7 +194,7 @@ func (h *Handler) GetComponentWorkflowRun(
 		"component", request.ComponentName,
 		"runName", request.RunName)
 
-	workflowRun, err := h.services.ComponentWorkflowService.GetComponentWorkflowRun(
+	workflowRun, err := h.legacyServices.ComponentWorkflowService.GetComponentWorkflowRun(
 		ctx,
 		request.NamespaceName,
 		request.ProjectName,

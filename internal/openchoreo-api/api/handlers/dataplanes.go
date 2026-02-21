@@ -22,7 +22,7 @@ func (h *Handler) ListDataPlanes(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.dataPlaneService.ListDataPlanes(ctx, request.NamespaceName, opts)
+	result, err := h.services.DataPlaneService.ListDataPlanes(ctx, request.NamespaceName, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListDataPlanes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -61,7 +61,7 @@ func (h *Handler) CreateDataPlane(
 	}
 	dpCR.Status = openchoreov1alpha1.DataPlaneStatus{}
 
-	created, err := h.dataPlaneService.CreateDataPlane(ctx, request.NamespaceName, &dpCR)
+	created, err := h.services.DataPlaneService.CreateDataPlane(ctx, request.NamespaceName, &dpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateDataPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -90,7 +90,7 @@ func (h *Handler) GetDataPlane(
 ) (gen.GetDataPlaneResponseObject, error) {
 	h.logger.Debug("GetDataPlane called", "namespaceName", request.NamespaceName, "dpName", request.DpName)
 
-	dataPlane, err := h.dataPlaneService.GetDataPlane(ctx, request.NamespaceName, request.DpName)
+	dataPlane, err := h.services.DataPlaneService.GetDataPlane(ctx, request.NamespaceName, request.DpName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetDataPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -132,7 +132,7 @@ func (h *Handler) UpdateDataPlane(
 	// Ensure the name from the URL path is used
 	dpCR.Name = request.DpName
 
-	updated, err := h.dataPlaneService.UpdateDataPlane(ctx, request.NamespaceName, &dpCR)
+	updated, err := h.services.DataPlaneService.UpdateDataPlane(ctx, request.NamespaceName, &dpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateDataPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -161,7 +161,7 @@ func (h *Handler) DeleteDataPlane(
 ) (gen.DeleteDataPlaneResponseObject, error) {
 	h.logger.Info("DeleteDataPlane called", "namespaceName", request.NamespaceName, "dpName", request.DpName)
 
-	err := h.dataPlaneService.DeleteDataPlane(ctx, request.NamespaceName, request.DpName)
+	err := h.services.DataPlaneService.DeleteDataPlane(ctx, request.NamespaceName, request.DpName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteDataPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

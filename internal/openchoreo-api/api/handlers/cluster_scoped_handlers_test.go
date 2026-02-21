@@ -19,6 +19,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	clustertraitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -79,17 +80,17 @@ func newClusterTraitService(t *testing.T, objects []client.Object, pdp authzcore
 	return clustertraitsvc.NewServiceWithAuthz(fakeClient, pdp, slog.Default())
 }
 
-func newHandlerWithClusterTraitService(svc clustertraitsvc.Service) *Handler {
+func newHandlerWithClusterTraitService(ctSvc clustertraitsvc.Service) *Handler {
 	return &Handler{
-		clusterTraitService: svc,
-		logger:              slog.Default(),
+		services: &handlerservices.Services{ClusterTraitService: ctSvc},
+		logger:   slog.Default(),
 	}
 }
 
-func newHandlerWithClusterComponentTypeService(svc clustercomponenttypesvc.Service) *Handler {
+func newHandlerWithClusterComponentTypeService(cctSvc clustercomponenttypesvc.Service) *Handler {
 	return &Handler{
-		clusterComponentTypeService: svc,
-		logger:                      slog.Default(),
+		services: &handlerservices.Services{ClusterComponentTypeService: cctSvc},
+		logger:   slog.Default(),
 	}
 }
 

@@ -22,7 +22,7 @@ func (h *Handler) ListClusterObservabilityPlanes(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.clusterObservabilityPlaneService.ListClusterObservabilityPlanes(ctx, opts)
+	result, err := h.services.ClusterObservabilityPlaneService.ListClusterObservabilityPlanes(ctx, opts)
 	if err != nil {
 		h.logger.Error("Failed to list cluster observability planes", "error", err)
 		return gen.ListClusterObservabilityPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -47,7 +47,7 @@ func (h *Handler) GetClusterObservabilityPlane(
 ) (gen.GetClusterObservabilityPlaneResponseObject, error) {
 	h.logger.Debug("GetClusterObservabilityPlane called", "clusterObservabilityPlaneName", request.ClusterObservabilityPlaneName)
 
-	cop, err := h.clusterObservabilityPlaneService.GetClusterObservabilityPlane(ctx, request.ClusterObservabilityPlaneName)
+	cop, err := h.services.ClusterObservabilityPlaneService.GetClusterObservabilityPlane(ctx, request.ClusterObservabilityPlaneName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetClusterObservabilityPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -86,7 +86,7 @@ func (h *Handler) CreateClusterObservabilityPlane(
 	}
 	copCR.Status = openchoreov1alpha1.ClusterObservabilityPlaneStatus{}
 
-	created, err := h.clusterObservabilityPlaneService.CreateClusterObservabilityPlane(ctx, &copCR)
+	created, err := h.services.ClusterObservabilityPlaneService.CreateClusterObservabilityPlane(ctx, &copCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateClusterObservabilityPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -129,7 +129,7 @@ func (h *Handler) UpdateClusterObservabilityPlane(
 	// Ensure the name from the URL path is used
 	copCR.Name = request.ClusterObservabilityPlaneName
 
-	updated, err := h.clusterObservabilityPlaneService.UpdateClusterObservabilityPlane(ctx, &copCR)
+	updated, err := h.services.ClusterObservabilityPlaneService.UpdateClusterObservabilityPlane(ctx, &copCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateClusterObservabilityPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -158,7 +158,7 @@ func (h *Handler) DeleteClusterObservabilityPlane(
 ) (gen.DeleteClusterObservabilityPlaneResponseObject, error) {
 	h.logger.Info("DeleteClusterObservabilityPlane called", "clusterObservabilityPlaneName", request.ClusterObservabilityPlaneName)
 
-	err := h.clusterObservabilityPlaneService.DeleteClusterObservabilityPlane(ctx, request.ClusterObservabilityPlaneName)
+	err := h.services.ClusterObservabilityPlaneService.DeleteClusterObservabilityPlane(ctx, request.ClusterObservabilityPlaneName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteClusterObservabilityPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

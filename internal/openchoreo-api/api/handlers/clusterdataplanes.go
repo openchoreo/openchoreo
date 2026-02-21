@@ -22,7 +22,7 @@ func (h *Handler) ListClusterDataPlanes(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.clusterDataPlaneService.ListClusterDataPlanes(ctx, opts)
+	result, err := h.services.ClusterDataPlaneService.ListClusterDataPlanes(ctx, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListClusterDataPlanes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -61,7 +61,7 @@ func (h *Handler) CreateClusterDataPlane(
 	}
 	cdpCR.Status = openchoreov1alpha1.ClusterDataPlaneStatus{}
 
-	created, err := h.clusterDataPlaneService.CreateClusterDataPlane(ctx, &cdpCR)
+	created, err := h.services.ClusterDataPlaneService.CreateClusterDataPlane(ctx, &cdpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateClusterDataPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -90,7 +90,7 @@ func (h *Handler) GetClusterDataPlane(
 ) (gen.GetClusterDataPlaneResponseObject, error) {
 	h.logger.Debug("GetClusterDataPlane called", "clusterDataPlane", request.CdpName)
 
-	cdp, err := h.clusterDataPlaneService.GetClusterDataPlane(ctx, request.CdpName)
+	cdp, err := h.services.ClusterDataPlaneService.GetClusterDataPlane(ctx, request.CdpName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetClusterDataPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -132,7 +132,7 @@ func (h *Handler) UpdateClusterDataPlane(
 	// Ensure the name from the URL path is used
 	cdpCR.Name = request.CdpName
 
-	updated, err := h.clusterDataPlaneService.UpdateClusterDataPlane(ctx, &cdpCR)
+	updated, err := h.services.ClusterDataPlaneService.UpdateClusterDataPlane(ctx, &cdpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateClusterDataPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -161,7 +161,7 @@ func (h *Handler) DeleteClusterDataPlane(
 ) (gen.DeleteClusterDataPlaneResponseObject, error) {
 	h.logger.Info("DeleteClusterDataPlane called", "clusterDataPlane", request.CdpName)
 
-	err := h.clusterDataPlaneService.DeleteClusterDataPlane(ctx, request.CdpName)
+	err := h.services.ClusterDataPlaneService.DeleteClusterDataPlane(ctx, request.CdpName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteClusterDataPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

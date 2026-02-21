@@ -31,7 +31,7 @@ func (h *Handler) ListActions(
 ) (gen.ListActionsResponseObject, error) {
 	h.logger.Debug("ListActions handler called")
 
-	actions, err := h.services.AuthzService.ListActions(ctx)
+	actions, err := h.legacyServices.AuthzService.ListActions(ctx)
 	if err != nil {
 		h.logger.Error("Failed to list actions", "error", err)
 		if errors.Is(err, services.ErrForbidden) {
@@ -73,7 +73,7 @@ func (h *Handler) Evaluate(
 		},
 	}
 
-	decision, err := h.services.AuthzService.Evaluate(ctx, evalReq)
+	decision, err := h.legacyServices.AuthzService.Evaluate(ctx, evalReq)
 	if err != nil {
 		h.logger.Error("Failed to evaluate", "error", err)
 		if errors.Is(err, authz.ErrInvalidRequest) {
@@ -134,7 +134,7 @@ func (h *Handler) BatchEvaluate(
 		Requests: internalRequests,
 	}
 
-	batchResp, err := h.services.AuthzService.BatchEvaluate(ctx, batchReq)
+	batchResp, err := h.legacyServices.AuthzService.BatchEvaluate(ctx, batchReq)
 	if err != nil {
 		h.logger.Error("Failed to batch evaluate", "error", err)
 		if errors.Is(err, authz.ErrInvalidRequest) {
@@ -188,7 +188,7 @@ func (h *Handler) GetSubjectProfile(
 		},
 	}
 
-	profile, err := h.services.AuthzService.GetSubjectProfile(ctx, profileReq)
+	profile, err := h.legacyServices.AuthzService.GetSubjectProfile(ctx, profileReq)
 	if err != nil {
 		h.logger.Error("Failed to get subject profile", "error", err)
 		if errors.Is(err, authz.ErrInvalidRequest) {
@@ -312,7 +312,7 @@ func (h *Handler) ListClusterRoles(
 ) (gen.ListClusterRolesResponseObject, error) {
 	h.logger.Debug("ListClusterRoles called")
 
-	result, err := h.authzService.ListClusterRoles(ctx)
+	result, err := h.services.AuthzService.ListClusterRoles(ctx)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListClusterRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -347,7 +347,7 @@ func (h *Handler) CreateClusterRole(
 		return gen.CreateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
 
-	created, err := h.authzService.CreateClusterRole(ctx, &roleCR)
+	created, err := h.services.AuthzService.CreateClusterRole(ctx, &roleCR)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.CreateClusterRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -376,7 +376,7 @@ func (h *Handler) GetClusterRole(
 ) (gen.GetClusterRoleResponseObject, error) {
 	h.logger.Debug("GetClusterRole called", "name", request.Name)
 
-	role, err := h.authzService.GetClusterRole(ctx, request.Name)
+	role, err := h.services.AuthzService.GetClusterRole(ctx, request.Name)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.GetClusterRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -416,7 +416,7 @@ func (h *Handler) UpdateClusterRole(
 
 	roleCR.Name = request.Name
 
-	updated, err := h.authzService.UpdateClusterRole(ctx, &roleCR)
+	updated, err := h.services.AuthzService.UpdateClusterRole(ctx, &roleCR)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.UpdateClusterRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -445,7 +445,7 @@ func (h *Handler) DeleteClusterRole(
 ) (gen.DeleteClusterRoleResponseObject, error) {
 	h.logger.Info("DeleteClusterRole called", "name", request.Name)
 
-	err := h.authzService.DeleteClusterRole(ctx, request.Name)
+	err := h.services.AuthzService.DeleteClusterRole(ctx, request.Name)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.DeleteClusterRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -473,7 +473,7 @@ func (h *Handler) ListClusterRoleBindings(
 ) (gen.ListClusterRoleBindingsResponseObject, error) {
 	h.logger.Debug("ListClusterRoleBindings called")
 
-	result, err := h.authzService.ListClusterRoleBindings(ctx)
+	result, err := h.services.AuthzService.ListClusterRoleBindings(ctx)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListClusterRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -508,7 +508,7 @@ func (h *Handler) CreateClusterRoleBinding(
 		return gen.CreateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
 
-	created, err := h.authzService.CreateClusterRoleBinding(ctx, &bindingCR)
+	created, err := h.services.AuthzService.CreateClusterRoleBinding(ctx, &bindingCR)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.CreateClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -540,7 +540,7 @@ func (h *Handler) GetClusterRoleBinding(
 ) (gen.GetClusterRoleBindingResponseObject, error) {
 	h.logger.Debug("GetClusterRoleBinding called", "name", request.Name)
 
-	binding, err := h.authzService.GetClusterRoleBinding(ctx, request.Name)
+	binding, err := h.services.AuthzService.GetClusterRoleBinding(ctx, request.Name)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.GetClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -580,7 +580,7 @@ func (h *Handler) UpdateClusterRoleBinding(
 
 	bindingCR.Name = request.Name
 
-	updated, err := h.authzService.UpdateClusterRoleBinding(ctx, &bindingCR)
+	updated, err := h.services.AuthzService.UpdateClusterRoleBinding(ctx, &bindingCR)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.UpdateClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -609,7 +609,7 @@ func (h *Handler) DeleteClusterRoleBinding(
 ) (gen.DeleteClusterRoleBindingResponseObject, error) {
 	h.logger.Info("DeleteClusterRoleBinding called", "name", request.Name)
 
-	err := h.authzService.DeleteClusterRoleBinding(ctx, request.Name)
+	err := h.services.AuthzService.DeleteClusterRoleBinding(ctx, request.Name)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.DeleteClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -634,7 +634,7 @@ func (h *Handler) ListNamespaceRoles(
 ) (gen.ListNamespaceRolesResponseObject, error) {
 	h.logger.Debug("ListNamespaceRoles called", "namespace", request.NamespaceName)
 
-	result, err := h.authzService.ListNamespaceRoles(ctx, request.NamespaceName)
+	result, err := h.services.AuthzService.ListNamespaceRoles(ctx, request.NamespaceName)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListNamespaceRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -669,7 +669,7 @@ func (h *Handler) CreateNamespaceRole(
 		return gen.CreateNamespaceRole400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
 
-	created, err := h.authzService.CreateNamespaceRole(ctx, request.NamespaceName, &roleCR)
+	created, err := h.services.AuthzService.CreateNamespaceRole(ctx, request.NamespaceName, &roleCR)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.CreateNamespaceRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -698,7 +698,7 @@ func (h *Handler) GetNamespaceRole(
 ) (gen.GetNamespaceRoleResponseObject, error) {
 	h.logger.Debug("GetNamespaceRole called", "namespace", request.NamespaceName, "name", request.Name)
 
-	role, err := h.authzService.GetNamespaceRole(ctx, request.NamespaceName, request.Name)
+	role, err := h.services.AuthzService.GetNamespaceRole(ctx, request.NamespaceName, request.Name)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.GetNamespaceRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -738,7 +738,7 @@ func (h *Handler) UpdateNamespaceRole(
 
 	roleCR.Name = request.Name
 
-	updated, err := h.authzService.UpdateNamespaceRole(ctx, request.NamespaceName, &roleCR)
+	updated, err := h.services.AuthzService.UpdateNamespaceRole(ctx, request.NamespaceName, &roleCR)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.UpdateNamespaceRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -767,7 +767,7 @@ func (h *Handler) DeleteNamespaceRole(
 ) (gen.DeleteNamespaceRoleResponseObject, error) {
 	h.logger.Info("DeleteNamespaceRole called", "namespace", request.NamespaceName, "name", request.Name)
 
-	err := h.authzService.DeleteNamespaceRole(ctx, request.NamespaceName, request.Name)
+	err := h.services.AuthzService.DeleteNamespaceRole(ctx, request.NamespaceName, request.Name)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.DeleteNamespaceRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -795,7 +795,7 @@ func (h *Handler) ListNamespaceRoleBindings(
 ) (gen.ListNamespaceRoleBindingsResponseObject, error) {
 	h.logger.Debug("ListNamespaceRoleBindings called", "namespace", request.NamespaceName)
 
-	result, err := h.authzService.ListNamespaceRoleBindings(ctx, request.NamespaceName)
+	result, err := h.services.AuthzService.ListNamespaceRoleBindings(ctx, request.NamespaceName)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListNamespaceRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -830,7 +830,7 @@ func (h *Handler) CreateNamespaceRoleBinding(
 		return gen.CreateNamespaceRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
 
-	created, err := h.authzService.CreateNamespaceRoleBinding(ctx, request.NamespaceName, &bindingCR)
+	created, err := h.services.AuthzService.CreateNamespaceRoleBinding(ctx, request.NamespaceName, &bindingCR)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.CreateNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -859,7 +859,7 @@ func (h *Handler) GetNamespaceRoleBinding(
 ) (gen.GetNamespaceRoleBindingResponseObject, error) {
 	h.logger.Debug("GetNamespaceRoleBinding called", "namespace", request.NamespaceName, "name", request.Name)
 
-	binding, err := h.authzService.GetNamespaceRoleBinding(ctx, request.NamespaceName, request.Name)
+	binding, err := h.services.AuthzService.GetNamespaceRoleBinding(ctx, request.NamespaceName, request.Name)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.GetNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -899,7 +899,7 @@ func (h *Handler) UpdateNamespaceRoleBinding(
 
 	bindingCR.Name = request.Name
 
-	updated, err := h.authzService.UpdateNamespaceRoleBinding(ctx, request.NamespaceName, &bindingCR)
+	updated, err := h.services.AuthzService.UpdateNamespaceRoleBinding(ctx, request.NamespaceName, &bindingCR)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.UpdateNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -928,7 +928,7 @@ func (h *Handler) DeleteNamespaceRoleBinding(
 ) (gen.DeleteNamespaceRoleBindingResponseObject, error) {
 	h.logger.Info("DeleteNamespaceRoleBinding called", "namespace", request.NamespaceName, "name", request.Name)
 
-	err := h.authzService.DeleteNamespaceRoleBinding(ctx, request.NamespaceName, request.Name)
+	err := h.services.AuthzService.DeleteNamespaceRoleBinding(ctx, request.NamespaceName, request.Name)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.DeleteNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

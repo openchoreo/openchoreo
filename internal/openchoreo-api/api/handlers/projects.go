@@ -22,7 +22,7 @@ func (h *Handler) ListProjects(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.projectService.ListProjects(ctx, request.NamespaceName, opts)
+	result, err := h.services.ProjectService.ListProjects(ctx, request.NamespaceName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list projects", "error", err)
 		return gen.ListProjects500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -58,7 +58,7 @@ func (h *Handler) CreateProject(
 	}
 	projectCR.Status = openchoreov1alpha1.ProjectStatus{}
 
-	created, err := h.projectService.CreateProject(ctx, request.NamespaceName, &projectCR)
+	created, err := h.services.ProjectService.CreateProject(ctx, request.NamespaceName, &projectCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateProject403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -87,7 +87,7 @@ func (h *Handler) GetProject(
 ) (gen.GetProjectResponseObject, error) {
 	h.logger.Debug("GetProject called", "namespaceName", request.NamespaceName, "projectName", request.ProjectName)
 
-	project, err := h.projectService.GetProject(ctx, request.NamespaceName, request.ProjectName)
+	project, err := h.services.ProjectService.GetProject(ctx, request.NamespaceName, request.ProjectName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetProject403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -129,7 +129,7 @@ func (h *Handler) UpdateProject(
 	// Ensure the name from the URL path is used
 	projectCR.Name = request.ProjectName
 
-	updated, err := h.projectService.UpdateProject(ctx, request.NamespaceName, &projectCR)
+	updated, err := h.services.ProjectService.UpdateProject(ctx, request.NamespaceName, &projectCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateProject403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -158,7 +158,7 @@ func (h *Handler) DeleteProject(
 ) (gen.DeleteProjectResponseObject, error) {
 	h.logger.Info("DeleteProject called", "namespaceName", request.NamespaceName, "projectName", request.ProjectName)
 
-	err := h.projectService.DeleteProject(ctx, request.NamespaceName, request.ProjectName)
+	err := h.services.ProjectService.DeleteProject(ctx, request.NamespaceName, request.ProjectName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteProject403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

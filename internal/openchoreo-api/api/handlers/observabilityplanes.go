@@ -22,7 +22,7 @@ func (h *Handler) ListObservabilityPlanes(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.observabilityPlaneService.ListObservabilityPlanes(ctx, request.NamespaceName, opts)
+	result, err := h.services.ObservabilityPlaneService.ListObservabilityPlanes(ctx, request.NamespaceName, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListObservabilityPlanes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -50,7 +50,7 @@ func (h *Handler) GetObservabilityPlane(
 ) (gen.GetObservabilityPlaneResponseObject, error) {
 	h.logger.Debug("GetObservabilityPlane called", "namespaceName", request.NamespaceName, "observabilityPlaneName", request.ObservabilityPlaneName)
 
-	op, err := h.observabilityPlaneService.GetObservabilityPlane(ctx, request.NamespaceName, request.ObservabilityPlaneName)
+	op, err := h.services.ObservabilityPlaneService.GetObservabilityPlane(ctx, request.NamespaceName, request.ObservabilityPlaneName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetObservabilityPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -89,7 +89,7 @@ func (h *Handler) CreateObservabilityPlane(
 	}
 	opCR.Status = openchoreov1alpha1.ObservabilityPlaneStatus{}
 
-	created, err := h.observabilityPlaneService.CreateObservabilityPlane(ctx, request.NamespaceName, &opCR)
+	created, err := h.services.ObservabilityPlaneService.CreateObservabilityPlane(ctx, request.NamespaceName, &opCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateObservabilityPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -132,7 +132,7 @@ func (h *Handler) UpdateObservabilityPlane(
 	// Ensure the name from the URL path is used
 	opCR.Name = request.ObservabilityPlaneName
 
-	updated, err := h.observabilityPlaneService.UpdateObservabilityPlane(ctx, request.NamespaceName, &opCR)
+	updated, err := h.services.ObservabilityPlaneService.UpdateObservabilityPlane(ctx, request.NamespaceName, &opCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.UpdateObservabilityPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -161,7 +161,7 @@ func (h *Handler) DeleteObservabilityPlane(
 ) (gen.DeleteObservabilityPlaneResponseObject, error) {
 	h.logger.Info("DeleteObservabilityPlane called", "namespaceName", request.NamespaceName, "observabilityPlaneName", request.ObservabilityPlaneName)
 
-	err := h.observabilityPlaneService.DeleteObservabilityPlane(ctx, request.NamespaceName, request.ObservabilityPlaneName)
+	err := h.services.ObservabilityPlaneService.DeleteObservabilityPlane(ctx, request.NamespaceName, request.ObservabilityPlaneName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.DeleteObservabilityPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

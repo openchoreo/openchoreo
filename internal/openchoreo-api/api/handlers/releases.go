@@ -32,7 +32,7 @@ func (h *Handler) ListReleases(
 
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.releaseService.ListReleases(ctx, request.NamespaceName, componentName, environmentName, opts)
+	result, err := h.services.ReleaseService.ListReleases(ctx, request.NamespaceName, componentName, environmentName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list releases", "error", err)
 		return gen.ListReleases500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -61,7 +61,7 @@ func (h *Handler) GetRelease(
 ) (gen.GetReleaseResponseObject, error) {
 	h.logger.Debug("GetRelease called", "namespaceName", request.NamespaceName, "releaseName", request.ReleaseName)
 
-	r, err := h.releaseService.GetRelease(ctx, request.NamespaceName, request.ReleaseName)
+	r, err := h.services.ReleaseService.GetRelease(ctx, request.NamespaceName, request.ReleaseName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetRelease403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
