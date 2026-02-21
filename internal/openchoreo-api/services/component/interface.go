@@ -6,6 +6,8 @@ package component
 import (
 	"context"
 
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -39,4 +41,5 @@ type Service interface {
 	DeployRelease(ctx context.Context, namespaceName, componentName string, req *DeployReleaseRequest) (*openchoreov1alpha1.ReleaseBinding, error)
 	PromoteComponent(ctx context.Context, namespaceName, componentName string, req *PromoteComponentRequest) (*openchoreov1alpha1.ReleaseBinding, error)
 	GenerateRelease(ctx context.Context, namespaceName, componentName string, req *GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error)
+	GetComponentSchema(ctx context.Context, namespaceName, componentName string) (*extv1.JSONSchemaProps, error)
 }

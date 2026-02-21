@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -196,4 +197,25 @@ func (s *componentServiceWithAuthz) GenerateRelease(ctx context.Context, namespa
 		return nil, err
 	}
 	return s.internal.GenerateRelease(ctx, namespaceName, componentName, req)
+}
+
+func (s *componentServiceWithAuthz) GetComponentSchema(ctx context.Context, namespaceName, componentName string) (*extv1.JSONSchemaProps, error) {
+	// Fetch first to get the project for authz hierarchy
+	comp, err := s.internal.GetComponent(ctx, namespaceName, componentName)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionViewComponent,
+		ResourceType: resourceTypeComponent,
+		ResourceID:   componentName,
+		Hierarchy: authz.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   comp.Spec.Owner.ProjectName,
+			Component: componentName,
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.GetComponentSchema(ctx, namespaceName, componentName)
 }

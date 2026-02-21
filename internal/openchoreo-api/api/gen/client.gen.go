@@ -334,6 +334,9 @@ type ClientInterface interface {
 
 	PromoteComponent(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body PromoteComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetComponentSchema request
+	GetComponentSchema(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListComponentTypes request
 	ListComponentTypes(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -473,9 +476,6 @@ type ClientInterface interface {
 
 	// GetReleaseResourceEvents request
 	GetReleaseResourceEvents(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourceEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetComponentSchema request
-	GetComponentSchema(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateComponentWorkflowParametersWithBody request with any body
 	UpdateComponentWorkflowParametersWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1751,6 +1751,18 @@ func (c *Client) PromoteComponent(ctx context.Context, namespaceName NamespaceNa
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetComponentSchema(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetComponentSchemaRequest(c.Server, namespaceName, componentName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListComponentTypes(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListComponentTypesRequest(c.Server, namespaceName, params)
 	if err != nil {
@@ -2353,18 +2365,6 @@ func (c *Client) GetReleaseResourceTree(ctx context.Context, namespaceName Names
 
 func (c *Client) GetReleaseResourceEvents(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourceEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetReleaseResourceEventsRequest(c.Server, namespaceName, projectName, componentName, environmentName, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetComponentSchema(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetComponentSchemaRequest(c.Server, namespaceName, projectName, componentName)
 	if err != nil {
 		return nil, err
 	}
@@ -6139,6 +6139,47 @@ func NewPromoteComponentRequestWithBody(server string, namespaceName NamespaceNa
 	return req, nil
 }
 
+// NewGetComponentSchemaRequest generates requests for GetComponentSchema
+func NewGetComponentSchemaRequest(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/components/%s/schema", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListComponentTypesRequest generates requests for ListComponentTypes
 func NewListComponentTypesRequest(server string, namespaceName NamespaceNameParam, params *ListComponentTypesParams) (*http.Request, error) {
 	var err error
@@ -8114,54 +8155,6 @@ func NewGetReleaseResourceEventsRequest(server string, namespaceName NamespaceNa
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetComponentSchemaRequest generates requests for GetComponentSchema
-func NewGetComponentSchemaRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/schema", pathParam0, pathParam1, pathParam2)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -11115,6 +11108,9 @@ type ClientWithResponsesInterface interface {
 
 	PromoteComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body PromoteComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*PromoteComponentResp, error)
 
+	// GetComponentSchemaWithResponse request
+	GetComponentSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetComponentSchemaResp, error)
+
 	// ListComponentTypesWithResponse request
 	ListComponentTypesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentTypesParams, reqEditors ...RequestEditorFn) (*ListComponentTypesResp, error)
 
@@ -11254,9 +11250,6 @@ type ClientWithResponsesInterface interface {
 
 	// GetReleaseResourceEventsWithResponse request
 	GetReleaseResourceEventsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourceEventsParams, reqEditors ...RequestEditorFn) (*GetReleaseResourceEventsResp, error)
-
-	// GetComponentSchemaWithResponse request
-	GetComponentSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetComponentSchemaResp, error)
 
 	// UpdateComponentWorkflowParametersWithBodyWithResponse request with any body
 	UpdateComponentWorkflowParametersWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentWorkflowParametersResp, error)
@@ -13144,6 +13137,32 @@ func (r PromoteComponentResp) StatusCode() int {
 	return 0
 }
 
+type GetComponentSchemaResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SchemaResponse
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetComponentSchemaResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetComponentSchemaResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListComponentTypesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -14132,32 +14151,6 @@ func (r GetReleaseResourceEventsResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetReleaseResourceEventsResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetComponentSchemaResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *SchemaResponse
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetComponentSchemaResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetComponentSchemaResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -16315,6 +16308,15 @@ func (c *ClientWithResponses) PromoteComponentWithResponse(ctx context.Context, 
 	return ParsePromoteComponentResp(rsp)
 }
 
+// GetComponentSchemaWithResponse request returning *GetComponentSchemaResp
+func (c *ClientWithResponses) GetComponentSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetComponentSchemaResp, error) {
+	rsp, err := c.GetComponentSchema(ctx, namespaceName, componentName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetComponentSchemaResp(rsp)
+}
+
 // ListComponentTypesWithResponse request returning *ListComponentTypesResp
 func (c *ClientWithResponses) ListComponentTypesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentTypesParams, reqEditors ...RequestEditorFn) (*ListComponentTypesResp, error) {
 	rsp, err := c.ListComponentTypes(ctx, namespaceName, params, reqEditors...)
@@ -16759,15 +16761,6 @@ func (c *ClientWithResponses) GetReleaseResourceEventsWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseGetReleaseResourceEventsResp(rsp)
-}
-
-// GetComponentSchemaWithResponse request returning *GetComponentSchemaResp
-func (c *ClientWithResponses) GetComponentSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetComponentSchemaResp, error) {
-	rsp, err := c.GetComponentSchema(ctx, namespaceName, projectName, componentName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetComponentSchemaResp(rsp)
 }
 
 // UpdateComponentWorkflowParametersWithBodyWithResponse request with arbitrary body returning *UpdateComponentWorkflowParametersResp
@@ -20907,6 +20900,60 @@ func ParsePromoteComponentResp(rsp *http.Response) (*PromoteComponentResp, error
 	return response, nil
 }
 
+// ParseGetComponentSchemaResp parses an HTTP response from a GetComponentSchemaWithResponse call
+func ParseGetComponentSchemaResp(rsp *http.Response) (*GetComponentSchemaResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetComponentSchemaResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SchemaResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListComponentTypesResp parses an HTTP response from a ListComponentTypesWithResponse call
 func ParseListComponentTypesResp(rsp *http.Response) (*ListComponentTypesResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -22967,60 +23014,6 @@ func ParseGetReleaseResourceEventsResp(rsp *http.Response) (*GetReleaseResourceE
 			return nil, err
 		}
 		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetComponentSchemaResp parses an HTTP response from a GetComponentSchemaWithResponse call
-func ParseGetComponentSchemaResp(rsp *http.Response) (*GetComponentSchemaResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetComponentSchemaResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SchemaResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized

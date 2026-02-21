@@ -17,4 +17,5 @@ var (
 	ErrWorkloadNotFound         = errors.New("workload not found")
 	ErrTraitNameCollision       = errors.New("trait name collision across kinds")
 	ErrValidation               = errors.New("validation error")
+	ErrComponentTypeNotFound    = errors.New("component type not found")
 )

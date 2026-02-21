@@ -373,7 +373,30 @@ func (h *Handler) GetComponentSchema(
 	ctx context.Context,
 	request gen.GetComponentSchemaRequestObject,
 ) (gen.GetComponentSchemaResponseObject, error) {
-	return nil, errNotImplemented
+	h.logger.Debug("GetComponentSchema called", "namespaceName", request.NamespaceName, "componentName", request.ComponentName)
+
+	schema, err := h.componentService.GetComponentSchema(ctx, request.NamespaceName, request.ComponentName)
+	if err != nil {
+		if errors.Is(err, svcerrors.ErrForbidden) {
+			return gen.GetComponentSchema403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, componentsvc.ErrComponentNotFound) {
+			return gen.GetComponentSchema404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
+		}
+		if errors.Is(err, componentsvc.ErrComponentTypeNotFound) {
+			return gen.GetComponentSchema404JSONResponse{NotFoundJSONResponse: notFound("ComponentType")}, nil
+		}
+		h.logger.Error("Failed to get component schema", "error", err)
+		return gen.GetComponentSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genSchema, err := convert[any, gen.SchemaResponse](schema)
+	if err != nil {
+		h.logger.Error("Failed to convert schema response", "error", err)
+		return gen.GetComponentSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetComponentSchema200JSONResponse(genSchema), nil
 }
 
 // GetReleaseResourceTree returns all live Kubernetes resources deployed by the active release

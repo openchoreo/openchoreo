@@ -2485,7 +2485,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/schema:
+  /api/v1/namespaces/{namespaceName}/components/{componentName}/schema:
     get:
       operationId: getComponentSchema
       summary: Get component schema
@@ -2493,7 +2493,6 @@ paths:
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       responses:
         '200':
