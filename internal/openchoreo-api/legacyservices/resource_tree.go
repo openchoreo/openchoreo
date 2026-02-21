@@ -18,6 +18,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	releasecontroller "github.com/openchoreo/openchoreo/internal/controller/release"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -288,6 +289,145 @@ func (s *ComponentService) GetResourceEvents(ctx context.Context, namespaceName,
 	}
 
 	return &models.ResourceEventsResponse{Events: events}, nil
+}
+
+// GetResourcePodLogs returns logs for a specific pod in the release resource tree.
+func (s *ComponentService) GetResourcePodLogs(ctx context.Context, namespaceName, projectName, componentName,
+	environmentName, podName, podNamespace, container string, sinceSeconds *int64) (*models.ResourcePodLogsResponse, error) {
+	s.logger.Debug("Getting resource pod logs", "namespace", namespaceName, "project", projectName,
+		"component", componentName, "environment", environmentName, "pod", podName, "podNamespace", podNamespace)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, componentName,
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
+
+	if s.gatewayClient == nil {
+		return nil, fmt.Errorf("gateway client is not configured")
+	}
+
+	// Fetch the component and validate ownership
+	componentKey := client.ObjectKey{
+		Namespace: namespaceName,
+		Name:      componentName,
+	}
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil, ErrComponentNotFound
+		}
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	if component.Spec.Owner.ProjectName != projectName {
+		return nil, ErrComponentNotFound
+	}
+
+	// Fetch the active release for this component/environment
+	var releaseList openchoreov1alpha1.ReleaseList
+	listOpts := []client.ListOption{
+		client.InNamespace(namespaceName),
+		client.MatchingLabels{
+			labels.LabelKeyNamespaceName:   namespaceName,
+			labels.LabelKeyProjectName:     projectName,
+			labels.LabelKeyComponentName:   componentName,
+			labels.LabelKeyEnvironmentName: environmentName,
+		},
+	}
+
+	if err := s.k8sClient.List(ctx, &releaseList, listOpts...); err != nil {
+		return nil, fmt.Errorf("failed to list releases: %w", err)
+	}
+
+	if len(releaseList.Items) == 0 {
+		return nil, ErrReleaseNotFound
+	}
+
+	if len(releaseList.Items) > 1 {
+		return nil, fmt.Errorf("expected 1 release for component/environment, found %d", len(releaseList.Items))
+	}
+
+	release := &releaseList.Items[0]
+
+	// Validate that a parent resource for the Pod exists in the release
+	if !hasParentResourceInRelease("Pod", release.Status.Resources) {
+		return nil, ErrResourceNotFound
+	}
+
+	// Resolve data plane info via the Environment
+	env := &openchoreov1alpha1.Environment{}
+	envKey := client.ObjectKey{
+		Name:      environmentName,
+		Namespace: namespaceName,
+	}
+	if err := s.k8sClient.Get(ctx, envKey, env); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil, ErrEnvironmentNotFound
+		}
+		return nil, fmt.Errorf("failed to get environment: %w", err)
+	}
+
+	dpResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, s.k8sClient, env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve data plane: %w", err)
+	}
+
+	planeID, crNamespace, crName := resolveDataPlaneInfo(dpResult)
+
+	// Fetch pod logs via the gateway client
+	rawLogs, err := s.gatewayClient.GetPodLogsFromPlane(ctx, planeTypeDataPlane, planeID, crNamespace, crName,
+		&gateway.PodReference{
+			Namespace: podNamespace,
+			Name:      podName,
+		},
+		&gateway.PodLogsOptions{
+			ContainerName:     container,
+			IncludeTimestamps: true,
+			SinceSeconds:      sinceSeconds,
+		})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch pod logs: %w", err)
+	}
+
+	logEntries := parseLogLines(rawLogs)
+	return &models.ResourcePodLogsResponse{LogEntries: logEntries}, nil
+}
+
+// parseLogLines splits raw log output into structured PodLogEntry items.
+// Kubernetes API with timestamps=true returns logs in format: "2024-01-10T12:34:56.789Z log message"
+func parseLogLines(rawLogs string) []models.PodLogEntry {
+	lines := strings.Split(rawLogs, "\n")
+	entries := make([]models.PodLogEntry, 0, len(lines))
+	for _, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+		if trimmedLine == "" {
+			continue
+		}
+
+		spaceIndex := strings.Index(trimmedLine, " ")
+		if spaceIndex > 0 {
+			timestampCandidate := trimmedLine[:spaceIndex]
+			if _, err := time.Parse(time.RFC3339, timestampCandidate); err == nil {
+				entries = append(entries, models.PodLogEntry{
+					Timestamp: timestampCandidate,
+					Log:       trimmedLine[spaceIndex+1:],
+				})
+				continue
+			}
+			if _, err := time.Parse(time.RFC3339Nano, timestampCandidate); err == nil {
+				entries = append(entries, models.PodLogEntry{
+					Timestamp: timestampCandidate,
+					Log:       trimmedLine[spaceIndex+1:],
+				})
+				continue
+			}
+		}
+
+		// Skip lines without a valid RFC3339 timestamp to comply with the API
+		// schema which marks timestamp as required.
+	}
+	return entries
 }
 
 // mapEventItem converts a raw K8s event object to a ResourceEvent model.

@@ -477,6 +477,9 @@ type ClientInterface interface {
 	// GetReleaseResourceEvents request
 	GetReleaseResourceEvents(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourceEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetReleaseResourcePodLogs request
+	GetReleaseResourcePodLogs(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourcePodLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// UpdateComponentWorkflowParametersWithBody request with any body
 	UpdateComponentWorkflowParametersWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2365,6 +2368,18 @@ func (c *Client) GetReleaseResourceTree(ctx context.Context, namespaceName Names
 
 func (c *Client) GetReleaseResourceEvents(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourceEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetReleaseResourceEventsRequest(c.Server, namespaceName, projectName, componentName, environmentName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetReleaseResourcePodLogs(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourcePodLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetReleaseResourcePodLogsRequest(c.Server, namespaceName, projectName, componentName, environmentName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -8165,6 +8180,123 @@ func NewGetReleaseResourceEventsRequest(server string, namespaceName NamespaceNa
 	return req, nil
 }
 
+// NewGetReleaseResourcePodLogsRequest generates requests for GetReleaseResourcePodLogs
+func NewGetReleaseResourcePodLogsRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourcePodLogsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "environmentName", runtime.ParamLocationPath, environmentName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/environments/%s/release/resources/pod-logs", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "name", runtime.ParamLocationQuery, params.Name); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "namespace", runtime.ParamLocationQuery, params.Namespace); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Container != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "container", runtime.ParamLocationQuery, *params.Container); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.SinceSeconds != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "sinceSeconds", runtime.ParamLocationQuery, *params.SinceSeconds); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewUpdateComponentWorkflowParametersRequest calls the generic UpdateComponentWorkflowParameters builder with application/json body
 func NewUpdateComponentWorkflowParametersRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body UpdateComponentWorkflowParametersJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -11251,6 +11383,9 @@ type ClientWithResponsesInterface interface {
 	// GetReleaseResourceEventsWithResponse request
 	GetReleaseResourceEventsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourceEventsParams, reqEditors ...RequestEditorFn) (*GetReleaseResourceEventsResp, error)
 
+	// GetReleaseResourcePodLogsWithResponse request
+	GetReleaseResourcePodLogsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourcePodLogsParams, reqEditors ...RequestEditorFn) (*GetReleaseResourcePodLogsResp, error)
+
 	// UpdateComponentWorkflowParametersWithBodyWithResponse request with any body
 	UpdateComponentWorkflowParametersWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentWorkflowParametersResp, error)
 
@@ -14157,6 +14292,33 @@ func (r GetReleaseResourceEventsResp) StatusCode() int {
 	return 0
 }
 
+type GetReleaseResourcePodLogsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourcePodLogsResponse
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetReleaseResourcePodLogsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetReleaseResourcePodLogsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type UpdateComponentWorkflowParametersResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -16761,6 +16923,15 @@ func (c *ClientWithResponses) GetReleaseResourceEventsWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseGetReleaseResourceEventsResp(rsp)
+}
+
+// GetReleaseResourcePodLogsWithResponse request returning *GetReleaseResourcePodLogsResp
+func (c *ClientWithResponses) GetReleaseResourcePodLogsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourcePodLogsParams, reqEditors ...RequestEditorFn) (*GetReleaseResourcePodLogsResp, error) {
+	rsp, err := c.GetReleaseResourcePodLogs(ctx, namespaceName, projectName, componentName, environmentName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetReleaseResourcePodLogsResp(rsp)
 }
 
 // UpdateComponentWorkflowParametersWithBodyWithResponse request with arbitrary body returning *UpdateComponentWorkflowParametersResp
@@ -23003,6 +23174,67 @@ func ParseGetReleaseResourceEventsResp(rsp *http.Response) (*GetReleaseResourceE
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ResourceEventsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetReleaseResourcePodLogsResp parses an HTTP response from a GetReleaseResourcePodLogsWithResponse call
+func ParseGetReleaseResourcePodLogsResp(rsp *http.Response) (*GetReleaseResourcePodLogsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetReleaseResourcePodLogsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourcePodLogsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

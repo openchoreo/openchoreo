@@ -497,6 +497,62 @@ func (h *Handler) GetReleaseResourceEvents(
 	return gen.GetReleaseResourceEvents200JSONResponse(result), nil
 }
 
+// GetReleaseResourcePodLogs returns logs for a specific pod in the release resource tree
+func (h *Handler) GetReleaseResourcePodLogs(
+	ctx context.Context,
+	request gen.GetReleaseResourcePodLogsRequestObject,
+) (gen.GetReleaseResourcePodLogsResponseObject, error) {
+	var sinceSeconds *int64
+	if request.Params.SinceSeconds != nil {
+		sinceSeconds = request.Params.SinceSeconds
+	}
+
+	container := ""
+	if request.Params.Container != nil {
+		container = *request.Params.Container
+	}
+
+	resp, err := h.legacyServices.ComponentService.GetResourcePodLogs(
+		ctx,
+		request.NamespaceName,
+		request.ProjectName,
+		request.ComponentName,
+		request.EnvironmentName,
+		request.Params.Name,
+		request.Params.Namespace,
+		container,
+		sinceSeconds,
+	)
+
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetReleaseResourcePodLogs403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			return gen.GetReleaseResourcePodLogs404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
+		}
+		if errors.Is(err, services.ErrReleaseNotFound) {
+			return gen.GetReleaseResourcePodLogs404JSONResponse{NotFoundJSONResponse: notFound("Release")}, nil
+		}
+		if errors.Is(err, services.ErrResourceNotFound) {
+			return gen.GetReleaseResourcePodLogs404JSONResponse{NotFoundJSONResponse: notFound("Resource")}, nil
+		}
+		if errors.Is(err, services.ErrEnvironmentNotFound) {
+			return gen.GetReleaseResourcePodLogs404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
+		}
+		h.logger.Error("Failed to get resource pod logs", "error", err)
+		return gen.GetReleaseResourcePodLogs500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	result, err := convert[models.ResourcePodLogsResponse, gen.ResourcePodLogsResponse](*resp)
+	if err != nil {
+		h.logger.Error("Failed to convert resource pod logs response", "error", err)
+		return gen.GetReleaseResourcePodLogs500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetReleaseResourcePodLogs200JSONResponse(result), nil
+}
+
 // DeployRelease deploys a component release to an environment
 func (h *Handler) DeployRelease(
 	ctx context.Context,

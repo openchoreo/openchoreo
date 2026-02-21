@@ -451,6 +451,17 @@ type ResourceEventsResponse struct {
 	Events []ResourceEvent `json:"events"`
 }
 
+// PodLogEntry represents a single log entry from a pod
+type PodLogEntry struct {
+	Timestamp string `json:"timestamp"`
+	Log       string `json:"log"`
+}
+
+// ResourcePodLogsResponse is the response for the resource pod logs endpoint
+type ResourcePodLogsResponse struct {
+	LogEntries []PodLogEntry `json:"logEntries"`
+}
+
 // SecretReferenceResponse represents a SecretReference in API responses
 type SecretReferenceResponse struct {
 	Name            string                 `json:"name"`

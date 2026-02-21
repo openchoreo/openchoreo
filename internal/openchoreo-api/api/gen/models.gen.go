@@ -2165,6 +2165,15 @@ type PatchComponentRequest struct {
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
 
+// PodLogEntry A single log entry from a pod
+type PodLogEntry struct {
+	// Log Log message content
+	Log string `json:"log"`
+
+	// Timestamp Timestamp of the log entry in RFC3339 format
+	Timestamp time.Time `json:"timestamp"`
+}
+
 // Project Project resource (Kubernetes object without kind/apiVersion).
 // Projects group components within a namespace and reference a deployment pipeline.
 type Project struct {
@@ -2494,6 +2503,12 @@ type ResourceNode struct {
 
 	// Version API version of the resource
 	Version string `json:"version"`
+}
+
+// ResourcePodLogsResponse Response containing logs for a specific pod
+type ResourcePodLogsResponse struct {
+	// LogEntries Log entries from the pod
+	LogEntries []PodLogEntry `json:"logEntries"`
 }
 
 // ResourceRef Reference to a parent resource in the resource tree
@@ -3570,6 +3585,21 @@ type GetReleaseResourceEventsParams struct {
 
 	// Uid UID of the resource for precise event matching
 	Uid *string `form:"uid,omitempty" json:"uid,omitempty"`
+}
+
+// GetReleaseResourcePodLogsParams defines parameters for GetReleaseResourcePodLogs.
+type GetReleaseResourcePodLogsParams struct {
+	// Name Name of the pod
+	Name string `form:"name" json:"name"`
+
+	// Namespace Namespace of the pod
+	Namespace string `form:"namespace" json:"namespace"`
+
+	// Container Specific container name to get logs from
+	Container *string `form:"container,omitempty" json:"container,omitempty"`
+
+	// SinceSeconds Only return logs newer than this many seconds
+	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
 }
 
 // ListComponentWorkflowRunsParams defines parameters for ListComponentWorkflowRuns.

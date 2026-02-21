@@ -2590,6 +2590,61 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release/resources/pod-logs:
+    get:
+      operationId: getReleaseResourcePodLogs
+      summary: Get pod logs
+      description: Returns logs for a specific pod in the release resource tree.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+        - $ref: '#/components/parameters/ComponentEnvironmentNameParam'
+        - name: name
+          in: query
+          required: true
+          description: Name of the pod
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          required: true
+          description: Namespace of the pod
+          schema:
+            type: string
+        - name: container
+          in: query
+          required: false
+          description: Specific container name to get logs from
+          schema:
+            type: string
+        - name: sinceSeconds
+          in: query
+          required: false
+          description: Only return logs newer than this many seconds
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        '200':
+          description: Logs for the specified pod
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourcePodLogsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/namespaces/{namespaceName}/components/{componentName}/deploy:
     post:
       operationId: deployRelease
@@ -7866,6 +7921,35 @@ components:
           description: Kubernetes events for the resource
           items:
             $ref: '#/components/schemas/ResourceEvent'
+
+    PodLogEntry:
+      type: object
+      description: A single log entry from a pod
+      required:
+        - timestamp
+        - log
+      properties:
+        timestamp:
+          type: string
+          description: Timestamp of the log entry in RFC3339 format
+          format: date-time
+          example: "2024-01-10T12:34:56.789Z"
+        log:
+          type: string
+          description: Log message content
+          example: "Starting application server on port 8080"
+
+    ResourcePodLogsResponse:
+      type: object
+      description: Response containing logs for a specific pod
+      required:
+        - logEntries
+      properties:
+        logEntries:
+          type: array
+          description: Log entries from the pod
+          items:
+            $ref: '#/components/schemas/PodLogEntry'
 
     # -------------------------------------------------------------------------
     # Deploy/Promote Requests

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
@@ -980,6 +981,93 @@ func (h *Handler) GetResourceEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Debug("Retrieved resource events successfully", "eventCount", len(resp.Events))
+	writeSuccessResponse(w, http.StatusOK, resp)
+}
+
+func (h *Handler) GetResourcePodLogs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	namespaceName := r.PathValue("namespaceName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	environmentName := r.PathValue("environmentName")
+
+	logger := logger.GetLogger(ctx).With(
+		"namespace", namespaceName,
+		"project", projectName,
+		"component", componentName,
+		"environment", environmentName,
+	)
+	logger.Debug("GetResourcePodLogs handler called")
+
+	if namespaceName == "" || projectName == "" || componentName == "" || environmentName == "" {
+		logger.Warn("Namespace name, project name, component name, and environment name are required")
+		writeErrorResponse(w, http.StatusBadRequest,
+			"Namespace name, project name, component name, and environment name are required", services.CodeInvalidInput)
+		return
+	}
+
+	name := r.URL.Query().Get("name")
+	namespace := r.URL.Query().Get("namespace")
+	if name == "" || namespace == "" {
+		logger.Warn("Query parameters name and namespace are required")
+		writeErrorResponse(w, http.StatusBadRequest,
+			"Query parameters name and namespace are required", services.CodeInvalidInput)
+		return
+	}
+
+	container := r.URL.Query().Get("container")
+
+	var sinceSeconds *int64
+	if sinceStr := r.URL.Query().Get("sinceSeconds"); sinceStr != "" {
+		v, err := strconv.ParseInt(sinceStr, 10, 64)
+		if err != nil {
+			logger.Warn("Invalid sinceSeconds parameter", "sinceSeconds", sinceStr)
+			writeErrorResponse(w, http.StatusBadRequest, "Invalid sinceSeconds parameter", services.CodeInvalidInput)
+			return
+		}
+		if v < 0 {
+			logger.Warn("Invalid sinceSeconds parameter: negative value", "sinceSeconds", sinceStr)
+			writeErrorResponse(w, http.StatusBadRequest, "sinceSeconds must be non-negative", services.CodeInvalidInput)
+			return
+		}
+		sinceSeconds = &v
+	}
+
+	resp, err := h.services.ComponentService.GetResourcePodLogs(ctx, namespaceName, projectName,
+		componentName, environmentName, name, namespace, container, sinceSeconds)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to view resource pod logs")
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found")
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrReleaseNotFound) {
+			logger.Warn("Release not found")
+			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeReleaseNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrResourceNotFound) {
+			logger.Warn("Resource not found in release", "name", name)
+			writeErrorResponse(w, http.StatusNotFound, "Resource not found in release", services.CodeResourceNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrEnvironmentNotFound) {
+			logger.Warn("Environment not found")
+			writeErrorResponse(w, http.StatusNotFound, "Environment not found", services.CodeEnvironmentNotFound)
+			return
+		}
+		logger.Error("Failed to get resource pod logs", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Retrieved resource pod logs successfully", "logEntryCount", len(resp.LogEntries))
 	writeSuccessResponse(w, http.StatusOK, resp)
 }
 
