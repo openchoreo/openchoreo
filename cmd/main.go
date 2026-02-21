@@ -98,6 +98,7 @@ func setupControlPlaneControllers(
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager,
 	clusterGatewayURL string,
 	enableLegacyCRDs bool,
+	revisionHistoryLimit int,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
@@ -178,8 +179,9 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&component.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:               mgr.GetClient(),
+		Scheme:               mgr.GetScheme(),
+		RevisionHistoryLimit: revisionHistoryLimit,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
@@ -377,6 +379,9 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.BoolVar(&enableLegacyCRDs, "enable-legacy-crds", false, // TODO <-- remove me
 		"If set, legacy CRDs will be enabled. This is only for the POC and will be removed in the future.")
+	var revisionHistoryLimit int
+	flag.IntVar(&revisionHistoryLimit, "revision-history-limit", 10,
+		"Maximum number of old ComponentReleases to retain per component. Set to 0 to disable cleanup.")
 	flag.StringVar(&deploymentPlane, "deployment-plane", deploymentPlaneControlPlane,
 		"The deployment plane this manager should serve. Supported values: controlplane, observabilityplane")
 	opts := zap.Options{
@@ -389,6 +394,11 @@ func main() {
 
 	if deploymentPlane != deploymentPlaneControlPlane && deploymentPlane != deploymentPlaneObservabilityPlane {
 		setupLog.Error(nil, "invalid deployment plane", "deploymentPlane", deploymentPlane)
+		os.Exit(1)
+	}
+
+	if revisionHistoryLimit < 0 {
+		setupLog.Error(nil, "invalid revision-history-limit: must be >= 0", "revisionHistoryLimit", revisionHistoryLimit)
 		os.Exit(1)
 	}
 
@@ -492,7 +502,9 @@ func main() {
 	switch deploymentPlane {
 	// Control plane controllers
 	case deploymentPlaneControlPlane:
-		if err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL, enableLegacyCRDs); err != nil {
+		if err = setupControlPlaneControllers(
+			mgr, k8sClientMgr, clusterGatewayURL, enableLegacyCRDs, revisionHistoryLimit,
+		); err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)
 		}
