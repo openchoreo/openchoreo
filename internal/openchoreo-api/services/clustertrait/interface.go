@@ -21,5 +21,6 @@ type Service interface {
 	UpdateClusterTrait(ctx context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error)
 	ListClusterTraits(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterTrait], error)
 	GetClusterTrait(ctx context.Context, clusterTraitName string) (*openchoreov1alpha1.ClusterTrait, error)
+	DeleteClusterTrait(ctx context.Context, clusterTraitName string) error
 	GetClusterTraitSchema(ctx context.Context, clusterTraitName string) (*extv1.JSONSchemaProps, error)
 }

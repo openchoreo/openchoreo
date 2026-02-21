@@ -138,6 +138,9 @@ type ClientInterface interface {
 
 	CreateClusterComponentType(ctx context.Context, body CreateClusterComponentTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteClusterComponentType request
+	DeleteClusterComponentType(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetClusterComponentType request
 	GetClusterComponentType(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -232,6 +235,9 @@ type ClientInterface interface {
 	CreateClusterTraitWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateClusterTrait(ctx context.Context, body CreateClusterTraitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteClusterTrait request
+	DeleteClusterTrait(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetClusterTrait request
 	GetClusterTrait(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -881,6 +887,18 @@ func (c *Client) CreateClusterComponentType(ctx context.Context, body CreateClus
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteClusterComponentType(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteClusterComponentTypeRequest(c.Server, cctName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetClusterComponentType(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetClusterComponentTypeRequest(c.Server, cctName)
 	if err != nil {
@@ -1291,6 +1309,18 @@ func (c *Client) CreateClusterTraitWithBody(ctx context.Context, contentType str
 
 func (c *Client) CreateClusterTrait(ctx context.Context, body CreateClusterTraitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateClusterTraitRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteClusterTrait(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteClusterTraitRequest(c.Server, clusterTraitName)
 	if err != nil {
 		return nil, err
 	}
@@ -3752,6 +3782,40 @@ func NewCreateClusterComponentTypeRequestWithBody(server string, contentType str
 	return req, nil
 }
 
+// NewDeleteClusterComponentTypeRequest generates requests for DeleteClusterComponentType
+func NewDeleteClusterComponentTypeRequest(server string, cctName ClusterComponentTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cctName", runtime.ParamLocationPath, cctName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clustercomponenttypes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetClusterComponentTypeRequest generates requests for GetClusterComponentType
 func NewGetClusterComponentTypeRequest(server string, cctName ClusterComponentTypeNameParam) (*http.Request, error) {
 	var err error
@@ -4772,6 +4836,40 @@ func NewCreateClusterTraitRequestWithBody(server string, contentType string, bod
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteClusterTraitRequest generates requests for DeleteClusterTrait
+func NewDeleteClusterTraitRequest(server string, clusterTraitName ClusterTraitNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "clusterTraitName", runtime.ParamLocationPath, clusterTraitName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clustertraits/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -10821,6 +10919,9 @@ type ClientWithResponsesInterface interface {
 
 	CreateClusterComponentTypeWithResponse(ctx context.Context, body CreateClusterComponentTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterComponentTypeResp, error)
 
+	// DeleteClusterComponentTypeWithResponse request
+	DeleteClusterComponentTypeWithResponse(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterComponentTypeResp, error)
+
 	// GetClusterComponentTypeWithResponse request
 	GetClusterComponentTypeWithResponse(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterComponentTypeResp, error)
 
@@ -10915,6 +11016,9 @@ type ClientWithResponsesInterface interface {
 	CreateClusterTraitWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterTraitResp, error)
 
 	CreateClusterTraitWithResponse(ctx context.Context, body CreateClusterTraitJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterTraitResp, error)
+
+	// DeleteClusterTraitWithResponse request
+	DeleteClusterTraitWithResponse(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterTraitResp, error)
 
 	// GetClusterTraitWithResponse request
 	GetClusterTraitWithResponse(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*GetClusterTraitResp, error)
@@ -11676,6 +11780,31 @@ func (r CreateClusterComponentTypeResp) StatusCode() int {
 	return 0
 }
 
+type DeleteClusterComponentTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteClusterComponentTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteClusterComponentTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetClusterComponentTypeResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -12327,6 +12456,31 @@ func (r CreateClusterTraitResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateClusterTraitResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteClusterTraitResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteClusterTraitResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteClusterTraitResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -15533,6 +15687,15 @@ func (c *ClientWithResponses) CreateClusterComponentTypeWithResponse(ctx context
 	return ParseCreateClusterComponentTypeResp(rsp)
 }
 
+// DeleteClusterComponentTypeWithResponse request returning *DeleteClusterComponentTypeResp
+func (c *ClientWithResponses) DeleteClusterComponentTypeWithResponse(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterComponentTypeResp, error) {
+	rsp, err := c.DeleteClusterComponentType(ctx, cctName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteClusterComponentTypeResp(rsp)
+}
+
 // GetClusterComponentTypeWithResponse request returning *GetClusterComponentTypeResp
 func (c *ClientWithResponses) GetClusterComponentTypeWithResponse(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterComponentTypeResp, error) {
 	rsp, err := c.GetClusterComponentType(ctx, cctName, reqEditors...)
@@ -15836,6 +15999,15 @@ func (c *ClientWithResponses) CreateClusterTraitWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseCreateClusterTraitResp(rsp)
+}
+
+// DeleteClusterTraitWithResponse request returning *DeleteClusterTraitResp
+func (c *ClientWithResponses) DeleteClusterTraitWithResponse(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterTraitResp, error) {
+	rsp, err := c.DeleteClusterTrait(ctx, clusterTraitName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteClusterTraitResp(rsp)
 }
 
 // GetClusterTraitWithResponse request returning *GetClusterTraitResp
@@ -17843,6 +18015,53 @@ func ParseCreateClusterComponentTypeResp(rsp *http.Response) (*CreateClusterComp
 	return response, nil
 }
 
+// ParseDeleteClusterComponentTypeResp parses an HTTP response from a DeleteClusterComponentTypeWithResponse call
+func ParseDeleteClusterComponentTypeResp(rsp *http.Response) (*DeleteClusterComponentTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteClusterComponentTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetClusterComponentTypeResp parses an HTTP response from a GetClusterComponentTypeWithResponse call
 func ParseGetClusterComponentTypeResp(rsp *http.Response) (*GetClusterComponentTypeResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -19229,6 +19448,53 @@ func ParseCreateClusterTraitResp(rsp *http.Response) (*CreateClusterTraitResp, e
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteClusterTraitResp parses an HTTP response from a DeleteClusterTraitWithResponse call
+func ParseDeleteClusterTraitResp(rsp *http.Response) (*DeleteClusterTraitResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteClusterTraitResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

@@ -1594,6 +1594,25 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    delete:
+      operationId: deleteClusterComponentType
+      summary: Delete cluster component type
+      description: Deletes a cluster-scoped component type by name.
+      tags: [ClusterComponentTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterComponentTypeNameParam'
+      responses:
+        '204':
+          description: ClusterComponentType deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/clustercomponenttypes/{cctName}/schema:
     get:
       operationId: getClusterComponentTypeSchema
@@ -1728,6 +1747,25 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteClusterTrait
+      summary: Delete cluster trait
+      description: Deletes a cluster-scoped trait by name.
+      tags: [ClusterTraits]
+      parameters:
+        - $ref: '#/components/parameters/ClusterTraitNameParam'
+      responses:
+        '204':
+          description: ClusterTrait deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 

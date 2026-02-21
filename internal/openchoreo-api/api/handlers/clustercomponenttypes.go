@@ -155,6 +155,29 @@ func (h *Handler) GetClusterComponentType(
 	return gen.GetClusterComponentType200JSONResponse(genCCT), nil
 }
 
+// DeleteClusterComponentType deletes a cluster-scoped component type by name.
+func (h *Handler) DeleteClusterComponentType(
+	ctx context.Context,
+	request gen.DeleteClusterComponentTypeRequestObject,
+) (gen.DeleteClusterComponentTypeResponseObject, error) {
+	h.logger.Info("DeleteClusterComponentType called", "cctName", request.CctName)
+
+	err := h.clusterComponentTypeService.DeleteClusterComponentType(ctx, request.CctName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.DeleteClusterComponentType403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, clustercomponenttypesvc.ErrClusterComponentTypeNotFound) {
+			return gen.DeleteClusterComponentType404JSONResponse{NotFoundJSONResponse: notFound("ClusterComponentType")}, nil
+		}
+		h.logger.Error("Failed to delete cluster component type", "error", err)
+		return gen.DeleteClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("ClusterComponentType deleted successfully", "clusterComponentType", request.CctName)
+	return gen.DeleteClusterComponentType204Response{}, nil
+}
+
 // GetClusterComponentTypeSchema returns the parameter schema for a cluster-scoped component type.
 func (h *Handler) GetClusterComponentTypeSchema(
 	ctx context.Context,

@@ -141,6 +141,25 @@ func (s *clusterTraitService) GetClusterTrait(ctx context.Context, clusterTraitN
 	return trait, nil
 }
 
+// DeleteClusterTrait removes a cluster-scoped trait by name.
+func (s *clusterTraitService) DeleteClusterTrait(ctx context.Context, clusterTraitName string) error {
+	s.logger.Debug("Deleting cluster trait", "clusterTrait", clusterTraitName)
+
+	trait := &openchoreov1alpha1.ClusterTrait{}
+	trait.Name = clusterTraitName
+
+	if err := s.k8sClient.Delete(ctx, trait); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrClusterTraitNotFound
+		}
+		s.logger.Error("Failed to delete cluster trait CR", "error", err)
+		return fmt.Errorf("failed to delete cluster trait: %w", err)
+	}
+
+	s.logger.Debug("Cluster trait deleted successfully", "clusterTrait", clusterTraitName)
+	return nil
+}
+
 func (s *clusterTraitService) GetClusterTraitSchema(ctx context.Context, clusterTraitName string) (*extv1.JSONSchemaProps, error) {
 	s.logger.Debug("Getting cluster trait schema", "clusterTrait", clusterTraitName)
 

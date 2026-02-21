@@ -18,6 +18,7 @@ import (
 const (
 	actionCreateClusterTrait = "clustertrait:create"
 	actionUpdateClusterTrait = "clustertrait:update"
+	actionDeleteClusterTrait = "clustertrait:delete"
 	actionViewClusterTrait   = "clustertrait:view"
 
 	resourceTypeClusterTrait = "clusterTrait"
@@ -78,6 +79,19 @@ func (s *clusterTraitServiceWithAuthz) ListClusterTraits(ctx context.Context, op
 			}
 		},
 	)
+}
+
+// DeleteClusterTrait checks delete authorization before delegating to the internal service.
+func (s *clusterTraitServiceWithAuthz) DeleteClusterTrait(ctx context.Context, clusterTraitName string) error {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionDeleteClusterTrait,
+		ResourceType: resourceTypeClusterTrait,
+		ResourceID:   clusterTraitName,
+		Hierarchy:    authz.ResourceHierarchy{},
+	}); err != nil {
+		return err
+	}
+	return s.internal.DeleteClusterTrait(ctx, clusterTraitName)
 }
 
 func (s *clusterTraitServiceWithAuthz) GetClusterTrait(ctx context.Context, clusterTraitName string) (*openchoreov1alpha1.ClusterTrait, error) {

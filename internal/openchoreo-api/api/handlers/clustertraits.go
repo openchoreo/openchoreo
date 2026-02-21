@@ -155,6 +155,29 @@ func (h *Handler) GetClusterTrait(
 	return gen.GetClusterTrait200JSONResponse(genTrait), nil
 }
 
+// DeleteClusterTrait deletes a cluster-scoped trait by name.
+func (h *Handler) DeleteClusterTrait(
+	ctx context.Context,
+	request gen.DeleteClusterTraitRequestObject,
+) (gen.DeleteClusterTraitResponseObject, error) {
+	h.logger.Info("DeleteClusterTrait called", "clusterTraitName", request.ClusterTraitName)
+
+	err := h.clusterTraitService.DeleteClusterTrait(ctx, request.ClusterTraitName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.DeleteClusterTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, clustertraitsvc.ErrClusterTraitNotFound) {
+			return gen.DeleteClusterTrait404JSONResponse{NotFoundJSONResponse: notFound("ClusterTrait")}, nil
+		}
+		h.logger.Error("Failed to delete cluster trait", "error", err)
+		return gen.DeleteClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("ClusterTrait deleted successfully", "clusterTrait", request.ClusterTraitName)
+	return gen.DeleteClusterTrait204Response{}, nil
+}
+
 // GetClusterTraitSchema returns the parameter schema for a cluster-scoped trait.
 func (h *Handler) GetClusterTraitSchema(
 	ctx context.Context,

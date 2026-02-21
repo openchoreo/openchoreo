@@ -141,6 +141,25 @@ func (s *clusterComponentTypeService) GetClusterComponentType(ctx context.Contex
 	return cct, nil
 }
 
+// DeleteClusterComponentType removes a cluster-scoped component type by name.
+func (s *clusterComponentTypeService) DeleteClusterComponentType(ctx context.Context, cctName string) error {
+	s.logger.Debug("Deleting cluster component type", "clusterComponentType", cctName)
+
+	cct := &openchoreov1alpha1.ClusterComponentType{}
+	cct.Name = cctName
+
+	if err := s.k8sClient.Delete(ctx, cct); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrClusterComponentTypeNotFound
+		}
+		s.logger.Error("Failed to delete cluster component type CR", "error", err)
+		return fmt.Errorf("failed to delete cluster component type: %w", err)
+	}
+
+	s.logger.Debug("Cluster component type deleted successfully", "clusterComponentType", cctName)
+	return nil
+}
+
 func (s *clusterComponentTypeService) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (*extv1.JSONSchemaProps, error) {
 	s.logger.Debug("Getting cluster component type schema", "clusterComponentType", cctName)
 
