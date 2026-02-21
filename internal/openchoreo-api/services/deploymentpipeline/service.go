@@ -163,21 +163,13 @@ func (s *deploymentPipelineService) DeleteDeploymentPipeline(ctx context.Context
 	s.logger.Debug("Deleting deployment pipeline", "namespace", namespaceName, "deploymentPipeline", deploymentPipelineName)
 
 	dp := &openchoreov1alpha1.DeploymentPipeline{}
-	key := client.ObjectKey{
-		Name:      deploymentPipelineName,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, dp); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Deployment pipeline not found", "namespace", namespaceName, "deploymentPipeline", deploymentPipelineName)
-			return ErrDeploymentPipelineNotFound
-		}
-		s.logger.Error("Failed to get deployment pipeline", "error", err)
-		return fmt.Errorf("failed to get deployment pipeline: %w", err)
-	}
+	dp.Name = deploymentPipelineName
+	dp.Namespace = namespaceName
 
 	if err := s.k8sClient.Delete(ctx, dp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrDeploymentPipelineNotFound
+		}
 		s.logger.Error("Failed to delete deployment pipeline CR", "error", err)
 		return fmt.Errorf("failed to delete deployment pipeline: %w", err)
 	}

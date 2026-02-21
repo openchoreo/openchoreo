@@ -168,21 +168,13 @@ func (s *dataPlaneService) DeleteDataPlane(ctx context.Context, namespaceName, d
 	s.logger.Debug("Deleting data plane", "namespace", namespaceName, "dataPlane", dpName)
 
 	dp := &openchoreov1alpha1.DataPlane{}
-	key := client.ObjectKey{
-		Name:      dpName,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, dp); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Data plane not found", "namespace", namespaceName, "dataPlane", dpName)
-			return ErrDataPlaneNotFound
-		}
-		s.logger.Error("Failed to get data plane", "error", err)
-		return fmt.Errorf("failed to get data plane: %w", err)
-	}
+	dp.Name = dpName
+	dp.Namespace = namespaceName
 
 	if err := s.k8sClient.Delete(ctx, dp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrDataPlaneNotFound
+		}
 		s.logger.Error("Failed to delete data plane CR", "error", err)
 		return fmt.Errorf("failed to delete data plane: %w", err)
 	}

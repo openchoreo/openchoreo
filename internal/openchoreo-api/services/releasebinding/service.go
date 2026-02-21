@@ -188,23 +188,11 @@ func (s *releaseBindingService) DeleteReleaseBinding(ctx context.Context, namesp
 	s.logger.Debug("Deleting release binding", "namespace", namespaceName, "releaseBinding", releaseBindingName)
 
 	rb := &openchoreov1alpha1.ReleaseBinding{}
-	key := client.ObjectKey{
-		Name:      releaseBindingName,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, rb); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Release binding not found", "namespace", namespaceName, "releaseBinding", releaseBindingName)
-			return ErrReleaseBindingNotFound
-		}
-		s.logger.Error("Failed to get release binding", "error", err)
-		return fmt.Errorf("failed to get release binding: %w", err)
-	}
+	rb.Name = releaseBindingName
+	rb.Namespace = namespaceName
 
 	if err := s.k8sClient.Delete(ctx, rb); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Release binding not found during delete", "namespace", namespaceName, "releaseBinding", releaseBindingName)
+		if apierrors.IsNotFound(err) {
 			return ErrReleaseBindingNotFound
 		}
 		s.logger.Error("Failed to delete release binding CR", "error", err)

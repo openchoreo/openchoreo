@@ -205,21 +205,13 @@ func (s *componentService) DeleteComponent(ctx context.Context, namespaceName, c
 	s.logger.Debug("Deleting component", "namespace", namespaceName, "component", componentName)
 
 	component := &openchoreov1alpha1.Component{}
-	key := client.ObjectKey{
-		Name:      componentName,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, component); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "namespace", namespaceName, "component", componentName)
-			return ErrComponentNotFound
-		}
-		s.logger.Error("Failed to get component", "error", err)
-		return fmt.Errorf("failed to get component: %w", err)
-	}
+	component.Name = componentName
+	component.Namespace = namespaceName
 
 	if err := s.k8sClient.Delete(ctx, component); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrComponentNotFound
+		}
 		s.logger.Error("Failed to delete component CR", "error", err)
 		return fmt.Errorf("failed to delete component: %w", err)
 	}

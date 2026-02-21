@@ -148,17 +148,12 @@ func (s *clusterBuildPlaneService) DeleteClusterBuildPlane(ctx context.Context, 
 	s.logger.Debug("Deleting cluster build plane", "clusterBuildPlane", clusterBuildPlaneName)
 
 	cbp := &openchoreov1alpha1.ClusterBuildPlane{}
-	key := client.ObjectKey{Name: clusterBuildPlaneName}
-
-	if err := s.k8sClient.Get(ctx, key, cbp); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return ErrClusterBuildPlaneNotFound
-		}
-		s.logger.Error("Failed to get cluster build plane", "error", err)
-		return fmt.Errorf("failed to get cluster build plane: %w", err)
-	}
+	cbp.Name = clusterBuildPlaneName
 
 	if err := s.k8sClient.Delete(ctx, cbp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrClusterBuildPlaneNotFound
+		}
 		s.logger.Error("Failed to delete cluster build plane CR", "error", err)
 		return fmt.Errorf("failed to delete cluster build plane: %w", err)
 	}

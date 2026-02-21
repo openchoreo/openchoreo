@@ -167,21 +167,13 @@ func (s *traitService) DeleteTrait(ctx context.Context, namespaceName, traitName
 	s.logger.Debug("Deleting trait", "namespace", namespaceName, "trait", traitName)
 
 	t := &openchoreov1alpha1.Trait{}
-	key := client.ObjectKey{
-		Name:      traitName,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, t); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Trait not found", "namespace", namespaceName, "trait", traitName)
-			return ErrTraitNotFound
-		}
-		s.logger.Error("Failed to get trait", "error", err)
-		return fmt.Errorf("failed to get trait: %w", err)
-	}
+	t.Name = traitName
+	t.Namespace = namespaceName
 
 	if err := s.k8sClient.Delete(ctx, t); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrTraitNotFound
+		}
 		s.logger.Error("Failed to delete trait CR", "error", err)
 		return fmt.Errorf("failed to delete trait: %w", err)
 	}

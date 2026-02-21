@@ -188,23 +188,11 @@ func (s *workloadService) DeleteWorkload(ctx context.Context, namespaceName, wor
 	s.logger.Debug("Deleting workload", "namespace", namespaceName, "workload", workloadName)
 
 	w := &openchoreov1alpha1.Workload{}
-	key := client.ObjectKey{
-		Name:      workloadName,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, w); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Workload not found", "namespace", namespaceName, "workload", workloadName)
-			return ErrWorkloadNotFound
-		}
-		s.logger.Error("Failed to get workload", "error", err)
-		return fmt.Errorf("failed to get workload: %w", err)
-	}
+	w.Name = workloadName
+	w.Namespace = namespaceName
 
 	if err := s.k8sClient.Delete(ctx, w); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Workload not found during delete", "namespace", namespaceName, "workload", workloadName)
+		if apierrors.IsNotFound(err) {
 			return ErrWorkloadNotFound
 		}
 		s.logger.Error("Failed to delete workload CR", "error", err)

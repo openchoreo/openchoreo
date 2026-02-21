@@ -171,21 +171,13 @@ func (s *projectService) DeleteProject(ctx context.Context, namespaceName, proje
 	s.logger.Debug("Deleting project", "namespace", namespaceName, "project", projectName)
 
 	project := &openchoreov1alpha1.Project{}
-	key := client.ObjectKey{
-		Name:      projectName,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, project); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
-			return ErrProjectNotFound
-		}
-		s.logger.Error("Failed to get project", "error", err)
-		return fmt.Errorf("failed to get project: %w", err)
-	}
+	project.Name = projectName
+	project.Namespace = namespaceName
 
 	if err := s.k8sClient.Delete(ctx, project); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrProjectNotFound
+		}
 		s.logger.Error("Failed to delete project CR", "error", err)
 		return fmt.Errorf("failed to delete project: %w", err)
 	}

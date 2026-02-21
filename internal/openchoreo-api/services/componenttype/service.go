@@ -167,21 +167,13 @@ func (s *componentTypeService) DeleteComponentType(ctx context.Context, namespac
 	s.logger.Debug("Deleting component type", "namespace", namespaceName, "componentType", ctName)
 
 	ct := &openchoreov1alpha1.ComponentType{}
-	key := client.ObjectKey{
-		Name:      ctName,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, ct); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component type not found", "namespace", namespaceName, "componentType", ctName)
-			return ErrComponentTypeNotFound
-		}
-		s.logger.Error("Failed to get component type", "error", err)
-		return fmt.Errorf("failed to get component type: %w", err)
-	}
+	ct.Name = ctName
+	ct.Namespace = namespaceName
 
 	if err := s.k8sClient.Delete(ctx, ct); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrComponentTypeNotFound
+		}
 		s.logger.Error("Failed to delete component type CR", "error", err)
 		return fmt.Errorf("failed to delete component type: %w", err)
 	}

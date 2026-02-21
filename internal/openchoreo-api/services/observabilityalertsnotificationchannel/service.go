@@ -163,21 +163,13 @@ func (s *observabilityAlertsNotificationChannelService) DeleteObservabilityAlert
 	s.logger.Debug("Deleting observability alerts notification channel", "namespace", namespaceName, "channel", channelName)
 
 	nc := &openchoreov1alpha1.ObservabilityAlertsNotificationChannel{}
-	key := client.ObjectKey{
-		Name:      channelName,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, nc); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Observability alerts notification channel not found", "namespace", namespaceName, "channel", channelName)
-			return ErrObservabilityAlertsNotificationChannelNotFound
-		}
-		s.logger.Error("Failed to get observability alerts notification channel", "error", err)
-		return fmt.Errorf("failed to get observability alerts notification channel: %w", err)
-	}
+	nc.Name = channelName
+	nc.Namespace = namespaceName
 
 	if err := s.k8sClient.Delete(ctx, nc); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrObservabilityAlertsNotificationChannelNotFound
+		}
 		s.logger.Error("Failed to delete observability alerts notification channel CR", "error", err)
 		return fmt.Errorf("failed to delete observability alerts notification channel: %w", err)
 	}

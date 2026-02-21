@@ -161,20 +161,13 @@ func (s *buildPlaneService) DeleteBuildPlane(ctx context.Context, namespaceName,
 	s.logger.Debug("Deleting build plane", "namespace", namespaceName, "buildPlane", buildPlaneName)
 
 	bp := &openchoreov1alpha1.BuildPlane{}
-	key := client.ObjectKey{
-		Name:      buildPlaneName,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, bp); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return ErrBuildPlaneNotFound
-		}
-		s.logger.Error("Failed to get build plane", "error", err)
-		return fmt.Errorf("failed to get build plane: %w", err)
-	}
+	bp.Name = buildPlaneName
+	bp.Namespace = namespaceName
 
 	if err := s.k8sClient.Delete(ctx, bp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrBuildPlaneNotFound
+		}
 		s.logger.Error("Failed to delete build plane CR", "error", err)
 		return fmt.Errorf("failed to delete build plane: %w", err)
 	}

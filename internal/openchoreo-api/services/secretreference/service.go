@@ -163,21 +163,13 @@ func (s *secretReferenceService) DeleteSecretReference(ctx context.Context, name
 	s.logger.Debug("Deleting secret reference", "namespace", namespaceName, "secretReference", secretReferenceName)
 
 	sr := &openchoreov1alpha1.SecretReference{}
-	key := client.ObjectKey{
-		Name:      secretReferenceName,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, sr); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Secret reference not found", "namespace", namespaceName, "secretReference", secretReferenceName)
-			return ErrSecretReferenceNotFound
-		}
-		s.logger.Error("Failed to get secret reference", "error", err)
-		return fmt.Errorf("failed to get secret reference: %w", err)
-	}
+	sr.Name = secretReferenceName
+	sr.Namespace = namespaceName
 
 	if err := s.k8sClient.Delete(ctx, sr); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrSecretReferenceNotFound
+		}
 		s.logger.Error("Failed to delete secret reference CR", "error", err)
 		return fmt.Errorf("failed to delete secret reference: %w", err)
 	}

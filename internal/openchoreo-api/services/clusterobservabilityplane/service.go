@@ -147,17 +147,12 @@ func (s *clusterObservabilityPlaneService) DeleteClusterObservabilityPlane(ctx c
 	s.logger.Debug("Deleting cluster observability plane", "clusterObservabilityPlane", clusterObservabilityPlaneName)
 
 	cop := &openchoreov1alpha1.ClusterObservabilityPlane{}
-	key := client.ObjectKey{Name: clusterObservabilityPlaneName}
-
-	if err := s.k8sClient.Get(ctx, key, cop); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return ErrClusterObservabilityPlaneNotFound
-		}
-		s.logger.Error("Failed to get cluster observability plane", "error", err)
-		return fmt.Errorf("failed to get cluster observability plane: %w", err)
-	}
+	cop.Name = clusterObservabilityPlaneName
 
 	if err := s.k8sClient.Delete(ctx, cop); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrClusterObservabilityPlaneNotFound
+		}
 		s.logger.Error("Failed to delete cluster observability plane CR", "error", err)
 		return fmt.Errorf("failed to delete cluster observability plane: %w", err)
 	}

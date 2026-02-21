@@ -155,20 +155,13 @@ func (s *observabilityPlaneService) DeleteObservabilityPlane(ctx context.Context
 	s.logger.Debug("Deleting observability plane", "namespace", namespaceName, "observabilityPlane", observabilityPlaneName)
 
 	op := &openchoreov1alpha1.ObservabilityPlane{}
-	key := client.ObjectKey{
-		Name:      observabilityPlaneName,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, op); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return ErrObservabilityPlaneNotFound
-		}
-		s.logger.Error("Failed to get observability plane", "error", err)
-		return fmt.Errorf("failed to get observability plane: %w", err)
-	}
+	op.Name = observabilityPlaneName
+	op.Namespace = namespaceName
 
 	if err := s.k8sClient.Delete(ctx, op); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrObservabilityPlaneNotFound
+		}
 		s.logger.Error("Failed to delete observability plane CR", "error", err)
 		return fmt.Errorf("failed to delete observability plane: %w", err)
 	}

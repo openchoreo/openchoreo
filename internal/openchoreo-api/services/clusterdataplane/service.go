@@ -157,18 +157,12 @@ func (s *clusterDataPlaneService) DeleteClusterDataPlane(ctx context.Context, na
 	s.logger.Debug("Deleting cluster data plane", "clusterDataPlane", name)
 
 	cdp := &openchoreov1alpha1.ClusterDataPlane{}
-	key := client.ObjectKey{Name: name}
-
-	if err := s.k8sClient.Get(ctx, key, cdp); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Cluster data plane not found", "clusterDataPlane", name)
-			return ErrClusterDataPlaneNotFound
-		}
-		s.logger.Error("Failed to get cluster data plane", "error", err)
-		return fmt.Errorf("failed to get cluster data plane: %w", err)
-	}
+	cdp.Name = name
 
 	if err := s.k8sClient.Delete(ctx, cdp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrClusterDataPlaneNotFound
+		}
 		s.logger.Error("Failed to delete cluster data plane CR", "error", err)
 		return fmt.Errorf("failed to delete cluster data plane: %w", err)
 	}
