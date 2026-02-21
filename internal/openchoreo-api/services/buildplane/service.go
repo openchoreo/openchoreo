@@ -95,7 +95,7 @@ func (s *buildPlaneService) GetBuildPlane(ctx context.Context, namespaceName, bu
 // CreateBuildPlane creates a new build plane within a namespace.
 func (s *buildPlaneService) CreateBuildPlane(ctx context.Context, namespaceName string, bp *openchoreov1alpha1.BuildPlane) (*openchoreov1alpha1.BuildPlane, error) {
 	if bp == nil {
-		return nil, fmt.Errorf("build plane cannot be nil")
+		return nil, ErrBuildPlaneNil
 	}
 	s.logger.Debug("Creating build plane", "namespace", namespaceName, "buildPlane", bp.Name)
 
@@ -125,7 +125,7 @@ func (s *buildPlaneService) CreateBuildPlane(ctx context.Context, namespaceName 
 // UpdateBuildPlane replaces an existing build plane with the provided object.
 func (s *buildPlaneService) UpdateBuildPlane(ctx context.Context, namespaceName string, bp *openchoreov1alpha1.BuildPlane) (*openchoreov1alpha1.BuildPlane, error) {
 	if bp == nil {
-		return nil, fmt.Errorf("build plane cannot be nil")
+		return nil, ErrBuildPlaneNil
 	}
 
 	s.logger.Debug("Updating build plane", "namespace", namespaceName, "buildPlane", bp.Name)
@@ -141,6 +141,11 @@ func (s *buildPlaneService) UpdateBuildPlane(ctx context.Context, namespaceName 
 
 	bp.ResourceVersion = existing.ResourceVersion
 	bp.Namespace = namespaceName
+	if bp.Labels == nil {
+		bp.Labels = make(map[string]string)
+	}
+	bp.Labels[labels.LabelKeyNamespaceName] = namespaceName
+	bp.Labels[labels.LabelKeyName] = bp.Name
 
 	if err := s.k8sClient.Update(ctx, bp); err != nil {
 		s.logger.Error("Failed to update build plane CR", "error", err)

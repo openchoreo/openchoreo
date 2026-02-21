@@ -87,7 +87,7 @@ func (s *observabilityPlaneServiceWithAuthz) CreateObservabilityPlane(ctx contex
 // UpdateObservabilityPlane checks update authorization before delegating to the internal service.
 func (s *observabilityPlaneServiceWithAuthz) UpdateObservabilityPlane(ctx context.Context, namespaceName string, op *openchoreov1alpha1.ObservabilityPlane) (*openchoreov1alpha1.ObservabilityPlane, error) {
 	if op == nil {
-		return nil, ErrObservabilityPlaneNotFound
+		return nil, ErrObservabilityPlaneNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionUpdateObservabilityPlane,

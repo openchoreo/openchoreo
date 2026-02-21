@@ -138,8 +138,11 @@ func (s *clusterDataPlaneService) UpdateClusterDataPlane(ctx context.Context, cd
 		return nil, fmt.Errorf("failed to get cluster data plane: %w", err)
 	}
 
-	// Apply incoming spec directly from the request body, preserving server-managed fields
 	cdp.ResourceVersion = existing.ResourceVersion
+	if cdp.Labels == nil {
+		cdp.Labels = make(map[string]string)
+	}
+	cdp.Labels[labels.LabelKeyName] = cdp.Name
 
 	if err := s.k8sClient.Update(ctx, cdp); err != nil {
 		s.logger.Error("Failed to update cluster data plane CR", "error", err)

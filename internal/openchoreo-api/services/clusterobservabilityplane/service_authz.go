@@ -87,7 +87,7 @@ func (s *clusterObservabilityPlaneServiceWithAuthz) CreateClusterObservabilityPl
 // UpdateClusterObservabilityPlane checks update authorization before delegating to the internal service.
 func (s *clusterObservabilityPlaneServiceWithAuthz) UpdateClusterObservabilityPlane(ctx context.Context, cop *openchoreov1alpha1.ClusterObservabilityPlane) (*openchoreov1alpha1.ClusterObservabilityPlane, error) {
 	if cop == nil {
-		return nil, ErrClusterObservabilityPlaneNotFound
+		return nil, ErrClusterObservabilityPlaneNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionUpdateClusterObservabilityPlane,

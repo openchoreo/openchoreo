@@ -131,7 +131,7 @@ func (s *dataPlaneService) CreateDataPlane(ctx context.Context, namespaceName st
 
 func (s *dataPlaneService) UpdateDataPlane(ctx context.Context, namespaceName string, dp *openchoreov1alpha1.DataPlane) (*openchoreov1alpha1.DataPlane, error) {
 	if dp == nil {
-		return nil, fmt.Errorf("data plane cannot be nil")
+		return nil, ErrDataPlaneNil
 	}
 
 	s.logger.Debug("Updating data plane", "namespace", namespaceName, "dataPlane", dp.Name)
@@ -145,9 +145,15 @@ func (s *dataPlaneService) UpdateDataPlane(ctx context.Context, namespaceName st
 		return nil, fmt.Errorf("failed to get data plane: %w", err)
 	}
 
-	// Apply incoming spec directly from the request body, preserving server-managed fields
+	// Preserve server-managed fields
 	dp.ResourceVersion = existing.ResourceVersion
 	dp.Namespace = namespaceName
+	// Ensure required labels are set
+	if dp.Labels == nil {
+		dp.Labels = make(map[string]string)
+	}
+	dp.Labels[labels.LabelKeyNamespaceName] = namespaceName
+	dp.Labels[labels.LabelKeyName] = dp.Name
 
 	if err := s.k8sClient.Update(ctx, dp); err != nil {
 		s.logger.Error("Failed to update data plane CR", "error", err)

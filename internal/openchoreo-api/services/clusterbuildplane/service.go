@@ -86,7 +86,7 @@ func (s *clusterBuildPlaneService) GetClusterBuildPlane(ctx context.Context, clu
 // CreateClusterBuildPlane creates a new cluster-scoped build plane.
 func (s *clusterBuildPlaneService) CreateClusterBuildPlane(ctx context.Context, cbp *openchoreov1alpha1.ClusterBuildPlane) (*openchoreov1alpha1.ClusterBuildPlane, error) {
 	if cbp == nil {
-		return nil, fmt.Errorf("cluster build plane cannot be nil")
+		return nil, ErrClusterBuildPlaneNil
 	}
 	s.logger.Debug("Creating cluster build plane", "clusterBuildPlane", cbp.Name)
 
@@ -129,6 +129,10 @@ func (s *clusterBuildPlaneService) UpdateClusterBuildPlane(ctx context.Context, 
 	}
 
 	cbp.ResourceVersion = existing.ResourceVersion
+	if cbp.Labels == nil {
+		cbp.Labels = make(map[string]string)
+	}
+	cbp.Labels[labels.LabelKeyName] = cbp.Name
 
 	if err := s.k8sClient.Update(ctx, cbp); err != nil {
 		s.logger.Error("Failed to update cluster build plane CR", "error", err)
