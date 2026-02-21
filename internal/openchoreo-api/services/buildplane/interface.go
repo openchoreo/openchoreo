@@ -19,6 +19,7 @@ import (
 type Service interface {
 	ListBuildPlanes(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.BuildPlane], error)
 	GetBuildPlane(ctx context.Context, namespaceName, buildPlaneName string) (*openchoreov1alpha1.BuildPlane, error)
+	CreateBuildPlane(ctx context.Context, namespaceName string, bp *openchoreov1alpha1.BuildPlane) (*openchoreov1alpha1.BuildPlane, error)
 	UpdateBuildPlane(ctx context.Context, namespaceName string, bp *openchoreov1alpha1.BuildPlane) (*openchoreov1alpha1.BuildPlane, error)
 	DeleteBuildPlane(ctx context.Context, namespaceName, buildPlaneName string) error
 

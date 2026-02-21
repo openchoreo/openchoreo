@@ -8,12 +8,15 @@ import (
 	"fmt"
 	"log/slog"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -87,6 +90,36 @@ func (s *buildPlaneService) GetBuildPlane(ctx context.Context, namespaceName, bu
 	}
 
 	return buildPlane, nil
+}
+
+// CreateBuildPlane creates a new build plane within a namespace.
+func (s *buildPlaneService) CreateBuildPlane(ctx context.Context, namespaceName string, bp *openchoreov1alpha1.BuildPlane) (*openchoreov1alpha1.BuildPlane, error) {
+	if bp == nil {
+		return nil, fmt.Errorf("build plane cannot be nil")
+	}
+	s.logger.Debug("Creating build plane", "namespace", namespaceName, "buildPlane", bp.Name)
+
+	bp.TypeMeta = metav1.TypeMeta{
+		Kind:       "BuildPlane",
+		APIVersion: "openchoreo.dev/v1alpha1",
+	}
+	bp.Namespace = namespaceName
+	if bp.Labels == nil {
+		bp.Labels = make(map[string]string)
+	}
+	bp.Labels[labels.LabelKeyNamespaceName] = namespaceName
+	bp.Labels[labels.LabelKeyName] = bp.Name
+
+	if err := s.k8sClient.Create(ctx, bp); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil, ErrBuildPlaneAlreadyExists
+		}
+		s.logger.Error("Failed to create build plane CR", "error", err)
+		return nil, fmt.Errorf("failed to create build plane: %w", err)
+	}
+
+	s.logger.Debug("Build plane created successfully", "namespace", namespaceName, "buildPlane", bp.Name)
+	return bp, nil
 }
 
 // UpdateBuildPlane replaces an existing build plane with the provided object.

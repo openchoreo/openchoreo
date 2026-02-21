@@ -774,6 +774,37 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    post:
+      operationId: createBuildPlane
+      summary: Create build plane
+      description: Creates a new build plane within a namespace.
+      tags: [BuildPlanes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuildPlane'
+      responses:
+        '201':
+          description: BuildPlane created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildPlane'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/namespaces/{namespaceName}/buildplanes/{buildPlaneName}:
     get:
       operationId: getBuildPlane
@@ -1149,6 +1180,35 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createClusterBuildPlane
+      summary: Create cluster build plane
+      description: Creates a new cluster-scoped build plane.
+      tags: [ClusterBuildPlanes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterBuildPlane'
+      responses:
+        '201':
+          description: ClusterBuildPlane created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterBuildPlane'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
 

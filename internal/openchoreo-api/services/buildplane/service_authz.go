@@ -16,6 +16,7 @@ import (
 
 const (
 	actionViewBuildPlane   = "buildplane:view"
+	actionCreateBuildPlane = "buildplane:create"
 	actionUpdateBuildPlane = "buildplane:update"
 	actionDeleteBuildPlane = "buildplane:delete"
 
@@ -65,6 +66,22 @@ func (s *buildPlaneServiceWithAuthz) GetBuildPlane(ctx context.Context, namespac
 		return nil, err
 	}
 	return s.internal.GetBuildPlane(ctx, namespaceName, buildPlaneName)
+}
+
+// CreateBuildPlane checks create authorization before delegating to the internal service.
+func (s *buildPlaneServiceWithAuthz) CreateBuildPlane(ctx context.Context, namespaceName string, bp *openchoreov1alpha1.BuildPlane) (*openchoreov1alpha1.BuildPlane, error) {
+	if bp == nil {
+		return nil, ErrBuildPlaneNil
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionCreateBuildPlane,
+		ResourceType: resourceTypeBuildPlane,
+		ResourceID:   bp.Name,
+		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.CreateBuildPlane(ctx, namespaceName, bp)
 }
 
 // UpdateBuildPlane checks update authorization before delegating to the internal service.

@@ -68,6 +68,46 @@ func (h *Handler) GetClusterBuildPlane(
 	return gen.GetClusterBuildPlane200JSONResponse(genCBP), nil
 }
 
+// CreateClusterBuildPlane creates a new cluster-scoped build plane.
+func (h *Handler) CreateClusterBuildPlane(
+	ctx context.Context,
+	request gen.CreateClusterBuildPlaneRequestObject,
+) (gen.CreateClusterBuildPlaneResponseObject, error) {
+	h.logger.Info("CreateClusterBuildPlane called")
+
+	if request.Body == nil {
+		return gen.CreateClusterBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	cbpCR, err := convert[gen.ClusterBuildPlane, openchoreov1alpha1.ClusterBuildPlane](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert create request", "error", err)
+		return gen.CreateClusterBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	cbpCR.Status = openchoreov1alpha1.ClusterBuildPlaneStatus{}
+
+	created, err := h.clusterBuildPlaneService.CreateClusterBuildPlane(ctx, &cbpCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.CreateClusterBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, clusterbuildplanesvc.ErrClusterBuildPlaneAlreadyExists) {
+			return gen.CreateClusterBuildPlane409JSONResponse{ConflictJSONResponse: conflict("ClusterBuildPlane already exists")}, nil
+		}
+		h.logger.Error("Failed to create cluster build plane", "error", err)
+		return gen.CreateClusterBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genCBP, err := convert[openchoreov1alpha1.ClusterBuildPlane, gen.ClusterBuildPlane](*created)
+	if err != nil {
+		h.logger.Error("Failed to convert created cluster build plane", "error", err)
+		return gen.CreateClusterBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("ClusterBuildPlane created successfully", "clusterBuildPlane", created.Name)
+	return gen.CreateClusterBuildPlane201JSONResponse(genCBP), nil
+}
+
 // UpdateClusterBuildPlane replaces an existing cluster-scoped build plane (full update).
 func (h *Handler) UpdateClusterBuildPlane(
 	ctx context.Context,

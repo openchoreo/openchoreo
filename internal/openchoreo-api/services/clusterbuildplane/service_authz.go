@@ -16,6 +16,7 @@ import (
 
 const (
 	actionViewClusterBuildPlane   = "clusterbuildplane:view"
+	actionCreateClusterBuildPlane = "clusterbuildplane:create"
 	actionUpdateClusterBuildPlane = "clusterbuildplane:update"
 	actionDeleteClusterBuildPlane = "clusterbuildplane:delete"
 
@@ -65,6 +66,22 @@ func (s *clusterBuildPlaneServiceWithAuthz) GetClusterBuildPlane(ctx context.Con
 		return nil, err
 	}
 	return s.internal.GetClusterBuildPlane(ctx, clusterBuildPlaneName)
+}
+
+// CreateClusterBuildPlane checks create authorization before delegating to the internal service.
+func (s *clusterBuildPlaneServiceWithAuthz) CreateClusterBuildPlane(ctx context.Context, cbp *openchoreov1alpha1.ClusterBuildPlane) (*openchoreov1alpha1.ClusterBuildPlane, error) {
+	if cbp == nil {
+		return nil, ErrClusterBuildPlaneNil
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionCreateClusterBuildPlane,
+		ResourceType: resourceTypeClusterBuildPlane,
+		ResourceID:   cbp.Name,
+		Hierarchy:    authz.ResourceHierarchy{},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.CreateClusterBuildPlane(ctx, cbp)
 }
 
 // UpdateClusterBuildPlane checks update authorization before delegating to the internal service.

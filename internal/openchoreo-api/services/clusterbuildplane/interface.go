@@ -17,6 +17,7 @@ import (
 type Service interface {
 	ListClusterBuildPlanes(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterBuildPlane], error)
 	GetClusterBuildPlane(ctx context.Context, clusterBuildPlaneName string) (*openchoreov1alpha1.ClusterBuildPlane, error)
+	CreateClusterBuildPlane(ctx context.Context, cbp *openchoreov1alpha1.ClusterBuildPlane) (*openchoreov1alpha1.ClusterBuildPlane, error)
 	UpdateClusterBuildPlane(ctx context.Context, cbp *openchoreov1alpha1.ClusterBuildPlane) (*openchoreov1alpha1.ClusterBuildPlane, error)
 	DeleteClusterBuildPlane(ctx context.Context, clusterBuildPlaneName string) error
 }

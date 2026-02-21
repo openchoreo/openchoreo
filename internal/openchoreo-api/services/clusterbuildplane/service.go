@@ -8,9 +8,12 @@ import (
 	"fmt"
 	"log/slog"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -77,6 +80,34 @@ func (s *clusterBuildPlaneService) GetClusterBuildPlane(ctx context.Context, clu
 		return nil, fmt.Errorf("failed to get cluster build plane: %w", err)
 	}
 
+	return cbp, nil
+}
+
+// CreateClusterBuildPlane creates a new cluster-scoped build plane.
+func (s *clusterBuildPlaneService) CreateClusterBuildPlane(ctx context.Context, cbp *openchoreov1alpha1.ClusterBuildPlane) (*openchoreov1alpha1.ClusterBuildPlane, error) {
+	if cbp == nil {
+		return nil, fmt.Errorf("cluster build plane cannot be nil")
+	}
+	s.logger.Debug("Creating cluster build plane", "clusterBuildPlane", cbp.Name)
+
+	cbp.TypeMeta = metav1.TypeMeta{
+		Kind:       "ClusterBuildPlane",
+		APIVersion: "openchoreo.dev/v1alpha1",
+	}
+	if cbp.Labels == nil {
+		cbp.Labels = make(map[string]string)
+	}
+	cbp.Labels[labels.LabelKeyName] = cbp.Name
+
+	if err := s.k8sClient.Create(ctx, cbp); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil, ErrClusterBuildPlaneAlreadyExists
+		}
+		s.logger.Error("Failed to create cluster build plane CR", "error", err)
+		return nil, fmt.Errorf("failed to create cluster build plane: %w", err)
+	}
+
+	s.logger.Debug("Cluster build plane created successfully", "clusterBuildPlane", cbp.Name)
 	return cbp, nil
 }
 

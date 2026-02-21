@@ -68,6 +68,46 @@ func (h *Handler) GetBuildPlane(
 	return gen.GetBuildPlane200JSONResponse(genBuildPlane), nil
 }
 
+// CreateBuildPlane creates a new build plane within a namespace.
+func (h *Handler) CreateBuildPlane(
+	ctx context.Context,
+	request gen.CreateBuildPlaneRequestObject,
+) (gen.CreateBuildPlaneResponseObject, error) {
+	h.logger.Info("CreateBuildPlane called", "namespaceName", request.NamespaceName)
+
+	if request.Body == nil {
+		return gen.CreateBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	bpCR, err := convert[gen.BuildPlane, openchoreov1alpha1.BuildPlane](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert create request", "error", err)
+		return gen.CreateBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	bpCR.Status = openchoreov1alpha1.BuildPlaneStatus{}
+
+	created, err := h.buildPlaneService.CreateBuildPlane(ctx, request.NamespaceName, &bpCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.CreateBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, buildplanesvc.ErrBuildPlaneAlreadyExists) {
+			return gen.CreateBuildPlane409JSONResponse{ConflictJSONResponse: conflict("BuildPlane already exists")}, nil
+		}
+		h.logger.Error("Failed to create build plane", "error", err)
+		return gen.CreateBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genBP, err := convert[openchoreov1alpha1.BuildPlane, gen.BuildPlane](*created)
+	if err != nil {
+		h.logger.Error("Failed to convert created build plane", "error", err)
+		return gen.CreateBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("BuildPlane created successfully", "namespaceName", request.NamespaceName, "buildPlane", created.Name)
+	return gen.CreateBuildPlane201JSONResponse(genBP), nil
+}
+
 // UpdateBuildPlane replaces an existing build plane.
 func (h *Handler) UpdateBuildPlane(
 	ctx context.Context,
