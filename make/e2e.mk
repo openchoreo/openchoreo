@@ -30,7 +30,7 @@ GATEWAY_API_VERSION    ?= v1.4.1
 CERT_MANAGER_VERSION   ?= v1.19.2
 ESO_VERSION            ?= 1.3.2
 KGATEWAY_VERSION       ?= v2.1.1
-THUNDER_VERSION        ?= 0.21.0
+THUNDER_VERSION        ?= 0.23.0
 
 # Helm chart references: local chart dirs or OCI registry
 ifeq ($(E2E_HELM_SOURCE),oci)

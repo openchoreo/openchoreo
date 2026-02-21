@@ -3609,48 +3609,6 @@
       "title": "security",
       "type": "object"
     },
-    "thunder": {
-      "additionalProperties": true,
-      "description": "Asgardeo Thunder (Platform Identity Provider) configuration. Thunder is installed separately; these values configure the control plane's HTTPRoute and service reference.",
-      "properties": {
-        "enabled": {
-          "default": true,
-          "description": "Enable Thunder HTTPRoute and related resources",
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "host": {
-          "default": "thunder.openchoreo.invalid",
-          "description": "Thunder hostname for HTTPRoute",
-          "title": "host",
-          "type": "string"
-        },
-        "name": {
-          "default": "thunder-service",
-          "description": "Name of the Thunder Kubernetes Service to route traffic to",
-          "title": "name",
-          "type": "string"
-        },
-        "service": {
-          "additionalProperties": false,
-          "description": "Thunder Kubernetes service reference",
-          "properties": {
-            "port": {
-              "default": 8090,
-              "description": "Thunder service port",
-              "title": "port",
-              "type": "integer"
-            }
-          },
-          "required": [],
-          "title": "service",
-          "type": "object"
-        }
-      },
-      "required": [],
-      "title": "thunder",
-      "type": "object"
-    },
     "waitJob": {
       "additionalProperties": false,
       "description": "Wait job configuration for Helm hooks",

@@ -56,9 +56,6 @@ security:
     authorizationUrl: "http://thunder.openchoreo.localhost:8080/oauth2/authorize"
     tokenUrl: "http://thunder.openchoreo.localhost:8080/oauth2/token"
 
-thunder:
-  host: thunder.openchoreo.localhost
-
 gateway:
   httpPort: 8080
   httpsPort: 8443

@@ -155,13 +155,6 @@ This keeps resource names clean and consistent (e.g., "openchoreo-api" instead o
 {{- end }}
 
 {{/*
-Thunder resource name
-*/}}
-{{- define "openchoreo-control-plane.thunder.name" -}}
-{{- default "thunder" .Values.thunder.name }}
-{{- end }}
-
-{{/*
 Cluster Gateway resource name
 */}}
 {{- define "openchoreo-control-plane.clusterGateway.name" -}}
@@ -192,9 +185,6 @@ Validate that placeholder .invalid hostnames have been replaced with real domain
 {{- end -}}
 {{- if contains ".invalid" .Values.backstage.baseUrl -}}
   {{- $errors = append $errors "backstage.baseUrl contains placeholder domain (.invalid)" -}}
-{{- end -}}
-{{- if contains ".invalid" .Values.thunder.host -}}
-  {{- $errors = append $errors "thunder.host contains placeholder domain (.invalid)" -}}
 {{- end -}}
 {{- if and .Values.gateway.tls.enabled (contains ".invalid" .Values.gateway.tls.hostname) -}}
   {{- $errors = append $errors "gateway.tls.hostname contains placeholder domain (.invalid)" -}}

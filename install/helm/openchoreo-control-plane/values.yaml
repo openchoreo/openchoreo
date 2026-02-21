@@ -2461,46 +2461,6 @@ backstage:
 # @schema
 # type: object
 # additionalProperties: true
-# description: Asgardeo Thunder (Platform Identity Provider) configuration. Thunder is installed separately; these values configure the control plane's HTTPRoute and service reference.
-# @schema
-thunder:
-  # @schema
-  # type: string
-  # description: Name of the Thunder Kubernetes Service to route traffic to
-  # default: thunder-service
-  # @schema
-  name: thunder-service
-
-  # @schema
-  # type: boolean
-  # description: Enable Thunder HTTPRoute and related resources
-  # default: true
-  # @schema
-  enabled: true
-
-  # @schema
-  # type: string
-  # description: Thunder hostname for HTTPRoute
-  # default: thunder.openchoreo.invalid
-  # @schema
-  host: thunder.openchoreo.invalid
-
-  # @schema
-  # type: object
-  # description: Thunder Kubernetes service reference
-  # @schema
-  service:
-    # @schema
-    # type: integer
-    # description: Thunder service port
-    # default: 8090
-    # @schema
-    port: 8090
-
-
-# @schema
-# type: object
-# additionalProperties: true
 # description: Cluster Gateway configuration - manages WebSocket connections from cluster agents
 # @schema
 clusterGateway:

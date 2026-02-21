@@ -21,5 +21,4 @@ Gateway:
 
 Components:
   Backstage:  {{ ternary "enabled" "disabled" .Values.backstage.enabled }}
-  Thunder:    {{ ternary "enabled" "disabled" .Values.thunder.enabled }}
   Security:   {{ ternary "enabled" "disabled" .Values.security.enabled }}

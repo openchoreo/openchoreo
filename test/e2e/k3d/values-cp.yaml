@@ -24,9 +24,6 @@ security:
     authorizationUrl: "http://thunder.e2e-cp.local:28080/oauth2/authorize"
     tokenUrl: "http://thunder.e2e-cp.local:28080/oauth2/token"
 
-thunder:
-  host: thunder.e2e-cp.local
-
 gateway:
   httpPort: 8080
   httpsPort: 8443

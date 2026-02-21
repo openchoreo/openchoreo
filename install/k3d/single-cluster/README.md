@@ -85,7 +85,7 @@ Bootstrap scripts auto-configure the org, users, groups, and OAuth apps on first
 helm upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
   --namespace openchoreo-control-plane \
   --create-namespace \
-  --version 0.21.0 \
+  --version 0.23.0 \
   --values install/k3d/common/values-thunder.yaml
 ```
 

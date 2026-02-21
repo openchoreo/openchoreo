@@ -67,7 +67,7 @@ helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgatew
 helm upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
   --kube-context k3d-openchoreo-cp \
   --namespace openchoreo-control-plane \
-  --version 0.21.0 \
+  --version 0.23.0 \
   --values install/k3d/common/values-thunder.yaml
 ```
 

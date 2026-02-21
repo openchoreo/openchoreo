@@ -3,6 +3,19 @@
 
 fullnameOverride: thunder
 
+# Thunder v0.23.0+ manages its own HTTPRoute
+httproute:
+  enabled: true
+  parentRefs:
+    - name: gateway-default
+      namespace: openchoreo-control-plane
+  hostnames:
+    - thunder.openchoreo.localhost
+
+# Not using nginx ingress in openchoreo
+ingress:
+  enabled: false
+
 # SQLite requires a single writer pod
 deployment:
   replicaCount: 1

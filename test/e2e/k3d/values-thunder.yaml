@@ -2,6 +2,10 @@
 # Applied on top of install/k3d/common/values-thunder.yaml:
 #   helm install thunder ... -f install/k3d/common/values-thunder.yaml -f test/e2e/k3d/values-thunder.yaml
 
+httproute:
+  hostnames:
+    - thunder.e2e-cp.local
+
 configuration:
   server:
     publicUrl: "http://thunder.e2e-cp.local:28080"

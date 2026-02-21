@@ -39,9 +39,6 @@ clusterGateway:
       - cluster-gateway.openchoreo-control-plane.svc.cluster.local
       - cluster-gateway.openchoreo.localhost
 
-thunder:
-  host: thunder.openchoreo.localhost
-
 gateway:
   httpPort: 8080
   httpsPort: 8443
