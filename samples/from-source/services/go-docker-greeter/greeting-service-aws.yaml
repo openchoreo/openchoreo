@@ -1,15 +1,13 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
-  name: greeting-service-2
+  name: greeting-service
 spec:
   owner:
     projectName: default
 
   # References the ComponentType
-  componentType:
-    kind: ComponentType
-    name: deployment/service
+  componentType: deployment/service
 
   autoDeploy: true
 
@@ -24,24 +22,35 @@ spec:
         projectName: "default"
         componentName: "greeting-service"
       repository:
-        url: "https://github.com/openchoreo/sample-workloads"
+        url: "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/aws-private-repo"
         revision:
           branch: "main"
           # Optional commit hash, should be a valid git commit
           # commit: ""
-        appPath: "/service-go-greeter"
+        appPath: "."
       docker:
-        context: "/service-go-greeter"
-        filePath: "/service-go-greeter/Dockerfile"
+        context: "."
+        filePath: "./Dockerfile"
+  parameters:
+    exposed: true
+    replicas: 1
+    port: 9090
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowRun
 metadata:
-  name: greeting-service-build-03
+  name: greeting-service-build-private-basic-aws-001
   labels:
     openchoreo.dev/project: "default"
-    openchoreo.dev/component: "greeting-service-2"
+    openchoreo.dev/component: "greeting-service"
 spec:
   workflow:
     # Reference to Workflow
@@ -51,14 +60,17 @@ spec:
     parameters:
       scope:
         projectName: "default"
-        componentName: "greeting-service-2"
+        componentName: "greeting-service"
       repository:
-        url: "https://github.com/openchoreo/sample-workloads"
+        url: "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/aws-private-repo"
+        secretRef: "chalindu-working-secret-token-aws-001"
+#        url: "ssh://git-codecommit.us-east-1.amazonaws.com/v1/repos/aws-private-repo"
+#        secretRef: "chalindu-working-secret-ssh-aws-002"
         revision:
           branch: "main"
           # Optional commit hash, should be a valid git commit
           # commit: ""
-        appPath: "/service-go-greeter"
+        appPath: "."
       docker:
-        context: "/service-go-greeter"
-        filePath: "/service-go-greeter/Dockerfile"
+        context: "."
+        filePath: "./Dockerfile"

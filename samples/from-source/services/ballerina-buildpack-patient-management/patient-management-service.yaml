@@ -14,13 +14,16 @@ spec:
   # Set auto-deploy to true
   autoDeploy: true
 
-  # Component Workflow configuration (developer-provided)
+  # Workflow configuration (developer-provided)
   workflow:
-    # Reference to ComponentWorkflow
+    # Reference to Workflow
     name: ballerina-buildpack
 
-    # Required parameters required by the ComponentWorkflow
-    systemParameters:
+    # Parameters required by the Workflow
+    parameters:
+      scope:
+        projectName: "default"
+        componentName: "patient-management-service"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
@@ -31,21 +34,22 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentWorkflowRun
+kind: WorkflowRun
 metadata:
   name: patient-management-service-build-01
+  labels:
+    openchoreo.dev/project: "default"
+    openchoreo.dev/component: "patient-management-service"
 spec:
-  # Ownership tracking for the component workflow execution (required)
-  owner:
-    projectName: "default"
-    componentName: "patient-management-service"
-
   workflow:
-    # Reference to ComponentWorkflow
+    # Reference to Workflow
     name: ballerina-buildpack
 
-    # Required parameters required by the ComponentWorkflow
-    systemParameters:
+    # Parameters required by the Workflow
+    parameters:
+      scope:
+        projectName: "default"
+        componentName: "patient-management-service"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
