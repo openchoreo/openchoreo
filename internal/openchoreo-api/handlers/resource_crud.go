@@ -508,6 +508,83 @@ func (h *Handler) DeleteTraitDefinition(w http.ResponseWriter, r *http.Request) 
 
 // ========== Workflow Definition Handlers ==========
 
+// CreateWorkflowDefinition handles POST /api/v1/namespaces/{namespaceName}/workflows/definition
+func (h *Handler) CreateWorkflowDefinition(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	log := logger.GetLogger(ctx)
+
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		log.Error("Missing required path parameter", "namespaceName", namespaceName)
+		writeErrorResponse(w, http.StatusBadRequest, "namespaceName is required", services.CodeInvalidInput)
+		return
+	}
+
+	var resourceObj map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&resourceObj); err != nil {
+		log.Error("Failed to decode request body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
+		return
+	}
+
+	kind, apiVersion, name, err := validateResourceRequest(resourceObj)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	if kind != "Workflow" {
+		writeErrorResponse(w, http.StatusBadRequest, "Kind must be Workflow", services.CodeInvalidInput)
+		return
+	}
+
+	if err := h.services.WorkflowService.AuthorizeCreate(ctx, namespaceName, name); err != nil {
+		log.Warn("Authorization failed for Workflow creation", "namespace", namespaceName, "name", name, "error", err)
+		writeErrorResponse(w, http.StatusForbidden, "Not authorized to create Workflow", services.CodeForbidden)
+		return
+	}
+
+	gvk := openChoreoGVK("Workflow")
+	_, getErr := h.getResourceByGVK(ctx, gvk, namespaceName, name)
+	if getErr == nil {
+		log.Warn("Workflow already exists", "namespace", namespaceName, "name", name)
+		writeErrorResponse(w, http.StatusConflict, "Workflow already exists", services.CodeConflict)
+		return
+	}
+	if client.IgnoreNotFound(getErr) != nil {
+		log.Error("Failed to check existing Workflow", "error", getErr)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to check existing Workflow", services.CodeInternalError)
+		return
+	}
+
+	unstructuredObj := &unstructured.Unstructured{Object: resourceObj}
+	unstructuredObj.SetNamespace(namespaceName)
+
+	if err := h.handleResourceNamespace(unstructuredObj, apiVersion, kind); err != nil {
+		log.Error("Failed to handle resource namespace", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Failed to handle resource namespace: "+err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	operation, err := h.applyToKubernetes(ctx, unstructuredObj)
+	if err != nil {
+		log.Error("Failed to create Workflow", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create Workflow: "+err.Error(), services.CodeInternalError)
+		return
+	}
+
+	response := ResourceCRUDResponse{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Name:       name,
+		Namespace:  namespaceName,
+		Operation:  operation,
+	}
+
+	log.Info("Workflow created successfully", "namespace", namespaceName, "name", name, "operation", operation)
+	writeSuccessResponse(w, http.StatusCreated, response)
+}
+
 // GetWorkflowDefinition handles GET /api/v1/namespaces/{namespaceName}/workflows/{workflowName}/definition
 func (h *Handler) GetWorkflowDefinition(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -637,225 +714,6 @@ func (h *Handler) DeleteWorkflowDefinition(w http.ResponseWriter, r *http.Reques
 	}
 
 	log.Info("Workflow deleted", "namespace", namespaceName, "name", workflowName, "operation", operation)
-	writeSuccessResponse(w, http.StatusOK, response)
-}
-
-// ========== ComponentWorkflow Definition Handlers ==========
-
-// CreateComponentWorkflowDefinition handles POST /api/v1/namespaces/{namespaceName}/component-workflows/definition
-func (h *Handler) CreateComponentWorkflowDefinition(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	log := logger.GetLogger(ctx)
-
-	namespaceName := r.PathValue("namespaceName")
-	if namespaceName == "" {
-		log.Error("Missing required path parameter", "namespaceName", namespaceName)
-		writeErrorResponse(w, http.StatusBadRequest, "namespaceName is required", services.CodeInvalidInput)
-		return
-	}
-
-	var resourceObj map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&resourceObj); err != nil {
-		log.Error("Failed to decode request body", "error", err)
-		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
-		return
-	}
-
-	// Validate the resource
-	kind, apiVersion, name, err := validateResourceRequest(resourceObj)
-	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
-		return
-	}
-
-	// Validate kind matches
-	if kind != "ComponentWorkflow" {
-		writeErrorResponse(w, http.StatusBadRequest, "Kind must be ComponentWorkflow", services.CodeInvalidInput)
-		return
-	}
-
-	// Authorize the create operation
-	if err := h.services.ComponentWorkflowService.AuthorizeCreate(ctx, namespaceName, name); err != nil {
-		log.Warn("Authorization failed for ComponentWorkflow creation", "namespace", namespaceName, "name", name, "error", err)
-		writeErrorResponse(w, http.StatusForbidden, "Not authorized to create ComponentWorkflow", services.CodeForbidden)
-		return
-	}
-
-	// Check if the resource already exists
-	gvk := openChoreoGVK("ComponentWorkflow")
-	_, getErr := h.getResourceByGVK(ctx, gvk, namespaceName, name)
-	if getErr == nil {
-		log.Warn("ComponentWorkflow already exists", "namespace", namespaceName, "name", name)
-		writeErrorResponse(w, http.StatusConflict, "ComponentWorkflow already exists", services.CodeConflict)
-		return
-	}
-	if client.IgnoreNotFound(getErr) != nil {
-		log.Error("Failed to check existing ComponentWorkflow", "error", getErr)
-		writeErrorResponse(w, http.StatusInternalServerError, "Failed to check existing ComponentWorkflow", services.CodeInternalError)
-		return
-	}
-
-	unstructuredObj := &unstructured.Unstructured{Object: resourceObj}
-
-	// Set namespace from URL
-	unstructuredObj.SetNamespace(namespaceName)
-
-	// Handle namespace logic
-	if err := h.handleResourceNamespace(unstructuredObj, apiVersion, kind); err != nil {
-		log.Error("Failed to handle resource namespace", "error", err)
-		writeErrorResponse(w, http.StatusBadRequest, "Failed to handle resource namespace: "+err.Error(), services.CodeInvalidInput)
-		return
-	}
-
-	// Apply the resource
-	operation, err := h.applyToKubernetes(ctx, unstructuredObj)
-	if err != nil {
-		log.Error("Failed to create ComponentWorkflow", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create ComponentWorkflow: "+err.Error(), services.CodeInternalError)
-		return
-	}
-
-	response := ResourceCRUDResponse{
-		APIVersion: apiVersion,
-		Kind:       kind,
-		Name:       name,
-		Namespace:  namespaceName,
-		Operation:  operation,
-	}
-
-	log.Info("ComponentWorkflow created successfully", "namespace", namespaceName, "name", name, "operation", operation)
-	writeSuccessResponse(w, http.StatusCreated, response)
-}
-
-// GetComponentWorkflowDefinition handles GET /api/v1/namespaces/{namespaceName}/component-workflows/{cwName}/definition
-func (h *Handler) GetComponentWorkflowDefinition(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	log := logger.GetLogger(ctx)
-
-	namespaceName := r.PathValue("namespaceName")
-	cwName := r.PathValue("cwName")
-
-	if namespaceName == "" || cwName == "" {
-		log.Warn("Missing required path parameters", "namespaceName", namespaceName, "cwName", cwName)
-		writeErrorResponse(w, http.StatusBadRequest, "namespaceName and cwName are required", services.CodeInvalidInput)
-		return
-	}
-
-	gvk := openChoreoGVK("ComponentWorkflow")
-	obj, err := h.getResourceByGVK(ctx, gvk, namespaceName, cwName)
-	if err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			log.Warn("ComponentWorkflow not found", "namespace", namespaceName, "name", cwName)
-			writeErrorResponse(w, http.StatusNotFound, "ComponentWorkflow not found", services.CodeNotFound)
-			return
-		}
-		log.Error("Failed to get ComponentWorkflow", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get ComponentWorkflow", services.CodeInternalError)
-		return
-	}
-
-	log.Debug("Retrieved ComponentWorkflow definition", "namespace", namespaceName, "name", cwName)
-	writeSuccessResponse(w, http.StatusOK, obj.Object)
-}
-
-// UpdateComponentWorkflowDefinition handles PUT /api/v1/namespaces/{namespaceName}/component-workflows/{cwName}/definition
-func (h *Handler) UpdateComponentWorkflowDefinition(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	log := logger.GetLogger(ctx)
-
-	namespaceName := r.PathValue("namespaceName")
-	cwName := r.PathValue("cwName")
-
-	if namespaceName == "" || cwName == "" {
-		log.Warn("Missing required path parameters", "namespaceName", namespaceName, "cwName", cwName)
-		writeErrorResponse(w, http.StatusBadRequest, "namespaceName and cwName are required", services.CodeInvalidInput)
-		return
-	}
-
-	var resourceObj map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&resourceObj); err != nil {
-		log.Error("Failed to decode request body", "error", err)
-		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
-		return
-	}
-
-	kind, apiVersion, name, err := validateResourceRequest(resourceObj)
-	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
-		return
-	}
-
-	if kind != "ComponentWorkflow" {
-		writeErrorResponse(w, http.StatusBadRequest, "Kind must be ComponentWorkflow", services.CodeInvalidInput)
-		return
-	}
-
-	if name != cwName {
-		writeErrorResponse(w, http.StatusBadRequest, "Resource name does not match URL", services.CodeInvalidInput)
-		return
-	}
-
-	unstructuredObj := &unstructured.Unstructured{Object: resourceObj}
-	unstructuredObj.SetNamespace(namespaceName)
-
-	if err := h.handleResourceNamespace(unstructuredObj, apiVersion, kind); err != nil {
-		log.Error("Failed to handle resource namespace", "error", err)
-		writeErrorResponse(w, http.StatusBadRequest, "Failed to handle resource namespace: "+err.Error(), services.CodeInvalidInput)
-		return
-	}
-
-	operation, err := h.applyToKubernetes(ctx, unstructuredObj)
-	if err != nil {
-		log.Error("Failed to apply ComponentWorkflow", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "Failed to apply ComponentWorkflow: "+err.Error(), services.CodeInternalError)
-		return
-	}
-
-	response := ResourceCRUDResponse{
-		APIVersion: apiVersion,
-		Kind:       kind,
-		Name:       name,
-		Namespace:  namespaceName,
-		Operation:  operation,
-	}
-
-	log.Info("ComponentWorkflow applied successfully", "namespace", namespaceName, "name", cwName, "operation", operation)
-	writeSuccessResponse(w, http.StatusOK, response)
-}
-
-// DeleteComponentWorkflowDefinition handles DELETE /api/v1/namespaces/{namespaceName}/component-workflows/{cwName}/definition
-func (h *Handler) DeleteComponentWorkflowDefinition(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	log := logger.GetLogger(ctx)
-
-	namespaceName := r.PathValue("namespaceName")
-	cwName := r.PathValue("cwName")
-
-	if namespaceName == "" || cwName == "" {
-		log.Warn("Missing required path parameters", "namespaceName", namespaceName, "cwName", cwName)
-		writeErrorResponse(w, http.StatusBadRequest, "namespaceName and cwName are required", services.CodeInvalidInput)
-		return
-	}
-
-	gvk := openChoreoGVK("ComponentWorkflow")
-	obj := buildUnstructuredRef(gvk, namespaceName, cwName)
-
-	operation, err := h.deleteFromKubernetes(ctx, obj)
-	if err != nil {
-		log.Error("Failed to delete ComponentWorkflow", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "Failed to delete ComponentWorkflow: "+err.Error(), services.CodeInternalError)
-		return
-	}
-
-	response := ResourceCRUDResponse{
-		APIVersion: gvk.GroupVersion().String(),
-		Kind:       gvk.Kind,
-		Name:       cwName,
-		Namespace:  namespaceName,
-		Operation:  operation,
-	}
-
-	log.Info("ComponentWorkflow deleted", "namespace", namespaceName, "name", cwName, "operation", operation)
 	writeSuccessResponse(w, http.StatusOK, response)
 }
 

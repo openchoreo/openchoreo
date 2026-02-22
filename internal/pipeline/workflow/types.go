@@ -63,4 +63,38 @@ type WorkflowContext struct {
 
 	// WorkflowRunName is the name of the workflow run CR.
 	WorkflowRunName string
+
+	// SecretRef contains resolved SecretReference data for template rendering.
+	// This is optional and populated only when workflow annotations map a secretRef parameter.
+	SecretRef *SecretRefInfo
+}
+
+// SecretRefInfo contains resolved SecretReference details exposed to CEL as secretRef.*.
+type SecretRefInfo struct {
+	// Name is the SecretReference resource name.
+	Name string
+
+	// Type is the Kubernetes secret type from SecretReference.spec.template.type.
+	Type string
+
+	// Data contains key-to-remote reference mappings from SecretReference.spec.data.
+	Data []SecretDataInfo
+}
+
+// SecretDataInfo represents a single SecretReference data item.
+type SecretDataInfo struct {
+	// SecretKey is the key name in the resulting Kubernetes Secret.
+	SecretKey string
+
+	// RemoteRef points to the backing external secret.
+	RemoteRef RemoteRefInfo
+}
+
+// RemoteRefInfo represents a remote secret reference.
+type RemoteRefInfo struct {
+	// Key is the remote secret key/path.
+	Key string
+
+	// Property is the optional field in the remote secret value.
+	Property string
 }

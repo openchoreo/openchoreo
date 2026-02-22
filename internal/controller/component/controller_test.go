@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 )
 
 var _ = Describe("Component Controller", func() {
@@ -47,19 +48,7 @@ var _ = Describe("Component Controller", func() {
 							Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
 							Name: "deployment/service",
 						},
-						Workflow: &openchoreov1alpha1.ComponentWorkflowRunConfig{
-							Name: "test-workflow",
-							SystemParameters: openchoreov1alpha1.SystemParametersValues{
-								Repository: openchoreov1alpha1.RepositoryValues{
-									URL: "https://github.com/test/repo",
-									Revision: openchoreov1alpha1.RepositoryRevisionValues{
-										Branch: "main",
-										Commit: "",
-									},
-									AppPath: ".",
-								},
-							},
-						},
+						Workflow: &openchoreov1alpha1.WorkflowRunConfig{Name: "test-workflow"},
 					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
@@ -447,28 +436,19 @@ var _ = Describe("Component Controller Finalization", func() {
 			}
 			Expect(k8sClient.Create(ctx, workload)).To(Succeed())
 
-			By("Creating an owned ComponentWorkflowRun")
-			workflowRun := &openchoreov1alpha1.ComponentWorkflowRun{
+			By("Creating an owned WorkflowRun")
+			workflowRun := &openchoreov1alpha1.WorkflowRun{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      workflowRunName,
 					Namespace: namespace,
-				},
-				Spec: openchoreov1alpha1.ComponentWorkflowRunSpec{
-					Owner: openchoreov1alpha1.ComponentWorkflowOwner{
-						ProjectName:   projectName,
-						ComponentName: compName,
+					Labels: map[string]string{
+						ocLabels.LabelKeyProjectName:   projectName,
+						ocLabels.LabelKeyComponentName: compName,
 					},
-					Workflow: openchoreov1alpha1.ComponentWorkflowRunConfig{
+				},
+				Spec: openchoreov1alpha1.WorkflowRunSpec{
+					Workflow: openchoreov1alpha1.WorkflowRunConfig{
 						Name: "test-workflow",
-						SystemParameters: openchoreov1alpha1.SystemParametersValues{
-							Repository: openchoreov1alpha1.RepositoryValues{
-								URL: "https://github.com/test/repo",
-								Revision: openchoreov1alpha1.RepositoryRevisionValues{
-									Branch: "main",
-								},
-								AppPath: ".",
-							},
-						},
 					},
 				},
 			}
@@ -535,7 +515,7 @@ var _ = Describe("Component Controller Finalization", func() {
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 			err = k8sClient.Get(ctx, workloadNamespacedName, &openchoreov1alpha1.Workload{})
 			Expect(errors.IsNotFound(err)).To(BeTrue())
-			err = k8sClient.Get(ctx, workflowRunNamespacedName, &openchoreov1alpha1.ComponentWorkflowRun{})
+			err = k8sClient.Get(ctx, workflowRunNamespacedName, &openchoreov1alpha1.WorkflowRun{})
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 			err = k8sClient.Get(ctx, compNamespacedName, &openchoreov1alpha1.Component{})
 			Expect(errors.IsNotFound(err)).To(BeTrue())

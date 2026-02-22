@@ -290,38 +290,11 @@ func (m *MockCoreToolsetHandler) PatchComponent(
 	return `{"name":"patched-component"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) ListComponentWorkflows(ctx context.Context, namespaceName string) (any, error) {
-	m.recordCall("ListComponentWorkflows", namespaceName)
-	return `[{"name":"build-workflow"}]`, nil
-}
-
-func (m *MockCoreToolsetHandler) GetComponentWorkflowSchema(
-	ctx context.Context, namespaceName, cwName string,
-) (any, error) {
-	m.recordCall("GetComponentWorkflowSchema", namespaceName, cwName)
-	return emptyObjectSchema, nil
-}
-
-func (m *MockCoreToolsetHandler) TriggerComponentWorkflow(
+func (m *MockCoreToolsetHandler) TriggerWorkflowRunForComponent(
 	ctx context.Context, namespaceName, projectName, componentName, commit string,
 ) (any, error) {
-	m.recordCall("TriggerComponentWorkflow", namespaceName, projectName, componentName, commit)
-	return `{"runId":"workflow-run-1","status":"Running"}`, nil
-}
-
-func (m *MockCoreToolsetHandler) ListComponentWorkflowRuns(
-	ctx context.Context, namespaceName, projectName, componentName string,
-) (any, error) {
-	m.recordCall("ListComponentWorkflowRuns", namespaceName, projectName, componentName)
-	return `[{"runId":"workflow-run-1","status":"Completed"}]`, nil
-}
-
-func (m *MockCoreToolsetHandler) UpdateComponentWorkflowSchema(
-	ctx context.Context, namespaceName, projectName, componentName string,
-	req *models.UpdateComponentWorkflowRequest,
-) (any, error) {
-	m.recordCall("UpdateComponentWorkflowSchema", namespaceName, projectName, componentName, req)
-	return `{"name":"component-1","workflowSchema":{}}`, nil
+	m.recordCall("TriggerWorkflowRunForComponent", namespaceName, projectName, componentName, commit)
+	return `{"name":"my-component-workflow-abcd1234","status":"Running"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) ListComponentTypes(ctx context.Context, namespaceName string) (any, error) {
@@ -346,6 +319,41 @@ func (m *MockCoreToolsetHandler) GetWorkflowSchema(
 ) (any, error) {
 	m.recordCall("GetWorkflowSchema", namespaceName, workflowName)
 	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateWorkflowRun(
+	ctx context.Context, namespaceName string, req *models.CreateWorkflowRunRequest,
+) (any, error) {
+	m.recordCall("CreateWorkflowRun", namespaceName, req)
+	return `{"name":"workflow-run-1","status":"Pending"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) ListWorkflowRuns(
+	ctx context.Context, namespaceName, projectName, componentName string,
+) (any, error) {
+	m.recordCall("ListWorkflowRuns", namespaceName, projectName, componentName)
+	return `[{"name":"workflow-run-1","status":"Running"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetWorkflowRun(
+	ctx context.Context, namespaceName, runName string,
+) (any, error) {
+	m.recordCall("GetWorkflowRun", namespaceName, runName)
+	return `{"name":"workflow-run-1","status":"Succeeded"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetWorkflowRunLogs(
+	ctx context.Context, namespaceName, runName, stepName string, sinceSeconds *int64,
+) (any, error) {
+	m.recordCall("GetWorkflowRunLogs", namespaceName, runName, stepName, sinceSeconds)
+	return `[{"timestamp":"2026-02-20T10:00:00Z","log":"build started"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetWorkflowRunEvents(
+	ctx context.Context, namespaceName, runName, stepName string,
+) (any, error) {
+	m.recordCall("GetWorkflowRunEvents", namespaceName, runName, stepName)
+	return `[{"timestamp":"2026-02-20T10:00:01Z","type":"Normal","reason":"Scheduled","message":"Pod scheduled"}]`, nil
 }
 
 func (m *MockCoreToolsetHandler) ListTraits(ctx context.Context, namespaceName string) (any, error) {

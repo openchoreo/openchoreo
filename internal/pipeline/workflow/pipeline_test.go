@@ -1117,6 +1117,121 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 	}
 }
 
+func TestPipeline_Render_SecretRefContextVariables(t *testing.T) {
+	t.Run("secretRef context variables rendered correctly", func(t *testing.T) {
+		input := &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name: "test-workflow",
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				Spec: v1alpha1.WorkflowSpec{
+					RunTemplate: mustRawExtension(t, map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "ConfigMap",
+						"metadata": map[string]interface{}{
+							"name": "secret-context-test",
+						},
+						"data": map[string]interface{}{
+							"secret_name":       "${secretRef.name}",
+							"secret_type":       "${secretRef.type}",
+							"first_secret_key":  "${secretRef.data[0].secretKey}",
+							"first_remote_key":  "${secretRef.data[0].remoteRef.key}",
+							"first_remote_prop": "${secretRef.data[0].remoteRef.property}",
+						},
+					}),
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "test-namespace",
+				WorkflowRunName: "test-run",
+				SecretRef: &SecretRefInfo{
+					Name: "repo-git-secret",
+					Type: "kubernetes.io/basic-auth",
+					Data: []SecretDataInfo{
+						{
+							SecretKey: "username",
+							RemoteRef: RemoteRefInfo{
+								Key:      "secret/data/repo-creds",
+								Property: "username",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		output, err := NewPipeline().Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		data := output.Resource["data"].(map[string]interface{})
+		if data["secret_name"] != "repo-git-secret" {
+			t.Errorf("expected secret_name 'repo-git-secret', got %v", data["secret_name"])
+		}
+		if data["secret_type"] != "kubernetes.io/basic-auth" {
+			t.Errorf("expected secret_type 'kubernetes.io/basic-auth', got %v", data["secret_type"])
+		}
+		if data["first_secret_key"] != "username" {
+			t.Errorf("expected first_secret_key 'username', got %v", data["first_secret_key"])
+		}
+		if data["first_remote_key"] != "secret/data/repo-creds" {
+			t.Errorf("expected first_remote_key 'secret/data/repo-creds', got %v", data["first_remote_key"])
+		}
+		if data["first_remote_prop"] != "username" {
+			t.Errorf("expected first_remote_prop 'username', got %v", data["first_remote_prop"])
+		}
+	})
+
+	t.Run("secretRef context defaults to empty values when absent", func(t *testing.T) {
+		input := &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name: "test-workflow",
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				Spec: v1alpha1.WorkflowSpec{
+					RunTemplate: mustRawExtension(t, map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "ConfigMap",
+						"metadata": map[string]interface{}{
+							"name": "secret-context-defaults-test",
+						},
+						"data": map[string]interface{}{
+							"secret_name": "${secretRef.name}",
+							"secret_type": "${secretRef.type}",
+						},
+					}),
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "test-namespace",
+				WorkflowRunName: "test-run",
+			},
+		}
+
+		output, err := NewPipeline().Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		data := output.Resource["data"].(map[string]interface{})
+		if data["secret_name"] != "" {
+			t.Errorf("expected empty secret_name, got %v", data["secret_name"])
+		}
+		if data["secret_type"] != "" {
+			t.Errorf("expected empty secret_type, got %v", data["secret_type"])
+		}
+	})
+}
+
 func TestPipeline_Render_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name    string

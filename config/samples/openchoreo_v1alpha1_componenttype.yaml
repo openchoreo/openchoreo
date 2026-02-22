@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: componenttype-sample
 spec:
-  # Restrict which component-workflows developers can use for this component type
+  # Restrict which workflows developers can use for this component type
   allowedWorkflows:
     - name: workflow-sample
 

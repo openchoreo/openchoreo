@@ -21,8 +21,6 @@ resources:
   - bases/openchoreo.dev_secretreferences.yaml
   - bases/openchoreo.dev_componentreleases.yaml
   - bases/openchoreo.dev_releasebindings.yaml
-  - bases/openchoreo.dev_componentworkflows.yaml
-  - bases/openchoreo.dev_componentworkflowruns.yaml
   - bases/openchoreo.dev_observabilityplanes.yaml
   - bases/openchoreo.dev_observabilityalertsnotificationchannels.yaml
   - bases/openchoreo.dev_observabilityalertrules.yaml

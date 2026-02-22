@@ -104,7 +104,7 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 			},
 			"workflow": map[string]any{
 				"type":        "object",
-				"description": "Optional: Component workflow configuration with name, systemParameters, and parameters",
+				"description": "Optional: Component workflow configuration with name and parameters",
 			},
 		}, []string{"namespace_name", "project_name", "name", "componentType"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
@@ -163,32 +163,6 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 			workflow := &models.ComponentWorkflow{}
 			if name, ok := args.Workflow["name"].(string); ok {
 				workflow.Name = name
-			}
-
-			// Convert systemParameters if provided
-			if systemParams, ok := args.Workflow["systemParameters"].(map[string]interface{}); ok {
-				systemParamsModel := &models.ComponentWorkflowSystemParams{}
-				if repo, ok := systemParams["repository"].(map[string]interface{}); ok {
-					repoParams := models.ComponentWorkflowRepository{}
-					if url, ok := repo["url"].(string); ok {
-						repoParams.URL = url
-					}
-					if appPath, ok := repo["appPath"].(string); ok {
-						repoParams.AppPath = appPath
-					}
-					if revision, ok := repo["revision"].(map[string]interface{}); ok {
-						revParams := models.ComponentWorkflowRepositoryRevision{}
-						if branch, ok := revision["branch"].(string); ok {
-							revParams.Branch = branch
-						}
-						if commit, ok := revision["commit"].(string); ok {
-							revParams.Commit = commit
-						}
-						repoParams.Revision = revParams
-					}
-					systemParamsModel.Repository = repoParams
-				}
-				workflow.SystemParameters = systemParamsModel
 			}
 
 			// Convert parameters if provided
@@ -735,51 +709,16 @@ func (t *Toolsets) RegisterPatchComponent(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListComponentWorkflows(s *mcp.Server) {
+func (t *Toolsets) RegisterTriggerWorkflowRunForComponent(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_component_workflows",
-		Description: "List all available ComponentWorkflow templates in an namespace. ComponentWorkflows are " +
-			"reusable workflow definitions (like CI/CD pipelines, build processes) that can be triggered for components.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-		}, []string{"namespace_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListComponentWorkflows(ctx, args.NamespaceName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetComponentWorkflowSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_workflow_schema",
-		Description: "Get the schema definition for a ComponentWorkflow template. Returns the JSON schema showing " +
-			"workflow configuration options, required fields, and their types.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"cwName":         stringProperty("ComponentWorkflow name. Use list_component_workflows to discover valid names"),
-		}, []string{"namespace_name", "cwName"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		CwName        string `json:"cwName"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetComponentWorkflowSchema(ctx, args.NamespaceName, args.CwName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterTriggerComponentWorkflow(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "trigger_component_workflow",
-		Description: "Trigger a new workflow run for a component (e.g., build, test, deploy pipeline). " +
-			"Optionally specify a git commit SHA to build from a specific commit. If no commit is provided, " +
-			"the latest commit from the default branch will be used.",
+		Name: "trigger_component_workflow_run",
+		Description: "Trigger a workflow run for a component using the component's configured workflow and " +
+			"parameters. Optionally override commit SHA when the workflow supports a commit parameter mapping.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
 			"component_name": stringProperty("Use list_components to discover valid names"),
-			"commit":         stringProperty("Optional: Git commit SHA (7-40 hex characters) to build from"),
+			"commit":         stringProperty("Optional: Git commit SHA (7-40 hex characters)"),
 		}, []string{"namespace_name", "project_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
@@ -787,110 +726,8 @@ func (t *Toolsets) RegisterTriggerComponentWorkflow(s *mcp.Server) {
 		ComponentName string `json:"component_name"`
 		Commit        string `json:"commit"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.TriggerComponentWorkflow(
+		result, err := t.ComponentToolset.TriggerWorkflowRunForComponent(
 			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.Commit)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterListComponentWorkflowRuns(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_component_workflow_runs",
-		Description: "List all workflow runs (executions) for a specific component. Shows the history of builds, " +
-			"tests, and other workflow executions with their status, timestamps, and results.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"project_name":   defaultStringProperty(),
-			"component_name": stringProperty("Use list_components to discover valid names"),
-		}, []string{"namespace_name", "project_name", "component_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		ProjectName   string `json:"project_name"`
-		ComponentName string `json:"component_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListComponentWorkflowRuns(
-			ctx, args.NamespaceName, args.ProjectName, args.ComponentName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterUpdateComponentWorkflowSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_component_workflow_schema",
-		Description: "Update or initialize the workflow schema configuration for a specific component. " +
-			"This allows customizing workflow behavior, build settings, and other component-specific workflow " +
-			"parameters. If the component doesn't have a workflow, provide workflow_name to initialize it.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"project_name":   defaultStringProperty(),
-			"component_name": stringProperty("Use list_components to discover valid names"),
-			"workflow_name": map[string]any{
-				"type":        "string",
-				"description": "Optional: Workflow name (required when initializing workflow on component that doesn't have one)",
-			},
-			"system_parameters": map[string]any{
-				"type":        "object",
-				"description": "Optional: System parameters including repository URL, revision (branch/commit), and app path",
-			},
-			"parameters": map[string]any{
-				"type":        "object",
-				"description": "Optional: Developer-defined workflow parameters (must match ComponentWorkflow schema)",
-			},
-		}, []string{"namespace_name", "project_name", "component_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName    string                 `json:"namespace_name"`
-		ProjectName      string                 `json:"project_name"`
-		ComponentName    string                 `json:"component_name"`
-		WorkflowName     string                 `json:"workflow_name"`
-		SystemParameters map[string]interface{} `json:"system_parameters"`
-		Parameters       map[string]interface{} `json:"parameters"`
-	}) (*mcp.CallToolResult, any, error) {
-		updateReq := &models.UpdateComponentWorkflowRequest{
-			WorkflowName: args.WorkflowName,
-		}
-
-		// Convert system_parameters if provided
-		if args.SystemParameters != nil {
-			systemParams := &models.ComponentWorkflowSystemParams{}
-			if repo, ok := args.SystemParameters["repository"].(map[string]interface{}); ok {
-				repoParams := models.ComponentWorkflowRepository{}
-				if url, ok := repo["url"].(string); ok {
-					repoParams.URL = url
-				}
-				if appPath, ok := repo["appPath"].(string); ok {
-					repoParams.AppPath = appPath
-				}
-				if revision, ok := repo["revision"].(map[string]interface{}); ok {
-					revParams := models.ComponentWorkflowRepositoryRevision{}
-					if branch, ok := revision["branch"].(string); ok {
-						revParams.Branch = branch
-					}
-					if commit, ok := revision["commit"].(string); ok {
-						revParams.Commit = commit
-					}
-					repoParams.Revision = revParams
-				}
-				systemParams.Repository = repoParams
-			}
-			updateReq.SystemParameters = systemParams
-		}
-
-		// Convert parameters if provided (as RawExtension)
-		if args.Parameters != nil {
-			rawParams, err := json.Marshal(args.Parameters)
-			if err != nil {
-				return &mcp.CallToolResult{
-					Content: []mcp.Content{
-						&mcp.TextContent{Text: "Failed to marshal parameters: " + err.Error()},
-					},
-					IsError: true,
-				}, nil, nil
-			}
-			updateReq.Parameters = &runtime.RawExtension{Raw: rawParams}
-		}
-
-		result, err := t.ComponentToolset.UpdateComponentWorkflowSchema(
-			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, updateReq)
 		return handleToolResult(result, err)
 	})
 }

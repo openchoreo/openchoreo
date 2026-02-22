@@ -14,6 +14,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
@@ -27,8 +28,8 @@ const (
 	workloadOwnerIndex = "spec.owner"
 	// releaseBindingIndex is the field index name for ReleaseBinding owner fields and environment
 	releaseBindingIndex = "spec.owner.projectName/spec.owner.componentName/spec.environment"
-	// componentWorkflowRunOwnerIndex is the field index name for ComponentWorkflowRun owner references
-	componentWorkflowRunOwnerIndex = "spec.owner.componentName"
+	// workflowRunOwnerIndex is the field index name for WorkflowRun owner references
+	workflowRunOwnerIndex = "metadata.labels.openchoreo.dev/component"
 )
 
 // makeReleaseBindingIndexKey creates the index key for ReleaseBinding lookups.
@@ -116,16 +117,17 @@ func (r *Reconciler) setupComponentReleaseOwnerIndex(ctx context.Context, mgr ct
 		})
 }
 
-// setupComponentWorkflowRunOwnerIndex registers an index for ComponentWorkflowRun by owner component name.
-// This enables efficient lookup of ComponentWorkflowRuns owned by a specific Component.
-func (r *Reconciler) setupComponentWorkflowRunOwnerIndex(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ComponentWorkflowRun{},
-		componentWorkflowRunOwnerIndex, func(obj client.Object) []string {
-			workflowRun := obj.(*openchoreov1alpha1.ComponentWorkflowRun)
-			if workflowRun.Spec.Owner.ComponentName == "" {
+// setupWorkflowRunOwnerIndex registers an index for WorkflowRun by owner component label.
+// This enables efficient lookup of WorkflowRuns created for a specific Component.
+func (r *Reconciler) setupWorkflowRunOwnerIndex(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.WorkflowRun{},
+		workflowRunOwnerIndex, func(obj client.Object) []string {
+			workflowRun := obj.(*openchoreov1alpha1.WorkflowRun)
+			componentName := workflowRun.Labels[ocLabels.LabelKeyComponentName]
+			if componentName == "" {
 				return nil
 			}
-			return []string{workflowRun.Spec.Owner.ComponentName}
+			return []string{componentName}
 		})
 }
 
@@ -236,16 +238,16 @@ func (r *Reconciler) listComponentsUsingClusterTrait(ctx context.Context, obj cl
 	return requests
 }
 
-// listComponentsForComponentWorkflow returns reconcile requests for all Components using this ComponentWorkflow
-func (r *Reconciler) listComponentsForComponentWorkflow(ctx context.Context, obj client.Object) []reconcile.Request {
-	workflow := obj.(*openchoreov1alpha1.ComponentWorkflow)
+// listComponentsForWorkflow returns reconcile requests for all Components using this Workflow.
+func (r *Reconciler) listComponentsForWorkflow(ctx context.Context, obj client.Object) []reconcile.Request {
+	workflow := obj.(*openchoreov1alpha1.Workflow)
 
 	var components openchoreov1alpha1.ComponentList
 	if err := r.List(ctx, &components,
 		client.InNamespace(workflow.Namespace),
 		client.MatchingFields{workflowIndex: workflow.Name}); err != nil {
 		logger := ctrl.LoggerFrom(ctx)
-		logger.Error(err, "Failed to list components for ComponentWorkflow", "workflow", workflow.Name)
+		logger.Error(err, "Failed to list components for Workflow", "workflow", workflow.Name)
 		return nil
 	}
 
@@ -302,15 +304,16 @@ func (r *Reconciler) findComponentsForReleaseBinding(ctx context.Context, obj cl
 	}}
 }
 
-// findComponentsForComponentWorkflowRun maps a ComponentWorkflowRun to its owner Component
-func (r *Reconciler) findComponentsForComponentWorkflowRun(ctx context.Context, obj client.Object) []ctrl.Request {
-	workflowRun := obj.(*openchoreov1alpha1.ComponentWorkflowRun)
-	if workflowRun.Spec.Owner.ComponentName == "" {
+// findComponentsForWorkflowRun maps a WorkflowRun to its owner Component.
+func (r *Reconciler) findComponentsForWorkflowRun(ctx context.Context, obj client.Object) []ctrl.Request {
+	workflowRun := obj.(*openchoreov1alpha1.WorkflowRun)
+	componentName := workflowRun.Labels[ocLabels.LabelKeyComponentName]
+	if componentName == "" {
 		return nil
 	}
 	return []ctrl.Request{{
 		NamespacedName: types.NamespacedName{
-			Name:      workflowRun.Spec.Owner.ComponentName,
+			Name:      componentName,
 			Namespace: workflowRun.Namespace,
 		},
 	}}

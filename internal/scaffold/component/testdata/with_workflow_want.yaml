@@ -21,7 +21,7 @@ spec:
 
   # Workflow configuration for building this component
   workflow:
-    name: docker-build # ComponentWorkflow to use for builds
+    name: docker-build # Workflow to use for builds
     parameters:
       buildArgs: # Build arguments
         key1: example
@@ -30,11 +30,3 @@ spec:
       # Defaults: Uncomment to customize
       # context: . # Docker build context
       # dockerfile: ./Dockerfile # Path to Dockerfile
-
-    # System parameters for workflow execution
-    systemParameters:
-      repository:
-        url: <TODO_REPOSITORY_URL> # Git repository URL
-        revision:
-          branch: <TODO_BRANCH> # Git branch to build from
-        appPath: <TODO_APP_PATH> # Path to application code within repository

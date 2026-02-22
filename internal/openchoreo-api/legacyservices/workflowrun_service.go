@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -26,7 +27,9 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -61,13 +64,53 @@ func NewWorkflowRunService(k8sClient client.Client, logger *slog.Logger, authzPD
 	}
 }
 
-// ListWorkflowRuns lists all WorkflowRuns in the given namespace
-func (s *WorkflowRunService) ListWorkflowRuns(ctx context.Context, namespaceName string) ([]*models.WorkflowRunResponse, error) {
-	s.logger.Debug("Listing WorkflowRuns", "namespace", namespaceName)
+// AuthorizeView checks if the caller has permission to view WorkflowRuns.
+func (s *WorkflowRunService) AuthorizeView(ctx context.Context, namespaceName, projectName, componentName string) error {
+	hierarchy := authz.ResourceHierarchy{Namespace: namespaceName}
+	if projectName != "" {
+		hierarchy.Project = projectName
+	}
+	if componentName != "" {
+		hierarchy.Component = componentName
+	}
+	return checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflowRun,
+		ResourceTypeWorkflowRun, "", hierarchy)
+}
+
+// AuthorizeCreate checks if the caller has permission to create a WorkflowRun.
+// It uses labels (project, component) from the request body to build the resource hierarchy.
+func (s *WorkflowRunService) AuthorizeCreate(ctx context.Context, namespaceName, projectName, componentName string) error {
+	hierarchy := authz.ResourceHierarchy{Namespace: namespaceName}
+	if projectName != "" {
+		hierarchy.Project = projectName
+	}
+	if componentName != "" {
+		hierarchy.Component = componentName
+	}
+	return checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateWorkflowRun,
+		ResourceTypeWorkflowRun, "", hierarchy)
+}
+
+// ListWorkflowRuns lists all WorkflowRuns in the given namespace.
+// Optional projectName and componentName parameters filter by labels.
+func (s *WorkflowRunService) ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string) ([]*models.WorkflowRunResponse, error) {
+	s.logger.Debug("Listing WorkflowRuns", "namespace", namespaceName, "project", projectName, "component", componentName)
 
 	var wfRunList openchoreov1alpha1.WorkflowRunList
 	listOpts := []client.ListOption{
 		client.InNamespace(namespaceName),
+	}
+
+	// Add label-based filtering if project or component specified
+	labelSelector := make(map[string]string)
+	if projectName != "" {
+		labelSelector[ocLabels.LabelKeyProjectName] = projectName
+	}
+	if componentName != "" {
+		labelSelector[ocLabels.LabelKeyComponentName] = componentName
+	}
+	if len(labelSelector) > 0 {
+		listOpts = append(listOpts, client.MatchingLabels(labelSelector))
 	}
 
 	if err := s.k8sClient.List(ctx, &wfRunList, listOpts...); err != nil {
@@ -729,4 +772,319 @@ func (s *WorkflowRunService) getArgoWorkflowPodEvents(ctx context.Context, build
 	}
 
 	return &eventList, nil
+}
+
+// GetWorkflowRunLogs retrieves logs from a workflow run
+func (s *WorkflowRunService) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, stepName, gatewayURL string, sinceSeconds *int64) ([]models.ComponentWorkflowRunLogEntry, error) {
+	logger := s.logger.With("namespace", namespaceName, "run", runName, "step", stepName, "sinceSeconds", sinceSeconds)
+	logger.Debug("Getting workflow run logs")
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflowRun, ResourceTypeWorkflowRun, runName,
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
+		return nil, err
+	}
+
+	// Get WorkflowRun
+	var workflowRun openchoreov1alpha1.WorkflowRun
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      runName,
+		Namespace: namespaceName,
+	}, &workflowRun); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			logger.Warn("Workflow run not found", "namespace", namespaceName, "run", runName)
+			return nil, ErrWorkflowRunNotFound
+		}
+		logger.Error("Failed to get workflow run", "error", err)
+		return nil, fmt.Errorf("failed to get workflow run: %w", err)
+	}
+
+	// Check if RunReference exists
+	if workflowRun.Status.RunReference == nil || workflowRun.Status.RunReference.Name == "" || workflowRun.Status.RunReference.Namespace == "" {
+		logger.Warn("Workflow run reference not found", "run", runName)
+		return nil, fmt.Errorf("%w: %s", ErrWorkflowRunReferenceNotFound, runName)
+	}
+
+	return s.getArgoWorkflowRunLogs(ctx, namespaceName, gatewayURL, workflowRun.Status.RunReference, stepName, sinceSeconds)
+}
+
+// getArgoWorkflowRunLogs retrieves logs from an Argo Workflow run
+func (s *WorkflowRunService) getArgoWorkflowRunLogs(
+	ctx context.Context,
+	namespaceName string,
+	gatewayURL string,
+	runReference *openchoreov1alpha1.ResourceReference,
+	stepName string,
+	sinceSeconds *int64,
+) ([]models.ComponentWorkflowRunLogEntry, error) {
+	logger := s.logger.With("namespace", namespaceName, "runReference", runReference, "step", stepName, "sinceSeconds", sinceSeconds)
+	logger.Debug("Getting Argo workflow run logs")
+
+	bpClient, err := s.buildPlaneService.GetBuildPlaneClient(ctx, namespaceName, gatewayURL)
+	if err != nil {
+		logger.Error("Failed to get build plane client", "error", err)
+		return nil, fmt.Errorf("failed to get build plane client: %w", err)
+	}
+
+	var argoWorkflow argoproj.Workflow
+	if err := bpClient.Get(ctx, types.NamespacedName{
+		Name:      runReference.Name,
+		Namespace: runReference.Namespace,
+	}, &argoWorkflow); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			logger.Warn("Argo workflow not found in build plane", "workflow", runReference.Name, "namespace", runReference.Namespace)
+			return nil, fmt.Errorf("argo workflow not found")
+		}
+		logger.Error("Failed to get argo workflow", "error", err)
+		return nil, fmt.Errorf("failed to get argo workflow: %w", err)
+	}
+
+	pods, err := s.getArgoWorkflowPods(ctx, bpClient, &argoWorkflow, stepName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Argo workflow pods: %w", err)
+	}
+
+	buildPlane, err := s.buildPlaneService.GetBuildPlane(ctx, namespaceName)
+	if err != nil {
+		logger.Error("Failed to get build plane", "error", err)
+		return nil, fmt.Errorf("failed to get build plane: %w", err)
+	}
+
+	allLogEntries := make([]models.ComponentWorkflowRunLogEntry, 0)
+	for _, pod := range pods {
+		podLogs, err := s.getArgoWorkflowPodLogs(ctx, buildPlane, &pod, sinceSeconds)
+		if err != nil {
+			logger.Warn("Failed to get logs from pod", "pod", pod.Name, "error", err)
+			return nil, fmt.Errorf("failed to get logs from pod: %w", err)
+		}
+
+		lines := strings.Split(podLogs, "\n")
+		for _, line := range lines {
+			trimmedLine := strings.TrimSpace(line)
+			if trimmedLine == "" || trimmedLine == "---" {
+				continue
+			}
+
+			spaceIndex := strings.Index(trimmedLine, " ")
+			if spaceIndex > 0 {
+				timestampCandidate := trimmedLine[:spaceIndex]
+				if _, err := time.Parse(time.RFC3339, timestampCandidate); err == nil {
+					allLogEntries = append(allLogEntries, models.ComponentWorkflowRunLogEntry{
+						Timestamp: timestampCandidate,
+						Log:       trimmedLine[spaceIndex+1:],
+					})
+					continue
+				}
+				if _, err := time.Parse(time.RFC3339Nano, timestampCandidate); err == nil {
+					allLogEntries = append(allLogEntries, models.ComponentWorkflowRunLogEntry{
+						Timestamp: timestampCandidate,
+						Log:       trimmedLine[spaceIndex+1:],
+					})
+					continue
+				}
+			}
+
+			allLogEntries = append(allLogEntries, models.ComponentWorkflowRunLogEntry{
+				Timestamp: "",
+				Log:       trimmedLine,
+			})
+		}
+	}
+
+	return allLogEntries, nil
+}
+
+// getArgoWorkflowPodLogs retrieves logs from an Argo Workflow pod using the gateway client
+func (s *WorkflowRunService) getArgoWorkflowPodLogs(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane, pod *corev1.Pod, sinceSeconds *int64) (string, error) {
+	if s.gwClient == nil {
+		return "", fmt.Errorf("gateway client is not configured")
+	}
+
+	excludedContainersForLogs := map[string]bool{
+		"wait": true,
+		"init": true,
+	}
+
+	containerNames := make([]string, 0, len(pod.Spec.Containers))
+	for _, container := range pod.Spec.Containers {
+		if !excludedContainersForLogs[container.Name] {
+			containerNames = append(containerNames, container.Name)
+		}
+	}
+	if len(containerNames) == 0 {
+		return "", fmt.Errorf("no containers to fetch logs from in pod")
+	}
+
+	var allLogs strings.Builder
+	for i, containerName := range containerNames {
+		if i > 0 {
+			allLogs.WriteString("\n---\n")
+		}
+
+		logs, err := s.gwClient.GetPodLogsFromPlane(ctx, "buildplane", buildPlane.Spec.PlaneID, buildPlane.Namespace, buildPlane.Name,
+			&gatewayClient.PodReference{
+				Namespace: pod.Namespace,
+				Name:      pod.Name,
+			}, &gatewayClient.PodLogsOptions{
+				ContainerName:     containerName,
+				IncludeTimestamps: true,
+				SinceSeconds:      sinceSeconds,
+			})
+		if err != nil {
+			s.logger.Warn("Failed to fetch logs from container", "pod", pod.Name, "container", containerName, "error", err)
+			continue
+		}
+
+		allLogs.WriteString(logs)
+	}
+
+	return allLogs.String(), nil
+}
+
+// TriggerWorkflow creates a new WorkflowRun from a component's workflow configuration.
+// This is the authorized entry point for triggering component workflows via API.
+func (s *WorkflowRunService) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
+	s.logger.Debug("Triggering component workflow", "namespace", namespaceName, "project", projectName, "component", componentName, "commit", commit)
+
+	// Authorization check using WorkflowRun resource type since we create WorkflowRun CRs
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateWorkflowRun, ResourceTypeWorkflowRun, componentName,
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
+
+	return s.triggerWorkflowInternal(ctx, namespaceName, projectName, componentName, commit)
+}
+
+// triggerWorkflowInternal contains the core workflow triggering logic without authorization checks.
+// This is used by the webhook service which authenticates via HMAC signature validation instead of user-level auth.
+func (s *WorkflowRunService) triggerWorkflowInternal(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
+	// Retrieve component and use that to create the workflow run
+	var component openchoreov1alpha1.Component
+	err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      componentName,
+		Namespace: namespaceName,
+	}, &component)
+
+	if err != nil {
+		s.logger.Error("Failed to get component", "error", err, "namespace", namespaceName, "project", projectName, "component", componentName)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Check if component has workflow configuration
+	if component.Spec.Workflow == nil || component.Spec.Workflow.Name == "" {
+		s.logger.Error("Component does not have a workflow configured", "component", componentName)
+		return nil, fmt.Errorf("component %s does not have a workflow configured", componentName)
+	}
+
+	// Fetch the Workflow CR to get the annotation mapping
+	workflow := &openchoreov1alpha1.Workflow{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      component.Spec.Workflow.Name,
+		Namespace: namespaceName,
+	}, workflow); err != nil {
+		s.logger.Error("Failed to get workflow", "error", err, "workflow", component.Spec.Workflow.Name)
+		return nil, fmt.Errorf("failed to get workflow %s: %w", component.Spec.Workflow.Name, err)
+	}
+
+	// Parse the annotation that maps logical keys to parameter paths
+	annotation := workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters]
+	paramMap := parseComponentWorkflowAnnotation(annotation)
+
+	// Validate that repoUrl is configured in the component parameters
+	if repoURLPath, ok := paramMap["repoUrl"]; ok {
+		repoURL, err := getNestedStringFromRawExtension(component.Spec.Workflow.Parameters, repoURLPath)
+		if err != nil || repoURL == "" {
+			s.logger.Error("Component workflow does not have repository URL configured", "component", componentName)
+			return nil, fmt.Errorf("component %s workflow does not have repository URL configured", componentName)
+		}
+	}
+
+	// Validate commit SHA format if provided
+	if commit != "" {
+		commitPattern := regexp.MustCompile(`^[0-9a-fA-F]{7,40}$`)
+		if !commitPattern.MatchString(commit) {
+			return nil, ErrInvalidCommitSHA
+		}
+	}
+
+	// Start with the component's existing parameters
+	parameters := component.Spec.Workflow.Parameters
+
+	// Inject commit SHA into parameters at the mapped path if a commit mapping exists
+	if commit != "" {
+		if commitPath, ok := paramMap["commit"]; ok {
+			updatedParams, err := setNestedValueInParameters(parameters, commitPath, commit)
+			if err != nil {
+				s.logger.Warn("Failed to inject commit into parameters", "error", err)
+				// Continue without commit injection rather than failing
+			} else {
+				parameters = updatedParams
+			}
+		}
+	}
+
+	// Generate a unique workflow run name with short UUID
+	uuid, err := generateShortUUID()
+	if err != nil {
+		s.logger.Error("Failed to generate UUID", "error", err)
+		return nil, fmt.Errorf("failed to generate UUID: %w", err)
+	}
+	workflowRunName := fmt.Sprintf("%s-workflow-%s", componentName, uuid)
+
+	// Create the WorkflowRun CR (using the unified Workflow/WorkflowRun model)
+	workflowRun := &openchoreov1alpha1.WorkflowRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workflowRunName,
+			Namespace: namespaceName,
+			Labels: map[string]string{
+				ocLabels.LabelKeyProjectName:   projectName,
+				ocLabels.LabelKeyComponentName: componentName,
+			},
+		},
+		Spec: openchoreov1alpha1.WorkflowRunSpec{
+			Workflow: openchoreov1alpha1.WorkflowRunConfig{
+				Name:       component.Spec.Workflow.Name,
+				Parameters: parameters,
+			},
+		},
+	}
+
+	if err := s.k8sClient.Create(ctx, workflowRun); err != nil {
+		if apierrors.IsInvalid(err) {
+			var statusErr *apierrors.StatusError
+			if errors.As(err, &statusErr) && statusErr.ErrStatus.Details != nil {
+				for _, cause := range statusErr.ErrStatus.Details.Causes {
+					if strings.Contains(cause.Field, "commit") {
+						s.logger.Warn("Commit SHA validation failed", "error", cause.Message, "field", cause.Field)
+						return nil, ErrInvalidCommitSHA
+					}
+				}
+			}
+		}
+		s.logger.Error("Failed to create workflow run", "error", err)
+		return nil, fmt.Errorf("failed to create workflow run: %w", err)
+	}
+
+	s.logger.Info("Workflow run created successfully", "workflow", workflowRunName, "component", componentName, "commit", commit)
+
+	return &models.ComponentWorkflowResponse{
+		Name:          workflowRun.Name,
+		UUID:          string(workflowRun.UID),
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		NamespaceName: namespaceName,
+		Commit:        commit,
+		Status:        WorkflowRunStatusPending,
+		CreatedAt:     workflowRun.CreationTimestamp.Time,
+		Image:         "",
+	}, nil
+}
+
+// generateShortUUID generates a short 8-character UUID for workflow naming.
+func generateShortUUID() (string, error) {
+	bytes := make([]byte, 4) // 4 bytes = 8 hex characters
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }

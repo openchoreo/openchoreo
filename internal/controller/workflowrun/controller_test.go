@@ -20,7 +20,7 @@ import (
 
 var _ = Describe("WorkflowRun Controller", func() {
 	Context("When reconciling a WorkflowRun resource", func() {
-		const resourceName = "test-componentworkflowrun"
+		const resourceName = "test-workflowrun"
 		const workflowName = "test-workflow"
 
 		ctx := context.Background()
@@ -32,7 +32,7 @@ var _ = Describe("WorkflowRun Controller", func() {
 
 		BeforeEach(func() {
 			By("Creating the WorkflowRun resource")
-			componentworkflowrun := &openchoreodevv1alpha1.WorkflowRun{
+			workflowRun := &openchoreodevv1alpha1.WorkflowRun{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      resourceName,
 					Namespace: "default",
@@ -43,7 +43,7 @@ var _ = Describe("WorkflowRun Controller", func() {
 					},
 				},
 			}
-			Expect(k8sClient.Create(ctx, componentworkflowrun)).To(Succeed())
+			Expect(k8sClient.Create(ctx, workflowRun)).To(Succeed())
 		})
 
 		AfterEach(func() {

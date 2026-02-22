@@ -1,20 +1,21 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentWorkflow
+kind: Workflow
 metadata:
   name: google-cloud-buildpacks
   namespace: default
   annotations:
     openchoreo.dev/description: "Google Cloud Buildpacks workflow for auto-detecting and building applications without Dockerfiles"
+    openchoreo.dev/component-workflow-parameters: "repoUrl: parameters.repository.url, branch: parameters.repository.revision.branch, appPath: parameters.repository.appPath, secretRef: parameters.repository.secretRef, projectName: parameters.scope.projectName, componentName: parameters.scope.componentName"
 spec:
-  # Template Variable Reference (processed by ComponentWorkflowRun controller):
-  # ${metadata.workflowRunName}  - Generated name for this workflow run instance
-  # ${metadata.componentName}    - Name of the component triggering this workflow
-  # ${metadata.projectName}      - Name of the project containing the component
-  # ${metadata.namespaceName}    - Organization namespace where the component resides
-  # ${metadata.namespace}        - Full namespace path for resource deployment
-  # ${systemParameters.*}        - Structured system parameters defined in schema (repository, revision, etc.)
-  # ${parameters.*}              - Custom developer parameters defined in schema (version, testMode, cache, etc.)
-  # ${secretRef.*}               - Secret reference details when systemParameters.repository.secretRef is provided
+  # Template Variable Reference (processed by WorkflowRun controller):
+  # ${metadata.workflowRunName}              - Generated name for this workflow run instance
+  # ${metadata.namespaceName}                - Organization namespace where the component resides
+  # ${metadata.namespace}                    - Full namespace path for resource deployment
+  # ${parameters.scope.componentName}        - Name of the component triggering this workflow
+  # ${parameters.scope.projectName}          - Name of the project containing the component
+  # ${parameters.repository.*}              - Repository parameters (url, revision, appPath, secretRef)
+  # ${parameters.*}                          - Custom developer parameters defined in schema (version, testMode, cache, etc.)
+  # ${secretRef.*}                           - Secret reference details when parameters.repository.secretRef is provided
 
   # Time-to-live for completed workflow runs - Automatically cleans up workflow resources after the specified duration
   # Format is a duration string without spaces (e.g., "1d" for 1 day, "12h" for 12 hours, "10d12h30m" for 10 days, 12 hours, and 30 minutes)
@@ -44,11 +45,12 @@ spec:
         cpu: "string | default=100m"
         memory: "string | default=256Mi"
 
-    # System parameters - Structured parameters for component-specific workflow features
-    # These provide the foundation for build automation (webhooks, auto-build, UI triggers)
-    # Platform Engineers can customize defaults, enums, and descriptions
-    # The field structure (especially repository.*) must be maintained for platform features to work
-    systemParameters:
+    parameters:
+      # Scope parameters - automatically populated from component context
+      scope:
+        projectName: string | description="Name of the project"
+        componentName: string | description="Name of the component"
+      # Repository parameters - structured parameters for build automation
       repository:
         url: string | description="Git repository URL"
         secretRef: string | description="Secret reference name for private repository Git credentials (optional for public repos)"
@@ -57,10 +59,9 @@ spec:
           commit: string | description="Git commit SHA or reference (optional, defaults to latest commit on branch)"
         appPath: string | default=. description="Path to the application directory within the repository"
 
-    # Developer-configurable parameters - Custom parameters defined by Platform Engineers
-    # These allow developers to customize the build process within PE-defined constraints
-    # This workflow demonstrates advanced parameter features: nested objects, arrays, enums, and custom types
-    parameters:
+      # Developer-configurable parameters - Custom parameters defined by Platform Engineers
+      # These allow developers to customize the build process within PE-defined constraints
+      # This workflow demonstrates advanced parameter features: nested objects, arrays, enums, and custom types
       # Simple scalar parameters
       version: integer | default=1 description="Build version number for image tagging"
       testMode: string | enum=unit,integration,none default=unit description="Test mode to execute (unit, integration, or none)"
@@ -86,7 +87,7 @@ spec:
       endpoints: '[]Endpoint | default=[] description="List of service endpoints exposed by the component"'
       resources: "ResourceRequirements | default={} description='CPU and memory resource constraints for the build'"
 
-  # Workflow template that gets instantiated for each ComponentWorkflowRun
+  # Workflow template that gets instantiated for each WorkflowRun
   # This generates an Argo Workflow resource in the build plane cluster
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
@@ -98,18 +99,18 @@ spec:
       arguments:
         parameters:
           - name: component-name
-            value: ${metadata.componentName}
+            value: ${parameters.scope.componentName}
           - name: project-name
-            value: ${metadata.projectName}
-          # Parameters from system parameters (developer-facing)
+            value: ${parameters.scope.projectName}
+          # Parameters from repository (developer-facing)
           - name: git-repo
-            value: ${systemParameters.repository.url}
+            value: ${parameters.repository.url}
           - name: branch
-            value: ${systemParameters.repository.revision.branch}
+            value: ${parameters.repository.revision.branch}
           - name: commit
-            value: ${systemParameters.repository.revision.commit}
+            value: ${parameters.repository.revision.commit}
           - name: app-path
-            value: ${systemParameters.repository.appPath}
+            value: ${parameters.repository.appPath}
           # Parameters from parameters defined by PE (developer-facing)
           - name: version
             value: ${parameters.version}
@@ -145,7 +146,7 @@ spec:
           - name: build-timeout
             value: "30m"
           - name: image-name
-            value: ${metadata.projectName}-${metadata.componentName}-image
+            value: ${parameters.scope.projectName}-${parameters.scope.componentName}-image
           - name: image-tag
             value: v${parameters.version}
           - name: git-secret
@@ -163,7 +164,7 @@ spec:
     # Git credentials secret - Only created when secretRef is provided (for private repositories)
     # Uses External Secrets Operator to fetch credentials from the secret store (OpenBao)
     - id: git-secret
-      includeWhen: ${has(systemParameters.repository.secretRef)}
+      includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret

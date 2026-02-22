@@ -129,35 +129,23 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("PUT "+v1+"/namespaces/{namespaceName}/component-types/{ctName}/definition", h.UpdateComponentTypeDefinition)
 	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/component-types/{ctName}/definition", h.DeleteComponentTypeDefinition)
 
-	// Workflow endpoints (generic workflows)
+	// Workflow endpoints
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/workflows/definition", h.CreateWorkflowDefinition)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflows", h.ListWorkflows)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflows/{workflowName}/schema", h.GetWorkflowSchema)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflows/{workflowName}/definition", h.GetWorkflowDefinition)
 	api.HandleFunc("PUT "+v1+"/namespaces/{namespaceName}/workflows/{workflowName}/definition", h.UpdateWorkflowDefinition)
 	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/workflows/{workflowName}/definition", h.DeleteWorkflowDefinition)
 
-	// WorkflowRun endpoints (generic workflow executions)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflow-runs", h.ListWorkflowRuns)
-	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/workflow-runs", h.CreateWorkflowRun)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflow-runs/{runName}", h.GetWorkflowRun)
+	// WorkflowRun endpoints
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflowruns", h.ListWorkflowRuns)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/workflowruns", h.CreateWorkflowRun)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflowruns/{runName}", h.GetWorkflowRun)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflowruns/{runName}/logs", h.GetWorkflowRunLogs)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflow-runs/{runName}/status", h.GetWorkflowRunStatus)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflow-runs/{runName}/logs", h.GetWorkflowRunLogs)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflow-runs/{runName}/events", h.GetWorkflowRunEvents)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflowruns/{runName}/events", h.GetWorkflowRunEvents)
 
-	// ComponentWorkflow endpoints (component-specific workflows)
-	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/component-workflows/definition", h.CreateComponentWorkflowDefinition)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows", h.ListComponentWorkflows)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/schema", h.GetComponentWorkflowSchema)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/definition", h.GetComponentWorkflowDefinition)
-	api.HandleFunc("PUT "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/definition", h.UpdateComponentWorkflowDefinition)
-	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/definition", h.DeleteComponentWorkflowDefinition)
 	api.HandleFunc("PATCH "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-parameters", h.UpdateComponentWorkflowParameters)
-	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs", h.CreateComponentWorkflowRun)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs", h.ListComponentWorkflowRuns)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}", h.GetComponentWorkflowRun)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/status", h.GetComponentWorkflowRunStatus)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/logs", h.GetComponentWorkflowRunLogs)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/events", h.GetComponentWorkflowRunEvents)
 
 	// Trait endpoints
 	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/traits/definition", h.CreateTraitDefinition)
@@ -355,7 +343,10 @@ func getMCPServerToolsets(h *Handler) *tools.Toolsets {
 	// Log enabled toolsets
 	h.logger.Info("Initializing MCP server", slog.Any("enabled_toolsets", h.config.MCP.Toolsets))
 
-	handler := &mcphandlers.MCPHandler{Services: h.services}
+	handler := &mcphandlers.MCPHandler{
+		Services:   h.services,
+		GatewayURL: h.config.ClusterGateway.URL,
+	}
 
 	// Create toolsets struct and enable based on configuration
 	toolsets := &tools.Toolsets{}

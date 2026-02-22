@@ -45,15 +45,13 @@ var systemActions = []Action{
 	{Name: "componenttype:view", IsInternal: false},
 	{Name: "componenttype:create", IsInternal: false},
 
-	// ComponentWorkflow
-	{Name: "componentworkflow:view", IsInternal: false},
-	{Name: "componentworkflow:create", IsInternal: false},
-
-	// ComponentWorkflowRun
-	{Name: "componentworkflowrun:view", IsInternal: false},
-
 	// Workflow
 	{Name: "workflow:view", IsInternal: false},
+	{Name: "workflow:create", IsInternal: false},
+
+	// WorkflowRun
+	{Name: "workflowrun:view", IsInternal: false},
+	{Name: "workflowrun:create", IsInternal: false},
 
 	// Trait
 	{Name: "trait:view", IsInternal: false},
