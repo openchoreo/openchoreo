@@ -19,10 +19,12 @@ const (
 )
 
 const (
-	ReasonWorkflowPending   controller.ConditionReason = "WorkflowPending"
-	ReasonWorkflowRunning   controller.ConditionReason = "WorkflowRunning"
-	ReasonWorkflowSucceeded controller.ConditionReason = "WorkflowSucceeded"
-	ReasonWorkflowFailed    controller.ConditionReason = "WorkflowFailed"
+	ReasonWorkflowPending            controller.ConditionReason = "WorkflowPending"
+	ReasonWorkflowRunning            controller.ConditionReason = "WorkflowRunning"
+	ReasonWorkflowSucceeded          controller.ConditionReason = "WorkflowSucceeded"
+	ReasonWorkflowFailed             controller.ConditionReason = "WorkflowFailed"
+	ReasonBuildPlaneNotFound         controller.ConditionReason = "BuildPlaneNotFound"
+	ReasonBuildPlaneResolutionFailed controller.ConditionReason = "BuildPlaneResolutionFailed"
 )
 
 func setWorkflowPendingCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
@@ -89,6 +91,26 @@ func setWorkflowFailedCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
 		Status:             metav1.ConditionTrue,
 		Reason:             string(ReasonWorkflowFailed),
 		Message:            "Workflow has completed with failure",
+		ObservedGeneration: workflowRun.Generation,
+	})
+}
+
+func setBuildPlaneNotFoundCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
+	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowCompleted),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(ReasonBuildPlaneNotFound),
+		Message:            "No build plane found for the project associated with this workflow run",
+		ObservedGeneration: workflowRun.Generation,
+	})
+}
+
+func setBuildPlaneResolutionFailedCondition(workflowRun *openchoreov1alpha1.WorkflowRun, err error) {
+	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowCompleted),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(ReasonBuildPlaneResolutionFailed),
+		Message:            "Failed to resolve build plane: " + err.Error(),
 		ObservedGeneration: workflowRun.Generation,
 	})
 }

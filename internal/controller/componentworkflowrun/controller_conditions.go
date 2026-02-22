@@ -20,17 +20,19 @@ const (
 )
 
 const (
-	ReasonWorkflowPending           controller.ConditionReason = "WorkflowPending"
-	ReasonWorkflowRunning           controller.ConditionReason = "WorkflowRunning"
-	ReasonWorkflowSucceeded         controller.ConditionReason = "WorkflowSucceeded"
-	ReasonWorkflowFailed            controller.ConditionReason = "WorkflowFailed"
-	ReasonWorkloadUpdated           controller.ConditionReason = "WorkloadUpdated"
-	ReasonWorkloadUpdateFailed      controller.ConditionReason = "WorkloadUpdateFailed"
-	ReasonSecretResolutionError     controller.ConditionReason = "SecretResolutionError"
-	ReasonWorkflowNotAllowed        controller.ConditionReason = "WorkflowNotAllowed"
-	ReasonComponentWorkflowNotFound controller.ConditionReason = "ComponentWorkflowNotFound"
-	ReasonComponentTypeNotFound     controller.ConditionReason = "ComponentTypeNotFound"
-	ReasonComponentNotFound         controller.ConditionReason = "ComponentNotFound"
+	ReasonWorkflowPending            controller.ConditionReason = "WorkflowPending"
+	ReasonWorkflowRunning            controller.ConditionReason = "WorkflowRunning"
+	ReasonWorkflowSucceeded          controller.ConditionReason = "WorkflowSucceeded"
+	ReasonWorkflowFailed             controller.ConditionReason = "WorkflowFailed"
+	ReasonWorkloadUpdated            controller.ConditionReason = "WorkloadUpdated"
+	ReasonWorkloadUpdateFailed       controller.ConditionReason = "WorkloadUpdateFailed"
+	ReasonSecretResolutionError      controller.ConditionReason = "SecretResolutionError"
+	ReasonWorkflowNotAllowed         controller.ConditionReason = "WorkflowNotAllowed"
+	ReasonComponentWorkflowNotFound  controller.ConditionReason = "ComponentWorkflowNotFound"
+	ReasonComponentTypeNotFound      controller.ConditionReason = "ComponentTypeNotFound"
+	ReasonComponentNotFound          controller.ConditionReason = "ComponentNotFound"
+	ReasonBuildPlaneNotFound         controller.ConditionReason = "BuildPlaneNotFound"
+	ReasonBuildPlaneResolutionFailed controller.ConditionReason = "BuildPlaneResolutionFailed"
 )
 
 func setWorkflowPendingCondition(componentWorkflowRun *openchoreov1alpha1.ComponentWorkflowRun) {
@@ -97,6 +99,26 @@ func setWorkflowFailedCondition(componentWorkflowRun *openchoreov1alpha1.Compone
 		Status:             metav1.ConditionTrue,
 		Reason:             string(ReasonWorkflowFailed),
 		Message:            "Workflow has completed with failure",
+		ObservedGeneration: componentWorkflowRun.Generation,
+	})
+}
+
+func setBuildPlaneNotFoundCondition(componentWorkflowRun *openchoreov1alpha1.ComponentWorkflowRun) {
+	meta.SetStatusCondition(&componentWorkflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowCompleted),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(ReasonBuildPlaneNotFound),
+		Message:            "No build plane found for the project associated with this workflow run",
+		ObservedGeneration: componentWorkflowRun.Generation,
+	})
+}
+
+func setBuildPlaneResolutionFailedCondition(componentWorkflowRun *openchoreov1alpha1.ComponentWorkflowRun, err error) {
+	meta.SetStatusCondition(&componentWorkflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowCompleted),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(ReasonBuildPlaneResolutionFailed),
+		Message:            "Failed to resolve build plane: " + err.Error(),
 		ObservedGeneration: componentWorkflowRun.Generation,
 	})
 }

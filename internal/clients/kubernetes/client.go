@@ -154,6 +154,39 @@ func GetK8sClientFromBuildPlane(
 	})
 }
 
+// GetK8sClientFromClusterBuildPlane retrieves a Kubernetes client from ClusterBuildPlane specification.
+// Only supports cluster agent mode via HTTP proxy through cluster gateway.
+// Note: Cache key includes CR for isolation, but planeIdentifier for proxy uses only planeID
+func GetK8sClientFromClusterBuildPlane(
+	clientMgr *KubeMultiClientManager,
+	clusterBuildPlane *openchoreov1alpha1.ClusterBuildPlane,
+	gatewayURL string,
+) (client.Client, error) {
+	if gatewayURL == "" {
+		return nil, fmt.Errorf("gatewayURL is required for cluster agent mode")
+	}
+
+	// Determine effective planeID (defaults to CR name if not specified)
+	planeID := clusterBuildPlane.Spec.PlaneID
+	if planeID == "" {
+		planeID = clusterBuildPlane.Name
+	}
+
+	// Cache key: CR-specific for client isolation (cluster-scoped, no namespace)
+	// Include "v2" to force cache invalidation after proxy client signature change
+	key := fmt.Sprintf("v2/clusterbuildplane/%s/%s", planeID, clusterBuildPlane.Name)
+
+	// Plane identifier for proxy routing: same format as namespace-scoped BuildPlane
+	// Agents register by planeType/planeID regardless of CR scope
+	planeIdentifier := fmt.Sprintf("buildplane/%s", planeID)
+
+	// Use GetOrAddClient to cache the proxy client
+	return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
+		// Cluster-scoped: use placeholder namespace to maintain 6-part URL format
+		return NewProxyClient(gatewayURL, planeIdentifier, "_cluster", clusterBuildPlane.Name, clientMgr.ProxyTLSConfig)
+	})
+}
+
 // GetK8sClientFromClusterDataPlane retrieves a Kubernetes client from ClusterDataPlane specification.
 // Only supports cluster agent mode via HTTP proxy through cluster gateway.
 // Note: Cache key includes CR for isolation, but planeIdentifier for proxy uses only planeID

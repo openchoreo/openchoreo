@@ -204,12 +204,20 @@ func (s *Builder) determineBuildEngine(build *openchoreov1alpha1.Build) string {
 
 // getBuildPlaneClient gets the build plane and its client
 func (s *Builder) getBuildPlaneClient(ctx context.Context, build *openchoreov1alpha1.Build) (client.Client, error) {
-	buildPlane, err := controller.GetBuildPlane(ctx, s.client, build)
+	project, err := controller.FindProjectByName(ctx, s.client, build.Namespace, build.Spec.Owner.ProjectName)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve the project for build plane lookup: %w", err)
+	}
+
+	buildPlaneResult, err := controller.GetBuildPlaneOrClusterBuildPlaneOfProject(ctx, s.client, project)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve the build plane: %w", err)
 	}
+	if buildPlaneResult == nil {
+		return nil, fmt.Errorf("no build plane found for project '%s'", project.Name)
+	}
 
-	bpClient, err := kubernetesClient.GetK8sClientFromBuildPlane(s.k8sClientMgr, buildPlane, s.gatewayURL)
+	bpClient, err := buildPlaneResult.GetK8sClient(s.k8sClientMgr, s.gatewayURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
 	}
@@ -217,9 +225,9 @@ func (s *Builder) getBuildPlaneClient(ctx context.Context, build *openchoreov1al
 	return bpClient, nil
 }
 
-// GetBuildPlaneClient gets the build plane client for a given build - public method for controller access
-func (s *Builder) GetBuildPlaneClient(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) (client.Client, error) {
-	bpClient, err := kubernetesClient.GetK8sClientFromBuildPlane(s.k8sClientMgr, buildPlane, s.gatewayURL)
+// GetBuildPlaneClient gets the build plane client for a given BuildPlaneResult - public method for controller access
+func (s *Builder) GetBuildPlaneClient(buildPlaneResult *controller.BuildPlaneResult) (client.Client, error) {
+	bpClient, err := buildPlaneResult.GetK8sClient(s.k8sClientMgr, s.gatewayURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
 	}

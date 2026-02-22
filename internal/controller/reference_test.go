@@ -1183,3 +1183,359 @@ func TestDataPlaneResult_GetObservabilityPlane_NeitherSet(t *testing.T) {
 	assert.Nil(t, obsResult)
 	assert.Contains(t, err.Error(), "no data plane set in result")
 }
+
+// ============================================================================
+// Tests for FindProjectByName
+// ============================================================================
+
+func TestFindProjectByName_Found(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-project",
+			Namespace: "test-namespace",
+			Labels: map[string]string{
+				"openchoreo.dev/name": "test-project",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(project).
+		Build()
+
+	result, err := FindProjectByName(context.Background(), fakeClient, "test-namespace", "test-project")
+
+	require.NoError(t, err)
+	assert.Equal(t, "test-project", result.Name)
+	assert.Equal(t, "test-namespace", result.Namespace)
+}
+
+func TestFindProjectByName_NotFound(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		Build()
+
+	result, err := FindProjectByName(context.Background(), fakeClient, "test-namespace", "nonexistent")
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "project 'nonexistent' not found in namespace 'test-namespace'")
+}
+
+func TestFindProjectByName_WrongNamespace(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-project",
+			Namespace: "other-namespace",
+			Labels: map[string]string{
+				"openchoreo.dev/name": "test-project",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(project).
+		Build()
+
+	result, err := FindProjectByName(context.Background(), fakeClient, "test-namespace", "test-project")
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "project 'test-project' not found in namespace 'test-namespace'")
+}
+
+// ============================================================================
+// Tests for ResolveBuildPlane
+// ============================================================================
+
+func TestResolveBuildPlane_WithProjectLabels(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	buildPlane := &openchoreov1alpha1.BuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-bp",
+			Namespace: "test-namespace",
+		},
+	}
+
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-project",
+			Namespace: "test-namespace",
+			Labels: map[string]string{
+				"openchoreo.dev/name":      "test-project",
+				"openchoreo.dev/namespace": "test-namespace",
+			},
+		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: "default",
+			BuildPlaneRef: &openchoreov1alpha1.BuildPlaneRef{
+				Kind: openchoreov1alpha1.BuildPlaneRefKindBuildPlane,
+				Name: "my-bp",
+			},
+		},
+	}
+
+	// Object with hierarchy labels that GetProject can use
+	obj := &openchoreov1alpha1.WorkflowRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-run",
+			Namespace: "test-namespace",
+			Labels: map[string]string{
+				"openchoreo.dev/namespace": "test-namespace",
+				"openchoreo.dev/project":   "test-project",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(buildPlane, project, obj).
+		Build()
+
+	result, err := ResolveBuildPlane(context.Background(), fakeClient, obj)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.NotNil(t, result.BuildPlane)
+	assert.Equal(t, "my-bp", result.GetName())
+}
+
+func TestResolveBuildPlane_WithoutProjectLabels_FallsBackToDefault(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	defaultBP := &openchoreov1alpha1.BuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default",
+			Namespace: "test-namespace",
+		},
+	}
+
+	// Object without hierarchy labels
+	obj := &openchoreov1alpha1.WorkflowRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-run",
+			Namespace: "test-namespace",
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(defaultBP, obj).
+		Build()
+
+	result, err := ResolveBuildPlane(context.Background(), fakeClient, obj)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.NotNil(t, result.BuildPlane)
+	assert.Equal(t, "default", result.GetName())
+}
+
+func TestResolveBuildPlane_WithoutProjectLabels_FallsBackToClusterBuildPlane(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	clusterBP := &openchoreov1alpha1.ClusterBuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+	}
+
+	// Object without hierarchy labels and no namespace-scoped BuildPlane
+	obj := &openchoreov1alpha1.WorkflowRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-run",
+			Namespace: "test-namespace",
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(clusterBP, obj).
+		Build()
+
+	result, err := ResolveBuildPlane(context.Background(), fakeClient, obj)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.NotNil(t, result.ClusterBuildPlane)
+	assert.Equal(t, "default", result.GetName())
+}
+
+func TestResolveBuildPlane_NoBuildPlaneExists(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	obj := &openchoreov1alpha1.WorkflowRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-run",
+			Namespace: "test-namespace",
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(obj).
+		Build()
+
+	result, err := ResolveBuildPlane(context.Background(), fakeClient, obj)
+
+	require.NoError(t, err)
+	assert.Nil(t, result)
+}
+
+// ============================================================================
+// Tests for BuildPlaneResult.GetObservabilityPlane
+// ============================================================================
+
+func TestBuildPlaneResult_GetObservabilityPlane_WithBuildPlane(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	obsPlane := &openchoreov1alpha1.ObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-obs",
+			Namespace: "test-ns",
+		},
+		Spec: openchoreov1alpha1.ObservabilityPlaneSpec{
+			ObserverURL: "http://observer.example.com",
+		},
+	}
+
+	bp := &openchoreov1alpha1.BuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-bp",
+			Namespace: "test-ns",
+		},
+		Spec: openchoreov1alpha1.BuildPlaneSpec{
+			ObservabilityPlaneRef: &openchoreov1alpha1.ObservabilityPlaneRef{
+				Kind: openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane,
+				Name: "my-obs",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(obsPlane, bp).
+		Build()
+
+	result := &BuildPlaneResult{BuildPlane: bp}
+	obsResult, err := result.GetObservabilityPlane(context.Background(), fakeClient)
+
+	require.NoError(t, err)
+	require.NotNil(t, obsResult)
+	assert.NotNil(t, obsResult.ObservabilityPlane)
+	assert.Nil(t, obsResult.ClusterObservabilityPlane)
+	assert.Equal(t, "my-obs", obsResult.GetName())
+	assert.Equal(t, "http://observer.example.com", obsResult.GetObserverURL())
+}
+
+func TestBuildPlaneResult_GetObservabilityPlane_WithClusterBuildPlane(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	clusterObsPlane := &openchoreov1alpha1.ClusterObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "shared-obs",
+		},
+		Spec: openchoreov1alpha1.ClusterObservabilityPlaneSpec{
+			ObserverURL: "http://cluster-observer.example.com",
+		},
+	}
+
+	cbp := &openchoreov1alpha1.ClusterBuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster-bp",
+		},
+		Spec: openchoreov1alpha1.ClusterBuildPlaneSpec{
+			ObservabilityPlaneRef: &openchoreov1alpha1.ClusterObservabilityPlaneRef{
+				Kind: openchoreov1alpha1.ClusterObservabilityPlaneRefKindClusterObservabilityPlane,
+				Name: "shared-obs",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(clusterObsPlane, cbp).
+		Build()
+
+	result := &BuildPlaneResult{ClusterBuildPlane: cbp}
+	obsResult, err := result.GetObservabilityPlane(context.Background(), fakeClient)
+
+	require.NoError(t, err)
+	require.NotNil(t, obsResult)
+	assert.Nil(t, obsResult.ObservabilityPlane)
+	assert.NotNil(t, obsResult.ClusterObservabilityPlane)
+	assert.Equal(t, "shared-obs", obsResult.GetName())
+	assert.Equal(t, "http://cluster-observer.example.com", obsResult.GetObserverURL())
+}
+
+func TestBuildPlaneResult_GetObservabilityPlane_WithClusterBuildPlane_DefaultObs(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	defaultClusterObs := &openchoreov1alpha1.ClusterObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+		Spec: openchoreov1alpha1.ClusterObservabilityPlaneSpec{
+			ObserverURL: "http://default-observer.example.com",
+		},
+	}
+
+	// ClusterBuildPlane without explicit obs ref — should default to "default"
+	cbp := &openchoreov1alpha1.ClusterBuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster-bp-no-ref",
+		},
+		Spec: openchoreov1alpha1.ClusterBuildPlaneSpec{
+			ObservabilityPlaneRef: nil,
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(defaultClusterObs, cbp).
+		Build()
+
+	result := &BuildPlaneResult{ClusterBuildPlane: cbp}
+	obsResult, err := result.GetObservabilityPlane(context.Background(), fakeClient)
+
+	require.NoError(t, err)
+	require.NotNil(t, obsResult)
+	assert.NotNil(t, obsResult.ClusterObservabilityPlane)
+	assert.Equal(t, "default", obsResult.GetName())
+	assert.Equal(t, "http://default-observer.example.com", obsResult.GetObserverURL())
+}
+
+func TestBuildPlaneResult_GetObservabilityPlane_NeitherSet(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		Build()
+
+	result := &BuildPlaneResult{}
+	obsResult, err := result.GetObservabilityPlane(context.Background(), fakeClient)
+
+	require.Error(t, err)
+	assert.Nil(t, obsResult)
+	assert.Contains(t, err.Error(), "no build plane set in result")
+}

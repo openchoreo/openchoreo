@@ -72,15 +72,25 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
 
-	// Get build plane
-	buildPlane, err := controller.GetBuildPlane(ctx, r.Client, build)
+	// Get project and resolve build plane (supports both BuildPlane and ClusterBuildPlane)
+	project, err := controller.FindProjectByName(ctx, r.Client, build.Namespace, build.Spec.Owner.ProjectName)
+	if err != nil {
+		logger.Error(err, "Cannot retrieve the project")
+		return r.updateStatusAndReturn(ctx, oldBuild, build)
+	}
+
+	buildPlaneResult, err := controller.GetBuildPlaneOrClusterBuildPlaneOfProject(ctx, r.Client, project)
 	if err != nil {
 		logger.Error(err, "Cannot retrieve the build plane")
 		return r.updateStatusAndReturn(ctx, oldBuild, build)
 	}
+	if buildPlaneResult == nil {
+		logger.Info("No build plane found for project")
+		return r.updateStatusAndReturn(ctx, oldBuild, build)
+	}
 
 	// Get build plane client
-	bpClient, err := r.getBPClient(ctx, buildPlane)
+	bpClient, err := r.getBPClient(ctx, buildPlaneResult)
 	if err != nil {
 		logger.Error(err, "Error in getting build plane client")
 		return r.updateStatusAndReturn(ctx, oldBuild, build)
@@ -226,8 +236,8 @@ func (r *Reconciler) updateWorkloadWithBuiltImage(
 	return r.Patch(ctx, workload, client.MergeFrom(oldWorkload))
 }
 
-func (r *Reconciler) getBPClient(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) (client.Client, error) {
-	bpClient, err := r.engine.GetBuildPlaneClient(ctx, buildPlane)
+func (r *Reconciler) getBPClient(ctx context.Context, buildPlaneResult *controller.BuildPlaneResult) (client.Client, error) {
+	bpClient, err := r.engine.GetBuildPlaneClient(buildPlaneResult)
 	if err != nil {
 		logger := log.FromContext(ctx)
 		logger.Error(err, "Failed to get build plane client")

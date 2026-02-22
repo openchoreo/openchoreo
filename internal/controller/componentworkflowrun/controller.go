@@ -113,20 +113,37 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	buildPlane, err := controller.GetBuildPlane(ctx, r.Client, componentWorkflowRun)
+	project, err := controller.FindProjectByName(ctx, r.Client, componentWorkflowRun.Namespace, componentWorkflowRun.Spec.Owner.ProjectName)
+	if err != nil {
+		logger.Error(err, "failed to get project",
+			"workflowrun", componentWorkflowRun.Name,
+			"namespace", componentWorkflowRun.Namespace)
+		setBuildPlaneResolutionFailedCondition(componentWorkflowRun, err)
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
+	buildPlaneResult, err := controller.GetBuildPlaneOrClusterBuildPlaneOfProject(ctx, r.Client, project)
 	if err != nil {
 		logger.Error(err, "failed to get build plane",
 			"workflowrun", componentWorkflowRun.Name,
 			"namespace", componentWorkflowRun.Namespace)
-		return ctrl.Result{Requeue: true}, nil
+		setBuildPlaneResolutionFailedCondition(componentWorkflowRun, err)
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+	if buildPlaneResult == nil {
+		logger.Info("No build plane found for project",
+			"workflowrun", componentWorkflowRun.Name)
+		setBuildPlaneNotFoundCondition(componentWorkflowRun)
+		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 
-	bpClient, err := r.getBuildPlaneClient(buildPlane)
+	bpClient, err := r.getBuildPlaneClient(buildPlaneResult)
 	if err != nil {
 		logger.Error(err, "failed to get build plane client",
-			"buildplane", buildPlane.Name,
+			"buildplane", buildPlaneResult.GetName(),
 			"workflowrun", componentWorkflowRun.Name)
-		return ctrl.Result{Requeue: true}, nil
+		setBuildPlaneResolutionFailedCondition(componentWorkflowRun, err)
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	// Handle completed workflow
@@ -729,8 +746,8 @@ func (r *Reconciler) createWorkloadFromComponentWorkflowRun(
 	return false, nil
 }
 
-func (r *Reconciler) getBuildPlaneClient(buildPlane *openchoreodevv1alpha1.BuildPlane) (client.Client, error) {
-	bpClient, err := kubernetesClient.GetK8sClientFromBuildPlane(r.K8sClientMgr, buildPlane, r.GatewayURL)
+func (r *Reconciler) getBuildPlaneClient(buildPlaneResult *controller.BuildPlaneResult) (client.Client, error) {
+	bpClient, err := buildPlaneResult.GetK8sClient(r.K8sClientMgr, r.GatewayURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
 	}

@@ -48,18 +48,32 @@ func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.
 		return ctrl.Result{}, nil
 	}
 
-	// Get build plane client
-	buildPlane, err := controller.GetBuildPlane(ctx, r.Client, cwRun)
+	// Get build plane client (supports both BuildPlane and ClusterBuildPlane)
+	project, err := controller.FindProjectByName(ctx, r.Client, cwRun.Namespace, cwRun.Spec.Owner.ProjectName)
+	if err != nil {
+		// If project doesn't exist, we can't clean up - remove finalizer anyway
+		if errors.IsNotFound(err) {
+			logger.Info("Project not found, removing finalizer without cleanup", "error", err)
+			return r.removeFinalizer(ctx, cwRun)
+		}
+		return ctrl.Result{Requeue: true}, err
+	}
+
+	buildPlaneResult, err := controller.GetBuildPlaneOrClusterBuildPlaneOfProject(ctx, r.Client, project)
 	if err != nil {
 		// If build plane doesn't exist, we can't clean up - remove finalizer anyway
 		if errors.IsNotFound(err) {
 			logger.Info("BuildPlane not found, removing finalizer without cleanup")
 			return r.removeFinalizer(ctx, cwRun)
 		}
-		return ctrl.Result{}, fmt.Errorf("failed to get build plane: %w", err)
+		return ctrl.Result{Requeue: true}, fmt.Errorf("failed to get build plane: %w", err)
+	}
+	if buildPlaneResult == nil {
+		logger.Info("No build plane found, removing finalizer without cleanup")
+		return r.removeFinalizer(ctx, cwRun)
 	}
 
-	bpClient, err := r.getBuildPlaneClient(buildPlane)
+	bpClient, err := r.getBuildPlaneClient(buildPlaneResult)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get build plane client: %w", err)
 	}

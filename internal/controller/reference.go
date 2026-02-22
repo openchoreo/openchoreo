@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 )
 
 const (
@@ -227,6 +228,89 @@ func (r *BuildPlaneResult) GetNamespace() string {
 		return r.BuildPlane.Namespace
 	}
 	return ""
+}
+
+// GetK8sClient returns a Kubernetes client for this build plane result.
+// It dispatches to the correct client constructor based on whether this is a BuildPlane or ClusterBuildPlane.
+func (r *BuildPlaneResult) GetK8sClient(
+	clientMgr *kubernetesClient.KubeMultiClientManager,
+	gatewayURL string,
+) (client.Client, error) {
+	if r.BuildPlane != nil {
+		return kubernetesClient.GetK8sClientFromBuildPlane(clientMgr, r.BuildPlane, gatewayURL)
+	}
+	if r.ClusterBuildPlane != nil {
+		return kubernetesClient.GetK8sClientFromClusterBuildPlane(clientMgr, r.ClusterBuildPlane, gatewayURL)
+	}
+	return nil, fmt.Errorf("no build plane set in result")
+}
+
+// GetObservabilityPlane resolves the observability plane for this build plane result.
+func (r *BuildPlaneResult) GetObservabilityPlane(ctx context.Context, c client.Client) (*ObservabilityPlaneResult, error) {
+	if r.BuildPlane != nil {
+		return GetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane(ctx, c, r.BuildPlane)
+	}
+	if r.ClusterBuildPlane != nil {
+		cop, err := GetClusterObservabilityPlaneOfClusterBuildPlane(ctx, c, r.ClusterBuildPlane)
+		if err != nil {
+			return nil, err
+		}
+		return &ObservabilityPlaneResult{ClusterObservabilityPlane: cop}, nil
+	}
+	return nil, fmt.Errorf("no build plane set in result")
+}
+
+// ResolveBuildPlane resolves the BuildPlane or ClusterBuildPlane for any object.
+// It first tries to find the project via hierarchy labels (GetProject).
+// If the project is found, it uses the project's buildPlaneRef for resolution.
+// If the project is not found (e.g., object has no hierarchy labels), it falls back
+// to the default resolution chain (default BuildPlane → default ClusterBuildPlane → first in namespace).
+func ResolveBuildPlane(ctx context.Context, c client.Client, obj client.Object) (*BuildPlaneResult, error) {
+	project, err := GetProject(ctx, c, obj)
+	if err != nil {
+		// If project not found via labels, fall back to default resolution
+		if IgnoreHierarchyNotFoundError(err) == nil {
+			return resolveBuildPlaneDefaults(ctx, c, obj.GetNamespace())
+		}
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+	return GetBuildPlaneOrClusterBuildPlaneOfProject(ctx, c, project)
+}
+
+// resolveBuildPlaneDefaults runs the default resolution chain without a project ref.
+func resolveBuildPlaneDefaults(ctx context.Context, c client.Client, namespace string) (*BuildPlaneResult, error) {
+	// Use a synthetic project with just the namespace to trigger default resolution
+	syntheticProject := &openchoreov1alpha1.Project{}
+	syntheticProject.Namespace = namespace
+	return GetBuildPlaneOrClusterBuildPlaneOfProject(ctx, c, syntheticProject)
+}
+
+// FindProjectByName looks up a Project by name in the given namespace using label matching.
+// This is useful for objects (like ComponentWorkflowRun) that don't have hierarchy labels
+// but know their project name from spec.owner.projectName.
+func FindProjectByName(ctx context.Context, c client.Client, namespace, projectName string) (*openchoreov1alpha1.Project, error) {
+	projectList := &openchoreov1alpha1.ProjectList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels{
+			"openchoreo.dev/name": projectName,
+		},
+	}
+
+	if err := c.List(ctx, projectList, listOpts...); err != nil {
+		return nil, fmt.Errorf("failed to list projects: %w", err)
+	}
+
+	if len(projectList.Items) > 0 {
+		return &projectList.Items[0], nil
+	}
+
+	return nil, fmt.Errorf(
+		"project '%s' not found in namespace '%s': %w",
+		projectName,
+		namespace,
+		apierrors.NewNotFound(openchoreov1alpha1.GroupVersion.WithResource("projects").GroupResource(), projectName),
+	)
 }
 
 // GetBuildPlaneOrClusterBuildPlaneOfProject retrieves the BuildPlane or ClusterBuildPlane for the given Project.

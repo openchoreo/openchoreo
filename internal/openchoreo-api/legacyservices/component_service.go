@@ -2392,35 +2392,38 @@ func (s *ComponentService) GetBuildObserverURL(ctx context.Context, namespaceNam
 		return nil, err
 	}
 
-	// 2. Get BuildPlane configuration for the namespace
-	var buildPlanes openchoreov1alpha1.BuildPlaneList
-	err = s.k8sClient.List(ctx, &buildPlanes, client.InNamespace(namespaceName))
+	// 2. Get the project's build plane (supports both BuildPlane and ClusterBuildPlane)
+	project, err := controller.FindProjectByName(ctx, s.k8sClient, namespaceName, projectName)
 	if err != nil {
-		s.logger.Error("Failed to list build planes", "error", err, "namespace", namespaceName)
-		return nil, fmt.Errorf("failed to list build planes: %w", err)
+		s.logger.Error("Failed to find project", "error", err, "namespace", namespaceName, "project", projectName)
+		return nil, fmt.Errorf("failed to find project: %w", err)
 	}
 
-	// Check if any build planes exist
-	if len(buildPlanes.Items) == 0 {
-		s.logger.Error("No build planes found", "namespace", namespaceName)
-		return nil, fmt.Errorf("no build planes found for namespace: %s", namespaceName)
+	buildPlaneResult, err := controller.GetBuildPlaneOrClusterBuildPlaneOfProject(ctx, s.k8sClient, project)
+	if err != nil {
+		s.logger.Error("Failed to get build plane", "error", err, "namespace", namespaceName)
+		return nil, fmt.Errorf("failed to get build plane: %w", err)
+	}
+	if buildPlaneResult == nil {
+		s.logger.Debug("No build plane found", "namespace", namespaceName)
+		return &ComponentObserverResponse{
+			Message: "observability-logs have not been configured",
+		}, nil
 	}
 
-	// Get the first build plane (0th index)
-	buildPlane := &buildPlanes.Items[0]
-	s.logger.Debug("Found build plane", "name", buildPlane.Name, "namespace", namespaceName)
+	s.logger.Debug("Found build plane", "name", buildPlaneResult.GetName(), "namespace", namespaceName)
 
-	// 3. Get ObservabilityPlane via the reference helper
-	observabilityResult, err := controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane(ctx, s.k8sClient, buildPlane)
+	// 3. Get ObservabilityPlane via the build plane result
+	observabilityResult, err := buildPlaneResult.GetObservabilityPlane(ctx, s.k8sClient)
 	if err != nil {
 		// Only treat NotFound as "not configured" - other errors should be returned upstream
 		if apierrors.IsNotFound(err) {
-			s.logger.Debug("ObservabilityPlane not found for build", "error", err, "buildPlane", buildPlane.Name)
+			s.logger.Debug("ObservabilityPlane not found for build", "error", err, "buildPlane", buildPlaneResult.GetName())
 			return &ComponentObserverResponse{
 				Message: "observability-logs have not been configured",
 			}, nil
 		}
-		s.logger.Error("Failed to get observability plane for build", "error", err, "buildPlane", buildPlane.Name)
+		s.logger.Error("Failed to get observability plane for build", "error", err, "buildPlane", buildPlaneResult.GetName())
 		return nil, fmt.Errorf("failed to get observability plane: %w", err)
 	}
 

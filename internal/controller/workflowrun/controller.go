@@ -101,18 +101,25 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	buildPlane, err := controller.GetBuildPlane(ctx, r.Client, workflowRun)
+	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, r.Client, workflowRun)
 	if err != nil {
 		logger.Error(err, "failed to get build plane",
 			"workflowrun", workflowRun.Name,
 			"namespace", workflowRun.Namespace)
-		return ctrl.Result{Requeue: true}, nil
+		setBuildPlaneResolutionFailedCondition(workflowRun, err)
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+	if buildPlaneResult == nil {
+		logger.Info("No build plane found for project",
+			"workflowrun", workflowRun.Name)
+		setBuildPlaneNotFoundCondition(workflowRun)
+		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 
-	bpClient, err := r.getBuildPlaneClient(buildPlane)
+	bpClient, err := r.getBuildPlaneClient(buildPlaneResult)
 	if err != nil {
 		logger.Error(err, "failed to get build plane client",
-			"buildplane", buildPlane.Name,
+			"buildplane", buildPlaneResult.GetName(),
 			"workflowrun", workflowRun.Name)
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -387,8 +394,8 @@ func (r *Reconciler) applyRenderedResources(
 	return &appliedResources, nil
 }
 
-func (r *Reconciler) getBuildPlaneClient(buildPlane *openchoreodevv1alpha1.BuildPlane) (client.Client, error) {
-	bpClient, err := kubernetesClient.GetK8sClientFromBuildPlane(r.K8sClientMgr, buildPlane, r.GatewayURL)
+func (r *Reconciler) getBuildPlaneClient(buildPlaneResult *controller.BuildPlaneResult) (client.Client, error) {
+	bpClient, err := buildPlaneResult.GetK8sClient(r.K8sClientMgr, r.GatewayURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
 	}

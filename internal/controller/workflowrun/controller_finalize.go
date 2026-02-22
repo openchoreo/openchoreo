@@ -48,18 +48,22 @@ func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.
 		return ctrl.Result{}, nil
 	}
 
-	// Get build plane client
-	buildPlane, err := controller.GetBuildPlane(ctx, r.Client, cwRun)
+	// Get build plane client (supports both BuildPlane and ClusterBuildPlane)
+	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, r.Client, cwRun)
 	if err != nil {
 		// If build plane doesn't exist, we can't clean up - remove finalizer anyway
-		if errors.IsNotFound(err) {
-			logger.Info("BuildPlane not found, removing finalizer without cleanup")
+		if controller.IgnoreHierarchyNotFoundError(err) == nil || errors.IsNotFound(err) {
+			logger.Info("BuildPlane not found, removing finalizer without cleanup", "error", err)
 			return r.removeFinalizer(ctx, cwRun)
 		}
-		return ctrl.Result{}, fmt.Errorf("failed to get build plane: %w", err)
+		return ctrl.Result{Requeue: true}, err
+	}
+	if buildPlaneResult == nil {
+		logger.Info("No build plane found, removing finalizer without cleanup")
+		return r.removeFinalizer(ctx, cwRun)
 	}
 
-	bpClient, err := r.getBuildPlaneClient(buildPlane)
+	bpClient, err := r.getBuildPlaneClient(buildPlaneResult)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get build plane client: %w", err)
 	}
