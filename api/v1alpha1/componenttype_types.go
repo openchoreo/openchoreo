@@ -41,9 +41,9 @@ type ComponentTypeSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.workloadType cannot be changed after creation"
 	WorkloadType string `json:"workloadType"`
 
-	// AllowedWorkflows restricts which ComponentWorkflow CRs developers can use
-	// for building components of this type. If empty, no ComponentWorkflows are allowed.
-	// References must point to ComponentWorkflow resources, not generic Workflow resources.
+	// AllowedWorkflows restricts which Workflow CRs developers can use
+	// for building components of this type. If empty, no Workflows are allowed.
+	// References must point to Workflow resources.
 	// +optional
 	AllowedWorkflows []string `json:"allowedWorkflows,omitempty"`
 

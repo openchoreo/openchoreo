@@ -16,7 +16,7 @@ spec:
       port: "integer"
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentWorkflow
+kind: Workflow
 metadata:
   name: docker-build
 spec:

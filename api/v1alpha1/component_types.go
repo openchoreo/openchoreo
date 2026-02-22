@@ -70,12 +70,11 @@ type ComponentSpec struct {
 	// +optional
 	Traits []ComponentTrait `json:"traits,omitempty"`
 
-	// Workflow defines the component workflow configuration for building the component.
-	// This references a ComponentWorkflow CR and provides both system parameters (repository info)
-	// and developer-configured parameter values.
-	// The ComponentWorkflow must be in the allowedWorkflows list of the ComponentType.
+	// Workflow defines the workflow configuration for building the component.
+	// This references a Workflow CR and provides parameter values.
+	// The Workflow must be in the allowedWorkflows list of the ComponentType.
 	// +optional
-	Workflow *ComponentWorkflowRunConfig `json:"workflow,omitempty"`
+	Workflow *WorkflowRunConfig `json:"workflow,omitempty"`
 }
 
 // ComponentTrait represents an trait instance attached to a component

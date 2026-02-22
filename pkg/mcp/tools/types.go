@@ -107,14 +107,9 @@ type ComponentToolsetHandler interface {
 	PatchComponent(
 		ctx context.Context, namespaceName, projectName, componentName string, req *models.PatchComponentRequest,
 	) (any, error)
-	// Component workflow operations
-	ListComponentWorkflows(ctx context.Context, namespaceName string) (any, error)
-	GetComponentWorkflowSchema(ctx context.Context, namespaceName, cwName string) (any, error)
-	TriggerComponentWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (any, error)
-	ListComponentWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
-	UpdateComponentWorkflowSchema(
-		ctx context.Context, namespaceName, projectName, componentName string,
-		req *models.UpdateComponentWorkflowRequest,
+	// Workflow run operations scoped by component
+	TriggerWorkflowRunForComponent(
+		ctx context.Context, namespaceName, projectName, componentName, commit string,
 	) (any, error)
 }
 
@@ -154,6 +149,11 @@ type InfrastructureToolsetHandler interface {
 	// Workflow operations
 	ListWorkflows(ctx context.Context, namespaceName string) (any, error)
 	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error)
+	CreateWorkflowRun(ctx context.Context, namespaceName string, req *models.CreateWorkflowRunRequest) (any, error)
+	ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
+	GetWorkflowRun(ctx context.Context, namespaceName, runName string) (any, error)
+	GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, stepName string, sinceSeconds *int64) (any, error)
+	GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, stepName string) (any, error)
 
 	// Trait operations
 	ListTraits(ctx context.Context, namespaceName string) (any, error)
@@ -161,10 +161,6 @@ type InfrastructureToolsetHandler interface {
 
 	// ObservabilityPlane operations
 	ListObservabilityPlanes(ctx context.Context, namespaceName string) (any, error)
-
-	// ComponentWorkflow operations (namespace-level)
-	ListComponentWorkflows(ctx context.Context, namespaceName string) (any, error)
-	GetComponentWorkflowSchema(ctx context.Context, namespaceName, cwName string) (any, error)
 }
 
 // ClusterPlaneHandler is an optional extension of InfrastructureToolsetHandler

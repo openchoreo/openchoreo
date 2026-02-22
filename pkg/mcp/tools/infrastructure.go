@@ -241,7 +241,7 @@ func (t *Toolsets) RegisterGetComponentTypeSchema(s *mcp.Server) {
 func (t *Toolsets) RegisterListWorkflows(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_workflows",
-		Description: "List all available component-workflows in an namespace. Workflows define build and deployment " +
+		Description: "List all available workflows in a namespace. Workflows define build and deployment " +
 			"processes for components.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
@@ -268,6 +268,117 @@ func (t *Toolsets) RegisterGetWorkflowSchema(s *mcp.Server) {
 		WorkflowName  string `json:"workflow_name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.InfrastructureToolset.GetWorkflowSchema(ctx, args.NamespaceName, args.WorkflowName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterCreateWorkflowRun(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "create_workflow_run",
+		Description: "Create a workflow run directly from a workflow template name and optional parameters.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"workflow_name":  stringProperty("Workflow name. Use list_workflows to discover valid names"),
+			"parameters": map[string]any{
+				"type":        "object",
+				"description": "Optional: workflow parameter values for this run",
+			},
+		}, []string{"namespace_name", "workflow_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string                 `json:"namespace_name"`
+		WorkflowName  string                 `json:"workflow_name"`
+		Parameters    map[string]interface{} `json:"parameters"`
+	}) (*mcp.CallToolResult, any, error) {
+		createReq := &models.CreateWorkflowRunRequest{
+			WorkflowName: args.WorkflowName,
+			Parameters:   args.Parameters,
+		}
+		result, err := t.InfrastructureToolset.CreateWorkflowRun(ctx, args.NamespaceName, createReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterListWorkflowRuns(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "list_workflow_runs",
+		Description: "List workflow runs in a namespace, optionally filtered by project and component labels.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"project_name":   stringProperty("Optional: filter runs by project label"),
+			"component_name": stringProperty("Optional: filter runs by component label"),
+		}, []string{"namespace_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		ProjectName   string `json:"project_name"`
+		ComponentName string `json:"component_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.InfrastructureToolset.ListWorkflowRuns(
+			ctx, args.NamespaceName, args.ProjectName, args.ComponentName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetWorkflowRun(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_workflow_run",
+		Description: "Get detailed status and metadata for a specific workflow run by name.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"run_name":       stringProperty("Workflow run name. Use list_workflow_runs to discover valid names"),
+		}, []string{"namespace_name", "run_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		RunName       string `json:"run_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.InfrastructureToolset.GetWorkflowRun(ctx, args.NamespaceName, args.RunName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetWorkflowRunLogs(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_workflow_run_logs",
+		Description: "Get workflow run logs, optionally limited to a specific step and recent time window.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"run_name":       stringProperty("Workflow run name. Use list_workflow_runs to discover valid names"),
+			"step":           stringProperty("Optional: workflow step/template name"),
+			"since_seconds": map[string]any{
+				"type":        "integer",
+				"description": "Optional: only return logs newer than this many seconds",
+			},
+		}, []string{"namespace_name", "run_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		RunName       string `json:"run_name"`
+		Step          string `json:"step"`
+		SinceSeconds  *int64 `json:"since_seconds"`
+	}) (*mcp.CallToolResult, any, error) {
+		if args.SinceSeconds != nil && *args.SinceSeconds < 0 {
+			return nil, nil, fmt.Errorf("since_seconds must be a non-negative integer")
+		}
+		result, err := t.InfrastructureToolset.GetWorkflowRunLogs(
+			ctx, args.NamespaceName, args.RunName, args.Step, args.SinceSeconds)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetWorkflowRunEvents(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_workflow_run_events",
+		Description: "Get events emitted by a workflow run, optionally filtered to a specific step.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"run_name":       stringProperty("Workflow run name. Use list_workflow_runs to discover valid names"),
+			"step":           stringProperty("Optional: workflow step/template name"),
+		}, []string{"namespace_name", "run_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		RunName       string `json:"run_name"`
+		Step          string `json:"step"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.InfrastructureToolset.GetWorkflowRunEvents(
+			ctx, args.NamespaceName, args.RunName, args.Step)
 		return handleToolResult(result, err)
 	})
 }
@@ -318,39 +429,6 @@ func (t *Toolsets) RegisterListObservabilityPlanes(s *mcp.Server) {
 		NamespaceName string `json:"namespace_name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.InfrastructureToolset.ListObservabilityPlanes(ctx, args.NamespaceName)
-		return handleToolResult(result, err)
-	})
-}
-func (t *Toolsets) RegisterListComponentWorkflowsOrgLevel(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_component_workflows_org_level",
-		Description: "List all ComponentWorkflow templates available in an namespace. " +
-			"ComponentWorkflows are reusable workflow templates that can be triggered on components.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-		}, []string{"namespace_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListComponentWorkflows(ctx, args.NamespaceName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetComponentWorkflowSchemaOrgLevel(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_workflow_schema_org_level",
-		Description: "Get the schema for a ComponentWorkflow template in an namespace. " +
-			"Returns the JSON schema defining the input parameters and configuration for the workflow.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"cw_name":        defaultStringProperty(),
-		}, []string{"namespace_name", "cw_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		CWName        string `json:"cw_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.GetComponentWorkflowSchema(ctx, args.NamespaceName, args.CWName)
 		return handleToolResult(result, err)
 	})
 }

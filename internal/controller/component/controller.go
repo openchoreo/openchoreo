@@ -40,7 +40,8 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentreleases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=componentworkflowruns,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=workflows,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=gitcommitrequests,verbs=get;list;watch;create;update;patch;delete
@@ -115,12 +116,12 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 		return ctrl.Result{}, nil
 	}
 
-	// Validate ComponentWorkflow (if specified)
-	componentWorkflow, err := r.validateComponentWorkflow(ctx, comp, ct)
+	// Validate Workflow (if specified)
+	workflowTemplate, err := r.validateWorkflow(ctx, comp, ct)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if componentWorkflow == nil && comp.Spec.Workflow != nil {
+	if workflowTemplate == nil && comp.Spec.Workflow != nil {
 		// Validation failed, condition already set
 		return ctrl.Result{}, nil
 	}
@@ -400,15 +401,15 @@ func (r *Reconciler) areValidTraits(ctx context.Context, comp *openchoreov1alpha
 	return true
 }
 
-// validateComponentWorkflow validates that the referenced ComponentWorkflow exists
+// validateWorkflow validates that the referenced Workflow exists
 // and is in the allowedWorkflows list of the ComponentType.
-// Returns the ComponentWorkflow on success, or nil with no error if validation failed
+// Returns the Workflow on success, or nil with no error if validation failed
 // (condition already set).
-func (r *Reconciler) validateComponentWorkflow(
+func (r *Reconciler) validateWorkflow(
 	ctx context.Context,
 	comp *openchoreov1alpha1.Component,
 	ct *openchoreov1alpha1.ComponentType,
-) (*openchoreov1alpha1.ComponentWorkflow, error) {
+) (*openchoreov1alpha1.Workflow, error) {
 	logger := log.FromContext(ctx)
 
 	// If no workflow is specified, validation passes (workflows are optional)
@@ -419,7 +420,7 @@ func (r *Reconciler) validateComponentWorkflow(
 	workflowName := comp.Spec.Workflow.Name
 
 	// Performance optimization: Check allowedWorkflows list first
-	// This avoids fetching the ComponentWorkflow if it's not allowed
+	// This avoids fetching the Workflow if it's not allowed.
 	if len(ct.Spec.AllowedWorkflows) > 0 {
 		allowedSet := make(map[string]bool, len(ct.Spec.AllowedWorkflows))
 		for _, name := range ct.Spec.AllowedWorkflows {
@@ -427,34 +428,34 @@ func (r *Reconciler) validateComponentWorkflow(
 		}
 
 		if !allowedSet[workflowName] {
-			msg := fmt.Sprintf("ComponentWorkflow %q is not allowed by ComponentType %q; allowed workflows: %v",
+			msg := fmt.Sprintf("Workflow %q is not allowed by ComponentType %q; allowed workflows: %v",
 				workflowName, ct.Name, ct.Spec.AllowedWorkflows)
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentWorkflowNotAllowed, msg)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkflowNotAllowed, msg)
 			logger.Info(msg, "component", comp.Name)
 			return nil, nil
 		}
 	} else {
 		// If allowedWorkflows is empty, no workflows are allowed
-		msg := fmt.Sprintf("No ComponentWorkflows are allowed by ComponentType %q, but component specifies workflow %q",
+		msg := fmt.Sprintf("No workflows are allowed by ComponentType %q, but component specifies workflow %q",
 			ct.Name, workflowName)
-		controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentWorkflowNotAllowed, msg)
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkflowNotAllowed, msg)
 		logger.Info(msg, "component", comp.Name)
 		return nil, nil
 	}
 
-	// Now check if the ComponentWorkflow actually exists
-	workflow := &openchoreov1alpha1.ComponentWorkflow{}
+	// Now check if the Workflow actually exists.
+	workflow := &openchoreov1alpha1.Workflow{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      workflowName,
 		Namespace: comp.Namespace,
 	}, workflow); err != nil {
 		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("ComponentWorkflow %q not found", workflowName)
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentWorkflowNotFound, msg)
+			msg := fmt.Sprintf("Workflow %q not found", workflowName)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkflowNotFound, msg)
 			logger.Info(msg, "component", comp.Name)
 			return nil, nil
 		}
-		logger.Error(err, "Failed to fetch ComponentWorkflow", "name", workflowName)
+		logger.Error(err, "Failed to fetch Workflow", "name", workflowName)
 		return nil, err
 	}
 
@@ -958,8 +959,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup component release owner index: %w", err)
 	}
 
-	if err := r.setupComponentWorkflowRunOwnerIndex(ctx, mgr); err != nil {
-		return fmt.Errorf("failed to setup component workflow run owner index: %w", err)
+	if err := r.setupWorkflowRunOwnerIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup workflow run owner index: %w", err)
 	}
 
 	// Note: The following shared indexes are set up in controller.SetupSharedIndexes (called from main.go):
@@ -973,8 +974,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.findComponentsForComponentRelease)).
 		Watches(&openchoreov1alpha1.ReleaseBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.findComponentsForReleaseBinding)).
-		Watches(&openchoreov1alpha1.ComponentWorkflowRun{},
-			handler.EnqueueRequestsFromMapFunc(r.findComponentsForComponentWorkflowRun)).
+		Watches(&openchoreov1alpha1.WorkflowRun{},
+			handler.EnqueueRequestsFromMapFunc(r.findComponentsForWorkflowRun)).
 		Watches(&openchoreov1alpha1.ComponentType{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForComponentType)).
 		Watches(&openchoreov1alpha1.ClusterComponentType{},
@@ -983,8 +984,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsUsingTrait)).
 		Watches(&openchoreov1alpha1.ClusterTrait{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsUsingClusterTrait)).
-		Watches(&openchoreov1alpha1.ComponentWorkflow{},
-			handler.EnqueueRequestsFromMapFunc(r.listComponentsForComponentWorkflow)).
+		Watches(&openchoreov1alpha1.Workflow{},
+			handler.EnqueueRequestsFromMapFunc(r.listComponentsForWorkflow)).
 		Watches(&openchoreov1alpha1.Workload{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForWorkload)).
 		Watches(&openchoreov1alpha1.Project{},

@@ -61,14 +61,11 @@ const (
 
 	SystemActionViewDeploymentPipeline systemAction = "deploymentpipeline:view"
 
-	SystemActionViewWorkflow systemAction = "workflow:view"
+	SystemActionViewWorkflow   systemAction = "workflow:view"
+	SystemActionCreateWorkflow systemAction = "workflow:create"
 
 	SystemActionCreateWorkflowRun systemAction = "workflowrun:create"
 	SystemActionViewWorkflowRun   systemAction = "workflowrun:view"
-
-	SystemActionViewComponentWorkflow    systemAction = "componentworkflow:view"
-	SystemActionCreateComponentWorkflow  systemAction = "componentworkflow:create"
-	SystemActionViewComponentWorkflowRun systemAction = "componentworkflowrun:view"
 
 	SystemActionCreateSecretReference systemAction = "secretreference:create"
 	SystemActionViewSecretReference   systemAction = "secretreference:view"
@@ -104,8 +101,6 @@ const (
 	ResourceTypeDeploymentPipeline         ResourceType = "deploymentPipeline"
 	ResourceTypeWorkflow                   ResourceType = "workflow"
 	ResourceTypeWorkflowRun                ResourceType = "workflowRun"
-	ResourceTypeComponentWorkflow          ResourceType = "componentWorkflow"
-	ResourceTypeComponentWorkflowRun       ResourceType = "componentWorkflowRun"
 	ResourceTypeSecretReference            ResourceType = "secretReference"
 	ResourceTypeDataPlaneResource          ResourceType = "dataPlaneResource"
 	ResourceTypeBuildPlaneResource         ResourceType = "buildPlaneResource"

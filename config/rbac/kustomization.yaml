@@ -101,12 +101,6 @@ resources:
   - clustertrait_admin_role.yaml
   - clustertrait_editor_role.yaml
   - clustertrait_viewer_role.yaml
-  - componentworkflowrun_admin_role.yaml
-  - componentworkflowrun_editor_role.yaml
-  - componentworkflowrun_viewer_role.yaml
-  - componentworkflow_admin_role.yaml
-  - componentworkflow_editor_role.yaml
-  - componentworkflow_viewer_role.yaml
   - workflow_admin_role.yaml
   - workflow_editor_role.yaml
   - workflow_viewer_role.yaml
@@ -122,4 +116,3 @@ resources:
   - observabilityalertrule_admin_role.yaml
   - observabilityalertrule_editor_role.yaml
   - observabilityalertrule_viewer_role.yaml
-

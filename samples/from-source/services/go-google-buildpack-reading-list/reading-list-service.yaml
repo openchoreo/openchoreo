@@ -13,13 +13,16 @@ spec:
 
   autoDeploy: true
 
-  # Component Workflow configuration (developer-provided)
+  # Workflow configuration
   workflow:
-    # Reference to ComponentWorkflow
+    # Reference to Workflow
     name: google-cloud-buildpacks
 
-    # Required parameters required by the ComponentWorkflow
-    systemParameters:
+    # Parameters required by the Workflow
+    parameters:
+      scope:
+        projectName: "default"
+        componentName: "reading-list-service"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
@@ -30,22 +33,23 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentWorkflowRun
+kind: WorkflowRun
 metadata:
   # Should be unique per execution
   name: reading-list-service-build-01
+  labels:
+    openchoreo.dev/project: "default"
+    openchoreo.dev/component: "reading-list-service"
 spec:
-  # Ownership tracking for the component workflow execution (required)
-  owner:
-    projectName: "default"
-    componentName: "reading-list-service"
-
   workflow:
-    # Reference to ComponentWorkflow
+    # Reference to Workflow
     name: google-cloud-buildpacks
 
-    # Required parameters required by the ComponentWorkflow
-    systemParameters:
+    # Parameters required by the Workflow
+    parameters:
+      scope:
+        projectName: "default"
+        componentName: "reading-list-service"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:

@@ -1,23 +1,26 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentWorkflow
+kind: Workflow
 metadata:
-  name: google-cloud-buildpacks
+  name: react
   namespace: default
   annotations:
-    openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
+    openchoreo.dev/description: "Build workflow for React web applications"
+    openchoreo.dev/component-workflow-parameters: "repoUrl: parameters.repository.url, branch: parameters.repository.revision.branch, appPath: parameters.repository.appPath, secretRef: parameters.repository.secretRef, projectName: parameters.scope.projectName, componentName: parameters.scope.componentName"
 spec:
   ttlAfterCompletion: "1d"
   schema:
-    systemParameters:
+    parameters:
+      scope:
+        projectName: string | description="Name of the project"
+        componentName: string | description="Name of the component"
       repository:
         url: string | description="Git repository URL"
         secretRef: string | default="" description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
-        appPath: string | default=. description="Path to the application directory within the repository"
-
-    parameters: {}
+        appPath: string | default=. description="Path to the React application directory within the repository"
+      nodeVersion: string | default="18" enum=16,18,20,22 description="Node.js version to use for building the React application"
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
@@ -29,19 +32,21 @@ spec:
       arguments:
         parameters:
           - name: component-name
-            value: ${metadata.componentName}
+            value: ${parameters.scope.componentName}
           - name: project-name
-            value: ${metadata.projectName}
+            value: ${parameters.scope.projectName}
           - name: git-repo
-            value: ${systemParameters.repository.url}
+            value: ${parameters.repository.url}
           - name: branch
-            value: ${systemParameters.repository.revision.branch}
+            value: ${parameters.repository.revision.branch}
           - name: commit
-            value: ${systemParameters.repository.revision.commit}
+            value: ${parameters.repository.revision.commit}
           - name: app-path
-            value: ${systemParameters.repository.appPath}
+            value: ${parameters.repository.appPath}
+          - name: node-version
+            value: ${parameters.nodeVersion}
           - name: image-name
-            value: ${metadata.namespaceName}-${metadata.projectName}-${metadata.componentName}
+            value: ${metadata.namespaceName}-${parameters.scope.projectName}-${parameters.scope.componentName}
           - name: image-tag
             value: v1
           - name: git-secret
@@ -60,7 +65,7 @@ spec:
                   template: checkout
             - - name: build-image
                 templateRef:
-                  name: google-cloud-buildpacks
+                  name: react
                   clusterScope: true
                   template: build-image
                 arguments:
@@ -96,7 +101,7 @@ spec:
                 storage: 2Gi
   resources:
     - id: git-secret
-      includeWhen: ${has(systemParameters.repository.secretRef)}
+      includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret

@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -26,19 +27,22 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
 // WorkflowRunServiceInterface defines the operations available on WorkflowRun resources.
 // It is implemented by WorkflowRunService and may be replaced with a mock in tests.
 type WorkflowRunServiceInterface interface {
-	ListWorkflowRuns(ctx context.Context, namespaceName string) ([]*models.WorkflowRunResponse, error)
+	ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string) ([]*models.WorkflowRunResponse, error)
 	GetWorkflowRun(ctx context.Context, namespaceName, runName string) (*models.WorkflowRunResponse, error)
 	GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.ComponentWorkflowRunStatusResponse, error)
 	CreateWorkflowRun(ctx context.Context, namespaceName string, req *models.CreateWorkflowRunRequest) (*models.WorkflowRunResponse, error)
 	GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, stepName, gatewayURL string, sinceSeconds *int64) ([]models.ComponentWorkflowRunLogEntry, error)
 	GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, stepName, gatewayURL string) ([]models.ComponentWorkflowRunEventEntry, error)
+	TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error)
 }
 
 // WorkflowRunService handles WorkflowRun-related business logic
@@ -61,13 +65,53 @@ func NewWorkflowRunService(k8sClient client.Client, logger *slog.Logger, authzPD
 	}
 }
 
-// ListWorkflowRuns lists all WorkflowRuns in the given namespace
-func (s *WorkflowRunService) ListWorkflowRuns(ctx context.Context, namespaceName string) ([]*models.WorkflowRunResponse, error) {
-	s.logger.Debug("Listing WorkflowRuns", "namespace", namespaceName)
+// AuthorizeView checks if the caller has permission to view WorkflowRuns.
+func (s *WorkflowRunService) AuthorizeView(ctx context.Context, namespaceName, projectName, componentName string) error {
+	hierarchy := authz.ResourceHierarchy{Namespace: namespaceName}
+	if projectName != "" {
+		hierarchy.Project = projectName
+	}
+	if componentName != "" {
+		hierarchy.Component = componentName
+	}
+	return checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflowRun,
+		ResourceTypeWorkflowRun, "", hierarchy)
+}
+
+// AuthorizeCreate checks if the caller has permission to create a WorkflowRun.
+// It uses labels (project, component) from the request body to build the resource hierarchy.
+func (s *WorkflowRunService) AuthorizeCreate(ctx context.Context, namespaceName, projectName, componentName string) error {
+	hierarchy := authz.ResourceHierarchy{Namespace: namespaceName}
+	if projectName != "" {
+		hierarchy.Project = projectName
+	}
+	if componentName != "" {
+		hierarchy.Component = componentName
+	}
+	return checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateWorkflowRun,
+		ResourceTypeWorkflowRun, "", hierarchy)
+}
+
+// ListWorkflowRuns lists all WorkflowRuns in the given namespace.
+// Optional projectName and componentName parameters filter by labels.
+func (s *WorkflowRunService) ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string) ([]*models.WorkflowRunResponse, error) {
+	s.logger.Debug("Listing WorkflowRuns", "namespace", namespaceName, "project", projectName, "component", componentName)
 
 	var wfRunList openchoreov1alpha1.WorkflowRunList
 	listOpts := []client.ListOption{
 		client.InNamespace(namespaceName),
+	}
+
+	// Add label-based filtering if project or component specified
+	labelSelector := make(map[string]string)
+	if projectName != "" {
+		labelSelector[ocLabels.LabelKeyProjectName] = projectName
+	}
+	if componentName != "" {
+		labelSelector[ocLabels.LabelKeyComponentName] = componentName
+	}
+	if len(labelSelector) > 0 {
+		listOpts = append(listOpts, client.MatchingLabels(labelSelector))
 	}
 
 	if err := s.k8sClient.List(ctx, &wfRunList, listOpts...); err != nil {
@@ -729,4 +773,152 @@ func (s *WorkflowRunService) getArgoWorkflowPodEvents(ctx context.Context, build
 	}
 
 	return &eventList, nil
+}
+
+// TriggerWorkflow creates a new WorkflowRun from a component's workflow configuration.
+// This is the authorized entry point for triggering component workflows via API.
+func (s *WorkflowRunService) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
+	s.logger.Debug("Triggering component workflow", "namespace", namespaceName, "project", projectName, "component", componentName, "commit", commit)
+
+	// Authorization check using WorkflowRun resource type since we create WorkflowRun CRs
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateWorkflowRun, ResourceTypeWorkflowRun, componentName,
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
+
+	return s.triggerWorkflowInternal(ctx, namespaceName, projectName, componentName, commit)
+}
+
+// triggerWorkflowInternal contains the core workflow triggering logic without authorization checks.
+// This is used by the webhook service which authenticates via HMAC signature validation instead of user-level auth.
+func (s *WorkflowRunService) triggerWorkflowInternal(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
+	// Retrieve component and use that to create the workflow run
+	var component openchoreov1alpha1.Component
+	err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      componentName,
+		Namespace: namespaceName,
+	}, &component)
+
+	if err != nil {
+		s.logger.Error("Failed to get component", "error", err, "namespace", namespaceName, "project", projectName, "component", componentName)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Check if component has workflow configuration
+	if component.Spec.Workflow == nil || component.Spec.Workflow.Name == "" {
+		s.logger.Error("Component does not have a workflow configured", "component", componentName)
+		return nil, fmt.Errorf("component %s does not have a workflow configured", componentName)
+	}
+
+	// Fetch the Workflow CR to get the annotation mapping
+	workflow := &openchoreov1alpha1.Workflow{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      component.Spec.Workflow.Name,
+		Namespace: namespaceName,
+	}, workflow); err != nil {
+		s.logger.Error("Failed to get workflow", "error", err, "workflow", component.Spec.Workflow.Name)
+		return nil, fmt.Errorf("failed to get workflow %s: %w", component.Spec.Workflow.Name, err)
+	}
+
+	// Parse the annotation that maps logical keys to parameter paths
+	annotation := workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters]
+	paramMap := parseComponentWorkflowAnnotation(annotation)
+
+	// Validate that repoUrl is configured in the component parameters
+	if repoURLPath, ok := paramMap["repoUrl"]; ok {
+		repoURL, err := getNestedStringFromRawExtension(component.Spec.Workflow.Parameters, repoURLPath)
+		if err != nil || repoURL == "" {
+			s.logger.Error("Component workflow does not have repository URL configured", "component", componentName)
+			return nil, fmt.Errorf("component %s workflow does not have repository URL configured", componentName)
+		}
+	}
+
+	// Validate commit SHA format if provided
+	if commit != "" {
+		commitPattern := regexp.MustCompile(`^[0-9a-fA-F]{7,40}$`)
+		if !commitPattern.MatchString(commit) {
+			return nil, ErrInvalidCommitSHA
+		}
+	}
+
+	// Start with the component's existing parameters
+	parameters := component.Spec.Workflow.Parameters
+
+	// Inject commit SHA into parameters at the mapped path if a commit mapping exists
+	if commit != "" {
+		if commitPath, ok := paramMap["commit"]; ok {
+			updatedParams, err := setNestedValueInParameters(parameters, commitPath, commit)
+			if err != nil {
+				s.logger.Warn("Failed to inject commit into parameters", "error", err)
+				// Continue without commit injection rather than failing
+			} else {
+				parameters = updatedParams
+			}
+		}
+	}
+
+	// Generate a unique workflow run name with short UUID
+	uuid, err := generateShortUUID()
+	if err != nil {
+		s.logger.Error("Failed to generate UUID", "error", err)
+		return nil, fmt.Errorf("failed to generate UUID: %w", err)
+	}
+	workflowRunName := fmt.Sprintf("%s-workflow-%s", componentName, uuid)
+
+	// Create the WorkflowRun CR (using the unified Workflow/WorkflowRun model)
+	workflowRun := &openchoreov1alpha1.WorkflowRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workflowRunName,
+			Namespace: namespaceName,
+			Labels: map[string]string{
+				ocLabels.LabelKeyProjectName:   projectName,
+				ocLabels.LabelKeyComponentName: componentName,
+			},
+		},
+		Spec: openchoreov1alpha1.WorkflowRunSpec{
+			Workflow: openchoreov1alpha1.WorkflowRunConfig{
+				Name:       component.Spec.Workflow.Name,
+				Parameters: parameters,
+			},
+		},
+	}
+
+	if err := s.k8sClient.Create(ctx, workflowRun); err != nil {
+		if apierrors.IsInvalid(err) {
+			var statusErr *apierrors.StatusError
+			if errors.As(err, &statusErr) && statusErr.ErrStatus.Details != nil {
+				for _, cause := range statusErr.ErrStatus.Details.Causes {
+					if strings.Contains(cause.Field, "commit") {
+						s.logger.Warn("Commit SHA validation failed", "error", cause.Message, "field", cause.Field)
+						return nil, ErrInvalidCommitSHA
+					}
+				}
+			}
+		}
+		s.logger.Error("Failed to create workflow run", "error", err)
+		return nil, fmt.Errorf("failed to create workflow run: %w", err)
+	}
+
+	s.logger.Info("Workflow run created successfully", "workflow", workflowRunName, "component", componentName, "commit", commit)
+
+	return &models.ComponentWorkflowResponse{
+		Name:          workflowRun.Name,
+		UUID:          string(workflowRun.UID),
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		NamespaceName: namespaceName,
+		Commit:        commit,
+		Status:        WorkflowRunStatusPending,
+		CreatedAt:     workflowRun.CreationTimestamp.Time,
+		Image:         "",
+	}, nil
+}
+
+// generateShortUUID generates a short 8-character UUID for workflow naming.
+func generateShortUUID() (string, error) {
+	bytes := make([]byte, 4) // 4 bytes = 8 hex characters
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }

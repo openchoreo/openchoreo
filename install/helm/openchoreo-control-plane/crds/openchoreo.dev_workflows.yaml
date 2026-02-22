@@ -55,6 +55,13 @@ spec:
                         workflow.
                       minLength: 1
                       type: string
+                    includeWhen:
+                      description: |-
+                        IncludeWhen is a CEL expression that determines whether this resource should be rendered.
+                        If the expression evaluates to false, the resource is skipped.
+                        If empty, the resource is always included.
+                        Example: has(systemParameters.secretRef)
+                      type: string
                     template:
                       description: |-
                         Template contains the Kubernetes resource with CEL expressions.

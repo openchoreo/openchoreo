@@ -16,6 +16,7 @@ const (
 	ConditionWorkflowFailed    controller.ConditionType = "WorkflowFailed"
 	ConditionWorkflowSucceeded controller.ConditionType = "WorkflowSucceeded"
 	ConditionWorkflowCompleted controller.ConditionType = "WorkflowCompleted"
+	ConditionWorkloadUpdated   controller.ConditionType = "WorkloadUpdated"
 )
 
 const (
@@ -25,6 +26,8 @@ const (
 	ReasonWorkflowFailed             controller.ConditionReason = "WorkflowFailed"
 	ReasonBuildPlaneNotFound         controller.ConditionReason = "BuildPlaneNotFound"
 	ReasonBuildPlaneResolutionFailed controller.ConditionReason = "BuildPlaneResolutionFailed"
+	ReasonWorkloadUpdated            controller.ConditionReason = "WorkloadUpdated"
+	ReasonWorkloadUpdateFailed       controller.ConditionReason = "WorkloadUpdateFailed"
 )
 
 func setWorkflowPendingCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
@@ -142,4 +145,28 @@ func isWorkflowCompleted(workflowRun *openchoreov1alpha1.WorkflowRun) bool {
 
 func isWorkflowSucceeded(workflowRun *openchoreov1alpha1.WorkflowRun) bool {
 	return meta.IsStatusConditionTrue(workflowRun.Status.Conditions, string(ConditionWorkflowSucceeded))
+}
+
+func isWorkloadUpdated(workflowRun *openchoreov1alpha1.WorkflowRun) bool {
+	return meta.IsStatusConditionTrue(workflowRun.Status.Conditions, string(ConditionWorkloadUpdated))
+}
+
+func setWorkloadUpdatedCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
+	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkloadUpdated),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(ReasonWorkloadUpdated),
+		Message:            "Workload CR created/updated successfully",
+		ObservedGeneration: workflowRun.Generation,
+	})
+}
+
+func setWorkloadUpdateFailedCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
+	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkloadUpdated),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(ReasonWorkloadUpdateFailed),
+		Message:            "Failed to create/update workload CR",
+		ObservedGeneration: workflowRun.Generation,
+	})
 }

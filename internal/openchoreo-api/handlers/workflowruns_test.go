@@ -28,7 +28,7 @@ type mockWorkflowRunService struct {
 	getEventsErr    error
 }
 
-func (m *mockWorkflowRunService) ListWorkflowRuns(_ context.Context, _ string) ([]*models.WorkflowRunResponse, error) {
+func (m *mockWorkflowRunService) ListWorkflowRuns(_ context.Context, _, _, _ string) ([]*models.WorkflowRunResponse, error) {
 	panic("unexpected call to ListWorkflowRuns")
 }
 func (m *mockWorkflowRunService) GetWorkflowRun(_ context.Context, _, _ string) (*models.WorkflowRunResponse, error) {
@@ -45,6 +45,9 @@ func (m *mockWorkflowRunService) GetWorkflowRunLogs(_ context.Context, _, _, _, 
 }
 func (m *mockWorkflowRunService) GetWorkflowRunEvents(_ context.Context, _, _, _, _ string) ([]models.ComponentWorkflowRunEventEntry, error) {
 	return m.getEventsResult, m.getEventsErr
+}
+func (m *mockWorkflowRunService) TriggerWorkflow(_ context.Context, _, _, _, _ string) (*models.ComponentWorkflowResponse, error) {
+	panic("unexpected call to TriggerWorkflow")
 }
 
 // newHandlerWithMock returns a Handler wired with the provided mock service.

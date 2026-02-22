@@ -84,10 +84,10 @@ GETTING_STARTED_FILES := \
 	$(GETTING_STARTED_DIR)/component-types/service.yaml \
 	$(GETTING_STARTED_DIR)/component-types/webapp.yaml \
 	$(GETTING_STARTED_DIR)/component-types/scheduled-task.yaml \
-	$(GETTING_STARTED_DIR)/component-workflows/docker.yaml \
-	$(GETTING_STARTED_DIR)/component-workflows/react.yaml \
-	$(GETTING_STARTED_DIR)/component-workflows/ballerina-buildpack.yaml \
-	$(GETTING_STARTED_DIR)/component-workflows/google-cloud-buildpacks.yaml \
+	$(GETTING_STARTED_DIR)/workflows/docker.yaml \
+	$(GETTING_STARTED_DIR)/workflows/react.yaml \
+	$(GETTING_STARTED_DIR)/workflows/ballerina-buildpack.yaml \
+	$(GETTING_STARTED_DIR)/workflows/google-cloud-buildpacks.yaml \
 	$(GETTING_STARTED_DIR)/component-traits/api-management.yaml \
 	$(GETTING_STARTED_DIR)/component-traits/alert-rule-trait.yaml
 

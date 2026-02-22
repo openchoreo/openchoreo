@@ -1,7 +1,7 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
-  name: greeting-service
+  name: greeting-service-2
 spec:
   owner:
     projectName: default
@@ -13,13 +13,16 @@ spec:
 
   autoDeploy: true
 
-  # Component Workflow configuration (developer-provided)
+  # Workflow configuration (developer-provided)
   workflow:
-    # Reference to ComponentWorkflow
+    # Reference to Workflow
     name: docker
 
-    # Required parameters required by the ComponentWorkflow
-    systemParameters:
+    # Parameters required by the Workflow
+    parameters:
+      scope:
+        projectName: "default"
+        componentName: "greeting-service"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
@@ -27,30 +30,28 @@ spec:
           # Optional commit hash, should be a valid git commit
           # commit: ""
         appPath: "/service-go-greeter"
-
-    # Developer-configurable parameters (defined by PE, passed to build plane resource)
-    parameters:
       docker:
         context: "/service-go-greeter"
         filePath: "/service-go-greeter/Dockerfile"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentWorkflowRun
+kind: WorkflowRun
 metadata:
-  name: greeting-service-build-01
+  name: greeting-service-build-03
+  labels:
+    openchoreo.dev/project: "default"
+    openchoreo.dev/component: "greeting-service-2"
 spec:
-  # Ownership tracking for the component workflow execution (required)
-  owner:
-    projectName: "default"
-    componentName: "greeting-service"
-
   workflow:
-    # Reference to ComponentWorkflow
+    # Reference to Workflow
     name: docker
 
-    # Required parameters required by the ComponentWorkflow
-    systemParameters:
+    # Parameters required by the Workflow
+    parameters:
+      scope:
+        projectName: "default"
+        componentName: "greeting-service-2"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
@@ -58,9 +59,6 @@ spec:
           # Optional commit hash, should be a valid git commit
           # commit: ""
         appPath: "/service-go-greeter"
-
-    # Developer-configurable parameters (defined by PE, passed to build plane resource)
-    parameters:
       docker:
         context: "/service-go-greeter"
         filePath: "/service-go-greeter/Dockerfile"

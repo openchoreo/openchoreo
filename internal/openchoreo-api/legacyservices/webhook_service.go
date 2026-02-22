@@ -5,24 +5,27 @@ package legacyservices
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices/git"
 )
 
 // WebhookService handles webhook processing for all git providers
 type WebhookService struct {
 	k8sClient       client.Client
-	workflowService *ComponentWorkflowService
+	workflowService *WorkflowRunService
 }
 
 // NewWebhookService creates a new WebhookService
-func NewWebhookService(k8sClient client.Client, workflowService *ComponentWorkflowService) *WebhookService {
+func NewWebhookService(k8sClient client.Client, workflowService *WorkflowRunService) *WebhookService {
 	return &WebhookService{
 		k8sClient:       k8sClient,
 		workflowService: workflowService,
@@ -112,8 +115,8 @@ func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.
 			continue
 		}
 
-		// Get repository URL from component workflow
-		repoURL, appPath, err := s.extractRepoInfoFromComponent(comp)
+		// Get repository URL from component workflow via Workflow CR annotation
+		repoURL, appPath, err := s.extractRepoInfoFromComponent(ctx, comp)
 		if err != nil {
 			logger.V(1).Info("Failed to extract repo info from component",
 				"component", comp.Name,
@@ -140,22 +143,147 @@ func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.
 	return affected, nil
 }
 
-// extractRepoInfoFromComponent extracts repository URL and appPath from component workflow system parameters
-func (s *WebhookService) extractRepoInfoFromComponent(comp *v1alpha1.Component) (repoURL string, appPath string, err error) {
-	if comp.Spec.Workflow == nil {
+// extractRepoInfoFromComponent extracts repository URL and appPath from a component's workflow parameters
+// by looking up the Workflow CR annotation to find the parameter paths.
+func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp *v1alpha1.Component) (repoURL string, appPath string, err error) {
+	if comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == "" {
 		return "", "", fmt.Errorf("component has no workflow configuration")
 	}
 
-	// Extract repository URL from system parameters
-	repoURL = comp.Spec.Workflow.SystemParameters.Repository.URL
-	if repoURL == "" {
-		return "", "", fmt.Errorf("repository URL not found in workflow system parameters")
+	// Fetch the Workflow CR to get the annotation mapping
+	workflow := &v1alpha1.Workflow{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      comp.Spec.Workflow.Name,
+		Namespace: comp.Namespace,
+	}, workflow); err != nil {
+		return "", "", fmt.Errorf("failed to get workflow %s: %w", comp.Spec.Workflow.Name, err)
 	}
 
-	// Extract appPath from system parameters
-	appPath = comp.Spec.Workflow.SystemParameters.Repository.AppPath
+	// Parse the annotation that maps logical keys to parameter paths
+	annotation := workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters]
+	paramMap := parseComponentWorkflowAnnotation(annotation)
+
+	// Get repoUrl path from the annotation
+	repoURLPath, ok := paramMap["repoUrl"]
+	if !ok {
+		return "", "", fmt.Errorf("workflow %s annotation missing repoUrl mapping", comp.Spec.Workflow.Name)
+	}
+
+	repoURL, err = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, repoURLPath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to extract repoUrl from parameters: %w", err)
+	}
+
+	if repoURL == "" {
+		return "", "", fmt.Errorf("repository URL is empty in component parameters")
+	}
+
+	// Get appPath (optional - not all workflows may have it)
+	if appPathPath, ok := paramMap["appPath"]; ok {
+		appPath, _ = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, appPathPath)
+	}
 
 	return repoURL, appPath, nil
+}
+
+// parseComponentWorkflowAnnotation parses the component-workflow-parameters annotation string
+// into a map of logical key to dotted parameter path.
+// Format: "key1: path1, key2: path2, ..."
+// Example: "repoUrl: parameters.repository.url, branch: parameters.repository.revision.branch"
+func parseComponentWorkflowAnnotation(annotation string) map[string]string {
+	result := make(map[string]string)
+	if annotation == "" {
+		return result
+	}
+	pairs := strings.Split(annotation, ",")
+	for _, pair := range pairs {
+		parts := strings.SplitN(strings.TrimSpace(pair), ":", 2)
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			path := strings.TrimSpace(parts[1])
+			if key != "" && path != "" {
+				result[key] = path
+			}
+		}
+	}
+	return result
+}
+
+// getNestedStringFromRawExtension navigates a runtime.RawExtension JSON blob using a dotted path
+// and returns the string value. The leading "parameters." prefix is stripped if present.
+func getNestedStringFromRawExtension(raw *runtime.RawExtension, dottedPath string) (string, error) {
+	if raw == nil || raw.Raw == nil {
+		return "", fmt.Errorf("parameters is nil")
+	}
+
+	// Strip the "parameters." prefix since we're already inside the parameters object
+	path := strings.TrimPrefix(dottedPath, "parameters.")
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(raw.Raw, &data); err != nil {
+		return "", fmt.Errorf("failed to unmarshal parameters: %w", err)
+	}
+
+	parts := strings.Split(path, ".")
+	current := interface{}(data)
+	for _, part := range parts {
+		m, ok := current.(map[string]interface{})
+		if !ok {
+			return "", fmt.Errorf("path %s: expected object at %s", dottedPath, part)
+		}
+		current, ok = m[part]
+		if !ok {
+			return "", fmt.Errorf("path %s: key %s not found", dottedPath, part)
+		}
+	}
+
+	str, ok := current.(string)
+	if !ok {
+		return "", fmt.Errorf("path %s: value is not a string", dottedPath)
+	}
+	return str, nil
+}
+
+// setNestedValueInParameters takes a runtime.RawExtension, sets a string value at the given
+// dotted path (stripping leading "parameters."), and returns a new runtime.RawExtension.
+func setNestedValueInParameters(raw *runtime.RawExtension, dottedPath, value string) (*runtime.RawExtension, error) {
+	if raw == nil || raw.Raw == nil {
+		return nil, fmt.Errorf("parameters is nil")
+	}
+
+	path := strings.TrimPrefix(dottedPath, "parameters.")
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(raw.Raw, &data); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal parameters: %w", err)
+	}
+
+	parts := strings.Split(path, ".")
+	current := data
+	for _, part := range parts[:len(parts)-1] {
+		next, ok := current[part]
+		if !ok {
+			// Create intermediate objects if they don't exist
+			newObj := make(map[string]interface{})
+			current[part] = newObj
+			current = newObj
+			continue
+		}
+		m, ok := next.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("path %s: expected object at %s", dottedPath, part)
+		}
+		current = m
+	}
+
+	current[parts[len(parts)-1]] = value
+
+	rawBytes, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal parameters: %w", err)
+	}
+
+	return &runtime.RawExtension{Raw: rawBytes}, nil
 }
 
 // matchesRepository checks if component's repository matches the webhook repository

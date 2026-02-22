@@ -72,9 +72,9 @@ func (r *Reconciler) finalize(ctx context.Context, old, comp *openchoreov1alpha1
 		return ctrl.Result{}, err
 	}
 
-	hasWorkflowRuns, err := r.hasOwnedComponentWorkflowRuns(ctx, comp)
+	hasWorkflowRuns, err := r.hasOwnedWorkflowRuns(ctx, comp)
 	if err != nil {
-		logger.Error(err, "Failed to check for owned ComponentWorkflowRuns")
+		logger.Error(err, "Failed to check for owned WorkflowRuns")
 		return ctrl.Result{}, err
 	}
 
@@ -187,30 +187,30 @@ func (r *Reconciler) hasOwnedWorkloads(ctx context.Context, comp *openchoreov1al
 	return true, nil
 }
 
-// hasOwnedComponentWorkflowRuns checks if any ComponentWorkflowRuns owned by this Component still exist,
+// hasOwnedWorkflowRuns checks if any WorkflowRuns owned by this Component still exist,
 // and deletes them if they exist.
-func (r *Reconciler) hasOwnedComponentWorkflowRuns(ctx context.Context, comp *openchoreov1alpha1.Component) (bool, error) {
+func (r *Reconciler) hasOwnedWorkflowRuns(ctx context.Context, comp *openchoreov1alpha1.Component) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("component", comp.Name)
 
-	// List ComponentWorkflowRuns owned by this Component using field index
-	workflowRunList := &openchoreov1alpha1.ComponentWorkflowRunList{}
+	// List WorkflowRuns owned by this Component using field index.
+	workflowRunList := &openchoreov1alpha1.WorkflowRunList{}
 	if err := r.List(ctx, workflowRunList,
 		client.InNamespace(comp.Namespace),
-		client.MatchingFields{componentWorkflowRunOwnerIndex: comp.Name}); err != nil {
-		return false, fmt.Errorf("failed to list component workflow runs: %w", err)
+		client.MatchingFields{workflowRunOwnerIndex: comp.Name}); err != nil {
+		return false, fmt.Errorf("failed to list workflow runs: %w", err)
 	}
 
 	if len(workflowRunList.Items) == 0 {
-		logger.Info("All ComponentWorkflowRuns are deleted")
+		logger.Info("All WorkflowRuns are deleted")
 		return false, nil
 	}
 
-	// Delete all ComponentWorkflowRuns owned by this Component
-	logger.Info("Deleting owned ComponentWorkflowRuns", "count", len(workflowRunList.Items))
+	// Delete all WorkflowRuns owned by this Component.
+	logger.Info("Deleting owned WorkflowRuns", "count", len(workflowRunList.Items))
 	for i := range workflowRunList.Items {
 		workflowRun := &workflowRunList.Items[i]
 		if err := client.IgnoreNotFound(r.Delete(ctx, workflowRun)); err != nil {
-			return false, fmt.Errorf("failed to delete component workflow run %s: %w", workflowRun.Name, err)
+			return false, fmt.Errorf("failed to delete workflow run %s: %w", workflowRun.Name, err)
 		}
 	}
 

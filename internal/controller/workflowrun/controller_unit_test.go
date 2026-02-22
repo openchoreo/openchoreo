@@ -5,9 +5,12 @@ package workflowrun
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -250,6 +253,215 @@ func TestConvertParameterValuesToStrings(t *testing.T) {
 		}
 		if result["kind"] != "Workflow" {
 			t.Errorf("expected kind to be preserved")
+		}
+	})
+}
+
+func TestParseComponentWorkflowAnnotation(t *testing.T) {
+	annotation := "repoUrl: parameters.repository.url, secretRef: parameters.repository.secretRef, invalid, commit: parameters.repository.revision.commit"
+	result := parseComponentWorkflowAnnotation(annotation)
+
+	if result["repoUrl"] != "parameters.repository.url" {
+		t.Errorf("expected repoUrl path, got %q", result["repoUrl"])
+	}
+	if result["secretRef"] != "parameters.repository.secretRef" {
+		t.Errorf("expected secretRef path, got %q", result["secretRef"])
+	}
+	if result["commit"] != "parameters.repository.revision.commit" {
+		t.Errorf("expected commit path, got %q", result["commit"])
+	}
+	if _, ok := result["invalid"]; ok {
+		t.Errorf("expected invalid entry to be ignored")
+	}
+}
+
+func TestGetNestedStringFromRawExtension(t *testing.T) {
+	makeRaw := func(t *testing.T, data map[string]any) *runtime.RawExtension {
+		t.Helper()
+		raw, err := json.Marshal(data)
+		if err != nil {
+			t.Fatalf("failed to marshal test data: %v", err)
+		}
+		return &runtime.RawExtension{Raw: raw}
+	}
+
+	tests := []struct {
+		name       string
+		raw        *runtime.RawExtension
+		path       string
+		wantValue  string
+		wantFound  bool
+		wantErr    bool
+		errContain string
+	}{
+		{
+			name:      "nil parameters",
+			raw:       nil,
+			path:      "parameters.repository.secretRef",
+			wantFound: false,
+		},
+		{
+			name: "existing path",
+			raw: makeRaw(t, map[string]any{
+				"repository": map[string]any{
+					"secretRef": "repo-git-secret",
+				},
+			}),
+			path:      "parameters.repository.secretRef",
+			wantValue: "repo-git-secret",
+			wantFound: true,
+		},
+		{
+			name: "missing path",
+			raw: makeRaw(t, map[string]any{
+				"repository": map[string]any{},
+			}),
+			path:      "parameters.repository.secretRef",
+			wantFound: false,
+		},
+		{
+			name: "non-string value",
+			raw: makeRaw(t, map[string]any{
+				"repository": map[string]any{
+					"secretRef": 123,
+				},
+			}),
+			path:       "parameters.repository.secretRef",
+			wantErr:    true,
+			errContain: "value is not a string",
+		},
+		{
+			name: "invalid json",
+			raw: &runtime.RawExtension{
+				Raw: []byte("{invalid-json"),
+			},
+			path:       "parameters.repository.secretRef",
+			wantErr:    true,
+			errContain: "failed to unmarshal parameters",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			value, found, err := getNestedStringFromRawExtension(tt.raw, tt.path)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got nil")
+				}
+				if tt.errContain != "" && !contains(err.Error(), tt.errContain) {
+					t.Fatalf("expected error containing %q, got %q", tt.errContain, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if found != tt.wantFound {
+				t.Fatalf("expected found=%v, got %v", tt.wantFound, found)
+			}
+			if value != tt.wantValue {
+				t.Fatalf("expected value=%q, got %q", tt.wantValue, value)
+			}
+		})
+	}
+}
+
+func TestResolveSecretRefInfo(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := openchoreodevv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add scheme: %v", err)
+	}
+
+	t.Run("resolves secret reference info", func(t *testing.T) {
+		secretRef := &openchoreodevv1alpha1.SecretReference{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "repo-git-secret",
+				Namespace: "default",
+			},
+			Spec: openchoreodevv1alpha1.SecretReferenceSpec{
+				Template: openchoreodevv1alpha1.SecretTemplate{
+					Type: "kubernetes.io/basic-auth",
+				},
+				Data: []openchoreodevv1alpha1.SecretDataSource{
+					{
+						SecretKey: "username",
+						RemoteRef: openchoreodevv1alpha1.RemoteReference{
+							Key:      "secret/data/repo-creds",
+							Property: "username",
+						},
+					},
+				},
+			},
+		}
+
+		reconciler := &Reconciler{
+			Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(secretRef).Build(),
+		}
+
+		info, err := reconciler.resolveSecretRefInfo(t.Context(), "default", "repo-git-secret")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if info.Name != "repo-git-secret" {
+			t.Fatalf("expected name repo-git-secret, got %s", info.Name)
+		}
+		if info.Type != "kubernetes.io/basic-auth" {
+			t.Fatalf("expected type kubernetes.io/basic-auth, got %s", info.Type)
+		}
+		if len(info.Data) != 1 {
+			t.Fatalf("expected 1 data entry, got %d", len(info.Data))
+		}
+		if info.Data[0].SecretKey != "username" {
+			t.Fatalf("expected secretKey username, got %s", info.Data[0].SecretKey)
+		}
+		if info.Data[0].RemoteRef.Key != "secret/data/repo-creds" {
+			t.Fatalf("expected remote key secret/data/repo-creds, got %s", info.Data[0].RemoteRef.Key)
+		}
+		if info.Data[0].RemoteRef.Property != "username" {
+			t.Fatalf("expected remote property username, got %s", info.Data[0].RemoteRef.Property)
+		}
+	})
+
+	t.Run("returns error when secret reference does not exist", func(t *testing.T) {
+		reconciler := &Reconciler{
+			Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+		}
+
+		_, err := reconciler.resolveSecretRefInfo(t.Context(), "default", "missing-secret")
+		if err == nil {
+			t.Fatalf("expected error, got nil")
+		}
+		if !contains(err.Error(), "failed to get SecretReference") {
+			t.Fatalf("expected get SecretReference error, got %v", err)
+		}
+	})
+
+	t.Run("returns error when secret reference has no data", func(t *testing.T) {
+		secretRef := &openchoreodevv1alpha1.SecretReference{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "empty-secret",
+				Namespace: "default",
+			},
+			Spec: openchoreodevv1alpha1.SecretReferenceSpec{
+				Template: openchoreodevv1alpha1.SecretTemplate{
+					Type: "kubernetes.io/basic-auth",
+				},
+				Data: []openchoreodevv1alpha1.SecretDataSource{},
+			},
+		}
+
+		reconciler := &Reconciler{
+			Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(secretRef).Build(),
+		}
+
+		_, err := reconciler.resolveSecretRefInfo(t.Context(), "default", "empty-secret")
+		if err == nil {
+			t.Fatalf("expected error, got nil")
+		}
+		if !contains(err.Error(), fmt.Sprintf("SecretReference %q has no data sources", "empty-secret")) {
+			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 }
