@@ -37,14 +37,66 @@ type WorkflowRunConfig struct {
 	Name string `json:"name"`
 
 	// Parameters contains the developer-provided values for the flexible parameter schema
-	// defined in the referenced ComponentWorkflow CR.
+	// defined in the referenced Workflow CR.
 	//
-	// These values are validated against the ComponentWorkflow's parameter schema.
+	// These values are validated against the Workflow's parameter schema.
 	//
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+}
+
+// ResourceReference tracks a resource applied to the build plane cluster for cleanup purposes.
+type ResourceReference struct {
+	// APIVersion is the API version of the resource (e.g., "v1", "apps/v1").
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	APIVersion string `json:"apiVersion"`
+
+	// Kind is the type of the resource (e.g., "Secret", "ConfigMap").
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Kind string `json:"kind"`
+
+	// Name is the name of the resource in the build plane cluster.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Namespace is the namespace of the resource in the build plane cluster.
+	// Empty for cluster-scoped resources.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// WorkflowTask represents a single task/step in a workflow execution.
+// This provides a vendor-neutral abstraction over workflow engine-specific steps
+// (e.g., Argo Workflow nodes, Tekton TaskRuns).
+type WorkflowTask struct {
+	// Name is the name of the task/step.
+	// For Argo Workflows, this corresponds to the templateName.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Phase represents the current execution phase of the task.
+	// +kubebuilder:validation:Enum=Pending;Running;Succeeded;Failed;Skipped;Error
+	// +optional
+	Phase string `json:"phase,omitempty"`
+
+	// StartedAt is the timestamp when the task started execution.
+	// +optional
+	StartedAt *metav1.Time `json:"startedAt,omitempty"`
+
+	// CompletedAt is the timestamp when the task finished execution.
+	// +optional
+	CompletedAt *metav1.Time `json:"completedAt,omitempty"`
+
+	// Message provides additional details about the task status.
+	// This is typically populated when the task fails or errors.
+	// +optional
+	Message string `json:"message,omitempty"`
 }
 
 // WorkflowRunStatus defines the observed state of WorkflowRun.

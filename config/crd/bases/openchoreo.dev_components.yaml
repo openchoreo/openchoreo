@@ -143,91 +143,26 @@ spec:
                 type: array
               workflow:
                 description: |-
-                  Workflow defines the component workflow configuration for building the component.
-                  This references a ComponentWorkflow CR and provides both system parameters (repository info)
-                  and developer-configured parameter values.
-                  The ComponentWorkflow must be in the allowedWorkflows list of the ComponentType.
+                  Workflow defines the workflow configuration for building the component.
+                  This references a Workflow CR and provides parameter values.
+                  The Workflow must be in the allowedWorkflows list of the ComponentType.
                 properties:
                   name:
                     description: |-
-                      Name references the ComponentWorkflow CR to use for this execution.
-                      The ComponentWorkflow CR contains the schema definition and resource template.
+                      Name references the Workflow CR to use for this execution.
+                      The Workflow CR contains the schema definition and resource template.
                     minLength: 1
                     type: string
                   parameters:
                     description: |-
                       Parameters contains the developer-provided values for the flexible parameter schema
-                      defined in the referenced ComponentWorkflow CR.
+                      defined in the referenced Workflow CR.
 
-                      These values are validated against the ComponentWorkflow's parameter schema.
+                      These values are validated against the Workflow's parameter schema.
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
-                  systemParameters:
-                    description: |-
-                      SystemParameters contains the actual repository information values.
-                      This must conform to the required system parameters structure:
-                        - repository.url
-                        - repository.revision.branch
-                        - repository.revision.commit
-                        - repository.appPath
-                    properties:
-                      repository:
-                        description: Repository contains the actual repository information
-                          values.
-                        properties:
-                          appPath:
-                            description: |-
-                              AppPath is the path to the application code within the repository.
-                              Example: "/service-go-reading-list" or "."
-                            minLength: 1
-                            type: string
-                          revision:
-                            description: Revision contains the revision-related parameter
-                              values (branch, commit).
-                            properties:
-                              branch:
-                                description: |-
-                                  Branch is the Git branch to build from.
-                                  Example: "main"
-                                minLength: 1
-                                type: string
-                              commit:
-                                description: |-
-                                  Commit is the specific commit SHA to build.
-                                  Can be empty to use the latest commit.
-                                  Example: "a1b2c3d4e5f6" or ""
-                                pattern: ^[0-9a-fA-F]{7,40}$
-                                type: string
-                            required:
-                            - branch
-                            type: object
-                          secretRef:
-                            description: |-
-                              SecretRef is the name of the SecretReference for Git credentials.
-                              This should reference a SecretReference CR in the same namespace.
-                              Example: "my-git-credentials"
-                            type: string
-                          url:
-                            description: |-
-                              URL is the Git repository URL for the component source code.
-                              Supports HTTP/HTTPS and SSH formats.
-                              Examples:
-                                - "https://github.com/openchoreo/sample-workloads"
-                                - "git@github.com:openchoreo/sample-workloads.git"
-                                - "ssh://git@github.com/openchoreo/sample-workloads.git"
-                            pattern: ^(https?://|ssh://|git@[^:]+:)
-                            type: string
-                        required:
-                        - appPath
-                        - revision
-                        - url
-                        type: object
-                    required:
-                    - repository
-                    type: object
                 required:
                 - name
-                - systemParameters
                 type: object
             required:
             - componentType

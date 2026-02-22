@@ -19,6 +19,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -46,6 +47,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflows,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
 // +kubebuilder:rbac:groups=argoproj.io,resources=workflows,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create
 
@@ -95,6 +97,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}
 	}()
 
+	if isWorkloadUpdated(workflowRun) {
+		return ctrl.Result{}, nil
+	}
+
 	if !isWorkflowInitiated(workflowRun) {
 		setStartedAtIfNeeded(workflowRun)
 		setWorkflowPendingCondition(workflowRun)
@@ -124,13 +130,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if isWorkflowCompleted(workflowRun) {
-		// Set CompletedAt timestamp if not already set
-		setCompletedAtIfNeeded(workflowRun)
-
-		return ctrl.Result{}, nil
+	// Handle completed workflow (workload creation, timestamp setting)
+	if res, shouldReturn := r.handleCompletedWorkflow(ctx, workflowRun, bpClient); shouldReturn {
+		return res, nil
 	}
 
+	// Sync existing workflow run status
 	if workflowRun.Status.RunReference != nil && workflowRun.Status.RunReference.Name != "" && workflowRun.Status.RunReference.Namespace != "" {
 		runResource := &argoproj.Workflow{}
 		err = bpClient.Get(ctx, types.NamespacedName{
@@ -169,12 +174,37 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	// Resolve SecretReference for CEL context when annotation provides a secretRef mapping.
+	var secretRefInfo *workflowpipeline.SecretRefInfo
+	paramMap := parseComponentWorkflowAnnotation(workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters])
+	if secretRefPath, ok := paramMap["secretRef"]; ok {
+		secretRefName, found, err := getNestedStringFromRawExtension(workflowRun.Spec.Workflow.Parameters, secretRefPath)
+		if err != nil {
+			logger.Error(err, "failed to resolve secretRef from workflow run parameters",
+				"workflow", workflow.Name,
+				"workflowRun", workflowRun.Name,
+				"secretRefPath", secretRefPath)
+			return ctrl.Result{Requeue: true}, nil
+		}
+		if found && secretRefName != "" {
+			secretRefInfo, err = r.resolveSecretRefInfo(ctx, workflowRun.Namespace, secretRefName)
+			if err != nil {
+				logger.Error(err, "failed to resolve SecretReference for workflow context",
+					"workflow", workflow.Name,
+					"workflowRun", workflowRun.Name,
+					"secretRef", secretRefName)
+				return ctrl.Result{Requeue: true}, nil
+			}
+		}
+	}
+
 	renderInput := &workflowpipeline.RenderInput{
 		WorkflowRun: workflowRun,
 		Workflow:    workflow,
 		Context: workflowpipeline.WorkflowContext{
 			NamespaceName:   workflowRun.Namespace,
 			WorkflowRunName: workflowRun.Name,
+			SecretRef:       secretRefInfo,
 		},
 	}
 
@@ -257,6 +287,131 @@ func (r *Reconciler) syncWorkflowRunStatus(
 	default:
 		return ctrl.Result{Requeue: true}
 	}
+}
+
+// handleCompletedWorkflow handles logic for completed workflows (workload creation, timestamp setting).
+// Returns (result, shouldReturn). If shouldReturn is true, the caller should return with the given result.
+func (r *Reconciler) handleCompletedWorkflow(
+	ctx context.Context,
+	workflowRun *openchoreodevv1alpha1.WorkflowRun,
+	bpClient client.Client,
+) (ctrl.Result, bool) {
+	if !isWorkflowCompleted(workflowRun) {
+		return ctrl.Result{}, false
+	}
+
+	// Set CompletedAt timestamp immediately upon workflow completion.
+	// The deferred status update in Reconcile will persist this change.
+	setCompletedAtIfNeeded(workflowRun)
+
+	if isWorkflowSucceeded(workflowRun) && hasGenerateWorkloadTask(workflowRun) {
+		return r.handleWorkloadCreation(ctx, workflowRun, bpClient), true
+	}
+
+	return ctrl.Result{}, true
+}
+
+func (r *Reconciler) handleWorkloadCreation(
+	ctx context.Context,
+	workflowRun *openchoreodevv1alpha1.WorkflowRun,
+	bpClient client.Client,
+) ctrl.Result {
+	logger := log.FromContext(ctx)
+
+	shouldRequeue, err := r.createWorkloadFromWorkflowRun(ctx, workflowRun, bpClient)
+	if err != nil {
+		logger.Error(err, "failed to create workload CR",
+			"workflowrun", workflowRun.Name,
+			"namespace", workflowRun.Namespace)
+		if shouldRequeue {
+			return ctrl.Result{Requeue: true}
+		}
+		setWorkloadUpdateFailedCondition(workflowRun)
+		return ctrl.Result{}
+	}
+
+	setWorkloadUpdatedCondition(workflowRun)
+
+	return ctrl.Result{}
+}
+
+func (r *Reconciler) createWorkloadFromWorkflowRun(
+	ctx context.Context,
+	workflowRun *openchoreodevv1alpha1.WorkflowRun,
+	bpClient client.Client,
+) (bool, error) {
+	logger := log.FromContext(ctx).WithValues("workflowrun", workflowRun.Name)
+
+	// Use the stored RunReference to retrieve the run resource
+	if workflowRun.Status.RunReference == nil || workflowRun.Status.RunReference.Name == "" || workflowRun.Status.RunReference.Namespace == "" {
+		logger.Error(nil, "run resource reference not found in status")
+		return true, fmt.Errorf("run resource reference not set in status")
+	}
+
+	runRefName := workflowRun.Status.RunReference.Name
+	runRefNamespace := workflowRun.Status.RunReference.Namespace
+
+	runResource := &argoproj.Workflow{}
+	if err := bpClient.Get(ctx, types.NamespacedName{
+		Name:      runRefName,
+		Namespace: runRefNamespace,
+	}, runResource); err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("run resource not found, skipping workload creation",
+				"runName", runRefName,
+				"runNamespace", runRefNamespace)
+			return false, fmt.Errorf("run resource %q in namespace %q not found: %w", runRefName, runRefNamespace, err)
+		}
+		return true, fmt.Errorf("failed to get run resource %q in namespace %q: %w", runRefName, runRefNamespace, err)
+	}
+
+	workloadCR := extractWorkloadCRFromRunResource(runResource)
+	if workloadCR == "" {
+		logger.Info("no workload CR found in run resource outputs",
+			"runName", runRefName,
+			"runNamespace", runRefNamespace)
+		return false, fmt.Errorf("no workload CR found in run resource %q outputs", runRefName)
+	}
+
+	workload := &openchoreodevv1alpha1.Workload{}
+	if err := yaml.Unmarshal([]byte(workloadCR), workload); err != nil {
+		return true, fmt.Errorf("failed to unmarshal workload CR from run resource %q: %w", runRefName, err)
+	}
+
+	// Set the namespace to match the workflowrun
+	workload.Namespace = workflowRun.Namespace
+
+	if err := r.Patch(ctx, workload, client.Apply, client.FieldOwner("workflowrun-controller"), client.ForceOwnership); err != nil {
+		return true, fmt.Errorf("failed to apply workload %q in namespace %q: %w", workload.Name, workload.Namespace, err)
+	}
+
+	return false, nil
+}
+
+// extractWorkloadCRFromRunResource extracts workload CR from run resource outputs.
+func extractWorkloadCRFromRunResource(runResource *argoproj.Workflow) string {
+	for _, node := range runResource.Status.Nodes {
+		if node.TemplateName == "generate-workload-cr" && node.Phase == argoproj.NodeSucceeded {
+			if node.Outputs != nil {
+				for _, param := range node.Outputs.Parameters {
+					if param.Name == "workload-cr" && param.Value != nil {
+						return string(*param.Value)
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// hasGenerateWorkloadTask checks if the generate-workload-cr task exists in the workflow tasks.
+func hasGenerateWorkloadTask(workflowRun *openchoreodevv1alpha1.WorkflowRun) bool {
+	for _, task := range workflowRun.Status.Tasks {
+		if task.Name == "generate-workload-cr" {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Reconciler) applyRenderedRunResource(

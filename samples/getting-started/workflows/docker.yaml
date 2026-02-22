@@ -1,14 +1,18 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentWorkflow
+kind: Workflow
 metadata:
   name: docker
   namespace: default
   annotations:
     openchoreo.dev/description: "Docker build workflow for containerized builds using Dockerfile"
+    openchoreo.dev/component-workflow-parameters: "repoUrl: parameters.repository.url, branch: parameters.repository.revision.branch, appPath: parameters.repository.appPath, secretRef: parameters.repository.secretRef, projectName: parameters.scope.projectName, componentName: parameters.scope.componentName"
 spec:
   ttlAfterCompletion: "1d"
   schema:
-    systemParameters:
+    parameters:
+      scope:
+        projectName: string | description="Name of the project"
+        componentName: string | description="Name of the component"
       repository:
         url: string | description="Git repository URL"
         secretRef: string | default="" description="Secret reference name for Git credentials"
@@ -16,8 +20,6 @@ spec:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
         appPath: string | default=. description="Path to the application directory within the repository"
-
-    parameters:
       docker:
         context: string | default=. description="Docker build context path relative to the repository root"
         filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
@@ -31,23 +33,23 @@ spec:
       arguments:
         parameters:
           - name: component-name
-            value: ${metadata.componentName}
+            value: ${parameters.scope.componentName}
           - name: project-name
-            value: ${metadata.projectName}
+            value: ${parameters.scope.projectName}
           - name: git-repo
-            value: ${systemParameters.repository.url}
+            value: ${parameters.repository.url}
           - name: branch
-            value: ${systemParameters.repository.revision.branch}
+            value: ${parameters.repository.revision.branch}
           - name: commit
-            value: ${systemParameters.repository.revision.commit}
+            value: ${parameters.repository.revision.commit}
           - name: app-path
-            value: ${systemParameters.repository.appPath}
+            value: ${parameters.repository.appPath}
           - name: docker-context
             value: ${parameters.docker.context}
           - name: dockerfile-path
             value: ${parameters.docker.filePath}
           - name: image-name
-            value: ${metadata.namespaceName}-${metadata.projectName}-${metadata.componentName}
+            value: ${metadata.namespaceName}-${parameters.scope.projectName}-${parameters.scope.componentName}
           - name: image-tag
             value: v1
           - name: git-secret
@@ -102,7 +104,7 @@ spec:
                 storage: 2Gi
   resources:
     - id: git-secret
-      includeWhen: ${has(systemParameters.repository.secretRef)}
+      includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret

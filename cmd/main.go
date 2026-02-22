@@ -36,7 +36,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
-	"github.com/openchoreo/openchoreo/internal/controller/componentworkflowrun"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymenttrack"
@@ -58,7 +57,6 @@ import (
 	esv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/externalsecrets/v1"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
-	componentworkflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/componentworkflow"
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 	"github.com/openchoreo/openchoreo/internal/version"
 	clustercomponenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clustercomponenttype"
@@ -282,16 +280,6 @@ func setupControlPlaneControllers(
 	if err := (&secretreference.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&componentworkflowrun.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		Pipeline:     componentworkflowpipeline.NewPipeline(),
-		GatewayURL:   clusterGatewayURL,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}

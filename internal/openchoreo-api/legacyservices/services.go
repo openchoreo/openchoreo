@@ -19,8 +19,7 @@ type Services struct {
 	ComponentService                 *ComponentService
 	ComponentTypeService             *ComponentTypeService
 	WorkflowService                  *WorkflowService
-	WorkflowRunService               WorkflowRunServiceInterface
-	ComponentWorkflowService         *ComponentWorkflowService
+	WorkflowRunService               *WorkflowRunService
 	TraitService                     *TraitService
 	NamespaceService                 *NamespaceService
 	EnvironmentService               *EnvironmentService
@@ -79,11 +78,8 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	// Create WorkflowRun service
 	workflowRunService := NewWorkflowRunService(k8sClient, logger.With("service", "workflowrun"), authzPDP, buildPlaneService, gwClient)
 
-	// Create ComponentWorkflow service
-	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"), authzPDP, buildPlaneService, gwClient)
-
 	// Create webhook service (handles all git providers)
-	webhookService := NewWebhookService(k8sClient, componentWorkflowService)
+	webhookService := NewWebhookService(k8sClient, workflowRunService)
 
 	// Create Schema service
 	schemaService := NewSchemaService(k8sClient, logger.With("service", "schema"))
@@ -121,7 +117,6 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 		ComponentTypeService:             componentTypeService,
 		WorkflowService:                  workflowService,
 		WorkflowRunService:               workflowRunService,
-		ComponentWorkflowService:         componentWorkflowService,
 		TraitService:                     traitService,
 		NamespaceService:                 namespaceService,
 		EnvironmentService:               environmentService,

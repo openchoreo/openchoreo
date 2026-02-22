@@ -24,6 +24,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -72,7 +73,7 @@ var _ = BeforeSuite(func() {
 	// +kubebuilder:scaffold:scheme
 
 	// Create a manager with cache enabled only for types that need field index queries
-	// (ComponentRelease, ReleaseBinding, Workload, ComponentWorkflowRun for owner lookups during finalization)
+	// (ComponentRelease, ReleaseBinding, Workload, WorkflowRun for owner lookups during finalization)
 	// Other types bypass cache to avoid staleness issues in tests
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
@@ -82,10 +83,10 @@ var _ = BeforeSuite(func() {
 		Cache: cache.Options{
 			// Only cache types required for field index queries
 			ByObject: map[client.Object]cache.ByObject{
-				&openchoreov1alpha1.ComponentRelease{}:     {},
-				&openchoreov1alpha1.ReleaseBinding{}:       {},
-				&openchoreov1alpha1.Workload{}:             {},
-				&openchoreov1alpha1.ComponentWorkflowRun{}: {},
+				&openchoreov1alpha1.ComponentRelease{}: {},
+				&openchoreov1alpha1.ReleaseBinding{}:   {},
+				&openchoreov1alpha1.Workload{}:         {},
+				&openchoreov1alpha1.WorkflowRun{}:      {},
 			},
 		},
 		Client: client.Options{
@@ -131,14 +132,15 @@ var _ = BeforeSuite(func() {
 		})
 	Expect(err).NotTo(HaveOccurred())
 
-	// Register field index for ComponentWorkflowRun by owner component name
-	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ComponentWorkflowRun{},
-		componentWorkflowRunOwnerIndex, func(obj client.Object) []string {
-			workflowRun := obj.(*openchoreov1alpha1.ComponentWorkflowRun)
-			if workflowRun.Spec.Owner.ComponentName == "" {
+	// Register field index for WorkflowRun by owner component label.
+	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.WorkflowRun{},
+		workflowRunOwnerIndex, func(obj client.Object) []string {
+			workflowRun := obj.(*openchoreov1alpha1.WorkflowRun)
+			componentName := workflowRun.Labels[ocLabels.LabelKeyComponentName]
+			if componentName == "" {
 				return nil
 			}
-			return []string{workflowRun.Spec.Owner.ComponentName}
+			return []string{componentName}
 		})
 	Expect(err).NotTo(HaveOccurred())
 

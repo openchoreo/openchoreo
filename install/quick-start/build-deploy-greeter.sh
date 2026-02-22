@@ -118,7 +118,7 @@ declare -A build_phases_seen
 elapsed=0
 while true; do
     # Get WorkflowRun namespace (where the Argo Workflow runs)
-    WORKFLOW_NS=$(kubectl get componentworkflowrun "$WORKFLOWRUN_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.runReference.namespace' || echo "")
+    WORKFLOW_NS=$(kubectl get workflowrun "$WORKFLOWRUN_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.runReference.namespace' || echo "")
 
     # Check build phase by looking at pods in the workflow namespace
     if [[ -n "$WORKFLOW_NS" ]] && [[ "$WORKFLOW_NS" != "null" ]]; then
@@ -156,20 +156,20 @@ while true; do
         fi
     fi
 
-    WORKFLOW_COMPLETED=$(kubectl get componentworkflowrun "$WORKFLOWRUN_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.conditions[]? | select(.type=="WorkflowCompleted") | .status' || echo "")
+    WORKFLOW_COMPLETED=$(kubectl get workflowrun "$WORKFLOWRUN_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.conditions[]? | select(.type=="WorkflowCompleted") | .status' || echo "")
 
     if [[ "$WORKFLOW_COMPLETED" == "True" ]]; then
         log_success "Container image build completed successfully"
 
         # Get the built image reference
-        IMAGE_REF=$(kubectl get componentworkflowrun "$WORKFLOWRUN_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.imageStatus.imageRef' || echo "")
+        IMAGE_REF=$(kubectl get workflowrun "$WORKFLOWRUN_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.imageStatus.imageRef' || echo "")
         if [[ -n "$IMAGE_REF" ]] && [[ "$IMAGE_REF" != "null" ]]; then
             log_info "Built image: $IMAGE_REF"
         fi
         break
     elif [[ "$WORKFLOW_COMPLETED" == "False" ]]; then
         # Check if there's an error
-        WORKFLOW_ERROR=$(kubectl get componentworkflowrun "$WORKFLOWRUN_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.conditions[]? | select(.type=="WorkflowCompleted" and .status=="False") | .message' || echo "")
+        WORKFLOW_ERROR=$(kubectl get workflowrun "$WORKFLOWRUN_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.conditions[]? | select(.type=="WorkflowCompleted" and .status=="False") | .message' || echo "")
         if [[ -n "$WORKFLOW_ERROR" ]] && [[ "$WORKFLOW_ERROR" != "Workflow has not completed yet" ]]; then
             log_error "Build failed: $WORKFLOW_ERROR"
             exit 1

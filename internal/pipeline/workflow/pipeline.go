@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -120,6 +121,15 @@ func (p *Pipeline) renderResources(resources []v1alpha1.WorkflowResource, celCon
 
 	renderedResources := make([]RenderedResource, 0, len(resources))
 	for _, res := range resources {
+		// Check if resource should be included based on includeWhen condition
+		include, err := p.shouldIncludeResource(res.IncludeWhen, celContext)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate includeWhen for resource %q: %w", res.ID, err)
+		}
+		if !include {
+			continue
+		}
+
 		rendered, err := p.renderTemplate(res.Template, celContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render resource %q: %w", res.ID, err)
@@ -127,6 +137,11 @@ func (p *Pipeline) renderResources(resources []v1alpha1.WorkflowResource, celCon
 
 		if err := p.validateRenderedResource(rendered); err != nil {
 			return nil, fmt.Errorf("validation failed for resource %q: %w", res.ID, err)
+		}
+
+		// Skip resources with empty or invalid names (e.g., "-git-secret" when gitSecret.name is empty)
+		if shouldSkipResource(rendered) {
+			continue
 		}
 
 		renderedResources = append(renderedResources, RenderedResource{
@@ -138,11 +153,56 @@ func (p *Pipeline) renderResources(resources []v1alpha1.WorkflowResource, celCon
 	return renderedResources, nil
 }
 
+// shouldIncludeResource evaluates the includeWhen expression to determine if a resource should be rendered.
+// Returns true if includeWhen is empty (default behavior - resource is always created).
+func (p *Pipeline) shouldIncludeResource(includeWhen string, context map[string]any) (bool, error) {
+	if includeWhen == "" {
+		return true, nil
+	}
+
+	result, err := p.templateEngine.Render(includeWhen, context)
+	if err != nil {
+		return false, err
+	}
+
+	boolResult, ok := result.(bool)
+	if !ok {
+		return false, fmt.Errorf("includeWhen must evaluate to boolean, got %T", result)
+	}
+
+	return boolResult, nil
+}
+
+// shouldSkipResource checks if a rendered resource should be skipped.
+// Resources with empty or invalid names (e.g., starting with dash) are skipped.
+func shouldSkipResource(resource map[string]any) bool {
+	metadata, ok := resource["metadata"].(map[string]any)
+	if !ok {
+		return false
+	}
+
+	name, ok := metadata["name"].(string)
+	if !ok {
+		return false
+	}
+
+	if name == "" || strings.HasPrefix(name, "-") {
+		return true
+	}
+
+	return false
+}
+
 // buildCELContext builds the CEL evaluation context with metadata.* and parameters.* variables.
 func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
+
+	// Enforced namespace
+	ciNamespace := fmt.Sprintf("openchoreo-ci-%s", input.Context.NamespaceName)
+
 	metadata := map[string]any{
 		"namespaceName":   input.Context.NamespaceName,
 		"workflowRunName": input.Context.WorkflowRunName,
+		"namespace":       ciNamespace, // Enforced CI namespace
 	}
 
 	// Build developer parameters with defaults applied from schema
@@ -154,7 +214,37 @@ func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 	return map[string]any{
 		"metadata":   metadata,
 		"parameters": parameters,
+		"secretRef":  buildSecretRefCELContext(input.Context.SecretRef),
 	}, nil
+}
+
+// buildSecretRefCELContext converts optional resolved secret reference data into CEL context shape.
+// If no valid secret reference is provided, empty defaults are returned to keep template access safe.
+func buildSecretRefCELContext(secretRef *SecretRefInfo) map[string]any {
+	if secretRef == nil || secretRef.Name == "" || len(secretRef.Data) == 0 {
+		return map[string]any{
+			"name": "",
+			"type": "",
+			"data": []map[string]any{},
+		}
+	}
+
+	dataArray := make([]map[string]any, len(secretRef.Data))
+	for i, d := range secretRef.Data {
+		dataArray[i] = map[string]any{
+			"secretKey": d.SecretKey,
+			"remoteRef": map[string]any{
+				"key":      d.RemoteRef.Key,
+				"property": d.RemoteRef.Property,
+			},
+		}
+	}
+
+	return map[string]any{
+		"name": secretRef.Name,
+		"type": secretRef.Type,
+		"data": dataArray,
+	}
 }
 
 // buildParameters builds the developer parameters with defaults applied from the Workflow schema.

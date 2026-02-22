@@ -101,7 +101,7 @@ func runFixtureTest(t *testing.T, testName string) {
 	// Parse remaining documents and identify by kind
 	var componentType *corev1alpha1.ComponentType
 	var traits []*corev1alpha1.Trait
-	var workflow *corev1alpha1.ComponentWorkflow
+	var workflow *corev1alpha1.Workflow
 
 	for {
 		var doc map[string]interface{}
@@ -134,11 +134,11 @@ func runFixtureTest(t *testing.T, testName string) {
 			}
 			traits = append(traits, trait)
 
-		case "ComponentWorkflow":
-			workflow = &corev1alpha1.ComponentWorkflow{}
+		case "Workflow":
+			workflow = &corev1alpha1.Workflow{}
 			err = remarshal(doc, workflow)
 			if err != nil {
-				t.Fatalf("failed to convert ComponentWorkflow: %v", err)
+				t.Fatalf("failed to convert Workflow: %v", err)
 			}
 		}
 	}
@@ -177,7 +177,7 @@ func runFixtureTest(t *testing.T, testName string) {
 }
 
 // validateGeneratedOutput parses the generated YAML and validates each section against its schema.
-func validateGeneratedOutput(t *testing.T, generated string, componentType *corev1alpha1.ComponentType, traits []*corev1alpha1.Trait, workflow *corev1alpha1.ComponentWorkflow) {
+func validateGeneratedOutput(t *testing.T, generated string, componentType *corev1alpha1.ComponentType, traits []*corev1alpha1.Trait, workflow *corev1alpha1.Workflow) {
 	t.Helper()
 
 	// Parse generated YAML into a map structure
@@ -306,8 +306,8 @@ func validateTraitParameters(t *testing.T, traitsSection []any, traits []*corev1
 	}
 }
 
-// validateWorkflowParameters validates workflow parameters against the ComponentWorkflow schema.
-func validateWorkflowParameters(t *testing.T, workflowSection map[string]any, workflow *corev1alpha1.ComponentWorkflow) {
+// validateWorkflowParameters validates workflow parameters against the Workflow schema.
+func validateWorkflowParameters(t *testing.T, workflowSection map[string]any, workflow *corev1alpha1.Workflow) {
 	t.Helper()
 
 	if workflow.Spec.Schema.Parameters == nil {
@@ -322,17 +322,25 @@ func validateWorkflowParameters(t *testing.T, workflowSection map[string]any, wo
 	// Convert workflow schema to JSONSchema
 	paramsMap, err := rawExtensionToMap(workflow.Spec.Schema.Parameters)
 	if err != nil {
-		t.Fatalf("failed to convert ComponentWorkflow parameters: %v", err)
+		t.Fatalf("failed to convert Workflow parameters: %v", err)
+	}
+
+	var typesMap map[string]any
+	if workflow.Spec.Schema.Types != nil {
+		typesMap, err = rawExtensionToMap(workflow.Spec.Schema.Types)
+		if err != nil {
+			t.Fatalf("failed to convert Workflow types: %v", err)
+		}
 	}
 
 	def := schema.Definition{
 		Schemas: []map[string]any{paramsMap},
-		Types:   nil, // ComponentWorkflow doesn't have separate Types
+		Types:   typesMap,
 	}
 
 	jsonSchema, err := schema.ToJSONSchema(def)
 	if err != nil {
-		t.Fatalf("failed to convert ComponentWorkflow to JSON schema: %v", err)
+		t.Fatalf("failed to convert Workflow to JSON schema: %v", err)
 	}
 
 	if err := schema.ValidateWithJSONSchema(params, jsonSchema); err != nil {

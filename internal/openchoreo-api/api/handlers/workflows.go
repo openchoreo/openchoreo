@@ -66,7 +66,7 @@ func (h *Handler) ListWorkflowRuns(
 ) (gen.ListWorkflowRunsResponseObject, error) {
 	h.logger.Info("ListWorkflowRuns called", "namespaceName", request.NamespaceName)
 
-	runs, err := h.legacyServices.WorkflowRunService.ListWorkflowRuns(ctx, request.NamespaceName)
+	runs, err := h.legacyServices.WorkflowRunService.ListWorkflowRuns(ctx, request.NamespaceName, "", "")
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListWorkflowRuns403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

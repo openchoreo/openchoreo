@@ -155,39 +155,6 @@ func toGenComponentWorkflowConfig(cw *models.ComponentWorkflow) *gen.ComponentWo
 		}
 	}
 
-	// Convert SystemParameters
-	if cw.SystemParameters != nil {
-		config.SystemParameters = &struct {
-			Repository *struct {
-				AppPath  *string `json:"appPath,omitempty"`
-				Revision *struct {
-					Branch *string `json:"branch,omitempty"`
-					Commit *string `json:"commit,omitempty"`
-				} `json:"revision,omitempty"`
-				Url *string `json:"url,omitempty"` //nolint
-			} `json:"repository,omitempty"`
-		}{
-			Repository: &struct {
-				AppPath  *string `json:"appPath,omitempty"`
-				Revision *struct {
-					Branch *string `json:"branch,omitempty"`
-					Commit *string `json:"commit,omitempty"`
-				} `json:"revision,omitempty"`
-				Url *string `json:"url,omitempty"` //nolint
-			}{
-				AppPath: ptr.To(cw.SystemParameters.Repository.AppPath),
-				Revision: &struct {
-					Branch *string `json:"branch,omitempty"`
-					Commit *string `json:"commit,omitempty"`
-				}{
-					Branch: ptr.To(cw.SystemParameters.Repository.Revision.Branch),
-					Commit: ptr.To(cw.SystemParameters.Repository.Revision.Commit),
-				},
-				Url: ptr.To(cw.SystemParameters.Repository.URL),
-			},
-		}
-	}
-
 	return config
 }
 
@@ -244,17 +211,7 @@ func toModelComponentWorkflow(workflow *gen.ComponentWorkflowInput) *models.Comp
 	}
 
 	return &models.ComponentWorkflow{
-		Name: workflow.Name,
-		SystemParameters: &models.ComponentWorkflowSystemParams{
-			Repository: models.ComponentWorkflowRepository{
-				URL:     workflow.SystemParameters.Repository.Url,
-				AppPath: workflow.SystemParameters.Repository.AppPath,
-				Revision: models.ComponentWorkflowRepositoryRevision{
-					Branch: workflow.SystemParameters.Repository.Revision.Branch,
-					Commit: ptr.Deref(workflow.SystemParameters.Repository.Revision.Commit, ""),
-				},
-			},
-		},
+		Name:       workflow.Name,
 		Parameters: mapToRawExtension(workflow.Parameters),
 	}
 }

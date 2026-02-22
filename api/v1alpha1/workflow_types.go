@@ -112,6 +112,13 @@ type WorkflowResource struct {
 	// +kubebuilder:validation:MinLength=1
 	ID string `json:"id"`
 
+	// IncludeWhen is a CEL expression that determines whether this resource should be rendered.
+	// If the expression evaluates to false, the resource is skipped.
+	// If empty, the resource is always included.
+	// Example: has(systemParameters.secretRef)
+	// +optional
+	IncludeWhen string `json:"includeWhen,omitempty"`
+
 	// Template contains the Kubernetes resource with CEL expressions.
 	// CEL expressions are enclosed in ${...} and will be evaluated at runtime.
 	// +kubebuilder:validation:Required

@@ -72,8 +72,7 @@
 //
 // The generator always includes these hardcoded fields:
 //   - spec.autoDeploy → Commented out by default: `# autoDeploy: true`
-//   - spec.workflow.systemParameters → When workflow is included, adds repository configuration
-//     (repository.url, repository.revision.branch, repository.appPath)
+//   - spec.workflow → Optional workflow reference and workflow parameters
 //
 // # Structural Comments
 //
@@ -81,7 +80,6 @@
 //   - "Parameters for the ComponentType" (before spec.parameters)
 //   - "Traits augment the component with additional capabilities" (before spec.traits)
 //   - "Workflow configuration for building this component" (before spec.workflow)
-//   - "System parameters for workflow execution" (before spec.workflow.systemParameters)
 //
 // All structural comments are preceded by an empty line for visual separation.
 //
@@ -104,7 +102,7 @@
 // The generator processes multiple schema sources:
 //   - Component parameters (from ComponentType)
 //   - Trait instances (from each Trait in the Component)
-//   - Workflow parameters (from ComponentWorkflow)
+//   - Workflow parameters (from Workflow)
 //   - Nested objects and arrays (recursive processing with same rules)
 //
 // YAMLBuilder handles low-level YAML node manipulation, providing methods for sequences,
@@ -130,7 +128,7 @@ const (
 	CommentTraitInstanceName   = "Unique instance name within this Component"
 	CommentTraitParameters     = "Parameters for %s trait"
 	CommentWorkflowSection     = "\nWorkflow configuration for building this component"
-	CommentWorkflowName        = "ComponentWorkflow to use for builds"
+	CommentWorkflowName        = "Workflow to use for builds"
 )
 
 // Options configures the component scaffolding generator.
@@ -190,7 +188,7 @@ type Generator struct {
 func NewGenerator(
 	componentType *corev1alpha1.ComponentType,
 	traits []*corev1alpha1.Trait,
-	workflow *corev1alpha1.ComponentWorkflow,
+	workflow *corev1alpha1.Workflow,
 	opts *Options,
 ) (*Generator, error) {
 	componentSchema, err := extractAndConvertSchema(
@@ -220,7 +218,7 @@ func NewGenerator(
 		if workflow.Spec.Schema.Parameters != nil {
 			schema, err := extractAndConvertSchema(
 				workflow.Spec.Schema.Parameters,
-				nil,
+				workflow.Spec.Schema.Types,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("processing workflow schema: %w", err)
@@ -478,21 +476,6 @@ func (g *Generator) generateWorkflow(b *YAMLBuilder) error {
 				})
 			}
 		}
-
-		// Add systemParameters with repository structure
-		var systemParamsOpts []FieldOption
-		if g.opts.IncludeStructuralComments {
-			systemParamsOpts = append(systemParamsOpts, WithHeadComment("\nSystem parameters for workflow execution"))
-		}
-		b.InMapping("systemParameters", func(b *YAMLBuilder) {
-			b.InMapping("repository", func(b *YAMLBuilder) {
-				b.AddField("url", "<TODO_REPOSITORY_URL>", WithLineComment("Git repository URL"))
-				b.InMapping("revision", func(b *YAMLBuilder) {
-					b.AddField("branch", "<TODO_BRANCH>", WithLineComment("Git branch to build from"))
-				})
-				b.AddField("appPath", "<TODO_APP_PATH>", WithLineComment("Path to application code within repository"))
-			})
-		}, systemParamsOpts...)
 	}, sectionOpts...)
 	return workflowErr
 }

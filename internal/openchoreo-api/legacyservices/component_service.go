@@ -1839,22 +1839,8 @@ func (s *ComponentService) createComponentResources(ctx context.Context, namespa
 
 	// Set component workflow configuration if provided (new preferred way)
 	if req.ComponentWorkflow != nil {
-		workflowConfig := &openchoreov1alpha1.ComponentWorkflowRunConfig{
+		workflowConfig := &openchoreov1alpha1.WorkflowRunConfig{
 			Name: req.ComponentWorkflow.Name,
-		}
-
-		// Set system parameters if provided
-		if req.ComponentWorkflow.SystemParameters != nil {
-			workflowConfig.SystemParameters = openchoreov1alpha1.SystemParametersValues{
-				Repository: openchoreov1alpha1.RepositoryValues{
-					URL: req.ComponentWorkflow.SystemParameters.Repository.URL,
-					Revision: openchoreov1alpha1.RepositoryRevisionValues{
-						Branch: req.ComponentWorkflow.SystemParameters.Repository.Revision.Branch,
-						Commit: req.ComponentWorkflow.SystemParameters.Repository.Revision.Commit,
-					},
-					AppPath: req.ComponentWorkflow.SystemParameters.Repository.AppPath,
-				},
-			}
 		}
 
 		// Set developer parameters if provided
@@ -1886,18 +1872,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 	var componentWorkflow *models.ComponentWorkflow
 	if includeWorkflow && component.Spec.Workflow != nil {
 		componentWorkflow = &models.ComponentWorkflow{
-			Name: component.Spec.Workflow.Name,
-			SystemParameters: &models.ComponentWorkflowSystemParams{
-				Repository: models.ComponentWorkflowRepository{
-					URL:       component.Spec.Workflow.SystemParameters.Repository.URL,
-					SecretRef: component.Spec.Workflow.SystemParameters.Repository.SecretRef,
-					Revision: models.ComponentWorkflowRepositoryRevision{
-						Branch: component.Spec.Workflow.SystemParameters.Repository.Revision.Branch,
-						Commit: component.Spec.Workflow.SystemParameters.Repository.Revision.Commit,
-					},
-					AppPath: component.Spec.Workflow.SystemParameters.Repository.AppPath,
-				},
-			},
+			Name:       component.Spec.Workflow.Name,
 			Parameters: component.Spec.Workflow.Parameters,
 		}
 	}
@@ -2644,24 +2619,10 @@ func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context
 		return nil, fmt.Errorf("component does not have workflow configuration")
 	}
 
-	if req.SystemParameters != nil {
-		component.Spec.Workflow.SystemParameters = openchoreov1alpha1.SystemParametersValues{
-			Repository: openchoreov1alpha1.RepositoryValues{
-				URL:       req.SystemParameters.Repository.URL,
-				SecretRef: req.SystemParameters.Repository.SecretRef,
-				Revision: openchoreov1alpha1.RepositoryRevisionValues{
-					Branch: req.SystemParameters.Repository.Revision.Branch,
-					Commit: req.SystemParameters.Repository.Revision.Commit,
-				},
-				AppPath: req.SystemParameters.Repository.AppPath,
-			},
-		}
-	}
-
 	// Update developer parameters if provided
 	if req.Parameters != nil {
-		// Validate the parameters against the ComponentWorkflow CRD
-		if err := s.validateComponentWorkflowParameters(ctx, namespaceName, component.Spec.Workflow.Name, req.Parameters); err != nil {
+		// Validate the parameters against the Workflow CRD
+		if err := s.validateWorkflowParameters(ctx, namespaceName, component.Spec.Workflow.Name, req.Parameters); err != nil {
 			s.logger.Warn("Invalid workflow parameters", "error", err, "workflow", component.Spec.Workflow.Name)
 			return nil, ErrWorkflowSchemaInvalid
 		}
@@ -2674,7 +2635,7 @@ func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context
 		return nil, fmt.Errorf("failed to update component: %w", err)
 	}
 
-	s.logger.Debug("Updated component workflow schema successfully", "namespace", namespaceName, "project", projectName, "component", componentName)
+	s.logger.Debug("Updated component workflow parameters successfully", "namespace", namespaceName, "project", projectName, "component", componentName)
 
 	// Return the updated component
 	return s.GetComponent(ctx, namespaceName, projectName, componentName, []string{})
@@ -2721,7 +2682,7 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, na
 			s.logger.Warn("Workflow name is required to initialize workflow configuration", "namespace", namespaceName, "project", projectName, "component", componentName)
 			return nil, fmt.Errorf("workflow name is required to initialize workflow configuration")
 		}
-		component.Spec.Workflow = &openchoreov1alpha1.ComponentWorkflowRunConfig{
+		component.Spec.Workflow = &openchoreov1alpha1.WorkflowRunConfig{
 			Name: req.WorkflowName,
 		}
 	} else if req.WorkflowName != "" {
@@ -2729,25 +2690,10 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, na
 		component.Spec.Workflow.Name = req.WorkflowName
 	}
 
-	// Update system parameters if provided
-	if req.SystemParameters != nil {
-		component.Spec.Workflow.SystemParameters = openchoreov1alpha1.SystemParametersValues{
-			Repository: openchoreov1alpha1.RepositoryValues{
-				URL:       req.SystemParameters.Repository.URL,
-				SecretRef: req.SystemParameters.Repository.SecretRef,
-				Revision: openchoreov1alpha1.RepositoryRevisionValues{
-					Branch: req.SystemParameters.Repository.Revision.Branch,
-					Commit: req.SystemParameters.Repository.Revision.Commit,
-				},
-				AppPath: req.SystemParameters.Repository.AppPath,
-			},
-		}
-	}
-
 	// Update developer parameters if provided
 	if req.Parameters != nil {
-		// Validate the parameters against the ComponentWorkflow CRD
-		if err := s.validateComponentWorkflowParameters(ctx, namespaceName, component.Spec.Workflow.Name, req.Parameters); err != nil {
+		// Validate the parameters against the Workflow CRD
+		if err := s.validateWorkflowParameters(ctx, namespaceName, component.Spec.Workflow.Name, req.Parameters); err != nil {
 			s.logger.Warn("Invalid workflow parameters", "error", err, "workflow", component.Spec.Workflow.Name)
 			return nil, ErrWorkflowSchemaInvalid
 		}
@@ -2766,25 +2712,25 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, na
 	return s.GetComponent(ctx, namespaceName, projectName, componentName, []string{})
 }
 
-// validateComponentWorkflowParameters validates the provided parameters against the ComponentWorkflow CRD's parameter schema
-func (s *ComponentService) validateComponentWorkflowParameters(ctx context.Context, namespaceName, workflowName string, providedParameters *runtime.RawExtension) error {
-	// Fetch the ComponentWorkflow CR
+// validateWorkflowParameters validates the provided parameters against the Workflow CRD's parameter schema
+func (s *ComponentService) validateWorkflowParameters(ctx context.Context, namespaceName, workflowName string, providedParameters *runtime.RawExtension) error {
+	// Fetch the Workflow CR
 	workflowKey := client.ObjectKey{
 		Name:      workflowName,
 		Namespace: namespaceName,
 	}
-	componentWorkflow := &openchoreov1alpha1.ComponentWorkflow{}
-	if err := s.k8sClient.Get(ctx, workflowKey, componentWorkflow); err != nil {
+	workflow := &openchoreov1alpha1.Workflow{}
+	if err := s.k8sClient.Get(ctx, workflowKey, workflow); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("ComponentWorkflow not found", "namespace", namespaceName, "workflow", workflowName)
-			return fmt.Errorf("component workflow %s not found", workflowName)
+			s.logger.Warn("Workflow not found", "namespace", namespaceName, "workflow", workflowName)
+			return fmt.Errorf("workflow %s not found", workflowName)
 		}
-		s.logger.Error("Failed to get component workflow", "error", err)
-		return fmt.Errorf("failed to get component workflow: %w", err)
+		s.logger.Error("Failed to get workflow", "error", err)
+		return fmt.Errorf("failed to get workflow: %w", err)
 	}
 
-	// If component workflow has no parameter schema defined, any parameters are valid
-	if componentWorkflow.Spec.Schema.Parameters == nil {
+	// If workflow has no parameter schema defined, any parameters are valid
+	if workflow.Spec.Schema.Parameters == nil {
 		return nil
 	}
 
@@ -2793,11 +2739,11 @@ func (s *ComponentService) validateComponentWorkflowParameters(ctx context.Conte
 		return nil
 	}
 
-	// Unmarshal the component workflow's parameter schema definition
+	// Unmarshal the workflow's parameter schema definition
 	var parameterSchemaMap map[string]any
-	if err := json.Unmarshal(componentWorkflow.Spec.Schema.Parameters.Raw, &parameterSchemaMap); err != nil {
-		s.logger.Error("Failed to unmarshal component workflow parameter schema", "error", err)
-		return fmt.Errorf("failed to parse component workflow parameter schema: %w", err)
+	if err := json.Unmarshal(workflow.Spec.Schema.Parameters.Raw, &parameterSchemaMap); err != nil {
+		s.logger.Error("Failed to unmarshal workflow parameter schema", "error", err)
+		return fmt.Errorf("failed to parse workflow parameter schema: %w", err)
 	}
 
 	// Unmarshal the provided parameter values
@@ -2807,7 +2753,7 @@ func (s *ComponentService) validateComponentWorkflowParameters(ctx context.Conte
 		return fmt.Errorf("failed to parse provided parameters: %w", err)
 	}
 
-	// Build structural schema from component workflow parameter schema
+	// Build structural schema from workflow parameter schema
 	def := openchoreoschema.Definition{
 		Schemas: []map[string]any{parameterSchemaMap},
 	}
@@ -2815,7 +2761,7 @@ func (s *ComponentService) validateComponentWorkflowParameters(ctx context.Conte
 	structural, err := openchoreoschema.ToStructural(def)
 	if err != nil {
 		s.logger.Error("Failed to build structural schema", "error", err)
-		return fmt.Errorf("failed to build component workflow parameter schema structure: %w", err)
+		return fmt.Errorf("failed to build workflow parameter schema structure: %w", err)
 	}
 
 	// Validate the provided values against the structural schema

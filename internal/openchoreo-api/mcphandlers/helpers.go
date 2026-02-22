@@ -8,5 +8,6 @@ import (
 )
 
 type MCPHandler struct {
-	Services *services.Services
+	Services   *services.Services
+	GatewayURL string
 }

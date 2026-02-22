@@ -34,8 +34,6 @@ resources:
   - openchoreo_v1alpha1_secretreference.yaml
   - openchoreo_v1alpha1_componentrelease.yaml
   - openchoreo_v1alpha1_releasebinding.yaml
-  - v1alpha1_componentworkflow.yaml
-  - v1alpha1_componentworkflowrun.yaml
   - openchoreo_v1alpha1_observabilityplane.yaml
   - v1alpha1_observabilityalertsnotificationchannel.yaml
   - v1alpha1_observabilityalertrule.yaml

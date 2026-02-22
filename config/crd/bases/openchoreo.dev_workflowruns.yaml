@@ -63,9 +63,9 @@ spec:
                   parameters:
                     description: |-
                       Parameters contains the developer-provided values for the flexible parameter schema
-                      defined in the referenced ComponentWorkflow CR.
+                      defined in the referenced Workflow CR.
 
-                      These values are validated against the ComponentWorkflow's parameter schema.
+                      These values are validated against the Workflow's parameter schema.
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                 required:

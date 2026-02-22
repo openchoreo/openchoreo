@@ -41,28 +41,8 @@ type Workflow struct {
 
 // ComponentWorkflow represents the component workflow configuration in API requests/responses
 type ComponentWorkflow struct {
-	Name             string                         `json:"name"`
-	SystemParameters *ComponentWorkflowSystemParams `json:"systemParameters"`
-	Parameters       *runtime.RawExtension          `json:"parameters,omitempty"`
-}
-
-// ComponentWorkflowSystemParams represents the system parameters for component component-component-workflows
-type ComponentWorkflowSystemParams struct {
-	Repository ComponentWorkflowRepository `json:"repository"`
-}
-
-// ComponentWorkflowRepository represents repository information
-type ComponentWorkflowRepository struct {
-	URL       string                              `json:"url"`
-	SecretRef string                              `json:"secretRef,omitempty"`
-	Revision  ComponentWorkflowRepositoryRevision `json:"revision"`
-	AppPath   string                              `json:"appPath"`
-}
-
-// ComponentWorkflowRepositoryRevision represents repository revision information
-type ComponentWorkflowRepositoryRevision struct {
-	Branch string `json:"branch"`
-	Commit string `json:"commit,omitempty"`
+	Name       string                `json:"name"`
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 // ComponentTrait represents a trait instance attached to a component in API requests
@@ -478,9 +458,8 @@ type SecretKeyRef struct {
 
 // UpdateComponentWorkflowRequest represents the request to update or initialize a component's workflow configuration
 type UpdateComponentWorkflowRequest struct {
-	WorkflowName     string                         `json:"workflowName,omitempty"`
-	SystemParameters *ComponentWorkflowSystemParams `json:"systemParameters,omitempty"`
-	Parameters       *runtime.RawExtension          `json:"parameters,omitempty"`
+	WorkflowName string                `json:"workflowName,omitempty"`
+	Parameters   *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 // ComponentTraitRequest represents a single trait instance in API requests

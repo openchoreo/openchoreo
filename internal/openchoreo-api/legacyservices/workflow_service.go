@@ -37,6 +37,12 @@ func NewWorkflowService(k8sClient client.Client, logger *slog.Logger, authzPDP a
 	}
 }
 
+// AuthorizeCreate checks if the current user is authorized to create a Workflow
+func (s *WorkflowService) AuthorizeCreate(ctx context.Context, namespaceName, wfName string) error {
+	return checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateWorkflow,
+		ResourceTypeWorkflow, wfName, authz.ResourceHierarchy{Namespace: namespaceName})
+}
+
 // ListWorkflows lists all Workflows in the given namespace
 func (s *WorkflowService) ListWorkflows(ctx context.Context, namespaceName string) ([]*models.WorkflowResponse, error) {
 	s.logger.Debug("Listing Workflows", "namespace", namespaceName)

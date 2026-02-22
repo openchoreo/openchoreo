@@ -28,8 +28,6 @@ rules:
   - componentreleases
   - components
   - componenttypes
-  - componentworkflows
-  - componentworkflowruns
   - dataplanes
   - deployableartifacts
   - deploymentpipelines
@@ -95,8 +93,6 @@ rules:
   - componentreleases/status
   - components/status
   - componenttypes/status
-  - componentworkflows/status
-  - componentworkflowruns/status
   - dataplanes/status
   - deployableartifacts/status
   - deploymentpipelines/status
