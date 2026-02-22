@@ -11,11 +11,12 @@ import (
 )
 
 const (
-	testNamespaceName = "my-namespace"
-	testProjectName   = "my-project"
-	testComponentName = "my-component"
-	testEnvName       = "dev"
-	testKindProject   = "Project"
+	testNamespaceName   = "my-namespace"
+	testProjectName     = "my-project"
+	testComponentName   = "my-component"
+	testEnvName         = "dev"
+	testKindProject     = "Project"
+	testWorkflowRunName = "workflow-run-1"
 )
 
 func setupTestServer(t *testing.T) (*mcp.ClientSession, *MockCoreToolsetHandler) {

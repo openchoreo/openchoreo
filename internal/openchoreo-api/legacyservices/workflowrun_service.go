@@ -36,12 +36,13 @@ import (
 // WorkflowRunServiceInterface defines the operations available on WorkflowRun resources.
 // It is implemented by WorkflowRunService and may be replaced with a mock in tests.
 type WorkflowRunServiceInterface interface {
-	ListWorkflowRuns(ctx context.Context, namespaceName string) ([]*models.WorkflowRunResponse, error)
+	ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string) ([]*models.WorkflowRunResponse, error)
 	GetWorkflowRun(ctx context.Context, namespaceName, runName string) (*models.WorkflowRunResponse, error)
 	GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.ComponentWorkflowRunStatusResponse, error)
 	CreateWorkflowRun(ctx context.Context, namespaceName string, req *models.CreateWorkflowRunRequest) (*models.WorkflowRunResponse, error)
 	GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, stepName, gatewayURL string, sinceSeconds *int64) ([]models.ComponentWorkflowRunLogEntry, error)
 	GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, stepName, gatewayURL string) ([]models.ComponentWorkflowRunEventEntry, error)
+	TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error)
 }
 
 // WorkflowRunService handles WorkflowRun-related business logic
@@ -772,173 +773,6 @@ func (s *WorkflowRunService) getArgoWorkflowPodEvents(ctx context.Context, build
 	}
 
 	return &eventList, nil
-}
-
-// GetWorkflowRunLogs retrieves logs from a workflow run
-func (s *WorkflowRunService) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, stepName, gatewayURL string, sinceSeconds *int64) ([]models.ComponentWorkflowRunLogEntry, error) {
-	logger := s.logger.With("namespace", namespaceName, "run", runName, "step", stepName, "sinceSeconds", sinceSeconds)
-	logger.Debug("Getting workflow run logs")
-
-	// Authorization check
-	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflowRun, ResourceTypeWorkflowRun, runName,
-		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
-		return nil, err
-	}
-
-	// Get WorkflowRun
-	var workflowRun openchoreov1alpha1.WorkflowRun
-	if err := s.k8sClient.Get(ctx, client.ObjectKey{
-		Name:      runName,
-		Namespace: namespaceName,
-	}, &workflowRun); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			logger.Warn("Workflow run not found", "namespace", namespaceName, "run", runName)
-			return nil, ErrWorkflowRunNotFound
-		}
-		logger.Error("Failed to get workflow run", "error", err)
-		return nil, fmt.Errorf("failed to get workflow run: %w", err)
-	}
-
-	// Check if RunReference exists
-	if workflowRun.Status.RunReference == nil || workflowRun.Status.RunReference.Name == "" || workflowRun.Status.RunReference.Namespace == "" {
-		logger.Warn("Workflow run reference not found", "run", runName)
-		return nil, fmt.Errorf("%w: %s", ErrWorkflowRunReferenceNotFound, runName)
-	}
-
-	return s.getArgoWorkflowRunLogs(ctx, namespaceName, gatewayURL, workflowRun.Status.RunReference, stepName, sinceSeconds)
-}
-
-// getArgoWorkflowRunLogs retrieves logs from an Argo Workflow run
-func (s *WorkflowRunService) getArgoWorkflowRunLogs(
-	ctx context.Context,
-	namespaceName string,
-	gatewayURL string,
-	runReference *openchoreov1alpha1.ResourceReference,
-	stepName string,
-	sinceSeconds *int64,
-) ([]models.ComponentWorkflowRunLogEntry, error) {
-	logger := s.logger.With("namespace", namespaceName, "runReference", runReference, "step", stepName, "sinceSeconds", sinceSeconds)
-	logger.Debug("Getting Argo workflow run logs")
-
-	bpClient, err := s.buildPlaneService.GetBuildPlaneClient(ctx, namespaceName, gatewayURL)
-	if err != nil {
-		logger.Error("Failed to get build plane client", "error", err)
-		return nil, fmt.Errorf("failed to get build plane client: %w", err)
-	}
-
-	var argoWorkflow argoproj.Workflow
-	if err := bpClient.Get(ctx, types.NamespacedName{
-		Name:      runReference.Name,
-		Namespace: runReference.Namespace,
-	}, &argoWorkflow); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			logger.Warn("Argo workflow not found in build plane", "workflow", runReference.Name, "namespace", runReference.Namespace)
-			return nil, fmt.Errorf("argo workflow not found")
-		}
-		logger.Error("Failed to get argo workflow", "error", err)
-		return nil, fmt.Errorf("failed to get argo workflow: %w", err)
-	}
-
-	pods, err := s.getArgoWorkflowPods(ctx, bpClient, &argoWorkflow, stepName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Argo workflow pods: %w", err)
-	}
-
-	buildPlane, err := s.buildPlaneService.GetBuildPlane(ctx, namespaceName)
-	if err != nil {
-		logger.Error("Failed to get build plane", "error", err)
-		return nil, fmt.Errorf("failed to get build plane: %w", err)
-	}
-
-	allLogEntries := make([]models.ComponentWorkflowRunLogEntry, 0)
-	for _, pod := range pods {
-		podLogs, err := s.getArgoWorkflowPodLogs(ctx, buildPlane, &pod, sinceSeconds)
-		if err != nil {
-			logger.Warn("Failed to get logs from pod", "pod", pod.Name, "error", err)
-			return nil, fmt.Errorf("failed to get logs from pod: %w", err)
-		}
-
-		lines := strings.Split(podLogs, "\n")
-		for _, line := range lines {
-			trimmedLine := strings.TrimSpace(line)
-			if trimmedLine == "" || trimmedLine == "---" {
-				continue
-			}
-
-			spaceIndex := strings.Index(trimmedLine, " ")
-			if spaceIndex > 0 {
-				timestampCandidate := trimmedLine[:spaceIndex]
-				if _, err := time.Parse(time.RFC3339, timestampCandidate); err == nil {
-					allLogEntries = append(allLogEntries, models.ComponentWorkflowRunLogEntry{
-						Timestamp: timestampCandidate,
-						Log:       trimmedLine[spaceIndex+1:],
-					})
-					continue
-				}
-				if _, err := time.Parse(time.RFC3339Nano, timestampCandidate); err == nil {
-					allLogEntries = append(allLogEntries, models.ComponentWorkflowRunLogEntry{
-						Timestamp: timestampCandidate,
-						Log:       trimmedLine[spaceIndex+1:],
-					})
-					continue
-				}
-			}
-
-			allLogEntries = append(allLogEntries, models.ComponentWorkflowRunLogEntry{
-				Timestamp: "",
-				Log:       trimmedLine,
-			})
-		}
-	}
-
-	return allLogEntries, nil
-}
-
-// getArgoWorkflowPodLogs retrieves logs from an Argo Workflow pod using the gateway client
-func (s *WorkflowRunService) getArgoWorkflowPodLogs(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane, pod *corev1.Pod, sinceSeconds *int64) (string, error) {
-	if s.gwClient == nil {
-		return "", fmt.Errorf("gateway client is not configured")
-	}
-
-	excludedContainersForLogs := map[string]bool{
-		"wait": true,
-		"init": true,
-	}
-
-	containerNames := make([]string, 0, len(pod.Spec.Containers))
-	for _, container := range pod.Spec.Containers {
-		if !excludedContainersForLogs[container.Name] {
-			containerNames = append(containerNames, container.Name)
-		}
-	}
-	if len(containerNames) == 0 {
-		return "", fmt.Errorf("no containers to fetch logs from in pod")
-	}
-
-	var allLogs strings.Builder
-	for i, containerName := range containerNames {
-		if i > 0 {
-			allLogs.WriteString("\n---\n")
-		}
-
-		logs, err := s.gwClient.GetPodLogsFromPlane(ctx, "buildplane", buildPlane.Spec.PlaneID, buildPlane.Namespace, buildPlane.Name,
-			&gatewayClient.PodReference{
-				Namespace: pod.Namespace,
-				Name:      pod.Name,
-			}, &gatewayClient.PodLogsOptions{
-				ContainerName:     containerName,
-				IncludeTimestamps: true,
-				SinceSeconds:      sinceSeconds,
-			})
-		if err != nil {
-			s.logger.Warn("Failed to fetch logs from container", "pod", pod.Name, "container", containerName, "error", err)
-			continue
-		}
-
-		allLogs.WriteString(logs)
-	}
-
-	return allLogs.String(), nil
 }
 
 // TriggerWorkflow creates a new WorkflowRun from a component's workflow configuration.

@@ -19,7 +19,7 @@ type Services struct {
 	ComponentService                 *ComponentService
 	ComponentTypeService             *ComponentTypeService
 	WorkflowService                  *WorkflowService
-	WorkflowRunService               *WorkflowRunService
+	WorkflowRunService               WorkflowRunServiceInterface
 	TraitService                     *TraitService
 	NamespaceService                 *NamespaceService
 	EnvironmentService               *EnvironmentService

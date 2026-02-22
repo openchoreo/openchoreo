@@ -26,8 +26,8 @@ const (
 	ReasonWorkflowFailed             controller.ConditionReason = "WorkflowFailed"
 	ReasonBuildPlaneNotFound         controller.ConditionReason = "BuildPlaneNotFound"
 	ReasonBuildPlaneResolutionFailed controller.ConditionReason = "BuildPlaneResolutionFailed"
-	ReasonWorkloadUpdated      controller.ConditionReason = "WorkloadUpdated"
-	ReasonWorkloadUpdateFailed controller.ConditionReason = "WorkloadUpdateFailed"
+	ReasonWorkloadUpdated            controller.ConditionReason = "WorkloadUpdated"
+	ReasonWorkloadUpdateFailed       controller.ConditionReason = "WorkloadUpdateFailed"
 )
 
 func setWorkflowPendingCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {

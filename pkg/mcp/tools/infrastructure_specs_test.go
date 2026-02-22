@@ -6,6 +6,7 @@ package tools
 import "testing"
 
 // infrastructureToolSpecs returns test specs for infrastructure toolset
+// nolint:gocyclo
 func infrastructureToolSpecs() []toolTestSpec {
 	return []toolTestSpec{
 		{
@@ -192,11 +193,11 @@ func infrastructureToolSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "run_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"run_name":       "workflow-run-1",
+				"run_name":       testWorkflowRunName,
 			},
 			expectedMethod: "GetWorkflowRun",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "workflow-run-1" {
+				if args[0] != testNamespaceName || args[1] != testWorkflowRunName {
 					t.Errorf("Expected (%s, workflow-run-1), got (%v, %v)", testNamespaceName, args[0], args[1])
 				}
 			},
@@ -210,13 +211,13 @@ func infrastructureToolSpecs() []toolTestSpec {
 			optionalParams:      []string{"step", "since_seconds"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"run_name":       "workflow-run-1",
+				"run_name":       testWorkflowRunName,
 				"step":           "build",
 				"since_seconds":  int64(300),
 			},
 			expectedMethod: "GetWorkflowRunLogs",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "workflow-run-1" || args[2] != "build" {
+				if args[0] != testNamespaceName || args[1] != testWorkflowRunName || args[2] != "build" {
 					t.Errorf("Expected (%s, workflow-run-1, build), got (%v, %v, %v)",
 						testNamespaceName, args[0], args[1], args[2])
 				}
@@ -234,12 +235,12 @@ func infrastructureToolSpecs() []toolTestSpec {
 			optionalParams:      []string{"step"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"run_name":       "workflow-run-1",
+				"run_name":       testWorkflowRunName,
 				"step":           "build",
 			},
 			expectedMethod: "GetWorkflowRunEvents",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "workflow-run-1" || args[2] != "build" {
+				if args[0] != testNamespaceName || args[1] != testWorkflowRunName || args[2] != "build" {
 					t.Errorf("Expected (%s, workflow-run-1, build), got (%v, %v, %v)",
 						testNamespaceName, args[0], args[1], args[2])
 				}
