@@ -32,6 +32,10 @@ type ListComponentWorkflowsResponse struct {
 	Workflows []*models.WorkflowResponse `json:"workflows"`
 }
 
+type ListComponentTraitsResponse struct {
+	Traits []*models.ComponentTraitResponse `json:"traits"`
+}
+
 func (h *MCPHandler) CreateComponent(ctx context.Context, namespaceName, projectName string, req *models.CreateComponentRequest) (any, error) {
 	return h.Services.ComponentService.CreateComponent(ctx, namespaceName, projectName, req)
 }
@@ -136,7 +140,13 @@ func (h *MCPHandler) GetComponentReleaseSchema(ctx context.Context, namespaceNam
 }
 
 func (h *MCPHandler) ListComponentTraits(ctx context.Context, namespaceName, projectName, componentName string) (any, error) {
-	return h.Services.ComponentService.ListComponentTraits(ctx, namespaceName, projectName, componentName)
+	traits, err := h.Services.ComponentService.ListComponentTraits(ctx, namespaceName, projectName, componentName)
+	if err != nil {
+		return ListComponentTraitsResponse{}, err
+	}
+	return ListComponentTraitsResponse{
+		Traits: traits,
+	}, nil
 }
 
 func (h *MCPHandler) UpdateComponentTraits(ctx context.Context, namespaceName, projectName, componentName string, req *models.UpdateComponentTraitsRequest) (any, error) {
