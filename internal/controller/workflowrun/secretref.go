@@ -106,9 +106,6 @@ func (r *Reconciler) resolveSecretRefInfo(ctx context.Context, namespace, secret
 	}
 
 	secretType := string(secretRef.Spec.Template.Type)
-	if secretType == "" {
-		secretType = "kubernetes.io/basic-auth"
-	}
 
 	return &workflowpipeline.SecretRefInfo{
 		Name: secretRefName,

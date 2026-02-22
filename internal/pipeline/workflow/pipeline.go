@@ -195,7 +195,6 @@ func shouldSkipResource(resource map[string]any) bool {
 
 // buildCELContext builds the CEL evaluation context with metadata.* and parameters.* variables.
 func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
-
 	// Enforced namespace
 	ciNamespace := fmt.Sprintf("openchoreo-ci-%s", input.Context.NamespaceName)
 

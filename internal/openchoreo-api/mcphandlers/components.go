@@ -24,6 +24,10 @@ type ListReleaseBindingsResponse struct {
 	Bindings []*models.ReleaseBindingResponse `json:"bindings"`
 }
 
+type ListComponentTraitsResponse struct {
+	Traits []*models.ComponentTraitResponse `json:"traits"`
+}
+
 func (h *MCPHandler) CreateComponent(ctx context.Context, namespaceName, projectName string, req *models.CreateComponentRequest) (any, error) {
 	return h.Services.ComponentService.CreateComponent(ctx, namespaceName, projectName, req)
 }
