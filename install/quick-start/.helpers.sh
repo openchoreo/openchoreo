@@ -604,9 +604,17 @@ apply_coredns_config() {
 # Read CA cert and key from the cluster-gateway-ca secret in the control plane.
 # Sets caller-scoped variables: ca_crt, tls_crt, tls_key
 read_cluster_gateway_ca() {
+    if ! kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" >/dev/null 2>&1; then
+        log_error "Secret 'cluster-gateway-ca' not found in namespace '$CONTROL_PLANE_NS'"
+        return 1
+    fi
     ca_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
     tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
     tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
+    if [[ -z "$ca_crt" || -z "$tls_crt" || -z "$tls_key" ]]; then
+        log_error "One or more fields (ca.crt, tls.crt, tls.key) are empty in secret 'cluster-gateway-ca'"
+        return 1
+    fi
 }
 
 # Copy cluster-gateway CA from control plane to data plane namespace
