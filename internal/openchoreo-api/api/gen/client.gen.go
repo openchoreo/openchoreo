@@ -98,15 +98,10 @@ type ClientInterface interface {
 	// ListActions request
 	ListActions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// BatchEvaluateWithBody request with any body
-	BatchEvaluateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// EvaluatesWithBody request with any body
+	EvaluatesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	BatchEvaluate(ctx context.Context, body BatchEvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// EvaluateWithBody request with any body
-	EvaluateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	Evaluate(ctx context.Context, body EvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	Evaluates(ctx context.Context, body EvaluatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetSubjectProfile request
 	GetSubjectProfile(ctx context.Context, params *GetSubjectProfileParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -710,8 +705,8 @@ func (c *Client) ListActions(ctx context.Context, reqEditors ...RequestEditorFn)
 	return c.Client.Do(req)
 }
 
-func (c *Client) BatchEvaluateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewBatchEvaluateRequestWithBody(c.Server, contentType, body)
+func (c *Client) EvaluatesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEvaluatesRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -722,32 +717,8 @@ func (c *Client) BatchEvaluateWithBody(ctx context.Context, contentType string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) BatchEvaluate(ctx context.Context, body BatchEvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewBatchEvaluateRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) EvaluateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEvaluateRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) Evaluate(ctx context.Context, body EvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEvaluateRequest(c.Server, body)
+func (c *Client) Evaluates(ctx context.Context, body EvaluatesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEvaluatesRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3311,19 +3282,19 @@ func NewListActionsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewBatchEvaluateRequest calls the generic BatchEvaluate builder with application/json body
-func NewBatchEvaluateRequest(server string, body BatchEvaluateJSONRequestBody) (*http.Request, error) {
+// NewEvaluatesRequest calls the generic Evaluates builder with application/json body
+func NewEvaluatesRequest(server string, body EvaluatesJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewBatchEvaluateRequestWithBody(server, "application/json", bodyReader)
+	return NewEvaluatesRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewBatchEvaluateRequestWithBody generates requests for BatchEvaluate with any type of body
-func NewBatchEvaluateRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewEvaluatesRequestWithBody generates requests for Evaluates with any type of body
+func NewEvaluatesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3331,47 +3302,7 @@ func NewBatchEvaluateRequestWithBody(server string, contentType string, body io.
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/authz/batch-evaluate")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewEvaluateRequest calls the generic Evaluate builder with application/json body
-func NewEvaluateRequest(server string, body EvaluateJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewEvaluateRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewEvaluateRequestWithBody generates requests for Evaluate with any type of body
-func NewEvaluateRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/authz/evaluate")
+	operationPath := fmt.Sprintf("/api/v1/authz/evaluates")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -11004,15 +10935,10 @@ type ClientWithResponsesInterface interface {
 	// ListActionsWithResponse request
 	ListActionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListActionsResp, error)
 
-	// BatchEvaluateWithBodyWithResponse request with any body
-	BatchEvaluateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*BatchEvaluateResp, error)
+	// EvaluatesWithBodyWithResponse request with any body
+	EvaluatesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EvaluatesResp, error)
 
-	BatchEvaluateWithResponse(ctx context.Context, body BatchEvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*BatchEvaluateResp, error)
-
-	// EvaluateWithBodyWithResponse request with any body
-	EvaluateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EvaluateResp, error)
-
-	EvaluateWithResponse(ctx context.Context, body EvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*EvaluateResp, error)
+	EvaluatesWithResponse(ctx context.Context, body EvaluatesJSONRequestBody, reqEditors ...RequestEditorFn) (*EvaluatesResp, error)
 
 	// GetSubjectProfileWithResponse request
 	GetSubjectProfileWithResponse(ctx context.Context, params *GetSubjectProfileParams, reqEditors ...RequestEditorFn) (*GetSubjectProfileResp, error)
@@ -11649,17 +11575,17 @@ func (r ListActionsResp) StatusCode() int {
 	return 0
 }
 
-type BatchEvaluateResp struct {
+type EvaluatesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *BatchEvaluateResponse
+	JSON200      *[]Decision
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON500      *InternalError
 }
 
 // Status returns HTTPResponse.Status
-func (r BatchEvaluateResp) Status() string {
+func (r EvaluatesResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -11667,32 +11593,7 @@ func (r BatchEvaluateResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r BatchEvaluateResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type EvaluateResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *Decision
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r EvaluateResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r EvaluateResp) StatusCode() int {
+func (r EvaluatesResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -15712,38 +15613,21 @@ func (c *ClientWithResponses) ListActionsWithResponse(ctx context.Context, reqEd
 	return ParseListActionsResp(rsp)
 }
 
-// BatchEvaluateWithBodyWithResponse request with arbitrary body returning *BatchEvaluateResp
-func (c *ClientWithResponses) BatchEvaluateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*BatchEvaluateResp, error) {
-	rsp, err := c.BatchEvaluateWithBody(ctx, contentType, body, reqEditors...)
+// EvaluatesWithBodyWithResponse request with arbitrary body returning *EvaluatesResp
+func (c *ClientWithResponses) EvaluatesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EvaluatesResp, error) {
+	rsp, err := c.EvaluatesWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseBatchEvaluateResp(rsp)
+	return ParseEvaluatesResp(rsp)
 }
 
-func (c *ClientWithResponses) BatchEvaluateWithResponse(ctx context.Context, body BatchEvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*BatchEvaluateResp, error) {
-	rsp, err := c.BatchEvaluate(ctx, body, reqEditors...)
+func (c *ClientWithResponses) EvaluatesWithResponse(ctx context.Context, body EvaluatesJSONRequestBody, reqEditors ...RequestEditorFn) (*EvaluatesResp, error) {
+	rsp, err := c.Evaluates(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseBatchEvaluateResp(rsp)
-}
-
-// EvaluateWithBodyWithResponse request with arbitrary body returning *EvaluateResp
-func (c *ClientWithResponses) EvaluateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EvaluateResp, error) {
-	rsp, err := c.EvaluateWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseEvaluateResp(rsp)
-}
-
-func (c *ClientWithResponses) EvaluateWithResponse(ctx context.Context, body EvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*EvaluateResp, error) {
-	rsp, err := c.Evaluate(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseEvaluateResp(rsp)
+	return ParseEvaluatesResp(rsp)
 }
 
 // GetSubjectProfileWithResponse request returning *GetSubjectProfileResp
@@ -17646,69 +17530,22 @@ func ParseListActionsResp(rsp *http.Response) (*ListActionsResp, error) {
 	return response, nil
 }
 
-// ParseBatchEvaluateResp parses an HTTP response from a BatchEvaluateWithResponse call
-func ParseBatchEvaluateResp(rsp *http.Response) (*BatchEvaluateResp, error) {
+// ParseEvaluatesResp parses an HTTP response from a EvaluatesWithResponse call
+func ParseEvaluatesResp(rsp *http.Response) (*EvaluatesResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &BatchEvaluateResp{
+	response := &EvaluatesResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest BatchEvaluateResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseEvaluateResp parses an HTTP response from a EvaluateWithResponse call
-func ParseEvaluateResp(rsp *http.Response) (*EvaluateResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &EvaluateResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Decision
+		var dest []Decision
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

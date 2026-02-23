@@ -2892,51 +2892,29 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/authz/evaluate:
+  /api/v1/authz/evaluates:
     post:
-      operationId: evaluate
+      operationId: evaluates
       summary: Evaluate authorization
-      description: Evaluates a single authorization request.
+      description: Evaluates one or more authorization requests in a single call.
       tags: [Authorization]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EvaluateRequest'
-      responses:
-        '200':
-          description: Authorization decision
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Decision'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/authz/batch-evaluate:
-    post:
-      operationId: batchEvaluate
-      summary: Batch evaluate authorization
-      description: Evaluates multiple authorization requests in a single call.
-      tags: [Authorization]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BatchEvaluateRequest'
+              type: array
+              items:
+                $ref: '#/components/schemas/EvaluateRequest'
       responses:
         '200':
           description: Authorization decisions
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BatchEvaluateResponse'
+                type: array
+                items:
+                  $ref: '#/components/schemas/Decision'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -8333,29 +8311,6 @@ components:
               description: Reason for the decision
               example: User has admin role
 
-    BatchEvaluateRequest:
-      type: object
-      description: Batch authorization evaluation request
-      required:
-        - requests
-      properties:
-        requests:
-          type: array
-          description: List of evaluation requests
-          items:
-            $ref: '#/components/schemas/EvaluateRequest'
-
-    BatchEvaluateResponse:
-      type: object
-      description: Batch authorization evaluation response
-      required:
-        - decisions
-      properties:
-        decisions:
-          type: array
-          description: List of decisions (in same order as requests)
-          items:
-            $ref: '#/components/schemas/Decision'
 
     ActionCapability:
       type: object

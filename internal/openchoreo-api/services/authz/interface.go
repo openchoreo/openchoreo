@@ -7,6 +7,7 @@ import (
 	"context"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
 // Service defines the authz service interface covering all 4 resource types.
@@ -39,4 +40,9 @@ type Service interface {
 	ListNamespaceRoleBindings(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleBindingList, error)
 	UpdateNamespaceRoleBinding(ctx context.Context, namespace string, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error)
 	DeleteNamespaceRoleBinding(ctx context.Context, namespace, name string) error
+
+	// Evaluation & Profile
+	Evaluate(ctx context.Context, requests []authzcore.EvaluateRequest) ([]authzcore.Decision, error)
+	ListActions(ctx context.Context) ([]string, error)
+	GetSubjectProfile(ctx context.Context, request *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error)
 }

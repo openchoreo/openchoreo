@@ -18,6 +18,7 @@ import (
 // authzService handles authz CRUD operations without authorization checks.
 type authzService struct {
 	pap       authzcore.PAP
+	pdp       authzcore.PDP
 	k8sClient client.Client
 	logger    *slog.Logger
 }
@@ -25,9 +26,10 @@ type authzService struct {
 var _ Service = (*authzService)(nil)
 
 // NewService creates a new authz service without authorization checks.
-func NewService(pap authzcore.PAP, k8sClient client.Client, logger *slog.Logger) Service {
+func NewService(pap authzcore.PAP, pdp authzcore.PDP, k8sClient client.Client, logger *slog.Logger) Service {
 	return &authzService{
 		pap:       pap,
+		pdp:       pdp,
 		k8sClient: k8sClient,
 		logger:    logger,
 	}
@@ -203,4 +205,28 @@ func (s *authzService) DeleteNamespaceRoleBinding(ctx context.Context, namespace
 		return fmt.Errorf("failed to delete namespace role binding: %w", err)
 	}
 	return nil
+}
+
+// --- Evaluation & Profile ---
+
+// Evaluate evaluates one or more authorization requests using the PDP.
+func (s *authzService) Evaluate(ctx context.Context, requests []authzcore.EvaluateRequest) ([]authzcore.Decision, error) {
+	s.logger.Debug("Evaluating authorization requests", "count", len(requests))
+	batchResp, err := s.pdp.BatchEvaluate(ctx, &authzcore.BatchEvaluateRequest{Requests: requests})
+	if err != nil {
+		return nil, fmt.Errorf("failed to evaluate authorization requests: %w", err)
+	}
+	return batchResp.Decisions, nil
+}
+
+// ListActions lists all defined actions in the system.
+func (s *authzService) ListActions(ctx context.Context) ([]string, error) {
+	s.logger.Debug("Listing actions")
+	return s.pap.ListActions(ctx)
+}
+
+// GetSubjectProfile retrieves the authorization profile for a given subject.
+func (s *authzService) GetSubjectProfile(ctx context.Context, request *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
+	s.logger.Debug("Getting subject profile")
+	return s.pdp.GetSubjectProfile(ctx, request)
 }

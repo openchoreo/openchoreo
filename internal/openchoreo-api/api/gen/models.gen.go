@@ -506,18 +506,6 @@ type AuthzTargetPath struct {
 	Project *string `json:"project,omitempty"`
 }
 
-// BatchEvaluateRequest Batch authorization evaluation request
-type BatchEvaluateRequest struct {
-	// Requests List of evaluation requests
-	Requests []EvaluateRequest `json:"requests"`
-}
-
-// BatchEvaluateResponse Batch authorization evaluation response
-type BatchEvaluateResponse struct {
-	// Decisions List of decisions (in same order as requests)
-	Decisions []Decision `json:"decisions"`
-}
-
 // BuildPlane BuildPlane resource (Kubernetes object without kind/apiVersion).
 // Represents CI/CD build infrastructure within a namespace.
 type BuildPlane struct {
@@ -3381,6 +3369,9 @@ type NotFound = ErrorResponse
 // Unauthorized Standard error response format
 type Unauthorized = ErrorResponse
 
+// EvaluatesJSONBody defines parameters for Evaluates.
+type EvaluatesJSONBody = []EvaluateRequest
+
 // GetSubjectProfileParams defines parameters for GetSubjectProfile.
 type GetSubjectProfileParams struct {
 	// Namespace Namespace scope
@@ -3721,11 +3712,8 @@ type HandleGitHubWebhookJSONBody map[string]interface{}
 // HandleGitLabWebhookJSONBody defines parameters for HandleGitLabWebhook.
 type HandleGitLabWebhookJSONBody map[string]interface{}
 
-// BatchEvaluateJSONRequestBody defines body for BatchEvaluate for application/json ContentType.
-type BatchEvaluateJSONRequestBody = BatchEvaluateRequest
-
-// EvaluateJSONRequestBody defines body for Evaluate for application/json ContentType.
-type EvaluateJSONRequestBody = EvaluateRequest
+// EvaluatesJSONRequestBody defines body for Evaluates for application/json ContentType.
+type EvaluatesJSONRequestBody = EvaluatesJSONBody
 
 // CreateClusterBuildPlaneJSONRequestBody defines body for CreateClusterBuildPlane for application/json ContentType.
 type CreateClusterBuildPlaneJSONRequestBody = ClusterBuildPlane

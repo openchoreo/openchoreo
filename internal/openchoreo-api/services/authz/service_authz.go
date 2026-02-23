@@ -24,9 +24,11 @@ const (
 	actionViewRoleMapping   = "rolemapping:view"
 	actionUpdateRoleMapping = "rolemapping:update"
 	actionDeleteRoleMapping = "rolemapping:delete"
+	actionViewAction        = "action:view"
 
 	resourceTypeRole        = "role"
 	resourceTypeRoleMapping = "roleMapping"
+	resourceTypeAction      = "action"
 )
 
 // authzServiceWithAuthz wraps a Service and adds authorization checks.
@@ -40,7 +42,7 @@ var _ Service = (*authzServiceWithAuthz)(nil)
 // NewServiceWithAuthz creates an authz service with authorization checks.
 func NewServiceWithAuthz(pap authzcore.PAP, pdp authzcore.PDP, k8sClient client.Client, logger *slog.Logger) Service {
 	return &authzServiceWithAuthz{
-		internal: NewService(pap, k8sClient, logger),
+		internal: NewService(pap, pdp, k8sClient, logger),
 		authz:    services.NewAuthzChecker(pdp, logger),
 	}
 }
@@ -277,4 +279,27 @@ func (s *authzServiceWithAuthz) DeleteNamespaceRoleBinding(ctx context.Context, 
 		return err
 	}
 	return s.internal.DeleteNamespaceRoleBinding(ctx, namespace, name)
+}
+
+// --- Evaluation & Profile ---
+
+// Evaluate delegates to the internal service without authz checks (requests contain their own subject context).
+func (s *authzServiceWithAuthz) Evaluate(ctx context.Context, requests []authzcore.EvaluateRequest) ([]authzcore.Decision, error) {
+	return s.internal.Evaluate(ctx, requests)
+}
+
+// ListActions checks authorization for viewing roles, then delegates to the internal service.
+func (s *authzServiceWithAuthz) ListActions(ctx context.Context) ([]string, error) {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionViewAction,
+		ResourceType: resourceTypeAction,
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.ListActions(ctx)
+}
+
+// GetSubjectProfile delegates to the internal service without authz checks (returns profile for the caller).
+func (s *authzServiceWithAuthz) GetSubjectProfile(ctx context.Context, request *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
+	return s.internal.GetSubjectProfile(ctx, request)
 }

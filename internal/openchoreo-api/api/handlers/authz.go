@@ -10,7 +10,6 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
@@ -24,17 +23,17 @@ func getStringValue(s *string) string {
 	return *s
 }
 
-// ListActions returns all defined authorization actions
+// ListActions returns all defined authorization actions.
 func (h *Handler) ListActions(
 	ctx context.Context,
 	request gen.ListActionsRequestObject,
 ) (gen.ListActionsResponseObject, error) {
 	h.logger.Debug("ListActions handler called")
 
-	actions, err := h.legacyServices.AuthzService.ListActions(ctx)
+	actions, err := h.services.AuthzService.ListActions(ctx)
 	if err != nil {
 		h.logger.Error("Failed to list actions", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListActions403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
 		if errors.Is(err, authz.ErrAuthzDisabled) {
@@ -47,70 +46,16 @@ func (h *Handler) ListActions(
 	return gen.ListActions200JSONResponse(actions), nil
 }
 
-// Evaluate evaluates a single authorization request
-func (h *Handler) Evaluate(
+// Evaluates evaluates one or more authorization requests.
+func (h *Handler) Evaluates(
 	ctx context.Context,
-	request gen.EvaluateRequestObject,
-) (gen.EvaluateResponseObject, error) {
-	h.logger.Debug("Evaluate handler called", "action", request.Body.Action)
-
-	// Convert API request to internal model
-	evalReq := &authz.EvaluateRequest{
-		Action: request.Body.Action,
-		Resource: authz.Resource{
-			Type: request.Body.Resource.Type,
-			ID:   getStringValue(request.Body.Resource.Id),
-			Hierarchy: authz.ResourceHierarchy{
-				Namespace: getStringValue(request.Body.Resource.Hierarchy.Namespace),
-				Project:   getStringValue(request.Body.Resource.Hierarchy.Project),
-				Component: getStringValue(request.Body.Resource.Hierarchy.Component),
-			},
-		},
-		SubjectContext: &authz.SubjectContext{
-			Type:              string(request.Body.SubjectContext.Type),
-			EntitlementClaim:  request.Body.SubjectContext.EntitlementClaim,
-			EntitlementValues: request.Body.SubjectContext.EntitlementValues,
-		},
-	}
-
-	decision, err := h.legacyServices.AuthzService.Evaluate(ctx, evalReq)
-	if err != nil {
-		h.logger.Error("Failed to evaluate", "error", err)
-		if errors.Is(err, authz.ErrInvalidRequest) {
-			return gen.Evaluate400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
-		}
-		if errors.Is(err, services.ErrForbidden) {
-			return gen.Evaluate400JSONResponse{BadRequestJSONResponse: badRequest(services.ErrForbidden.Error())}, nil
-		}
-		return gen.Evaluate500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	// Convert internal decision to API response
-	response := gen.Decision{
-		Decision: decision.Decision,
-	}
-	if decision.Context != nil && decision.Context.Reason != "" {
-		response.Context = &struct {
-			Reason *string `json:"reason,omitempty"`
-		}{
-			Reason: &decision.Context.Reason,
-		}
-	}
-
-	h.logger.Debug("Evaluation completed", "decision", decision.Decision)
-	return gen.Evaluate200JSONResponse(response), nil
-}
-
-// BatchEvaluate evaluates multiple authorization requests
-func (h *Handler) BatchEvaluate(
-	ctx context.Context,
-	request gen.BatchEvaluateRequestObject,
-) (gen.BatchEvaluateResponseObject, error) {
-	h.logger.Debug("BatchEvaluate handler called", "count", len(request.Body.Requests))
+	request gen.EvaluatesRequestObject,
+) (gen.EvaluatesResponseObject, error) {
+	h.logger.Debug("Evaluates handler called", "count", len(*request.Body))
 
 	// Convert API requests to internal model
-	internalRequests := make([]authz.EvaluateRequest, len(request.Body.Requests))
-	for i, req := range request.Body.Requests {
+	internalRequests := make([]authz.EvaluateRequest, len(*request.Body))
+	for i, req := range *request.Body {
 		internalRequests[i] = authz.EvaluateRequest{
 			Action: req.Action,
 			Resource: authz.Resource{
@@ -130,30 +75,23 @@ func (h *Handler) BatchEvaluate(
 		}
 	}
 
-	batchReq := &authz.BatchEvaluateRequest{
-		Requests: internalRequests,
-	}
-
-	batchResp, err := h.legacyServices.AuthzService.BatchEvaluate(ctx, batchReq)
+	decisions, err := h.services.AuthzService.Evaluate(ctx, internalRequests)
 	if err != nil {
-		h.logger.Error("Failed to batch evaluate", "error", err)
+		h.logger.Error("Failed to evaluate", "error", err)
 		if errors.Is(err, authz.ErrInvalidRequest) {
-			return gen.BatchEvaluate400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
+			return gen.Evaluates400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
 		}
-		if errors.Is(err, services.ErrForbidden) {
-			return gen.BatchEvaluate400JSONResponse{BadRequestJSONResponse: badRequest(services.ErrForbidden.Error())}, nil
-		}
-		return gen.BatchEvaluate500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+		return gen.Evaluates500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
 	// Convert internal decisions to API response
-	decisions := make([]gen.Decision, len(batchResp.Decisions))
-	for i, decision := range batchResp.Decisions {
-		decisions[i] = gen.Decision{
+	genDecisions := make([]gen.Decision, len(decisions))
+	for i, decision := range decisions {
+		genDecisions[i] = gen.Decision{
 			Decision: decision.Decision,
 		}
 		if decision.Context != nil && decision.Context.Reason != "" {
-			decisions[i].Context = &struct {
+			genDecisions[i].Context = &struct {
 				Reason *string `json:"reason,omitempty"`
 			}{
 				Reason: &decision.Context.Reason,
@@ -161,11 +99,11 @@ func (h *Handler) BatchEvaluate(
 		}
 	}
 
-	h.logger.Debug("Batch evaluation completed", "count", len(decisions))
-	return gen.BatchEvaluate200JSONResponse{Decisions: decisions}, nil
+	h.logger.Debug("Evaluation completed", "count", len(genDecisions))
+	return gen.Evaluates200JSONResponse(genDecisions), nil
 }
 
-// GetSubjectProfile returns the authorization profile for the authenticated subject
+// GetSubjectProfile returns the authorization profile for the authenticated subject.
 func (h *Handler) GetSubjectProfile(
 	ctx context.Context,
 	request gen.GetSubjectProfileRequestObject,
@@ -188,13 +126,13 @@ func (h *Handler) GetSubjectProfile(
 		},
 	}
 
-	profile, err := h.legacyServices.AuthzService.GetSubjectProfile(ctx, profileReq)
+	profile, err := h.services.AuthzService.GetSubjectProfile(ctx, profileReq)
 	if err != nil {
 		h.logger.Error("Failed to get subject profile", "error", err)
 		if errors.Is(err, authz.ErrInvalidRequest) {
 			return gen.GetSubjectProfile400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
 		}
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.GetSubjectProfile403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
 		return gen.GetSubjectProfile500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
