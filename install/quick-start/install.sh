@@ -125,6 +125,7 @@ if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     setup_build_plane_ca
     install_registry
     install_build_plane
+    install_workflow_templates
 
     create_buildplane_resource
 fi

@@ -127,7 +127,7 @@ create_k3d_cluster() {
     # k3d v5.9.0+ auto-detects Colima, but we handle it explicitly for older versions.
     # See https://github.com/k3d-io/k3d/issues/1449
     local use_dns_fix=false
-    if docker info --format '{{.Name}}' 2>/dev/null | grep -qi "colima"; then
+    if docker info --format '{{.Name}}' 2>/dev/null | grep -i "colima"; then
         log_info "Detected Colima runtime - disabling k3d DNS fix for compatibility"
         use_dns_fix=true
     fi
@@ -609,19 +609,18 @@ setup_data_plane_ca() {
         kubectl create namespace "$DATA_PLANE_NS" >/dev/null
     fi
 
-    # Copy CA ConfigMap
-    local ca_crt
-    ca_crt=$(kubectl get configmap cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}')
+    # Read CA from the secret
+    local ca_crt tls_crt tls_key
+    ca_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
+    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
+    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
 
+    # Copy CA ConfigMap
     kubectl create configmap cluster-gateway-ca \
         --from-literal=ca.crt="$ca_crt" \
         -n "$DATA_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
 
     # Copy CA Secret (needed by cluster-agent CA issuer)
-    local tls_crt tls_key
-    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
-    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
-
     kubectl create secret generic cluster-gateway-ca \
         --from-literal=tls.crt="$tls_crt" \
         --from-literal=tls.key="$tls_key" \
@@ -639,19 +638,18 @@ setup_build_plane_ca() {
         kubectl create namespace "$BUILD_PLANE_NS" >/dev/null
     fi
 
-    # Copy CA ConfigMap
-    local ca_crt
-    ca_crt=$(kubectl get configmap cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}')
+    # Read CA from the secret
+    local ca_crt tls_crt tls_key
+    ca_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
+    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
+    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
 
+    # Copy CA ConfigMap
     kubectl create configmap cluster-gateway-ca \
         --from-literal=ca.crt="$ca_crt" \
         -n "$BUILD_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
 
     # Copy CA Secret (needed by cluster-agent CA issuer)
-    local tls_crt tls_key
-    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
-    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
-
     kubectl create secret generic cluster-gateway-ca \
         --from-literal=tls.crt="$tls_crt" \
         --from-literal=tls.key="$tls_key" \
@@ -896,19 +894,18 @@ setup_observability_plane_ca() {
         kubectl create namespace "$OBSERVABILITY_NS" >/dev/null
     fi
 
-    # Copy CA ConfigMap
-    local ca_crt
-    ca_crt=$(kubectl get configmap cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}')
+    # Read CA from the secret
+    local ca_crt tls_crt tls_key
+    ca_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
+    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
+    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
 
+    # Copy CA ConfigMap
     kubectl create configmap cluster-gateway-ca \
         --from-literal=ca.crt="$ca_crt" \
         -n "$OBSERVABILITY_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
 
     # Copy CA Secret (needed by cluster-agent CA issuer)
-    local tls_crt tls_key
-    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
-    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
-
     kubectl create secret generic cluster-gateway-ca \
         --from-literal=tls.crt="$tls_crt" \
         --from-literal=tls.key="$tls_key" \
@@ -966,6 +963,24 @@ install_observability_plane() {
         "--reuse-values" "--set" "fluent-bit.enabled=true"
 
     install_helm_chart "observability-metrics-prometheus" "$modules_repo/observability-metrics-prometheus" "$OBSERVABILITY_NS" "true" "true" "true" "600"
+}
+
+# Apply ClusterWorkflowTemplates required by the build plane
+install_workflow_templates() {
+    log_info "Installing ClusterWorkflowTemplates..."
+
+    local templates_dir="${SCRIPT_DIR}/../samples/getting-started"
+    if [[ ! -d "$templates_dir" ]]; then
+        templates_dir="/home/openchoreo/samples/getting-started"
+    fi
+
+    # checkout-source and publish-image are applied separately so users can
+    # replace them with their own git auth or container registry setup.
+    kubectl apply -f "$templates_dir/workflow-templates/checkout-source.yaml" >/dev/null
+    kubectl apply -f "$templates_dir/workflow-templates.yaml" >/dev/null
+    kubectl apply -f "$templates_dir/workflow-templates/publish-image-k3d.yaml" >/dev/null
+
+    log_success "ClusterWorkflowTemplates installed"
 }
 
 # Install default OpenChoreo resources (Project, Environments, ComponentTypes, etc.)

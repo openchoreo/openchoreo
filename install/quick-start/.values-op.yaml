@@ -43,6 +43,5 @@ gateway:
     enabled: false
 
 security:
-  enabled: false
   oidc:
     jwksUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"

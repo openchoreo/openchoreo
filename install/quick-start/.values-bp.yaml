@@ -1,10 +1,5 @@
 # Helm values for OpenChoreo Build Plane in quick-start environment
 
-defaultResources:
-  enabled: true
-  registry:
-    host: "host.k3d.internal:10082"
-
 openbao:
   server:
     dev:
