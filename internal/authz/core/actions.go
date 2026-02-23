@@ -20,10 +20,13 @@ var systemActions = []Action{
 	// Namespace
 	{Name: "namespace:view", IsInternal: false},
 	{Name: "namespace:create", IsInternal: false},
+	{Name: "namespace:update", IsInternal: false},
+	{Name: "namespace:delete", IsInternal: false},
 
 	// Project
 	{Name: "project:view", IsInternal: false},
 	{Name: "project:create", IsInternal: false},
+	{Name: "project:update", IsInternal: false},
 	{Name: "project:delete", IsInternal: false},
 
 	// Component
@@ -37,13 +40,20 @@ var systemActions = []Action{
 	{Name: "componentrelease:view", IsInternal: false},
 	{Name: "componentrelease:create", IsInternal: false},
 
+	// Release
+	{Name: "release:view", IsInternal: false},
+
 	// ReleaseBinding
 	{Name: "releasebinding:view", IsInternal: false},
+	{Name: "releasebinding:create", IsInternal: false},
 	{Name: "releasebinding:update", IsInternal: false},
+	{Name: "releasebinding:delete", IsInternal: false},
 
 	// ComponentType
 	{Name: "componenttype:view", IsInternal: false},
 	{Name: "componenttype:create", IsInternal: false},
+	{Name: "componenttype:update", IsInternal: false},
+	{Name: "componenttype:delete", IsInternal: false},
 
 	// Workflow
 	{Name: "workflow:view", IsInternal: false},
@@ -56,6 +66,8 @@ var systemActions = []Action{
 	// Trait
 	{Name: "trait:view", IsInternal: false},
 	{Name: "trait:create", IsInternal: false},
+	{Name: "trait:update", IsInternal: false},
+	{Name: "trait:delete", IsInternal: false},
 
 	// Environment
 	{Name: "environment:view", IsInternal: false},
@@ -64,31 +76,56 @@ var systemActions = []Action{
 	// DataPlane
 	{Name: "dataplane:view", IsInternal: false},
 	{Name: "dataplane:create", IsInternal: false},
+	{Name: "dataplane:update", IsInternal: false},
+	{Name: "dataplane:delete", IsInternal: false},
 
 	// BuildPlane
 	{Name: "buildplane:view", IsInternal: false},
+	{Name: "buildplane:create", IsInternal: false},
+	{Name: "buildplane:update", IsInternal: false},
+	{Name: "buildplane:delete", IsInternal: false},
 
 	// ObservabilityPlane
 	{Name: "observabilityplane:view", IsInternal: false},
+	{Name: "observabilityplane:create", IsInternal: false},
+	{Name: "observabilityplane:update", IsInternal: false},
+	{Name: "observabilityplane:delete", IsInternal: false},
 
 	// ClusterComponentType
 	{Name: "clustercomponenttype:view", IsInternal: false},
 	{Name: "clustercomponenttype:create", IsInternal: false},
 	{Name: "clustercomponenttype:update", IsInternal: false},
+	{Name: "clustercomponenttype:delete", IsInternal: false},
 
 	// ClusterTrait
 	{Name: "clustertrait:view", IsInternal: false},
 	{Name: "clustertrait:create", IsInternal: false},
 	{Name: "clustertrait:update", IsInternal: false},
+	{Name: "clustertrait:delete", IsInternal: false},
 
-	// Cluster-scoped planes
+	// ClusterDataPlane
 	{Name: "clusterdataplane:view", IsInternal: false},
 	{Name: "clusterdataplane:create", IsInternal: false},
+	{Name: "clusterdataplane:update", IsInternal: false},
+	{Name: "clusterdataplane:delete", IsInternal: false},
+
+	// ClusterBuildPlane
 	{Name: "clusterbuildplane:view", IsInternal: false},
+	{Name: "clusterbuildplane:create", IsInternal: false},
+	{Name: "clusterbuildplane:update", IsInternal: false},
+	{Name: "clusterbuildplane:delete", IsInternal: false},
+
+	// ClusterObservabilityPlane
 	{Name: "clusterobservabilityplane:view", IsInternal: false},
+	{Name: "clusterobservabilityplane:create", IsInternal: false},
+	{Name: "clusterobservabilityplane:update", IsInternal: false},
+	{Name: "clusterobservabilityplane:delete", IsInternal: false},
 
 	// DeploymentPipeline
 	{Name: "deploymentpipeline:view", IsInternal: false},
+	{Name: "deploymentpipeline:create", IsInternal: false},
+	{Name: "deploymentpipeline:update", IsInternal: false},
+	{Name: "deploymentpipeline:delete", IsInternal: false},
 
 	// ObservabilityAlertsNotificationChannel
 	{Name: "observabilityalertsnotificationchannel:view", IsInternal: false},
@@ -97,13 +134,16 @@ var systemActions = []Action{
 	{Name: "observabilityalertsnotificationchannel:delete", IsInternal: false},
 
 	// SecretReference
-	{Name: "secretreference:create", IsInternal: false},
 	{Name: "secretreference:view", IsInternal: false},
+	{Name: "secretreference:create", IsInternal: false},
+	{Name: "secretreference:update", IsInternal: false},
 	{Name: "secretreference:delete", IsInternal: false},
 
 	// Workload
 	{Name: "workload:view", IsInternal: false},
 	{Name: "workload:create", IsInternal: false},
+	{Name: "workload:update", IsInternal: false},
+	{Name: "workload:delete", IsInternal: false},
 
 	// roles
 	{Name: "role:view", IsInternal: false},
