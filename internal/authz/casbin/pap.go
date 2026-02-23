@@ -394,7 +394,7 @@ func (ce *CasbinEnforcer) ListClusterRoles(ctx context.Context, limit int, curso
 	if limit > 0 {
 		opts = append(opts, client.Limit(int64(limit)))
 	}
-	if cursor != "" {
+	if cursor != "" && limit > 0 {
 		opts = append(opts, client.Continue(cursor))
 	}
 	if err := ce.k8sClient.List(ctx, list, opts...); err != nil {

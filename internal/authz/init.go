@@ -36,6 +36,10 @@ type Config struct {
 //
 // When authorization is enabled, this function sets up informer-based watchers on the manager
 // to sync policies from Kubernetes CRDs. The caller MUST:
+//  1. Start the controller manager (mgr.Start) after calling Initialize.
+//  2. Wait for the manager's cache to sync before serving requests.
+//
+// Failing to start the manager or not waiting for cache sync will lead to missing or unstable policy data.
 func Initialize(ctx context.Context, mgr ctrl.Manager, cfg Config, k8sClient client.Client, logger *slog.Logger) (authzcore.PAP, authzcore.PDP, error) {
 	log := logger.With("module", "authz")
 
