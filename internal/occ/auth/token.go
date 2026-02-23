@@ -71,6 +71,11 @@ func RefreshToken() (string, error) {
 
 	// Check auth method and use appropriate refresh strategy
 	if credential.AuthMethod == "authorization_code" && credential.RefreshToken != "" {
+		// Check if refresh token itself is expired
+		if IsTokenExpired(credential.RefreshToken) {
+			return "", fmt.Errorf("session expired, please run 'occ login' to re-authenticate")
+		}
+
 		// Use PKCE refresh token grant
 		tokenResp, err := RefreshAccessToken(
 			oidcConfig.TokenEndpoint,
@@ -78,7 +83,7 @@ func RefreshToken() (string, error) {
 			credential.RefreshToken,
 		)
 		if err != nil {
-			return "", fmt.Errorf("failed to refresh PKCE token: %w", err)
+			return "", fmt.Errorf("failed to refresh token, please run 'occ login' to re-authenticate: %w", err)
 		}
 
 		credential.Token = tokenResp.AccessToken
