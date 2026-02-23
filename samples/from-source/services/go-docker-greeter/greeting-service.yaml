@@ -1,7 +1,7 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
-  name: greeting-service-2
+  name: greeting-service
 spec:
   owner:
     projectName: default
@@ -38,10 +38,10 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowRun
 metadata:
-  name: greeting-service-build-03
+  name: greeting-service-build-01
   labels:
     openchoreo.dev/project: "default"
-    openchoreo.dev/component: "greeting-service-2"
+    openchoreo.dev/component: "greeting-service"
 spec:
   workflow:
     # Reference to Workflow
@@ -51,7 +51,7 @@ spec:
     parameters:
       scope:
         projectName: "default"
-        componentName: "greeting-service-2"
+        componentName: "greeting-service"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:

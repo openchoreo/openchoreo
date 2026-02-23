@@ -115,7 +115,7 @@ type WorkflowResource struct {
 	// IncludeWhen is a CEL expression that determines whether this resource should be rendered.
 	// If the expression evaluates to false, the resource is skipped.
 	// If empty, the resource is always included.
-	// Example: has(systemParameters.secretRef)
+	// Example: ${parameters.enableMetrics}
 	// +optional
 	IncludeWhen string `json:"includeWhen,omitempty"`
 

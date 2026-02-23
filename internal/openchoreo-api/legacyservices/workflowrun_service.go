@@ -36,6 +36,7 @@ import (
 // WorkflowRunServiceInterface defines the operations available on WorkflowRun resources.
 // It is implemented by WorkflowRunService and may be replaced with a mock in tests.
 type WorkflowRunServiceInterface interface {
+	AuthorizeView(ctx context.Context, namespaceName, projectName, componentName string) error
 	ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string) ([]*models.WorkflowRunResponse, error)
 	GetWorkflowRun(ctx context.Context, namespaceName, runName string) (*models.WorkflowRunResponse, error)
 	GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.ComponentWorkflowRunStatusResponse, error)

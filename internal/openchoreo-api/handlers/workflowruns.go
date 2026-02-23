@@ -33,6 +33,13 @@ func (h *Handler) ListWorkflowRuns(w http.ResponseWriter, r *http.Request) {
 	projectName := r.URL.Query().Get("projectName")
 	componentName := r.URL.Query().Get("componentName")
 
+	// Authorize the view operation
+	if err := h.services.WorkflowRunService.AuthorizeView(ctx, namespaceName, projectName, componentName); err != nil {
+		log.Warn("Unauthorized to list workflow runs", "namespace", namespaceName, "error", err)
+		writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+		return
+	}
+
 	list := &unstructured.UnstructuredList{}
 	list.SetGroupVersionKind(openChoreoGVK("WorkflowRunList"))
 

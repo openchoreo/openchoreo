@@ -142,7 +142,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/workflowruns", h.CreateWorkflowRun)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflowruns/{runName}", h.GetWorkflowRun)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflowruns/{runName}/logs", h.GetWorkflowRunLogs)
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflow-runs/{runName}/status", h.GetWorkflowRunStatus)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflowruns/{runName}/status", h.GetWorkflowRunStatus)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflowruns/{runName}/events", h.GetWorkflowRunEvents)
 
 	api.HandleFunc("PATCH "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-parameters", h.UpdateComponentWorkflowParameters)

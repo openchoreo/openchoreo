@@ -345,8 +345,9 @@ func (r *Reconciler) createWorkloadFromWorkflowRun(
 
 	// Use the stored RunReference to retrieve the run resource
 	if workflowRun.Status.RunReference == nil || workflowRun.Status.RunReference.Name == "" || workflowRun.Status.RunReference.Namespace == "" {
-		logger.Error(nil, "run resource reference not found in status")
-		return true, fmt.Errorf("run resource reference not set in status")
+		err := fmt.Errorf("run resource reference not set in status")
+		logger.Error(err, "run resource reference not found in status", "namespace", workflowRun.Namespace)
+		return true, err
 	}
 
 	runRefName := workflowRun.Status.RunReference.Name

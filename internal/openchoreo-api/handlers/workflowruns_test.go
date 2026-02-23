@@ -28,6 +28,9 @@ type mockWorkflowRunService struct {
 	getEventsErr    error
 }
 
+func (m *mockWorkflowRunService) AuthorizeView(_ context.Context, _, _, _ string) error {
+	return nil
+}
 func (m *mockWorkflowRunService) ListWorkflowRuns(_ context.Context, _, _, _ string) ([]*models.WorkflowRunResponse, error) {
 	panic("unexpected call to ListWorkflowRuns")
 }
