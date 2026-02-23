@@ -388,12 +388,22 @@ func (ce *CasbinEnforcer) GetClusterRole(ctx context.Context, name string) (*ope
 }
 
 // ListClusterRoles lists all cluster-scoped roles
-func (ce *CasbinEnforcer) ListClusterRoles(ctx context.Context) (*openchoreov1alpha1.AuthzClusterRoleList, error) {
+func (ce *CasbinEnforcer) ListClusterRoles(ctx context.Context, limit int, cursor string) (*authzcore.PaginatedList[openchoreov1alpha1.AuthzClusterRole], error) {
 	list := &openchoreov1alpha1.AuthzClusterRoleList{}
-	if err := ce.k8sClient.List(ctx, list); err != nil {
+	opts := []client.ListOption{}
+	if limit > 0 {
+		opts = append(opts, client.Limit(int64(limit)))
+	}
+	if cursor != "" {
+		opts = append(opts, client.Continue(cursor))
+	}
+	if err := ce.k8sClient.List(ctx, list, opts...); err != nil {
 		return nil, fmt.Errorf("failed to list AuthzClusterRoles: %w", err)
 	}
-	return list, nil
+	return &authzcore.PaginatedList[openchoreov1alpha1.AuthzClusterRole]{
+		Items:      list.Items,
+		NextCursor: list.Continue,
+	}, nil
 }
 
 // UpdateClusterRole updates a cluster-scoped role and returns the updated CRD object
@@ -454,12 +464,22 @@ func (ce *CasbinEnforcer) GetNamespacedRole(ctx context.Context, name string, na
 }
 
 // ListNamespacedRoles lists namespace-scoped roles in the given namespace
-func (ce *CasbinEnforcer) ListNamespacedRoles(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleList, error) {
+func (ce *CasbinEnforcer) ListNamespacedRoles(ctx context.Context, namespace string, limit int, cursor string) (*authzcore.PaginatedList[openchoreov1alpha1.AuthzRole], error) {
 	list := &openchoreov1alpha1.AuthzRoleList{}
-	if err := ce.k8sClient.List(ctx, list, client.InNamespace(namespace)); err != nil {
+	opts := []client.ListOption{client.InNamespace(namespace)}
+	if limit > 0 {
+		opts = append(opts, client.Limit(int64(limit)))
+	}
+	if cursor != "" {
+		opts = append(opts, client.Continue(cursor))
+	}
+	if err := ce.k8sClient.List(ctx, list, opts...); err != nil {
 		return nil, fmt.Errorf("failed to list AuthzRoles: %w", err)
 	}
-	return list, nil
+	return &authzcore.PaginatedList[openchoreov1alpha1.AuthzRole]{
+		Items:      list.Items,
+		NextCursor: list.Continue,
+	}, nil
 }
 
 // UpdateNamespacedRole updates a namespace-scoped role and returns the updated CRD object
@@ -520,12 +540,22 @@ func (ce *CasbinEnforcer) GetClusterRoleBinding(ctx context.Context, name string
 }
 
 // ListClusterRoleBindings lists all cluster-scoped role bindings
-func (ce *CasbinEnforcer) ListClusterRoleBindings(ctx context.Context) (*openchoreov1alpha1.AuthzClusterRoleBindingList, error) {
+func (ce *CasbinEnforcer) ListClusterRoleBindings(ctx context.Context, limit int, cursor string) (*authzcore.PaginatedList[openchoreov1alpha1.AuthzClusterRoleBinding], error) {
 	list := &openchoreov1alpha1.AuthzClusterRoleBindingList{}
-	if err := ce.k8sClient.List(ctx, list); err != nil {
+	opts := []client.ListOption{}
+	if limit > 0 {
+		opts = append(opts, client.Limit(int64(limit)))
+	}
+	if cursor != "" {
+		opts = append(opts, client.Continue(cursor))
+	}
+	if err := ce.k8sClient.List(ctx, list, opts...); err != nil {
 		return nil, fmt.Errorf("failed to list AuthzClusterRoleBindings: %w", err)
 	}
-	return list, nil
+	return &authzcore.PaginatedList[openchoreov1alpha1.AuthzClusterRoleBinding]{
+		Items:      list.Items,
+		NextCursor: list.Continue,
+	}, nil
 }
 
 // UpdateClusterRoleBinding updates a cluster-scoped role binding and returns the updated CRD object
@@ -586,12 +616,22 @@ func (ce *CasbinEnforcer) GetNamespacedRoleBinding(ctx context.Context, name str
 }
 
 // ListNamespacedRoleBindings lists namespace-scoped role bindings in the given namespace
-func (ce *CasbinEnforcer) ListNamespacedRoleBindings(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleBindingList, error) {
+func (ce *CasbinEnforcer) ListNamespacedRoleBindings(ctx context.Context, namespace string, limit int, cursor string) (*authzcore.PaginatedList[openchoreov1alpha1.AuthzRoleBinding], error) {
 	list := &openchoreov1alpha1.AuthzRoleBindingList{}
-	if err := ce.k8sClient.List(ctx, list, client.InNamespace(namespace)); err != nil {
+	opts := []client.ListOption{client.InNamespace(namespace)}
+	if limit > 0 {
+		opts = append(opts, client.Limit(int64(limit)))
+	}
+	if cursor != "" {
+		opts = append(opts, client.Continue(cursor))
+	}
+	if err := ce.k8sClient.List(ctx, list, opts...); err != nil {
 		return nil, fmt.Errorf("failed to list AuthzRoleBindings: %w", err)
 	}
-	return list, nil
+	return &authzcore.PaginatedList[openchoreov1alpha1.AuthzRoleBinding]{
+		Items:      list.Items,
+		NextCursor: list.Continue,
+	}, nil
 }
 
 // UpdateNamespacedRoleBinding updates a namespace-scoped role binding and returns the updated CRD object

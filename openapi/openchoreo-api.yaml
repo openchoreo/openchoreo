@@ -2969,6 +2969,9 @@ paths:
       summary: List cluster roles
       description: Returns all cluster-scoped authorization roles.
       tags: [Authorization]
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of cluster roles
@@ -3112,6 +3115,9 @@ paths:
       summary: List cluster role bindings
       description: Returns all cluster-scoped role bindings.
       tags: [Authorization]
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of cluster role bindings
@@ -3257,6 +3263,8 @@ paths:
       tags: [Authorization]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of namespace roles
@@ -3413,6 +3421,8 @@ paths:
       tags: [Authorization]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of namespace role bindings
@@ -8019,6 +8029,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AuthzClusterRole'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
 
     AuthzRole:
       type: object
@@ -8060,6 +8072,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AuthzRole'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
 
     AuthzClusterRoleBinding:
       type: object
@@ -8102,6 +8116,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AuthzClusterRoleBinding'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
 
     AuthzRoleBinding:
       type: object
@@ -8146,6 +8162,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AuthzRoleBinding'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
 
     AuthzEntitlementClaim:
       type: object
