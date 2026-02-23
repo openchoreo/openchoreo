@@ -18,12 +18,16 @@ jobs:
       actions: read
       contents: write
       packages: write
+      id-token: write # Required for Cosign keyless signing via GitHub OIDC
     steps:
       - name: Checkout Code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Set commit SHA and release tag
         run: |
@@ -68,6 +72,36 @@ jobs:
               make docker.retag-registry SOURCE_TAG=${{ env.RELEASE_TAG }} NEW_TAG=latest
           fi
 
+      # Sign all container images by digest using Cosign keyless signing.
+      # If adding a new image to DOCKER_BUILD_IMAGES in make/docker.mk, add it here too.
+      - name: Sign container images
+        run: |
+          IMAGES=(
+            controller
+            quick-start
+            init-observability-opensearch
+            openchoreo-api
+            observer
+            ai-rca-agent
+            openchoreo-cli
+            cluster-gateway
+            cluster-agent
+          )
+          for image in "${IMAGES[@]}"; do
+            FULL_REF="ghcr.io/openchoreo/${image}:${{ env.RELEASE_TAG }}"
+            DIGEST=$(docker buildx imagetools inspect "${FULL_REF}" --format '{{json .Manifest}}' | jq -r '.digest')
+            if [ -z "${DIGEST}" ] || [ "${DIGEST}" = "null" ]; then
+              echo "ERROR: Failed to resolve digest for ${FULL_REF}"
+              exit 1
+            fi
+            echo "Signing ${FULL_REF} (${DIGEST})"
+            cosign sign --yes \
+              -a "repo=${{ github.repository }}" \
+              -a "workflow=${{ github.workflow }}" \
+              -a "ref=${{ github.sha }}" \
+              "ghcr.io/openchoreo/${image}@${DIGEST}"
+          done
+
       - name: Download occ artifact from the build workflow
         uses: dawidd6/action-download-artifact@fe9d59ce33ce92db8a6ac90b2c8be6b6d90417c8 # v15
         with:
@@ -88,6 +122,38 @@ jobs:
         run: |
           make go.package.occ
 
+      - name: Generate checksums
+        run: |
+          cd bin/dist
+          for f in \
+            linux/amd64/occ_${{ env.RELEASE_TAG }}_linux_amd64.tar.gz \
+            linux/arm64/occ_${{ env.RELEASE_TAG }}_linux_arm64.tar.gz \
+            darwin/amd64/occ_${{ env.RELEASE_TAG }}_darwin_amd64.tar.gz \
+            darwin/arm64/occ_${{ env.RELEASE_TAG }}_darwin_arm64.tar.gz \
+            windows/amd64/occ_${{ env.RELEASE_TAG }}_windows_amd64.zip \
+            windows/arm64/occ_${{ env.RELEASE_TAG }}_windows_arm64.zip; do
+            (cd "$(dirname "$f")" && sha256sum "$(basename "$f")")
+          done > checksums.txt
+
+      - name: Sign CLI binaries and checksums
+        run: |
+          cd bin/dist
+          FILES=(
+            linux/amd64/occ_${{ env.RELEASE_TAG }}_linux_amd64.tar.gz
+            linux/arm64/occ_${{ env.RELEASE_TAG }}_linux_arm64.tar.gz
+            darwin/amd64/occ_${{ env.RELEASE_TAG }}_darwin_amd64.tar.gz
+            darwin/arm64/occ_${{ env.RELEASE_TAG }}_darwin_arm64.tar.gz
+            windows/amd64/occ_${{ env.RELEASE_TAG }}_windows_amd64.zip
+            windows/arm64/occ_${{ env.RELEASE_TAG }}_windows_arm64.zip
+            checksums.txt
+          )
+          for file in "${FILES[@]}"; do
+            echo "Signing ${file}"
+            cosign sign-blob --yes \
+              --bundle "${file}.sigstore.json" \
+              "${file}"
+          done
+
       - name: Package and push helm charts
         run: |
           make helm-push HELM_CHART_VERSION=${{ env.RELEASE_TAG_WITHOUT_V }} TAG=${{ env.RELEASE_TAG }} HELM_CONTROLLER_IMAGE_PULL_POLICY=IfNotPresent
@@ -100,8 +166,16 @@ jobs:
           tag_name: ${{ env.RELEASE_TAG }}
           files: |
             bin/dist/linux/amd64/occ_${{ env.RELEASE_TAG }}_linux_amd64.tar.gz
+            bin/dist/linux/amd64/occ_${{ env.RELEASE_TAG }}_linux_amd64.tar.gz.sigstore.json
             bin/dist/linux/arm64/occ_${{ env.RELEASE_TAG }}_linux_arm64.tar.gz
+            bin/dist/linux/arm64/occ_${{ env.RELEASE_TAG }}_linux_arm64.tar.gz.sigstore.json
             bin/dist/darwin/amd64/occ_${{ env.RELEASE_TAG }}_darwin_amd64.tar.gz
+            bin/dist/darwin/amd64/occ_${{ env.RELEASE_TAG }}_darwin_amd64.tar.gz.sigstore.json
             bin/dist/darwin/arm64/occ_${{ env.RELEASE_TAG }}_darwin_arm64.tar.gz
+            bin/dist/darwin/arm64/occ_${{ env.RELEASE_TAG }}_darwin_arm64.tar.gz.sigstore.json
             bin/dist/windows/amd64/occ_${{ env.RELEASE_TAG }}_windows_amd64.zip
+            bin/dist/windows/amd64/occ_${{ env.RELEASE_TAG }}_windows_amd64.zip.sigstore.json
             bin/dist/windows/arm64/occ_${{ env.RELEASE_TAG }}_windows_arm64.zip
+            bin/dist/windows/arm64/occ_${{ env.RELEASE_TAG }}_windows_arm64.zip.sigstore.json
+            bin/dist/checksums.txt
+            bin/dist/checksums.txt.sigstore.json
