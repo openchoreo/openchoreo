@@ -71,9 +71,15 @@ class LoggingMiddleware(AgentMiddleware):
         elapsed = time.time() - start_time
         self.tool_call_count += 1
 
-        content_len = (
-            len(result.content) if isinstance(result, ToolMessage) and result.content else 0
-        )
+        if isinstance(result, ToolMessage) and result.content:
+            if isinstance(result.content, str):
+                content_len = len(result.content)
+            elif isinstance(result.content, list):
+                content_len = sum(len(b.get("text", "")) for b in result.content if isinstance(b, dict))
+            else:
+                content_len = 0
+        else:
+            content_len = 0
         logger.info(
             "Tool '%s' (#%d) took %.2fs, result: %d chars",
             tool_name,
@@ -81,6 +87,8 @@ class LoggingMiddleware(AgentMiddleware):
             elapsed,
             content_len,
         )
+        if isinstance(result, ToolMessage):
+            logger.debug("Tool '%s' result content: %s", tool_name, result.content)
         logger.debug("Tool '%s' args: %s", tool_name, tool_args)
 
         return result

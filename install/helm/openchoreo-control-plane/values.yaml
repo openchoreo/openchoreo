@@ -1084,6 +1084,8 @@ openchoreoApi:
                 - "releasebinding:view"
                 - "componentworkflowrun:view"
                 - "environment:view"
+                - "workload:view"
+                - "trait:view"
                 - "logs:view"
                 - "metrics:view"
                 - "alerts:view"
