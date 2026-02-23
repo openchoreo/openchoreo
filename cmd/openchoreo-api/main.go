@@ -91,8 +91,15 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	// Create a Kubernetes client for the service layer and PAP.
+	k8sClient, err := k8s.NewK8sClient()
+	if err != nil {
+		logger.Error("Failed to create Kubernetes client", slog.Any("error", err))
+		os.Exit(1)
+	}
+
 	// Set up runtime
-	runtime, err := setupRuntime(ctx, &cfg, logger)
+	runtime, err := setupRuntime(ctx, &cfg, k8sClient, logger)
 	if err != nil {
 		logger.Error("Failed to initialize authorization", slog.Any("error", err))
 		os.Exit(1)
@@ -138,13 +145,6 @@ func main() {
 	// Start background processes (manager + cache sync when authz enabled)
 	if err := runtime.start(ctx); err != nil {
 		logger.Error("Failed to start authorization runtime", slog.Any("error", err))
-		os.Exit(1)
-	}
-
-	// Create a direct Kubernetes client for the service layer.
-	k8sClient, err := k8s.NewK8sClient()
-	if err != nil {
-		logger.Error("Failed to create Kubernetes client", slog.Any("error", err))
 		os.Exit(1)
 	}
 
@@ -224,7 +224,7 @@ type runtime struct {
 // enabled it creates a controller-runtime manager with an informer-based cache
 // for the authz CRDs; when disabled the manager is left nil and
 // authz.Initialize returns a passthrough implementation.
-func setupRuntime(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*runtime, error) {
+func setupRuntime(ctx context.Context, cfg *config.Config, k8sClient client.Client, logger *slog.Logger) (*runtime, error) {
 	authzCfg := cfg.Security.Authorization
 	var mgr ctrl.Manager
 
@@ -255,7 +255,7 @@ func setupRuntime(ctx context.Context, cfg *config.Config, logger *slog.Logger) 
 		}
 	}
 
-	pap, pdp, err := authz.Initialize(ctx, mgr, authzCfg.ToAuthzConfig(), logger)
+	pap, pdp, err := authz.Initialize(ctx, mgr, authzCfg.ToAuthzConfig(), k8sClient, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize authorization: %w", err)
 	}

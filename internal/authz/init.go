@@ -10,6 +10,7 @@ import (
 	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/internal/authz/casbin"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -35,7 +36,7 @@ type Config struct {
 //
 // When authorization is enabled, this function sets up informer-based watchers on the manager
 // to sync policies from Kubernetes CRDs. The caller MUST:
-func Initialize(ctx context.Context, mgr ctrl.Manager, cfg Config, logger *slog.Logger) (authzcore.PAP, authzcore.PDP, error) {
+func Initialize(ctx context.Context, mgr ctrl.Manager, cfg Config, k8sClient client.Client, logger *slog.Logger) (authzcore.PAP, authzcore.PDP, error) {
 	log := logger.With("module", "authz")
 
 	if !cfg.Enabled {
@@ -47,7 +48,7 @@ func Initialize(ctx context.Context, mgr ctrl.Manager, cfg Config, logger *slog.
 	log.Info("Authorization enabled - initializing Casbin enforcer")
 
 	casbinConfig := casbin.CasbinConfig{
-		K8sClient:    mgr.GetClient(),
+		K8sClient:    k8sClient,
 		CacheEnabled: cfg.CacheEnabled,
 		CacheTTL:     cfg.CacheTTL,
 	}
