@@ -32,8 +32,8 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 After deploying, monitor the workflow progress:
 
 ```bash
-# Check ComponentWorkflowRun status
-kubectl get componentworkflowrun greeting-service-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
+# Check WorkflowRun status
+kubectl get workflowrun greeting-service-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
 
 # Watch workflow pods (in openchoreo-ci-default namespace)
 kubectl get pods -n openchoreo-ci-default | grep greeting-service
@@ -42,7 +42,7 @@ kubectl get pods -n openchoreo-ci-default | grep greeting-service
 kubectl logs -n openchoreo-ci-default <pod-name> -f
 ```
 
-Wait for the ComponentWorkflowRun to complete successfully. You should see:
+Wait for the WorkflowRun to complete successfully. You should see:
 - `WorkflowCompleted: True`
 - `WorkflowSucceeded: True`
 - `WorkloadUpdated: True`
@@ -92,9 +92,9 @@ curl http://development-default.openchoreoapis.localhost:19080/greeting-service/
 
 If the workflow fails or takes too long:
 
-1. **Check ComponentWorkflowRun status and conditions:**
+1. **Check WorkflowRun status and conditions:**
    ```bash
-   kubectl get componentworkflowrun greeting-service-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
+   kubectl get workflowrun greeting-service-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
    ```
 
 2. **Check workflow pod status:**

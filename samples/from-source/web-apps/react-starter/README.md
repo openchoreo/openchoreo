@@ -23,8 +23,8 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 After deploying, monitor the workflow progress:
 
 ```bash
-# Check ComponentWorkflowRun status
-kubectl get componentworkflowrun react-starter-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
+# Check WorkflowRun status
+kubectl get workflowrun react-starter-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
 
 # Watch build pods (in openchoreo-ci-default namespace)
 kubectl get pods -n openchoreo-ci-default | grep react-starter
@@ -33,7 +33,7 @@ kubectl get pods -n openchoreo-ci-default | grep react-starter
 kubectl logs -n openchoreo-ci-default <pod-name> -f
 ```
 
-Wait for the ComponentWorkflowRun to complete successfully. You should see:
+Wait for the WorkflowRun to complete successfully. You should see:
 - `WorkflowCompleted: True`
 - `WorkflowSucceeded: True`
 - `WorkloadUpdated: True`
@@ -71,9 +71,9 @@ echo "Access the application at: http://${HOSTNAME}:19080"
 
 If the workflow fails or takes too long:
 
-1. **Check ComponentWorkflowRun status and conditions:**
+1. **Check WorkflowRun status and conditions:**
    ```bash
-   kubectl get componentworkflowrun react-starter-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
+   kubectl get workflowrun react-starter-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
    ```
 
 2. **Check workflow pod status:**

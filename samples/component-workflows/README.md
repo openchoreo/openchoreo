@@ -1,22 +1,22 @@
-# ComponentWorkflow Samples
+# Workflow Samples
 
-This directory contains reusable ComponentWorkflow definitions that define how OpenChoreo builds applications from source code. ComponentWorkflows are specialized templates for component builds that integrate with the Build Plane (Argo Workflows) to automate the containerization of your applications.
+This directory contains reusable Workflow definitions that define how OpenChoreo builds applications from source code. Workflows are specialized templates for component builds that integrate with the Build Plane (Argo Workflows) to automate the containerization of your applications.
 
 ---
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [How ComponentWorkflows Work](#how-componentworkflows-work)
+2. [How Workflows Work](#how-workflows-work)
     - [Key Concepts](#key-concepts)
     - [Referencing Build Plane Templates](#referencing-build-plane-templates)
-3. [Available ComponentWorkflows](#available-componentworkflows)
-    - [Docker ComponentWorkflow](#docker-componentworkflow)
-    - [Google Cloud Buildpacks ComponentWorkflow](#google-cloud-buildpacks-componentworkflow)
-    - [React ComponentWorkflow](#react-componentworkflow)
-4. [Using ComponentWorkflows](#using-componentworkflows)
+3. [Available Workflows](#available-workflows)
+    - [Docker Workflow](#docker-workflow)
+    - [Google Cloud Buildpacks Workflow](#google-cloud-buildpacks-workflow)
+    - [React Workflow](#react-workflow)
+4. [Using Workflows](#using-workflows)
     - [Method 1: Reference in Component](#method-1-reference-in-component)
-    - [Method 2: Manual ComponentWorkflowRun](#method-2-manual-componentworkflowrun)
-5. [Deploying ComponentWorkflows](#deploying-componentworkflows)
+    - [Method 2: Manual WorkflowRun](#method-2-manual-workflowrun)
+5. [Deploying Workflows](#deploying-workflows)
 6. [Template Variables](#template-variables)
 7. [System Parameters vs Developer Parameters](#system-parameters-vs-developer-parameters)
 8. [Reusable Type Definitions](#reusable-type-definitions)
@@ -28,7 +28,7 @@ This directory contains reusable ComponentWorkflow definitions that define how O
 ---
 ## Overview
 
-In OpenChoreo, a **ComponentWorkflow** is a Custom Resource that:
+In OpenChoreo, a **Workflow** is a Custom Resource that:
 
 1. **Defines a build strategy** - Specifies how to build and containerize your application (Docker, Buildpacks, etc.)
 2. **Provides structured system parameters** - Required repository configuration for build automation features (webhooks, auto-build, UI actions)
@@ -36,21 +36,21 @@ In OpenChoreo, a **ComponentWorkflow** is a Custom Resource that:
 4. **Templates Argo Workflows** - Generates the actual Argo Workflow resources that execute in the Build Plane
 5. **Enforces governance** - Platform Engineers control hardcoded parameters (registry URLs, timeouts, security settings)
 
-## How ComponentWorkflows Work
+## How Workflows Work
 
 ### Key Concepts
 
-- **ComponentWorkflow CR**: Platform Engineer-defined template that lives in the control plane
-- **ComponentWorkflowRun CR**: Instance that triggers a build execution (created automatically or manually)
+- **Workflow CR**: Platform Engineer-defined template that lives in the control plane
+- **WorkflowRun CR**: Instance that triggers a build execution (created automatically or manually)
 - **System Parameters**: Required structured fields for repository information (url, branch, commit, appPath)
 - **Developer Parameters**: Flexible PE-defined schema for build configuration (resources, caching, testing, etc.)
 - **Template Variables**: Placeholders like `${metadata.componentName}`, `${systemParameters.repository.url}`, and `${parameters.version}`
 - **Build Plane**: A Kubernetes cluster running Argo Workflows
-- **ClusterWorkflowTemplate**: Pre-defined Argo Workflow templates in the Build Plane that ComponentWorkflows reference via `workflowTemplateRef`
+- **ClusterWorkflowTemplate**: Pre-defined Argo Workflow templates in the Build Plane that Workflows reference via `workflowTemplateRef`
 
 ### Referencing Build Plane Templates
 
-ComponentWorkflows generate Argo Workflow resources that reference ClusterWorkflowTemplates deployed in the Build Plane. This enables reusable build logic:
+Workflows generate Argo Workflow resources that reference ClusterWorkflowTemplates deployed in the Build Plane. This enables reusable build logic:
 
 ```yaml
 spec:
@@ -70,9 +70,9 @@ spec:
             value: ${systemParameters.repository.revision.branch}
 ```
 
-## Available ComponentWorkflows
+## Available Workflows
 
-### [Docker ComponentWorkflow](./docker.yaml)
+### [Docker Workflow](./docker.yaml)
 
 Build applications using a Dockerfile.
 
@@ -121,7 +121,7 @@ spec:
         filePath: "/service/Dockerfile"
 ```
 
-### [Google Cloud Buildpacks ComponentWorkflow](./google-cloud-buildpacks.yaml)
+### [Google Cloud Buildpacks Workflow](./google-cloud-buildpacks.yaml)
 
 Build applications automatically using Google Cloud Buildpacks (no Dockerfile required).
 
@@ -163,7 +163,7 @@ parameters:
 - Security scanning: enabled
 - Build timeout: 30m
 
-### [React ComponentWorkflow](./react.yaml)
+### [React Workflow](./react.yaml)
 
 Specialized build workflow for React web applications.
 
@@ -186,11 +186,11 @@ parameters:
   nodeVersion: string | default="18"
 ```
 
-## Using ComponentWorkflows
+## Using Workflows
 
 ### Method 1: Reference in Component
 
-Define the component workflow in your Component resource:
+Define the workflow in your Component resource:
 
 ```yaml
 apiVersion: openchoreo.dev/v1alpha1
@@ -204,9 +204,9 @@ spec:
     kind: ComponentType
     name: deployment/service
 
-  # ComponentWorkflow configuration
+  # Workflow configuration
   workflow:
-    name: docker                    # Reference to ComponentWorkflow
+    name: docker                    # Reference to Workflow
 
     systemParameters:               # Required repository parameters
       repository:
@@ -222,13 +222,13 @@ spec:
         filePath: "/Dockerfile"
 ```
 
-### Method 2: Manual ComponentWorkflowRun
+### Method 2: Manual WorkflowRun
 
-Create a ComponentWorkflowRun resource to trigger a workflow manually:
+Create a WorkflowRun resource to trigger a workflow manually:
 
 ```yaml
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentWorkflowRun
+kind: WorkflowRun
 metadata:
   name: my-app-build-01
 spec:
@@ -253,40 +253,40 @@ spec:
         filePath: "/Dockerfile"
 ```
 
-## Deploying ComponentWorkflows
+## Deploying Workflows
 
-Deploy a component workflow to your control plane:
+Deploy a workflow to your control plane:
 
 ```bash
-# Deploy all component workflows
+# Deploy all workflows
 kubectl apply -f samples/component-workflows/
 
-# Deploy a specific component workflow
+# Deploy a specific workflow
 kubectl apply -f samples/component-workflows/docker.yaml
 ```
 
-Verify the component workflow is available:
+Verify the workflow is available:
 
 ```bash
-# List component workflows
-kubectl get componentworkflows -n default
+# List workflows
+kubectl get workflows -n default
 
-# Describe a component workflow
-kubectl describe componentworkflow docker -n default
+# Describe a workflow
+kubectl describe workflow docker -n default
 ```
 
 ## Template Variables
 
-ComponentWorkflows support template variables for dynamic values in the `runTemplate`:
+Workflows support template variables for dynamic values in the `runTemplate`:
 
 | Variable | Description | Scope |
 |----------|-------------|-------|
-| `${metadata.workflowRunName}` | Name of the ComponentWorkflowRun CR | All component workflows |
+| `${metadata.workflowRunName}` | Name of the WorkflowRun CR | All workflows |
 | `${metadata.componentName}` | Component name | Component-level workflows only |
 | `${metadata.projectName}` | Project name | Component-level workflows only |
-| `${metadata.namespaceName}` | Namespace name | All component workflows |
-| `${systemParameters.*}` | System parameter values (repository.url, etc.) | All component workflows |
-| `${parameters.*}` | Developer-provided parameter values | All component workflows |
+| `${metadata.namespaceName}` | Namespace name | All workflows |
+| `${systemParameters.*}` | System parameter values (repository.url, etc.) | All workflows |
+| `${parameters.*}` | Developer-provided parameter values | All workflows |
 
 **Example**:
 ```yaml
@@ -322,7 +322,7 @@ spec:
 
 ### System Parameters (Required Structure)
 
-All ComponentWorkflows must define these structured fields for build automation:
+All Workflows must define these structured fields for build automation:
 
 ```yaml
 systemParameters:
@@ -364,7 +364,7 @@ parameters:
 
 ## Reusable Type Definitions
 
-ComponentWorkflows support a `types` field in the schema to define reusable type definitions for complex structures. This enables you to define custom types that can be referenced in parameters, reducing duplication and ensuring consistency.
+Workflows support a `types` field in the schema to define reusable type definitions for complex structures. This enables you to define custom types that can be referenced in parameters, reducing duplication and ensuring consistency.
 
 ### Why Use Types?
 
@@ -431,7 +431,7 @@ schema:
 
 ```yaml
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentWorkflow
+kind: Workflow
 metadata:
   name: example-workflow
 spec:
@@ -493,7 +493,7 @@ spec:
 
 ## Working with Private Repositories
 
-All default ComponentWorkflows support cloning from private Git repositories that require authentication. Private repository support is built-in and works seamlessly with GitHub, GitLab, Bitbucket, and AWS CodeCommit.
+All default Workflows support cloning from private Git repositories that require authentication. Private repository support is built-in and works seamlessly with GitHub, GitLab, Bitbucket, and AWS CodeCommit.
 
 ### How It Works
 
@@ -652,7 +652,7 @@ spec:
         appPath: "/"
 ```
 
-The ComponentWorkflow automatically creates an ExternalSecret for each build that fetches credentials from the secret store and makes them available to the workflow.
+The Workflow automatically creates an ExternalSecret for each build that fetches credentials from the secret store and makes them available to the workflow.
 
 ## Using Secrets in Workflows
 
@@ -661,11 +661,11 @@ Build workflows often need access to secrets for authentication, such as:
 - **Registry credentials** for pushing images to private container registries
 - **API tokens** for external services during the build process
 
-ComponentWorkflows support two approaches for managing secrets in the Build Plane:
+Workflows support two approaches for managing secrets in the Build Plane:
 
 ### Approach 1: External Secrets with Dynamic Secret Names (Recommended)
 
-Use the `resources` section in ComponentWorkflow to define ExternalSecret resources that point to secrets in your secret backend. This approach:
+Use the `resources` section in Workflow to define ExternalSecret resources that point to secrets in your secret backend. This approach:
 - Automatically creates and syncs secrets in the Build Plane's execution namespace
 - Generates unique secret names per workflow run (e.g., `${metadata.workflowRunName}-git-secret`)
 - Passes the secret name as a parameter to the workflow, allowing the workflow to reference it during execution
@@ -737,7 +737,7 @@ Manually create Kubernetes secrets in the Build Plane's execution namespace and 
 
 ### Platform Engineers Define:
 
-- ✅ Which ComponentWorkflow types are available (Docker, Buildpacks, etc.)
+- ✅ Which Workflow types are available (Docker, Buildpacks, etc.)
 - ✅ System parameters schema (with customized defaults and validation)
 - ✅ Developer parameters schema structure and validation rules
 - ✅ Hardcoded parameters in runTemplate (registry URLs, security settings, timeouts)
@@ -746,14 +746,14 @@ Manually create Kubernetes secrets in the Build Plane's execution namespace and 
 
 ### Developers Configure:
 
-- ✅ Which ComponentWorkflow to use for their Component
+- ✅ Which Workflow to use for their Component
 - ✅ System parameters: repository URL, branch, commit, appPath
 - ✅ Developer parameters: build-specific settings
 - ✅ Version and build settings (within Platform Engineer constraints)
 
 ## ComponentType Governance
 
-Platform Engineers can restrict which ComponentWorkflows are available per component type:
+Platform Engineers can restrict which Workflows are available per component type:
 
 ```yaml
 apiVersion: openchoreo.dev/v1alpha1
@@ -771,6 +771,6 @@ This ensures developers can only use approved build workflows for each component
 
 ## See Also
 
-- **[Build from Source Samples](../from-source/)** - Complete examples using these component workflows
+- **[Build from Source Samples](../from-source/)** - Complete examples using these workflows
 - **[Component Samples](../component-types/)** - Low-level component examples
-- **[ComponentWorkflow Discussion](../../discussions/component-workflows/)** - Design rationale and architecture details
+- **[Workflow Discussion](../../discussions/component-workflows/)** - Design rationale and architecture details

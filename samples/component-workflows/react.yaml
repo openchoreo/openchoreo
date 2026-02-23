@@ -11,8 +11,6 @@ spec:
   # ${metadata.workflowRunName}              - Generated name for this workflow run instance
   # ${metadata.namespaceName}                - Organization namespace where the component resides
   # ${metadata.namespace}                    - Full namespace path for resource deployment
-  # ${parameters.scope.componentName}        - Name of the component triggering this workflow
-  # ${parameters.scope.projectName}          - Name of the project containing the component
   # ${parameters.repository.*}              - Repository parameters (url, revision, appPath, secretRef)
   # ${parameters.*}                          - Custom developer parameters defined in schema (nodeVersion, etc.)
   # ${secretRef.*}                           - Secret reference details when parameters.repository.secretRef is provided
@@ -25,7 +23,7 @@ spec:
   # Defines the contract between platform engineers (who create workflows) and developers (who use them)
   schema:
     parameters:
-      # Scope parameters - automatically populated from component context
+      # Scope parameters
       scope:
         projectName: string | description="Name of the project"
         componentName: string | description="Name of the component"
