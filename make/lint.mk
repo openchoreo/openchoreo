@@ -104,7 +104,7 @@ samples-gen: ## Generate samples/getting-started/all.yaml from individual files
 	printf '# environments, pipeline, component types, workflows, and traits.\n'; \
 	printf '#\n'; \
 	printf '# Usage:\n'; \
-	printf '#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml\n'; \
+	printf '#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.16/samples/getting-started/all.yaml\n'; \
 	printf '#\n'; \
 	printf '# Or if you have cloned the repository:\n'; \
 	printf '#   kubectl apply -f samples/getting-started/all.yaml\n'; \

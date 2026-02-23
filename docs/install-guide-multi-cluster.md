@@ -301,7 +301,7 @@ If you want to uninstall `occ` from your host machine, you can use the [script](
 Run the following command to uninstall `occ`:
 
 ```shell
-curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/install/occ-uninstall.sh | bash
+curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/release-v0.16/install/occ-uninstall.sh | bash
 ```
 
 ## Access Your Deployed Services
