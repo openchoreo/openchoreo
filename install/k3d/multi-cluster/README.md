@@ -419,16 +419,6 @@ helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/ex
 kubectl --context k3d-openchoreo-op wait --for=condition=Available deployment/external-secrets \
   -n external-secrets --timeout=180s
 
-# kgateway
-helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
-  --kube-context k3d-openchoreo-op \
-  --version v2.1.1
-
-helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
-  --kube-context k3d-openchoreo-op \
-  --namespace openchoreo-observability-plane \
-  --create-namespace \
-  --version v2.1.1
 ```
 
 ### CoreDNS Rewrite and Certificates
