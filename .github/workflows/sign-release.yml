@@ -1,0 +1,113 @@
+# Temporary workflow to backfill Cosign signatures for existing releases.
+# This can be removed once all recent releases have been signed.
+name: Sign Release
+
+on:
+  push:
+    branches:
+      - issue-1706-backfill
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to sign (e.g., v0.15.0)"
+        required: true
+        type: string
+
+env:
+  # Default tag for push-triggered runs (workflow_dispatch overrides via inputs.tag)
+  DEFAULT_TAG: v0.10.0
+
+permissions:
+  contents: read
+
+jobs:
+  sign-release:
+    name: Sign Release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+      id-token: write # Required for Cosign keyless signing via GitHub OIDC
+    steps:
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: Login to GitHub container registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Sign container images by digest using Cosign keyless signing.
+      # Images that don't exist for the given tag are skipped.
+      - name: Sign container images
+        run: |
+          IMAGES=(
+            controller
+            quick-start
+            init-observability-opensearch
+            openchoreo-api
+            observer
+            ai-rca-agent
+            openchoreo-cli
+            cluster-gateway
+            cluster-agent
+          )
+          for image in "${IMAGES[@]}"; do
+            FULL_REF="ghcr.io/openchoreo/${image}:${{ inputs.tag || env.DEFAULT_TAG }}"
+            DIGEST=$(docker buildx imagetools inspect "${FULL_REF}" --format '{{json .Manifest}}' 2>/dev/null | jq -r '.digest' 2>/dev/null)
+            if [ -z "${DIGEST}" ] || [ "${DIGEST}" = "null" ]; then
+              echo "SKIP: ${FULL_REF} not found in registry"
+              continue
+            fi
+            echo "Signing ${FULL_REF} (${DIGEST})"
+            cosign sign --yes \
+              -a "repo=${{ github.repository }}" \
+              -a "workflow=${{ github.workflow }}" \
+              -a "ref=${{ inputs.tag || env.DEFAULT_TAG }}" \
+              "ghcr.io/openchoreo/${image}@${DIGEST}"
+          done
+
+      - name: Download release assets
+        run: |
+          mkdir -p release-assets
+          gh release download "${{ inputs.tag || env.DEFAULT_TAG }}" --repo "${{ github.repository }}" --dir release-assets --pattern "*.tar.gz" --pattern "*.zip" || true
+          ls -la release-assets/
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate checksums and sign CLI binaries
+        run: |
+          cd release-assets
+          FILES=$(ls *.tar.gz *.zip 2>/dev/null)
+          if [ -z "${FILES}" ]; then
+            echo "No CLI binaries found for ${{ inputs.tag || env.DEFAULT_TAG }}, skipping"
+            exit 0
+          fi
+
+          # Generate checksums
+          sha256sum ${FILES} > checksums.txt
+          echo "Generated checksums:"
+          cat checksums.txt
+
+          # Sign all files including checksums
+          for file in ${FILES} checksums.txt; do
+            echo "Signing ${file}"
+            cosign sign-blob --yes \
+              --bundle "${file}.sigstore.json" \
+              "${file}"
+          done
+
+      - name: Upload signatures to release
+        run: |
+          cd release-assets
+          UPLOAD_FILES=$(ls *.sigstore.json checksums.txt 2>/dev/null)
+          if [ -z "${UPLOAD_FILES}" ]; then
+            echo "No signature files to upload"
+            exit 0
+          fi
+          # shellcheck disable=SC2086
+          gh release upload "${{ inputs.tag || env.DEFAULT_TAG }}" --repo "${{ github.repository }}" ${UPLOAD_FILES} --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
