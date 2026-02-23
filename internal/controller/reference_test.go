@@ -972,9 +972,6 @@ func TestDataPlaneResult_ToDataPlane_WithDataPlane(t *testing.T) {
 		},
 		Spec: openchoreov1alpha1.DataPlaneSpec{
 			PlaneID: "plane-1",
-			Gateway: openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost: "public.example.com",
-			},
 		},
 	}
 
@@ -994,8 +991,12 @@ func TestDataPlaneResult_ToDataPlane_WithClusterDataPlane(t *testing.T) {
 		Spec: openchoreov1alpha1.ClusterDataPlaneSpec{
 			PlaneID: "shared-plane",
 			Gateway: openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:       "public.cluster.example.com",
-				OrganizationVirtualHost: "org.cluster.example.com",
+				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						Name:      "public-gw",
+						Namespace: "gw-ns",
+					},
+				},
 			},
 			ObservabilityPlaneRef: &openchoreov1alpha1.ClusterObservabilityPlaneRef{
 				Kind: openchoreov1alpha1.ClusterObservabilityPlaneRefKindClusterObservabilityPlane,
@@ -1015,8 +1016,10 @@ func TestDataPlaneResult_ToDataPlane_WithClusterDataPlane(t *testing.T) {
 
 	// Verify Spec fields are mapped
 	assert.Equal(t, "shared-plane", got.Spec.PlaneID)
-	assert.Equal(t, "public.cluster.example.com", got.Spec.Gateway.PublicVirtualHost)
-	assert.Equal(t, "org.cluster.example.com", got.Spec.Gateway.OrganizationVirtualHost)
+	require.NotNil(t, got.Spec.Gateway.Ingress)
+	require.NotNil(t, got.Spec.Gateway.Ingress.External)
+	assert.Equal(t, "public-gw", got.Spec.Gateway.Ingress.External.Name)
+	assert.Equal(t, "gw-ns", got.Spec.Gateway.Ingress.External.Namespace)
 
 	// Verify ObservabilityPlaneRef is mapped from ClusterObservabilityPlaneRef
 	require.NotNil(t, got.Spec.ObservabilityPlaneRef)

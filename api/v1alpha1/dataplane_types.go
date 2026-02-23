@@ -36,46 +36,56 @@ type ClusterAgentConfig struct {
 	ClientCA ValueFrom `json:"clientCA"`
 }
 
+// GatewayListenerSpec defines the configuration for a single gateway listener.
+type GatewayListenerSpec struct {
+	// ListenerName is the name of the listener on the Gateway resource.
+	// +optional
+	ListenerName string `json:"listenerName,omitempty"`
+	// Port is the port number for this listener.
+	// +optional
+	Port int32 `json:"port,omitempty"`
+	// Host is the virtual host for this listener.
+	// +optional
+	Host string `json:"host,omitempty"`
+}
+
+// GatewayEndpointSpec defines the configuration for a gateway endpoint (name, namespace, and listeners).
+type GatewayEndpointSpec struct {
+	// Name is the name of the Gateway resource.
+	// +optional
+	Name string `json:"name,omitempty"`
+	// Namespace is the namespace of the Gateway resource.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+	// HTTP defines the HTTP listener configuration.
+	// +optional
+	HTTP *GatewayListenerSpec `json:"http,omitempty"`
+	// HTTPS defines the HTTPS listener configuration.
+	// +optional
+	HTTPS *GatewayListenerSpec `json:"https,omitempty"`
+	// TLS defines the TLS listener configuration.
+	// +optional
+	TLS *GatewayListenerSpec `json:"tls,omitempty"`
+}
+
+// GatewayTrafficSpec defines external and internal gateway endpoint configurations.
+type GatewayTrafficSpec struct {
+	// External defines the externally accessible gateway endpoint.
+	// +optional
+	External *GatewayEndpointSpec `json:"external,omitempty"`
+	// Internal defines the internally accessible gateway endpoint.
+	// +optional
+	Internal *GatewayEndpointSpec `json:"internal,omitempty"`
+}
+
 // GatewaySpec defines the gateway configuration for the data plane.
-// TODO: chathurangas: organization vhost = inter-project vhost. This is not being used. Refactor later
 type GatewaySpec struct {
-	// Public virtual host for the gateway
-	PublicVirtualHost string `json:"publicVirtualHost"`
-	// Organization-specific virtual host for the gateway
+	// Ingress defines the ingress gateway configuration.
 	// +optional
-	OrganizationVirtualHost string `json:"organizationVirtualHost,omitempty"`
-	// Public HTTP port for the gateway
+	Ingress *GatewayTrafficSpec `json:"ingress,omitempty"`
+	// Egress defines the egress gateway configuration.
 	// +optional
-	// +kubebuilder:default=19080
-	PublicHTTPPort int32 `json:"publicHTTPPort,omitempty"`
-	// Public HTTPS port for the gateway
-	// +optional
-	// +kubebuilder:default=19443
-	PublicHTTPSPort int32 `json:"publicHTTPSPort,omitempty"`
-	// Organization HTTP port for the gateway
-	// +optional
-	// +kubebuilder:default=19081
-	OrganizationHTTPPort int32 `json:"organizationHTTPPort,omitempty"`
-	// Organization HTTPS port for the gateway
-	// +optional
-	// +kubebuilder:default=19444
-	OrganizationHTTPSPort int32 `json:"organizationHTTPSPort,omitempty"`
-	// PublicGatewayName is the name of the public Gateway resource.
-	// +optional
-	// +kubebuilder:default=gateway-default
-	PublicGatewayName string `json:"publicGatewayName,omitempty"`
-	// PublicGatewayNamespace is the namespace of the public Gateway resource.
-	// +optional
-	// +kubebuilder:default=openchoreo-data-plane
-	PublicGatewayNamespace string `json:"publicGatewayNamespace,omitempty"`
-	// OrganizationGatewayName is the name of the organization Gateway resource.
-	// +optional
-	// +kubebuilder:default=gateway-default
-	OrganizationGatewayName string `json:"organizationGatewayName,omitempty"`
-	// OrganizationGatewayNamespace is the namespace of the organization Gateway resource.
-	// +optional
-	// +kubebuilder:default=openchoreo-data-plane
-	OrganizationGatewayNamespace string `json:"organizationGatewayNamespace,omitempty"`
+	Egress *GatewayTrafficSpec `json:"egress,omitempty"`
 }
 
 // SecretStoreRef defines a reference to an External Secrets Operator ClusterSecretStore
@@ -106,7 +116,8 @@ type DataPlaneSpec struct {
 	ClusterAgent ClusterAgentConfig `json:"clusterAgent"`
 
 	// Gateway specifies the configuration for the API gateway in this DataPlane.
-	Gateway GatewaySpec `json:"gateway"`
+	// +optional
+	Gateway GatewaySpec `json:"gateway,omitempty"`
 
 	// ImagePullSecretRefs contains references to SecretReference resources
 	// These will be converted to ExternalSecrets and added as imagePullSecrets to all deployments

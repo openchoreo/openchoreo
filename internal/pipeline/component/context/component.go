@@ -168,19 +168,81 @@ func extractParameters(raw *runtime.RawExtension) (map[string]any, error) {
 
 // extractDataPlaneData extracts DataPlaneData from a DataPlane resource.
 func extractDataPlaneData(dp *v1alpha1.DataPlane) DataPlaneData {
-	data := DataPlaneData{
-		PublicVirtualHost: dp.Spec.Gateway.PublicVirtualHost,
-	}
+	data := DataPlaneData{}
 	if dp.Spec.SecretStoreRef != nil {
 		data.SecretStore = dp.Spec.SecretStoreRef.Name
-	}
-	if dp.Spec.Gateway.OrganizationVirtualHost != "" {
-		data.OrganizationVirtualHost = dp.Spec.Gateway.OrganizationVirtualHost
 	}
 	if dp.Spec.ObservabilityPlaneRef != nil {
 		data.ObservabilityPlaneRef = &ObservabilityPlaneRefData{
 			Kind: string(dp.Spec.ObservabilityPlaneRef.Kind),
 			Name: dp.Spec.ObservabilityPlaneRef.Name,
+		}
+	}
+	data.Gateway = toGatewayData(&dp.Spec.Gateway)
+	return data
+}
+
+// toGatewayData converts a v1alpha1.GatewaySpec to a GatewayData for template context.
+func toGatewayData(gw *v1alpha1.GatewaySpec) *GatewayData {
+	if gw == nil {
+		return nil
+	}
+	data := &GatewayData{}
+	if gw.Ingress != nil {
+		data.Ingress = toGatewayTrafficData(gw.Ingress)
+	}
+	if gw.Egress != nil {
+		data.Egress = toGatewayTrafficData(gw.Egress)
+	}
+	if data.Ingress == nil && data.Egress == nil {
+		return nil
+	}
+	return data
+}
+
+// toGatewayTrafficData converts a v1alpha1.GatewayTrafficSpec to a GatewayTrafficData.
+func toGatewayTrafficData(t *v1alpha1.GatewayTrafficSpec) *GatewayTrafficData {
+	if t == nil {
+		return nil
+	}
+	data := &GatewayTrafficData{}
+	if t.External != nil {
+		data.External = toGatewayEndpointData(t.External)
+	}
+	if t.Internal != nil {
+		data.Internal = toGatewayEndpointData(t.Internal)
+	}
+	return data
+}
+
+// toGatewayEndpointData converts a v1alpha1.GatewayEndpointSpec to a GatewayEndpointData.
+func toGatewayEndpointData(e *v1alpha1.GatewayEndpointSpec) *GatewayEndpointData {
+	if e == nil {
+		return nil
+	}
+	data := &GatewayEndpointData{
+		Name:      e.Name,
+		Namespace: e.Namespace,
+	}
+	if e.HTTP != nil {
+		data.HTTP = &GatewayListenerData{
+			ListenerName: e.HTTP.ListenerName,
+			Port:         e.HTTP.Port,
+			Host:         e.HTTP.Host,
+		}
+	}
+	if e.HTTPS != nil {
+		data.HTTPS = &GatewayListenerData{
+			ListenerName: e.HTTPS.ListenerName,
+			Port:         e.HTTPS.Port,
+			Host:         e.HTTPS.Host,
+		}
+	}
+	if e.TLS != nil {
+		data.TLS = &GatewayListenerData{
+			ListenerName: e.TLS.ListenerName,
+			Port:         e.TLS.Port,
+			Host:         e.TLS.Host,
 		}
 	}
 	return data
@@ -189,21 +251,18 @@ func extractDataPlaneData(dp *v1alpha1.DataPlane) DataPlaneData {
 // extractEnvironmentData extracts EnvironmentData from Environment and DataPlane resources.
 // If the Environment has gateway configuration, it uses those values.
 // Otherwise, it falls back to the DataPlane gateway configuration.
-// Gateway name and namespace default to "gateway-default" and "openchoreo-data-plane" if not set.
 func extractEnvironmentData(env *v1alpha1.Environment, dp *v1alpha1.DataPlane, defaultNotificationChannel string) EnvironmentData {
 	// If environment has gateway configuration, use it
-	if env.Spec.Gateway.PublicVirtualHost != "" {
+	if env.Spec.Gateway.Ingress != nil || env.Spec.Gateway.Egress != nil {
 		return EnvironmentData{
-			PublicVirtualHost:          env.Spec.Gateway.PublicVirtualHost,
-			OrganizationVirtualHost:    env.Spec.Gateway.OrganizationVirtualHost,
+			Gateway:                    toGatewayData(&env.Spec.Gateway),
 			DefaultNotificationChannel: defaultNotificationChannel,
 		}
 	}
 
 	// Fallback to DataPlane gateway configuration
 	return EnvironmentData{
-		PublicVirtualHost:          dp.Spec.Gateway.PublicVirtualHost,
-		OrganizationVirtualHost:    dp.Spec.Gateway.OrganizationVirtualHost,
+		Gateway:                    toGatewayData(&dp.Spec.Gateway),
 		DefaultNotificationChannel: defaultNotificationChannel,
 	}
 }

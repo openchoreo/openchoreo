@@ -181,24 +181,6 @@ func (s *ClusterDataPlaneService) buildClusterDataPlaneCR(req *models.CreateClus
 		description = fmt.Sprintf("ClusterDataPlane for %s", req.Name)
 	}
 
-	gatewaySpec := openchoreov1alpha1.GatewaySpec{
-		PublicVirtualHost:       req.PublicVirtualHost,
-		OrganizationVirtualHost: req.OrganizationVirtualHost,
-	}
-
-	if req.PublicHTTPPort != nil {
-		gatewaySpec.PublicHTTPPort = *req.PublicHTTPPort
-	}
-	if req.PublicHTTPSPort != nil {
-		gatewaySpec.PublicHTTPSPort = *req.PublicHTTPSPort
-	}
-	if req.OrganizationHTTPPort != nil {
-		gatewaySpec.OrganizationHTTPPort = *req.OrganizationHTTPPort
-	}
-	if req.OrganizationHTTPSPort != nil {
-		gatewaySpec.OrganizationHTTPSPort = *req.OrganizationHTTPSPort
-	}
-
 	spec := openchoreov1alpha1.ClusterDataPlaneSpec{
 		PlaneID: req.PlaneID,
 		ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
@@ -206,7 +188,6 @@ func (s *ClusterDataPlaneService) buildClusterDataPlaneCR(req *models.CreateClus
 				Value: req.ClusterAgentClientCA,
 			},
 		},
-		Gateway: gatewaySpec,
 	}
 
 	if req.ObservabilityPlaneRef != nil && req.ObservabilityPlaneRef.Name != "" {
@@ -253,20 +234,14 @@ func (s *ClusterDataPlaneService) toClusterDataPlaneResponse(cdp *openchoreov1al
 	}
 
 	response := &models.ClusterDataPlaneResponse{
-		Name:                    cdp.Name,
-		PlaneID:                 cdp.Spec.PlaneID,
-		DisplayName:             displayName,
-		Description:             description,
-		ImagePullSecretRefs:     cdp.Spec.ImagePullSecretRefs,
-		SecretStoreRef:          secretStoreRef,
-		PublicVirtualHost:       cdp.Spec.Gateway.PublicVirtualHost,
-		OrganizationVirtualHost: cdp.Spec.Gateway.OrganizationVirtualHost,
-		PublicHTTPPort:          cdp.Spec.Gateway.PublicHTTPPort,
-		PublicHTTPSPort:         cdp.Spec.Gateway.PublicHTTPSPort,
-		OrganizationHTTPPort:    cdp.Spec.Gateway.OrganizationHTTPPort,
-		OrganizationHTTPSPort:   cdp.Spec.Gateway.OrganizationHTTPSPort,
-		CreatedAt:               cdp.CreationTimestamp.Time,
-		Status:                  status,
+		Name:                cdp.Name,
+		PlaneID:             cdp.Spec.PlaneID,
+		DisplayName:         displayName,
+		Description:         description,
+		ImagePullSecretRefs: cdp.Spec.ImagePullSecretRefs,
+		SecretStoreRef:      secretStoreRef,
+		CreatedAt:           cdp.CreationTimestamp.Time,
+		Status:              status,
 	}
 
 	if cdp.Spec.ObservabilityPlaneRef != nil {

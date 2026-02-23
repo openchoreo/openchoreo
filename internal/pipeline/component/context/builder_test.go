@@ -62,12 +62,8 @@ metadata:
 					"image":    "myapp:v1",
 				},
 				"envOverrides": map[string]any{}, // No envOverrides schema defined
-				"dataplane": map[string]any{
-					"publicVirtualHost": "api.example.com",
-				},
-				"environment": map[string]any{
-					"publicVirtualHost": "api.example.com",
-				},
+				"dataplane":    map[string]any{},
+				"environment":  map[string]any{},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
 					"namespace":          "test-namespace",
@@ -145,12 +141,8 @@ spec:
 				"envOverrides": map[string]any{
 					"replicas": float64(5), // From ReleaseBinding.Spec.ComponentTypeEnvOverrides
 				},
-				"dataplane": map[string]any{
-					"publicVirtualHost": "api.example.com",
-				},
-				"environment": map[string]any{
-					"publicVirtualHost": "api.example.com",
-				},
+				"dataplane":   map[string]any{},
+				"environment": map[string]any{},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
 					"namespace":          "test-namespace",
@@ -241,12 +233,8 @@ metadata:
 						"files": []any{},
 					},
 				},
-				"dataplane": map[string]any{
-					"publicVirtualHost": "api.example.com",
-				},
-				"environment": map[string]any{
-					"publicVirtualHost": "api.example.com",
-				},
+				"dataplane":   map[string]any{},
+				"environment": map[string]any{},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
 					"namespace":          "test-namespace",
@@ -275,11 +263,7 @@ metadata:
 			// Build input from YAML
 			input := &ComponentContextInput{
 				DataPlane: &v1alpha1.DataPlane{
-					Spec: v1alpha1.DataPlaneSpec{
-						Gateway: v1alpha1.GatewaySpec{
-							PublicVirtualHost: "api.example.com",
-						},
-					},
+					Spec: v1alpha1.DataPlaneSpec{},
 				},
 				Environment: &v1alpha1.Environment{
 					Spec: v1alpha1.EnvironmentSpec{
@@ -429,12 +413,9 @@ metadata:
 					"instanceName": "db-1",
 				},
 				"dataplane": map[string]any{
-					"publicVirtualHost": "app.example.com",
-					"secretStore":       "test-secret-store",
+					"secretStore": "test-secret-store",
 				},
-				"environment": map[string]any{
-					"publicVirtualHost": "app.example.com",
-				},
+				"environment": map[string]any{},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
 					"namespace":          "test-namespace",
@@ -522,12 +503,9 @@ spec:
 					"instanceName": "db-1",
 				},
 				"dataplane": map[string]any{
-					"publicVirtualHost": "app.example.com",
-					"secretStore":       "test-secret-store",
+					"secretStore": "test-secret-store",
 				},
-				"environment": map[string]any{
-					"publicVirtualHost": "app.example.com",
-				},
+				"environment": map[string]any{},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
 					"namespace":          "test-namespace",
@@ -594,9 +572,6 @@ spec:
 				},
 				DataPlane: &v1alpha1.DataPlane{
 					Spec: v1alpha1.DataPlaneSpec{
-						Gateway: v1alpha1.GatewaySpec{
-							PublicVirtualHost: "app.example.com",
-						},
 						SecretStoreRef: &v1alpha1.SecretStoreRef{
 							Name: "test-secret-store",
 						},

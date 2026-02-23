@@ -1168,26 +1168,8 @@ func resolveGatewayPort(name, namespace string, env *openchoreov1alpha1.Environm
 
 	// Use the same precedence as the rendering pipeline: environment overrides dataplane.
 	spec := dp.Spec.Gateway
-	if env != nil && env.Spec.Gateway.PublicVirtualHost != "" {
+	if env != nil && env.Spec.Gateway.Ingress != nil {
 		spec = env.Spec.Gateway
-	}
-
-	// Apply defaults so empty fields still match.
-	pubName := spec.PublicGatewayName
-	if pubName == "" {
-		pubName = defaultGatewayName
-	}
-	pubNS := spec.PublicGatewayNamespace
-	if pubNS == "" {
-		pubNS = defaultGatewayNS
-	}
-	orgName := spec.OrganizationGatewayName
-	if orgName == "" {
-		orgName = defaultGatewayName
-	}
-	orgNS := spec.OrganizationGatewayNamespace
-	if orgNS == "" {
-		orgNS = defaultGatewayNS
 	}
 
 	// Effective namespace for matching: parentRef namespace may be omitted when the
@@ -1196,17 +1178,24 @@ func resolveGatewayPort(name, namespace string, env *openchoreov1alpha1.Environm
 		return namespace == "" || namespace == gwNS
 	}
 
-	switch {
-	case name == pubName && nsMatches(pubNS):
-		if spec.PublicHTTPSPort != 0 {
-			return spec.PublicHTTPSPort
+	// resolveEndpointPort checks if the given endpoint matches the name/namespace and returns the HTTPS port.
+	resolveEndpointPort := func(ep *openchoreov1alpha1.GatewayEndpointSpec) (int32, bool) {
+		if ep == nil || ep.Name != name || !nsMatches(ep.Namespace) {
+			return 0, false
 		}
-		return standardHTTPSPort
-	case name == orgName && nsMatches(orgNS):
-		if spec.OrganizationHTTPSPort != 0 {
-			return spec.OrganizationHTTPSPort
+		if ep.HTTPS != nil && ep.HTTPS.Port != 0 {
+			return ep.HTTPS.Port, true
 		}
-		return standardHTTPSPort
+		return standardHTTPSPort, true
+	}
+
+	if spec.Ingress != nil {
+		if port, ok := resolveEndpointPort(spec.Ingress.External); ok {
+			return port
+		}
+		if port, ok := resolveEndpointPort(spec.Ingress.Internal); ok {
+			return port
+		}
 	}
 	return 0
 }

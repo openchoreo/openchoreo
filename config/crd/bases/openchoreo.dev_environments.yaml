@@ -65,54 +65,242 @@ spec:
                 description: GatewaySpec defines the gateway configuration for the
                   data plane.
                 properties:
-                  organizationGatewayName:
-                    default: gateway-default
-                    description: OrganizationGatewayName is the name of the organization
-                      Gateway resource.
-                    type: string
-                  organizationGatewayNamespace:
-                    default: openchoreo-data-plane
-                    description: OrganizationGatewayNamespace is the namespace of
-                      the organization Gateway resource.
-                    type: string
-                  organizationHTTPPort:
-                    default: 19081
-                    description: Organization HTTP port for the gateway
-                    format: int32
-                    type: integer
-                  organizationHTTPSPort:
-                    default: 19444
-                    description: Organization HTTPS port for the gateway
-                    format: int32
-                    type: integer
-                  organizationVirtualHost:
-                    description: Organization-specific virtual host for the gateway
-                    type: string
-                  publicGatewayName:
-                    default: gateway-default
-                    description: PublicGatewayName is the name of the public Gateway
-                      resource.
-                    type: string
-                  publicGatewayNamespace:
-                    default: openchoreo-data-plane
-                    description: PublicGatewayNamespace is the namespace of the public
-                      Gateway resource.
-                    type: string
-                  publicHTTPPort:
-                    default: 19080
-                    description: Public HTTP port for the gateway
-                    format: int32
-                    type: integer
-                  publicHTTPSPort:
-                    default: 19443
-                    description: Public HTTPS port for the gateway
-                    format: int32
-                    type: integer
-                  publicVirtualHost:
-                    description: Public virtual host for the gateway
-                    type: string
-                required:
-                - publicVirtualHost
+                  egress:
+                    description: Egress defines the egress gateway configuration.
+                    properties:
+                      external:
+                        description: External defines the externally accessible gateway
+                          endpoint.
+                        properties:
+                          http:
+                            description: HTTP defines the HTTP listener configuration.
+                            properties:
+                              host:
+                                description: Host is the virtual host for this listener.
+                                type: string
+                              listenerName:
+                                description: ListenerName is the name of the listener
+                                  on the Gateway resource.
+                                type: string
+                              port:
+                                description: Port is the port number for this listener.
+                                format: int32
+                                type: integer
+                            type: object
+                          https:
+                            description: HTTPS defines the HTTPS listener configuration.
+                            properties:
+                              host:
+                                description: Host is the virtual host for this listener.
+                                type: string
+                              listenerName:
+                                description: ListenerName is the name of the listener
+                                  on the Gateway resource.
+                                type: string
+                              port:
+                                description: Port is the port number for this listener.
+                                format: int32
+                                type: integer
+                            type: object
+                          name:
+                            description: Name is the name of the Gateway resource.
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace of the Gateway
+                              resource.
+                            type: string
+                          tls:
+                            description: TLS defines the TLS listener configuration.
+                            properties:
+                              host:
+                                description: Host is the virtual host for this listener.
+                                type: string
+                              listenerName:
+                                description: ListenerName is the name of the listener
+                                  on the Gateway resource.
+                                type: string
+                              port:
+                                description: Port is the port number for this listener.
+                                format: int32
+                                type: integer
+                            type: object
+                        type: object
+                      internal:
+                        description: Internal defines the internally accessible gateway
+                          endpoint.
+                        properties:
+                          http:
+                            description: HTTP defines the HTTP listener configuration.
+                            properties:
+                              host:
+                                description: Host is the virtual host for this listener.
+                                type: string
+                              listenerName:
+                                description: ListenerName is the name of the listener
+                                  on the Gateway resource.
+                                type: string
+                              port:
+                                description: Port is the port number for this listener.
+                                format: int32
+                                type: integer
+                            type: object
+                          https:
+                            description: HTTPS defines the HTTPS listener configuration.
+                            properties:
+                              host:
+                                description: Host is the virtual host for this listener.
+                                type: string
+                              listenerName:
+                                description: ListenerName is the name of the listener
+                                  on the Gateway resource.
+                                type: string
+                              port:
+                                description: Port is the port number for this listener.
+                                format: int32
+                                type: integer
+                            type: object
+                          name:
+                            description: Name is the name of the Gateway resource.
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace of the Gateway
+                              resource.
+                            type: string
+                          tls:
+                            description: TLS defines the TLS listener configuration.
+                            properties:
+                              host:
+                                description: Host is the virtual host for this listener.
+                                type: string
+                              listenerName:
+                                description: ListenerName is the name of the listener
+                                  on the Gateway resource.
+                                type: string
+                              port:
+                                description: Port is the port number for this listener.
+                                format: int32
+                                type: integer
+                            type: object
+                        type: object
+                    type: object
+                  ingress:
+                    description: Ingress defines the ingress gateway configuration.
+                    properties:
+                      external:
+                        description: External defines the externally accessible gateway
+                          endpoint.
+                        properties:
+                          http:
+                            description: HTTP defines the HTTP listener configuration.
+                            properties:
+                              host:
+                                description: Host is the virtual host for this listener.
+                                type: string
+                              listenerName:
+                                description: ListenerName is the name of the listener
+                                  on the Gateway resource.
+                                type: string
+                              port:
+                                description: Port is the port number for this listener.
+                                format: int32
+                                type: integer
+                            type: object
+                          https:
+                            description: HTTPS defines the HTTPS listener configuration.
+                            properties:
+                              host:
+                                description: Host is the virtual host for this listener.
+                                type: string
+                              listenerName:
+                                description: ListenerName is the name of the listener
+                                  on the Gateway resource.
+                                type: string
+                              port:
+                                description: Port is the port number for this listener.
+                                format: int32
+                                type: integer
+                            type: object
+                          name:
+                            description: Name is the name of the Gateway resource.
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace of the Gateway
+                              resource.
+                            type: string
+                          tls:
+                            description: TLS defines the TLS listener configuration.
+                            properties:
+                              host:
+                                description: Host is the virtual host for this listener.
+                                type: string
+                              listenerName:
+                                description: ListenerName is the name of the listener
+                                  on the Gateway resource.
+                                type: string
+                              port:
+                                description: Port is the port number for this listener.
+                                format: int32
+                                type: integer
+                            type: object
+                        type: object
+                      internal:
+                        description: Internal defines the internally accessible gateway
+                          endpoint.
+                        properties:
+                          http:
+                            description: HTTP defines the HTTP listener configuration.
+                            properties:
+                              host:
+                                description: Host is the virtual host for this listener.
+                                type: string
+                              listenerName:
+                                description: ListenerName is the name of the listener
+                                  on the Gateway resource.
+                                type: string
+                              port:
+                                description: Port is the port number for this listener.
+                                format: int32
+                                type: integer
+                            type: object
+                          https:
+                            description: HTTPS defines the HTTPS listener configuration.
+                            properties:
+                              host:
+                                description: Host is the virtual host for this listener.
+                                type: string
+                              listenerName:
+                                description: ListenerName is the name of the listener
+                                  on the Gateway resource.
+                                type: string
+                              port:
+                                description: Port is the port number for this listener.
+                                format: int32
+                                type: integer
+                            type: object
+                          name:
+                            description: Name is the name of the Gateway resource.
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace of the Gateway
+                              resource.
+                            type: string
+                          tls:
+                            description: TLS defines the TLS listener configuration.
+                            properties:
+                              host:
+                                description: Host is the virtual host for this listener.
+                                type: string
+                              listenerName:
+                                description: ListenerName is the name of the listener
+                                  on the Gateway resource.
+                                type: string
+                              port:
+                                description: Port is the port number for this listener.
+                                format: int32
+                                type: integer
+                            type: object
+                        type: object
+                    type: object
                 type: object
               isProduction:
                 type: boolean

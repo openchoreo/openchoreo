@@ -229,7 +229,7 @@ func TestBuildComponentCELEnv_ReflectionBasedTypes(t *testing.T) {
 
 		// Valid dataplane field access
 		{"valid dataplane.secretStore", "dataplane.secretStore", false, ""},
-		{"valid dataplane.publicVirtualHost", "dataplane.publicVirtualHost", false, ""},
+		{"valid dataplane.gateway", "dataplane.gateway", false, ""},
 
 		// Invalid dataplane field access
 		{"invalid dataplane.badField", "dataplane.badField", true, "undefined field"},

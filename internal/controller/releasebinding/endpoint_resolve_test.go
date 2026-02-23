@@ -235,10 +235,15 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "openchoreo-data-plane")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:      "example.com",
-				PublicGatewayName:      "gateway-default",
-				PublicHTTPSPort:        standardHTTPSPort,
-				PublicGatewayNamespace: "openchoreo-data-plane",
+				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						Name:      "gateway-default",
+						Namespace: "openchoreo-data-plane",
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+							Port: standardHTTPSPort,
+						},
+					},
+				},
 			})
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 
@@ -264,10 +269,15 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "openchoreo-data-plane")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:      "example.com",
-				PublicGatewayName:      "gateway-default",
-				PublicHTTPSPort:        30443,
-				PublicGatewayNamespace: "openchoreo-data-plane",
+				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						Name:      "gateway-default",
+						Namespace: "openchoreo-data-plane",
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+							Port: 30443,
+						},
+					},
+				},
 			})
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 
@@ -294,10 +304,15 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "openchoreo-data-plane")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:      "example.com",
-				PublicGatewayName:      "gateway-default",
-				PublicHTTPSPort:        standardHTTPSPort,
-				PublicGatewayNamespace: "openchoreo-data-plane",
+				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						Name:      "gateway-default",
+						Namespace: "openchoreo-data-plane",
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+							Port: standardHTTPSPort,
+						},
+					},
+				},
 			})
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 
@@ -324,10 +339,15 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "openchoreo-data-plane")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:      "example.com",
-				PublicGatewayName:      "gateway-default",
-				PublicHTTPSPort:        30443,
-				PublicGatewayNamespace: "openchoreo-data-plane",
+				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						Name:      "gateway-default",
+						Namespace: "openchoreo-data-plane",
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+							Port: 30443,
+						},
+					},
+				},
 			})
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 
@@ -353,16 +373,26 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "openchoreo-data-plane")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:      "example.com",
-				PublicGatewayName:      "gateway-default",
-				PublicHTTPSPort:        30443,
-				PublicGatewayNamespace: "openchoreo-data-plane",
+				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						Name:      "gateway-default",
+						Namespace: "openchoreo-data-plane",
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+							Port: 30443,
+						},
+					},
+				},
 			})
 			env := makeEnvironment(openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:      "env.example.com",
-				PublicGatewayName:      "gateway-default",
-				PublicHTTPSPort:        443,
-				PublicGatewayNamespace: "openchoreo-data-plane",
+				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						Name:      "gateway-default",
+						Namespace: "openchoreo-data-plane",
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+							Port: 443,
+						},
+					},
+				},
 			})
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 
@@ -388,9 +418,12 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("unknown-gw", "some-ns")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:      "example.com",
-				PublicGatewayName:      "gateway-default",
-				PublicGatewayNamespace: "openchoreo-data-plane",
+				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						Name:      "gateway-default",
+						Namespace: "openchoreo-data-plane",
+					},
+				},
 			})
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 
@@ -423,10 +456,15 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "openchoreo-data-plane")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:      "example.com",
-				PublicGatewayName:      "gateway-default",
-				PublicHTTPSPort:        standardHTTPSPort,
-				PublicGatewayNamespace: "openchoreo-data-plane",
+				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						Name:      "gateway-default",
+						Namespace: "openchoreo-data-plane",
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+							Port: standardHTTPSPort,
+						},
+					},
+				},
 			})
 			endpoints := makeEndpoints(
 				endpointEntry{name: "greeter", port: 8080},
@@ -460,12 +498,19 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("org-gateway", "gw-ns")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:            "example.com",
-				PublicGatewayName:            "gateway-default",
-				PublicGatewayNamespace:       "openchoreo-data-plane",
-				OrganizationGatewayName:      "org-gateway",
-				OrganizationGatewayNamespace: "gw-ns",
-				OrganizationHTTPSPort:        31443,
+				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						Name:      "gateway-default",
+						Namespace: "openchoreo-data-plane",
+					},
+					Internal: &openchoreov1alpha1.GatewayEndpointSpec{
+						Name:      "org-gateway",
+						Namespace: "gw-ns",
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+							Port: 31443,
+						},
+					},
+				},
 			})
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 
@@ -491,10 +536,15 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:      "example.com",
-				PublicGatewayName:      "gateway-default",
-				PublicHTTPSPort:        30443,
-				PublicGatewayNamespace: "openchoreo-data-plane",
+				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						Name:      "gateway-default",
+						Namespace: "openchoreo-data-plane",
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+							Port: 30443,
+						},
+					},
+				},
 			})
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 
@@ -642,57 +692,98 @@ var _ = Describe("resolveGatewayPort", func() {
 
 	It("should return public port for matching public gateway", func() {
 		dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-			PublicGatewayName:      "pub-gw",
-			PublicGatewayNamespace: "gw-ns",
-			PublicHTTPSPort:        30443,
+			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				External: &openchoreov1alpha1.GatewayEndpointSpec{
+					Name:      "pub-gw",
+					Namespace: "gw-ns",
+					HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+						Port: 30443,
+					},
+				},
+			},
 		})
 		Expect(resolveGatewayPort("pub-gw", "gw-ns", nil, dp)).To(Equal(int32(30443)))
 	})
 
 	It("should return standard HTTPS port when public port is 0", func() {
 		dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-			PublicGatewayName:      "pub-gw",
-			PublicGatewayNamespace: "gw-ns",
+			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				External: &openchoreov1alpha1.GatewayEndpointSpec{
+					Name:      "pub-gw",
+					Namespace: "gw-ns",
+				},
+			},
 		})
 		Expect(resolveGatewayPort("pub-gw", "gw-ns", nil, dp)).To(Equal(int32(standardHTTPSPort)))
 	})
 
 	It("should return organization port for matching org gateway", func() {
 		dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-			OrganizationGatewayName:      "org-gw",
-			OrganizationGatewayNamespace: "gw-ns",
-			OrganizationHTTPSPort:        31443,
+			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				Internal: &openchoreov1alpha1.GatewayEndpointSpec{
+					Name:      "org-gw",
+					Namespace: "gw-ns",
+					HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+						Port: 31443,
+					},
+				},
+			},
 		})
 		Expect(resolveGatewayPort("org-gw", "gw-ns", nil, dp)).To(Equal(int32(31443)))
 	})
 
-	It("should use default gateway name/ns when not specified", func() {
+	It("should return port when gateway name and namespace match", func() {
 		dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-			PublicHTTPSPort: 30443,
+			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				External: &openchoreov1alpha1.GatewayEndpointSpec{
+					Name:      defaultGatewayName,
+					Namespace: defaultGatewayNS,
+					HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+						Port: 30443,
+					},
+				},
+			},
 		})
 		Expect(resolveGatewayPort(defaultGatewayName, defaultGatewayNS, nil, dp)).To(Equal(int32(30443)))
 	})
 
-	It("should prefer environment config when PublicVirtualHost is set", func() {
+	It("should prefer environment config when environment ingress is configured", func() {
 		dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-			PublicGatewayName:      "pub-gw",
-			PublicGatewayNamespace: "gw-ns",
-			PublicHTTPSPort:        30443,
+			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				External: &openchoreov1alpha1.GatewayEndpointSpec{
+					Name:      "pub-gw",
+					Namespace: "gw-ns",
+					HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+						Port: 30443,
+					},
+				},
+			},
 		})
 		env := makeEnvironment(openchoreov1alpha1.GatewaySpec{
-			PublicVirtualHost:      "env.example.com",
-			PublicGatewayName:      "pub-gw",
-			PublicGatewayNamespace: "gw-ns",
-			PublicHTTPSPort:        443,
+			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				External: &openchoreov1alpha1.GatewayEndpointSpec{
+					Name:      "pub-gw",
+					Namespace: "gw-ns",
+					HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+						Port: 443,
+					},
+				},
+			},
 		})
 		Expect(resolveGatewayPort("pub-gw", "gw-ns", env, dp)).To(Equal(int32(443)))
 	})
 
 	It("should match when parentRef namespace is empty (wildcard)", func() {
 		dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-			PublicGatewayName:      "pub-gw",
-			PublicGatewayNamespace: "gw-ns",
-			PublicHTTPSPort:        30443,
+			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				External: &openchoreov1alpha1.GatewayEndpointSpec{
+					Name:      "pub-gw",
+					Namespace: "gw-ns",
+					HTTPS: &openchoreov1alpha1.GatewayListenerSpec{
+						Port: 30443,
+					},
+				},
+			},
 		})
 		Expect(resolveGatewayPort("pub-gw", "", nil, dp)).To(Equal(int32(30443)))
 	})

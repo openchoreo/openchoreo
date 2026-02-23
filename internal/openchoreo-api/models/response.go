@@ -199,22 +199,16 @@ type AgentConnectionStatusResponse struct {
 
 // DataPlaneResponse represents a dataplane in API responses
 type DataPlaneResponse struct {
-	Name                    string                         `json:"name"`
-	Namespace               string                         `json:"namespace"`
-	DisplayName             string                         `json:"displayName,omitempty"`
-	Description             string                         `json:"description,omitempty"`
-	ImagePullSecretRefs     []string                       `json:"imagePullSecretRefs,omitempty"`
-	SecretStoreRef          string                         `json:"secretStoreRef,omitempty"`
-	PublicVirtualHost       string                         `json:"publicVirtualHost"`
-	OrganizationVirtualHost string                         `json:"organizationVirtualHost"`
-	PublicHTTPPort          int32                          `json:"publicHTTPPort"`
-	PublicHTTPSPort         int32                          `json:"publicHTTPSPort"`
-	OrganizationHTTPPort    int32                          `json:"organizationHTTPPort"`
-	OrganizationHTTPSPort   int32                          `json:"organizationHTTPSPort"`
-	ObservabilityPlaneRef   *ObservabilityPlaneRef         `json:"observabilityPlaneRef,omitempty"`
-	AgentConnection         *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
-	CreatedAt               time.Time                      `json:"createdAt"`
-	Status                  string                         `json:"status,omitempty"`
+	Name                  string                         `json:"name"`
+	Namespace             string                         `json:"namespace"`
+	DisplayName           string                         `json:"displayName,omitempty"`
+	Description           string                         `json:"description,omitempty"`
+	ImagePullSecretRefs   []string                       `json:"imagePullSecretRefs,omitempty"`
+	SecretStoreRef        string                         `json:"secretStoreRef,omitempty"`
+	ObservabilityPlaneRef *ObservabilityPlaneRef         `json:"observabilityPlaneRef,omitempty"`
+	AgentConnection       *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
+	CreatedAt             time.Time                      `json:"createdAt"`
+	Status                string                         `json:"status,omitempty"`
 }
 
 // ObservabilityPlaneRef represents a reference to an ObservabilityPlane or ClusterObservabilityPlane in responses
@@ -499,22 +493,16 @@ type ObservabilityPlaneResponse struct {
 
 // ClusterDataPlaneResponse represents a cluster-scoped dataplane in API responses
 type ClusterDataPlaneResponse struct {
-	Name                    string                         `json:"name"`
-	PlaneID                 string                         `json:"planeID"`
-	DisplayName             string                         `json:"displayName,omitempty"`
-	Description             string                         `json:"description,omitempty"`
-	ImagePullSecretRefs     []string                       `json:"imagePullSecretRefs,omitempty"`
-	SecretStoreRef          string                         `json:"secretStoreRef,omitempty"`
-	PublicVirtualHost       string                         `json:"publicVirtualHost"`
-	OrganizationVirtualHost string                         `json:"organizationVirtualHost"`
-	PublicHTTPPort          int32                          `json:"publicHTTPPort"`
-	PublicHTTPSPort         int32                          `json:"publicHTTPSPort"`
-	OrganizationHTTPPort    int32                          `json:"organizationHTTPPort"`
-	OrganizationHTTPSPort   int32                          `json:"organizationHTTPSPort"`
-	ObservabilityPlaneRef   *ObservabilityPlaneRef         `json:"observabilityPlaneRef,omitempty"`
-	AgentConnection         *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
-	CreatedAt               time.Time                      `json:"createdAt"`
-	Status                  string                         `json:"status,omitempty"`
+	Name                  string                         `json:"name"`
+	PlaneID               string                         `json:"planeID"`
+	DisplayName           string                         `json:"displayName,omitempty"`
+	Description           string                         `json:"description,omitempty"`
+	ImagePullSecretRefs   []string                       `json:"imagePullSecretRefs,omitempty"`
+	SecretStoreRef        string                         `json:"secretStoreRef,omitempty"`
+	ObservabilityPlaneRef *ObservabilityPlaneRef         `json:"observabilityPlaneRef,omitempty"`
+	AgentConnection       *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
+	CreatedAt             time.Time                      `json:"createdAt"`
+	Status                string                         `json:"status,omitempty"`
 }
 
 // ClusterDataPlaneListResult holds a paginated list of cluster data planes.

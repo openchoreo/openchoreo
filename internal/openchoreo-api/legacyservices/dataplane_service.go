@@ -158,32 +158,12 @@ func (s *DataPlaneService) buildDataPlaneCR(namespaceName string, req *models.Cr
 		description = fmt.Sprintf("DataPlane for %s", req.Name)
 	}
 
-	gatewaySpec := openchoreov1alpha1.GatewaySpec{
-		PublicVirtualHost:       req.PublicVirtualHost,
-		OrganizationVirtualHost: req.OrganizationVirtualHost,
-	}
-
-	// Set port values if provided, otherwise CRD defaults will be used
-	if req.PublicHTTPPort != nil {
-		gatewaySpec.PublicHTTPPort = *req.PublicHTTPPort
-	}
-	if req.PublicHTTPSPort != nil {
-		gatewaySpec.PublicHTTPSPort = *req.PublicHTTPSPort
-	}
-	if req.OrganizationHTTPPort != nil {
-		gatewaySpec.OrganizationHTTPPort = *req.OrganizationHTTPPort
-	}
-	if req.OrganizationHTTPSPort != nil {
-		gatewaySpec.OrganizationHTTPSPort = *req.OrganizationHTTPSPort
-	}
-
 	spec := openchoreov1alpha1.DataPlaneSpec{
 		ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
 			ClientCA: openchoreov1alpha1.ValueFrom{
 				Value: req.ClusterAgentClientCA,
 			},
 		},
-		Gateway: gatewaySpec,
 	}
 
 	// Set observability plane reference if provided
@@ -240,20 +220,14 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 	}
 
 	response := &models.DataPlaneResponse{
-		Name:                    dp.Name,
-		Namespace:               dp.Namespace,
-		DisplayName:             displayName,
-		Description:             description,
-		ImagePullSecretRefs:     dp.Spec.ImagePullSecretRefs,
-		SecretStoreRef:          secretStoreRef,
-		PublicVirtualHost:       dp.Spec.Gateway.PublicVirtualHost,
-		OrganizationVirtualHost: dp.Spec.Gateway.OrganizationVirtualHost,
-		PublicHTTPPort:          dp.Spec.Gateway.PublicHTTPPort,
-		PublicHTTPSPort:         dp.Spec.Gateway.PublicHTTPSPort,
-		OrganizationHTTPPort:    dp.Spec.Gateway.OrganizationHTTPPort,
-		OrganizationHTTPSPort:   dp.Spec.Gateway.OrganizationHTTPSPort,
-		CreatedAt:               dp.CreationTimestamp.Time,
-		Status:                  status,
+		Name:                dp.Name,
+		Namespace:           dp.Namespace,
+		DisplayName:         displayName,
+		Description:         description,
+		ImagePullSecretRefs: dp.Spec.ImagePullSecretRefs,
+		SecretStoreRef:      secretStoreRef,
+		CreatedAt:           dp.CreationTimestamp.Time,
+		Status:              status,
 	}
 
 	// Add observability plane reference if present

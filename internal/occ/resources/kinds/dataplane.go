@@ -147,10 +147,6 @@ func (d *DataPlaneResource) CreateDataPlane(params api.CreateDataPlaneParams) er
 					Value: params.ClusterAgentClientCA,
 				},
 			},
-			Gateway: openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:       params.PublicVirtualHost,
-				OrganizationVirtualHost: params.NamespaceVirtualHost,
-			},
 		},
 	}
 

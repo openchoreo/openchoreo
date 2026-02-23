@@ -28,7 +28,8 @@ type ClusterDataPlaneSpec struct {
 	ClusterAgent ClusterAgentConfig `json:"clusterAgent"`
 
 	// Gateway specifies the configuration for the API gateway in this DataPlane.
-	Gateway GatewaySpec `json:"gateway"`
+	// +optional
+	Gateway GatewaySpec `json:"gateway,omitempty"`
 
 	// ImagePullSecretRefs contains references to SecretReference resources
 	// These will be converted to ExternalSecrets and added as imagePullSecrets to all deployments

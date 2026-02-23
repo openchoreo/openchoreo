@@ -133,17 +133,11 @@ type CreateEnvironmentRequest struct {
 
 // CreateDataPlaneRequest represents the request to create a new dataplane
 type CreateDataPlaneRequest struct {
-	Name                    string                 `json:"name"`
-	DisplayName             string                 `json:"displayName,omitempty"`
-	Description             string                 `json:"description,omitempty"`
-	ClusterAgentClientCA    string                 `json:"clusterAgentClientCA"`
-	PublicVirtualHost       string                 `json:"publicVirtualHost"`
-	OrganizationVirtualHost string                 `json:"organizationVirtualHost"`
-	PublicHTTPPort          *int32                 `json:"publicHTTPPort,omitempty"`
-	PublicHTTPSPort         *int32                 `json:"publicHTTPSPort,omitempty"`
-	OrganizationHTTPPort    *int32                 `json:"organizationHTTPPort,omitempty"`
-	OrganizationHTTPSPort   *int32                 `json:"organizationHTTPSPort,omitempty"`
-	ObservabilityPlaneRef   *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+	Name                  string                 `json:"name"`
+	DisplayName           string                 `json:"displayName,omitempty"`
+	Description           string                 `json:"description,omitempty"`
+	ClusterAgentClientCA  string                 `json:"clusterAgentClientCA"`
+	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
 }
 
 // Validate validates the CreateProjectRequest
@@ -258,8 +252,6 @@ func (req *CreateDataPlaneRequest) Sanitize() {
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
 	req.Description = strings.TrimSpace(req.Description)
 	req.ClusterAgentClientCA = strings.TrimSpace(req.ClusterAgentClientCA)
-	req.PublicVirtualHost = strings.TrimSpace(req.PublicVirtualHost)
-	req.OrganizationVirtualHost = strings.TrimSpace(req.OrganizationVirtualHost)
 	if req.ObservabilityPlaneRef != nil {
 		req.ObservabilityPlaneRef.Kind = strings.TrimSpace(req.ObservabilityPlaneRef.Kind)
 		req.ObservabilityPlaneRef.Name = strings.TrimSpace(req.ObservabilityPlaneRef.Name)
@@ -268,18 +260,12 @@ func (req *CreateDataPlaneRequest) Sanitize() {
 
 // CreateClusterDataPlaneRequest represents the request to create a new cluster-scoped dataplane
 type CreateClusterDataPlaneRequest struct {
-	Name                    string                 `json:"name"`
-	DisplayName             string                 `json:"displayName,omitempty"`
-	Description             string                 `json:"description,omitempty"`
-	PlaneID                 string                 `json:"planeID"`
-	ClusterAgentClientCA    string                 `json:"clusterAgentClientCA"`
-	PublicVirtualHost       string                 `json:"publicVirtualHost"`
-	OrganizationVirtualHost string                 `json:"organizationVirtualHost"`
-	PublicHTTPPort          *int32                 `json:"publicHTTPPort,omitempty"`
-	PublicHTTPSPort         *int32                 `json:"publicHTTPSPort,omitempty"`
-	OrganizationHTTPPort    *int32                 `json:"organizationHTTPPort,omitempty"`
-	OrganizationHTTPSPort   *int32                 `json:"organizationHTTPSPort,omitempty"`
-	ObservabilityPlaneRef   *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+	Name                  string                 `json:"name"`
+	DisplayName           string                 `json:"displayName,omitempty"`
+	Description           string                 `json:"description,omitempty"`
+	PlaneID               string                 `json:"planeID"`
+	ClusterAgentClientCA  string                 `json:"clusterAgentClientCA"`
+	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
 }
 
 // Validate validates the CreateClusterDataPlaneRequest
@@ -298,12 +284,6 @@ func (req *CreateClusterDataPlaneRequest) Validate() error {
 	}
 	if strings.TrimSpace(req.ClusterAgentClientCA) == "" {
 		return errors.New("clusterAgentClientCA is required")
-	}
-	if strings.TrimSpace(req.PublicVirtualHost) == "" {
-		return errors.New("publicVirtualHost is required")
-	}
-	if strings.TrimSpace(req.OrganizationVirtualHost) == "" {
-		return errors.New("organizationVirtualHost is required")
 	}
 	// Validate ObservabilityPlaneRef if provided
 	if req.ObservabilityPlaneRef != nil {
@@ -332,8 +312,6 @@ func (req *CreateClusterDataPlaneRequest) Sanitize() {
 	req.Description = strings.TrimSpace(req.Description)
 	req.PlaneID = strings.TrimSpace(req.PlaneID)
 	req.ClusterAgentClientCA = strings.TrimSpace(req.ClusterAgentClientCA)
-	req.PublicVirtualHost = strings.TrimSpace(req.PublicVirtualHost)
-	req.OrganizationVirtualHost = strings.TrimSpace(req.OrganizationVirtualHost)
 	if req.ObservabilityPlaneRef != nil {
 		req.ObservabilityPlaneRef.Kind = strings.TrimSpace(req.ObservabilityPlaneRef.Kind)
 		req.ObservabilityPlaneRef.Name = strings.TrimSpace(req.ObservabilityPlaneRef.Name)

@@ -191,7 +191,6 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 	}
 
 	baseDataPlane := &v1alpha1.DataPlane{}
-	baseDataPlane.Spec.Gateway.PublicVirtualHost = "api.example.com"
 
 	baseEnvironment := &v1alpha1.Environment{}
 	baseEnvironment.Spec.DataPlaneRef = &v1alpha1.DataPlaneRef{
