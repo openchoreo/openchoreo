@@ -127,7 +127,7 @@ create_k3d_cluster() {
     # k3d v5.9.0+ auto-detects Colima, but we handle it explicitly for older versions.
     # See https://github.com/k3d-io/k3d/issues/1449
     local use_dns_fix=false
-    if docker info --format '{{.Name}}' 2>/dev/null | grep -i "colima"; then
+    if docker info --format '{{.Name}}' 2>/dev/null | grep -i "colima" >/dev/null; then
         log_info "Detected Colima runtime - disabling k3d DNS fix for compatibility"
         use_dns_fix=true
     fi
@@ -601,6 +601,14 @@ apply_coredns_config() {
     log_success "CoreDNS config applied"
 }
 
+# Read CA cert and key from the cluster-gateway-ca secret in the control plane.
+# Sets caller-scoped variables: ca_crt, tls_crt, tls_key
+read_cluster_gateway_ca() {
+    ca_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
+    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
+    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
+}
+
 # Copy cluster-gateway CA from control plane to data plane namespace
 setup_data_plane_ca() {
     log_info "Setting up Data Plane CA..."
@@ -609,11 +617,8 @@ setup_data_plane_ca() {
         kubectl create namespace "$DATA_PLANE_NS" >/dev/null
     fi
 
-    # Read CA from the secret
     local ca_crt tls_crt tls_key
-    ca_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
-    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
-    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
+    read_cluster_gateway_ca
 
     # Copy CA ConfigMap
     kubectl create configmap cluster-gateway-ca \
@@ -638,11 +643,8 @@ setup_build_plane_ca() {
         kubectl create namespace "$BUILD_PLANE_NS" >/dev/null
     fi
 
-    # Read CA from the secret
     local ca_crt tls_crt tls_key
-    ca_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
-    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
-    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
+    read_cluster_gateway_ca
 
     # Copy CA ConfigMap
     kubectl create configmap cluster-gateway-ca \
@@ -894,11 +896,8 @@ setup_observability_plane_ca() {
         kubectl create namespace "$OBSERVABILITY_NS" >/dev/null
     fi
 
-    # Read CA from the secret
     local ca_crt tls_crt tls_key
-    ca_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
-    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
-    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
+    read_cluster_gateway_ca
 
     # Copy CA ConfigMap
     kubectl create configmap cluster-gateway-ca \
@@ -974,11 +973,26 @@ install_workflow_templates() {
         templates_dir="/home/openchoreo/samples/getting-started"
     fi
 
+    if [[ ! -d "$templates_dir" ]]; then
+        log_error "Workflow templates directory not found at $templates_dir"
+        return 1
+    fi
+
+    local checkout_yaml="$templates_dir/workflow-templates/checkout-source.yaml"
+    local bulk_yaml="$templates_dir/workflow-templates.yaml"
+    local publish_yaml="$templates_dir/workflow-templates/publish-image-k3d.yaml"
+    for f in "$checkout_yaml" "$bulk_yaml" "$publish_yaml"; do
+        if [[ ! -f "$f" ]]; then
+            log_error "Required workflow template not found: $f"
+            return 1
+        fi
+    done
+
     # checkout-source and publish-image are applied separately so users can
     # replace them with their own git auth or container registry setup.
-    kubectl apply -f "$templates_dir/workflow-templates/checkout-source.yaml" >/dev/null
-    kubectl apply -f "$templates_dir/workflow-templates.yaml" >/dev/null
-    kubectl apply -f "$templates_dir/workflow-templates/publish-image-k3d.yaml" >/dev/null
+    kubectl apply -f "$checkout_yaml" >/dev/null
+    kubectl apply -f "$bulk_yaml" >/dev/null
+    kubectl apply -f "$publish_yaml" >/dev/null
 
     log_success "ClusterWorkflowTemplates installed"
 }
