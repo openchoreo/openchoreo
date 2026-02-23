@@ -54,6 +54,9 @@ spec:
         - --cluster-gateway-url={{ .Values.controllerManager.clusterGateway.url }}
         - --cluster-gateway-ca-cert={{ .Values.controllerManager.clusterGateway.tls.caPath }}
         {{- end }}
+        {{- if .Values.controllerManager.dataplaneNetworkPolicies.enabled }}
+        - --enable-network-policies
+        {{- end }}
         env:
         - name: ENABLE_WEBHOOKS
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}

@@ -1636,6 +1636,21 @@
           "title": "containerSecurityContext",
           "type": "object"
         },
+        "dataplaneNetworkPolicies": {
+          "additionalProperties": false,
+          "description": "Data plane NetworkPolicy enforcement for endpoint visibility",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable NetworkPolicy enforcement for endpoint visibility on the data plane",
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "dataplaneNetworkPolicies",
+          "type": "object"
+        },
         "image": {
           "additionalProperties": false,
           "description": "Container image configuration",

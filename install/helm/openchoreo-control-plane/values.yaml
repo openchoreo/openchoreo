@@ -678,6 +678,18 @@ controllerManager:
 
   # @schema
   # type: object
+  # description: Data plane NetworkPolicy enforcement for endpoint visibility
+  # @schema
+  dataplaneNetworkPolicies:
+    # @schema
+    # type: boolean
+    # description: Enable NetworkPolicy enforcement for endpoint visibility on the data plane
+    # default: false
+    # @schema
+    enabled: false
+
+  # @schema
+  # type: object
   # description: Cluster Gateway configuration for agent-based data plane communication
   # @schema
   clusterGateway:

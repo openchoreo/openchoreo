@@ -23,6 +23,7 @@ import (
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
+	"github.com/openchoreo/openchoreo/internal/networkpolicy"
 )
 
 const (
@@ -36,9 +37,10 @@ const (
 // Reconciler reconciles a Release object
 type Reconciler struct {
 	client.Client
-	K8sClientMgr *kubernetesClient.KubeMultiClientManager
-	Scheme       *runtime.Scheme
-	GatewayURL   string
+	K8sClientMgr        *kubernetesClient.KubeMultiClientManager
+	Scheme              *runtime.Scheme
+	GatewayURL          string
+	EnableNetworkPolicy bool
 }
 
 // TODO: Optimize to apply resource only if spec has changed
@@ -50,6 +52,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterobservabilityplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -121,6 +124,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if err := r.ensureNamespaces(ctx, planeClient, desiredNamespaces); err != nil {
 		logger.Error(err, "Failed to ensure namespaces")
 		return ctrl.Result{}, err
+	}
+
+	// Apply or remove baseline network policies based on feature flag
+	if targetPlane == targetPlaneDataPlane {
+		if r.EnableNetworkPolicy {
+			if err := r.ensureBaselineNetworkPolicies(ctx, planeClient, release, desiredNamespaces); err != nil {
+				logger.Error(err, "Failed to ensure baseline network policies")
+				return ctrl.Result{}, err
+			}
+		} else {
+			if err := r.deleteBaselineNetworkPolicies(ctx, planeClient, desiredNamespaces); err != nil {
+				logger.Error(err, "Failed to delete baseline network policies")
+				return ctrl.Result{}, err
+			}
+		}
 	}
 
 	// PHASE 1: Apply desired resources to the target plane
@@ -296,8 +314,9 @@ func (r *Reconciler) makeDesiredNamespaces(release *openchoreov1alpha1.Release, 
 							labels.LabelKeyReleaseUID:       string(release.UID),
 
 							// Identification labels - track where this namespace belongs
-							labels.LabelKeyEnvironmentName: release.Spec.EnvironmentName,
-							labels.LabelKeyProjectName:     release.Spec.Owner.ProjectName,
+							labels.LabelKeyControlPlaneNamespace: release.Namespace,
+							labels.LabelKeyEnvironmentName:       release.Spec.EnvironmentName,
+							labels.LabelKeyProjectName:           release.Spec.Owner.ProjectName,
 						},
 					},
 				}
@@ -344,6 +363,54 @@ func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Cl
 		//          fmt.Sprintf("Created namespace %s in target plane", namespace.Name))
 	}
 
+	return nil
+}
+
+// ensureBaselineNetworkPolicies applies Layer 1 (deny-all ingress + egress isolation) NetworkPolicies
+// to each data plane namespace. These are applied directly by the release controller alongside
+// namespace creation and are not part of Release.spec.resources.
+func (r *Reconciler) ensureBaselineNetworkPolicies(ctx context.Context, planeClient client.Client, release *openchoreov1alpha1.Release, namespaces []*corev1.Namespace) error {
+	for _, ns := range namespaces {
+		policies := networkpolicy.MakeBaselinePolicies(networkpolicy.BaselinePolicyParams{
+			Namespace:   ns.Name,
+			CPNamespace: release.Namespace,
+		})
+		for _, policyMap := range policies {
+			obj := &unstructured.Unstructured{Object: policyMap}
+			// Add managed-by label for identification
+			policyLabels := obj.GetLabels()
+			if policyLabels == nil {
+				policyLabels = make(map[string]string)
+			}
+			policyLabels[labels.LabelKeyManagedBy] = ControllerName
+			obj.SetLabels(policyLabels)
+
+			if err := planeClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName)); err != nil {
+				return fmt.Errorf("failed to apply baseline network policy %s in namespace %s: %w", obj.GetName(), ns.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+// deleteBaselineNetworkPolicies removes baseline NetworkPolicies from data plane namespaces.
+// This is called when the feature flag is disabled to ensure policies don't linger.
+func (r *Reconciler) deleteBaselineNetworkPolicies(ctx context.Context, planeClient client.Client, namespaces []*corev1.Namespace) error {
+	for _, ns := range namespaces {
+		for _, name := range networkpolicy.BaselinePolicyNames {
+			obj := &unstructured.Unstructured{}
+			obj.SetGroupVersionKind(schema.GroupVersionKind{
+				Group:   "networking.k8s.io",
+				Version: "v1",
+				Kind:    "NetworkPolicy",
+			})
+			obj.SetName(name)
+			obj.SetNamespace(ns.Name)
+			if err := planeClient.Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete baseline network policy %s in namespace %s: %w", name, ns.Name, err)
+			}
+		}
+	}
 	return nil
 }
 

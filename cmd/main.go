@@ -96,6 +96,7 @@ func setupControlPlaneControllers(
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager,
 	clusterGatewayURL string,
 	enableLegacyCRDs bool,
+	enableNetworkPolicy bool,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
@@ -218,9 +219,10 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&releasebinding.Reconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Pipeline: componentpipeline.NewPipeline(),
+		Client:              mgr.GetClient(),
+		Scheme:              mgr.GetScheme(),
+		Pipeline:            componentpipeline.NewPipeline(),
+		EnableNetworkPolicy: enableNetworkPolicy,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
@@ -233,10 +235,11 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&release.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
+		Client:              mgr.GetClient(),
+		K8sClientMgr:        k8sClientMgr,
+		Scheme:              mgr.GetScheme(),
+		GatewayURL:          clusterGatewayURL,
+		EnableNetworkPolicy: enableNetworkPolicy,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
@@ -336,6 +339,7 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var enableLegacyCRDs bool
+	var enableNetworkPolicy bool
 	var clusterGatewayURL string
 	var clusterGatewayCACert string
 	var clusterGatewayClientCert string
@@ -365,6 +369,8 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.BoolVar(&enableLegacyCRDs, "enable-legacy-crds", false, // TODO <-- remove me
 		"If set, legacy CRDs will be enabled. This is only for the POC and will be removed in the future.")
+	flag.BoolVar(&enableNetworkPolicy, "enable-network-policies", false,
+		"Enable NetworkPolicy enforcement for endpoint visibility on the data plane.")
 	flag.StringVar(&deploymentPlane, "deployment-plane", deploymentPlaneControlPlane,
 		"The deployment plane this manager should serve. Supported values: controlplane, observabilityplane")
 	opts := zap.Options{
@@ -480,7 +486,9 @@ func main() {
 	switch deploymentPlane {
 	// Control plane controllers
 	case deploymentPlaneControlPlane:
-		if err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL, enableLegacyCRDs); err != nil {
+		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL,
+			enableLegacyCRDs, enableNetworkPolicy)
+		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)
 		}
