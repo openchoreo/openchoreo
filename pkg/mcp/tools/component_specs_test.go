@@ -337,7 +337,7 @@ func componentBindingSpecs() []toolTestSpec {
 				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
-				"workload_spec":  map[string]interface{}{"container": map[string]interface{}{}},
+				"workload_spec":  map[string]interface{}{"container": map[string]interface{}{"image": "example.com/test:latest"}},
 			},
 			expectedMethod: "CreateWorkload",
 			validateCall: func(t *testing.T, args []interface{}) {

@@ -7566,11 +7566,8 @@ components:
       type: object
       description: Environment-specific workload overrides
       properties:
-        containers:
-          type: object
-          description: Container overrides keyed by container name
-          additionalProperties:
-            $ref: '#/components/schemas/ContainerOverride'
+        container:
+          $ref: '#/components/schemas/ContainerOverride'
 
     ContainerOverride:
       type: object
@@ -8920,7 +8917,7 @@ components:
       type: object
       description: |
         Workload resource (Kubernetes object without kind/apiVersion).
-        Defines the source code, containers, endpoints and connections for a component.
+        Defines the source code, container, endpoints and connections for a component.
       required:
         - metadata
       properties:
@@ -8954,11 +8951,6 @@ components:
               example: api-service
         container:
           $ref: '#/components/schemas/WorkloadContainer'
-        containers:
-          type: object
-          description: Named container specifications (mutually exclusive with container)
-          additionalProperties:
-            $ref: '#/components/schemas/WorkloadContainer'
         endpoints:
           type: object
           description: Named endpoint specifications

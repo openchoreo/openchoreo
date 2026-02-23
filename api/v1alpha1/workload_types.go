@@ -11,6 +11,7 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // EnvVar represents an environment variable present in the container.
+// +kubebuilder:validation:XValidation:rule="has(self.value) != has(self.valueFrom)",message="exactly one of value or valueFrom must be set"
 type EnvVar struct {
 	// The environment variable key.
 	// +required

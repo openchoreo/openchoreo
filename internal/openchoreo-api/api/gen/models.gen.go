@@ -3145,7 +3145,7 @@ type WorkflowStepStatus struct {
 type WorkflowStepStatusPhase string
 
 // Workload Workload resource (Kubernetes object without kind/apiVersion).
-// Defines the source code, containers, endpoints and connections for a component.
+// Defines the source code, container, endpoints and connections for a component.
 type Workload struct {
 	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
@@ -3242,8 +3242,8 @@ type WorkloadList struct {
 
 // WorkloadOverrides Environment-specific workload overrides
 type WorkloadOverrides struct {
-	// Containers Container overrides keyed by container name
-	Containers *map[string]ContainerOverride `json:"containers,omitempty"`
+	// Container Container-level overrides
+	Container *ContainerOverride `json:"container,omitempty"`
 }
 
 // WorkloadSpec Desired state of a Workload
@@ -3253,9 +3253,6 @@ type WorkloadSpec struct {
 
 	// Container Container specification
 	Container *WorkloadContainer `json:"container,omitempty"`
-
-	// Containers Named container specifications (mutually exclusive with container)
-	Containers *map[string]WorkloadContainer `json:"containers,omitempty"`
 
 	// Endpoints Named endpoint specifications
 	Endpoints *map[string]WorkloadEndpoint `json:"endpoints,omitempty"`

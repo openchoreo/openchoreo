@@ -658,6 +658,9 @@ spec:
                           required:
                           - key
                           type: object
+                          x-kubernetes-validations:
+                          - message: exactly one of value or valueFrom must be set
+                            rule: has(self.value) != has(self.valueFrom)
                         type: array
                       files:
                         description: File configurations.
