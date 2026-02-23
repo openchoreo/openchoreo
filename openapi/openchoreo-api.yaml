@@ -2908,7 +2908,7 @@ paths:
                 $ref: '#/components/schemas/EvaluateRequest'
       responses:
         '200':
-          description: Authorization decisions
+          description: Authorization decisions in the same order as the input requests (decision[i] corresponds to request[i])
           content:
             application/json:
               schema:

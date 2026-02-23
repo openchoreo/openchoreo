@@ -288,7 +288,7 @@ func (s *authzServiceWithAuthz) Evaluate(ctx context.Context, requests []authzco
 	return s.internal.Evaluate(ctx, requests)
 }
 
-// ListActions checks authorization for viewing roles, then delegates to the internal service.
+// ListActions checks authorization for viewing actions, then delegates to the internal service.
 func (s *authzServiceWithAuthz) ListActions(ctx context.Context) ([]string, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewAction,

@@ -51,6 +51,10 @@ func (h *Handler) Evaluates(
 	ctx context.Context,
 	request gen.EvaluatesRequestObject,
 ) (gen.EvaluatesResponseObject, error) {
+	if request.Body == nil {
+		return gen.Evaluates400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
 	h.logger.Debug("Evaluates handler called", "count", len(*request.Body))
 
 	// Convert API requests to internal model
