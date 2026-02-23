@@ -282,24 +282,3 @@ func (l *ListImpl) ListWorkflowRuns(params api.ListWorkflowRunsParams) error {
 
 	return output.PrintWorkflowRuns(result)
 }
-
-// ListComponentWorkflowRuns lists all component workflow runs for a component
-func (l *ListImpl) ListComponentWorkflowRuns(params api.ListComponentWorkflowRunsParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponentWorkflowRun, params); err != nil {
-		return err
-	}
-
-	ctx := context.Background()
-
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.ListComponentWorkflowRuns(ctx, params.Namespace, params.Project, params.Component)
-	if err != nil {
-		return fmt.Errorf("failed to list component workflow runs: %w", err)
-	}
-
-	return output.PrintComponentWorkflowRuns(result)
-}

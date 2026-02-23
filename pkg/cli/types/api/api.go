@@ -26,8 +26,6 @@ type CommandImplementationInterface interface {
 	ComponentReleaseAPI
 	ReleaseBindingAPI
 	WorkflowAPI
-	ComponentWorkflowAPI
-	ComponentWorkflowRunAPI
 	WorkflowRunAPI
 }
 
@@ -154,14 +152,4 @@ type WorkflowRunAPI interface {
 // WorkflowAPI defines workflow operations
 type WorkflowAPI interface {
 	ListWorkflows(params ListWorkflowsParams) error
-}
-
-type ComponentWorkflowAPI interface {
-	ListComponentWorkflows(params ListComponentWorkflowsParams) error
-	StartComponentWorkflowRun(params StartComponentWorkflowRunParams) error
-}
-
-// ComponentWorkflowRunAPI defines methods for starting component workflow runs
-type ComponentWorkflowRunAPI interface {
-	ListComponentWorkflowRuns(params ListComponentWorkflowRunsParams) error
 }

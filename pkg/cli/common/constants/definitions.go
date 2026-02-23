@@ -546,25 +546,6 @@ This command allows you to:
   occ workflow start migration --namespace acme --set version=v2 --set dry_run=false`,
 	}
 
-	ListComponentWorkflow = Command{
-		Use:   "list",
-		Short: "List component workflows",
-		Long:  `List all component workflow templates available in a namespace.`,
-		Example: `  # List all component workflows in a namespace
-  occ componentworkflow list --namespace acme-corp`,
-	}
-
-	StartComponentWorkflow = Command{
-		Use:   "start",
-		Short: "Start a component workflow run (build)",
-		Long:  `Start a new component workflow run with repository parameters.`,
-		Example: `  # Start component workflow with commit
-  occ componentworkflow start --namespace acme --project shop --component api --commit abc123
-
-  # Start with specific branch
-  occ componentworkflow start --namespace acme --project shop --component api`,
-	}
-
 	ListSecretReference = Command{
 		Use:   "list",
 		Short: "List secret references",
@@ -608,13 +589,6 @@ This command allows you to:
 		Aliases: []string{"wf", "workflows"},
 		Short:   "Manage workflows",
 		Long:    `Manage workflows for OpenChoreo.`,
-	}
-
-	ComponentWorkflow = Command{
-		Use:     "componentworkflow",
-		Aliases: []string{"cw", "componentworkflows"},
-		Short:   "Manage component workflows",
-		Long:    `Manage component workflow templates for OpenChoreo.`,
 	}
 
 	SecretReference = Command{
@@ -960,26 +934,11 @@ This command allows you to:
   occ workflowrun list --namespace acme-corp`,
 	}
 
-	ListComponentWorkflowRun = Command{
-		Use:   "list",
-		Short: "List component workflow runs",
-		Long:  `List all component workflow runs for a specific component.`,
-		Example: `  # List all component workflow runs for a component
-  occ componentworkflowrun list --namespace acme-corp --project online-store --component product-catalog`,
-	}
-
 	WorkflowRun = Command{
 		Use:     "workflowrun",
 		Aliases: []string{"wr", "workflowruns"},
 		Short:   "Manage workflow runs",
 		Long:    `Manage workflow runs for OpenChoreo.`,
-	}
-
-	ComponentWorkflowRun = Command{
-		Use:     "componentworkflowrun",
-		Aliases: []string{"cwr", "componentworkflowruns"},
-		Short:   "Manage component workflow runs",
-		Long:    `Manage component workflow runs for OpenChoreo.`,
 	}
 
 	// ------------------------------------------------------------------------

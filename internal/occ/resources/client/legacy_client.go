@@ -301,9 +301,9 @@ func (c *APIClient) GetTraitSchema(ctx context.Context, namespaceName, traitName
 	return c.getSchema(ctx, path)
 }
 
-// GetComponentWorkflowSchema fetches ComponentWorkflow schema from the API
-func (c *APIClient) GetComponentWorkflowSchema(ctx context.Context, namespaceName, cwName string) (*json.RawMessage, error) {
-	path := fmt.Sprintf("/api/v1/namespaces/%s/component-workflows/%s/schema", namespaceName, cwName)
+// GetWorkflowSchema fetches Workflow schema from the API
+func (c *APIClient) GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (*json.RawMessage, error) {
+	path := fmt.Sprintf("/api/v1/namespaces/%s/workflows/%s/schema", namespaceName, workflowName)
 	return c.getSchema(ctx, path)
 }
 

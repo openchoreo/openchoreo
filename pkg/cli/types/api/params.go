@@ -444,11 +444,6 @@ type ListWorkflowsParams struct {
 	Namespace string
 }
 
-// ListComponentWorkflowsParams defines parameters for listing component workflows
-type ListComponentWorkflowsParams struct {
-	Namespace string
-}
-
 // ListSecretReferencesParams defines parameters for listing secret references
 type ListSecretReferencesParams struct {
 	Namespace string
@@ -484,26 +479,10 @@ type ListWorkflowRunsParams struct {
 	Namespace string
 }
 
-// ListComponentWorkflowRunsParams defines parameters for listing component workflow runs
-type ListComponentWorkflowRunsParams struct {
-	Namespace string
-	Project   string
-	Component string
-}
-
 // StartWorkflowRunParams defines parameters for starting a workflow run
 type StartWorkflowRunParams struct {
 	Namespace    string
 	WorkflowName string
-}
-
-// StartComponentWorkflowRunParams defines parameters for starting a component workflow run
-type StartComponentWorkflowRunParams struct {
-	Namespace  string
-	Project    string
-	Component  string
-	Commit     string   // Git commit SHA
-	Parameters []string // --set key=value format
 }
 
 // ComponentLogsParams defines parameters for fetching component logs

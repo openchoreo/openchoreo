@@ -56,8 +56,6 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateTraitParams(cmdType, params)
 	case ResourceWorkflow:
 		return validateWorkflowParams(cmdType, params)
-	case ResourceComponentWorkflow:
-		return validateComponentWorkflowParams(cmdType, params)
 	case ResourceSecretReference:
 		return validateSecretReferenceParams(cmdType, params)
 	case ResourceComponentRelease:
@@ -66,8 +64,6 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateReleaseBindingParams(cmdType, params)
 	case ResourceWorkflowRun:
 		return validateWorkflowRunParams(cmdType, params)
-	case ResourceComponentWorkflowRun:
-		return validateComponentWorkflowRunParams(cmdType, params)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resource)
 	}
@@ -597,16 +593,6 @@ func validateWorkflowParams(cmdType CommandType, params interface{}) error {
 	return nil
 }
 
-// validateComponentWorkflowParams validates parameters for component workflow operations
-func validateComponentWorkflowParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList {
-		if p, ok := params.(api.ListComponentWorkflowsParams); ok {
-			return validateNamespace(ResourceComponentWorkflow, p.Namespace)
-		}
-	}
-	return nil
-}
-
 // validateSecretReferenceParams validates parameters for secret reference operations
 func validateSecretReferenceParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdList {
@@ -656,23 +642,6 @@ func validateWorkflowRunParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdList {
 		if p, ok := params.(api.ListWorkflowRunsParams); ok {
 			return validateNamespace(ResourceWorkflowRun, p.Namespace)
-		}
-	}
-	return nil
-}
-
-// validateComponentWorkflowRunParams validates parameters for component workflow run operations
-func validateComponentWorkflowRunParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList {
-		if p, ok := params.(api.ListComponentWorkflowRunsParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-				"component": p.Component,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(CmdList, ResourceComponentWorkflowRun, fields)
-			}
 		}
 	}
 	return nil

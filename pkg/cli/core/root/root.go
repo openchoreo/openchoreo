@@ -13,8 +13,6 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/component"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componentrelease"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componenttype"
-	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componentworkflow"
-	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componentworkflowrun"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/dataplane"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/delete"
@@ -66,9 +64,7 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		trait.NewTraitCmd(impl),
 		clustertrait.NewClusterTraitCmd(impl),
 		workflow.NewWorkflowCmd(impl),
-		componentworkflow.NewComponentWorkflowCmd(impl),
 		workflowrun.NewWorkflowRunCmd(impl),
-		componentworkflowrun.NewComponentWorkflowRunCmd(impl),
 		secretreference.NewSecretReferenceCmd(impl),
 		workload.NewWorkloadCmd(impl),
 	)

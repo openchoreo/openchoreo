@@ -101,63 +101,6 @@ func (h *Handler) CreateComponent(
 	return gen.CreateComponent201JSONResponse(genComponent), nil
 }
 
-// toGenComponent converts models.ComponentResponse to gen.Component (K8s-native shape).
-// Used by legacy sub-resource methods that still call the legacy service layer.
-func toGenComponent(c *models.ComponentResponse) gen.Component {
-	uid := c.UID
-	metadata := gen.ObjectMeta{
-		Name:              c.Name,
-		Namespace:         ptr.To(c.NamespaceName),
-		Uid:               ptr.To(uid),
-		CreationTimestamp: ptr.To(c.CreatedAt),
-	}
-
-	componentTypeName := gen.ComponentSpecComponentTypeKind("ComponentType")
-	spec := &gen.ComponentSpec{
-		Owner: struct {
-			ProjectName string `json:"projectName"`
-		}{ProjectName: c.ProjectName},
-		ComponentType: struct {
-			Kind *gen.ComponentSpecComponentTypeKind `json:"kind,omitempty"`
-			Name string                              `json:"name"`
-		}{
-			Kind: &componentTypeName,
-			Name: c.Type,
-		},
-		AutoDeploy: ptr.To(c.AutoDeploy),
-	}
-
-	if c.ComponentWorkflow != nil {
-		spec.Workflow = toGenComponentWorkflowConfig(c.ComponentWorkflow)
-	}
-
-	return gen.Component{
-		Metadata: metadata,
-		Spec:     spec,
-	}
-}
-
-// toGenComponentWorkflowConfig converts models.ComponentWorkflow to gen.ComponentWorkflowConfig
-func toGenComponentWorkflowConfig(cw *models.ComponentWorkflow) *gen.ComponentWorkflowConfig {
-	if cw == nil {
-		return nil
-	}
-
-	config := &gen.ComponentWorkflowConfig{
-		Name: ptr.To(cw.Name),
-	}
-
-	// Convert Parameters from runtime.RawExtension to map[string]interface{}
-	if cw.Parameters != nil && cw.Parameters.Raw != nil {
-		var params map[string]interface{}
-		if err := json.Unmarshal(cw.Parameters.Raw, &params); err == nil {
-			config.Parameters = &params
-		}
-	}
-
-	return config
-}
-
 // toModelCreateComponentRequest converts gen.CreateComponentRequest to models.CreateComponentRequest
 func toModelCreateComponentRequest(req *gen.CreateComponentRequest) *models.CreateComponentRequest {
 	if req == nil {

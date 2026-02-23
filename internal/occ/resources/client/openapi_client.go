@@ -326,18 +326,6 @@ func (c *Client) ListWorkflows(ctx context.Context, namespaceName string, params
 	return resp.JSON200, nil
 }
 
-// ListComponentWorkflows retrieves all component workflows for a namespace
-func (c *Client) ListComponentWorkflows(ctx context.Context, namespaceName string, params *gen.ListComponentWorkflowsParams) (*gen.ComponentWorkflowTemplateList, error) {
-	resp, err := c.client.ListComponentWorkflowsWithResponse(ctx, namespaceName, params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list component workflows: %w", err)
-	}
-	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
-	}
-	return resp.JSON200, nil
-}
-
 // ListSecretReferences retrieves all secret references for a namespace
 func (c *Client) ListSecretReferences(ctx context.Context, namespaceName string) (*gen.SecretReferenceList, error) {
 	resp, err := c.client.ListSecretReferencesWithResponse(ctx, namespaceName, nil)
@@ -399,18 +387,6 @@ func (c *Client) ListWorkflowRuns(ctx context.Context, namespaceName string) (*g
 	resp, err := c.client.ListWorkflowRunsWithResponse(ctx, namespaceName, &gen.ListWorkflowRunsParams{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list workflow runs: %w", err)
-	}
-	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
-	}
-	return resp.JSON200, nil
-}
-
-// ListComponentWorkflowRuns retrieves all component workflow runs for a component
-func (c *Client) ListComponentWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string) (*gen.ComponentWorkflowRunList, error) {
-	resp, err := c.client.ListComponentWorkflowRunsWithResponse(ctx, namespaceName, projectName, componentName, &gen.ListComponentWorkflowRunsParams{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list component workflow runs: %w", err)
 	}
 	if resp.JSON200 == nil {
 		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
@@ -504,60 +480,6 @@ func (c *Client) CreateWorkflowRun(
 	resp, err := c.client.CreateWorkflowRunWithResponse(ctx, namespace, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow run: %w", err)
-	}
-
-	if resp.JSON201 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
-	}
-
-	return resp.JSON201, nil
-}
-
-// UpdateComponentWorkflowParameters updates workflow parameters for a component
-func (c *Client) UpdateComponentWorkflowParameters(
-	ctx context.Context,
-	namespace, project, component string,
-	body gen.UpdateComponentWorkflowParametersJSONRequestBody,
-) error {
-	resp, err := c.client.UpdateComponentWorkflowParametersWithResponse(
-		ctx,
-		namespace,
-		project,
-		component,
-		body,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to update component workflow parameters: %w", err)
-	}
-
-	if resp.StatusCode() != http.StatusOK && resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
-	}
-
-	return nil
-}
-
-// CreateComponentWorkflowRun creates a new component workflow run
-func (c *Client) CreateComponentWorkflowRun(
-	ctx context.Context,
-	namespace, project, component string,
-	commit string,
-) (*gen.ComponentWorkflowRun, error) {
-	// Prepare query params
-	params := &gen.CreateComponentWorkflowRunParams{}
-	if commit != "" {
-		params.Commit = &commit
-	}
-
-	resp, err := c.client.CreateComponentWorkflowRunWithResponse(
-		ctx,
-		namespace,
-		project,
-		component,
-		params,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create component workflow run: %w", err)
 	}
 
 	if resp.JSON201 == nil {

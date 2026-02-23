@@ -312,25 +312,6 @@ func PrintWorkflows(list *gen.WorkflowList) error {
 	return w.Flush()
 }
 
-// PrintComponentWorkflows prints component workflows in table format
-func PrintComponentWorkflows(list *gen.ComponentWorkflowTemplateList) error {
-	if list == nil || len(list.Items) == 0 {
-		fmt.Println("No component workflows found")
-		return nil
-	}
-
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tAGE")
-
-	for _, cwf := range list.Items {
-		fmt.Fprintf(w, "%s\t%s\n",
-			cwf.Name,
-			formatAge(cwf.CreatedAt))
-	}
-
-	return w.Flush()
-}
-
 // PrintSecretReferences prints secret references in table format
 func PrintSecretReferences(list *gen.SecretReferenceList) error {
 	if list == nil || len(list.Items) == 0 {
@@ -441,31 +422,6 @@ func PrintWorkflowRuns(list *gen.WorkflowRunList) error {
 			run.Name,
 			run.WorkflowName,
 			run.Status,
-			formatAge(run.CreatedAt))
-	}
-
-	return w.Flush()
-}
-
-// PrintComponentWorkflowRuns prints component workflow runs in table format
-func PrintComponentWorkflowRuns(list *gen.ComponentWorkflowRunList) error {
-	if list == nil || len(list.Items) == 0 {
-		fmt.Println("No component workflow runs found")
-		return nil
-	}
-
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tCOMPONENT\tSTATUS\tAGE")
-
-	for _, run := range list.Items {
-		status := ""
-		if run.Status != nil {
-			status = *run.Status
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			run.Name,
-			run.ComponentName,
-			status,
 			formatAge(run.CreatedAt))
 	}
 

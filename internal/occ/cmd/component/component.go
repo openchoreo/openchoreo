@@ -261,13 +261,13 @@ func scaffoldComponent(params api.ScaffoldComponentParams) error {
 	// Fetch Workflow schema if specified
 	var workflowSchema *extv1.JSONSchemaProps
 	if params.WorkflowName != "" {
-		workflowSchemaRaw, err := apiClient.GetComponentWorkflowSchema(ctx, params.Namespace, params.WorkflowName)
+		workflowSchemaRaw, err := apiClient.GetWorkflowSchema(ctx, params.Namespace, params.WorkflowName)
 		if err != nil {
 			return err
 		}
 		workflowSchema, err = unmarshalSchema(workflowSchemaRaw)
 		if err != nil {
-			return fmt.Errorf("invalid ComponentWorkflow schema: %w", err)
+			return fmt.Errorf("invalid Workflow schema: %w", err)
 		}
 	}
 

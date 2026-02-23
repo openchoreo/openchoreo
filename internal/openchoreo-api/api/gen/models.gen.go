@@ -1338,72 +1338,6 @@ type ComponentWorkflowInput struct {
 	} `json:"systemParameters"`
 }
 
-// ComponentWorkflowRun Component workflow run (build execution)
-type ComponentWorkflowRun struct {
-	// Commit Git commit SHA being built
-	Commit *string `json:"commit,omitempty"`
-
-	// ComponentName Parent component name
-	ComponentName string `json:"componentName"`
-
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
-
-	// Image Built container image
-	Image *string `json:"image,omitempty"`
-
-	// Name Workflow run name
-	Name string `json:"name"`
-
-	// NamespaceName Parent namespace name
-	NamespaceName string `json:"namespaceName"`
-
-	// ProjectName Parent project name
-	ProjectName string `json:"projectName"`
-
-	// Status Run status
-	Status *string `json:"status,omitempty"`
-
-	// Uuid Unique identifier
-	Uuid *string `json:"uuid,omitempty"`
-
-	// Workflow Component workflow configuration
-	Workflow *ComponentWorkflowConfig `json:"workflow,omitempty"`
-}
-
-// ComponentWorkflowRunList Paginated list of component workflow runs
-type ComponentWorkflowRunList struct {
-	Items []ComponentWorkflowRun `json:"items"`
-
-	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
-	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
-}
-
-// ComponentWorkflowTemplate Component workflow template resource
-type ComponentWorkflowTemplate struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
-
-	// Description ComponentWorkflow description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name ComponentWorkflow name (unique within namespace)
-	Name string `json:"name"`
-}
-
-// ComponentWorkflowTemplateList Paginated list of component workflow templates
-type ComponentWorkflowTemplateList struct {
-	Items []ComponentWorkflowTemplate `json:"items"`
-
-	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
-	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
-}
-
 // Condition Kubernetes-style condition
 type Condition struct {
 	// LastTransitionTime Last time the condition transitioned
@@ -2869,33 +2803,6 @@ type UpdateClusterRoleRequest struct {
 	Description *string `json:"description,omitempty"`
 }
 
-// UpdateComponentWorkflowRequest Request to update component workflow parameters
-type UpdateComponentWorkflowRequest struct {
-	// Parameters User-defined workflow parameters
-	Parameters *map[string]interface{} `json:"parameters,omitempty"`
-
-	// SystemParameters System parameters including repository configuration
-	SystemParameters *struct {
-		Repository *struct {
-			// AppPath Path to application within repository
-			AppPath  *string `json:"appPath,omitempty"`
-			Revision *struct {
-				// Branch Git branch
-				Branch *string `json:"branch,omitempty"`
-
-				// Commit Specific commit SHA
-				Commit *string `json:"commit,omitempty"`
-			} `json:"revision,omitempty"`
-
-			// Url Git repository URL
-			Url *string `json:"url,omitempty"`
-		} `json:"repository,omitempty"`
-	} `json:"systemParameters,omitempty"`
-
-	// WorkflowName ComponentWorkflow template name to use
-	WorkflowName *string `json:"workflowName,omitempty"`
-}
-
 // UpdateNamespaceRoleBindingRequest Request to update a namespace role binding (legacy)
 type UpdateNamespaceRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
@@ -3304,9 +3211,6 @@ type ComponentReleaseNameParam = string
 // ComponentTypeNameParam defines model for ComponentTypeNameParam.
 type ComponentTypeNameParam = string
 
-// ComponentWorkflowNameParam defines model for ComponentWorkflowNameParam.
-type ComponentWorkflowNameParam = string
-
 // CursorParam defines model for CursorParam.
 type CursorParam = string
 
@@ -3490,16 +3394,6 @@ type ListBuildPlanesParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// ListComponentWorkflowsParams defines parameters for ListComponentWorkflows.
-type ListComponentWorkflowsParams struct {
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
 // ListComponentReleasesParams defines parameters for ListComponentReleases.
 type ListComponentReleasesParams struct {
 	// Component Filter resources by component name
@@ -3624,22 +3518,6 @@ type GetReleaseResourcePodLogsParams struct {
 
 	// SinceSeconds Only return logs newer than this many seconds
 	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
-}
-
-// ListComponentWorkflowRunsParams defines parameters for ListComponentWorkflowRuns.
-type ListComponentWorkflowRunsParams struct {
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
-// CreateComponentWorkflowRunParams defines parameters for CreateComponentWorkflowRun.
-type CreateComponentWorkflowRunParams struct {
-	// Commit Specific git commit SHA to build (optional)
-	Commit *string `form:"commit,omitempty" json:"commit,omitempty"`
 }
 
 // ListReleaseBindingsParams defines parameters for ListReleaseBindings.
@@ -3881,9 +3759,6 @@ type CreateProjectJSONRequestBody = Project
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = Project
-
-// UpdateComponentWorkflowParametersJSONRequestBody defines body for UpdateComponentWorkflowParameters for application/json ContentType.
-type UpdateComponentWorkflowParametersJSONRequestBody = UpdateComponentWorkflowRequest
 
 // CreateReleaseBindingJSONRequestBody defines body for CreateReleaseBinding for application/json ContentType.
 type CreateReleaseBindingJSONRequestBody = ReleaseBinding
