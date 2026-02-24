@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/internal/clients/gateway"
 	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
 	buildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/buildplane"
 	clusterbuildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterbuildplane"
@@ -22,6 +23,7 @@ import (
 	dataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/dataplane"
 	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
+	k8sresourcesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/k8sresource"
 	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
 	observabilityalertsnotificationchannelsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityalertsnotificationchannel"
 	observabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityplane"
@@ -57,10 +59,11 @@ type Services struct {
 	SecretReferenceService                        secretreferencesvc.Service
 	TraitService                                  traitsvc.Service
 	WorkloadService                               workloadsvc.Service
+	K8sResourceService                            k8sresourcesvc.Service
 }
 
 // NewServices creates all K8s-native API services with authorization wrappers.
-func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, logger *slog.Logger) *Services {
+func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, gwClient *gateway.Client, logger *slog.Logger) *Services {
 	return &Services{
 		AuthzService:                                  authzsvc.NewServiceWithAuthz(pap, pdp, k8sClient, logger.With("component", "authz-service")),
 		ProjectService:                                projectsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "project-service")),
@@ -84,5 +87,6 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		SecretReferenceService:                        secretreferencesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "secretreference-service")),
 		TraitService:                                  traitsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "trait-service")),
 		WorkloadService:                               workloadsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workload-service")),
+		K8sResourceService:                            k8sresourcesvc.NewServiceWithAuthz(k8sClient, gwClient, pdp, logger.With("component", "k8sresource-service")),
 	}
 }

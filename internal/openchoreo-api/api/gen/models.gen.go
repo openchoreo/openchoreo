@@ -160,12 +160,20 @@ const (
 
 // Defines values for ErrorResponseCode.
 const (
+	BADGATEWAY    ErrorResponseCode = "BAD_GATEWAY"
 	BADREQUEST    ErrorResponseCode = "BAD_REQUEST"
 	CONFLICT      ErrorResponseCode = "CONFLICT"
 	FORBIDDEN     ErrorResponseCode = "FORBIDDEN"
 	INTERNALERROR ErrorResponseCode = "INTERNAL_ERROR"
 	NOTFOUND      ErrorResponseCode = "NOT_FOUND"
 	UNAUTHORIZED  ErrorResponseCode = "UNAUTHORIZED"
+)
+
+// Defines values for K8sResourceQueryPlaneType.
+const (
+	K8sResourceQueryPlaneTypeBuildplane         K8sResourceQueryPlaneType = "buildplane"
+	K8sResourceQueryPlaneTypeDataplane          K8sResourceQueryPlaneType = "dataplane"
+	K8sResourceQueryPlaneTypeObservabilityplane K8sResourceQueryPlaneType = "observabilityplane"
 )
 
 // Defines values for NamespaceStatusPhase.
@@ -245,8 +253,8 @@ const (
 
 // Defines values for TraitSpecPatchesTargetPlane.
 const (
-	Dataplane          TraitSpecPatchesTargetPlane = "dataplane"
-	Observabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
+	TraitSpecPatchesTargetPlaneDataplane          TraitSpecPatchesTargetPlane = "dataplane"
+	TraitSpecPatchesTargetPlaneObservabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
 )
 
 // Defines values for UpdateClusterRoleBindingRequestEffect.
@@ -1855,6 +1863,58 @@ type HealthInfo struct {
 	Status string `json:"status"`
 }
 
+// K8sResourceQuery Request body for querying Kubernetes resources from a plane
+type K8sResourceQuery struct {
+	// Component Component name for authorization scoping
+	Component string `json:"component"`
+
+	// Environment Environment name for authorization scoping.
+	// Required for dataplane and observabilityplane queries.
+	// Not applicable for buildplane (buildplane is not bound to an environment).
+	Environment *string `json:"environment,omitempty"`
+
+	// K8sResourcePath Kubernetes API path to query (e.g., /api/v1/namespaces/default/pods).
+	// Must start with /api/ or /apis/.
+	K8sResourcePath string `json:"k8sResourcePath"`
+
+	// PlaneName Name of the plane resource
+	PlaneName string `json:"planeName"`
+
+	// PlaneNamespace Namespace of the plane resource. Required for namespace-scoped planes.
+	// Omit for cluster-scoped planes (ClusterDataPlane, ClusterBuildPlane, ClusterObservabilityPlane).
+	PlaneNamespace *string `json:"planeNamespace,omitempty"`
+
+	// PlaneType Type of plane to query
+	PlaneType K8sResourceQueryPlaneType `json:"planeType"`
+
+	// Project Project name for authorization scoping
+	Project string `json:"project"`
+}
+
+// K8sResourceQueryPlaneType Type of plane to query
+type K8sResourceQueryPlaneType string
+
+// K8sResourceQueryResponse Response envelope for Kubernetes resource queries
+type K8sResourceQueryResponse struct {
+	// Data Raw Kubernetes API response
+	Data map[string]interface{} `json:"data"`
+
+	// Metadata Query metadata
+	Metadata struct {
+		// K8sStatusCode HTTP status code from the Kubernetes API
+		K8sStatusCode int `json:"k8sStatusCode"`
+
+		// PlaneName Name of the plane that was queried
+		PlaneName string `json:"planeName"`
+
+		// PlaneNamespace Namespace of the plane (if namespace-scoped)
+		PlaneNamespace *string `json:"planeNamespace,omitempty"`
+
+		// PlaneType Type of plane that was queried
+		PlaneType string `json:"planeType"`
+	} `json:"metadata"`
+}
+
 // MessageResponse Simple message response
 type MessageResponse struct {
 	// Message Response message
@@ -3367,6 +3427,9 @@ type WorkflowRunNameParam = string
 // WorkloadNameParam defines model for WorkloadNameParam.
 type WorkloadNameParam = string
 
+// BadGateway Standard error response format
+type BadGateway = ErrorResponse
+
 // BadRequest Standard error response format
 type BadRequest = ErrorResponse
 
@@ -3932,6 +3995,9 @@ type HandleGitHubWebhookJSONRequestBody HandleGitHubWebhookJSONBody
 
 // HandleGitLabWebhookJSONRequestBody defines body for HandleGitLabWebhook for application/json ContentType.
 type HandleGitLabWebhookJSONRequestBody HandleGitLabWebhookJSONBody
+
+// QueryK8sResourcesJSONRequestBody defines body for QueryK8sResources for application/json ContentType.
+type QueryK8sResourcesJSONRequestBody = K8sResourceQuery
 
 // AsObservabilityAlertsNotificationChannelSpec0 returns the union data inside the ObservabilityAlertsNotificationChannelSpec as a ObservabilityAlertsNotificationChannelSpec0
 func (t ObservabilityAlertsNotificationChannelSpec) AsObservabilityAlertsNotificationChannelSpec0() (ObservabilityAlertsNotificationChannelSpec0, error) {

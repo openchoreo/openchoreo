@@ -79,6 +79,8 @@ tags:
     description: Deployment pipeline management
   - name: ObservabilityAlertsNotificationChannels
     description: Observability alerts notification channel management
+  - name: K8sResources
+    description: Unified Kubernetes resource querying across planes
 
 paths:
   # =============================================================================
@@ -4539,6 +4541,45 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  # =============================================================================
+  # K8s Resource Query (Unified Plane Resource Access)
+  # =============================================================================
+
+  /api/v1alpha1/k8sresources/query:
+    post:
+      operationId: queryK8sResources
+      summary: Query Kubernetes resources from a plane
+      description: |
+        Unified endpoint for querying Kubernetes resources from any plane (data, build, or observability).
+        Replaces the legacy per-plane proxy endpoints with a single POST-based query interface.
+        The plane type, scope, and target are specified in the request body.
+      tags: [K8sResources]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/K8sResourceQuery'
+      responses:
+        '200':
+          description: Successfully queried Kubernetes resources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/K8sResourceQueryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
 components:
   # ===========================================================================
   # Security Schemes
@@ -4910,6 +4951,16 @@ components:
             error: "Internal server error"
             code: INTERNAL_ERROR
 
+    BadGateway:
+      description: Gateway error communicating with the target plane
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Failed to proxy request to plane"
+            code: BAD_GATEWAY
+
   # ===========================================================================
   # Schemas
   # ===========================================================================
@@ -4938,6 +4989,7 @@ components:
             - NOT_FOUND
             - CONFLICT
             - INTERNAL_ERROR
+            - BAD_GATEWAY
           example: NOT_FOUND
         details:
           type: array
@@ -4953,6 +5005,95 @@ components:
                 type: string
                 description: Error message for this field
                 example: must be at least 1 character
+
+    # -------------------------------------------------------------------------
+    # K8s Resource Query
+    # -------------------------------------------------------------------------
+    K8sResourceQuery:
+      type: object
+      description: Request body for querying Kubernetes resources from a plane
+      required:
+        - planeType
+        - planeName
+        - k8sResourcePath
+        - project
+        - component
+      properties:
+        planeType:
+          type: string
+          description: Type of plane to query
+          enum:
+            - dataplane
+            - buildplane
+            - observabilityplane
+          example: dataplane
+        planeName:
+          type: string
+          description: Name of the plane resource
+          example: default
+        planeNamespace:
+          type: string
+          description: |
+            Namespace of the plane resource. Required for namespace-scoped planes.
+            Omit for cluster-scoped planes (ClusterDataPlane, ClusterBuildPlane, ClusterObservabilityPlane).
+          example: org1
+        k8sResourcePath:
+          type: string
+          description: |
+            Kubernetes API path to query (e.g., /api/v1/namespaces/default/pods).
+            Must start with /api/ or /apis/.
+          example: /api/v1/namespaces/default/pods
+        project:
+          type: string
+          description: Project name for authorization scoping
+          example: my-project
+        component:
+          type: string
+          description: Component name for authorization scoping
+          example: api-service
+        environment:
+          type: string
+          description: |
+            Environment name for authorization scoping.
+            Required for dataplane and observabilityplane queries.
+            Not applicable for buildplane (buildplane is not bound to an environment).
+          example: dev
+
+    K8sResourceQueryResponse:
+      type: object
+      description: Response envelope for Kubernetes resource queries
+      required:
+        - data
+        - metadata
+      properties:
+        data:
+          type: object
+          description: Raw Kubernetes API response
+          additionalProperties: true
+        metadata:
+          type: object
+          description: Query metadata
+          required:
+            - planeType
+            - planeName
+            - k8sStatusCode
+          properties:
+            planeType:
+              type: string
+              description: Type of plane that was queried
+              example: dataplane
+            planeName:
+              type: string
+              description: Name of the plane that was queried
+              example: default
+            planeNamespace:
+              type: string
+              description: Namespace of the plane (if namespace-scoped)
+              example: org1
+            k8sStatusCode:
+              type: integer
+              description: HTTP status code from the Kubernetes API
+              example: 200
 
     # -------------------------------------------------------------------------
     # Shared Kubernetes-style Types

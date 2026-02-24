@@ -664,6 +664,11 @@ type ClientInterface interface {
 
 	HandleGitLabWebhook(ctx context.Context, body HandleGitLabWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// QueryK8sResourcesWithBody request with any body
+	QueryK8sResourcesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	QueryK8sResources(ctx context.Context, body QueryK8sResourcesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetHealth request
 	GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -3187,6 +3192,30 @@ func (c *Client) HandleGitLabWebhookWithBody(ctx context.Context, contentType st
 
 func (c *Client) HandleGitLabWebhook(ctx context.Context, body HandleGitLabWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewHandleGitLabWebhookRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryK8sResourcesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryK8sResourcesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryK8sResources(ctx context.Context, body QueryK8sResourcesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryK8sResourcesRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11066,6 +11095,46 @@ func NewHandleGitLabWebhookRequestWithBody(server string, contentType string, bo
 	return req, nil
 }
 
+// NewQueryK8sResourcesRequest calls the generic QueryK8sResources builder with application/json body
+func NewQueryK8sResourcesRequest(server string, body QueryK8sResourcesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryK8sResourcesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryK8sResourcesRequestWithBody generates requests for QueryK8sResources with any type of body
+func NewQueryK8sResourcesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/k8sresources/query")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetHealthRequest generates requests for GetHealth
 func NewGetHealthRequest(server string) (*http.Request, error) {
 	var err error
@@ -11791,6 +11860,11 @@ type ClientWithResponsesInterface interface {
 	HandleGitLabWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleGitLabWebhookResp, error)
 
 	HandleGitLabWebhookWithResponse(ctx context.Context, body HandleGitLabWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleGitLabWebhookResp, error)
+
+	// QueryK8sResourcesWithBodyWithResponse request with any body
+	QueryK8sResourcesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryK8sResourcesResp, error)
+
+	QueryK8sResourcesWithResponse(ctx context.Context, body QueryK8sResourcesJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryK8sResourcesResp, error)
 
 	// GetHealthWithResponse request
 	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResp, error)
@@ -15852,6 +15926,34 @@ func (r HandleGitLabWebhookResp) StatusCode() int {
 	return 0
 }
 
+type QueryK8sResourcesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *K8sResourceQueryResponse
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+	JSON502      *BadGateway
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryK8sResourcesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryK8sResourcesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetHealthResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -17771,6 +17873,23 @@ func (c *ClientWithResponses) HandleGitLabWebhookWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseHandleGitLabWebhookResp(rsp)
+}
+
+// QueryK8sResourcesWithBodyWithResponse request with arbitrary body returning *QueryK8sResourcesResp
+func (c *ClientWithResponses) QueryK8sResourcesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryK8sResourcesResp, error) {
+	rsp, err := c.QueryK8sResourcesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryK8sResourcesResp(rsp)
+}
+
+func (c *ClientWithResponses) QueryK8sResourcesWithResponse(ctx context.Context, body QueryK8sResourcesJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryK8sResourcesResp, error) {
+	rsp, err := c.QueryK8sResources(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryK8sResourcesResp(rsp)
 }
 
 // GetHealthWithResponse request returning *GetHealthResp
@@ -26292,6 +26411,74 @@ func ParseHandleGitLabWebhookResp(rsp *http.Response) (*HandleGitLabWebhookResp,
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryK8sResourcesResp parses an HTTP response from a QueryK8sResourcesWithResponse call
+func ParseQueryK8sResourcesResp(rsp *http.Response) (*QueryK8sResourcesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryK8sResourcesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest K8sResourceQueryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest BadGateway
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
 
 	}
 
