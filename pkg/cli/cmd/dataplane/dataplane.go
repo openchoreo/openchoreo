@@ -6,14 +6,15 @@ package dataplane
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/dataplane"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-func NewDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewDataPlaneCmd() *cobra.Command {
 	dataPlaneCmd := &cobra.Command{
 		Use:     constants.DataPlane.Use,
 		Aliases: constants.DataPlane.Aliases,
@@ -22,21 +23,21 @@ func NewDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	dataPlaneCmd.AddCommand(
-		newListDataPlaneCmd(impl),
+		newListDataPlaneCmd(),
 	)
 
 	return dataPlaneCmd
 }
 
-func newListDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newListDataPlaneCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.ListDataPlane,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.ListDataPlanes(api.ListDataPlanesParams{
+			return dataplane.New().List(dataplane.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
-		PreRunE: auth.RequireLogin(impl),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
 }

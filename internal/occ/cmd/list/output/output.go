@@ -12,25 +12,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// PrintComponentWorkflows prints component workflows in table format
-func PrintComponentWorkflows(list *gen.ComponentWorkflowTemplateList) error {
-	if list == nil || len(list.Items) == 0 {
-		fmt.Println("No component workflows found")
-		return nil
-	}
-
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tAGE")
-
-	for _, cwf := range list.Items {
-		fmt.Fprintf(w, "%s\t%s\n",
-			cwf.Name,
-			utils.FormatAge(cwf.CreatedAt))
-	}
-
-	return w.Flush()
-}
-
 // PrintComponentReleases prints component releases in table format
 func PrintComponentReleases(list *gen.ComponentReleaseList) error {
 	if list == nil || len(list.Items) == 0 {

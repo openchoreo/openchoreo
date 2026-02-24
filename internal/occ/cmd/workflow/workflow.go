@@ -6,18 +6,46 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"os"
+	"text/tabwriter"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
+	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-type WorkflowImpl struct{}
+// Workflow implements workflow operations
+type Workflow struct{}
 
-func NewWorkflowImpl() *WorkflowImpl {
-	return &WorkflowImpl{}
+// New creates a new workflow implementation
+func New() *Workflow {
+	return &Workflow{}
 }
 
-func (s *WorkflowImpl) StartWorkflowRun(params api.StartWorkflowRunParams) error {
+// List lists all workflows in a namespace
+func (w *Workflow) List(params ListParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkflow, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.ListWorkflows(ctx, params.Namespace, &gen.ListWorkflowsParams{})
+	if err != nil {
+		return fmt.Errorf("failed to list workflows: %w", err)
+	}
+
+	return print(result)
+}
+
+// StartRun starts a workflow run
+func (w *Workflow) StartRun(params StartRunParams) error {
 	if params.Namespace == "" {
 		return fmt.Errorf("namespace is required")
 	}
@@ -42,4 +70,23 @@ func (s *WorkflowImpl) StartWorkflowRun(params api.StartWorkflowRunParams) error
 	fmt.Printf("  Status: %s\n", workflowRun.Status)
 
 	return nil
+}
+
+func print(list *gen.WorkflowList) error {
+	if list == nil || len(list.Items) == 0 {
+		fmt.Println("No workflows found")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "NAME\tAGE")
+
+	for _, wf := range list.Items {
+		fmt.Fprintf(w, "%s\t%s\n",
+			wf.Name,
+			utils.FormatAge(wf.CreatedAt),
+		)
+	}
+
+	return w.Flush()
 }

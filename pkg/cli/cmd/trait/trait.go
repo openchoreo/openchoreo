@@ -6,14 +6,15 @@ package trait
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/trait"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-func NewTraitCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewTraitCmd() *cobra.Command {
 	traitCmd := &cobra.Command{
 		Use:     constants.Trait.Use,
 		Aliases: constants.Trait.Aliases,
@@ -22,21 +23,21 @@ func NewTraitCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	traitCmd.AddCommand(
-		newListTraitCmd(impl),
+		newListTraitCmd(),
 	)
 
 	return traitCmd
 }
 
-func newListTraitCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newListTraitCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.ListTrait,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.ListTraits(api.ListTraitsParams{
+			return trait.New().List(trait.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
-		PreRunE: auth.RequireLogin(impl),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
 }

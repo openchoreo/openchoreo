@@ -6,14 +6,15 @@ package workflow
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-func NewWorkflowCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewWorkflowCmd() *cobra.Command {
 	workflowCmd := &cobra.Command{
 		Use:     constants.Workflow.Use,
 		Aliases: constants.Workflow.Aliases,
@@ -22,39 +23,39 @@ func NewWorkflowCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	workflowCmd.AddCommand(
-		newListWorkflowCmd(impl),
-		newStartWorkflowCmd(impl),
+		newListWorkflowCmd(),
+		newStartWorkflowCmd(),
 	)
 
 	return workflowCmd
 }
 
-func newListWorkflowCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newListWorkflowCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.ListWorkflow,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.ListWorkflows(api.ListWorkflowsParams{
+			return workflow.New().List(workflow.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
-		PreRunE: auth.RequireLogin(impl),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
 }
 
-func newStartWorkflowCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newStartWorkflowCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.StartWorkflow,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
 			workflowName := fg.GetArgs()[0]
-			return impl.StartWorkflowRun(api.StartWorkflowRunParams{
+			return workflow.New().StartRun(workflow.StartRunParams{
 				Namespace:    fg.GetString(flags.Namespace),
 				WorkflowName: workflowName,
 			})
 		},
-		PreRunE: auth.RequireLogin(impl),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
-	cmd.Args = cobra.ExactArgs(1) // Require workflow name as positional arg
+	cmd.Args = cobra.ExactArgs(1)
 	return cmd
 }

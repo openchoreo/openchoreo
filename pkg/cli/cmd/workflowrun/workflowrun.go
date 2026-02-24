@@ -6,14 +6,15 @@ package workflowrun
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-func NewWorkflowRunCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewWorkflowRunCmd() *cobra.Command {
 	workflowRunCmd := &cobra.Command{
 		Use:     constants.WorkflowRun.Use,
 		Aliases: constants.WorkflowRun.Aliases,
@@ -22,24 +23,23 @@ func NewWorkflowRunCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	workflowRunCmd.AddCommand(
-		newListWorkflowRunCmd(impl),
+		newListWorkflowRunCmd(),
 	)
 
 	return workflowRunCmd
 }
 
-func newListWorkflowRunCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newListWorkflowRunCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.ListWorkflowRun,
 		Flags: []flags.Flag{
 			flags.Namespace,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
-			params := api.ListWorkflowRunsParams{
+			return workflowrun.New().List(workflowrun.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
-			}
-			return impl.ListWorkflowRuns(params)
+			})
 		},
-		PreRunE: auth.RequireLogin(impl),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
 }

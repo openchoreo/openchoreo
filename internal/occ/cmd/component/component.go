@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -379,4 +381,45 @@ func mergeOverridesWithBinding(existingBinding *gen.ReleaseBinding, setValues []
 	}
 
 	return &rb, nil
+}
+
+func print(list *gen.ComponentList, showProject bool) error {
+	if list == nil || len(list.Items) == 0 {
+		fmt.Println("No components found")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	if showProject {
+		fmt.Fprintln(w, "NAME\tPROJECT\tTYPE\tAGE")
+	} else {
+		fmt.Fprintln(w, "NAME\tTYPE\tAGE")
+	}
+
+	for _, comp := range list.Items {
+		projectName := ""
+		componentType := ""
+		if comp.Spec != nil {
+			projectName = comp.Spec.Owner.ProjectName
+			componentType = comp.Spec.ComponentType.Name
+		}
+		age := ""
+		if comp.Metadata.CreationTimestamp != nil {
+			age = utils.FormatAge(*comp.Metadata.CreationTimestamp)
+		}
+		if showProject {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+				comp.Metadata.Name,
+				projectName,
+				componentType,
+				age)
+		} else {
+			fmt.Fprintf(w, "%s\t%s\t%s\n",
+				comp.Metadata.Name,
+				componentType,
+				age)
+		}
+	}
+
+	return w.Flush()
 }

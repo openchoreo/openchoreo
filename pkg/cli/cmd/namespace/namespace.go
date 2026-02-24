@@ -6,14 +6,15 @@ package namespace
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/namespace"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-func NewNamespaceCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewNamespaceCmd() *cobra.Command {
 	namespaceCmd := &cobra.Command{
 		Use:     constants.Namespace.Use,
 		Aliases: constants.Namespace.Aliases,
@@ -22,19 +23,19 @@ func NewNamespaceCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	namespaceCmd.AddCommand(
-		newListNamespaceCmd(impl),
+		newListNamespaceCmd(),
 	)
 
 	return namespaceCmd
 }
 
-func newListNamespaceCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newListNamespaceCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.ListNamespace,
 		Flags:   []flags.Flag{},
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.ListNamespaces(api.ListNamespacesParams{})
+			return namespace.New().List()
 		},
-		PreRunE: auth.RequireLogin(impl),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
 }

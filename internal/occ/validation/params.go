@@ -540,16 +540,16 @@ func validateNamespace(resource ResourceType, namespace string) error {
 
 // validateEnvironmentListParams validates parameters for environment list operations
 func validateEnvironmentListParams(params interface{}) error {
-	if p, ok := params.(api.ListEnvironmentsParams); ok {
-		return validateNamespace(ResourceEnvironment, p.Namespace)
+	if p, ok := params.(namespaceParams); ok {
+		return validateNamespace(ResourceEnvironment, p.GetNamespace())
 	}
 	return nil
 }
 
 // validateDataPlaneListParams validates parameters for data plane list operations
 func validateDataPlaneListParams(params interface{}) error {
-	if p, ok := params.(api.ListDataPlanesParams); ok {
-		return validateNamespace(ResourceDataPlane, p.Namespace)
+	if p, ok := params.(namespaceParams); ok {
+		return validateNamespace(ResourceDataPlane, p.GetNamespace())
 	}
 	return nil
 }
@@ -557,8 +557,8 @@ func validateDataPlaneListParams(params interface{}) error {
 // validateBuildPlaneParams validates parameters for build plane operations
 func validateBuildPlaneParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdList {
-		if p, ok := params.(api.ListBuildPlanesParams); ok {
-			return validateNamespace(ResourceBuildPlane, p.Namespace)
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(ResourceBuildPlane, p.GetNamespace())
 		}
 	}
 	return nil
@@ -567,8 +567,8 @@ func validateBuildPlaneParams(cmdType CommandType, params interface{}) error {
 // validateObservabilityPlaneParams validates parameters for observability plane operations
 func validateObservabilityPlaneParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdList {
-		if p, ok := params.(api.ListObservabilityPlanesParams); ok {
-			return validateNamespace(ResourceObservabilityPlane, p.Namespace)
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(ResourceObservabilityPlane, p.GetNamespace())
 		}
 	}
 	return nil
@@ -577,8 +577,8 @@ func validateObservabilityPlaneParams(cmdType CommandType, params interface{}) e
 // validateComponentTypeParams validates parameters for component type operations
 func validateComponentTypeParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdList {
-		if p, ok := params.(api.ListComponentTypesParams); ok {
-			return validateNamespace(ResourceComponentType, p.Namespace)
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(ResourceComponentType, p.GetNamespace())
 		}
 	}
 	return nil
@@ -587,8 +587,8 @@ func validateComponentTypeParams(cmdType CommandType, params interface{}) error 
 // validateTraitParams validates parameters for trait operations
 func validateTraitParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdList {
-		if p, ok := params.(api.ListTraitsParams); ok {
-			return validateNamespace(ResourceTrait, p.Namespace)
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(ResourceTrait, p.GetNamespace())
 		}
 	}
 	return nil
@@ -597,8 +597,8 @@ func validateTraitParams(cmdType CommandType, params interface{}) error {
 // validateWorkflowParams validates parameters for workflow operations
 func validateWorkflowParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdList {
-		if p, ok := params.(api.ListWorkflowsParams); ok {
-			return validateNamespace(ResourceWorkflow, p.Namespace)
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(ResourceWorkflow, p.GetNamespace())
 		}
 	}
 	return nil
@@ -607,8 +607,8 @@ func validateWorkflowParams(cmdType CommandType, params interface{}) error {
 // validateSecretReferenceParams validates parameters for secret reference operations
 func validateSecretReferenceParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdList {
-		if p, ok := params.(api.ListSecretReferencesParams); ok {
-			return validateNamespace(ResourceSecretReference, p.Namespace)
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(ResourceSecretReference, p.GetNamespace())
 		}
 	}
 	return nil
@@ -651,8 +651,8 @@ func validateReleaseBindingParams(cmdType CommandType, params interface{}) error
 // validateWorkflowRunParams validates parameters for workflow run operations
 func validateWorkflowRunParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdList {
-		if p, ok := params.(api.ListWorkflowRunsParams); ok {
-			return validateNamespace(ResourceWorkflowRun, p.Namespace)
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(ResourceWorkflowRun, p.GetNamespace())
 		}
 	}
 	return nil

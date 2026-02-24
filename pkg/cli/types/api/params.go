@@ -380,49 +380,6 @@ type GenerateReleaseBindingParams struct {
 	RootDir          string // Root directory path for file-system mode
 }
 
-// ListNamespacesParams defines parameters for listing namespaces
-type ListNamespacesParams struct{}
-
-// ListEnvironmentsParams defines parameters for listing environments
-type ListEnvironmentsParams struct {
-	Namespace string
-}
-
-// ListDataPlanesParams defines parameters for listing data planes
-type ListDataPlanesParams struct {
-	Namespace string
-}
-
-// ListBuildPlanesParams defines parameters for listing build planes
-type ListBuildPlanesParams struct {
-	Namespace string
-}
-
-// ListObservabilityPlanesParams defines parameters for listing observability planes
-type ListObservabilityPlanesParams struct {
-	Namespace string
-}
-
-// ListComponentTypesParams defines parameters for listing component types
-type ListComponentTypesParams struct {
-	Namespace string
-}
-
-// ListTraitsParams defines parameters for listing traits
-type ListTraitsParams struct {
-	Namespace string
-}
-
-// ListWorkflowsParams defines parameters for listing workflows
-type ListWorkflowsParams struct {
-	Namespace string
-}
-
-// ListSecretReferencesParams defines parameters for listing secret references
-type ListSecretReferencesParams struct {
-	Namespace string
-}
-
 // ListComponentReleasesParams defines parameters for listing component releases
 type ListComponentReleasesParams struct {
 	Namespace string
@@ -435,17 +392,6 @@ type ListReleaseBindingsParams struct {
 	Namespace string
 	Project   string
 	Component string
-}
-
-// ListWorkflowRunsParams defines parameters for listing workflow runs
-type ListWorkflowRunsParams struct {
-	Namespace string
-}
-
-// StartWorkflowRunParams defines parameters for starting a workflow run
-type StartWorkflowRunParams struct {
-	Namespace    string
-	WorkflowName string
 }
 
 // ComponentLogsParams defines parameters for fetching component logs

@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package output
+package clustercomponenttype
 
 import (
 	"bytes"
@@ -40,9 +40,9 @@ func captureStdout(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
-func TestPrintClusterComponentTypes_Nil(t *testing.T) {
+func TestPrint_Nil(t *testing.T) {
 	out := captureStdout(t, func() {
-		if err := PrintClusterComponentTypes(nil); err != nil {
+		if err := print(nil); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -51,10 +51,10 @@ func TestPrintClusterComponentTypes_Nil(t *testing.T) {
 	}
 }
 
-func TestPrintClusterComponentTypes_Empty(t *testing.T) {
+func TestPrint_Empty(t *testing.T) {
 	list := &gen.ClusterComponentTypeList{Items: []gen.ClusterComponentType{}}
 	out := captureStdout(t, func() {
-		if err := PrintClusterComponentTypes(list); err != nil {
+		if err := print(list); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -63,7 +63,7 @@ func TestPrintClusterComponentTypes_Empty(t *testing.T) {
 	}
 }
 
-func TestPrintClusterComponentTypes_WithItems(t *testing.T) {
+func TestPrint_WithItems(t *testing.T) {
 	now := time.Now()
 	workloadType := gen.ClusterComponentTypeSpecWorkloadTypeDeployment
 	list := &gen.ClusterComponentTypeList{
@@ -86,7 +86,7 @@ func TestPrintClusterComponentTypes_WithItems(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		if err := PrintClusterComponentTypes(list); err != nil {
+		if err := print(list); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -108,7 +108,7 @@ func TestPrintClusterComponentTypes_WithItems(t *testing.T) {
 	}
 }
 
-func TestPrintClusterComponentTypes_NilSpec(t *testing.T) {
+func TestPrint_NilSpec(t *testing.T) {
 	now := time.Now()
 	list := &gen.ClusterComponentTypeList{
 		Items: []gen.ClusterComponentType{
@@ -123,96 +123,12 @@ func TestPrintClusterComponentTypes_NilSpec(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		if err := PrintClusterComponentTypes(list); err != nil {
+		if err := print(list); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
 	if !strings.Contains(out, "no-spec-type") {
 		t.Errorf("expected output to contain 'no-spec-type', got %q", out)
-	}
-}
-
-func TestPrintClusterTraits_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
-		if err := PrintClusterTraits(nil); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-	if !strings.Contains(out, "No cluster traits found") {
-		t.Errorf("expected empty message, got %q", out)
-	}
-}
-
-func TestPrintClusterTraits_Empty(t *testing.T) {
-	list := &gen.ClusterTraitList{Items: []gen.ClusterTrait{}}
-	out := captureStdout(t, func() {
-		if err := PrintClusterTraits(list); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-	if !strings.Contains(out, "No cluster traits found") {
-		t.Errorf("expected empty message, got %q", out)
-	}
-}
-
-func TestPrintClusterTraits_WithItems(t *testing.T) {
-	now := time.Now()
-	list := &gen.ClusterTraitList{
-		Items: []gen.ClusterTrait{
-			{
-				Metadata: gen.ObjectMeta{
-					Name:              "ingress",
-					CreationTimestamp: &now,
-				},
-			},
-			{
-				Metadata: gen.ObjectMeta{
-					Name: "storage",
-				},
-			},
-		},
-	}
-
-	out := captureStdout(t, func() {
-		if err := PrintClusterTraits(list); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	// Verify header
-	if !strings.Contains(out, "NAME") || !strings.Contains(out, "AGE") {
-		t.Errorf("expected table header with NAME, AGE columns, got %q", out)
-	}
-
-	// Verify items
-	if !strings.Contains(out, "ingress") {
-		t.Errorf("expected output to contain 'ingress', got %q", out)
-	}
-	if !strings.Contains(out, "storage") {
-		t.Errorf("expected output to contain 'storage', got %q", out)
-	}
-}
-
-func TestPrintClusterTraits_NilTimestamp(t *testing.T) {
-	list := &gen.ClusterTraitList{
-		Items: []gen.ClusterTrait{
-			{
-				Metadata: gen.ObjectMeta{
-					Name:              "no-timestamp",
-					CreationTimestamp: nil,
-				},
-			},
-		},
-	}
-
-	out := captureStdout(t, func() {
-		if err := PrintClusterTraits(list); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	if !strings.Contains(out, "no-timestamp") {
-		t.Errorf("expected output to contain 'no-timestamp', got %q", out)
 	}
 }

@@ -5,31 +5,14 @@ package api
 
 // CommandImplementationInterface combines all APIs
 type CommandImplementationInterface interface {
-	NamespaceAPI
 	ApplyAPI
 	DeleteAPI
 	LoginAPI
 	LogoutAPI
-	EnvironmentAPI
-	DataPlaneAPI
-	BuildPlaneAPI
-	ObservabilityPlaneAPI
 	ConfigContextAPI
 	WorkloadAPI
-	ComponentTypeAPI
-	TraitAPI
-	ClusterComponentTypeAPI
-	ClusterTraitAPI
-	SecretReferenceAPI
 	ComponentReleaseAPI
 	ReleaseBindingAPI
-	WorkflowAPI
-	WorkflowRunAPI
-}
-
-// NamespaceAPI defines namespace-related operations
-type NamespaceAPI interface {
-	ListNamespaces(params ListNamespacesParams) error
 }
 
 // ApplyAPI defines methods for applying configurations
@@ -54,22 +37,6 @@ type LogoutAPI interface {
 	Logout() error
 }
 
-type EnvironmentAPI interface {
-	ListEnvironments(params ListEnvironmentsParams) error
-}
-
-type DataPlaneAPI interface {
-	ListDataPlanes(params ListDataPlanesParams) error
-}
-
-type BuildPlaneAPI interface {
-	ListBuildPlanes(params ListBuildPlanesParams) error
-}
-
-type ObservabilityPlaneAPI interface {
-	ListObservabilityPlanes(params ListObservabilityPlanesParams) error
-}
-
 type ConfigContextAPI interface {
 	AddContext(params AddContextParams) error
 	ListContexts() error
@@ -91,31 +58,6 @@ type WorkloadAPI interface {
 	CreateWorkload(params CreateWorkloadParams) error
 }
 
-// ComponentTypeAPI defines component type operations
-type ComponentTypeAPI interface {
-	ListComponentTypes(params ListComponentTypesParams) error
-}
-
-// TraitAPI defines trait operations
-type TraitAPI interface {
-	ListTraits(params ListTraitsParams) error
-}
-
-// ClusterComponentTypeAPI defines cluster component type operations
-type ClusterComponentTypeAPI interface {
-	ListClusterComponentTypes() error
-}
-
-// ClusterTraitAPI defines cluster trait operations
-type ClusterTraitAPI interface {
-	ListClusterTraits() error
-}
-
-// SecretReferenceAPI defines secret reference operations
-type SecretReferenceAPI interface {
-	ListSecretReferences(params ListSecretReferencesParams) error
-}
-
 // ComponentReleaseAPI defines component release operations (file-system mode)
 type ComponentReleaseAPI interface {
 	GenerateComponentRelease(params GenerateComponentReleaseParams) error
@@ -126,15 +68,4 @@ type ComponentReleaseAPI interface {
 type ReleaseBindingAPI interface {
 	GenerateReleaseBinding(params GenerateReleaseBindingParams) error
 	ListReleaseBindings(params ListReleaseBindingsParams) error
-}
-
-// WorkflowRunAPI defines methods for starting workflow runs
-type WorkflowRunAPI interface {
-	StartWorkflowRun(params StartWorkflowRunParams) error
-	ListWorkflowRuns(params ListWorkflowRunsParams) error
-}
-
-// WorkflowAPI defines workflow operations
-type WorkflowAPI interface {
-	ListWorkflows(params ListWorkflowsParams) error
 }

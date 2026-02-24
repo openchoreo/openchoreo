@@ -8,11 +8,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/delete"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/list"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workload"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -156,73 +154,4 @@ func (c *CommandImplementation) GenerateReleaseBinding(params api.GenerateReleas
 func (c *CommandImplementation) ListReleaseBindings(params api.ListReleaseBindingsParams) error {
 	bindingImpl := releasebinding.NewReleaseBindingImpl()
 	return bindingImpl.ListReleaseBindings(params)
-}
-
-// List Operations
-
-func (c *CommandImplementation) ListNamespaces(params api.ListNamespacesParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListNamespaces(params)
-}
-
-func (c *CommandImplementation) ListEnvironments(params api.ListEnvironmentsParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListEnvironments(params)
-}
-
-func (c *CommandImplementation) ListDataPlanes(params api.ListDataPlanesParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListDataPlanes(params)
-}
-
-func (c *CommandImplementation) ListBuildPlanes(params api.ListBuildPlanesParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListBuildPlanes(params)
-}
-
-func (c *CommandImplementation) ListObservabilityPlanes(params api.ListObservabilityPlanesParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListObservabilityPlanes(params)
-}
-
-func (c *CommandImplementation) ListComponentTypes(params api.ListComponentTypesParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListComponentTypes(params)
-}
-
-func (c *CommandImplementation) ListTraits(params api.ListTraitsParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListTraits(params)
-}
-
-func (c *CommandImplementation) ListClusterComponentTypes() error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListClusterComponentTypes()
-}
-
-func (c *CommandImplementation) ListClusterTraits() error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListClusterTraits()
-}
-
-func (c *CommandImplementation) ListWorkflows(params api.ListWorkflowsParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListWorkflows(params)
-}
-
-func (c *CommandImplementation) ListSecretReferences(params api.ListSecretReferencesParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListSecretReferences(params)
-}
-
-func (c *CommandImplementation) ListWorkflowRuns(params api.ListWorkflowRunsParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListWorkflowRuns(params)
-}
-
-// Workflow Run Operations
-
-func (c *CommandImplementation) StartWorkflowRun(params api.StartWorkflowRunParams) error {
-	workflowImpl := workflow.NewWorkflowImpl()
-	return workflowImpl.StartWorkflowRun(params)
 }

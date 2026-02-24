@@ -6,14 +6,15 @@ package componenttype
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/componenttype"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-func NewComponentTypeCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewComponentTypeCmd() *cobra.Command {
 	componentTypeCmd := &cobra.Command{
 		Use:     constants.ComponentType.Use,
 		Aliases: constants.ComponentType.Aliases,
@@ -22,21 +23,21 @@ func NewComponentTypeCmd(impl api.CommandImplementationInterface) *cobra.Command
 	}
 
 	componentTypeCmd.AddCommand(
-		newListComponentTypeCmd(impl),
+		newListComponentTypeCmd(),
 	)
 
 	return componentTypeCmd
 }
 
-func newListComponentTypeCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newListComponentTypeCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.ListComponentType,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.ListComponentTypes(api.ListComponentTypesParams{
+			return componenttype.New().List(componenttype.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
-		PreRunE: auth.RequireLogin(impl),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
 }
