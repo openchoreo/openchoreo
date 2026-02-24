@@ -32,12 +32,9 @@ import (
 )
 
 const (
-	httpRouteKind      = "HTTPRoute"
-	gatewayAPIGroup    = "gateway.networking.k8s.io"
-	httpRouteScheme    = "https"
-	standardHTTPSPort  = 19443
-	defaultGatewayName = "gateway-default"
-	defaultGatewayNS   = "openchoreo-data-plane"
+	httpRouteKind     = "HTTPRoute"
+	gatewayAPIGroup   = "gateway.networking.k8s.io"
+	standardHTTPSPort = 19443
 )
 
 // Reconciler reconciles a ReleaseBinding object
@@ -972,11 +969,18 @@ func (r *Reconciler) generateResourceID(resource map[string]any, index int) stri
 	return fmt.Sprintf("resource-%d", index)
 }
 
-// resolveEndpointStatuses matches each rendered HTTPRoute to a named workload endpoint
-// by comparing the HTTPRoute's backendRef[0].port with the endpoint's port, then derives
-// the invoke URL from the HTTPRoute hostname and optional path prefix.
-// When the HTTPRoute's parentRef matches a known gateway in the environment or dataplane
-// configuration, the corresponding non-standard port is included in the URL.
+// endpointMeta holds the type and visibility configuration of a workload endpoint.
+type endpointMeta struct {
+	endpointType openchoreov1alpha1.EndpointType
+	visibility   []openchoreov1alpha1.EndpointVisibility
+}
+
+// resolveEndpointURLStatuses matches each rendered HTTPRoute to a named workload endpoint
+// using the openchoreo.dev/endpoint-name and openchoreo.dev/endpoint-visibility labels,
+// then derives the invoke URL from the HTTPRoute hostname and optional path prefix.
+// The gateway port is selected based on the endpoint visibility: external visibility uses
+// the external ingress gateway; all other visibilities use the internal ingress gateway.
+// Environment-level gateway configuration takes precedence over dataplane-level configuration.
 func resolveEndpointURLStatuses(
 	ctx context.Context,
 	resources []openchoreov1alpha1.Resource,
@@ -991,14 +995,30 @@ func resolveEndpointURLStatuses(
 		return nil
 	}
 
-	// Build port → endpoint name lookup (port is unique per workload)
-	portToName := make(map[int64]string, len(endpoints))
+	// Build a map of endpoint name → endpointMeta for HTTP-compatible endpoint types.
+	// Only HTTP, REST, GraphQL, Websocket and gRPC endpoints are exposed via HTTPRoutes.
+	httpEndpoints := make(map[string]endpointMeta, len(endpoints))
 	for name, ep := range endpoints {
-		portToName[int64(ep.Port)] = name
-		logger.Info("Registered workload endpoint", "name", name, "port", ep.Port, "type", ep.Type)
+		switch ep.Type {
+		case openchoreov1alpha1.EndpointTypeHTTP,
+			openchoreov1alpha1.EndpointTypeREST,
+			openchoreov1alpha1.EndpointTypeGraphQL,
+			openchoreov1alpha1.EndpointTypeWebsocket,
+			openchoreov1alpha1.EndpointTypeGRPC:
+			httpEndpoints[name] = endpointMeta{
+				endpointType: ep.Type,
+				visibility:   ep.Visibility,
+			}
+			logger.Info("Registered HTTP-compatible endpoint", "name", name, "type", ep.Type)
+		default:
+			logger.V(1).Info("Skipping non-HTTP endpoint", "name", name, "type", ep.Type)
+		}
 	}
 
-	result := make([]openchoreov1alpha1.EndpointURLStatus, 0, len(resources))
+	// accumulated holds one EndpointURLStatus per endpoint name, built up across all HTTPRoutes.
+	accumulated := make(map[string]*openchoreov1alpha1.EndpointURLStatus)
+	// orderedNames tracks first-seen order so the result slice is deterministic.
+	orderedNames := make([]string, 0)
 
 	for i := range resources {
 		res := &resources[i]
@@ -1019,14 +1039,21 @@ func resolveEndpointURLStatuses(
 			continue
 		}
 
-		// Match backendRef[0].port → endpoint name
-		port := extractBackendRefPort(obj)
-		endpointName, ok := portToName[port]
-		if !ok {
-			logger.Info("No workload endpoint matched HTTPRoute backendRef port",
+		// Get endpoint name and visibility from labels.
+		objLabels := obj.GetLabels()
+		endpointName := objLabels[labels.LabelKeyEndpointName]
+		visibilityStr := objLabels[labels.LabelKeyEndpointVisibility]
+
+		if endpointName == "" {
+			logger.V(1).Info("HTTPRoute missing endpoint-name label, skipping", "httpRouteName", obj.GetName())
+			continue
+		}
+
+		// Only process HTTPRoutes for endpoints with HTTP-compatible types.
+		if _, ok := httpEndpoints[endpointName]; !ok {
+			logger.V(1).Info("HTTPRoute endpoint name not in supported HTTP endpoints, skipping",
 				"httpRouteName", obj.GetName(),
-				"backendRefPort", port,
-				"availablePorts", portToName,
+				"endpointName", endpointName,
 			)
 			continue
 		}
@@ -1036,74 +1063,75 @@ func resolveEndpointURLStatuses(
 			continue
 		}
 
-		// Resolve port from the parentRef gateway configuration
-		parentRefName, parentRefNamespace := extractFirstParentRef(obj)
-		gatewayPort := resolveGatewayPort(parentRefName, parentRefNamespace, environment, dataPlane)
+		// Resolve the gateway endpoint spec based on the visibility label.
+		visibility := openchoreov1alpha1.EndpointVisibility(visibilityStr)
+		gwEndpoint := resolveGatewayEndpointByVisibility(visibility, environment, dataPlane)
+
+		if gwEndpoint == nil {
+			logger.V(1).Info("No gateway endpoint configured for visibility, skipping",
+				"httpRouteName", obj.GetName(),
+				"endpointName", endpointName,
+				"visibility", visibilityStr,
+			)
+			continue
+		}
 
 		path := extractFirstPathValue(obj)
-		host := hostname
-		if gatewayPort != 0 {
-			host = fmt.Sprintf("%s:%d", hostname, gatewayPort)
+		listenerURLs := buildListenerURLs(hostname, path, gwEndpoint)
+
+		// Get or create the accumulated status entry for this endpoint name.
+		status, exists := accumulated[endpointName]
+		if !exists {
+			status = &openchoreov1alpha1.EndpointURLStatus{Name: endpointName}
+			accumulated[endpointName] = status
+			orderedNames = append(orderedNames, endpointName)
 		}
 
-		var invokeURL string
-		if path != "" {
-			invokeURL = fmt.Sprintf("%s://%s%s", httpRouteScheme, host, path)
+		if visibility == openchoreov1alpha1.EndpointVisibilityExternal {
+			status.ExternalURLs = listenerURLs
+			logger.Info("Resolved external endpoint URLs", "endpointName", endpointName,
+				"hostname", hostname, "visibility", visibilityStr)
 		} else {
-			invokeURL = fmt.Sprintf("%s://%s", httpRouteScheme, host)
+			status.InternalURLs = listenerURLs
+			logger.Info("Resolved internal endpoint URLs", "endpointName", endpointName,
+				"hostname", hostname, "visibility", visibilityStr)
 		}
-
-		logger.Info("Resolved endpoint URL",
-			"endpointName", endpointName,
-			"invokeURL", invokeURL,
-			"hostname", hostname,
-			"gatewayPort", gatewayPort,
-			"parentRefName", parentRefName,
-			"parentRefNamespace", parentRefNamespace,
-			"path", path,
-		)
-
-		result = append(result, openchoreov1alpha1.EndpointURLStatus{
-			Name:      endpointName,
-			InvokeURL: invokeURL,
-		})
 	}
 
+	result := make([]openchoreov1alpha1.EndpointURLStatus, 0, len(orderedNames))
+	for _, name := range orderedNames {
+		result = append(result, *accumulated[name])
+	}
 	return result
 }
 
-// extractBackendRefPort returns the port from spec.rules[0].backendRefs[0].port, or 0 if absent.
-func extractBackendRefPort(obj *unstructured.Unstructured) int64 {
-	rules, found, err := unstructured.NestedSlice(obj.Object, "spec", "rules")
-	if err != nil || !found || len(rules) == 0 {
-		return 0
+// buildListenerURLs constructs an EndpointGatewayURLs from the configured listeners in the given
+// GatewayEndpointSpec. Each listener URL is only set when the corresponding listener is non-nil.
+func buildListenerURLs(hostname, path string, ep *openchoreov1alpha1.GatewayEndpointSpec) *openchoreov1alpha1.EndpointGatewayURLs {
+	if ep == nil {
+		return nil
 	}
+	urls := &openchoreov1alpha1.EndpointGatewayURLs{}
+	if ep.HTTP != nil {
+		urls.HTTP = buildInvokeURL("http", hostname, path, ep.HTTP.Port)
+	}
+	if ep.HTTPS != nil {
+		urls.HTTPS = buildInvokeURL("https", hostname, path, ep.HTTPS.Port)
+	}
+	if ep.TLS != nil {
+		urls.TLS = buildInvokeURL("https", hostname, path, ep.TLS.Port)
+	}
+	return urls
+}
 
-	firstRule, ok := rules[0].(map[string]interface{})
-	if !ok {
-		return 0
+// buildInvokeURL constructs a single EndpointURL from the given components.
+func buildInvokeURL(scheme, hostname, path string, port int32) *openchoreov1alpha1.EndpointURL {
+	return &openchoreov1alpha1.EndpointURL{
+		Scheme: scheme,
+		Host:   hostname,
+		Port:   port,
+		Path:   path,
 	}
-
-	backendRefs, found, err := unstructured.NestedSlice(firstRule, "backendRefs")
-	if err != nil || !found || len(backendRefs) == 0 {
-		return 0
-	}
-
-	firstRef, ok := backendRefs[0].(map[string]interface{})
-	if !ok {
-		return 0
-	}
-
-	port, _, _ := unstructured.NestedFieldNoCopy(firstRef, "port")
-	switch v := port.(type) {
-	case int64:
-		return v
-	case float64:
-		return int64(v)
-	case int32:
-		return int64(v)
-	}
-	return 0
 }
 
 // extractFirstHostname returns the first entry of spec.hostnames[], or "" if absent.
@@ -1142,62 +1170,36 @@ func extractFirstPathValue(obj *unstructured.Unstructured) string {
 	return value
 }
 
-// extractFirstParentRef returns the name and namespace of the first parentRef in spec.parentRefs[].
-// Returns empty strings if no parentRef is present.
-func extractFirstParentRef(obj *unstructured.Unstructured) (name, namespace string) {
-	parentRefs, found, err := unstructured.NestedSlice(obj.Object, "spec", "parentRefs")
-	if err != nil || !found || len(parentRefs) == 0 {
-		return "", ""
-	}
-	firstRef, ok := parentRefs[0].(map[string]interface{})
-	if !ok {
-		return "", ""
-	}
-	name, _, _ = unstructured.NestedString(firstRef, "name")
-	namespace, _, _ = unstructured.NestedString(firstRef, "namespace")
-	return name, namespace
-}
-
-// resolveGatewayPort returns the HTTPS port for the gateway identified by name/namespace.
-// It checks the environment gateway config first (if present), falling back to the dataplane config.
-// Returns 0 if the name/namespace do not match any known gateway.
-func resolveGatewayPort(name, namespace string, env *openchoreov1alpha1.Environment, dp *openchoreov1alpha1.DataPlane) int32 {
-	if name == "" || dp == nil {
-		return 0
+// resolveGatewayEndpointByVisibility returns the GatewayEndpointSpec for the ingress gateway
+// based on endpoint visibility. External visibility maps to the external gateway endpoint;
+// all other visibilities (internal, namespace, project) map to the internal gateway endpoint.
+// Environment-level gateway configuration takes precedence over dataplane-level configuration.
+// Returns nil if no gateway endpoint is configured for the given visibility.
+func resolveGatewayEndpointByVisibility(
+	visibility openchoreov1alpha1.EndpointVisibility,
+	env *openchoreov1alpha1.Environment,
+	dp *openchoreov1alpha1.DataPlane,
+) *openchoreov1alpha1.GatewayEndpointSpec {
+	if dp == nil {
+		return nil
 	}
 
-	// Use the same precedence as the rendering pipeline: environment overrides dataplane.
+	// Use environment-level gateway config if present, otherwise fall back to dataplane.
 	spec := dp.Spec.Gateway
 	if env != nil && env.Spec.Gateway.Ingress != nil {
 		spec = env.Spec.Gateway
 	}
 
-	// Effective namespace for matching: parentRef namespace may be omitted when the
-	// HTTPRoute and Gateway are in the same namespace, so treat empty as a wildcard.
-	nsMatches := func(gwNS string) bool {
-		return namespace == "" || namespace == gwNS
+	// If no ingress configured, we can't resolve an endpoint as we don't support egress gateways.
+	// TODO: (lahirude@wso2.com) Add support for egress gateway endpoints and update this logic accordingly.
+	if spec.Ingress == nil {
+		return nil
 	}
 
-	// resolveEndpointPort checks if the given endpoint matches the name/namespace and returns the HTTPS port.
-	resolveEndpointPort := func(ep *openchoreov1alpha1.GatewayEndpointSpec) (int32, bool) {
-		if ep == nil || ep.Name != name || !nsMatches(ep.Namespace) {
-			return 0, false
-		}
-		if ep.HTTPS != nil && ep.HTTPS.Port != 0 {
-			return ep.HTTPS.Port, true
-		}
-		return standardHTTPSPort, true
+	if visibility == openchoreov1alpha1.EndpointVisibilityExternal {
+		return spec.Ingress.External
 	}
-
-	if spec.Ingress != nil {
-		if port, ok := resolveEndpointPort(spec.Ingress.External); ok {
-			return port
-		}
-		if port, ok := resolveEndpointPort(spec.Ingress.Internal); ok {
-			return port
-		}
-	}
-	return 0
+	return spec.Ingress.Internal
 }
 
 // getDefaultNotificationChannelName returns the default ObservabilityAlertsNotificationChannel name for an environment.

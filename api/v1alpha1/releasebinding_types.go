@@ -151,8 +151,9 @@ type ReleaseBindingStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// Endpoints contains the resolved invoke URLs for each named workload endpoint.
-	// Populated once the component is deployed and the corresponding HTTPRoutes are available.
+	// Endpoints contains the resolved invoke URLs for each named workload endpoint,
+	// keyed by endpoint name. Populated once the component is deployed and the
+	// corresponding HTTPRoutes are available.
 	// +optional
 	Endpoints []EndpointURLStatus `json:"endpoints,omitempty"`
 }

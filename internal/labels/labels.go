@@ -46,6 +46,13 @@ const (
 	// created by the observabilityalertsnotificationchannel controller.
 	LabelKeyNotificationChannelName = "openchoreo.dev/notification-channel-name"
 
+	// LabelKeyEndpointName identifies the workload endpoint name associated with a rendered gateway resource (e.g. HTTPRoute).
+	LabelKeyEndpointName = "openchoreo.dev/endpoint-name"
+
+	// LabelKeyEndpointVisibility identifies the visibility scope of the endpoint associated with a rendered gateway resource.
+	// Valid values match EndpointVisibility: "project", "namespace", "internal", "external".
+	LabelKeyEndpointVisibility = "openchoreo.dev/endpoint-visibility"
+
 	// LabelKeyControlPlaneNamespace identifies a namespace as an OpenChoreo control plane namespace
 	// that groups user resources (Projects, Components, Environments, etc.)
 	// This label distinguishes control plane namespaces from:

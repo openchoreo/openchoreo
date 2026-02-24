@@ -244,10 +244,10 @@ spec:
           labels: ${metadata.labels}
         spec:
           parentRefs:
-            - name: gateway-default
-              namespace: openchoreo-data-plane
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
           hostnames:
-            - ${metadata.environmentName}-${metadata.componentNamespace}.${dataplane.publicVirtualHost}
+            - ${metadata.environmentName}-${metadata.componentNamespace}.${gateway.ingress.external.https.host}
           rules:
           - matches:
             - path:
