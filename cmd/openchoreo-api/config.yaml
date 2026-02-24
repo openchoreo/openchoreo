@@ -161,6 +161,19 @@ legacy_mcp:
     - schema
     - resource
 
+mcp:
+  # Enable the Model Context Protocol (MCP) server.
+  # MCP provides AI-friendly tool interfaces for the API.
+  enabled: true
+
+  # List of enabled MCP toolsets.
+  # Each toolset exposes a group of related operations.
+  toolsets:
+    - namespace
+    - project
+    - component
+    - infrastructure
+
 logging:
   # Minimum log level: debug, info, warn, error
   level: info

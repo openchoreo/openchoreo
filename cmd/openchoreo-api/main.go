@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -32,12 +33,17 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	"github.com/openchoreo/openchoreo/internal/server"
+	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 	apilogger "github.com/openchoreo/openchoreo/internal/server/middleware/logger"
+	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/router"
 	"github.com/openchoreo/openchoreo/internal/version"
+	"github.com/openchoreo/openchoreo/pkg/mcp"
+	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
 func main() {
@@ -167,8 +173,31 @@ func main() {
 	jwtMiddleware := legacyHandler.InitJWTMiddleware()
 	authMiddleware := auth.OpenAPIAuth(jwtMiddleware, gen.BearerAuthScopes)
 
+	// Create base mux for the OpenAPI router.
+	// Non-OpenAPI routes (e.g. /mcp) are registered here before the generated
+	// routes, so they share the same mux without an extra wrapping layer.
+	baseMux := http.NewServeMux()
+
+	// MCP endpoint (only if enabled)
+	if cfg.MCP.Enabled {
+		mcpLogger := logger.With("component", "mcp")
+
+		// Build MCP toolsets from config
+		toolsets := buildMCPToolsets(&cfg, services, mcpLogger)
+
+		// MCP middleware chain: logger → auth401 interceptor → JWT auth → handler
+		mcpLoggerMw := apilogger.LoggerMiddleware(mcpLogger)
+		resourceMetadataURL := cfg.Server.PublicURL + "/.well-known/oauth-protected-resource"
+		mcpAuth401Mw := mcpmiddleware.Auth401Interceptor(resourceMetadataURL)
+		mcpHandler := middleware.Chain(mcpLoggerMw, mcpAuth401Mw, jwtMiddleware)(mcp.NewHTTPServer(toolsets))
+
+		baseMux.Handle("/mcp", mcpHandler)
+	}
+
 	// Create OpenAPI handler with middleware chain (order: logger → auth → handler)
+	// The generated routes are registered on the baseMux alongside /mcp.
 	openapiRoutes := gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
+		BaseRouter:  baseMux,
 		Middlewares: []gen.MiddlewareFunc{loggerMiddleware, authMiddleware},
 	})
 
@@ -218,6 +247,37 @@ type runtime struct {
 	pdp authzcore.PDP
 	// start runs any background processes (manager, cache sync). No-op when authz disabled.
 	start func(context.Context) error
+}
+
+// buildMCPToolsets creates the MCP toolsets from the configuration.
+// Each enabled toolset is backed by the handler services layer.
+func buildMCPToolsets(cfg *config.Config, svc *handlerservices.Services, logger *slog.Logger) *tools.Toolsets {
+	toolsetsMap := cfg.MCP.ParseToolsets()
+
+	logger.Info("Initializing MCP server", slog.Any("enabled_toolsets", cfg.MCP.Toolsets))
+
+	handler := mcphandlers.NewMCPHandler(svc)
+
+	toolsets := &tools.Toolsets{}
+	for toolsetType := range toolsetsMap {
+		switch toolsetType {
+		case tools.ToolsetNamespace:
+			toolsets.NamespaceToolset = handler
+			logger.Debug("Enabled MCP toolset", slog.String("toolset", "namespace"))
+		case tools.ToolsetProject:
+			toolsets.ProjectToolset = handler
+			logger.Debug("Enabled MCP toolset", slog.String("toolset", "project"))
+		case tools.ToolsetComponent:
+			toolsets.ComponentToolset = handler
+			logger.Debug("Enabled MCP toolset", slog.String("toolset", "component"))
+		case tools.ToolsetInfrastructure:
+			toolsets.InfrastructureToolset = handler
+			logger.Debug("Enabled MCP toolset", slog.String("toolset", "infrastructure"))
+		default:
+			logger.Warn("Unknown toolset type", slog.String("toolset", string(toolsetType)))
+		}
+	}
+	return toolsets
 }
 
 // setupRuntime bootstraps the authorization runtime. When authorization is

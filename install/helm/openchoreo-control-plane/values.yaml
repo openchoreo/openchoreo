@@ -1212,6 +1212,29 @@ openchoreoApi:
         - "resource"
     # @schema
     # type: object
+    # description: Model Context Protocol (MCP) server configuration
+    # @schema
+    mcp:
+      # @schema
+      # type: boolean
+      # description: Enable the MCP server for AI-friendly tool interfaces
+      # default: true
+      # @schema
+      enabled: true
+      # @schema
+      # type: array
+      # description: List of enabled MCP toolsets. Each toolset exposes a group of related operations.
+      # items:
+      #   type: string
+      # default: ["namespace", "project", "component", "infrastructure"]
+      # @schema
+      toolsets:
+        - "namespace"
+        - "project"
+        - "component"
+        - "infrastructure"
+    # @schema
+    # type: object
     # description: Logging configuration
     # @schema
     logging:

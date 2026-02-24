@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 )
 
 // ListOptions controls pagination for list operations.
@@ -86,11 +87,17 @@ func PreFilteredList[T any](
 			return nil, err
 		}
 
-		filtered := make([]T, 0, opts.Limit)
+		// Treat Limit <= 0 as "no limit" so the loop can execute.
+		limit := opts.Limit
+		if limit <= 0 {
+			limit = math.MaxInt
+		}
+
+		filtered := make([]T, 0, min(limit, 64))
 		k8sContinue := cur.Continue
 		skip := cur.InternalSkip
 
-		for len(filtered) < opts.Limit {
+		for len(filtered) < limit {
 			page, err := listResource(ctx, ListOptions{
 				Limit:  opts.Limit,
 				Cursor: k8sContinue,
@@ -122,7 +129,7 @@ func PreFilteredList[T any](
 
 				filtered = append(filtered, item)
 
-				if len(filtered) == opts.Limit {
+				if len(filtered) == limit {
 					// Page is full. Build cursor pointing to the next unprocessed item.
 					consumed := (len(page.Items) - len(items)) + i + 1
 					nextCur := internalCursor{
@@ -208,15 +215,21 @@ func FilteredList[T any](
 		return nil, err
 	}
 
+	// Treat Limit <= 0 as "no limit" so the loop can execute.
+	limit := opts.Limit
+	if limit <= 0 {
+		limit = math.MaxInt
+	}
+
 	// Fetch exactly the requested limit per K8s page since most items are
 	// expected to pass authz filtering.
 	batchSize := opts.Limit
 
-	authorized := make([]T, 0, opts.Limit)
+	authorized := make([]T, 0, min(limit, 64))
 	k8sContinue := cur.Continue
 	skip := cur.Skip
 
-	for len(authorized) < opts.Limit {
+	for len(authorized) < limit {
 		page, err := listResource(ctx, ListOptions{
 			Limit:  batchSize,
 			Cursor: k8sContinue,
@@ -252,7 +265,7 @@ func FilteredList[T any](
 
 			authorized = append(authorized, item)
 
-			if len(authorized) == opts.Limit {
+			if len(authorized) == limit {
 				// Page is full. Build cursor pointing to the next unprocessed item.
 				// i is relative to items (after skip adjustment), so compute the
 				// absolute index in the original page.Items slice.
