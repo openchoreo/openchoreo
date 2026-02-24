@@ -823,7 +823,7 @@ func (s *WorkflowRunService) triggerWorkflowInternal(ctx context.Context, namesp
 
 	// Parse the annotation that maps logical keys to parameter paths
 	annotation := workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters]
-	paramMap := parseWorkflowParameterAnnotation(annotation)
+	paramMap := controller.ParseWorkflowParameterAnnotation(annotation)
 
 	// Validate that repoUrl is configured in the component parameters
 	if repoURLPath, ok := paramMap["repoUrl"]; ok {

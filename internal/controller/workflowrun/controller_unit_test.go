@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 // Unit tests for helper functions that don't require k8s test environment
@@ -258,8 +259,8 @@ func TestConvertParameterValuesToStrings(t *testing.T) {
 }
 
 func TestParseWorkflowParameterAnnotation(t *testing.T) {
-	annotation := "repoUrl: parameters.repository.url, secretRef: parameters.repository.secretRef, invalid, commit: parameters.repository.revision.commit"
-	result := parseWorkflowParameterAnnotation(annotation)
+	annotation := "repoUrl: parameters.repository.url\nsecretRef: parameters.repository.secretRef\ncommit: parameters.repository.revision.commit\n"
+	result := controller.ParseWorkflowParameterAnnotation(annotation)
 
 	if result["repoUrl"] != "parameters.repository.url" {
 		t.Errorf("expected repoUrl path, got %q", result["repoUrl"])
@@ -269,9 +270,6 @@ func TestParseWorkflowParameterAnnotation(t *testing.T) {
 	}
 	if result["commit"] != "parameters.repository.revision.commit" {
 		t.Errorf("expected commit path, got %q", result["commit"])
-	}
-	if _, ok := result["invalid"]; ok {
-		t.Errorf("expected invalid entry to be ignored")
 	}
 }
 

@@ -16,30 +16,6 @@ import (
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 )
 
-// parseWorkflowParameterAnnotation parses openchoreo.dev/component-workflow-parameters
-// in the format "key1: path1, key2: path2".
-func parseWorkflowParameterAnnotation(annotation string) map[string]string {
-	result := make(map[string]string)
-	if annotation == "" {
-		return result
-	}
-
-	pairs := strings.Split(annotation, ",")
-	for _, pair := range pairs {
-		parts := strings.SplitN(strings.TrimSpace(pair), ":", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		key := strings.TrimSpace(parts[0])
-		path := strings.TrimSpace(parts[1])
-		if key != "" && path != "" {
-			result[key] = path
-		}
-	}
-
-	return result
-}
-
 // getNestedStringFromRawExtension returns a nested string value from parameters JSON.
 // The leading "parameters." prefix is stripped if present.
 // found=false is returned when the path does not exist or parameters are nil.

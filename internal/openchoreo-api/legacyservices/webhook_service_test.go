@@ -29,12 +29,12 @@ func TestParseWorkflowParameterAnnotation(t *testing.T) {
 		},
 		{
 			name:       "single key-value pair",
-			annotation: "repoUrl: parameters.repository.url",
+			annotation: "repoUrl: parameters.repository.url\n",
 			want:       map[string]string{"repoUrl": "parameters.repository.url"},
 		},
 		{
 			name:       "multiple key-value pairs",
-			annotation: "repoUrl: parameters.repository.url, branch: parameters.repository.revision.branch, appPath: parameters.appPath",
+			annotation: "repoUrl: parameters.repository.url\nbranch: parameters.repository.revision.branch\nappPath: parameters.appPath\n",
 			want: map[string]string{
 				"repoUrl": "parameters.repository.url",
 				"branch":  "parameters.repository.revision.branch",
@@ -42,33 +42,23 @@ func TestParseWorkflowParameterAnnotation(t *testing.T) {
 			},
 		},
 		{
-			name:       "extra whitespace",
-			annotation: "  repoUrl :  parameters.repository.url  ,  branch :  parameters.branch  ",
+			name:       "full annotation with all keys",
+			annotation: "repoUrl: parameters.repository.url\nbranch: parameters.repository.revision.branch\ncommit: parameters.repository.revision.commit\nappPath: parameters.repository.appPath\nsecretRef: parameters.repository.secretRef\nprojectName: parameters.scope.projectName\ncomponentName: parameters.scope.componentName\n",
 			want: map[string]string{
-				"repoUrl": "parameters.repository.url",
-				"branch":  "parameters.branch",
+				"repoUrl":       "parameters.repository.url",
+				"branch":        "parameters.repository.revision.branch",
+				"commit":        "parameters.repository.revision.commit",
+				"appPath":       "parameters.repository.appPath",
+				"secretRef":     "parameters.repository.secretRef",
+				"projectName":   "parameters.scope.projectName",
+				"componentName": "parameters.scope.componentName",
 			},
-		},
-		{
-			name:       "missing value after colon",
-			annotation: "repoUrl: , branch: parameters.branch",
-			want:       map[string]string{"branch": "parameters.branch"},
-		},
-		{
-			name:       "missing colon separator",
-			annotation: "repoUrl parameters.repository.url",
-			want:       map[string]string{},
-		},
-		{
-			name:       "empty key with value",
-			annotation: ": parameters.repository.url",
-			want:       map[string]string{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseWorkflowParameterAnnotation(tt.annotation)
+			got := controller.ParseWorkflowParameterAnnotation(tt.annotation)
 			if len(got) != len(tt.want) {
 				t.Fatalf("got %d entries, want %d: %v", len(got), len(tt.want), got)
 			}
@@ -246,7 +236,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "wf1",
 					Namespace:   "ns1",
-					Annotations: map[string]string{controller.AnnotationKeyComponentWorkflowParameters: "branch: parameters.branch"},
+					Annotations: map[string]string{controller.AnnotationKeyComponentWorkflowParameters: "branch: parameters.branch\n"},
 				},
 			},
 			wantErr: true,
@@ -271,7 +261,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					Name:      "wf1",
 					Namespace: "ns1",
 					Annotations: map[string]string{
-						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url",
+						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\n",
 					},
 				},
 			},
@@ -298,7 +288,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					Name:      "wf1",
 					Namespace: "ns1",
 					Annotations: map[string]string{
-						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url, appPath: parameters.appPath",
+						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\nappPath: parameters.appPath\n",
 					},
 				},
 			},
@@ -325,7 +315,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					Name:      "wf1",
 					Namespace: "ns1",
 					Annotations: map[string]string{
-						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url",
+						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\n",
 					},
 				},
 			},
@@ -347,7 +337,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					Name:      "wf1",
 					Namespace: "ns1",
 					Annotations: map[string]string{
-						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url",
+						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\n",
 					},
 				},
 			},
@@ -373,7 +363,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					Name:      "wf1",
 					Namespace: "ns1",
 					Annotations: map[string]string{
-						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url, appPath: parameters.appPath",
+						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\nappPath: parameters.appPath\n",
 					},
 				},
 			},

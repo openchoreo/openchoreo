@@ -161,7 +161,7 @@ func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp 
 
 	// Parse the annotation that maps logical keys to parameter paths
 	annotation := workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters]
-	paramMap := parseWorkflowParameterAnnotation(annotation)
+	paramMap := controller.ParseWorkflowParameterAnnotation(annotation)
 
 	// Get repoUrl path from the annotation
 	repoURLPath, ok := paramMap["repoUrl"]
@@ -184,29 +184,6 @@ func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp 
 	}
 
 	return repoURL, appPath, nil
-}
-
-// parseWorkflowParameterAnnotation parses the workflow-parameters annotation string
-// into a map of logical key to dotted parameter path.
-// Format: "key1: path1, key2: path2, ..."
-// Example: "repoUrl: parameters.repository.url, branch: parameters.repository.revision.branch"
-func parseWorkflowParameterAnnotation(annotation string) map[string]string {
-	result := make(map[string]string)
-	if annotation == "" {
-		return result
-	}
-	pairs := strings.Split(annotation, ",")
-	for _, pair := range pairs {
-		parts := strings.SplitN(strings.TrimSpace(pair), ":", 2)
-		if len(parts) == 2 {
-			key := strings.TrimSpace(parts[0])
-			path := strings.TrimSpace(parts[1])
-			if key != "" && path != "" {
-				result[key] = path
-			}
-		}
-	}
-	return result
 }
 
 // getNestedStringFromRawExtension navigates a runtime.RawExtension JSON blob using a dotted path
