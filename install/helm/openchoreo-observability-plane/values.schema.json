@@ -3699,6 +3699,12 @@
           "additionalProperties": false,
           "description": "OIDC configuration",
           "properties": {
+            "authServerBaseUrl": {
+              "default": "",
+              "description": "Base URL for the authorization server (used for OAuth metadata)",
+              "title": "authServerBaseUrl",
+              "type": "string"
+            },
             "issuer": {
               "default": "",
               "description": "OIDC issuer URL",

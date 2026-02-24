@@ -13,8 +13,6 @@ observer:
   extraEnvs:
   - name: OBSERVER_BASE_URL
     value: "http://observer.openchoreo.localhost:11080"
-  - name: AUTH_SERVER_BASE_URL
-    value: "http://thunder.openchoreo.localhost:8080"
   - name: OPENSEARCH_ADDRESS
     value: "https://opensearch:9200"
   - name: PROMETHEUS_ADDRESS
@@ -37,6 +35,7 @@ security:
     jwksUrl: "http://thunder.openchoreo.localhost:8080/oauth2/jwks"
     tokenUrl: "http://thunder.openchoreo.localhost:8080/oauth2/token"
     jwksUrlTlsInsecureSkipVerify: "true"
+    authServerBaseUrl: "http://thunder.openchoreo.localhost:8080"
 
 gateway:
   httpPort: 11080

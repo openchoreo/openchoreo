@@ -66,6 +66,10 @@ spec:
           value: /etc/openchoreo/auth-config.yaml
         - name: AUTHZ_SERVICE_URL
           value: {{ .Values.observer.controlPlaneApiUrl | quote }}
+        {{- if .Values.security.oidc.authServerBaseUrl }}
+        - name: AUTH_SERVER_BASE_URL
+          value: {{ .Values.security.oidc.authServerBaseUrl | quote }}
+        {{- end }}
         {{- if .Values.observer.extraEnvs }}
         {{- toYaml .Values.observer.extraEnvs | nindent 8 }}
         {{- end }}

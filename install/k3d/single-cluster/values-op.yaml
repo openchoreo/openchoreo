@@ -26,6 +26,7 @@ security:
   oidc:
     jwksUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
     tokenUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token"
+    authServerBaseUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090"
 
 gateway:
   httpPort: 11080

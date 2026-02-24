@@ -861,8 +861,6 @@ observer:
   extraEnvs:
   - name: OBSERVER_BASE_URL
     value: "http://localhost:11080"
-  - name: AUTH_SERVER_BASE_URL
-    value: "http://thunder.openchoreo.invalid:8080"
   - name: OPENSEARCH_ADDRESS
     value: "https://opensearch:9200"
   - name: PROMETHEUS_ADDRESS
@@ -2784,6 +2782,12 @@ security:
     # default: "false"
     # @schema
     jwksUrlTlsInsecureSkipVerify: "false"
+    # @schema
+    # type: string
+    # description: Base URL for the authorization server (used for OAuth metadata)
+    # default: ""
+    # @schema
+    authServerBaseUrl: ""
   # @schema
   # type: object
   # description: JWT configuration
