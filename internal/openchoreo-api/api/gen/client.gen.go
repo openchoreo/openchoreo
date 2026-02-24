@@ -92,9 +92,6 @@ type ClientInterface interface {
 	// GetOAuthProtectedResourceMetadata request
 	GetOAuthProtectedResourceMetadata(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetOpenIDConfiguration request
-	GetOpenIDConfiguration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListActions request
 	ListActions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -670,18 +667,6 @@ type ClientInterface interface {
 
 func (c *Client) GetOAuthProtectedResourceMetadata(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetOAuthProtectedResourceMetadataRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetOpenIDConfiguration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetOpenIDConfigurationRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -3210,33 +3195,6 @@ func NewGetOAuthProtectedResourceMetadataRequest(server string) (*http.Request, 
 	}
 
 	operationPath := fmt.Sprintf("/.well-known/oauth-protected-resource")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetOpenIDConfigurationRequest generates requests for GetOpenIDConfiguration
-func NewGetOpenIDConfigurationRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/.well-known/openid-configuration")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -10912,9 +10870,6 @@ type ClientWithResponsesInterface interface {
 	// GetOAuthProtectedResourceMetadataWithResponse request
 	GetOAuthProtectedResourceMetadataWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOAuthProtectedResourceMetadataResp, error)
 
-	// GetOpenIDConfigurationWithResponse request
-	GetOpenIDConfigurationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOpenIDConfigurationResp, error)
-
 	// ListActionsWithResponse request
 	ListActionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListActionsResp, error)
 
@@ -11504,28 +11459,6 @@ func (r GetOAuthProtectedResourceMetadataResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetOAuthProtectedResourceMetadataResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetOpenIDConfigurationResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ClientConfigList
-}
-
-// Status returns HTTPResponse.Status
-func (r GetOpenIDConfigurationResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetOpenIDConfigurationResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -15550,15 +15483,6 @@ func (c *ClientWithResponses) GetOAuthProtectedResourceMetadataWithResponse(ctx 
 	return ParseGetOAuthProtectedResourceMetadataResp(rsp)
 }
 
-// GetOpenIDConfigurationWithResponse request returning *GetOpenIDConfigurationResp
-func (c *ClientWithResponses) GetOpenIDConfigurationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOpenIDConfigurationResp, error) {
-	rsp, err := c.GetOpenIDConfiguration(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetOpenIDConfigurationResp(rsp)
-}
-
 // ListActionsWithResponse request returning *ListActionsResp
 func (c *ClientWithResponses) ListActionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListActionsResp, error) {
 	rsp, err := c.ListActions(ctx, reqEditors...)
@@ -17401,32 +17325,6 @@ func ParseGetOAuthProtectedResourceMetadataResp(rsp *http.Response) (*GetOAuthPr
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest OAuthProtectedResourceMetadata
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetOpenIDConfigurationResp parses an HTTP response from a GetOpenIDConfigurationWithResponse call
-func ParseGetOpenIDConfigurationResp(rsp *http.Response) (*GetOpenIDConfigurationResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetOpenIDConfigurationResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ClientConfigList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

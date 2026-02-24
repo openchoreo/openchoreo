@@ -31,8 +31,9 @@ func TestNewMetadataHandler(t *testing.T) {
 				AuthorizationServers: []string{
 					"http://sts.openchoreo.localhost",
 				},
-				BearerMethodsSupported: []string{"header"},
-				ScopesSupported:        []string{},
+				BearerMethodsSupported:    []string{"header"},
+				ScopesSupported:           []string{},
+				OpenChoreoSecurityEnabled: false,
 			},
 		},
 		{
@@ -50,8 +51,36 @@ func TestNewMetadataHandler(t *testing.T) {
 				AuthorizationServers: []string{
 					"http://sts.openchoreo.localhost",
 				},
+				BearerMethodsSupported:    []string{"header"},
+				ScopesSupported:           []string{},
+				OpenChoreoSecurityEnabled: false,
+			},
+		},
+		{
+			name: "openchoreo-api metadata with clients and security enabled",
+			config: MetadataHandlerConfig{
+				ResourceName: "OpenChoreo MCP Server",
+				ResourceURL:  "http://api.openchoreo.localhost/mcp",
+				AuthorizationServers: []string{
+					"http://sts.openchoreo.localhost",
+				},
+				Clients: []ClientInfo{
+					{Name: "cli", ClientID: "openchoreo-cli", Scopes: []string{"openid", "profile"}},
+				},
+				SecurityEnabled: true,
+			},
+			want: ProtectedResourceMetadata{
+				ResourceName: "OpenChoreo MCP Server",
+				Resource:     "http://api.openchoreo.localhost/mcp",
+				AuthorizationServers: []string{
+					"http://sts.openchoreo.localhost",
+				},
 				BearerMethodsSupported: []string{"header"},
 				ScopesSupported:        []string{},
+				OpenChoreoClients: []ClientInfo{
+					{Name: "cli", ClientID: "openchoreo-cli", Scopes: []string{"openid", "profile"}},
+				},
+				OpenChoreoSecurityEnabled: true,
 			},
 		},
 	}
@@ -104,6 +133,42 @@ func TestNewMetadataHandler(t *testing.T) {
 			for i, method := range got.BearerMethodsSupported {
 				if method != tt.want.BearerMethodsSupported[i] {
 					t.Errorf("BearerMethodsSupported[%d]: got %q, want %q", i, method, tt.want.BearerMethodsSupported[i])
+				}
+			}
+
+			if len(got.ScopesSupported) != len(tt.want.ScopesSupported) {
+				t.Fatalf("ScopesSupported length: got %d, want %d", len(got.ScopesSupported), len(tt.want.ScopesSupported))
+			}
+			for i, scope := range got.ScopesSupported {
+				if scope != tt.want.ScopesSupported[i] {
+					t.Errorf("ScopesSupported[%d]: got %q, want %q", i, scope, tt.want.ScopesSupported[i])
+				}
+			}
+
+			if got.OpenChoreoSecurityEnabled != tt.want.OpenChoreoSecurityEnabled {
+				t.Errorf("OpenChoreoSecurityEnabled: got %v, want %v", got.OpenChoreoSecurityEnabled, tt.want.OpenChoreoSecurityEnabled)
+			}
+
+			if len(got.OpenChoreoClients) != len(tt.want.OpenChoreoClients) {
+				t.Fatalf("OpenChoreoClients length: got %d, want %d", len(got.OpenChoreoClients), len(tt.want.OpenChoreoClients))
+			}
+
+			for i, client := range got.OpenChoreoClients {
+				wantClient := tt.want.OpenChoreoClients[i]
+				if client.Name != wantClient.Name {
+					t.Errorf("OpenChoreoClients[%d].Name: got %q, want %q", i, client.Name, wantClient.Name)
+				}
+				if client.ClientID != wantClient.ClientID {
+					t.Errorf("OpenChoreoClients[%d].ClientID: got %q, want %q", i, client.ClientID, wantClient.ClientID)
+				}
+				if len(client.Scopes) != len(wantClient.Scopes) {
+					t.Errorf("OpenChoreoClients[%d].Scopes length: got %d, want %d", i, len(client.Scopes), len(wantClient.Scopes))
+				} else {
+					for j, scope := range client.Scopes {
+						if scope != wantClient.Scopes[j] {
+							t.Errorf("OpenChoreoClients[%d].Scopes[%d]: got %q, want %q", i, j, scope, wantClient.Scopes[j])
+						}
+					}
 				}
 			}
 		})

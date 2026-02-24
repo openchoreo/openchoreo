@@ -598,24 +598,6 @@ type CapabilityResource struct {
 	Path *string `json:"path,omitempty"`
 }
 
-// ClientConfigList OpenID Connect configuration response
-type ClientConfigList struct {
-	// AuthorizationEndpoint OAuth2 authorization endpoint URL
-	AuthorizationEndpoint string `json:"authorization_endpoint"`
-
-	// ExternalClients Array of external client configurations
-	ExternalClients []ExternalClient `json:"external_clients"`
-
-	// Issuer OIDC issuer URL
-	Issuer *string `json:"issuer,omitempty"`
-
-	// SecurityEnabled Whether authentication is enabled on the server
-	SecurityEnabled bool `json:"security_enabled"`
-
-	// TokenEndpoint OAuth2 token endpoint URL
-	TokenEndpoint string `json:"token_endpoint"`
-}
-
 // ClusterAgentConfig Configuration for cluster agent-based communication
 type ClusterAgentConfig struct {
 	// ClientCA Reference to a secret or inline value
@@ -1744,18 +1726,6 @@ type EvaluateRequest struct {
 	SubjectContext SubjectContext `json:"subject_context"`
 }
 
-// ExternalClient External client configuration
-type ExternalClient struct {
-	// ClientId OAuth2 client ID for this client type
-	ClientId string `json:"client_id"`
-
-	// Name Name of the external client
-	Name string `json:"name"`
-
-	// Scopes OAuth2 scopes for this client
-	Scopes []string `json:"scopes"`
-}
-
 // FileVar File mount variable
 type FileVar struct {
 	// Key File key/name
@@ -1975,6 +1945,16 @@ type OAuthProtectedResourceMetadata struct {
 	// BearerMethodsSupported Supported bearer token methods
 	BearerMethodsSupported []string `json:"bearer_methods_supported"`
 
+	// OpenchoreoClients OpenChoreo extension (RFC 9728 §2). OAuth client configurations for
+	// external integrations (e.g., CLI). Used by clients to discover their
+	// client_id and required scopes.
+	OpenchoreoClients *[]OpenChoreoClient `json:"openchoreo_clients,omitempty"`
+
+	// OpenchoreoSecurityEnabled OpenChoreo extension (RFC 9728 §2). Indicates whether authentication
+	// is enforced on this server. When false, requests without tokens are
+	// accepted.
+	OpenchoreoSecurityEnabled *bool `json:"openchoreo_security_enabled,omitempty"`
+
 	// Resource URL of the protected resource
 	Resource string `json:"resource"`
 
@@ -2131,6 +2111,18 @@ type ObserverURLResponse struct {
 
 	// ObserverUrl URL to the observer service for logs and metrics
 	ObserverUrl *string `json:"observerUrl,omitempty"`
+}
+
+// OpenChoreoClient OAuth client configuration for an OpenChoreo external integration (e.g., CLI)
+type OpenChoreoClient struct {
+	// ClientId OAuth2 client ID
+	ClientId string `json:"client_id"`
+
+	// Name Name of the client integration
+	Name string `json:"name"`
+
+	// Scopes OAuth2 scopes required by this client
+	Scopes []string `json:"scopes"`
 }
 
 // Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens

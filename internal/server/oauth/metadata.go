@@ -9,14 +9,24 @@ import (
 	"net/http"
 )
 
+// ClientInfo represents an OAuth client configuration for external integrations.
+type ClientInfo struct {
+	Name     string   `json:"name"`
+	ClientID string   `json:"client_id"`
+	Scopes   []string `json:"scopes"`
+}
+
 // ProtectedResourceMetadata represents OAuth 2.0 protected resource metadata
-// as defined in RFC 8693 and related OAuth standards
+// as defined in RFC 9728. Additional OpenChoreo-specific extension fields
+// use the openchoreo_ prefix as permitted by RFC 9728 §2.
 type ProtectedResourceMetadata struct {
-	ResourceName           string   `json:"resource_name"`
-	Resource               string   `json:"resource"`
-	AuthorizationServers   []string `json:"authorization_servers"`
-	BearerMethodsSupported []string `json:"bearer_methods_supported"`
-	ScopesSupported        []string `json:"scopes_supported"`
+	ResourceName              string       `json:"resource_name"`
+	Resource                  string       `json:"resource"`
+	AuthorizationServers      []string     `json:"authorization_servers"`
+	BearerMethodsSupported    []string     `json:"bearer_methods_supported"`
+	ScopesSupported           []string     `json:"scopes_supported"`
+	OpenChoreoClients         []ClientInfo `json:"openchoreo_clients,omitempty"`
+	OpenChoreoSecurityEnabled bool         `json:"openchoreo_security_enabled"`
 }
 
 // MetadataHandlerConfig holds configuration for the OAuth metadata handler
@@ -24,6 +34,8 @@ type MetadataHandlerConfig struct {
 	ResourceName         string
 	ResourceURL          string
 	AuthorizationServers []string
+	Clients              []ClientInfo
+	SecurityEnabled      bool
 	Logger               *slog.Logger
 }
 
@@ -37,7 +49,9 @@ func NewMetadataHandler(config MetadataHandlerConfig) http.HandlerFunc {
 			BearerMethodsSupported: []string{
 				"header",
 			},
-			ScopesSupported: []string{},
+			ScopesSupported:           []string{},
+			OpenChoreoClients:         config.Clients,
+			OpenChoreoSecurityEnabled: config.SecurityEnabled,
 		}
 
 		// Encode to ensure no errors before committing response
