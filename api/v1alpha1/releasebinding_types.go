@@ -83,14 +83,66 @@ type ReleaseBindingOwner struct {
 	ComponentName string `json:"componentName"`
 }
 
-// EndpointURLStatus holds the resolved invoke URL for a single named workload endpoint.
+// EndpointURL represents a structured URL with its components.
+type EndpointURL struct {
+	// Scheme is the URL scheme (e.g., http, https, tcp, udp, ws, wss, tls).
+	// +optional
+	Scheme string `json:"scheme,omitempty"`
+
+	// Host is the hostname or IP address.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Host string `json:"host"`
+
+	// Port is the port number.
+	// +optional
+	Port int32 `json:"port,omitempty"`
+
+	// Path is the URL path.
+	// +optional
+	Path string `json:"path,omitempty"`
+}
+
+// EndpointGatewayURLs holds resolved gateway URLs for an endpoint.
+type EndpointGatewayURLs struct {
+	// HTTP is the HTTP gateway URL.
+	// +optional
+	HTTP *EndpointURL `json:"http,omitempty"`
+
+	// HTTPS is the HTTPS gateway URL.
+	// +optional
+	HTTPS *EndpointURL `json:"https,omitempty"`
+
+	// TLS is the TLS gateway URL.
+	// +optional
+	TLS *EndpointURL `json:"tls,omitempty"`
+}
+
+// EndpointURLStatus holds the resolved URLs for a single named workload endpoint.
 type EndpointURLStatus struct {
 	// Name is the endpoint name as defined in the Workload spec.
 	Name string `json:"name"`
 
+	// Type is the endpoint type (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP).
+	// +optional
+	Type EndpointType `json:"type,omitempty"`
+
+	// ServiceURL is the in-cluster service URL for this endpoint.
+	// +optional
+	ServiceURL *EndpointURL `json:"serviceURL,omitempty"`
+
 	// InvokeURL is the resolved public URL for this endpoint, derived from the
 	// rendered HTTPRoute whose backendRef port matches the endpoint port.
-	InvokeURL string `json:"invokeURL"`
+	// +optional
+	InvokeURL string `json:"invokeURL,omitempty"`
+
+	// InternalURLs holds the resolved internal gateway URLs.
+	// +optional
+	InternalURLs *EndpointGatewayURLs `json:"internalURLs,omitempty"`
+
+	// ExternalURLs holds the resolved external gateway URLs.
+	// +optional
+	ExternalURLs *EndpointGatewayURLs `json:"externalURLs,omitempty"`
 }
 
 // ReleaseBindingStatus defines the observed state of ReleaseBinding.

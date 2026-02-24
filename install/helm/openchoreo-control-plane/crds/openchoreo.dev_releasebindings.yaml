@@ -291,9 +291,145 @@ spec:
                   Endpoints contains the resolved invoke URLs for each named workload endpoint.
                   Populated once the component is deployed and the corresponding HTTPRoutes are available.
                 items:
-                  description: EndpointURLStatus holds the resolved invoke URL for
-                    a single named workload endpoint.
+                  description: EndpointURLStatus holds the resolved URLs for a single
+                    named workload endpoint.
                   properties:
+                    externalURLs:
+                      description: ExternalURLs holds the resolved external gateway
+                        URLs.
+                      properties:
+                        http:
+                          description: HTTP is the HTTP gateway URL.
+                          properties:
+                            host:
+                              description: Host is the hostname or IP address.
+                              minLength: 1
+                              type: string
+                            path:
+                              description: Path is the URL path.
+                              type: string
+                            port:
+                              description: Port is the port number.
+                              format: int32
+                              type: integer
+                            scheme:
+                              description: Scheme is the URL scheme (e.g., http, https,
+                                tcp, udp, ws, wss, tls).
+                              type: string
+                          required:
+                          - host
+                          type: object
+                        https:
+                          description: HTTPS is the HTTPS gateway URL.
+                          properties:
+                            host:
+                              description: Host is the hostname or IP address.
+                              minLength: 1
+                              type: string
+                            path:
+                              description: Path is the URL path.
+                              type: string
+                            port:
+                              description: Port is the port number.
+                              format: int32
+                              type: integer
+                            scheme:
+                              description: Scheme is the URL scheme (e.g., http, https,
+                                tcp, udp, ws, wss, tls).
+                              type: string
+                          required:
+                          - host
+                          type: object
+                        tls:
+                          description: TLS is the TLS gateway URL.
+                          properties:
+                            host:
+                              description: Host is the hostname or IP address.
+                              minLength: 1
+                              type: string
+                            path:
+                              description: Path is the URL path.
+                              type: string
+                            port:
+                              description: Port is the port number.
+                              format: int32
+                              type: integer
+                            scheme:
+                              description: Scheme is the URL scheme (e.g., http, https,
+                                tcp, udp, ws, wss, tls).
+                              type: string
+                          required:
+                          - host
+                          type: object
+                      type: object
+                    internalURLs:
+                      description: InternalURLs holds the resolved internal gateway
+                        URLs.
+                      properties:
+                        http:
+                          description: HTTP is the HTTP gateway URL.
+                          properties:
+                            host:
+                              description: Host is the hostname or IP address.
+                              minLength: 1
+                              type: string
+                            path:
+                              description: Path is the URL path.
+                              type: string
+                            port:
+                              description: Port is the port number.
+                              format: int32
+                              type: integer
+                            scheme:
+                              description: Scheme is the URL scheme (e.g., http, https,
+                                tcp, udp, ws, wss, tls).
+                              type: string
+                          required:
+                          - host
+                          type: object
+                        https:
+                          description: HTTPS is the HTTPS gateway URL.
+                          properties:
+                            host:
+                              description: Host is the hostname or IP address.
+                              minLength: 1
+                              type: string
+                            path:
+                              description: Path is the URL path.
+                              type: string
+                            port:
+                              description: Port is the port number.
+                              format: int32
+                              type: integer
+                            scheme:
+                              description: Scheme is the URL scheme (e.g., http, https,
+                                tcp, udp, ws, wss, tls).
+                              type: string
+                          required:
+                          - host
+                          type: object
+                        tls:
+                          description: TLS is the TLS gateway URL.
+                          properties:
+                            host:
+                              description: Host is the hostname or IP address.
+                              minLength: 1
+                              type: string
+                            path:
+                              description: Path is the URL path.
+                              type: string
+                            port:
+                              description: Port is the port number.
+                              format: int32
+                              type: integer
+                            scheme:
+                              description: Scheme is the URL scheme (e.g., http, https,
+                                tcp, udp, ws, wss, tls).
+                              type: string
+                          required:
+                          - host
+                          type: object
+                      type: object
                     invokeURL:
                       description: |-
                         InvokeURL is the resolved public URL for this endpoint, derived from the
@@ -303,8 +439,33 @@ spec:
                       description: Name is the endpoint name as defined in the Workload
                         spec.
                       type: string
+                    serviceURL:
+                      description: ServiceURL is the in-cluster service URL for this
+                        endpoint.
+                      properties:
+                        host:
+                          description: Host is the hostname or IP address.
+                          minLength: 1
+                          type: string
+                        path:
+                          description: Path is the URL path.
+                          type: string
+                        port:
+                          description: Port is the port number.
+                          format: int32
+                          type: integer
+                        scheme:
+                          description: Scheme is the URL scheme (e.g., http, https,
+                            tcp, udp, ws, wss, tls).
+                          type: string
+                      required:
+                      - host
+                      type: object
+                    type:
+                      description: Type is the endpoint type (HTTP, REST, gRPC, GraphQL,
+                        Websocket, TCP, UDP).
+                      type: string
                   required:
-                  - invokeURL
                   - name
                   type: object
                 type: array
