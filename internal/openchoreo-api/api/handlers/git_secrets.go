@@ -110,8 +110,10 @@ func mapCreateGitSecretError(h *Handler, err error) (gen.CreateGitSecretResponse
 	case errors.As(err, &validationErr):
 		return gen.CreateGitSecret400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 	case errors.Is(err, gitsecretsvc.ErrBuildPlaneNotFound):
+		h.logger.Error("Failed to create git secret", "error", err)
 		return gen.CreateGitSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	case errors.Is(err, gitsecretsvc.ErrSecretStoreNotConfigured):
+		h.logger.Error("Failed to create git secret", "error", err)
 		return gen.CreateGitSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	default:
 		h.logger.Error("Failed to create git secret", "error", err)
@@ -126,7 +128,8 @@ func mapDeleteGitSecretError(h *Handler, err error) (gen.DeleteGitSecretResponse
 	case errors.Is(err, gitsecretsvc.ErrGitSecretNotFound):
 		return gen.DeleteGitSecret404JSONResponse{NotFoundJSONResponse: notFound("git secret")}, nil
 	case errors.Is(err, gitsecretsvc.ErrBuildPlaneNotFound):
-		return gen.DeleteGitSecret404JSONResponse{NotFoundJSONResponse: notFound("build plane")}, nil
+		h.logger.Error("Failed to delete git secret", "error", err)
+		return gen.DeleteGitSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	default:
 		h.logger.Error("Failed to delete git secret", "error", err)
 		return gen.DeleteGitSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

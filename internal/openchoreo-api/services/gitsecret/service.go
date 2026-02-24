@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -435,6 +436,10 @@ func (s *gitSecretService) ensureNamespaceExists(ctx context.Context, k8sClient 
 				},
 			}
 			if err := k8sClient.Create(ctx, namespace); err != nil {
+				if apierrors.IsAlreadyExists(err) {
+					s.logger.Debug("Namespace already exists (concurrent creation)", "namespace", namespaceName)
+					return nil
+				}
 				s.logger.Error("Failed to create namespace", "error", err, "namespace", namespaceName)
 				return fmt.Errorf("failed to create namespace %s: %w", namespaceName, err)
 			}
