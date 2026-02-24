@@ -111,7 +111,7 @@ func makeEndpoints(entries ...endpointEntry) map[string]openchoreov1alpha1.Workl
 	for _, e := range entries {
 		epType := e.epType
 		if epType == "" {
-			epType = openchoreov1alpha1.EndpointTypeREST
+			epType = openchoreov1alpha1.EndpointTypeHTTP
 		}
 		m[e.name] = openchoreov1alpha1.WorkloadEndpoint{
 			Port: e.port,
