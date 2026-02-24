@@ -14,12 +14,12 @@ import (
 func TestMCPConfig_Validate(t *testing.T) {
 	tests := []struct {
 		name           string
-		cfg            MCPConfig
+		cfg            LegacyMCPConfig
 		expectedErrors config.ValidationErrors
 	}{
 		{
 			name: "empty toolsets is valid",
-			cfg: MCPConfig{
+			cfg: LegacyMCPConfig{
 				Enabled:  true,
 				Toolsets: []string{},
 			},
@@ -27,7 +27,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "nil toolsets is valid",
-			cfg: MCPConfig{
+			cfg: LegacyMCPConfig{
 				Enabled:  true,
 				Toolsets: nil,
 			},
@@ -35,7 +35,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "valid toolsets",
-			cfg: MCPConfig{
+			cfg: LegacyMCPConfig{
 				Enabled: true,
 				Toolsets: []string{
 					"namespace",
@@ -52,7 +52,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "single valid toolset",
-			cfg: MCPConfig{
+			cfg: LegacyMCPConfig{
 				Enabled:  true,
 				Toolsets: []string{"namespace"},
 			},
@@ -60,50 +60,50 @@ func TestMCPConfig_Validate(t *testing.T) {
 		},
 		{
 			name: "single invalid toolset",
-			cfg: MCPConfig{
+			cfg: LegacyMCPConfig{
 				Enabled:  true,
 				Toolsets: []string{"invalid"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "legacy_mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid legacy toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
 			},
 		},
 		{
 			name: "multiple invalid toolsets",
-			cfg: MCPConfig{
+			cfg: LegacyMCPConfig{
 				Enabled:  true,
 				Toolsets: []string{"foo", "bar"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "mcp.toolsets[0]", Message: `unknown toolset "foo"; valid toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
-				{Field: "mcp.toolsets[1]", Message: `unknown toolset "bar"; valid toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "legacy_mcp.toolsets[0]", Message: `unknown toolset "foo"; valid legacy toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "legacy_mcp.toolsets[1]", Message: `unknown toolset "bar"; valid legacy toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
 			},
 		},
 		{
 			name: "mixed valid and invalid toolsets",
-			cfg: MCPConfig{
+			cfg: LegacyMCPConfig{
 				Enabled:  true,
 				Toolsets: []string{"namespace", "invalid", "project"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "mcp.toolsets[1]", Message: `unknown toolset "invalid"; valid toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "legacy_mcp.toolsets[1]", Message: `unknown toolset "invalid"; valid legacy toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
 			},
 		},
 		{
 			name: "disabled with invalid toolsets still validates",
-			cfg: MCPConfig{
+			cfg: LegacyMCPConfig{
 				Enabled:  false,
 				Toolsets: []string{"invalid"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "legacy_mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid legacy toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := tt.cfg.Validate(config.NewPath("mcp"))
+			errs := tt.cfg.ValidateLegacyMCPConfig(config.NewPath("legacy_mcp"))
 			if diff := cmp.Diff(tt.expectedErrors, errs); diff != "" {
 				t.Errorf("validation errors mismatch (-want +got):\n%s", diff)
 			}

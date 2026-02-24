@@ -10,8 +10,8 @@ import (
 
 	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacymcphandlers"
 	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
@@ -20,7 +20,7 @@ import (
 	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
 	"github.com/openchoreo/openchoreo/internal/version"
 	"github.com/openchoreo/openchoreo/pkg/mcp"
-	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
+	"github.com/openchoreo/openchoreo/pkg/mcp/legacytools"
 )
 
 // Handler holds the services and provides HTTP handlers
@@ -78,11 +78,11 @@ func (h *Handler) Routes() http.Handler {
 	auditMiddleware := h.initAuditMiddleware()
 
 	// MCP endpoint (only if enabled)
-	if h.config.MCP.Enabled {
-		toolsets := getMCPServerToolsets(h)
+	if h.config.LegacyMCP.Enabled {
+		toolsets := getLegacyMCPServerToolsets(h)
 		mcpMiddleware := h.initMCPMiddleware()
 		mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
-		mcpRoutes.Handle("/mcp", mcp.NewHTTPServer(toolsets))
+		mcpRoutes.Handle("/mcp", mcp.NewLegacyHTTPMCPServer(toolsets))
 	}
 
 	// Create protected route group with JWT auth and audit logging
@@ -329,46 +329,46 @@ func (h *Handler) Version(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-func getMCPServerToolsets(h *Handler) *tools.Toolsets {
+func getLegacyMCPServerToolsets(h *Handler) *legacytools.Toolsets {
 	// Get enabled toolsets from config (defaults are set in MCPDefaults())
-	toolsetsMap := h.config.MCP.ParseToolsets()
+	toolsetsMap := h.config.LegacyMCP.ParseLegacyToolsets()
 
 	// Log enabled toolsets
-	h.logger.Info("Initializing MCP server", slog.Any("enabled_toolsets", h.config.MCP.Toolsets))
+	h.logger.Info("Initializing legacy MCP server", slog.Any("enabled_toolsets", h.config.LegacyMCP.Toolsets))
 
-	handler := &mcphandlers.MCPHandler{
+	handler := &legacymcphandlers.MCPHandler{
 		Services:   h.services,
 		GatewayURL: h.config.ClusterGateway.URL,
 	}
 
 	// Create toolsets struct and enable based on configuration
-	toolsets := &tools.Toolsets{}
+	toolsets := &legacytools.Toolsets{}
 
 	for toolsetType := range toolsetsMap {
 		switch toolsetType {
-		case tools.ToolsetNamespace:
+		case legacytools.ToolsetNamespace:
 			toolsets.NamespaceToolset = handler
-			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "namespace"))
-		case tools.ToolsetProject:
+			h.logger.Debug("Enabled legacy MCP toolset", slog.String("toolset", "namespace"))
+		case legacytools.ToolsetProject:
 			toolsets.ProjectToolset = handler
-			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "project"))
-		case tools.ToolsetComponent:
+			h.logger.Debug("Enabled legacy MCP toolset", slog.String("toolset", "project"))
+		case legacytools.ToolsetComponent:
 			toolsets.ComponentToolset = handler
-			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "component"))
-		case tools.ToolsetBuild:
-			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "build"))
-		case tools.ToolsetDeployment:
+			h.logger.Debug("Enabled legacy MCP toolset", slog.String("toolset", "component"))
+		case legacytools.ToolsetBuild:
+			h.logger.Debug("Enabled legacy MCP toolset", slog.String("toolset", "build"))
+		case legacytools.ToolsetDeployment:
 			toolsets.DeploymentToolset = handler
-			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "deployment"))
-		case tools.ToolsetInfrastructure:
+			h.logger.Debug("Enabled legacy MCP toolset", slog.String("toolset", "deployment"))
+		case legacytools.ToolsetInfrastructure:
 			toolsets.InfrastructureToolset = handler
-			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "infrastructure"))
-		case tools.ToolsetSchema:
+			h.logger.Debug("Enabled legacy MCP toolset", slog.String("toolset", "infrastructure"))
+		case legacytools.ToolsetSchema:
 			toolsets.SchemaToolset = handler
-			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "schema"))
-		case tools.ToolsetResource:
+			h.logger.Debug("Enabled legacy MCP toolset", slog.String("toolset", "schema"))
+		case legacytools.ToolsetResource:
 			toolsets.ResourceToolset = handler
-			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "resource"))
+			h.logger.Debug("Enabled legacy MCP toolset", slog.String("toolset", "resource"))
 		default:
 			h.logger.Warn("Unknown toolset type", slog.String("toolset", string(toolsetType)))
 		}

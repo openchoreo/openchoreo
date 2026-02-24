@@ -1,5 +1,7 @@
 # Openchoreo MCP Server Configuration
 
+> **DEPRECATED:** This document describes the legacy MCP server (`pkg/mcp/legacytools/`). The toolset code has been moved to `pkg/mcp/legacytools/` and the config key renamed from `mcp` to `legacy_mcp`. A new MCP server implementation is being developed.
+
 This guide explains the OpenChoreo MCP (Model Context Protocol) server concepts, implementation and configuration.
 
 ## Architecture Overview

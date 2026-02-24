@@ -1,5 +1,7 @@
 # Adding New MCP Tools
 
+> **DEPRECATED:** This document describes the legacy MCP server (`pkg/mcp/legacytools/`). The toolset code has been moved from `pkg/mcp/tools/` to `pkg/mcp/legacytools/`. A new MCP server implementation is being developed.
+
 This guide explains how to add new tools to the OpenChoreo MCP server.
 
 ## Adding a New Tool

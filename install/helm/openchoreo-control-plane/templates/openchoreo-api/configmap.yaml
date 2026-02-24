@@ -55,10 +55,10 @@ data:
             {{- toYaml .scopes | nindent 12 }}
         {{- end }}
 
-    mcp:
-      enabled: {{ .Values.openchoreoApi.config.mcp.enabled }}
+    legacy_mcp:
+      enabled: {{ .Values.openchoreoApi.config.legacy_mcp.enabled }}
       toolsets:
-        {{- toYaml .Values.openchoreoApi.config.mcp.toolsets | nindent 8 }}
+        {{- toYaml .Values.openchoreoApi.config.legacy_mcp.toolsets | nindent 8 }}
 
     logging:
       {{- toYaml .Values.openchoreoApi.config.logging | nindent 6 }}
