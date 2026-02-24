@@ -190,10 +190,10 @@ func toGatewayData(gw *v1alpha1.GatewaySpec) *GatewayData {
 	}
 	data := &GatewayData{}
 	if gw.Ingress != nil {
-		data.Ingress = toGatewayTrafficData(gw.Ingress)
+		data.Ingress = toGatewayNetworkData(gw.Ingress)
 	}
 	if gw.Egress != nil {
-		data.Egress = toGatewayTrafficData(gw.Egress)
+		data.Egress = toGatewayNetworkData(gw.Egress)
 	}
 	if data.Ingress == nil && data.Egress == nil {
 		return nil
@@ -201,12 +201,12 @@ func toGatewayData(gw *v1alpha1.GatewaySpec) *GatewayData {
 	return data
 }
 
-// toGatewayTrafficData converts a v1alpha1.GatewayNetworkSpec to a GatewayTrafficData.
-func toGatewayTrafficData(t *v1alpha1.GatewayNetworkSpec) *GatewayTrafficData {
+// toGatewayNetworkData converts a v1alpha1.GatewayNetworkSpec to a GatewayNetworkData.
+func toGatewayNetworkData(t *v1alpha1.GatewayNetworkSpec) *GatewayNetworkData {
 	if t == nil {
 		return nil
 	}
-	data := &GatewayTrafficData{}
+	data := &GatewayNetworkData{}
 	if t.External != nil {
 		data.External = toGatewayEndpointData(t.External)
 	}
@@ -215,13 +215,6 @@ func toGatewayTrafficData(t *v1alpha1.GatewayNetworkSpec) *GatewayTrafficData {
 	}
 	return data
 }
-
-// Default ports applied to gateway listeners when no port is explicitly configured.
-const (
-	defaultHTTPListenerPort  int32 = 9081
-	defaultHTTPSListenerPort int32 = 9444
-	defaultTLSListenerPort   int32 = 9454
-)
 
 // toGatewayEndpointData converts a v1alpha1.GatewayEndpointSpec to a GatewayEndpointData.
 func toGatewayEndpointData(e *v1alpha1.GatewayEndpointSpec) *GatewayEndpointData {
@@ -233,35 +226,23 @@ func toGatewayEndpointData(e *v1alpha1.GatewayEndpointSpec) *GatewayEndpointData
 		Namespace: e.Namespace,
 	}
 	if e.HTTP != nil {
-		port := e.HTTP.Port
-		if port == 0 {
-			port = defaultHTTPListenerPort
-		}
 		data.HTTP = &GatewayListenerData{
 			ListenerName: e.HTTP.ListenerName,
-			Port:         port,
+			Port:         e.HTTP.Port,
 			Host:         e.HTTP.Host,
 		}
 	}
 	if e.HTTPS != nil {
-		port := e.HTTPS.Port
-		if port == 0 {
-			port = defaultHTTPSListenerPort
-		}
 		data.HTTPS = &GatewayListenerData{
 			ListenerName: e.HTTPS.ListenerName,
-			Port:         port,
+			Port:         e.HTTPS.Port,
 			Host:         e.HTTPS.Host,
 		}
 	}
 	if e.TLS != nil {
-		port := e.TLS.Port
-		if port == 0 {
-			port = defaultTLSListenerPort
-		}
 		data.TLS = &GatewayListenerData{
 			ListenerName: e.TLS.ListenerName,
-			Port:         port,
+			Port:         e.TLS.Port,
 			Host:         e.TLS.Host,
 		}
 	}

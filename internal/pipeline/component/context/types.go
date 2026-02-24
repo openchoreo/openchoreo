@@ -221,12 +221,12 @@ type DataPlaneData struct {
 
 // GatewayData provides gateway configuration in templates.
 type GatewayData struct {
-	Ingress *GatewayTrafficData `json:"ingress,omitempty"`
-	Egress  *GatewayTrafficData `json:"egress,omitempty"`
+	Ingress *GatewayNetworkData `json:"ingress,omitempty"`
+	Egress  *GatewayNetworkData `json:"egress,omitempty"`
 }
 
-// GatewayTrafficData provides traffic gateway data for ingress/egress in templates.
-type GatewayTrafficData struct {
+// GatewayNetworkData provides traffic gateway data for ingress/egress in templates.
+type GatewayNetworkData struct {
 	External *GatewayEndpointData `json:"external,omitempty"`
 	Internal *GatewayEndpointData `json:"internal,omitempty"`
 }

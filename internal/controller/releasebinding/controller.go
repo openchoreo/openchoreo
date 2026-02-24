@@ -1003,7 +1003,7 @@ func resolveEndpointURLStatuses(
 	}
 
 	// Build a map of endpoint name → endpointMeta for HTTP-compatible endpoint types.
-	// Only HTTP, REST, GraphQL, Websocket and gRPC endpoints are exposed via HTTPRoutes.
+	// Only HTTP, GraphQL and Websocket endpoints are exposed via HTTPRoutes.
 	httpEndpoints := make(map[string]endpointMeta, len(endpoints))
 	for name, ep := range endpoints {
 		switch ep.Type {
@@ -1091,7 +1091,7 @@ func resolveEndpointURLStatuses(
 			if hostname == "" || gwEndpoint == nil {
 				logger.Info("No external gateway endpoint configured, skipping", "endpointName", name)
 			} else {
-				status.ExternalURLs = buildListenerURLs(hostname, extractFirstPathValue(routes.external), gwEndpoint)
+				status.ExternalURLs = buildGatewayURLs(hostname, extractFirstPathValue(routes.external), gwEndpoint)
 				logger.Info("Resolved external endpoint URLs", "endpointName", name, "hostname", hostname)
 			}
 		}
@@ -1104,7 +1104,7 @@ func resolveEndpointURLStatuses(
 				logger.Info("No internal gateway endpoint configured, skipping",
 					"endpointName", name, "visibility", visibilityStr)
 			} else {
-				status.InternalURLs = buildListenerURLs(hostname, extractFirstPathValue(routes.internal), gwEndpoint)
+				status.InternalURLs = buildGatewayURLs(hostname, extractFirstPathValue(routes.internal), gwEndpoint)
 				logger.Info("Resolved internal endpoint URLs", "endpointName", name, "hostname", hostname, "visibility", visibilityStr)
 			}
 		}
@@ -1114,9 +1114,9 @@ func resolveEndpointURLStatuses(
 	return result
 }
 
-// buildListenerURLs constructs an EndpointGatewayURLs from the configured listeners in the given
+// buildGatewayURLs constructs an EndpointGatewayURLs from the configured listeners in the given
 // GatewayEndpointSpec. Each listener URL is only set when the corresponding listener is non-nil.
-func buildListenerURLs(hostname, path string, ep *openchoreov1alpha1.GatewayEndpointSpec) *openchoreov1alpha1.EndpointGatewayURLs {
+func buildGatewayURLs(hostname, path string, ep *openchoreov1alpha1.GatewayEndpointSpec) *openchoreov1alpha1.EndpointGatewayURLs {
 	if ep == nil {
 		return nil
 	}

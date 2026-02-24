@@ -102,7 +102,12 @@ spec:
                               port:
                                 description: Port is the port number for this listener.
                                 format: int32
+                                maximum: 65535
+                                minimum: 1
                                 type: integer
+                            required:
+                            - host
+                            - port
                             type: object
                           https:
                             description: HTTPS defines the HTTPS listener configuration.
@@ -117,7 +122,12 @@ spec:
                               port:
                                 description: Port is the port number for this listener.
                                 format: int32
+                                maximum: 65535
+                                minimum: 1
                                 type: integer
+                            required:
+                            - host
+                            - port
                             type: object
                           name:
                             description: Name is the name of the Gateway resource.
@@ -139,7 +149,12 @@ spec:
                               port:
                                 description: Port is the port number for this listener.
                                 format: int32
+                                maximum: 65535
+                                minimum: 1
                                 type: integer
+                            required:
+                            - host
+                            - port
                             type: object
                         type: object
                       internal:
@@ -159,7 +174,12 @@ spec:
                               port:
                                 description: Port is the port number for this listener.
                                 format: int32
+                                maximum: 65535
+                                minimum: 1
                                 type: integer
+                            required:
+                            - host
+                            - port
                             type: object
                           https:
                             description: HTTPS defines the HTTPS listener configuration.
@@ -174,7 +194,12 @@ spec:
                               port:
                                 description: Port is the port number for this listener.
                                 format: int32
+                                maximum: 65535
+                                minimum: 1
                                 type: integer
+                            required:
+                            - host
+                            - port
                             type: object
                           name:
                             description: Name is the name of the Gateway resource.
@@ -196,7 +221,12 @@ spec:
                               port:
                                 description: Port is the port number for this listener.
                                 format: int32
+                                maximum: 65535
+                                minimum: 1
                                 type: integer
+                            required:
+                            - host
+                            - port
                             type: object
                         type: object
                     type: object
@@ -220,7 +250,12 @@ spec:
                               port:
                                 description: Port is the port number for this listener.
                                 format: int32
+                                maximum: 65535
+                                minimum: 1
                                 type: integer
+                            required:
+                            - host
+                            - port
                             type: object
                           https:
                             description: HTTPS defines the HTTPS listener configuration.
@@ -235,7 +270,12 @@ spec:
                               port:
                                 description: Port is the port number for this listener.
                                 format: int32
+                                maximum: 65535
+                                minimum: 1
                                 type: integer
+                            required:
+                            - host
+                            - port
                             type: object
                           name:
                             description: Name is the name of the Gateway resource.
@@ -257,7 +297,12 @@ spec:
                               port:
                                 description: Port is the port number for this listener.
                                 format: int32
+                                maximum: 65535
+                                minimum: 1
                                 type: integer
+                            required:
+                            - host
+                            - port
                             type: object
                         type: object
                       internal:
@@ -277,7 +322,12 @@ spec:
                               port:
                                 description: Port is the port number for this listener.
                                 format: int32
+                                maximum: 65535
+                                minimum: 1
                                 type: integer
+                            required:
+                            - host
+                            - port
                             type: object
                           https:
                             description: HTTPS defines the HTTPS listener configuration.
@@ -292,7 +342,12 @@ spec:
                               port:
                                 description: Port is the port number for this listener.
                                 format: int32
+                                maximum: 65535
+                                minimum: 1
                                 type: integer
+                            required:
+                            - host
+                            - port
                             type: object
                           name:
                             description: Name is the name of the Gateway resource.
@@ -314,7 +369,12 @@ spec:
                               port:
                                 description: Port is the port number for this listener.
                                 format: int32
+                                maximum: 65535
+                                minimum: 1
                                 type: integer
+                            required:
+                            - host
+                            - port
                             type: object
                         type: object
                     type: object

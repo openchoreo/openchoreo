@@ -42,11 +42,11 @@ type GatewayListenerSpec struct {
 	// +optional
 	ListenerName string `json:"listenerName,omitempty"`
 	// Port is the port number for this listener.
-	// +optional
-	Port int32 `json:"port,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	Port int32 `json:"port"`
 	// Host is the virtual host for this listener.
-	// +optional
-	Host string `json:"host,omitempty"`
+	Host string `json:"host"`
 }
 
 // GatewayEndpointSpec defines the configuration for a gateway endpoint (name, namespace, and listeners).
