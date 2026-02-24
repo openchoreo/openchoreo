@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -975,6 +976,13 @@ type endpointMeta struct {
 	visibility   []openchoreov1alpha1.EndpointVisibility
 }
 
+// endpointRoutes holds the indexed HTTPRoute objects for a single endpoint,
+// split into external and internal buckets.
+type endpointRoutes struct {
+	external *unstructured.Unstructured
+	internal *unstructured.Unstructured
+}
+
 // resolveEndpointURLStatuses matches each rendered HTTPRoute to a named workload endpoint
 // using the openchoreo.dev/endpoint-name and openchoreo.dev/endpoint-visibility labels,
 // then derives the invoke URL from the HTTPRoute hostname and optional path prefix.
@@ -1015,11 +1023,9 @@ func resolveEndpointURLStatuses(
 		}
 	}
 
-	// accumulated holds one EndpointURLStatus per endpoint name, built up across all HTTPRoutes.
-	accumulated := make(map[string]*openchoreov1alpha1.EndpointURLStatus)
-	// orderedNames tracks first-seen order so the result slice is deterministic.
-	orderedNames := make([]string, 0)
-
+	// First pass: index HTTPRoutes by endpoint name into external/internal buckets.
+	// No URL resolution happens here — just collect the objects.
+	routeIndex := make(map[string]*endpointRoutes)
 	for i := range resources {
 		res := &resources[i]
 		if res.Object == nil || len(res.Object.Raw) == 0 {
@@ -1039,17 +1045,13 @@ func resolveEndpointURLStatuses(
 			continue
 		}
 
-		// Get endpoint name and visibility from labels.
 		objLabels := obj.GetLabels()
 		endpointName := objLabels[labels.LabelKeyEndpointName]
-		visibilityStr := objLabels[labels.LabelKeyEndpointVisibility]
-
 		if endpointName == "" {
 			logger.V(1).Info("HTTPRoute missing endpoint-name label, skipping", "httpRouteName", obj.GetName())
 			continue
 		}
 
-		// Only process HTTPRoutes for endpoints with HTTP-compatible types.
 		if _, ok := httpEndpoints[endpointName]; !ok {
 			logger.V(1).Info("HTTPRoute endpoint name not in supported HTTP endpoints, skipping",
 				"httpRouteName", obj.GetName(),
@@ -1058,49 +1060,59 @@ func resolveEndpointURLStatuses(
 			continue
 		}
 
-		hostname := extractFirstHostname(obj)
-		if hostname == "" {
-			continue
+		if _, ok := routeIndex[endpointName]; !ok {
+			routeIndex[endpointName] = &endpointRoutes{}
 		}
 
-		// Resolve the gateway endpoint spec based on the visibility label.
-		visibility := openchoreov1alpha1.EndpointVisibility(visibilityStr)
-		gwEndpoint := resolveGatewayEndpointByVisibility(visibility, environment, dataPlane)
-
-		if gwEndpoint == nil {
-			logger.V(1).Info("No gateway endpoint configured for visibility, skipping",
-				"httpRouteName", obj.GetName(),
-				"endpointName", endpointName,
-				"visibility", visibilityStr,
-			)
-			continue
-		}
-
-		path := extractFirstPathValue(obj)
-		listenerURLs := buildListenerURLs(hostname, path, gwEndpoint)
-
-		// Get or create the accumulated status entry for this endpoint name.
-		status, exists := accumulated[endpointName]
-		if !exists {
-			status = &openchoreov1alpha1.EndpointURLStatus{Name: endpointName}
-			accumulated[endpointName] = status
-			orderedNames = append(orderedNames, endpointName)
-		}
-
+		visibility := openchoreov1alpha1.EndpointVisibility(objLabels[labels.LabelKeyEndpointVisibility])
 		if visibility == openchoreov1alpha1.EndpointVisibilityExternal {
-			status.ExternalURLs = listenerURLs
-			logger.Info("Resolved external endpoint URLs", "endpointName", endpointName,
-				"hostname", hostname, "visibility", visibilityStr)
+			routeIndex[endpointName].external = obj
 		} else {
-			status.InternalURLs = listenerURLs
-			logger.Info("Resolved internal endpoint URLs", "endpointName", endpointName,
-				"hostname", hostname, "visibility", visibilityStr)
+			routeIndex[endpointName].internal = obj
 		}
 	}
 
-	result := make([]openchoreov1alpha1.EndpointURLStatus, 0, len(orderedNames))
-	for _, name := range orderedNames {
-		result = append(result, *accumulated[name])
+	// Second pass: iterate endpoints in sorted order and build one EndpointURLStatus per endpoint.
+	endpointNames := make([]string, 0, len(httpEndpoints))
+	for name := range httpEndpoints {
+		endpointNames = append(endpointNames, name)
+	}
+	sort.Strings(endpointNames)
+
+	result := make([]openchoreov1alpha1.EndpointURLStatus, 0, len(endpointNames))
+	for _, name := range endpointNames {
+		routes, ok := routeIndex[name]
+		if !ok {
+			continue
+		}
+
+		status := openchoreov1alpha1.EndpointURLStatus{Name: name}
+
+		if routes.external != nil {
+			hostname := extractFirstHostname(routes.external)
+			gwEndpoint := resolveGatewayEndpointByVisibility(openchoreov1alpha1.EndpointVisibilityExternal, environment, dataPlane)
+			if hostname == "" || gwEndpoint == nil {
+				logger.V(1).Info("No external gateway endpoint configured, skipping", "endpointName", name)
+			} else {
+				status.ExternalURLs = buildListenerURLs(hostname, extractFirstPathValue(routes.external), gwEndpoint)
+				logger.Info("Resolved external endpoint URLs", "endpointName", name, "hostname", hostname)
+			}
+		}
+
+		if routes.internal != nil {
+			hostname := extractFirstHostname(routes.internal)
+			visibilityStr := routes.internal.GetLabels()[labels.LabelKeyEndpointVisibility]
+			gwEndpoint := resolveGatewayEndpointByVisibility(openchoreov1alpha1.EndpointVisibility(visibilityStr), environment, dataPlane)
+			if hostname == "" || gwEndpoint == nil {
+				logger.V(1).Info("No internal gateway endpoint configured, skipping",
+					"endpointName", name, "visibility", visibilityStr)
+			} else {
+				status.InternalURLs = buildListenerURLs(hostname, extractFirstPathValue(routes.internal), gwEndpoint)
+				logger.Info("Resolved internal endpoint URLs", "endpointName", name, "hostname", hostname, "visibility", visibilityStr)
+			}
+		}
+
+		result = append(result, status)
 	}
 	return result
 }
