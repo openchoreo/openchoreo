@@ -33,9 +33,8 @@ import (
 )
 
 const (
-	httpRouteKind     = "HTTPRoute"
-	gatewayAPIGroup   = "gateway.networking.k8s.io"
-	standardHTTPSPort = 19443
+	httpRouteKind   = "HTTPRoute"
+	gatewayAPIGroup = "gateway.networking.k8s.io"
 )
 
 // Reconciler reconciles a ReleaseBinding object
@@ -1009,17 +1008,15 @@ func resolveEndpointURLStatuses(
 	for name, ep := range endpoints {
 		switch ep.Type {
 		case openchoreov1alpha1.EndpointTypeHTTP,
-			openchoreov1alpha1.EndpointTypeREST,
 			openchoreov1alpha1.EndpointTypeGraphQL,
-			openchoreov1alpha1.EndpointTypeWebsocket,
-			openchoreov1alpha1.EndpointTypeGRPC:
+			openchoreov1alpha1.EndpointTypeWebsocket:
 			httpEndpoints[name] = endpointMeta{
 				endpointType: ep.Type,
 				visibility:   ep.Visibility,
 			}
 			logger.Info("Registered HTTP-compatible endpoint", "name", name, "type", ep.Type)
 		default:
-			logger.V(1).Info("Skipping non-HTTP endpoint", "name", name, "type", ep.Type)
+			logger.Info("Skipping non-HTTP endpoint", "name", name, "type", ep.Type)
 		}
 	}
 
@@ -1048,12 +1045,12 @@ func resolveEndpointURLStatuses(
 		objLabels := obj.GetLabels()
 		endpointName := objLabels[labels.LabelKeyEndpointName]
 		if endpointName == "" {
-			logger.V(1).Info("HTTPRoute missing endpoint-name label, skipping", "httpRouteName", obj.GetName())
+			logger.Info("HTTPRoute missing endpoint-name label, skipping", "httpRouteName", obj.GetName())
 			continue
 		}
 
 		if _, ok := httpEndpoints[endpointName]; !ok {
-			logger.V(1).Info("HTTPRoute endpoint name not in supported HTTP endpoints, skipping",
+			logger.Info("HTTPRoute endpoint name not in supported HTTP endpoints, skipping",
 				"httpRouteName", obj.GetName(),
 				"endpointName", endpointName,
 			)
@@ -1092,7 +1089,7 @@ func resolveEndpointURLStatuses(
 			hostname := extractFirstHostname(routes.external)
 			gwEndpoint := resolveGatewayEndpointByVisibility(openchoreov1alpha1.EndpointVisibilityExternal, environment, dataPlane)
 			if hostname == "" || gwEndpoint == nil {
-				logger.V(1).Info("No external gateway endpoint configured, skipping", "endpointName", name)
+				logger.Info("No external gateway endpoint configured, skipping", "endpointName", name)
 			} else {
 				status.ExternalURLs = buildListenerURLs(hostname, extractFirstPathValue(routes.external), gwEndpoint)
 				logger.Info("Resolved external endpoint URLs", "endpointName", name, "hostname", hostname)
@@ -1104,7 +1101,7 @@ func resolveEndpointURLStatuses(
 			visibilityStr := routes.internal.GetLabels()[labels.LabelKeyEndpointVisibility]
 			gwEndpoint := resolveGatewayEndpointByVisibility(openchoreov1alpha1.EndpointVisibility(visibilityStr), environment, dataPlane)
 			if hostname == "" || gwEndpoint == nil {
-				logger.V(1).Info("No internal gateway endpoint configured, skipping",
+				logger.Info("No internal gateway endpoint configured, skipping",
 					"endpointName", name, "visibility", visibilityStr)
 			} else {
 				status.InternalURLs = buildListenerURLs(hostname, extractFirstPathValue(routes.internal), gwEndpoint)

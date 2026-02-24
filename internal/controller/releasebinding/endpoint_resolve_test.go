@@ -588,7 +588,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
 				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 					External: &openchoreov1alpha1.GatewayEndpointSpec{
-						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{Port: standardHTTPSPort},
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{Port: 19443},
 					},
 					Internal: &openchoreov1alpha1.GatewayEndpointSpec{
 						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{Port: 31443},

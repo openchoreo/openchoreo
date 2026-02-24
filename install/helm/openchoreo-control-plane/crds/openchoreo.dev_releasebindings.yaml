@@ -288,8 +288,9 @@ spec:
                 type: array
               endpoints:
                 description: |-
-                  Endpoints contains the resolved invoke URLs for each named workload endpoint.
-                  Populated once the component is deployed and the corresponding HTTPRoutes are available.
+                  Endpoints contains the resolved invoke URLs for each named workload endpoint,
+                  keyed by endpoint name. Populated once the component is deployed and the
+                  corresponding HTTPRoutes are available.
                 items:
                   description: EndpointURLStatus holds the resolved URLs for a single
                     named workload endpoint.
