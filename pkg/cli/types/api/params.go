@@ -233,8 +233,6 @@ type CreateDataPlaneParams struct {
 	DisplayName          string
 	Description          string
 	ClusterAgentClientCA string
-	PublicVirtualHost    string
-	NamespaceVirtualHost string
 }
 
 // GetDataPlaneParams defines parameters for listing data planes

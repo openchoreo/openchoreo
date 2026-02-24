@@ -285,7 +285,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "data", "plane"},
 			descriptionMinLen:   10,
 			requiredParams: []string{
-				"namespace_name", "name", "cluster_agent_client_ca", "public_virtual_host", "namespace_virtual_host",
+				"namespace_name", "name", "cluster_agent_client_ca",
 			},
 			optionalParams: []string{
 				"display_name", "description", "observability_plane_ref",
@@ -294,8 +294,6 @@ func infrastructureToolSpecs() []toolTestSpec {
 				"namespace_name":          testNamespaceName,
 				"name":                    "new-dp",
 				"cluster_agent_client_ca": "-----BEGIN CERTIFICATE-----\ntest-ca-cert-data\n-----END CERTIFICATE-----",
-				"public_virtual_host":     "public.example.com",
-				"namespace_virtual_host":  "org.example.com",
 			},
 			expectedMethod: "CreateDataPlane",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -377,18 +375,15 @@ func infrastructureToolSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "cluster", "data", "plane"},
 			descriptionMinLen:   10,
 			requiredParams: []string{
-				"name", "plane_id", "cluster_agent_client_ca", "public_virtual_host", "organization_virtual_host",
+				"name", "plane_id", "cluster_agent_client_ca",
 			},
 			optionalParams: []string{
-				"display_name", "description", "public_http_port", "public_https_port",
-				"organization_http_port", "organization_https_port", "observability_plane_ref",
+				"display_name", "description", "observability_plane_ref",
 			},
 			testArgs: map[string]any{
-				"name":                      "new-cdp",
-				"plane_id":                  "us-west-prod",
-				"cluster_agent_client_ca":   "-----BEGIN CERTIFICATE-----\ntest-ca\n-----END CERTIFICATE-----",
-				"public_virtual_host":       "public.example.com",
-				"organization_virtual_host": "org.example.com",
+				"name":                    "new-cdp",
+				"plane_id":                "us-west-prod",
+				"cluster_agent_client_ca": "-----BEGIN CERTIFICATE-----\ntest-ca\n-----END CERTIFICATE-----",
 			},
 			expectedMethod: "CreateClusterDataPlane",
 			validateCall: func(t *testing.T, args []interface{}) {

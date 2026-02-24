@@ -186,16 +186,6 @@ var (
 		Usage: "Reference to the connection configuration",
 	}
 
-	PublicVirtualHost = Flag{
-		Name:  "public-virtual-host",
-		Usage: "Public virtual host for the gateway",
-	}
-
-	NamespaceVirtualHost = Flag{
-		Name:  "namespace-virtual-host",
-		Usage: "Namespace virtual host for the gateway",
-	}
-
 	ClusterAgentClientCA = Flag{
 		Name:  "cluster-agent-client-ca",
 		Usage: "The CA certificate used to verify the cluster agent's client certificate",
