@@ -1907,7 +1907,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		CreatedAt:         component.CreationTimestamp.Time,
 		DeletionTimestamp: deletionTimestamp,
 		Status:            status,
-		WorkflowConfig: workflowConfig,
+		WorkflowConfig:    workflowConfig,
 	}
 
 	for _, v := range typeSpecs {

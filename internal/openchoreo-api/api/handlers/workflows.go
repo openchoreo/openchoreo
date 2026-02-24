@@ -18,7 +18,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	legacyservices "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	svcerrors "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
@@ -351,10 +351,12 @@ func toGenWorkflowRunFromCR(wfRun *openchoreov1alpha1.WorkflowRun) gen.WorkflowR
 	return result
 }
 
+const workflowRunStatusPending = "Pending"
+
 // getWorkflowRunStatus determines the user-friendly status from workflow run conditions.
 func getWorkflowRunStatus(conditions []metav1.Condition) string {
 	if len(conditions) == 0 {
-		return "Pending"
+		return workflowRunStatusPending
 	}
 
 	for _, condition := range conditions {
@@ -375,7 +377,7 @@ func getWorkflowRunStatus(conditions []metav1.Condition) string {
 		}
 	}
 
-	return "Pending"
+	return workflowRunStatusPending
 }
 
 // generateWorkflowRunName generates a unique name for the workflow run.

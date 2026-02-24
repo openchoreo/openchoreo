@@ -61,14 +61,14 @@ type ComponentTypeRef struct {
 
 // CreateComponentRequest represents the request to create a new component
 type CreateComponentRequest struct {
-	Name              string                `json:"name"`
-	DisplayName       string                `json:"displayName,omitempty"`
-	Description       string                `json:"description,omitempty"`
-	ComponentType     *ComponentTypeRef     `json:"componentType,omitempty"`
-	AutoDeploy        *bool                 `json:"autoDeploy,omitempty"`
-	Parameters        *runtime.RawExtension `json:"parameters,omitempty"`
-	Traits            []ComponentTrait      `json:"traits,omitempty"`
-	WorkflowConfig *WorkflowConfig `json:"workflow,omitempty"`
+	Name           string                `json:"name"`
+	DisplayName    string                `json:"displayName,omitempty"`
+	Description    string                `json:"description,omitempty"`
+	ComponentType  *ComponentTypeRef     `json:"componentType,omitempty"`
+	AutoDeploy     *bool                 `json:"autoDeploy,omitempty"`
+	Parameters     *runtime.RawExtension `json:"parameters,omitempty"`
+	Traits         []ComponentTrait      `json:"traits,omitempty"`
+	WorkflowConfig *WorkflowConfig       `json:"workflow,omitempty"`
 }
 
 // PromoteComponentRequest Promote from one environment to another
