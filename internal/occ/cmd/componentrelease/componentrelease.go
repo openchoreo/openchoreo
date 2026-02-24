@@ -20,7 +20,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
-	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
@@ -80,7 +79,7 @@ func (c *ComponentReleaseImpl) GenerateComponentRelease(params api.GenerateCompo
 	}
 
 	// Find current context
-	var ctx *configContext.Context
+	var ctx *config.Context
 	for _, c := range cfg.Contexts {
 		if c.Name == cfg.CurrentContext {
 			ctxCopy := c

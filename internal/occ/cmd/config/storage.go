@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
-
-	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 )
 
 // IsConfigFileExists checks if the configuration file exists
@@ -33,7 +31,7 @@ func getConfigFilePath() (string, error) {
 }
 
 // LoadStoredConfig loads the configuration from disk
-func LoadStoredConfig() (*configContext.StoredConfig, error) {
+func LoadStoredConfig() (*StoredConfig, error) {
 	configPath, err := getConfigFilePath()
 	if err != nil {
 		return nil, err
@@ -41,14 +39,14 @@ func LoadStoredConfig() (*configContext.StoredConfig, error) {
 
 	data, err := os.ReadFile(configPath)
 	if os.IsNotExist(err) {
-		return &configContext.StoredConfig{
-			Contexts: []configContext.Context{},
+		return &StoredConfig{
+			Contexts: []Context{},
 		}, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	var cfg configContext.StoredConfig
+	var cfg StoredConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
@@ -57,7 +55,7 @@ func LoadStoredConfig() (*configContext.StoredConfig, error) {
 }
 
 // SaveStoredConfig persists the configuration to disk
-func SaveStoredConfig(cfg *configContext.StoredConfig) error {
+func SaveStoredConfig(cfg *StoredConfig) error {
 	configPath, err := getConfigFilePath()
 	if err != nil {
 		return fmt.Errorf("failed to get config file path: %w", err)

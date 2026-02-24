@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
@@ -658,43 +657,4 @@ func validateWorkflowRunParams(cmdType CommandType, params interface{}) error {
 	return nil
 }
 
-// ValidateAddContextParams validates parameters for adding a configuration context
-func ValidateAddContextParams(params api.AddContextParams) error {
-	if params.ControlPlane == "" {
-		return fmt.Errorf("control plane name is required")
-	}
-	if params.Credentials == "" {
-		return fmt.Errorf("credentials name is required")
-	}
-	return nil
-}
 
-// ValidateContextNameUniqueness checks that the given name is not already used by another context.
-func ValidateContextNameUniqueness(cfg *configContext.StoredConfig, name string) error {
-	for _, ctx := range cfg.Contexts {
-		if ctx.Name == name {
-			return fmt.Errorf("context %q already exists", name)
-		}
-	}
-	return nil
-}
-
-// ValidateControlPlaneNameUniqueness checks that the given name is not already used by another control plane.
-func ValidateControlPlaneNameUniqueness(cfg *configContext.StoredConfig, name string) error {
-	for _, cp := range cfg.ControlPlanes {
-		if cp.Name == name {
-			return fmt.Errorf("control plane %q already exists", name)
-		}
-	}
-	return nil
-}
-
-// ValidateCredentialsNameUniqueness checks that the given name is not already used by another credential.
-func ValidateCredentialsNameUniqueness(cfg *configContext.StoredConfig, name string) error {
-	for _, cred := range cfg.Credentials {
-		if cred.Name == name {
-			return fmt.Errorf("credentials %q already exist", name)
-		}
-	}
-	return nil
-}

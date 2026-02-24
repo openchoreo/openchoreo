@@ -10,7 +10,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/browser"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
@@ -106,7 +105,7 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 	}
 
 	if !credentialExists {
-		cfg.Credentials = append(cfg.Credentials, configContext.Credential{
+		cfg.Credentials = append(cfg.Credentials, config.Credential{
 			Name:         credentialName,
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
@@ -213,7 +212,7 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 	}
 
 	if !credentialExists {
-		cfg.Credentials = append(cfg.Credentials, configContext.Credential{
+		cfg.Credentials = append(cfg.Credentials, config.Credential{
 			Name:         credentialName,
 			ClientID:     oidcConfig.ClientID,
 			Token:        tokenResp.AccessToken,

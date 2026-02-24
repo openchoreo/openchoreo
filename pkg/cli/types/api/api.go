@@ -9,7 +9,6 @@ type CommandImplementationInterface interface {
 	DeleteAPI
 	LoginAPI
 	LogoutAPI
-	ConfigContextAPI
 	WorkloadAPI
 	ComponentReleaseAPI
 	ReleaseBindingAPI
@@ -35,22 +34,6 @@ type LoginAPI interface {
 // LogoutAPI defines methods for ending sessions
 type LogoutAPI interface {
 	Logout() error
-}
-
-type ConfigContextAPI interface {
-	AddContext(params AddContextParams) error
-	ListContexts() error
-	DeleteContext(params DeleteContextParams) error
-	UpdateContext(params UpdateContextParams) error
-	UseContext(params UseContextParams) error
-	DescribeContext(params DescribeContextParams) error
-	AddControlPlane(params AddControlPlaneParams) error
-	ListControlPlanes() error
-	UpdateControlPlane(params UpdateControlPlaneParams) error
-	DeleteControlPlane(params DeleteControlPlaneParams) error
-	AddCredentials(params AddCredentialsParams) error
-	ListCredentials() error
-	DeleteCredentials(params DeleteCredentialsParams) error
 }
 
 // WorkloadAPI defines methods for creating workloads from descriptors

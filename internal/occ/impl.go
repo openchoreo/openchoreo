@@ -6,7 +6,6 @@ package occ
 import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/apply"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/componentrelease"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/delete"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
@@ -61,73 +60,6 @@ func (c *CommandImplementation) Logout() error {
 func (c *CommandImplementation) Apply(params api.ApplyParams) error {
 	applyImpl := apply.NewApplyImpl()
 	return applyImpl.Apply(params)
-}
-
-// Config Context Operations
-
-func (c *CommandImplementation) AddContext(params api.AddContextParams) error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.AddContext(params)
-}
-
-func (c *CommandImplementation) ListContexts() error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.ListContexts()
-}
-
-func (c *CommandImplementation) DeleteContext(params api.DeleteContextParams) error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.DeleteContext(params)
-}
-
-func (c *CommandImplementation) UpdateContext(params api.UpdateContextParams) error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.UpdateContext(params)
-}
-
-func (c *CommandImplementation) UseContext(params api.UseContextParams) error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.UseContext(params)
-}
-
-func (c *CommandImplementation) DescribeContext(params api.DescribeContextParams) error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.DescribeContext(params)
-}
-
-func (c *CommandImplementation) AddControlPlane(params api.AddControlPlaneParams) error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.AddControlPlane(params)
-}
-
-func (c *CommandImplementation) ListControlPlanes() error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.ListControlPlanes()
-}
-
-func (c *CommandImplementation) UpdateControlPlane(params api.UpdateControlPlaneParams) error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.UpdateControlPlane(params)
-}
-
-func (c *CommandImplementation) DeleteControlPlane(params api.DeleteControlPlaneParams) error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.DeleteControlPlane(params)
-}
-
-func (c *CommandImplementation) AddCredentials(params api.AddCredentialsParams) error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.AddCredentials(params)
-}
-
-func (c *CommandImplementation) ListCredentials() error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.ListCredentials()
-}
-
-func (c *CommandImplementation) DeleteCredentials(params api.DeleteCredentialsParams) error {
-	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.DeleteCredentials(params)
 }
 
 // Component Release Operations (File-System Mode)

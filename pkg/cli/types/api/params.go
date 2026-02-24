@@ -252,36 +252,6 @@ type GetEndpointParams struct {
 	Name         string
 }
 
-type AddContextParams struct {
-	Name         string
-	ControlPlane string
-	Credentials  string
-	Namespace    string
-	Project      string
-	Component    string
-}
-
-type DeleteContextParams struct {
-	Name string
-}
-
-type UpdateContextParams struct {
-	Name         string
-	Namespace    string
-	Project      string
-	Component    string
-	ControlPlane string
-	Credentials  string
-}
-
-type UseContextParams struct {
-	Name string
-}
-
-type DescribeContextParams struct {
-	Name string
-}
-
 type CreateDeploymentPipelineParams struct {
 	Name             string
 	DisplayName      string
@@ -312,33 +282,6 @@ type GetConfigurationGroupParams struct {
 	Name         string
 	Namespace    string
 	OutputFormat string
-}
-
-// AddControlPlaneParams defines parameters for adding a control plane configuration
-type AddControlPlaneParams struct {
-	Name string
-	URL  string
-}
-
-// UpdateControlPlaneParams defines parameters for updating a control plane configuration
-type UpdateControlPlaneParams struct {
-	Name string
-	URL  string
-}
-
-// DeleteControlPlaneParams defines parameters for deleting a control plane configuration
-type DeleteControlPlaneParams struct {
-	Name string
-}
-
-// AddCredentialsParams defines parameters for adding credentials configuration
-type AddCredentialsParams struct {
-	Name string
-}
-
-// DeleteCredentialsParams defines parameters for deleting a credentials configuration
-type DeleteCredentialsParams struct {
-	Name string
 }
 
 // CreateWorkloadParams defines parameters for creating a workload from a descriptor

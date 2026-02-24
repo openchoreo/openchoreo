@@ -46,7 +46,7 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		apply.NewApplyCmd(impl),
 		login.NewLoginCmd(impl),
 		logout.NewLogoutCmd(impl),
-		configContext.NewConfigCmd(impl),
+		configContext.NewConfigCmd(),
 		delete.NewDeleteCmd(impl),
 		version.NewVersionCmd(),
 		componentrelease.NewComponentReleaseCmd(impl),

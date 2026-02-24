@@ -10,24 +10,21 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
-	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-// ConfigContextImpl implements context-related commands.
-type ConfigContextImpl struct{}
+// Config implements context-related commands.
+type Config struct{}
 
-// NewConfigContextImpl creates a new instance of ConfigContextImpl.
-func NewConfigContextImpl() *ConfigContextImpl {
-	return &ConfigContextImpl{}
+// New creates a new Config instance.
+func New() *Config {
+	return &Config{}
 }
 
 // AddContext creates a new configuration context.
-func (c *ConfigContextImpl) AddContext(params api.AddContextParams) error {
+func (c *Config) AddContext(params AddContextParams) error {
 	// Validate parameters
-	if err := validation.ValidateAddContextParams(params); err != nil {
+	if err := validateAddContextParams(params); err != nil {
 		return err
 	}
 
@@ -37,7 +34,7 @@ func (c *ConfigContextImpl) AddContext(params api.AddContextParams) error {
 	}
 
 	// Validate that the context name is not already used
-	if err := validation.ValidateContextNameUniqueness(cfg, params.Name); err != nil {
+	if err := validateContextNameUniqueness(cfg, params.Name); err != nil {
 		return err
 	}
 
@@ -51,10 +48,10 @@ func (c *ConfigContextImpl) AddContext(params api.AddContextParams) error {
 	}
 	if !cpExists {
 		// Validate uniqueness before creating
-		if err := validation.ValidateControlPlaneNameUniqueness(cfg, params.ControlPlane); err != nil {
+		if err := validateControlPlaneNameUniqueness(cfg, params.ControlPlane); err != nil {
 			return fmt.Errorf("cannot create control plane: %w", err)
 		}
-		cfg.ControlPlanes = append(cfg.ControlPlanes, configContext.ControlPlane{
+		cfg.ControlPlanes = append(cfg.ControlPlanes, ControlPlane{
 			Name: params.ControlPlane,
 		})
 	}
@@ -69,16 +66,16 @@ func (c *ConfigContextImpl) AddContext(params api.AddContextParams) error {
 	}
 	if !credExists {
 		// Validate uniqueness before creating
-		if err := validation.ValidateCredentialsNameUniqueness(cfg, params.Credentials); err != nil {
+		if err := validateCredentialsNameUniqueness(cfg, params.Credentials); err != nil {
 			return fmt.Errorf("cannot create credentials: %w", err)
 		}
-		cfg.Credentials = append(cfg.Credentials, configContext.Credential{
+		cfg.Credentials = append(cfg.Credentials, Credential{
 			Name: params.Credentials,
 		})
 	}
 
 	// Create the new context
-	newCtx := configContext.Context{
+	newCtx := Context{
 		Name:         params.Name,
 		ControlPlane: params.ControlPlane,
 		Credentials:  params.Credentials,
@@ -97,7 +94,7 @@ func (c *ConfigContextImpl) AddContext(params api.AddContextParams) error {
 }
 
 // ListContexts prints all available contexts with their details.
-func (c *ConfigContextImpl) ListContexts() error {
+func (c *Config) ListContexts() error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -133,7 +130,7 @@ func (c *ConfigContextImpl) ListContexts() error {
 }
 
 // DeleteContext removes a configuration context by name.
-func (c *ConfigContextImpl) DeleteContext(params api.DeleteContextParams) error {
+func (c *Config) DeleteContext(params DeleteContextParams) error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -166,7 +163,7 @@ func (c *ConfigContextImpl) DeleteContext(params api.DeleteContextParams) error 
 }
 
 // UpdateContext updates an existing configuration context.
-func (c *ConfigContextImpl) UpdateContext(params api.UpdateContextParams) error {
+func (c *Config) UpdateContext(params UpdateContextParams) error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -236,7 +233,7 @@ func (c *ConfigContextImpl) UpdateContext(params api.UpdateContextParams) error 
 }
 
 // UseContext sets the current context to the context with the given name.
-func (c *ConfigContextImpl) UseContext(params api.UseContextParams) error {
+func (c *Config) UseContext(params UseContextParams) error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -260,7 +257,7 @@ func (c *ConfigContextImpl) UseContext(params api.UseContextParams) error {
 }
 
 // DescribeContext prints the details of a named context.
-func (c *ConfigContextImpl) DescribeContext(params api.DescribeContextParams) error {
+func (c *Config) DescribeContext(params DescribeContextParams) error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -276,7 +273,7 @@ func (c *ConfigContextImpl) DescribeContext(params api.DescribeContextParams) er
 }
 
 // printContextDetails prints the details of a context in a property/value table.
-func printContextDetails(cfg *configContext.StoredConfig, ctx *configContext.Context) error {
+func printContextDetails(cfg *StoredConfig, ctx *Context) error {
 	headers := []string{"PROPERTY", "VALUE"}
 	rows := [][]string{
 		{"Name", formatValueOrPlaceholder(ctx.Name)},
@@ -336,7 +333,7 @@ func ApplyContextDefaults(cmd *cobra.Command) error {
 	}
 
 	// Find current context
-	var curCtx *configContext.Context
+	var curCtx *Context
 
 	for _, c := range cfg.Contexts {
 		if c.Name == cfg.CurrentContext {
@@ -418,7 +415,7 @@ func EnsureContext() error {
 			defaults := getDefaultContextValues()
 
 			// Create default context
-			defaultContext := configContext.Context{
+			defaultContext := Context{
 				Name:         defaults.ContextName,
 				Namespace:    defaults.Namespace,
 				Project:      defaults.Project,
@@ -433,7 +430,7 @@ func EnsureContext() error {
 			// Set default control plane configuration if not exists
 			if len(cfg.ControlPlanes) == 0 {
 				endpoint, _ := getDefaultControlPlaneValues()
-				cfg.ControlPlanes = []configContext.ControlPlane{
+				cfg.ControlPlanes = []ControlPlane{
 					{
 						Name: defaults.ControlPlane,
 						URL:  endpoint,
@@ -442,7 +439,7 @@ func EnsureContext() error {
 			}
 
 			if len(cfg.Credentials) == 0 {
-				cfg.Credentials = []configContext.Credential{
+				cfg.Credentials = []Credential{
 					{
 						Name: defaults.Credentials,
 					},
@@ -460,14 +457,14 @@ func EnsureContext() error {
 }
 
 // AddControlPlane adds a new control plane configuration.
-func (c *ConfigContextImpl) AddControlPlane(params api.AddControlPlaneParams) error {
+func (c *Config) AddControlPlane(params AddControlPlaneParams) error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
 	// Validate that the control plane name is not already used
-	if err := validation.ValidateControlPlaneNameUniqueness(cfg, params.Name); err != nil {
+	if err := validateControlPlaneNameUniqueness(cfg, params.Name); err != nil {
 		return err
 	}
 
@@ -477,7 +474,7 @@ func (c *ConfigContextImpl) AddControlPlane(params api.AddControlPlaneParams) er
 		return fmt.Errorf("control plane URL must not be empty")
 	}
 
-	cfg.ControlPlanes = append(cfg.ControlPlanes, configContext.ControlPlane{
+	cfg.ControlPlanes = append(cfg.ControlPlanes, ControlPlane{
 		Name: params.Name,
 		URL:  trimmedURL,
 	})
@@ -491,7 +488,7 @@ func (c *ConfigContextImpl) AddControlPlane(params api.AddControlPlaneParams) er
 }
 
 // ListControlPlanes prints all control plane configurations.
-func (c *ConfigContextImpl) ListControlPlanes() error {
+func (c *Config) ListControlPlanes() error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -516,7 +513,7 @@ func (c *ConfigContextImpl) ListControlPlanes() error {
 }
 
 // UpdateControlPlane updates an existing control plane configuration.
-func (c *ConfigContextImpl) UpdateControlPlane(params api.UpdateControlPlaneParams) error {
+func (c *Config) UpdateControlPlane(params UpdateControlPlaneParams) error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -555,7 +552,7 @@ func (c *ConfigContextImpl) UpdateControlPlane(params api.UpdateControlPlanePara
 }
 
 // DeleteControlPlane removes a control plane configuration by name.
-func (c *ConfigContextImpl) DeleteControlPlane(params api.DeleteControlPlaneParams) error {
+func (c *Config) DeleteControlPlane(params DeleteControlPlaneParams) error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -598,7 +595,7 @@ func maskToken(token string) string {
 }
 
 // GetCurrentContext returns the current context
-func GetCurrentContext() (*configContext.Context, error) {
+func GetCurrentContext() (*Context, error) {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
@@ -619,7 +616,7 @@ func GetCurrentContext() (*configContext.Context, error) {
 }
 
 // GetCurrentCredential returns the credential for the current context
-func GetCurrentCredential() (*configContext.Credential, error) {
+func GetCurrentCredential() (*Credential, error) {
 	currentContext, err := GetCurrentContext()
 	if err != nil {
 		return nil, err
@@ -645,7 +642,7 @@ func GetCurrentCredential() (*configContext.Credential, error) {
 }
 
 // GetCurrentControlPlane returns the control plane for the current context
-func GetCurrentControlPlane() (*configContext.ControlPlane, error) {
+func GetCurrentControlPlane() (*ControlPlane, error) {
 	currentContext, err := GetCurrentContext()
 	if err != nil {
 		return nil, err
@@ -667,18 +664,18 @@ func GetCurrentControlPlane() (*configContext.ControlPlane, error) {
 }
 
 // AddCredentials adds a new credentials configuration.
-func (c *ConfigContextImpl) AddCredentials(params api.AddCredentialsParams) error {
+func (c *Config) AddCredentials(params AddCredentialsParams) error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
 	// Validate that the credentials name is not already used
-	if err := validation.ValidateCredentialsNameUniqueness(cfg, params.Name); err != nil {
+	if err := validateCredentialsNameUniqueness(cfg, params.Name); err != nil {
 		return err
 	}
 
-	cfg.Credentials = append(cfg.Credentials, configContext.Credential{
+	cfg.Credentials = append(cfg.Credentials, Credential{
 		Name: params.Name,
 	})
 
@@ -691,7 +688,7 @@ func (c *ConfigContextImpl) AddCredentials(params api.AddCredentialsParams) erro
 }
 
 // ListCredentials prints all credentials configurations.
-func (c *ConfigContextImpl) ListCredentials() error {
+func (c *Config) ListCredentials() error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -721,7 +718,7 @@ func (c *ConfigContextImpl) ListCredentials() error {
 }
 
 // DeleteCredentials removes a credentials configuration by name.
-func (c *ConfigContextImpl) DeleteCredentials(params api.DeleteCredentialsParams) error {
+func (c *Config) DeleteCredentials(params DeleteCredentialsParams) error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -752,5 +749,46 @@ func (c *ConfigContextImpl) DeleteCredentials(params api.DeleteCredentialsParams
 	}
 
 	fmt.Printf("Deleted credentials: %s\n", params.Name)
+	return nil
+}
+
+// validateAddContextParams validates parameters for adding a configuration context.
+func validateAddContextParams(params AddContextParams) error {
+	if params.ControlPlane == "" {
+		return fmt.Errorf("control plane name is required")
+	}
+	if params.Credentials == "" {
+		return fmt.Errorf("credentials name is required")
+	}
+	return nil
+}
+
+// validateContextNameUniqueness checks that the given name is not already used by another context.
+func validateContextNameUniqueness(cfg *StoredConfig, name string) error {
+	for _, ctx := range cfg.Contexts {
+		if ctx.Name == name {
+			return fmt.Errorf("context %q already exists", name)
+		}
+	}
+	return nil
+}
+
+// validateControlPlaneNameUniqueness checks that the given name is not already used by another control plane.
+func validateControlPlaneNameUniqueness(cfg *StoredConfig, name string) error {
+	for _, cp := range cfg.ControlPlanes {
+		if cp.Name == name {
+			return fmt.Errorf("control plane %q already exists", name)
+		}
+	}
+	return nil
+}
+
+// validateCredentialsNameUniqueness checks that the given name is not already used by another credential.
+func validateCredentialsNameUniqueness(cfg *StoredConfig, name string) error {
+	for _, cred := range cfg.Credentials {
+		if cred.Name == name {
+			return fmt.Errorf("credentials %q already exist", name)
+		}
+	}
 	return nil
 }

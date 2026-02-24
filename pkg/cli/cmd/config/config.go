@@ -8,13 +8,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-func NewConfigCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     constants.ConfigRoot.Use,
 		Short:   constants.ConfigRoot.Short,
@@ -23,14 +23,14 @@ func NewConfigCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newContextCmd(impl),
-		newControlPlaneCmd(impl),
-		newCredentialsCmd(impl),
+		newContextCmd(),
+		newControlPlaneCmd(),
+		newCredentialsCmd(),
 	)
 	return cmd
 }
 
-func newContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newContextCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   constants.ConfigContext.Use,
 		Short: constants.ConfigContext.Short,
@@ -38,16 +38,16 @@ func newContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newContextAddCmd(impl),
-		newContextListCmd(impl),
-		newContextDeleteCmd(impl),
-		newContextUpdateCmd(impl),
-		newContextUseCmd(impl),
+		newContextAddCmd(),
+		newContextListCmd(),
+		newContextDeleteCmd(),
+		newContextUpdateCmd(),
+		newContextUseCmd(),
 	)
 	return cmd
 }
 
-func newContextAddCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newContextAddCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigContextAdd,
 		Flags: []flags.Flag{
@@ -62,7 +62,7 @@ func newContextAddCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			if len(args) == 0 {
 				return fmt.Errorf("context name is required")
 			}
-			return impl.AddContext(api.AddContextParams{
+			return config.New().AddContext(config.AddContextParams{
 				Name:         args[0],
 				ControlPlane: fg.GetString(flags.ControlPlane),
 				Credentials:  fg.GetString(flags.Credentials),
@@ -80,11 +80,11 @@ func newContextAddCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	return cmd
 }
 
-func newContextListCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newContextListCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigContextList,
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.ListContexts()
+			return config.New().ListContexts()
 		},
 	}).Build()
 
@@ -93,7 +93,7 @@ func newContextListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	return cmd
 }
 
-func newContextDeleteCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newContextDeleteCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigContextDelete,
 		RunE: func(fg *builder.FlagGetter) error {
@@ -101,7 +101,7 @@ func newContextDeleteCmd(impl api.CommandImplementationInterface) *cobra.Command
 			if len(args) == 0 {
 				return fmt.Errorf("context name is required")
 			}
-			return impl.DeleteContext(api.DeleteContextParams{
+			return config.New().DeleteContext(config.DeleteContextParams{
 				Name: args[0],
 			})
 		},
@@ -112,7 +112,7 @@ func newContextDeleteCmd(impl api.CommandImplementationInterface) *cobra.Command
 	return cmd
 }
 
-func newContextUpdateCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newContextUpdateCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigContextUpdate,
 		Flags: []flags.Flag{
@@ -127,7 +127,7 @@ func newContextUpdateCmd(impl api.CommandImplementationInterface) *cobra.Command
 			if len(args) == 0 {
 				return fmt.Errorf("context name is required")
 			}
-			return impl.UpdateContext(api.UpdateContextParams{
+			return config.New().UpdateContext(config.UpdateContextParams{
 				Name:         args[0],
 				Namespace:    fg.GetString(flags.Namespace),
 				Project:      fg.GetString(flags.Project),
@@ -143,7 +143,7 @@ func newContextUpdateCmd(impl api.CommandImplementationInterface) *cobra.Command
 	return cmd
 }
 
-func newContextUseCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newContextUseCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigContextUse,
 		RunE: func(fg *builder.FlagGetter) error {
@@ -151,7 +151,7 @@ func newContextUseCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			if len(args) == 0 {
 				return fmt.Errorf("context name is required")
 			}
-			return impl.UseContext(api.UseContextParams{
+			return config.New().UseContext(config.UseContextParams{
 				Name: args[0],
 			})
 		},
@@ -162,7 +162,7 @@ func newContextUseCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	return cmd
 }
 
-func newControlPlaneCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newControlPlaneCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   constants.ConfigControlPlane.Use,
 		Short: constants.ConfigControlPlane.Short,
@@ -170,15 +170,15 @@ func newControlPlaneCmd(impl api.CommandImplementationInterface) *cobra.Command 
 	}
 
 	cmd.AddCommand(
-		newControlPlaneAddCmd(impl),
-		newControlPlaneListCmd(impl),
-		newControlPlaneUpdateCmd(impl),
-		newControlPlaneDeleteCmd(impl),
+		newControlPlaneAddCmd(),
+		newControlPlaneListCmd(),
+		newControlPlaneUpdateCmd(),
+		newControlPlaneDeleteCmd(),
 	)
 	return cmd
 }
 
-func newControlPlaneAddCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newControlPlaneAddCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigControlPlaneAdd,
 		Flags: []flags.Flag{
@@ -189,7 +189,7 @@ func newControlPlaneAddCmd(impl api.CommandImplementationInterface) *cobra.Comma
 			if len(args) == 0 {
 				return fmt.Errorf("control plane name is required")
 			}
-			return impl.AddControlPlane(api.AddControlPlaneParams{
+			return config.New().AddControlPlane(config.AddControlPlaneParams{
 				Name: args[0],
 				URL:  fg.GetString(flags.URL),
 			})
@@ -202,11 +202,11 @@ func newControlPlaneAddCmd(impl api.CommandImplementationInterface) *cobra.Comma
 	return cmd
 }
 
-func newControlPlaneListCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newControlPlaneListCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigControlPlaneList,
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.ListControlPlanes()
+			return config.New().ListControlPlanes()
 		},
 	}).Build()
 
@@ -215,7 +215,7 @@ func newControlPlaneListCmd(impl api.CommandImplementationInterface) *cobra.Comm
 	return cmd
 }
 
-func newControlPlaneUpdateCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newControlPlaneUpdateCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigControlPlaneUpdate,
 		Flags: []flags.Flag{
@@ -226,7 +226,7 @@ func newControlPlaneUpdateCmd(impl api.CommandImplementationInterface) *cobra.Co
 			if len(args) == 0 {
 				return fmt.Errorf("control plane name is required")
 			}
-			return impl.UpdateControlPlane(api.UpdateControlPlaneParams{
+			return config.New().UpdateControlPlane(config.UpdateControlPlaneParams{
 				Name: args[0],
 				URL:  fg.GetString(flags.URL),
 			})
@@ -238,7 +238,7 @@ func newControlPlaneUpdateCmd(impl api.CommandImplementationInterface) *cobra.Co
 	return cmd
 }
 
-func newControlPlaneDeleteCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newControlPlaneDeleteCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigControlPlaneDelete,
 		RunE: func(fg *builder.FlagGetter) error {
@@ -246,7 +246,7 @@ func newControlPlaneDeleteCmd(impl api.CommandImplementationInterface) *cobra.Co
 			if len(args) == 0 {
 				return fmt.Errorf("control plane name is required")
 			}
-			return impl.DeleteControlPlane(api.DeleteControlPlaneParams{
+			return config.New().DeleteControlPlane(config.DeleteControlPlaneParams{
 				Name: args[0],
 			})
 		},
@@ -257,7 +257,7 @@ func newControlPlaneDeleteCmd(impl api.CommandImplementationInterface) *cobra.Co
 	return cmd
 }
 
-func newCredentialsCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newCredentialsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   constants.ConfigCredentials.Use,
 		Short: constants.ConfigCredentials.Short,
@@ -265,14 +265,14 @@ func newCredentialsCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newCredentialsAddCmd(impl),
-		newCredentialsListCmd(impl),
-		newCredentialsDeleteCmd(impl),
+		newCredentialsAddCmd(),
+		newCredentialsListCmd(),
+		newCredentialsDeleteCmd(),
 	)
 	return cmd
 }
 
-func newCredentialsAddCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newCredentialsAddCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigCredentialsAdd,
 		RunE: func(fg *builder.FlagGetter) error {
@@ -280,7 +280,7 @@ func newCredentialsAddCmd(impl api.CommandImplementationInterface) *cobra.Comman
 			if len(args) == 0 {
 				return fmt.Errorf("credentials name is required")
 			}
-			return impl.AddCredentials(api.AddCredentialsParams{
+			return config.New().AddCredentials(config.AddCredentialsParams{
 				Name: args[0],
 			})
 		},
@@ -291,11 +291,11 @@ func newCredentialsAddCmd(impl api.CommandImplementationInterface) *cobra.Comman
 	return cmd
 }
 
-func newCredentialsListCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newCredentialsListCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigCredentialsList,
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.ListCredentials()
+			return config.New().ListCredentials()
 		},
 	}).Build()
 
@@ -304,7 +304,7 @@ func newCredentialsListCmd(impl api.CommandImplementationInterface) *cobra.Comma
 	return cmd
 }
 
-func newCredentialsDeleteCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newCredentialsDeleteCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigCredentialsDelete,
 		RunE: func(fg *builder.FlagGetter) error {
@@ -312,7 +312,7 @@ func newCredentialsDeleteCmd(impl api.CommandImplementationInterface) *cobra.Com
 			if len(args) == 0 {
 				return fmt.Errorf("credentials name is required")
 			}
-			return impl.DeleteCredentials(api.DeleteCredentialsParams{
+			return config.New().DeleteCredentials(config.DeleteCredentialsParams{
 				Name: args[0],
 			})
 		},
