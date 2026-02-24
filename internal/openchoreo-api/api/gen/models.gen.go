@@ -146,6 +146,12 @@ const (
 	CreateClusterRoleBindingRequestEffectDeny  CreateClusterRoleBindingRequestEffect = "deny"
 )
 
+// Defines values for CreateGitSecretRequestSecretType.
+const (
+	BasicAuth CreateGitSecretRequestSecretType = "basic-auth"
+	SshAuth   CreateGitSecretRequestSecretType = "ssh-auth"
+)
+
 // Defines values for CreateNamespaceRoleBindingRequestEffect.
 const (
 	CreateNamespaceRoleBindingRequestEffectAllow CreateNamespaceRoleBindingRequestEffect = "allow"
@@ -1429,6 +1435,30 @@ type CreateComponentRequest struct {
 	Workflow *ComponentWorkflowInput `json:"workflow,omitempty"`
 }
 
+// CreateGitSecretRequest Request body for creating a git secret
+type CreateGitSecretRequest struct {
+	// SecretName Name of the git secret
+	SecretName string `json:"secretName"`
+
+	// SecretType Authentication type
+	SecretType CreateGitSecretRequestSecretType `json:"secretType"`
+
+	// SshKey SSH private key (required for ssh-auth)
+	SshKey *string `json:"sshKey,omitempty"`
+
+	// SshKeyId SSH key ID for AWS CodeCommit (optional for ssh-auth)
+	SshKeyId *string `json:"sshKeyId,omitempty"`
+
+	// Token Authentication token (required for basic-auth)
+	Token *string `json:"token,omitempty"`
+
+	// Username Username for basic authentication (optional)
+	Username *string `json:"username,omitempty"`
+}
+
+// CreateGitSecretRequestSecretType Authentication type
+type CreateGitSecretRequestSecretType string
+
 // CreateNamespaceRoleBindingRequest Request to create a namespace-scoped role binding (legacy)
 type CreateNamespaceRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
@@ -1778,6 +1808,30 @@ type GatewaySpec struct {
 type GenerateReleaseRequest struct {
 	// ReleaseName Optional release name (auto-generated if not provided)
 	ReleaseName *string `json:"releaseName,omitempty"`
+}
+
+// GitSecretListResponse List of git secrets
+type GitSecretListResponse struct {
+	// Items List of git secrets
+	Items []GitSecretResponse `json:"items"`
+
+	// Page Current page number
+	Page *int `json:"page,omitempty"`
+
+	// PageSize Number of items per page
+	PageSize *int `json:"pageSize,omitempty"`
+
+	// TotalCount Total number of items
+	TotalCount *int `json:"totalCount,omitempty"`
+}
+
+// GitSecretResponse Git secret resource
+type GitSecretResponse struct {
+	// Name Name of the git secret
+	Name *string `json:"name,omitempty"`
+
+	// Namespace Namespace of the git secret
+	Namespace *string `json:"namespace,omitempty"`
 }
 
 // HealthInfo Health status for a resource node
@@ -3226,6 +3280,9 @@ type EnvironmentNameParam = string
 // EnvironmentQueryParam defines model for EnvironmentQueryParam.
 type EnvironmentQueryParam = string
 
+// GitSecretNameParam defines model for GitSecretNameParam.
+type GitSecretNameParam = string
+
 // LimitParam defines model for LimitParam.
 type LimitParam = int
 
@@ -3807,6 +3864,9 @@ type HandleGitHubWebhookJSONRequestBody HandleGitHubWebhookJSONBody
 
 // HandleGitLabWebhookJSONRequestBody defines body for HandleGitLabWebhook for application/json ContentType.
 type HandleGitLabWebhookJSONRequestBody HandleGitLabWebhookJSONBody
+
+// CreateGitSecretJSONRequestBody defines body for CreateGitSecret for application/json ContentType.
+type CreateGitSecretJSONRequestBody = CreateGitSecretRequest
 
 // AsObservabilityAlertsNotificationChannelSpec0 returns the union data inside the ObservabilityAlertsNotificationChannelSpec as a ObservabilityAlertsNotificationChannelSpec0
 func (t ObservabilityAlertsNotificationChannelSpec) AsObservabilityAlertsNotificationChannelSpec0() (ObservabilityAlertsNotificationChannelSpec0, error) {

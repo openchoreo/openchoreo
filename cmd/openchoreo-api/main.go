@@ -106,9 +106,9 @@ func main() {
 	}
 
 	// Initialize build plane client manager
-	var k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	var planeK8sClientMgr *kubernetesClient.KubeMultiClientManager
 	if cfg.ClusterGateway.TLS.CACertPath != "" || cfg.ClusterGateway.TLS.ClientCertPath != "" || cfg.ClusterGateway.TLS.ClientKeyPath != "" {
-		k8sClientMgr = kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
+		planeK8sClientMgr = kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
 			CACertPath:     cfg.ClusterGateway.TLS.CACertPath,
 			ClientCertPath: cfg.ClusterGateway.TLS.ClientCertPath,
 			ClientKeyPath:  cfg.ClusterGateway.TLS.ClientKeyPath,
@@ -118,7 +118,7 @@ func main() {
 			"clientCert", cfg.ClusterGateway.TLS.ClientCertPath != "",
 			"clientKey", cfg.ClusterGateway.TLS.ClientKeyPath != "")
 	} else {
-		k8sClientMgr = kubernetesClient.NewManager()
+		planeK8sClientMgr = kubernetesClient.NewManager()
 		if cfg.ClusterGateway.URL != "" {
 			logger.Warn("Using insecure mode for cluster gateway connection. " +
 				"Consider configuring TLS certificates for production deployments.")
@@ -149,14 +149,14 @@ func main() {
 	}
 
 	// Initialize legacy services with PAP and PDP
-	legacySvc := legacyservices.NewServices(k8sClient, k8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL, gwClient)
+	legacySvc := legacyservices.NewServices(k8sClient, planeK8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL, gwClient)
 
 	// Initialize legacy HTTP handlers with unified config
 	legacyHandler := handlers.New(legacySvc, &cfg, logger.With("component", "legacy-handlers"))
 	legacyRoutes := legacyHandler.Routes()
 
 	// Initialize all handler services
-	services := handlerservices.NewServices(k8sClient, runtime.pap, runtime.pdp, logger)
+	services := handlerservices.NewServices(k8sClient, runtime.pap, runtime.pdp, planeK8sClientMgr, gatewayURL, logger)
 
 	// Initialize OpenAPI handlers
 	openapiHandler := openapihandlers.New(legacySvc, services, logger.With("component", "openapi-handlers"), &cfg)

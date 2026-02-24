@@ -77,6 +77,8 @@ tags:
     description: Deployment pipeline management
   - name: ObservabilityAlertsNotificationChannels
     description: Observability alerts notification channel management
+  - name: GitSecrets
+    description: Git secret management for source code authentication
 
 paths:
   # =============================================================================
@@ -4361,6 +4363,83 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  # =============================================================================
+  # Git Secrets (v1alpha1)
+  # =============================================================================
+  /api/v1alpha1/namespaces/{namespaceName}/gitsecrets:
+    get:
+      operationId: listGitSecrets
+      summary: List git secrets
+      description: Returns all git secrets in a namespace.
+      tags: [GitSecrets]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      responses:
+        '200':
+          description: List of git secrets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitSecretListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createGitSecret
+      summary: Create a git secret
+      description: Creates a new git secret for source code authentication.
+      tags: [GitSecrets]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGitSecretRequest'
+      responses:
+        '201':
+          description: Git secret created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GitSecretResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1alpha1/namespaces/{namespaceName}/gitsecrets/{gitSecretName}:
+    delete:
+      operationId: deleteGitSecret
+      summary: Delete a git secret
+      description: Deletes a git secret by name.
+      tags: [GitSecrets]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/GitSecretNameParam'
+      responses:
+        '204':
+          description: Git secret deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   # ===========================================================================
   # Security Schemes
@@ -4634,6 +4713,15 @@ components:
         type: integer
         format: int64
         example: 123
+
+    GitSecretNameParam:
+      name: gitSecretName
+      in: path
+      required: true
+      description: Git secret name
+      schema:
+        type: string
+        example: my-git-secret
 
     LimitParam:
       name: limit
@@ -9076,3 +9164,71 @@ components:
           type: string
           description: Key within the secret
           example: password
+
+    # -------------------------------------------------------------------------
+    # Git Secrets
+    # -------------------------------------------------------------------------
+    CreateGitSecretRequest:
+      type: object
+      description: Request body for creating a git secret
+      required:
+        - secretName
+        - secretType
+      properties:
+        secretName:
+          type: string
+          description: Name of the git secret
+          example: my-git-secret
+        secretType:
+          type: string
+          description: Authentication type
+          enum:
+            - basic-auth
+            - ssh-auth
+          example: basic-auth
+        username:
+          type: string
+          description: Username for basic authentication (optional)
+        token:
+          type: string
+          description: Authentication token (required for basic-auth)
+        sshKey:
+          type: string
+          description: SSH private key (required for ssh-auth)
+        sshKeyId:
+          type: string
+          description: SSH key ID for AWS CodeCommit (optional for ssh-auth)
+
+    GitSecretResponse:
+      type: object
+      description: Git secret resource
+      properties:
+        name:
+          type: string
+          description: Name of the git secret
+          example: my-git-secret
+        namespace:
+          type: string
+          description: Namespace of the git secret
+          example: my-namespace
+
+    GitSecretListResponse:
+      type: object
+      description: List of git secrets
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          description: List of git secrets
+          items:
+            $ref: '#/components/schemas/GitSecretResponse'
+        totalCount:
+          type: integer
+          description: Total number of items
+        page:
+          type: integer
+          description: Current page number
+        pageSize:
+          type: integer
+          description: Number of items per page
