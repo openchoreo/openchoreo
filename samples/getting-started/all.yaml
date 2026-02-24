@@ -788,7 +788,7 @@ spec:
         secretRef: string | default="" description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
-          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
         appPath: string | default=. description="Path to the application directory within the repository"
       docker:
         context: string | default=. description="Docker build context path relative to the repository root"
@@ -950,7 +950,7 @@ spec:
         secretRef: string | default="" description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
-          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
         appPath: string | default=. description="Path to the React application directory within the repository"
       nodeVersion: string | default="18" enum=16,18,20,22 description="Node.js version to use for building the React application"
 
@@ -1109,7 +1109,7 @@ spec:
         secretRef: string | default="" description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
-          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
         appPath: string | default=. description="Path to the Ballerina application directory within the repository"
 
   runTemplate:
@@ -1265,7 +1265,7 @@ spec:
         secretRef: string | default="" description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
-          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
         appPath: string | default=. description="Path to the application directory within the repository"
 
   runTemplate:
