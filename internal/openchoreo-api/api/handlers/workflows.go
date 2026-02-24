@@ -5,14 +5,23 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
+	legacyservices "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	svcerrors "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
 )
 
 // ListWorkflows returns a list of generic workflows
@@ -66,23 +75,26 @@ func (h *Handler) ListWorkflowRuns(
 ) (gen.ListWorkflowRunsResponseObject, error) {
 	h.logger.Info("ListWorkflowRuns called", "namespaceName", request.NamespaceName)
 
-	runs, err := h.legacyServices.WorkflowRunService.ListWorkflowRuns(ctx, request.NamespaceName, "", "")
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+
+	result, err := h.services.WorkflowRunService.ListWorkflowRuns(ctx, request.NamespaceName, "", "", opts)
 	if err != nil {
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.ListWorkflowRuns403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
 		h.logger.Error("Failed to list workflow runs", "error", err)
 		return gen.ListWorkflowRuns500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	result := gen.WorkflowRunList{
-		Items: make([]gen.WorkflowRun, 0, len(runs)),
-	}
-	for _, run := range runs {
-		result.Items = append(result.Items, toGenWorkflowRun(run))
+	items := make([]gen.WorkflowRun, 0, len(result.Items))
+	for i := range result.Items {
+		items = append(items, toGenWorkflowRunFromCR(&result.Items[i]))
 	}
 
-	return gen.ListWorkflowRuns200JSONResponse(result), nil
+	return gen.ListWorkflowRuns200JSONResponse(gen.WorkflowRunList{
+		Items:      items,
+		Pagination: ToPagination(result),
+	}), nil
 }
 
 // CreateWorkflowRun creates a new workflow run
@@ -94,26 +106,49 @@ func (h *Handler) CreateWorkflowRun(
 		"namespace", request.NamespaceName,
 		"workflow", request.Body.WorkflowName)
 
-	// Convert request to models.CreateWorkflowRunRequest
-	req := &models.CreateWorkflowRunRequest{
-		WorkflowName: request.Body.WorkflowName,
-		Parameters:   request.Body.Parameters,
+	// Convert parameters to runtime.RawExtension
+	var parametersRaw *runtime.RawExtension
+	if request.Body.Parameters != nil {
+		rawBytes, err := json.Marshal(request.Body.Parameters)
+		if err != nil {
+			h.logger.Error("Failed to marshal parameters", "error", err)
+			return gen.CreateWorkflowRun400JSONResponse{BadRequestJSONResponse: badRequest("Invalid parameters")}, nil
+		}
+		parametersRaw = &runtime.RawExtension{Raw: rawBytes}
 	}
 
-	// Call service to create workflow run
-	workflowRun, err := h.legacyServices.WorkflowRunService.CreateWorkflowRun(ctx, request.NamespaceName, req)
+	// Generate a unique name for the workflow run
+	runName, err := generateWorkflowRunName(request.Body.WorkflowName)
 	if err != nil {
-		if errors.Is(err, services.ErrWorkflowNotFound) {
+		h.logger.Error("Failed to generate workflow run name", "error", err)
+		return gen.CreateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	wfRun := &openchoreov1alpha1.WorkflowRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: runName,
+		},
+		Spec: openchoreov1alpha1.WorkflowRunSpec{
+			Workflow: openchoreov1alpha1.WorkflowRunConfig{
+				Name:       request.Body.WorkflowName,
+				Parameters: parametersRaw,
+			},
+		},
+	}
+
+	created, err := h.services.WorkflowRunService.CreateWorkflowRun(ctx, request.NamespaceName, wfRun)
+	if err != nil {
+		if errors.Is(err, workflowrunsvc.ErrWorkflowNotFound) {
 			return gen.CreateWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("Workflow")}, nil
 		}
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.CreateWorkflowRun403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
 		h.logger.Error("Failed to create workflow run", "error", err)
 		return gen.CreateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	return gen.CreateWorkflowRun201JSONResponse(toGenWorkflowRun(workflowRun)), nil
+	return gen.CreateWorkflowRun201JSONResponse(toGenWorkflowRunFromCR(created)), nil
 }
 
 // GetWorkflowRun returns a specific workflow run
@@ -125,19 +160,19 @@ func (h *Handler) GetWorkflowRun(
 		"namespace", request.NamespaceName,
 		"runName", request.RunName)
 
-	workflowRun, err := h.legacyServices.WorkflowRunService.GetWorkflowRun(ctx, request.NamespaceName, request.RunName)
+	wfRun, err := h.services.WorkflowRunService.GetWorkflowRun(ctx, request.NamespaceName, request.RunName)
 	if err != nil {
-		if errors.Is(err, services.ErrWorkflowRunNotFound) {
+		if errors.Is(err, workflowrunsvc.ErrWorkflowRunNotFound) {
 			return gen.GetWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
 		}
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.GetWorkflowRun403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
 		h.logger.Error("Failed to get workflow run", "error", err)
 		return gen.GetWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	return gen.GetWorkflowRun200JSONResponse(toGenWorkflowRun(workflowRun)), nil
+	return gen.GetWorkflowRun200JSONResponse(toGenWorkflowRunFromCR(wfRun)), nil
 }
 
 // GetWorkflowRunStatus returns the status and per-step details of a specific workflow run
@@ -151,10 +186,10 @@ func (h *Handler) GetWorkflowRunStatus(
 
 	status, err := h.legacyServices.WorkflowRunService.GetWorkflowRunStatus(ctx, request.NamespaceName, request.RunName, h.Config.ClusterGateway.URL)
 	if err != nil {
-		if errors.Is(err, services.ErrWorkflowRunNotFound) {
+		if errors.Is(err, legacyservices.ErrWorkflowRunNotFound) {
 			return gen.GetWorkflowRunStatus404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
 		}
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, legacyservices.ErrForbidden) {
 			return gen.GetWorkflowRunStatus403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
 		h.logger.Error("Failed to get workflow run status", "error", err)
@@ -196,13 +231,13 @@ func (h *Handler) GetWorkflowRunLogs(
 	logs, err := h.legacyServices.WorkflowRunService.GetWorkflowRunLogs(ctx, request.NamespaceName, request.RunName,
 		step, h.Config.ClusterGateway.URL, request.Params.SinceSeconds)
 	if err != nil {
-		if errors.Is(err, services.ErrWorkflowRunNotFound) {
+		if errors.Is(err, legacyservices.ErrWorkflowRunNotFound) {
 			return gen.GetWorkflowRunLogs404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
 		}
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, legacyservices.ErrForbidden) {
 			return gen.GetWorkflowRunLogs403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, services.ErrWorkflowRunReferenceNotFound) {
+		if errors.Is(err, legacyservices.ErrWorkflowRunReferenceNotFound) {
 			return gen.GetWorkflowRunLogs404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
 		}
 		h.logger.Error("Failed to get workflow run logs", "error", err)
@@ -241,13 +276,13 @@ func (h *Handler) GetWorkflowRunEvents(
 	events, err := h.legacyServices.WorkflowRunService.GetWorkflowRunEvents(ctx, request.NamespaceName, request.RunName,
 		step, h.Config.ClusterGateway.URL)
 	if err != nil {
-		if errors.Is(err, services.ErrWorkflowRunNotFound) {
+		if errors.Is(err, legacyservices.ErrWorkflowRunNotFound) {
 			return gen.GetWorkflowRunEvents404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
 		}
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, legacyservices.ErrForbidden) {
 			return gen.GetWorkflowRunEvents403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, services.ErrWorkflowRunReferenceNotFound) {
+		if errors.Is(err, legacyservices.ErrWorkflowRunReferenceNotFound) {
 			return gen.GetWorkflowRunEvents404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRunReference")}, nil
 		}
 		h.logger.Error("Failed to get workflow run events", "error", err)
@@ -273,37 +308,96 @@ func (h *Handler) GetWorkflowRunEvents(
 	return result, nil
 }
 
-// toGenWorkflowRun converts models.WorkflowRunResponse to gen.WorkflowRun
-func toGenWorkflowRun(r *models.WorkflowRunResponse) gen.WorkflowRun {
-	if r == nil {
+// toGenWorkflowRunFromCR converts a WorkflowRun CRD to the OpenAPI gen.WorkflowRun type.
+func toGenWorkflowRunFromCR(wfRun *openchoreov1alpha1.WorkflowRun) gen.WorkflowRun {
+	if wfRun == nil {
 		return gen.WorkflowRun{}
 	}
 
+	status := getWorkflowRunStatus(wfRun.Status.Conditions)
+
 	result := gen.WorkflowRun{
-		Name:         r.Name,
-		OrgName:      r.NamespaceName,
-		WorkflowName: r.WorkflowName,
-		Status:       gen.WorkflowRunStatus(r.Status),
-		CreatedAt:    r.CreatedAt,
+		Name:         wfRun.Name,
+		OrgName:      wfRun.Namespace,
+		WorkflowName: wfRun.Spec.Workflow.Name,
+		Status:       gen.WorkflowRunStatus(status),
+		CreatedAt:    wfRun.CreationTimestamp.Time,
 	}
 
-	if r.FinishedAt != nil {
-		result.FinishedAt = r.FinishedAt
+	if wfRun.UID != "" {
+		uid := string(wfRun.UID)
+		result.Uuid = &uid
 	}
 
-	if r.Phase != "" {
-		result.Phase = &r.Phase
+	result.Phase = &status
+
+	// Set FinishedAt from WorkflowCompleted condition
+	for _, condition := range wfRun.Status.Conditions {
+		if condition.Type == "WorkflowCompleted" && condition.Status == metav1.ConditionTrue {
+			t := condition.LastTransitionTime.Time
+			result.FinishedAt = &t
+			break
+		}
 	}
 
-	if r.Parameters != nil {
-		result.Parameters = &r.Parameters
-	}
-
-	if r.UUID != "" {
-		result.Uuid = &r.UUID
+	// Extract parameters if available
+	if wfRun.Spec.Workflow.Parameters != nil && wfRun.Spec.Workflow.Parameters.Raw != nil {
+		var params map[string]interface{}
+		if err := json.Unmarshal(wfRun.Spec.Workflow.Parameters.Raw, &params); err == nil {
+			result.Parameters = &params
+		}
 	}
 
 	return result
+}
+
+// getWorkflowRunStatus determines the user-friendly status from workflow run conditions.
+func getWorkflowRunStatus(conditions []metav1.Condition) string {
+	if len(conditions) == 0 {
+		return "Pending"
+	}
+
+	for _, condition := range conditions {
+		if condition.Type == "WorkflowFailed" && condition.Status == metav1.ConditionTrue {
+			return "Failed"
+		}
+	}
+
+	for _, condition := range conditions {
+		if condition.Type == "WorkflowSucceeded" && condition.Status == metav1.ConditionTrue {
+			return "Succeeded"
+		}
+	}
+
+	for _, condition := range conditions {
+		if condition.Type == "WorkflowRunning" && condition.Status == metav1.ConditionTrue {
+			return "Running"
+		}
+	}
+
+	return "Pending"
+}
+
+// generateWorkflowRunName generates a unique name for the workflow run.
+func generateWorkflowRunName(workflowName string) (string, error) {
+	bytes := make([]byte, 4)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("failed to generate random suffix: %w", err)
+	}
+	suffix := hex.EncodeToString(bytes)
+
+	runName := fmt.Sprintf("%s-run-%s", workflowName, suffix)
+
+	if len(runName) > 63 {
+		maxWorkflowNameLen := 63 - len("-run-") - 8
+		if maxWorkflowNameLen > 0 {
+			runName = fmt.Sprintf("%s-run-%s", workflowName[:maxWorkflowNameLen], suffix)
+		} else {
+			return "", fmt.Errorf("workflow name is too long to generate valid run name")
+		}
+	}
+
+	return runName, nil
 }
 
 // normalizeStepPhase maps a raw phase string from the WorkflowTask CRD to a

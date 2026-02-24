@@ -421,22 +421,22 @@ type ServerInterface interface {
 	// (GET /api/v1/namespaces/{namespaceName}/traits/{traitName}/schema)
 	GetTraitSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, traitName TraitNameParam)
 	// List workflow runs
-	// (GET /api/v1/namespaces/{namespaceName}/workflow-runs)
+	// (GET /api/v1/namespaces/{namespaceName}/workflowruns)
 	ListWorkflowRuns(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListWorkflowRunsParams)
 	// Create workflow run
-	// (POST /api/v1/namespaces/{namespaceName}/workflow-runs)
+	// (POST /api/v1/namespaces/{namespaceName}/workflowruns)
 	CreateWorkflowRun(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
 	// Get workflow run
-	// (GET /api/v1/namespaces/{namespaceName}/workflow-runs/{runName})
+	// (GET /api/v1/namespaces/{namespaceName}/workflowruns/{runName})
 	GetWorkflowRun(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, runName WorkflowRunNameParam)
 	// Get workflow run events
-	// (GET /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/events)
+	// (GET /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/events)
 	GetWorkflowRunEvents(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, params GetWorkflowRunEventsParams)
 	// Get workflow run logs
-	// (GET /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/logs)
+	// (GET /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/logs)
 	GetWorkflowRunLogs(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, params GetWorkflowRunLogsParams)
 	// Get workflow run status
-	// (GET /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/status)
+	// (GET /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/status)
 	GetWorkflowRunStatus(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, runName WorkflowRunNameParam)
 	// List workflows
 	// (GET /api/v1/namespaces/{namespaceName}/workflows)
@@ -6471,12 +6471,12 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/traits/{traitName}", wrapper.GetTrait)
 	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/traits/{traitName}", wrapper.UpdateTrait)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/traits/{traitName}/schema", wrapper.GetTraitSchema)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflow-runs", wrapper.ListWorkflowRuns)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflow-runs", wrapper.CreateWorkflowRun)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflow-runs/{runName}", wrapper.GetWorkflowRun)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/events", wrapper.GetWorkflowRunEvents)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/logs", wrapper.GetWorkflowRunLogs)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/status", wrapper.GetWorkflowRunStatus)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns", wrapper.ListWorkflowRuns)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns", wrapper.CreateWorkflowRun)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns/{runName}", wrapper.GetWorkflowRun)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns/{runName}/events", wrapper.GetWorkflowRunEvents)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns/{runName}/logs", wrapper.GetWorkflowRunLogs)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns/{runName}/status", wrapper.GetWorkflowRunStatus)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflows", wrapper.ListWorkflows)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflows/{workflowName}/schema", wrapper.GetWorkflowSchema)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workloads", wrapper.ListWorkloads)
@@ -15328,22 +15328,22 @@ type StrictServerInterface interface {
 	// (GET /api/v1/namespaces/{namespaceName}/traits/{traitName}/schema)
 	GetTraitSchema(ctx context.Context, request GetTraitSchemaRequestObject) (GetTraitSchemaResponseObject, error)
 	// List workflow runs
-	// (GET /api/v1/namespaces/{namespaceName}/workflow-runs)
+	// (GET /api/v1/namespaces/{namespaceName}/workflowruns)
 	ListWorkflowRuns(ctx context.Context, request ListWorkflowRunsRequestObject) (ListWorkflowRunsResponseObject, error)
 	// Create workflow run
-	// (POST /api/v1/namespaces/{namespaceName}/workflow-runs)
+	// (POST /api/v1/namespaces/{namespaceName}/workflowruns)
 	CreateWorkflowRun(ctx context.Context, request CreateWorkflowRunRequestObject) (CreateWorkflowRunResponseObject, error)
 	// Get workflow run
-	// (GET /api/v1/namespaces/{namespaceName}/workflow-runs/{runName})
+	// (GET /api/v1/namespaces/{namespaceName}/workflowruns/{runName})
 	GetWorkflowRun(ctx context.Context, request GetWorkflowRunRequestObject) (GetWorkflowRunResponseObject, error)
 	// Get workflow run events
-	// (GET /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/events)
+	// (GET /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/events)
 	GetWorkflowRunEvents(ctx context.Context, request GetWorkflowRunEventsRequestObject) (GetWorkflowRunEventsResponseObject, error)
 	// Get workflow run logs
-	// (GET /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/logs)
+	// (GET /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/logs)
 	GetWorkflowRunLogs(ctx context.Context, request GetWorkflowRunLogsRequestObject) (GetWorkflowRunLogsResponseObject, error)
 	// Get workflow run status
-	// (GET /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/status)
+	// (GET /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/status)
 	GetWorkflowRunStatus(ctx context.Context, request GetWorkflowRunStatusRequestObject) (GetWorkflowRunStatusResponseObject, error)
 	// List workflows
 	// (GET /api/v1/namespaces/{namespaceName}/workflows)

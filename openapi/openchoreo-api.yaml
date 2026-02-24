@@ -2228,7 +2228,7 @@ paths:
   # WorkflowRun Endpoints (Generic Workflow Executions)
   # =============================================================================
 
-  /api/v1/namespaces/{namespaceName}/workflow-runs:
+  /api/v1/namespaces/{namespaceName}/workflowruns:
     get:
       operationId: listWorkflowRuns
       summary: List workflow runs
@@ -2283,7 +2283,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}:
+  /api/v1/namespaces/{namespaceName}/workflowruns/{runName}:
     get:
       operationId: getWorkflowRun
       summary: Get workflow run
@@ -2308,7 +2308,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/status:
+  /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/status:
     get:
       operationId: getWorkflowRunStatus
       summary: Get workflow run status
@@ -2331,7 +2331,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/logs:
+  /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/logs:
     get:
       operationId: getWorkflowRunLogs
       summary: Get workflow run logs
@@ -2372,7 +2372,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/events:
+  /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/events:
     get:
       operationId: getWorkflowRunEvents
       summary: Get workflow run events

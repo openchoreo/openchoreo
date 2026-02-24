@@ -9719,7 +9719,7 @@ func NewListWorkflowRunsRequest(server string, namespaceName NamespaceNameParam,
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflow-runs", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflowruns", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9802,7 +9802,7 @@ func NewCreateWorkflowRunRequestWithBody(server string, namespaceName NamespaceN
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflow-runs", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflowruns", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9845,7 +9845,7 @@ func NewGetWorkflowRunRequest(server string, namespaceName NamespaceNameParam, r
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflow-runs/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflowruns/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9886,7 +9886,7 @@ func NewGetWorkflowRunEventsRequest(server string, namespaceName NamespaceNamePa
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflow-runs/%s/events", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflowruns/%s/events", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9949,7 +9949,7 @@ func NewGetWorkflowRunLogsRequest(server string, namespaceName NamespaceNamePara
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflow-runs/%s/logs", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflowruns/%s/logs", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -10028,7 +10028,7 @@ func NewGetWorkflowRunStatusRequest(server string, namespaceName NamespaceNamePa
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflow-runs/%s/status", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflowruns/%s/status", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
