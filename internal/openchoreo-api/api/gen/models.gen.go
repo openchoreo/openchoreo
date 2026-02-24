@@ -3861,6 +3861,9 @@ type UpdateDeploymentPipelineJSONRequestBody = DeploymentPipeline
 // CreateEnvironmentJSONRequestBody defines body for CreateEnvironment for application/json ContentType.
 type CreateEnvironmentJSONRequestBody = Environment
 
+// UpdateEnvironmentJSONRequestBody defines body for UpdateEnvironment for application/json ContentType.
+type UpdateEnvironmentJSONRequestBody = Environment
+
 // CreateObservabilityAlertsNotificationChannelJSONRequestBody defines body for CreateObservabilityAlertsNotificationChannel for application/json ContentType.
 type CreateObservabilityAlertsNotificationChannelJSONRequestBody = ObservabilityAlertsNotificationChannel
 

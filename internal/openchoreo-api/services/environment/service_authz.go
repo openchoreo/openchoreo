@@ -17,6 +17,8 @@ import (
 const (
 	actionViewEnvironment   = "environment:view"
 	actionCreateEnvironment = "environment:create"
+	actionUpdateEnvironment = "environment:update"
+	actionDeleteEnvironment = "environment:delete"
 
 	resourceTypeEnvironment = "environment"
 )
@@ -76,6 +78,35 @@ func (s *environmentServiceWithAuthz) CreateEnvironment(ctx context.Context, nam
 		return nil, err
 	}
 	return s.internal.CreateEnvironment(ctx, namespaceName, env)
+}
+
+// UpdateEnvironment checks authorization and delegates to the internal service.
+func (s *environmentServiceWithAuthz) UpdateEnvironment(ctx context.Context, namespaceName string, env *openchoreov1alpha1.Environment) (*openchoreov1alpha1.Environment, error) {
+	if env == nil {
+		return nil, ErrEnvironmentNil
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionUpdateEnvironment,
+		ResourceType: resourceTypeEnvironment,
+		ResourceID:   env.Name,
+		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.UpdateEnvironment(ctx, namespaceName, env)
+}
+
+// DeleteEnvironment checks authorization and delegates to the internal service.
+func (s *environmentServiceWithAuthz) DeleteEnvironment(ctx context.Context, namespaceName, envName string) error {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionDeleteEnvironment,
+		ResourceType: resourceTypeEnvironment,
+		ResourceID:   envName,
+		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+	}); err != nil {
+		return err
+	}
+	return s.internal.DeleteEnvironment(ctx, namespaceName, envName)
 }
 
 func (s *environmentServiceWithAuthz) GetObserverURL(ctx context.Context, namespaceName, envName string) (*ObserverURLResult, error) {

@@ -6,6 +6,7 @@ package environment
 import "errors"
 
 var (
+	ErrEnvironmentNil           = errors.New("environment is nil")
 	ErrEnvironmentNotFound      = errors.New("environment not found")
 	ErrEnvironmentAlreadyExists = errors.New("environment already exists")
 	ErrDataPlaneNotFound        = errors.New("dataplane not found")

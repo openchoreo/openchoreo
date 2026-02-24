@@ -273,9 +273,15 @@ type ServerInterface interface {
 	// Create environment
 	// (POST /api/v1/namespaces/{namespaceName}/environments)
 	CreateEnvironment(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
+	// Delete environment
+	// (DELETE /api/v1/namespaces/{namespaceName}/environments/{envName})
+	DeleteEnvironment(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, envName EnvironmentNameParam)
 	// Get environment
 	// (GET /api/v1/namespaces/{namespaceName}/environments/{envName})
 	GetEnvironment(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, envName EnvironmentNameParam)
+	// Update environment
+	// (PUT /api/v1/namespaces/{namespaceName}/environments/{envName})
+	UpdateEnvironment(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, envName EnvironmentNameParam)
 	// Get environment observer URL
 	// (GET /api/v1/namespaces/{namespaceName}/environments/{envName}/observer-url)
 	GetEnvironmentObserverURL(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, envName EnvironmentNameParam)
@@ -3399,6 +3405,46 @@ func (siw *ServerInterfaceWrapper) CreateEnvironment(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteEnvironment operation middleware
+func (siw *ServerInterfaceWrapper) DeleteEnvironment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "envName" -------------
+	var envName EnvironmentNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "envName", r.PathValue("envName"), &envName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "envName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteEnvironment(w, r, namespaceName, envName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetEnvironment operation middleware
 func (siw *ServerInterfaceWrapper) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 
@@ -3430,6 +3476,46 @@ func (siw *ServerInterfaceWrapper) GetEnvironment(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetEnvironment(w, r, namespaceName, envName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateEnvironment operation middleware
+func (siw *ServerInterfaceWrapper) UpdateEnvironment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "envName" -------------
+	var envName EnvironmentNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "envName", r.PathValue("envName"), &envName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "envName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateEnvironment(w, r, namespaceName, envName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6679,7 +6765,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/deployment-pipelines/{deploymentPipelineName}", wrapper.UpdateDeploymentPipeline)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/environments", wrapper.ListEnvironments)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/environments", wrapper.CreateEnvironment)
+	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/environments/{envName}", wrapper.DeleteEnvironment)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/environments/{envName}", wrapper.GetEnvironment)
+	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/environments/{envName}", wrapper.UpdateEnvironment)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/environments/{envName}/observer-url", wrapper.GetEnvironmentObserverURL)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/environments/{envName}/rca-agent-url", wrapper.GetRCAAgentURL)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/observability-alerts-notification-channels", wrapper.ListObservabilityAlertsNotificationChannels)
@@ -11366,6 +11454,59 @@ func (response CreateEnvironment500JSONResponse) VisitCreateEnvironmentResponse(
 	return json.NewEncoder(w).Encode(response)
 }
 
+type DeleteEnvironmentRequestObject struct {
+	NamespaceName NamespaceNameParam   `json:"namespaceName"`
+	EnvName       EnvironmentNameParam `json:"envName"`
+}
+
+type DeleteEnvironmentResponseObject interface {
+	VisitDeleteEnvironmentResponse(w http.ResponseWriter) error
+}
+
+type DeleteEnvironment204Response struct {
+}
+
+func (response DeleteEnvironment204Response) VisitDeleteEnvironmentResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteEnvironment401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteEnvironment401JSONResponse) VisitDeleteEnvironmentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteEnvironment403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteEnvironment403JSONResponse) VisitDeleteEnvironmentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteEnvironment404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteEnvironment404JSONResponse) VisitDeleteEnvironmentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteEnvironment500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteEnvironment500JSONResponse) VisitDeleteEnvironmentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetEnvironmentRequestObject struct {
 	NamespaceName NamespaceNameParam   `json:"namespaceName"`
 	EnvName       EnvironmentNameParam `json:"envName"`
@@ -11414,6 +11555,79 @@ func (response GetEnvironment404JSONResponse) VisitGetEnvironmentResponse(w http
 type GetEnvironment500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response GetEnvironment500JSONResponse) VisitGetEnvironmentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateEnvironmentRequestObject struct {
+	NamespaceName NamespaceNameParam   `json:"namespaceName"`
+	EnvName       EnvironmentNameParam `json:"envName"`
+	Body          *UpdateEnvironmentJSONRequestBody
+}
+
+type UpdateEnvironmentResponseObject interface {
+	VisitUpdateEnvironmentResponse(w http.ResponseWriter) error
+}
+
+type UpdateEnvironment200JSONResponse Environment
+
+func (response UpdateEnvironment200JSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateEnvironment400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateEnvironment400JSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateEnvironment401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateEnvironment401JSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateEnvironment403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateEnvironment403JSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateEnvironment404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateEnvironment404JSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateEnvironment409JSONResponse struct{ ConflictJSONResponse }
+
+func (response UpdateEnvironment409JSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateEnvironment500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response UpdateEnvironment500JSONResponse) VisitUpdateEnvironmentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -15656,9 +15870,15 @@ type StrictServerInterface interface {
 	// Create environment
 	// (POST /api/v1/namespaces/{namespaceName}/environments)
 	CreateEnvironment(ctx context.Context, request CreateEnvironmentRequestObject) (CreateEnvironmentResponseObject, error)
+	// Delete environment
+	// (DELETE /api/v1/namespaces/{namespaceName}/environments/{envName})
+	DeleteEnvironment(ctx context.Context, request DeleteEnvironmentRequestObject) (DeleteEnvironmentResponseObject, error)
 	// Get environment
 	// (GET /api/v1/namespaces/{namespaceName}/environments/{envName})
 	GetEnvironment(ctx context.Context, request GetEnvironmentRequestObject) (GetEnvironmentResponseObject, error)
+	// Update environment
+	// (PUT /api/v1/namespaces/{namespaceName}/environments/{envName})
+	UpdateEnvironment(ctx context.Context, request UpdateEnvironmentRequestObject) (UpdateEnvironmentResponseObject, error)
 	// Get environment observer URL
 	// (GET /api/v1/namespaces/{namespaceName}/environments/{envName}/observer-url)
 	GetEnvironmentObserverURL(ctx context.Context, request GetEnvironmentObserverURLRequestObject) (GetEnvironmentObserverURLResponseObject, error)
@@ -18290,6 +18510,33 @@ func (sh *strictHandler) CreateEnvironment(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// DeleteEnvironment operation middleware
+func (sh *strictHandler) DeleteEnvironment(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, envName EnvironmentNameParam) {
+	var request DeleteEnvironmentRequestObject
+
+	request.NamespaceName = namespaceName
+	request.EnvName = envName
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteEnvironment(ctx, request.(DeleteEnvironmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteEnvironment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteEnvironmentResponseObject); ok {
+		if err := validResponse.VisitDeleteEnvironmentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetEnvironment operation middleware
 func (sh *strictHandler) GetEnvironment(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, envName EnvironmentNameParam) {
 	var request GetEnvironmentRequestObject
@@ -18310,6 +18557,40 @@ func (sh *strictHandler) GetEnvironment(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetEnvironmentResponseObject); ok {
 		if err := validResponse.VisitGetEnvironmentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateEnvironment operation middleware
+func (sh *strictHandler) UpdateEnvironment(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, envName EnvironmentNameParam) {
+	var request UpdateEnvironmentRequestObject
+
+	request.NamespaceName = namespaceName
+	request.EnvName = envName
+
+	var body UpdateEnvironmentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateEnvironment(ctx, request.(UpdateEnvironmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateEnvironment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateEnvironmentResponseObject); ok {
+		if err := validResponse.VisitUpdateEnvironmentResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -20789,73 +21070,74 @@ var swaggerSpec = []string{
 	"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",
-	"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",
+	"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",
+	"xh6roWzw/dP3/y8AAP//Wv8hTLyNAwA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

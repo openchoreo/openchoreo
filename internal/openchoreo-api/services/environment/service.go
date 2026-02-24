@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -133,6 +133,56 @@ func (s *environmentService) CreateEnvironment(ctx context.Context, namespaceNam
 	return env, nil
 }
 
+// UpdateEnvironment replaces an existing environment with the provided state.
+func (s *environmentService) UpdateEnvironment(ctx context.Context, namespaceName string, env *openchoreov1alpha1.Environment) (*openchoreov1alpha1.Environment, error) {
+	if env == nil {
+		return nil, ErrEnvironmentNil
+	}
+
+	s.logger.Debug("Updating environment", "namespace", namespaceName, "env", env.Name)
+
+	existing := &openchoreov1alpha1.Environment{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: env.Name, Namespace: namespaceName}, existing); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil, ErrEnvironmentNotFound
+		}
+		s.logger.Error("Failed to get environment", "error", err)
+		return nil, fmt.Errorf("failed to get environment: %w", err)
+	}
+
+	// Preserve server-managed fields
+	env.ResourceVersion = existing.ResourceVersion
+	env.Namespace = namespaceName
+
+	if err := s.k8sClient.Update(ctx, env); err != nil {
+		s.logger.Error("Failed to update environment CR", "error", err)
+		return nil, fmt.Errorf("failed to update environment: %w", err)
+	}
+
+	s.logger.Debug("Environment updated successfully", "namespace", namespaceName, "env", env.Name)
+	return env, nil
+}
+
+// DeleteEnvironment removes an environment by name.
+func (s *environmentService) DeleteEnvironment(ctx context.Context, namespaceName, envName string) error {
+	s.logger.Debug("Deleting environment", "namespace", namespaceName, "env", envName)
+
+	env := &openchoreov1alpha1.Environment{}
+	env.Name = envName
+	env.Namespace = namespaceName
+
+	if err := s.k8sClient.Delete(ctx, env); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrEnvironmentNotFound
+		}
+		s.logger.Error("Failed to delete environment CR", "error", err)
+		return fmt.Errorf("failed to delete environment: %w", err)
+	}
+
+	s.logger.Debug("Environment deleted successfully", "namespace", namespaceName, "env", envName)
+	return nil
+}
+
 func (s *environmentService) GetObserverURL(ctx context.Context, namespaceName, envName string) (*ObserverURLResult, error) {
 	s.logger.Debug("Getting environment observer URL", "namespace", namespaceName, "env", envName)
 
@@ -165,7 +215,7 @@ func (s *environmentService) GetObserverURL(ctx context.Context, namespaceName, 
 
 	observabilityResult, err := controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx, s.k8sClient, dp)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return &ObserverURLResult{
 				Message: "observability-logs have not been configured",
 			}, nil
@@ -217,7 +267,7 @@ func (s *environmentService) GetRCAAgentURL(ctx context.Context, namespaceName, 
 
 	observabilityResult, err := controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx, s.k8sClient, dp)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return &RCAAgentURLResult{
 				Message: "ObservabilityPlaneRef has not been configured",
 			}, nil

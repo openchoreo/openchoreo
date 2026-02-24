@@ -400,8 +400,16 @@ type ClientInterface interface {
 
 	CreateEnvironment(ctx context.Context, namespaceName NamespaceNameParam, body CreateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteEnvironment request
+	DeleteEnvironment(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetEnvironment request
 	GetEnvironment(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateEnvironmentWithBody request with any body
+	UpdateEnvironmentWithBody(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateEnvironment(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetEnvironmentObserverURL request
 	GetEnvironmentObserverURL(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2037,8 +2045,44 @@ func (c *Client) CreateEnvironment(ctx context.Context, namespaceName NamespaceN
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteEnvironment(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteEnvironmentRequest(c.Server, namespaceName, envName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetEnvironment(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetEnvironmentRequest(c.Server, namespaceName, envName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateEnvironmentWithBody(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEnvironmentRequestWithBody(c.Server, namespaceName, envName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateEnvironment(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEnvironmentRequest(c.Server, namespaceName, envName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -7127,6 +7171,47 @@ func NewCreateEnvironmentRequestWithBody(server string, namespaceName NamespaceN
 	return req, nil
 }
 
+// NewDeleteEnvironmentRequest generates requests for DeleteEnvironment
+func NewDeleteEnvironmentRequest(server string, namespaceName NamespaceNameParam, envName EnvironmentNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "envName", runtime.ParamLocationPath, envName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/environments/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetEnvironmentRequest generates requests for GetEnvironment
 func NewGetEnvironmentRequest(server string, namespaceName NamespaceNameParam, envName EnvironmentNameParam) (*http.Request, error) {
 	var err error
@@ -7164,6 +7249,60 @@ func NewGetEnvironmentRequest(server string, namespaceName NamespaceNameParam, e
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUpdateEnvironmentRequest calls the generic UpdateEnvironment builder with application/json body
+func NewUpdateEnvironmentRequest(server string, namespaceName NamespaceNameParam, envName EnvironmentNameParam, body UpdateEnvironmentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateEnvironmentRequestWithBody(server, namespaceName, envName, "application/json", bodyReader)
+}
+
+// NewUpdateEnvironmentRequestWithBody generates requests for UpdateEnvironment with any type of body
+func NewUpdateEnvironmentRequestWithBody(server string, namespaceName NamespaceNameParam, envName EnvironmentNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "envName", runtime.ParamLocationPath, envName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/environments/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -11389,8 +11528,16 @@ type ClientWithResponsesInterface interface {
 
 	CreateEnvironmentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEnvironmentResp, error)
 
+	// DeleteEnvironmentWithResponse request
+	DeleteEnvironmentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*DeleteEnvironmentResp, error)
+
 	// GetEnvironmentWithResponse request
 	GetEnvironmentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetEnvironmentResp, error)
+
+	// UpdateEnvironmentWithBodyWithResponse request with any body
+	UpdateEnvironmentWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResp, error)
+
+	UpdateEnvironmentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResp, error)
 
 	// GetEnvironmentObserverURLWithResponse request
 	GetEnvironmentObserverURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetEnvironmentObserverURLResp, error)
@@ -13821,6 +13968,31 @@ func (r CreateEnvironmentResp) StatusCode() int {
 	return 0
 }
 
+type DeleteEnvironmentResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteEnvironmentResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteEnvironmentResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetEnvironmentResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -13841,6 +14013,34 @@ func (r GetEnvironmentResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetEnvironmentResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateEnvironmentResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Environment
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateEnvironmentResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateEnvironmentResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -16733,6 +16933,15 @@ func (c *ClientWithResponses) CreateEnvironmentWithResponse(ctx context.Context,
 	return ParseCreateEnvironmentResp(rsp)
 }
 
+// DeleteEnvironmentWithResponse request returning *DeleteEnvironmentResp
+func (c *ClientWithResponses) DeleteEnvironmentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*DeleteEnvironmentResp, error) {
+	rsp, err := c.DeleteEnvironment(ctx, namespaceName, envName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteEnvironmentResp(rsp)
+}
+
 // GetEnvironmentWithResponse request returning *GetEnvironmentResp
 func (c *ClientWithResponses) GetEnvironmentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetEnvironmentResp, error) {
 	rsp, err := c.GetEnvironment(ctx, namespaceName, envName, reqEditors...)
@@ -16740,6 +16949,23 @@ func (c *ClientWithResponses) GetEnvironmentWithResponse(ctx context.Context, na
 		return nil, err
 	}
 	return ParseGetEnvironmentResp(rsp)
+}
+
+// UpdateEnvironmentWithBodyWithResponse request with arbitrary body returning *UpdateEnvironmentResp
+func (c *ClientWithResponses) UpdateEnvironmentWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResp, error) {
+	rsp, err := c.UpdateEnvironmentWithBody(ctx, namespaceName, envName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateEnvironmentResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateEnvironmentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResp, error) {
+	rsp, err := c.UpdateEnvironment(ctx, namespaceName, envName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateEnvironmentResp(rsp)
 }
 
 // GetEnvironmentObserverURLWithResponse request returning *GetEnvironmentObserverURLResp
@@ -22100,6 +22326,53 @@ func ParseCreateEnvironmentResp(rsp *http.Response) (*CreateEnvironmentResp, err
 	return response, nil
 }
 
+// ParseDeleteEnvironmentResp parses an HTTP response from a DeleteEnvironmentWithResponse call
+func ParseDeleteEnvironmentResp(rsp *http.Response) (*DeleteEnvironmentResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteEnvironmentResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetEnvironmentResp parses an HTTP response from a GetEnvironmentWithResponse call
 func ParseGetEnvironmentResp(rsp *http.Response) (*GetEnvironmentResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -22141,6 +22414,74 @@ func ParseGetEnvironmentResp(rsp *http.Response) (*GetEnvironmentResp, error) {
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateEnvironmentResp parses an HTTP response from a UpdateEnvironmentWithResponse call
+func ParseUpdateEnvironmentResp(rsp *http.Response) (*UpdateEnvironmentResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateEnvironmentResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Environment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

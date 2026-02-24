@@ -111,6 +111,72 @@ func (h *Handler) GetEnvironment(
 	return gen.GetEnvironment200JSONResponse(genEnv), nil
 }
 
+// UpdateEnvironment replaces an existing environment (full update).
+func (h *Handler) UpdateEnvironment(
+	ctx context.Context,
+	request gen.UpdateEnvironmentRequestObject,
+) (gen.UpdateEnvironmentResponseObject, error) {
+	h.logger.Info("UpdateEnvironment called", "namespaceName", request.NamespaceName, "envName", request.EnvName)
+
+	if request.Body == nil {
+		return gen.UpdateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	envCR, err := convert[gen.Environment, openchoreov1alpha1.Environment](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	envCR.Status = openchoreov1alpha1.EnvironmentStatus{}
+
+	// Ensure the name from the URL path is used
+	envCR.Name = request.EnvName
+
+	updated, err := h.services.EnvironmentService.UpdateEnvironment(ctx, request.NamespaceName, &envCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.UpdateEnvironment403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, environmentsvc.ErrEnvironmentNotFound) {
+			return gen.UpdateEnvironment404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
+		}
+		h.logger.Error("Failed to update environment", "error", err)
+		return gen.UpdateEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genEnv, err := convert[openchoreov1alpha1.Environment, gen.Environment](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated environment", "error", err)
+		return gen.UpdateEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Environment updated successfully", "namespaceName", request.NamespaceName, "environment", updated.Name)
+	return gen.UpdateEnvironment200JSONResponse(genEnv), nil
+}
+
+// DeleteEnvironment deletes an environment by name.
+func (h *Handler) DeleteEnvironment(
+	ctx context.Context,
+	request gen.DeleteEnvironmentRequestObject,
+) (gen.DeleteEnvironmentResponseObject, error) {
+	h.logger.Info("DeleteEnvironment called", "namespaceName", request.NamespaceName, "envName", request.EnvName)
+
+	err := h.services.EnvironmentService.DeleteEnvironment(ctx, request.NamespaceName, request.EnvName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.DeleteEnvironment403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, environmentsvc.ErrEnvironmentNotFound) {
+			return gen.DeleteEnvironment404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
+		}
+		h.logger.Error("Failed to delete environment", "error", err)
+		return gen.DeleteEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Environment deleted successfully", "namespaceName", request.NamespaceName, "environment", request.EnvName)
+	return gen.DeleteEnvironment204Response{}, nil
+}
+
 // GetEnvironmentObserverURL returns the observer URL for an environment.
 func (h *Handler) GetEnvironmentObserverURL(
 	ctx context.Context,

@@ -30,6 +30,8 @@ type Service interface {
 	ListEnvironments(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Environment], error)
 	GetEnvironment(ctx context.Context, namespaceName, envName string) (*openchoreov1alpha1.Environment, error)
 	CreateEnvironment(ctx context.Context, namespaceName string, env *openchoreov1alpha1.Environment) (*openchoreov1alpha1.Environment, error)
+	UpdateEnvironment(ctx context.Context, namespaceName string, env *openchoreov1alpha1.Environment) (*openchoreov1alpha1.Environment, error)
+	DeleteEnvironment(ctx context.Context, namespaceName, envName string) error
 	GetObserverURL(ctx context.Context, namespaceName, envName string) (*ObserverURLResult, error)
 	GetRCAAgentURL(ctx context.Context, namespaceName, envName string) (*RCAAgentURLResult, error)
 }
