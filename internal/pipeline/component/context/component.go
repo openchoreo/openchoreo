@@ -65,6 +65,7 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 
 	ctx.DataPlane = extractDataPlaneData(input.DataPlane)
 	ctx.Environment = extractEnvironmentData(input.Environment, input.DataPlane, input.DefaultNotificationChannel)
+	ctx.Gateway = ctx.Environment.Gateway
 
 	return ctx, nil
 }
@@ -200,8 +201,8 @@ func toGatewayData(gw *v1alpha1.GatewaySpec) *GatewayData {
 	return data
 }
 
-// toGatewayTrafficData converts a v1alpha1.GatewayTrafficSpec to a GatewayTrafficData.
-func toGatewayTrafficData(t *v1alpha1.GatewayTrafficSpec) *GatewayTrafficData {
+// toGatewayTrafficData converts a v1alpha1.GatewayNetworkSpec to a GatewayTrafficData.
+func toGatewayTrafficData(t *v1alpha1.GatewayNetworkSpec) *GatewayTrafficData {
 	if t == nil {
 		return nil
 	}

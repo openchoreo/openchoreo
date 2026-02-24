@@ -68,8 +68,8 @@ type GatewayEndpointSpec struct {
 	TLS *GatewayListenerSpec `json:"tls,omitempty"`
 }
 
-// GatewayTrafficSpec defines external and internal gateway endpoint configurations.
-type GatewayTrafficSpec struct {
+// GatewayNetworkSpec defines external and internal gateway endpoint configurations.
+type GatewayNetworkSpec struct {
 	// External defines the externally accessible gateway endpoint.
 	// +optional
 	External *GatewayEndpointSpec `json:"external,omitempty"`
@@ -82,10 +82,10 @@ type GatewayTrafficSpec struct {
 type GatewaySpec struct {
 	// Ingress defines the ingress gateway configuration.
 	// +optional
-	Ingress *GatewayTrafficSpec `json:"ingress,omitempty"`
+	Ingress *GatewayNetworkSpec `json:"ingress,omitempty"`
 	// Egress defines the egress gateway configuration.
 	// +optional
-	Egress *GatewayTrafficSpec `json:"egress,omitempty"`
+	Egress *GatewayNetworkSpec `json:"egress,omitempty"`
 }
 
 // SecretStoreRef defines a reference to an External Secrets Operator ClusterSecretStore

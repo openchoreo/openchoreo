@@ -991,7 +991,7 @@ func TestDataPlaneResult_ToDataPlane_WithClusterDataPlane(t *testing.T) {
 		Spec: openchoreov1alpha1.ClusterDataPlaneSpec{
 			PlaneID: "shared-plane",
 			Gateway: openchoreov1alpha1.GatewaySpec{
-				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 					External: &openchoreov1alpha1.GatewayEndpointSpec{
 						Name:      "public-gw",
 						Namespace: "gw-ns",

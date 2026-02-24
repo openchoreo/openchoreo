@@ -189,6 +189,11 @@ type ComponentContext struct {
 	// Falls back to DataPlane gateway values if Environment.Gateway is not configured.
 	Environment EnvironmentData `json:"environment"`
 
+	// Gateway provides the effective gateway configuration for this deployment.
+	// Uses environment gateway if configured, falls back to DataPlane gateway.
+	// Accessed via ${gateway.ingress.external.https.host}, etc.
+	Gateway *GatewayData `json:"gateway,omitempty"`
+
 	// Parameters from Component.Spec.Parameters, pruned to ComponentType.Schema.Parameters.
 	// Accessed via ${parameters.*}
 	Parameters map[string]any `json:"parameters"`
@@ -346,6 +351,11 @@ type TraitContext struct {
 	// Accessed via ${environment.gateway.ingress.external.https.host}, etc.
 	// Falls back to DataPlane gateway values if Environment.Gateway is not configured.
 	Environment EnvironmentData `json:"environment"`
+
+	// Gateway provides the effective gateway configuration for this deployment.
+	// Uses environment gateway if configured, falls back to DataPlane gateway.
+	// Accessed via ${gateway.ingress.external.https.host}, etc.
+	Gateway *GatewayData `json:"gateway,omitempty"`
 
 	// Workload contains workload specification (container, endpoints).
 	// Accessed via ${workload.container}, ${workload.endpoints}

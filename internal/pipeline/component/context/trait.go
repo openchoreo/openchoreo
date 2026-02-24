@@ -66,6 +66,7 @@ func BuildTraitContext(input *TraitContextInput) (*TraitContext, error) {
 
 	ctx.DataPlane = extractDataPlaneData(input.DataPlane)
 	ctx.Environment = extractEnvironmentData(input.Environment, input.DataPlane, input.DefaultNotificationChannel)
+	ctx.Gateway = ctx.Environment.Gateway
 	ctx.Workload = input.WorkloadData
 	ctx.Configurations = input.Configurations
 

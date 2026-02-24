@@ -235,7 +235,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "openchoreo-data-plane")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 					External: &openchoreov1alpha1.GatewayEndpointSpec{
 						Name:      "gateway-default",
 						Namespace: "openchoreo-data-plane",
@@ -269,7 +269,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "openchoreo-data-plane")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 					External: &openchoreov1alpha1.GatewayEndpointSpec{
 						Name:      "gateway-default",
 						Namespace: "openchoreo-data-plane",
@@ -304,7 +304,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "openchoreo-data-plane")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 					External: &openchoreov1alpha1.GatewayEndpointSpec{
 						Name:      "gateway-default",
 						Namespace: "openchoreo-data-plane",
@@ -339,7 +339,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "openchoreo-data-plane")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 					External: &openchoreov1alpha1.GatewayEndpointSpec{
 						Name:      "gateway-default",
 						Namespace: "openchoreo-data-plane",
@@ -373,7 +373,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "openchoreo-data-plane")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 					External: &openchoreov1alpha1.GatewayEndpointSpec{
 						Name:      "gateway-default",
 						Namespace: "openchoreo-data-plane",
@@ -384,7 +384,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				},
 			})
 			env := makeEnvironment(openchoreov1alpha1.GatewaySpec{
-				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 					External: &openchoreov1alpha1.GatewayEndpointSpec{
 						Name:      "gateway-default",
 						Namespace: "openchoreo-data-plane",
@@ -418,7 +418,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("unknown-gw", "some-ns")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 					External: &openchoreov1alpha1.GatewayEndpointSpec{
 						Name:      "gateway-default",
 						Namespace: "openchoreo-data-plane",
@@ -456,7 +456,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "openchoreo-data-plane")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 					External: &openchoreov1alpha1.GatewayEndpointSpec{
 						Name:      "gateway-default",
 						Namespace: "openchoreo-data-plane",
@@ -498,7 +498,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("org-gateway", "gw-ns")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 					External: &openchoreov1alpha1.GatewayEndpointSpec{
 						Name:      "gateway-default",
 						Namespace: "openchoreo-data-plane",
@@ -536,7 +536,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				parentRefs:     []interface{}{parentRef("gateway-default", "")},
 			})
 			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-				Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 					External: &openchoreov1alpha1.GatewayEndpointSpec{
 						Name:      "gateway-default",
 						Namespace: "openchoreo-data-plane",
@@ -692,7 +692,7 @@ var _ = Describe("resolveGatewayPort", func() {
 
 	It("should return public port for matching public gateway", func() {
 		dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+			Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 				External: &openchoreov1alpha1.GatewayEndpointSpec{
 					Name:      "pub-gw",
 					Namespace: "gw-ns",
@@ -707,7 +707,7 @@ var _ = Describe("resolveGatewayPort", func() {
 
 	It("should return standard HTTPS port when public port is 0", func() {
 		dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+			Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 				External: &openchoreov1alpha1.GatewayEndpointSpec{
 					Name:      "pub-gw",
 					Namespace: "gw-ns",
@@ -719,7 +719,7 @@ var _ = Describe("resolveGatewayPort", func() {
 
 	It("should return organization port for matching org gateway", func() {
 		dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+			Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 				Internal: &openchoreov1alpha1.GatewayEndpointSpec{
 					Name:      "org-gw",
 					Namespace: "gw-ns",
@@ -734,7 +734,7 @@ var _ = Describe("resolveGatewayPort", func() {
 
 	It("should return port when gateway name and namespace match", func() {
 		dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+			Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 				External: &openchoreov1alpha1.GatewayEndpointSpec{
 					Name:      defaultGatewayName,
 					Namespace: defaultGatewayNS,
@@ -749,7 +749,7 @@ var _ = Describe("resolveGatewayPort", func() {
 
 	It("should prefer environment config when environment ingress is configured", func() {
 		dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+			Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 				External: &openchoreov1alpha1.GatewayEndpointSpec{
 					Name:      "pub-gw",
 					Namespace: "gw-ns",
@@ -760,7 +760,7 @@ var _ = Describe("resolveGatewayPort", func() {
 			},
 		})
 		env := makeEnvironment(openchoreov1alpha1.GatewaySpec{
-			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+			Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 				External: &openchoreov1alpha1.GatewayEndpointSpec{
 					Name:      "pub-gw",
 					Namespace: "gw-ns",
@@ -775,7 +775,7 @@ var _ = Describe("resolveGatewayPort", func() {
 
 	It("should match when parentRef namespace is empty (wildcard)", func() {
 		dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
-			Ingress: &openchoreov1alpha1.GatewayTrafficSpec{
+			Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
 				External: &openchoreov1alpha1.GatewayEndpointSpec{
 					Name:      "pub-gw",
 					Namespace: "gw-ns",
