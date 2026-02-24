@@ -439,6 +439,7 @@ spec:
                     name:
                       description: Name is the endpoint name as defined in the Workload
                         spec.
+                      minLength: 1
                       type: string
                     serviceURL:
                       description: ServiceURL is the in-cluster service URL for this
@@ -465,9 +466,18 @@ spec:
                     type:
                       description: Type is the endpoint type (HTTP, REST, gRPC, GraphQL,
                         Websocket, TCP, UDP).
+                      enum:
+                      - HTTP
+                      - REST
+                      - gRPC
+                      - GraphQL
+                      - Websocket
+                      - TCP
+                      - UDP
                       type: string
                   required:
                   - name
+                  - type
                   type: object
                 type: array
             type: object
