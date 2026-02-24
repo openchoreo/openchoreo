@@ -664,6 +664,7 @@ controllerManager:
       - --metrics-bind-address=:8443
       - --leader-elect
       - --health-probe-bind-address=:8081
+      - --revision-history-limit=10
     # @schema
     # type: object
     # description: Environment variables for the controller-manager
