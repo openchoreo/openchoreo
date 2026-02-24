@@ -145,7 +145,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflowruns/{runName}/status", h.GetWorkflowRunStatus)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflowruns/{runName}/events", h.GetWorkflowRunEvents)
 
-	api.HandleFunc("PATCH "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-parameters", h.UpdateComponentWorkflowParameters)
+	api.HandleFunc("PATCH "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-parameters", h.UpdateWorkflowParameters)
 
 	// Trait endpoints
 	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/traits/definition", h.CreateTraitDefinition)

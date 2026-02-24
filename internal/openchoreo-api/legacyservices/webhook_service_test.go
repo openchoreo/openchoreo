@@ -16,7 +16,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
-func TestParseComponentWorkflowAnnotation(t *testing.T) {
+func TestParseWorkflowParameterAnnotation(t *testing.T) {
 	tests := []struct {
 		name       string
 		annotation string
@@ -68,7 +68,7 @@ func TestParseComponentWorkflowAnnotation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseComponentWorkflowAnnotation(tt.annotation)
+			got := parseWorkflowParameterAnnotation(tt.annotation)
 			if len(got) != len(tt.want) {
 				t.Fatalf("got %d entries, want %d: %v", len(got), len(tt.want), got)
 			}

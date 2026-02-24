@@ -161,7 +161,7 @@ func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp 
 
 	// Parse the annotation that maps logical keys to parameter paths
 	annotation := workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters]
-	paramMap := parseComponentWorkflowAnnotation(annotation)
+	paramMap := parseWorkflowParameterAnnotation(annotation)
 
 	// Get repoUrl path from the annotation
 	repoURLPath, ok := paramMap["repoUrl"]
@@ -186,11 +186,11 @@ func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp 
 	return repoURL, appPath, nil
 }
 
-// parseComponentWorkflowAnnotation parses the component-workflow-parameters annotation string
+// parseWorkflowParameterAnnotation parses the workflow-parameters annotation string
 // into a map of logical key to dotted parameter path.
 // Format: "key1: path1, key2: path2, ..."
 // Example: "repoUrl: parameters.repository.url, branch: parameters.repository.revision.branch"
-func parseComponentWorkflowAnnotation(annotation string) map[string]string {
+func parseWorkflowParameterAnnotation(annotation string) map[string]string {
 	result := make(map[string]string)
 	if annotation == "" {
 		return result

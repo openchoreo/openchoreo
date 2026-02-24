@@ -14,9 +14,8 @@ const (
 type ResourceType string
 
 const (
-	ResourceTypeComponent            ResourceType = "component"
-	ResourceTypeProject              ResourceType = "project"
-	ResourceTypeNamespace            ResourceType = "namespace"
-	ResourceTypeComponentWorkflowRun ResourceType = "componentWorkflowRun"
-	ResourceTypeWorkflowRun          ResourceType = "workflowRun"
+	ResourceTypeComponent   ResourceType = "component"
+	ResourceTypeProject     ResourceType = "project"
+	ResourceTypeNamespace   ResourceType = "namespace"
+	ResourceTypeWorkflowRun ResourceType = "workflowRun"
 )

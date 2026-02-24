@@ -565,17 +565,17 @@ func verifySortOrder(t *testing.T, query map[string]interface{}) {
 	}
 }
 
-func TestQueryBuilder_BuildComponentWorkflowRunLogsQuery(t *testing.T) {
+func TestQueryBuilder_BuildWorkflowRunPodLogsQuery(t *testing.T) {
 	qb := NewQueryBuilder("container-logs-")
 
 	t.Run("Query with runName only (no stepName)", func(t *testing.T) {
-		params := ComponentWorkflowRunQueryParams{
+		params := WorkflowRunLogsQueryParams{
 			RunName:  "workflow-run-123",
 			StepName: "",
 			Limit:    100,
 		}
 
-		query := qb.BuildComponentWorkflowRunLogsQuery(params)
+		query := qb.BuildWorkflowRunPodLogsQuery(params)
 
 		if query["size"] != 100 {
 			t.Errorf("Expected size 100, got %v", query["size"])
@@ -607,13 +607,13 @@ func TestQueryBuilder_BuildComponentWorkflowRunLogsQuery(t *testing.T) {
 	})
 
 	t.Run("Query with both runName and stepName", func(t *testing.T) {
-		params := ComponentWorkflowRunQueryParams{
+		params := WorkflowRunLogsQueryParams{
 			RunName:  "workflow-run-456",
 			StepName: "build-step",
 			Limit:    200,
 		}
 
-		query := qb.BuildComponentWorkflowRunLogsQuery(params)
+		query := qb.BuildWorkflowRunPodLogsQuery(params)
 
 		if query["size"] != 200 {
 			t.Errorf("Expected size 200, got %v", query["size"])
@@ -645,13 +645,13 @@ func TestQueryBuilder_BuildComponentWorkflowRunLogsQuery(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				params := ComponentWorkflowRunQueryParams{
+				params := WorkflowRunLogsQueryParams{
 					RunName:  "test-run",
 					StepName: "",
 					Limit:    tt.limit,
 				}
 
-				query := qb.BuildComponentWorkflowRunLogsQuery(params)
+				query := qb.BuildWorkflowRunPodLogsQuery(params)
 
 				if query["size"] != tt.limit {
 					t.Errorf("Expected size %d, got %v", tt.limit, query["size"])

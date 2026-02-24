@@ -16,7 +16,7 @@ const (
 	testAPIVersion        = "openchoreo.dev/v1alpha1"
 	testKindComponentType = "ComponentType"
 	testKindTrait         = "Trait"
-	testKindCW            = "ComponentWorkflow"
+	testKindCW = "ComponentWorkflow"
 )
 
 // testResourceJSON builds a JSON string for a valid OpenChoreo resource with the given kind and name.

@@ -66,7 +66,7 @@ type ComponentResponse struct {
 	DeletionTimestamp *time.Time                       `json:"deletionTimestamp,omitempty"`
 	Status            string                           `json:"status,omitempty"`
 	Workload          *openchoreov1alpha1.WorkloadSpec `json:"workload,omitempty"`
-	ComponentWorkflow *ComponentWorkflow               `json:"componentWorkflow,omitempty"`
+	WorkflowConfig    *WorkflowConfig                  `json:"componentWorkflow,omitempty"`
 }
 
 type BindingResponse struct {
@@ -235,22 +235,22 @@ type BuildPlaneResponse struct {
 	Status                string                         `json:"status,omitempty"`
 }
 
-// ComponentWorkflowResponse represents a component workflow run in API responses
-type ComponentWorkflowResponse struct {
-	Name          string                           `json:"name"`
-	UUID          string                           `json:"uuid"`
-	NamespaceName string                           `json:"namespaceName"`
-	ProjectName   string                           `json:"projectName"`
-	ComponentName string                           `json:"componentName"`
-	Commit        string                           `json:"commit,omitempty"`
-	Status        string                           `json:"status,omitempty"`
-	Image         string                           `json:"image,omitempty"`
-	Workflow      *ComponentWorkflowConfigResponse `json:"workflow,omitempty"`
-	CreatedAt     time.Time                        `json:"createdAt"`
+// WorkflowRunTriggerResponse represents a triggered workflow run in API responses
+type WorkflowRunTriggerResponse struct {
+	Name          string                  `json:"name"`
+	UUID          string                  `json:"uuid"`
+	NamespaceName string                  `json:"namespaceName"`
+	ProjectName   string                  `json:"projectName"`
+	ComponentName string                  `json:"componentName"`
+	Commit        string                  `json:"commit,omitempty"`
+	Status        string                  `json:"status,omitempty"`
+	Image         string                  `json:"image,omitempty"`
+	Workflow      *WorkflowConfigResponse `json:"workflow,omitempty"`
+	CreatedAt     time.Time               `json:"createdAt"`
 }
 
-// ComponentWorkflowConfigResponse represents the workflow configuration in API responses
-type ComponentWorkflowConfigResponse struct {
+// WorkflowConfigResponse represents the workflow configuration in API responses
+type WorkflowConfigResponse struct {
 	Name       string         `json:"name"`
 	Parameters map[string]any `json:"parameters,omitempty"`
 }
@@ -566,8 +566,8 @@ type GitSecretResponse struct {
 	Namespace string `json:"namespace"`
 }
 
-// ComponentWorkflowRunStatusResponse represents the status of a component workflow run
-type ComponentWorkflowRunStatusResponse struct {
+// WorkflowRunStatusResponse represents the status of a workflow run
+type WorkflowRunStatusResponse struct {
 	Status               string               `json:"status"`               // Overall workflow status (Pending/Running/Completed/Failed)
 	Steps                []WorkflowStepStatus `json:"steps"`                // Array of step-level statuses
 	HasLiveObservability bool                 `json:"hasLiveObservability"` // Whether the workflow run has live observability (logs/events from build plane)
@@ -581,14 +581,14 @@ type WorkflowStepStatus struct {
 	FinishedAt *time.Time `json:"finishedAt"` // When step finished
 }
 
-// ComponentWorkflowRunLogEntry represents a log entry from a component workflow run
-type ComponentWorkflowRunLogEntry struct {
+// WorkflowRunLogEntry represents a log entry from a workflow run
+type WorkflowRunLogEntry struct {
 	Timestamp string `json:"timestamp,omitempty"`
 	Log       string `json:"log"`
 }
 
-// ComponentWorkflowRunEventEntry represents an event entry for component workflow run events
-type ComponentWorkflowRunEventEntry struct {
+// WorkflowRunEventEntry represents an event entry for workflow run events
+type WorkflowRunEventEntry struct {
 	Timestamp string `json:"timestamp"`
 	Type      string `json:"type"`
 	Reason    string `json:"reason"`

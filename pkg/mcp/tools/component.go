@@ -160,7 +160,7 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 
 		// Convert workflow if provided
 		if args.Workflow != nil {
-			workflow := &models.ComponentWorkflow{}
+			workflow := &models.WorkflowConfig{}
 			if name, ok := args.Workflow["name"].(string); ok {
 				workflow.Name = name
 			}
@@ -179,7 +179,7 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 				workflow.Parameters = &runtime.RawExtension{Raw: rawParams}
 			}
 
-			componentReq.ComponentWorkflow = workflow
+			componentReq.WorkflowConfig = workflow
 		}
 
 		result, err := t.ComponentToolset.CreateComponent(ctx, args.NamespaceName, args.ProjectName, componentReq)
@@ -711,7 +711,7 @@ func (t *Toolsets) RegisterPatchComponent(s *mcp.Server) {
 
 func (t *Toolsets) RegisterTriggerWorkflowRunForComponent(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "trigger_component_workflow_run",
+		Name: "trigger_workflow_run",
 		Description: "Trigger a workflow run for a component using the component's configured workflow and " +
 			"parameters. Optionally override commit SHA when the workflow supports a commit parameter mapping.",
 		InputSchema: createSchema(map[string]any{

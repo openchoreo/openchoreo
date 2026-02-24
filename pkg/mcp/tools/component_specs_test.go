@@ -491,7 +491,7 @@ func componentSchemaSpecs() []toolTestSpec {
 func componentWorkflowRunSpecs() []toolTestSpec {
 	return []toolTestSpec{
 		{
-			name:                "trigger_component_workflow_run",
+			name:                "trigger_workflow_run",
 			toolset:             "component",
 			descriptionKeywords: []string{"trigger", "workflow", "component"},
 			descriptionMinLen:   10,

@@ -286,7 +286,7 @@ func resolveBuildPlaneDefaults(ctx context.Context, c client.Client, namespace s
 }
 
 // FindProjectByName looks up a Project by name in the given namespace using label matching.
-// This is useful for objects (like ComponentWorkflowRun) that don't have hierarchy labels
+// This is useful for objects (like WorkflowRun) that don't have hierarchy labels
 // but know their project name from spec.owner.projectName.
 func FindProjectByName(ctx context.Context, c client.Client, namespace, projectName string) (*openchoreov1alpha1.Project, error) {
 	projectList := &openchoreov1alpha1.ProjectList{}

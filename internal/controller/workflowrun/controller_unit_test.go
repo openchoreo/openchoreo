@@ -257,9 +257,9 @@ func TestConvertParameterValuesToStrings(t *testing.T) {
 	})
 }
 
-func TestParseComponentWorkflowAnnotation(t *testing.T) {
+func TestParseWorkflowParameterAnnotation(t *testing.T) {
 	annotation := "repoUrl: parameters.repository.url, secretRef: parameters.repository.secretRef, invalid, commit: parameters.repository.revision.commit"
-	result := parseComponentWorkflowAnnotation(annotation)
+	result := parseWorkflowParameterAnnotation(annotation)
 
 	if result["repoUrl"] != "parameters.repository.url" {
 		t.Errorf("expected repoUrl path, got %q", result["repoUrl"])

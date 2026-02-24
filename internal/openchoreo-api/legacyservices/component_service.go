@@ -1837,15 +1837,15 @@ func (s *ComponentService) createComponentResources(ctx context.Context, namespa
 		Spec: componentSpec,
 	}
 
-	// Set component workflow configuration if provided (new preferred way)
-	if req.ComponentWorkflow != nil {
+	// Set workflow configuration if provided
+	if req.WorkflowConfig != nil {
 		workflowConfig := &openchoreov1alpha1.WorkflowRunConfig{
-			Name: req.ComponentWorkflow.Name,
+			Name: req.WorkflowConfig.Name,
 		}
 
 		// Set developer parameters if provided
-		if req.ComponentWorkflow.Parameters != nil {
-			workflowConfig.Parameters = req.ComponentWorkflow.Parameters
+		if req.WorkflowConfig.Parameters != nil {
+			workflowConfig.Parameters = req.WorkflowConfig.Parameters
 		}
 
 		componentCR.Spec.Workflow = workflowConfig
@@ -1868,10 +1868,10 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 	// This can be enhanced later when Component adds status conditions
 	status := "Created"
 
-	// Convert workflow configuration to API ComponentWorkflow format only if requested
-	var componentWorkflow *models.ComponentWorkflow
+	// Convert workflow configuration to API WorkflowConfig format only if requested
+	var workflowConfig *models.WorkflowConfig
 	if includeWorkflow && component.Spec.Workflow != nil {
-		componentWorkflow = &models.ComponentWorkflow{
+		workflowConfig = &models.WorkflowConfig{
 			Name:       component.Spec.Workflow.Name,
 			Parameters: component.Spec.Workflow.Parameters,
 		}
@@ -1907,7 +1907,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		CreatedAt:         component.CreationTimestamp.Time,
 		DeletionTimestamp: deletionTimestamp,
 		Status:            status,
-		ComponentWorkflow: componentWorkflow,
+		WorkflowConfig: workflowConfig,
 	}
 
 	for _, v := range typeSpecs {
@@ -2578,8 +2578,8 @@ func (s *ComponentService) createTypeSpecificResource() error {
 	return nil
 }
 
-// UpdateComponentWorkflowParameters updates the workflow parameters for a component
-func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context, namespaceName, projectName, componentName string, req *models.UpdateComponentWorkflowRequest) (*models.ComponentResponse, error) {
+// UpdateWorkflowParameters updates the workflow parameters for a component
+func (s *ComponentService) UpdateWorkflowParameters(ctx context.Context, namespaceName, projectName, componentName string, req *models.UpdateWorkflowParametersRequest) (*models.ComponentResponse, error) {
 	s.logger.Debug("Updating component workflow parameters", "namespace", namespaceName, "project", projectName, "component", componentName)
 
 	// Verify project exists
@@ -2641,8 +2641,8 @@ func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context
 	return s.GetComponent(ctx, namespaceName, projectName, componentName, []string{})
 }
 
-// UpdateComponentWorkflowSchema updates or initializes the workflow schema configuration for a component
-func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, namespaceName, projectName, componentName string, req *models.UpdateComponentWorkflowRequest) (*models.ComponentResponse, error) {
+// UpdateWorkflowSchema updates or initializes the workflow schema configuration for a component
+func (s *ComponentService) UpdateWorkflowSchema(ctx context.Context, namespaceName, projectName, componentName string, req *models.UpdateWorkflowParametersRequest) (*models.ComponentResponse, error) {
 	s.logger.Debug("Updating component workflow schema", "namespace", namespaceName, "project", projectName, "component", componentName)
 
 	// Verify project exists

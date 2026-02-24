@@ -16,9 +16,9 @@ import (
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 )
 
-// parseComponentWorkflowAnnotation parses openchoreo.dev/component-workflow-parameters
+// parseWorkflowParameterAnnotation parses openchoreo.dev/component-workflow-parameters
 // in the format "key1: path1, key2: path2".
-func parseComponentWorkflowAnnotation(annotation string) map[string]string {
+func parseWorkflowParameterAnnotation(annotation string) map[string]string {
 	result := make(map[string]string)
 	if annotation == "" {
 		return result

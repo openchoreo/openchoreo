@@ -486,10 +486,10 @@ func (s *LoggingService) GetNamespaceLogs(ctx context.Context, params opensearch
 	}, nil
 }
 
-// GetComponentWorkflowRunLogs retrieves log entries for a component workflow run
-func (s *LoggingService) GetComponentWorkflowRunLogs(ctx context.Context, runName, stepName string, limit int) ([]opensearch.ComponentWorkflowRunLogEntry, error) {
+// GetWorkflowRunPodLogs retrieves log entries for a workflow run
+func (s *LoggingService) GetWorkflowRunPodLogs(ctx context.Context, runName, stepName string, limit int) ([]opensearch.WorkflowRunLogEntry, error) {
 	logger := s.logger.With("run_name", runName, "step_name", stepName)
-	logger.Debug("Getting component workflow run logs")
+	logger.Debug("Getting workflow run pod logs")
 
 	// Generate indices (empty times means search all indices)
 	indices, err := s.queryBuilder.GenerateIndices("", "")
@@ -499,7 +499,7 @@ func (s *LoggingService) GetComponentWorkflowRunLogs(ctx context.Context, runNam
 	}
 
 	// Build query using query builder
-	query := s.queryBuilder.BuildComponentWorkflowRunLogsQuery(opensearch.ComponentWorkflowRunQueryParams{
+	query := s.queryBuilder.BuildWorkflowRunPodLogsQuery(opensearch.WorkflowRunLogsQueryParams{
 		RunName:  runName,
 		StepName: stepName,
 		Limit:    limit,
@@ -511,27 +511,27 @@ func (s *LoggingService) GetComponentWorkflowRunLogs(ctx context.Context, runNam
 		logger.Error("Failed to marshal query", "error", err)
 		return nil, fmt.Errorf("failed to marshal query: %w", err)
 	}
-	logger.Debug("Component workflow run logs query", "query", string(queryJSON))
+	logger.Debug("Workflow run pod logs query", "query", string(queryJSON))
 
 	// Execute search
 	response, err := s.osClient.Search(ctx, indices, query)
 	if err != nil {
-		logger.Error("Failed to execute component workflow run logs search", "error", err)
+		logger.Error("Failed to execute workflow run pod logs search", "error", err)
 		return nil, fmt.Errorf("failed to execute search: %w", err)
 	}
 
 	// Extract log entries with timestamp from hits
-	logs := make([]opensearch.ComponentWorkflowRunLogEntry, 0, len(response.Hits.Hits))
+	logs := make([]opensearch.WorkflowRunLogEntry, 0, len(response.Hits.Hits))
 	for _, hit := range response.Hits.Hits {
 		log, _ := hit.Source["log"].(string)
 		ts, _ := hit.Source["@timestamp"].(string)
-		logs = append(logs, opensearch.ComponentWorkflowRunLogEntry{
+		logs = append(logs, opensearch.WorkflowRunLogEntry{
 			Log:       log,
 			Timestamp: ts,
 		})
 	}
 
-	logger.Info("Component workflow run logs retrieved",
+	logger.Info("Workflow run pod logs retrieved",
 		"count", len(logs),
 		"total", response.Hits.Total.Value)
 

@@ -22,9 +22,9 @@ import (
 // Only GetWorkflowRunLogs is exercised by the tests below; the other methods
 // panic if unexpectedly called so test failures surface immediately.
 type mockWorkflowRunService struct {
-	getLogsResult   []models.ComponentWorkflowRunLogEntry
+	getLogsResult   []models.WorkflowRunLogEntry
 	getLogsErr      error
-	getEventsResult []models.ComponentWorkflowRunEventEntry
+	getEventsResult []models.WorkflowRunEventEntry
 	getEventsErr    error
 }
 
@@ -37,19 +37,19 @@ func (m *mockWorkflowRunService) ListWorkflowRuns(_ context.Context, _, _, _ str
 func (m *mockWorkflowRunService) GetWorkflowRun(_ context.Context, _, _ string) (*models.WorkflowRunResponse, error) {
 	panic("unexpected call to GetWorkflowRun")
 }
-func (m *mockWorkflowRunService) GetWorkflowRunStatus(_ context.Context, _, _, _ string) (*models.ComponentWorkflowRunStatusResponse, error) {
+func (m *mockWorkflowRunService) GetWorkflowRunStatus(_ context.Context, _, _, _ string) (*models.WorkflowRunStatusResponse, error) {
 	panic("unexpected call to GetWorkflowRunStatus")
 }
 func (m *mockWorkflowRunService) CreateWorkflowRun(_ context.Context, _ string, _ *models.CreateWorkflowRunRequest) (*models.WorkflowRunResponse, error) {
 	panic("unexpected call to CreateWorkflowRun")
 }
-func (m *mockWorkflowRunService) GetWorkflowRunLogs(_ context.Context, _, _, _, _ string, _ *int64) ([]models.ComponentWorkflowRunLogEntry, error) {
+func (m *mockWorkflowRunService) GetWorkflowRunLogs(_ context.Context, _, _, _, _ string, _ *int64) ([]models.WorkflowRunLogEntry, error) {
 	return m.getLogsResult, m.getLogsErr
 }
-func (m *mockWorkflowRunService) GetWorkflowRunEvents(_ context.Context, _, _, _, _ string) ([]models.ComponentWorkflowRunEventEntry, error) {
+func (m *mockWorkflowRunService) GetWorkflowRunEvents(_ context.Context, _, _, _, _ string) ([]models.WorkflowRunEventEntry, error) {
 	return m.getEventsResult, m.getEventsErr
 }
-func (m *mockWorkflowRunService) TriggerWorkflow(_ context.Context, _, _, _, _ string) (*models.ComponentWorkflowResponse, error) {
+func (m *mockWorkflowRunService) TriggerWorkflow(_ context.Context, _, _, _, _ string) (*models.WorkflowRunTriggerResponse, error) {
 	panic("unexpected call to TriggerWorkflow")
 }
 
@@ -215,7 +215,7 @@ func TestGetWorkflowRunLogs_ServiceErrors(t *testing.T) {
 // ========== GetWorkflowRunLogs – success response shape ==========
 
 func TestGetWorkflowRunLogs_Success(t *testing.T) {
-	entries := []models.ComponentWorkflowRunLogEntry{
+	entries := []models.WorkflowRunLogEntry{
 		{Timestamp: "2025-01-06T10:00:00Z", Log: "step started"},
 		{Timestamp: "", Log: "no timestamp line"},
 	}
@@ -236,7 +236,7 @@ func TestGetWorkflowRunLogs_Success(t *testing.T) {
 		t.Errorf("Content-Type = %q, want application/json", ct)
 	}
 
-	var got []models.ComponentWorkflowRunLogEntry
+	var got []models.WorkflowRunLogEntry
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatalf("unmarshal body: %v", err)
 	}

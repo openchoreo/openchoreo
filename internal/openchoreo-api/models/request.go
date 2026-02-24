@@ -39,8 +39,8 @@ type Workflow struct {
 	Schema *runtime.RawExtension `json:"schema,omitempty"`
 }
 
-// ComponentWorkflow represents the component workflow configuration in API requests/responses
-type ComponentWorkflow struct {
+// WorkflowConfig represents the workflow configuration in API requests/responses
+type WorkflowConfig struct {
 	Name       string                `json:"name"`
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
@@ -68,7 +68,7 @@ type CreateComponentRequest struct {
 	AutoDeploy        *bool                 `json:"autoDeploy,omitempty"`
 	Parameters        *runtime.RawExtension `json:"parameters,omitempty"`
 	Traits            []ComponentTrait      `json:"traits,omitempty"`
-	ComponentWorkflow *ComponentWorkflow    `json:"workflow,omitempty"`
+	WorkflowConfig *WorkflowConfig `json:"workflow,omitempty"`
 }
 
 // PromoteComponentRequest Promote from one environment to another
@@ -456,8 +456,8 @@ type SecretKeyRef struct {
 	Key  string `json:"key"`
 }
 
-// UpdateComponentWorkflowRequest represents the request to update or initialize a component's workflow configuration
-type UpdateComponentWorkflowRequest struct {
+// UpdateWorkflowParametersRequest represents the request to update or initialize a component's workflow configuration
+type UpdateWorkflowParametersRequest struct {
 	WorkflowName string                `json:"workflowName,omitempty"`
 	Parameters   *runtime.RawExtension `json:"parameters,omitempty"`
 }

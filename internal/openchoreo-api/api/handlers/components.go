@@ -116,14 +116,14 @@ func toModelCreateComponentRequest(req *gen.CreateComponentRequest) *models.Crea
 	}
 
 	return &models.CreateComponentRequest{
-		Name:              req.Name,
-		DisplayName:       ptr.Deref(req.DisplayName, ""),
-		Description:       ptr.Deref(req.Description, ""),
-		ComponentType:     componentTypeRef,
-		AutoDeploy:        req.AutoDeploy,
-		Parameters:        mapToRawExtension(req.Parameters),
-		Traits:            toModelTraits(req.Traits),
-		ComponentWorkflow: toModelComponentWorkflow(req.Workflow),
+		Name:           req.Name,
+		DisplayName:    ptr.Deref(req.DisplayName, ""),
+		Description:    ptr.Deref(req.Description, ""),
+		ComponentType:  componentTypeRef,
+		AutoDeploy:     req.AutoDeploy,
+		Parameters:     mapToRawExtension(req.Parameters),
+		Traits:         toModelTraits(req.Traits),
+		WorkflowConfig: toModelWorkflowConfig(req.Workflow),
 	}
 }
 
@@ -147,13 +147,13 @@ func toModelTraits(traits *[]gen.ComponentTraitInput) []models.ComponentTrait {
 	return result
 }
 
-// toModelComponentWorkflow converts *gen.ComponentWorkflowInput to *models.ComponentWorkflow
-func toModelComponentWorkflow(workflow *gen.ComponentWorkflowInput) *models.ComponentWorkflow {
+// toModelWorkflowConfig converts *gen.ComponentWorkflowInput to *models.WorkflowConfig
+func toModelWorkflowConfig(workflow *gen.ComponentWorkflowInput) *models.WorkflowConfig {
 	if workflow == nil {
 		return nil
 	}
 
-	return &models.ComponentWorkflow{
+	return &models.WorkflowConfig{
 		Name:       workflow.Name,
 		Parameters: mapToRawExtension(workflow.Parameters),
 	}

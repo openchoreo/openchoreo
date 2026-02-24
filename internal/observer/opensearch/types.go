@@ -67,9 +67,9 @@ type LogEntry struct {
 	Labels        map[string]string `json:"labels"`
 }
 
-// ComponentWorkflowRunLogEntry represents a log entry for component workflow run logs
-// Not using LogEntry struct as loglevel, labels, etc. are not relevant for component workflow run logs
-type ComponentWorkflowRunLogEntry struct {
+// WorkflowRunLogEntry represents a log entry for workflow run logs
+// Not using LogEntry struct as loglevel, labels, etc. are not relevant for workflow run logs
+type WorkflowRunLogEntry struct {
 	Timestamp string `json:"timestamp"`
 	Log       string `json:"log"`
 }
@@ -146,8 +146,8 @@ type WorkflowRunQueryParams struct {
 	StepName      string `json:"stepName,omitempty"`
 }
 
-// ComponentWorkflowRunQueryParams holds component workflow run-specific query parameters
-type ComponentWorkflowRunQueryParams struct {
+// WorkflowRunLogsQueryParams holds workflow run logs-specific query parameters
+type WorkflowRunLogsQueryParams struct {
 	RunName  string `json:"runName"`
 	StepName string `json:"stepName"`
 	Limit    int    `json:"limit"`

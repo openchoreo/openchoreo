@@ -225,7 +225,7 @@ func (h *Handler) GetBuildLogs(w http.ResponseWriter, r *http.Request) {
 		h.logger,
 		h.authzPDP,
 		observerAuthz.ActionViewLogs,
-		observerAuthz.ResourceTypeComponentWorkflowRun,
+		observerAuthz.ResourceTypeWorkflowRun,
 		buildID,
 		authzcore.ResourceHierarchy{
 			Namespace: req.NamespaceName,
@@ -389,8 +389,8 @@ func (h *Handler) GetWorkflowRunLogs(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, result)
 }
 
-// GetComponentWorkflowRunLogs handles GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/logs
-func (h *Handler) GetComponentWorkflowRunLogs(w http.ResponseWriter, r *http.Request) {
+// GetWorkflowRunPodLogs handles GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/logs
+func (h *Handler) GetWorkflowRunPodLogs(w http.ResponseWriter, r *http.Request) {
 	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
@@ -414,7 +414,7 @@ func (h *Handler) GetComponentWorkflowRunLogs(w http.ResponseWriter, r *http.Req
 			h.logger,
 			h.authzPDP,
 			observerAuthz.ActionViewLogs,
-			observerAuthz.ResourceTypeComponentWorkflowRun,
+			observerAuthz.ResourceTypeWorkflowRun,
 			runName,
 			authzcore.ResourceHierarchy{
 				Namespace: namespaceName,
@@ -443,7 +443,7 @@ func (h *Handler) GetComponentWorkflowRunLogs(w http.ResponseWriter, r *http.Req
 			return
 		}
 	} else {
-		h.logger.Debug("Authorization check skipped for component workflow run logs", "namespace", namespaceName,
+		h.logger.Debug("Authorization check skipped for workflow run pod logs", "namespace", namespaceName,
 			"project", projectName, "component", componentName, "run", runName)
 	}
 
@@ -451,9 +451,9 @@ func (h *Handler) GetComponentWorkflowRunLogs(w http.ResponseWriter, r *http.Req
 	step := r.URL.Query().Get("step")
 
 	ctx := r.Context()
-	logs, err := h.service.GetComponentWorkflowRunLogs(ctx, runName, step, defaultWorkflowRunLogsLimit)
+	logs, err := h.service.GetWorkflowRunPodLogs(ctx, runName, step, defaultWorkflowRunLogsLimit)
 	if err != nil {
-		h.logger.Error("Failed to get component workflow run logs", "namespace", namespaceName, "project", projectName,
+		h.logger.Error("Failed to get workflow run pod logs", "namespace", namespaceName, "project", projectName,
 			"component", componentName, "run", runName, "step", step, "error", err)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
 		return
@@ -462,8 +462,8 @@ func (h *Handler) GetComponentWorkflowRunLogs(w http.ResponseWriter, r *http.Req
 	h.writeJSON(w, http.StatusOK, logs)
 }
 
-// GetComponentWorkflowRunEvents handles GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/events
-func (h *Handler) GetComponentWorkflowRunEvents(w http.ResponseWriter, r *http.Request) {
+// GetWorkflowRunPodEvents handles GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/events
+func (h *Handler) GetWorkflowRunPodEvents(w http.ResponseWriter, r *http.Request) {
 	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
@@ -485,7 +485,7 @@ func (h *Handler) GetComponentWorkflowRunEvents(w http.ResponseWriter, r *http.R
 		h.logger,
 		h.authzPDP,
 		observerAuthz.ActionViewLogs,
-		observerAuthz.ResourceTypeComponentWorkflowRun,
+		observerAuthz.ResourceTypeWorkflowRun,
 		runName,
 		authzcore.ResourceHierarchy{
 			Namespace: namespaceName,

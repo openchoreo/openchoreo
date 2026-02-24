@@ -314,7 +314,7 @@ var (
 
 	Workflow = Flag{
 		Name:  "workflow",
-		Usage: "ComponentWorkflow name to include in the scaffold",
+		Usage: "Workflow name to include in the scaffold",
 	}
 
 	SkipComments = Flag{

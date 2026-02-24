@@ -177,7 +177,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	// Resolve SecretReference for CEL context when annotation provides a secretRef mapping.
 	var secretRefInfo *workflowpipeline.SecretRefInfo
-	paramMap := parseComponentWorkflowAnnotation(workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters])
+	paramMap := parseWorkflowParameterAnnotation(workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters])
 	if secretRefPath, ok := paramMap["secretRef"]; ok {
 		secretRefName, found, err := getNestedStringFromRawExtension(workflowRun.Spec.Workflow.Parameters, secretRefPath)
 		if err != nil {

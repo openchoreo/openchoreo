@@ -295,10 +295,10 @@ func (h *Handler) GetComponentSchema(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, schema)
 }
 
-func (h *Handler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateWorkflowParameters(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logger.GetLogger(ctx)
-	logger.Debug("UpdateComponentWorkflowParameters handler called")
+	logger.Debug("UpdateWorkflowParameters handler called")
 
 	// Extract path parameters
 	namespaceName := r.PathValue("namespaceName")
@@ -311,7 +311,7 @@ func (h *Handler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *ht
 	}
 
 	// Parse request body
-	var req models.UpdateComponentWorkflowRequest
+	var req models.UpdateWorkflowParametersRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Warn("Invalid JSON body", "error", err)
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
@@ -325,7 +325,7 @@ func (h *Handler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *ht
 	})
 
 	// Call service to update workflow parameters
-	component, err := h.services.ComponentService.UpdateComponentWorkflowParameters(ctx, namespaceName, projectName, componentName, &req)
+	component, err := h.services.ComponentService.UpdateWorkflowParameters(ctx, namespaceName, projectName, componentName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)

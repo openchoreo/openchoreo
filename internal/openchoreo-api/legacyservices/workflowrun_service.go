@@ -39,11 +39,11 @@ type WorkflowRunServiceInterface interface {
 	AuthorizeView(ctx context.Context, namespaceName, projectName, componentName string) error
 	ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string) ([]*models.WorkflowRunResponse, error)
 	GetWorkflowRun(ctx context.Context, namespaceName, runName string) (*models.WorkflowRunResponse, error)
-	GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.ComponentWorkflowRunStatusResponse, error)
+	GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.WorkflowRunStatusResponse, error)
 	CreateWorkflowRun(ctx context.Context, namespaceName string, req *models.CreateWorkflowRunRequest) (*models.WorkflowRunResponse, error)
-	GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, stepName, gatewayURL string, sinceSeconds *int64) ([]models.ComponentWorkflowRunLogEntry, error)
-	GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, stepName, gatewayURL string) ([]models.ComponentWorkflowRunEventEntry, error)
-	TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error)
+	GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, stepName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error)
+	GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, stepName, gatewayURL string) ([]models.WorkflowRunEventEntry, error)
+	TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error)
 }
 
 // WorkflowRunService handles WorkflowRun-related business logic
@@ -168,7 +168,7 @@ func (s *WorkflowRunService) GetWorkflowRun(ctx context.Context, namespaceName, 
 }
 
 // GetWorkflowRunStatus retrieves the status and step information for a specific WorkflowRun
-func (s *WorkflowRunService) GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.ComponentWorkflowRunStatusResponse, error) {
+func (s *WorkflowRunService) GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.WorkflowRunStatusResponse, error) {
 	logger := s.logger.With("namespace", namespaceName, "run", runName)
 	logger.Debug("Getting workflow run status")
 
@@ -211,7 +211,7 @@ func (s *WorkflowRunService) GetWorkflowRunStatus(ctx context.Context, namespace
 
 	hasLiveObservability := s.buildPlaneService.ArgoWorkflowExists(ctx, namespaceName, gatewayURL, wfRun.Status.RunReference)
 
-	return &models.ComponentWorkflowRunStatusResponse{
+	return &models.WorkflowRunStatusResponse{
 		Status:               overallStatus,
 		Steps:                steps,
 		HasLiveObservability: hasLiveObservability,
@@ -411,7 +411,7 @@ func unmarshalRawExtension(raw *runtime.RawExtension) (map[string]interface{}, e
 }
 
 // GetWorkflowRunLogs retrieves logs from a workflow run
-func (s *WorkflowRunService) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, stepName, gatewayURL string, sinceSeconds *int64) ([]models.ComponentWorkflowRunLogEntry, error) {
+func (s *WorkflowRunService) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, stepName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
 	logger := s.logger.With("namespace", namespaceName, "run", runName, "step", stepName, "sinceSeconds", sinceSeconds)
 	logger.Debug("Getting workflow run logs")
 
@@ -454,7 +454,7 @@ func (s *WorkflowRunService) getArgoWorkflowRunLogs(
 	runReference *openchoreov1alpha1.ResourceReference,
 	stepName string,
 	sinceSeconds *int64,
-) ([]models.ComponentWorkflowRunLogEntry, error) {
+) ([]models.WorkflowRunLogEntry, error) {
 	logger := s.logger.With("namespace", namespaceName, "runReference", runReference, "step", stepName, "sinceSeconds", sinceSeconds)
 	logger.Debug("Getting Argo workflow run logs")
 
@@ -493,7 +493,7 @@ func (s *WorkflowRunService) getArgoWorkflowRunLogs(
 	}
 
 	// Get logs from pods and convert to structured format
-	allLogEntries := make([]models.ComponentWorkflowRunLogEntry, 0)
+	allLogEntries := make([]models.WorkflowRunLogEntry, 0)
 	for _, pod := range pods {
 		podLogs, err := s.getArgoWorkflowPodLogs(ctx, buildPlane, &pod, sinceSeconds)
 		if err != nil {
@@ -514,14 +514,14 @@ func (s *WorkflowRunService) getArgoWorkflowRunLogs(
 			if spaceIndex > 0 {
 				timestampCandidate := trimmedLine[:spaceIndex]
 				if _, err := time.Parse(time.RFC3339, timestampCandidate); err == nil {
-					allLogEntries = append(allLogEntries, models.ComponentWorkflowRunLogEntry{
+					allLogEntries = append(allLogEntries, models.WorkflowRunLogEntry{
 						Timestamp: timestampCandidate,
 						Log:       trimmedLine[spaceIndex+1:],
 					})
 					continue
 				}
 				if _, err := time.Parse(time.RFC3339Nano, timestampCandidate); err == nil {
-					allLogEntries = append(allLogEntries, models.ComponentWorkflowRunLogEntry{
+					allLogEntries = append(allLogEntries, models.WorkflowRunLogEntry{
 						Timestamp: timestampCandidate,
 						Log:       trimmedLine[spaceIndex+1:],
 					})
@@ -529,7 +529,7 @@ func (s *WorkflowRunService) getArgoWorkflowRunLogs(
 				}
 			}
 
-			allLogEntries = append(allLogEntries, models.ComponentWorkflowRunLogEntry{
+			allLogEntries = append(allLogEntries, models.WorkflowRunLogEntry{
 				Timestamp: "",
 				Log:       trimmedLine,
 			})
@@ -627,7 +627,7 @@ func (s *WorkflowRunService) getArgoWorkflowPodLogs(ctx context.Context, buildPl
 }
 
 // GetWorkflowRunEvents retrieves events from a workflow run
-func (s *WorkflowRunService) GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, stepName, gatewayURL string) ([]models.ComponentWorkflowRunEventEntry, error) {
+func (s *WorkflowRunService) GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, stepName, gatewayURL string) ([]models.WorkflowRunEventEntry, error) {
 	logger := s.logger.With("namespace", namespaceName, "run", runName, "step", stepName)
 	logger.Debug("Getting workflow run events")
 
@@ -669,7 +669,7 @@ func (s *WorkflowRunService) getArgoWorkflowRunEvents(
 	gatewayURL string,
 	runReference *openchoreov1alpha1.ResourceReference,
 	stepName string,
-) ([]models.ComponentWorkflowRunEventEntry, error) {
+) ([]models.WorkflowRunEventEntry, error) {
 	logger := s.logger.With("namespace", namespaceName, "runReference", runReference, "step", stepName)
 	logger.Debug("Getting Argo workflow run events")
 
@@ -708,7 +708,7 @@ func (s *WorkflowRunService) getArgoWorkflowRunEvents(
 	}
 
 	// Get events from pods and convert to structured format
-	allEventEntries := make([]models.ComponentWorkflowRunEventEntry, 0)
+	allEventEntries := make([]models.WorkflowRunEventEntry, 0)
 	for _, pod := range pods {
 		podEvents, err := s.getArgoWorkflowPodEvents(ctx, buildPlane, &pod)
 		if err != nil {
@@ -730,7 +730,7 @@ func (s *WorkflowRunService) getArgoWorkflowRunEvents(
 				continue
 			}
 
-			allEventEntries = append(allEventEntries, models.ComponentWorkflowRunEventEntry{
+			allEventEntries = append(allEventEntries, models.WorkflowRunEventEntry{
 				Timestamp: timestamp.Format(time.RFC3339),
 				Type:      event.Type,
 				Reason:    event.Reason,
@@ -778,7 +778,7 @@ func (s *WorkflowRunService) getArgoWorkflowPodEvents(ctx context.Context, build
 
 // TriggerWorkflow creates a new WorkflowRun from a component's workflow configuration.
 // This is the authorized entry point for triggering component workflows via API.
-func (s *WorkflowRunService) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
+func (s *WorkflowRunService) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error) {
 	s.logger.Debug("Triggering component workflow", "namespace", namespaceName, "project", projectName, "component", componentName, "commit", commit)
 
 	// Authorization check using WorkflowRun resource type since we create WorkflowRun CRs
@@ -792,7 +792,7 @@ func (s *WorkflowRunService) TriggerWorkflow(ctx context.Context, namespaceName,
 
 // triggerWorkflowInternal contains the core workflow triggering logic without authorization checks.
 // This is used by the webhook service which authenticates via HMAC signature validation instead of user-level auth.
-func (s *WorkflowRunService) triggerWorkflowInternal(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
+func (s *WorkflowRunService) triggerWorkflowInternal(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error) {
 	// Retrieve component and use that to create the workflow run
 	var component openchoreov1alpha1.Component
 	err := s.k8sClient.Get(ctx, client.ObjectKey{
@@ -823,7 +823,7 @@ func (s *WorkflowRunService) triggerWorkflowInternal(ctx context.Context, namesp
 
 	// Parse the annotation that maps logical keys to parameter paths
 	annotation := workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters]
-	paramMap := parseComponentWorkflowAnnotation(annotation)
+	paramMap := parseWorkflowParameterAnnotation(annotation)
 
 	// Validate that repoUrl is configured in the component parameters
 	if repoURLPath, ok := paramMap["repoUrl"]; ok {
@@ -902,7 +902,7 @@ func (s *WorkflowRunService) triggerWorkflowInternal(ctx context.Context, namesp
 
 	s.logger.Info("Workflow run created successfully", "workflow", workflowRunName, "component", componentName, "commit", commit)
 
-	return &models.ComponentWorkflowResponse{
+	return &models.WorkflowRunTriggerResponse{
 		Name:          workflowRun.Name,
 		UUID:          string(workflowRun.UID),
 		ComponentName: componentName,

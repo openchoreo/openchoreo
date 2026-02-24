@@ -223,8 +223,8 @@ func (qb *QueryBuilder) BuildWorkflowRunLogsQuery(params WorkflowRunQueryParams)
 	return query
 }
 
-// BuildComponentWorkflowRunLogsQuery builds a query for component workflow run logs
-func (qb *QueryBuilder) BuildComponentWorkflowRunLogsQuery(params ComponentWorkflowRunQueryParams) map[string]interface{} {
+// BuildWorkflowRunPodLogsQuery builds a query for workflow run pod logs
+func (qb *QueryBuilder) BuildWorkflowRunPodLogsQuery(params WorkflowRunLogsQueryParams) map[string]interface{} {
 	// Construct pod name pattern for Argo Workflow: runName-stepName-* or runName-* if stepName is empty
 	suffix := ""
 	if params.StepName != "" {
