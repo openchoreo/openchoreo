@@ -5,6 +5,8 @@ package releasebinding
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -14,6 +16,30 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
+
+// urlToString converts an EndpointURL to a string representation.
+func urlToString(u *openchoreov1alpha1.EndpointURL) string {
+	if u == nil {
+		return ""
+	}
+
+	url := u.Scheme + "://" + u.Host
+
+	// Add port if it's not the default port for the scheme
+	if u.Port != 0 && !((u.Scheme == "http" && u.Port == 80) || (u.Scheme == "https" && u.Port == 443)) {
+		url += fmt.Sprintf(":%d", u.Port)
+	}
+
+	// Add path if present
+	if u.Path != "" {
+		if !strings.HasPrefix(u.Path, "/") {
+			url += "/"
+		}
+		url += u.Path
+	}
+
+	return url
+}
 
 // httpRouteOpts configures the HTTPRoute JSON built by makeHTTPRouteJSON.
 type httpRouteOpts struct {
@@ -260,7 +286,10 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				nil,
 				dp,
 			)
-			Expect(result).To(BeEmpty())
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Name).To(Equal("greeter"))
+			Expect(result[0].ExternalURLs).To(BeNil())
+			Expect(result[0].InternalURLs).To(BeNil())
 		})
 	})
 
@@ -287,7 +316,10 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				nil,
 				dp,
 			)
-			Expect(result).To(BeEmpty())
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Name).To(Equal("greeter"))
+			Expect(result[0].ExternalURLs).To(BeNil())
+			Expect(result[0].InternalURLs).To(BeNil())
 		})
 	})
 
@@ -316,7 +348,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			)
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].Name).To(Equal("greeter"))
-			Expect(result[0].InvokeURL).To(Equal("https://app.example.com:30443"))
+			Expect(urlToString(result[0].ExternalURLs.HTTPS)).To(Equal("https://app.example.com:30443"))
 		})
 	})
 
@@ -345,7 +377,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			)
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].Name).To(Equal("greeter"))
-			Expect(result[0].InvokeURL).To(Equal("http://app.example.com:30080"))
+			Expect(urlToString(result[0].ExternalURLs.HTTP)).To(Equal("http://app.example.com:30080"))
 		})
 	})
 
@@ -373,11 +405,10 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				nil,
 				dp,
 			)
-			Expect(result).To(HaveLen(2))
+			Expect(result).To(HaveLen(1))
 			Expect(result[0].Name).To(Equal("greeter"))
-			Expect(result[0].InvokeURL).To(Equal("http://app.example.com:30080"))
-			Expect(result[1].Name).To(Equal("greeter"))
-			Expect(result[1].InvokeURL).To(Equal("https://app.example.com:30443"))
+			Expect(urlToString(result[0].ExternalURLs.HTTP)).To(Equal("http://app.example.com:30080"))
+			Expect(urlToString(result[0].ExternalURLs.HTTPS)).To(Equal("https://app.example.com:30443"))
 		})
 	})
 
@@ -406,10 +437,10 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				nil,
 				dp,
 			)
-			Expect(result).To(HaveLen(3))
-			Expect(result[0].InvokeURL).To(Equal("http://app.example.com:30080"))
-			Expect(result[1].InvokeURL).To(Equal("https://app.example.com:30443"))
-			Expect(result[2].InvokeURL).To(Equal("https://app.example.com:30444"))
+			Expect(result).To(HaveLen(1))
+			Expect(urlToString(result[0].ExternalURLs.HTTP)).To(Equal("http://app.example.com:30080"))
+			Expect(urlToString(result[0].ExternalURLs.HTTPS)).To(Equal("https://app.example.com:30443"))
+			Expect(urlToString(result[0].ExternalURLs.TLS)).To(Equal("https://app.example.com:30444"))
 		})
 	})
 
@@ -438,9 +469,9 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				nil,
 				dp,
 			)
-			Expect(result).To(HaveLen(2))
-			Expect(result[0].InvokeURL).To(Equal("http://app.example.com:30080/api/v1"))
-			Expect(result[1].InvokeURL).To(Equal("https://app.example.com:30443/api/v1"))
+			Expect(result).To(HaveLen(1))
+			Expect(urlToString(result[0].ExternalURLs.HTTP)).To(Equal("http://app.example.com:30080/api/v1"))
+			Expect(urlToString(result[0].ExternalURLs.HTTPS)).To(Equal("https://app.example.com:30443/api/v1"))
 		})
 	})
 
@@ -468,7 +499,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				dp,
 			)
 			Expect(result).To(HaveLen(1))
-			Expect(result[0].InvokeURL).To(Equal("https://app.example.com"))
+			Expect(urlToString(result[0].ExternalURLs.HTTPS)).To(Equal("https://app.example.com"))
 		})
 	})
 
@@ -500,7 +531,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			)
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].Name).To(Equal("greeter"))
-			Expect(result[0].InvokeURL).To(Equal("https://app.internal.example.com:31443"))
+			Expect(urlToString(result[0].InternalURLs.HTTPS)).To(Equal("https://app.internal.example.com:31443"))
 		})
 	})
 
@@ -535,9 +566,9 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 				env,
 				dp,
 			)
-			Expect(result).To(HaveLen(2))
-			Expect(result[0].InvokeURL).To(Equal("http://app.env.example.com:80"))
-			Expect(result[1].InvokeURL).To(Equal("https://app.env.example.com:443"))
+			Expect(result).To(HaveLen(1))
+			Expect(urlToString(result[0].ExternalURLs.HTTP)).To(Equal("http://app.env.example.com"))
+			Expect(urlToString(result[0].ExternalURLs.HTTPS)).To(Equal("https://app.env.example.com"))
 		})
 	})
 
@@ -581,9 +612,9 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			)
 			Expect(result).To(HaveLen(2))
 			Expect(result[0].Name).To(Equal("greeter"))
-			Expect(result[0].InvokeURL).To(Equal("https://greeter.example.com:19443/greet"))
+			Expect(urlToString(result[0].ExternalURLs.HTTPS)).To(Equal("https://greeter.example.com:19443/greet"))
 			Expect(result[1].Name).To(Equal("health"))
-			Expect(result[1].InvokeURL).To(Equal("https://health.internal.example.com:31443"))
+			Expect(urlToString(result[1].InternalURLs.HTTPS)).To(Equal("https://health.internal.example.com:31443"))
 		})
 	})
 
