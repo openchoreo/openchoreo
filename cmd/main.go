@@ -110,18 +110,19 @@ func setupControlPlaneControllers(
 		return fmt.Errorf("failed to setup shared indexes: %w", err)
 	}
 
+	if err := (&deploymentpipeline.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
 	if enableLegacyCRDs {
 		if err := (&environment.Reconciler{
 			Client:       mgr.GetClient(),
 			K8sClientMgr: k8sClientMgr,
 			Scheme:       mgr.GetScheme(),
 			GatewayURL:   clusterGatewayURL,
-		}).SetupWithManager(mgr); err != nil {
-			return err
-		}
-		if err := (&deploymentpipeline.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
 			return err
 		}

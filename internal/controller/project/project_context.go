@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -19,6 +20,14 @@ func (r *Reconciler) makeProjectContext(ctx context.Context, project *openchoreo
 	deploymentPipeline, err := r.findDeploymentPipeline(ctx, project)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve the deployment pipeline: %w", err)
+	}
+
+	// If the DeploymentPipeline is not found (already deleted), return an empty context.
+	// This allows finalization to proceed without blocking on a missing pipeline.
+	if deploymentPipeline == nil {
+		return &dataplane.ProjectContext{
+			Project: project,
+		}, nil
 	}
 
 	environmentNames := r.findEnvironmentNamesFromDeploymentPipeline(deploymentPipeline)
@@ -39,18 +48,23 @@ func (r *Reconciler) makeProjectContext(ctx context.Context, project *openchoreo
 func (r *Reconciler) findDeploymentPipeline(ctx context.Context, project *openchoreov1alpha1.Project) (*openchoreov1alpha1.DeploymentPipeline, error) {
 	logger := log.FromContext(ctx).WithValues("project", project.Name)
 
-	// Get deployment pipeline
 	var deploymentPipeline openchoreov1alpha1.DeploymentPipeline
 	err := r.Get(ctx, types.NamespacedName{
 		Namespace: project.Namespace,
 		Name:      project.Spec.DeploymentPipelineRef,
 	}, &deploymentPipeline)
 
+	if apierrors.IsNotFound(err) {
+		logger.Info("DeploymentPipeline not found, may have been already deleted",
+			"pipelineRef", project.Spec.DeploymentPipelineRef,
+			"namespace", project.Namespace)
+		return nil, nil
+	}
 	if err != nil {
 		logger.Error(err, "Failed to get deployment pipeline",
 			"pipelineRef", project.Spec.DeploymentPipelineRef,
 			"namespace", project.Namespace)
-		return &openchoreov1alpha1.DeploymentPipeline{}, err
+		return nil, err
 	}
 
 	return &deploymentPipeline, nil

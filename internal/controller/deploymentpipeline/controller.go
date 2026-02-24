@@ -5,6 +5,7 @@ package deploymentpipeline
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -32,29 +34,32 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the DeploymentPipeline object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	// Fetch the DeploymentPipeline instance
 	deploymentPipeline := &openchoreov1alpha1.DeploymentPipeline{}
 	if err := r.Get(ctx, req.NamespacedName, deploymentPipeline); err != nil {
 		if apierrors.IsNotFound(err) {
-			// The DeploymentPipeline resource may have been deleted since it triggered the reconcile
 			logger.Info("DeploymentPipeline resource not found. Ignoring since it must be deleted.")
 			return ctrl.Result{}, nil
 		}
-		// Error reading the object
 		logger.Error(err, "Failed to get DeploymentPipeline")
 		return ctrl.Result{}, err
+	}
+
+	// Add finalizer if not being deleted
+	if deploymentPipeline.DeletionTimestamp.IsZero() {
+		if controllerutil.AddFinalizer(deploymentPipeline, PipelineCleanupFinalizer) {
+			if err := r.Update(ctx, deploymentPipeline); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to add finalizer: %w", err)
+			}
+			return ctrl.Result{}, nil
+		}
+	}
+
+	// Handle deletion
+	if !deploymentPipeline.DeletionTimestamp.IsZero() {
+		return r.finalize(ctx, deploymentPipeline)
 	}
 
 	previousCondition := meta.FindStatusCondition(deploymentPipeline.Status.Conditions, controller.TypeAvailable)
