@@ -99,7 +99,7 @@ spec:
             - name: ${gateway.ingress.external.name}
               namespace: ${gateway.ingress.external.namespace}
           hostnames:
-            - ${metadata.environmentName}-${metadata.componentNamespace}.${gateway.ingress.external.https.host}
+            - ${metadata.environmentName}-${metadata.componentNamespace}.${gateway.ingress.external.http.host}
           rules:
           - matches:
             - path:
