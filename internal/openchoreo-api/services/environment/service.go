@@ -153,6 +153,8 @@ func (s *environmentService) UpdateEnvironment(ctx context.Context, namespaceNam
 	// Preserve server-managed fields
 	env.ResourceVersion = existing.ResourceVersion
 	env.Namespace = namespaceName
+	env.Finalizers = existing.Finalizers
+	env.OwnerReferences = existing.OwnerReferences
 
 	if err := s.k8sClient.Update(ctx, env); err != nil {
 		if apierrors.IsInvalid(err) {
