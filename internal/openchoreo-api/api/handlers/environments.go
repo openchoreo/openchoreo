@@ -140,6 +140,10 @@ func (h *Handler) UpdateEnvironment(
 		if errors.Is(err, environmentsvc.ErrEnvironmentNotFound) {
 			return gen.UpdateEnvironment404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
 		}
+		var validationErr *environmentsvc.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to update environment", "error", err)
 		return gen.UpdateEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
