@@ -140,7 +140,7 @@ func (h *Handler) UpdateEnvironment(
 		if errors.Is(err, environmentsvc.ErrEnvironmentNotFound) {
 			return gen.UpdateEnvironment404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
 		}
-		var validationErr *environmentsvc.ValidationError
+		var validationErr *services.ValidationError
 		if errors.As(err, &validationErr) {
 			return gen.UpdateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}

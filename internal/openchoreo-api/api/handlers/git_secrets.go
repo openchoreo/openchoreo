@@ -99,6 +99,7 @@ func (h *Handler) DeleteGitSecret(
 }
 
 func mapCreateGitSecretError(h *Handler, err error) (gen.CreateGitSecretResponseObject, error) {
+	var validationErr *services.ValidationError
 	switch {
 	case errors.Is(err, services.ErrForbidden):
 		return gen.CreateGitSecret403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -106,6 +107,8 @@ func mapCreateGitSecretError(h *Handler, err error) (gen.CreateGitSecretResponse
 		return gen.CreateGitSecret409JSONResponse{ConflictJSONResponse: conflict("git secret already exists")}, nil
 	case errors.Is(err, gitsecretsvc.ErrInvalidSecretType):
 		return gen.CreateGitSecret400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
+	case errors.As(err, &validationErr):
+		return gen.CreateGitSecret400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 	case errors.Is(err, gitsecretsvc.ErrBuildPlaneNotFound):
 		return gen.CreateGitSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	case errors.Is(err, gitsecretsvc.ErrSecretStoreNotConfigured):

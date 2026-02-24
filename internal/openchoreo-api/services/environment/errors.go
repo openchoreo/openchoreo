@@ -11,10 +11,3 @@ var (
 	ErrEnvironmentAlreadyExists = errors.New("environment already exists")
 	ErrDataPlaneNotFound        = errors.New("dataplane not found")
 )
-
-// ValidationError carries a K8s validation rejection message.
-type ValidationError struct {
-	Msg string
-}
-
-func (e *ValidationError) Error() string { return e.Msg }

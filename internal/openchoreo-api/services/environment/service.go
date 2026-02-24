@@ -159,7 +159,7 @@ func (s *environmentService) UpdateEnvironment(ctx context.Context, namespaceNam
 	if err := s.k8sClient.Update(ctx, env); err != nil {
 		if apierrors.IsInvalid(err) {
 			s.logger.Error("Environment update rejected by validation", "error", err)
-			return nil, &ValidationError{Msg: services.ExtractValidationMessage(err)}
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
 		}
 		s.logger.Error("Failed to update environment CR", "error", err)
 		return nil, fmt.Errorf("failed to update environment: %w", err)

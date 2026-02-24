@@ -15,6 +15,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
 //nolint:gosec // False positive: these are annotation keys and namespace prefixes, not credentials
@@ -77,8 +78,8 @@ func (s *gitSecretService) ListGitSecrets(ctx context.Context, namespaceName str
 func (s *gitSecretService) CreateGitSecret(ctx context.Context, namespaceName string, req *CreateGitSecretParams) (*GitSecretInfo, error) {
 	s.logger.Debug("Creating git secret", "namespace", namespaceName, "secret", req.SecretName, "type", req.SecretType)
 
-	if req.SecretType != secretTypeBasicAuth && req.SecretType != secretTypeSSHAuth {
-		return nil, ErrInvalidSecretType
+	if err := validateCredentials(req); err != nil {
+		return nil, err
 	}
 
 	// Check if SecretReference already exists in control plane
@@ -444,5 +445,22 @@ func (s *gitSecretService) ensureNamespaceExists(ctx context.Context, k8sClient 
 		return fmt.Errorf("failed to check namespace existence: %w", err)
 	}
 	s.logger.Debug("Namespace already exists in build plane", "namespace", namespaceName)
+	return nil
+}
+
+// validateCredentials checks that the required credential fields are present for the given secret type.
+func validateCredentials(req *CreateGitSecretParams) error {
+	switch req.SecretType {
+	case secretTypeBasicAuth:
+		if req.Token == "" {
+			return &services.ValidationError{Msg: "token is required for basic-auth type"}
+		}
+	case secretTypeSSHAuth:
+		if req.SSHKey == "" {
+			return &services.ValidationError{Msg: "sshKey is required for ssh-auth type"}
+		}
+	default:
+		return &services.ValidationError{Msg: fmt.Sprintf("unsupported secret type: %s", req.SecretType)}
+	}
 	return nil
 }
