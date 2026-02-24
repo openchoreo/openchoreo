@@ -216,6 +216,13 @@ func toGatewayTrafficData(t *v1alpha1.GatewayNetworkSpec) *GatewayTrafficData {
 	return data
 }
 
+// Default ports applied to gateway listeners when no port is explicitly configured.
+const (
+	defaultHTTPListenerPort  int32 = 9081
+	defaultHTTPSListenerPort int32 = 9444
+	defaultTLSListenerPort   int32 = 9454
+)
+
 // toGatewayEndpointData converts a v1alpha1.GatewayEndpointSpec to a GatewayEndpointData.
 func toGatewayEndpointData(e *v1alpha1.GatewayEndpointSpec) *GatewayEndpointData {
 	if e == nil {
@@ -226,23 +233,35 @@ func toGatewayEndpointData(e *v1alpha1.GatewayEndpointSpec) *GatewayEndpointData
 		Namespace: e.Namespace,
 	}
 	if e.HTTP != nil {
+		port := e.HTTP.Port
+		if port == 0 {
+			port = defaultHTTPListenerPort
+		}
 		data.HTTP = &GatewayListenerData{
 			ListenerName: e.HTTP.ListenerName,
-			Port:         e.HTTP.Port,
+			Port:         port,
 			Host:         e.HTTP.Host,
 		}
 	}
 	if e.HTTPS != nil {
+		port := e.HTTPS.Port
+		if port == 0 {
+			port = defaultHTTPSListenerPort
+		}
 		data.HTTPS = &GatewayListenerData{
 			ListenerName: e.HTTPS.ListenerName,
-			Port:         e.HTTPS.Port,
+			Port:         port,
 			Host:         e.HTTPS.Host,
 		}
 	}
 	if e.TLS != nil {
+		port := e.TLS.Port
+		if port == 0 {
+			port = defaultTLSListenerPort
+		}
 		data.TLS = &GatewayListenerData{
 			ListenerName: e.TLS.ListenerName,
-			Port:         e.TLS.Port,
+			Port:         port,
 			Host:         e.TLS.Host,
 		}
 	}
