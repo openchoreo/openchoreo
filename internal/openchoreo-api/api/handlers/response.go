@@ -41,3 +41,10 @@ func internalError() gen.InternalErrorJSONResponse {
 		Error: "Internal server error",
 	}
 }
+
+func badGateway(message string) gen.BadGatewayJSONResponse {
+	return gen.BadGatewayJSONResponse{
+		Code:  gen.BADGATEWAY,
+		Error: message,
+	}
+}

@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/k8sresource"
 )
 
 // ========== validateK8sPath Tests ==========
@@ -188,19 +190,19 @@ func TestValidateK8sPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateK8sPath(tt.path)
+			err := k8sresource.ValidateK8sPath(tt.path)
 
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("validateK8sPath(%q) = nil, want error containing %q", tt.path, tt.errMsg)
+					t.Errorf("ValidateK8sPath(%q) = nil, want error containing %q", tt.path, tt.errMsg)
 					return
 				}
 				if tt.errMsg != "" && err.Error() != tt.errMsg {
-					t.Errorf("validateK8sPath(%q) error = %q, want %q", tt.path, err.Error(), tt.errMsg)
+					t.Errorf("ValidateK8sPath(%q) error = %q, want %q", tt.path, err.Error(), tt.errMsg)
 				}
 			} else {
 				if err != nil {
-					t.Errorf("validateK8sPath(%q) = %v, want nil", tt.path, err)
+					t.Errorf("ValidateK8sPath(%q) = %v, want nil", tt.path, err)
 				}
 			}
 		})
@@ -595,34 +597,6 @@ func TestProxyPlaneK8s_StreamingParameterRejection(t *testing.T) {
 				t.Errorf("Streaming rejection = %v, want %v", shouldReject, tt.wantReject)
 			}
 		})
-	}
-}
-
-// ========== Blocked Paths and Namespaces Lists Tests ==========
-
-func TestBlockedPathSegments(t *testing.T) {
-	expectedBlocked := []string{"secrets", "serviceaccounts", "exec", "attach", "portforward"}
-	if len(blockedPathSegments) != len(expectedBlocked) {
-		t.Errorf("Expected %d blocked path segments, got %d", len(expectedBlocked), len(blockedPathSegments))
-		return
-	}
-	for i, expected := range expectedBlocked {
-		if blockedPathSegments[i] != expected {
-			t.Errorf("blockedPathSegments[%d] = %q, want %q", i, blockedPathSegments[i], expected)
-		}
-	}
-}
-
-func TestBlockedNamespaces(t *testing.T) {
-	expectedBlocked := []string{"kube-system", "kube-public", "kube-node-lease"}
-	if len(blockedNamespaces) != len(expectedBlocked) {
-		t.Errorf("Expected %d blocked namespaces, got %d", len(expectedBlocked), len(blockedNamespaces))
-		return
-	}
-	for i, expected := range expectedBlocked {
-		if blockedNamespaces[i] != expected {
-			t.Errorf("blockedNamespaces[%d] = %q, want %q", i, blockedNamespaces[i], expected)
-		}
 	}
 }
 

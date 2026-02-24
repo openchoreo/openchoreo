@@ -25,9 +25,10 @@ type SubjectContext struct {
 
 // ResourceHierarchy represents a single item in a resource hierarchy
 type ResourceHierarchy struct {
-	Namespace string `json:"namespace,omitempty"`
-	Project   string `json:"project,omitempty"`
-	Component string `json:"component,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
+	Project     string `json:"project,omitempty"`
+	Component   string `json:"component,omitempty"`
+	Environment string `json:"environment,omitempty"`
 }
 
 // Resource represents a resource in the authorization request
