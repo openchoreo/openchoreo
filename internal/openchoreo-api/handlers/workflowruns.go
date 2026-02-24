@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -176,18 +177,13 @@ func (h *Handler) CreateWorkflowRun(w http.ResponseWriter, r *http.Request) {
 	// Set namespace from URL
 	unstructuredObj.SetNamespace(namespaceName)
 
-	// Check if a WorkflowRun with the same name already exists
-	gvk := openChoreoGVK("WorkflowRun")
-	existing, err := h.getResourceByGVK(ctx, gvk, namespaceName, name)
-	if err == nil && existing != nil {
-		log.Warn("WorkflowRun already exists", "namespace", namespaceName, "name", name)
-		writeErrorResponse(w, http.StatusConflict, "WorkflowRun already exists with name: "+name, services.CodeWorkflowRunAlreadyExists)
-		return
-	}
-	// If err is not a "not found" error, it's an unexpected error
-	if err != nil && client.IgnoreNotFound(err) != nil {
-		log.Error("Failed to check existing WorkflowRun", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+	// Authorize the create operation
+	labels := unstructuredObj.GetLabels()
+	projectName := labels[ocLabels.LabelKeyProjectName]
+	componentName := labels[ocLabels.LabelKeyComponentName]
+	if err := h.services.WorkflowRunService.AuthorizeCreate(ctx, namespaceName, projectName, componentName); err != nil {
+		log.Warn("Authorization failed for WorkflowRun creation", "namespace", namespaceName, "name", name, "error", err)
+		writeErrorResponse(w, http.StatusForbidden, "Not authorized to create WorkflowRun", services.CodeForbidden)
 		return
 	}
 
@@ -201,6 +197,11 @@ func (h *Handler) CreateWorkflowRun(w http.ResponseWriter, r *http.Request) {
 	// Apply the resource to Kubernetes
 	operation, err := h.applyToKubernetes(ctx, unstructuredObj)
 	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			log.Warn("WorkflowRun already exists", "namespace", namespaceName, "name", name)
+			writeErrorResponse(w, http.StatusConflict, "WorkflowRun already exists with name: "+name, services.CodeWorkflowRunAlreadyExists)
+			return
+		}
 		log.Error("Failed to create WorkflowRun", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create WorkflowRun: "+err.Error(), services.CodeInternalError)
 		return

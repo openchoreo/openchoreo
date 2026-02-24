@@ -29,6 +29,13 @@ import (
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 )
 
+const (
+	// generateWorkloadTaskName is the name of the task/template that generates a workload CR.
+	generateWorkloadTaskName = "generate-workload-cr"
+	// workloadCRParamName is the output parameter name that holds the workload CR YAML.
+	workloadCRParamName = "workload-cr"
+)
+
 // Reconciler reconciles a WorkflowRun object
 type Reconciler struct {
 	client.Client
@@ -359,7 +366,7 @@ func (r *Reconciler) createWorkloadFromWorkflowRun(
 		Namespace: runRefNamespace,
 	}, runResource); err != nil {
 		if errors.IsNotFound(err) {
-			logger.Info("run resource not found, skipping workload creation",
+			logger.Info("run resource not found, workload creation cannot proceed",
 				"runName", runRefName,
 				"runNamespace", runRefNamespace)
 			return false, fmt.Errorf("run resource %q in namespace %q not found: %w", runRefName, runRefNamespace, err)
@@ -380,6 +387,10 @@ func (r *Reconciler) createWorkloadFromWorkflowRun(
 		return true, fmt.Errorf("failed to unmarshal workload CR from run resource %q: %w", runRefName, err)
 	}
 
+	if workload.Name == "" {
+		return false, fmt.Errorf("workload CR from run %q missing metadata.name; raw workload: %q", runRefName, workloadCR)
+	}
+
 	// Set the namespace to match the workflowrun
 	workload.Namespace = workflowRun.Namespace
 
@@ -393,10 +404,10 @@ func (r *Reconciler) createWorkloadFromWorkflowRun(
 // extractWorkloadCRFromRunResource extracts workload CR from run resource outputs.
 func extractWorkloadCRFromRunResource(runResource *argoproj.Workflow) string {
 	for _, node := range runResource.Status.Nodes {
-		if node.TemplateName == "generate-workload-cr" && node.Phase == argoproj.NodeSucceeded {
+		if node.TemplateName == generateWorkloadTaskName && node.Phase == argoproj.NodeSucceeded {
 			if node.Outputs != nil {
 				for _, param := range node.Outputs.Parameters {
-					if param.Name == "workload-cr" && param.Value != nil {
+					if param.Name == workloadCRParamName && param.Value != nil {
 						return string(*param.Value)
 					}
 				}
@@ -409,7 +420,7 @@ func extractWorkloadCRFromRunResource(runResource *argoproj.Workflow) string {
 // hasGenerateWorkloadTask checks if the generate-workload-cr task exists in the workflow tasks.
 func hasGenerateWorkloadTask(workflowRun *openchoreodevv1alpha1.WorkflowRun) bool {
 	for _, task := range workflowRun.Status.Tasks {
-		if task.Name == "generate-workload-cr" {
+		if task.Name == generateWorkloadTaskName {
 			return true
 		}
 	}
