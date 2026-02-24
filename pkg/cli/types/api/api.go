@@ -6,8 +6,6 @@ package api
 // CommandImplementationInterface combines all APIs
 type CommandImplementationInterface interface {
 	NamespaceAPI
-	ProjectAPI
-	ComponentAPI
 	ApplyAPI
 	DeleteAPI
 	LoginAPI
@@ -32,19 +30,6 @@ type CommandImplementationInterface interface {
 // NamespaceAPI defines namespace-related operations
 type NamespaceAPI interface {
 	ListNamespaces(params ListNamespacesParams) error
-}
-
-// ProjectAPI defines project-related operations
-type ProjectAPI interface {
-	ListProjects(params ListProjectsParams) error
-}
-
-// ComponentAPI defines component-related operations
-type ComponentAPI interface {
-	ListComponents(params ListComponentsParams) error
-	ScaffoldComponent(params ScaffoldComponentParams) error
-	DeployComponent(params DeployComponentParams) error
-	ComponentLogs(params ComponentLogsParams) error
 }
 
 // ApplyAPI defines methods for applying configurations

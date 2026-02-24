@@ -14,11 +14,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-// ComponentLogs fetches and displays logs for a component
-func (c *CompImpl) ComponentLogs(params api.ComponentLogsParams) error {
+// Logs fetches and displays logs for a component
+func (c *Component) Logs(params LogsParams) error {
 	ctx := context.Background()
 
 	// Create API client
@@ -105,13 +104,13 @@ func (c *CompImpl) ComponentLogs(params api.ComponentLogsParams) error {
 }
 
 // fetchAndPrintLogs fetches logs for a given time range and prints them
-func (c *CompImpl) fetchAndPrintLogs(
+func (c *Component) fetchAndPrintLogs(
 	ctx context.Context,
 	observerURL string,
 	token string,
 	componentID string,
 	environmentID string,
-	params api.ComponentLogsParams,
+	params LogsParams,
 	startTime time.Time,
 	endTime time.Time,
 ) error {
@@ -128,13 +127,13 @@ func (c *CompImpl) fetchAndPrintLogs(
 }
 
 // followLogs continuously fetches and prints new logs
-func (c *CompImpl) followLogs(
+func (c *Component) followLogs(
 	ctx context.Context,
 	observerURL string,
 	token string,
 	componentID string,
 	environmentID string,
-	params api.ComponentLogsParams,
+	params LogsParams,
 	startTime time.Time,
 	endTime time.Time,
 ) error {
@@ -206,13 +205,13 @@ func (c *CompImpl) followLogs(
 }
 
 // fetchLogs makes an HTTP request to the observer to fetch logs
-func (c *CompImpl) fetchLogs(
+func (c *Component) fetchLogs(
 	ctx context.Context,
 	observerURL string,
 	token string,
 	componentID string,
 	environmentID string,
-	params api.ComponentLogsParams,
+	params LogsParams,
 	startTime time.Time,
 	endTime time.Time,
 ) ([]client.LogEntry, error) {

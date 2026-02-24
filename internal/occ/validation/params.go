@@ -130,17 +130,24 @@ func validateComponentParams(cmdType CommandType, params interface{}) error {
 	return nil
 }
 
+// deployComponentParams is an interface for deploy component parameter validation
+type deployComponentParams interface {
+	GetNamespace() string
+	GetProject() string
+	GetComponentName() string
+}
+
 // validateDeployComponentParams validates parameters for deploy component operations
 func validateDeployComponentParams(params interface{}) error {
-	if p, ok := params.(api.DeployComponentParams); ok {
+	if p, ok := params.(deployComponentParams); ok {
 		fields := map[string]string{
-			"namespace": p.Namespace,
-			"project":   p.Project,
+			"namespace": p.GetNamespace(),
+			"project":   p.GetProject(),
 		}
 		if !checkRequiredFields(fields) {
 			return generateHelpError(CmdDeploy, ResourceComponent, fields)
 		}
-		if p.ComponentName == "" {
+		if p.GetComponentName() == "" {
 			return fmt.Errorf("component name is required")
 		}
 	}
@@ -489,20 +496,24 @@ func validateWorkloadParams(cmdType CommandType, params interface{}) error {
 	return nil
 }
 
+// namespaceParams is an interface for parameter validation requiring a namespace
+type namespaceParams interface {
+	GetNamespace() string
+}
+
 // validateProjectListParams validates parameters for project list operations
 func validateProjectListParams(params interface{}) error {
-	if p, ok := params.(api.ListProjectsParams); ok {
-		return validateNamespace(ResourceProject, p.Namespace)
+	if p, ok := params.(namespaceParams); ok {
+		return validateNamespace(ResourceProject, p.GetNamespace())
 	}
 	return nil
 }
 
 // validateComponentListParams validates parameters for component list operations
 func validateComponentListParams(params interface{}) error {
-	if p, ok := params.(api.ListComponentsParams); ok {
+	if p, ok := params.(namespaceParams); ok {
 		fields := map[string]string{
-			"namespace": p.Namespace,
-			"project":   p.Project,
+			"namespace": p.GetNamespace(),
 		}
 		if !checkRequiredFields(fields) {
 			return generateHelpError(CmdList, ResourceComponent, fields)

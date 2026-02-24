@@ -5,7 +5,6 @@ package occ
 
 import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/apply"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/component"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/delete"
@@ -133,28 +132,6 @@ func (c *CommandImplementation) DeleteCredentials(params api.DeleteCredentialsPa
 	return configContextImpl.DeleteCredentials(params)
 }
 
-// Component Operations
-
-func (c *CommandImplementation) DeployComponent(params api.DeployComponentParams) error {
-	compImpl := component.NewCompImpl(constants.ComponentV1Config)
-	return compImpl.DeployComponent(params)
-}
-
-func (c *CommandImplementation) ListComponents(params api.ListComponentsParams) error {
-	compImpl := component.NewCompImpl(constants.ComponentV1Config)
-	return compImpl.ListComponents(params)
-}
-
-func (c *CommandImplementation) ScaffoldComponent(params api.ScaffoldComponentParams) error {
-	compImpl := component.NewCompImpl(constants.ComponentV1Config)
-	return compImpl.ScaffoldComponent(params)
-}
-
-func (c *CommandImplementation) ComponentLogs(params api.ComponentLogsParams) error {
-	compImpl := component.NewCompImpl(constants.ComponentV1Config)
-	return compImpl.ComponentLogs(params)
-}
-
 // Component Release Operations (File-System Mode)
 
 func (c *CommandImplementation) GenerateComponentRelease(params api.GenerateComponentReleaseParams) error {
@@ -186,11 +163,6 @@ func (c *CommandImplementation) ListReleaseBindings(params api.ListReleaseBindin
 func (c *CommandImplementation) ListNamespaces(params api.ListNamespacesParams) error {
 	listImpl := list.NewListImpl()
 	return listImpl.ListNamespaces(params)
-}
-
-func (c *CommandImplementation) ListProjects(params api.ListProjectsParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListProjects(params)
 }
 
 func (c *CommandImplementation) ListEnvironments(params api.ListEnvironmentsParams) error {

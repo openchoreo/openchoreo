@@ -8,14 +8,15 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/component"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-func NewComponentCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewComponentCmd() *cobra.Command {
 	componentCmd := &cobra.Command{
 		Use:     constants.Component.Use,
 		Aliases: constants.Component.Aliases,
@@ -24,21 +25,22 @@ func NewComponentCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	componentCmd.AddCommand(
-		newListComponentCmd(impl),
-		newScaffoldComponentCmd(impl),
-		newDeployComponentCmd(impl),
-		newLogsComponentCmd(impl),
+		newListComponentCmd(),
+		newScaffoldComponentCmd(),
+		newDeployComponentCmd(),
+		newLogsComponentCmd(),
 	)
 
 	return componentCmd
 }
 
-func newListComponentCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newListComponentCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.ListComponent,
 		Flags:   []flags.Flag{flags.Namespace, flags.Project},
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.ListComponents(api.ListComponentsParams{
+			compImpl := component.New(constants.ComponentV1Config)
+			return compImpl.List(component.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 				Project:   fg.GetString(flags.Project),
 			})
@@ -46,7 +48,7 @@ func newListComponentCmd(impl api.CommandImplementationInterface) *cobra.Command
 	}).Build()
 }
 
-func newScaffoldComponentCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newScaffoldComponentCmd() *cobra.Command {
 	componentFlags := []flags.Flag{
 		flags.Name,
 		flags.ScaffoldType,
@@ -62,7 +64,7 @@ func newScaffoldComponentCmd(impl api.CommandImplementationInterface) *cobra.Com
 	return (&builder.CommandBuilder{
 		Command: constants.ScaffoldComponent,
 		Flags:   componentFlags,
-		PreRunE: auth.RequireLogin(impl),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(fg *builder.FlagGetter) error {
 			// Parse traits from comma-separated string
 			traitsStr := fg.GetString(flags.Traits)
@@ -77,7 +79,8 @@ func newScaffoldComponentCmd(impl api.CommandImplementationInterface) *cobra.Com
 				}
 			}
 
-			return impl.ScaffoldComponent(api.ScaffoldComponentParams{
+			compImpl := component.New(constants.ComponentV1Config)
+			return compImpl.Scaffold(component.ScaffoldParams{
 				ComponentName: fg.GetString(flags.Name),
 				ComponentType: fg.GetString(flags.ScaffoldType),
 				Traits:        traits,
@@ -92,7 +95,7 @@ func newScaffoldComponentCmd(impl api.CommandImplementationInterface) *cobra.Com
 	}).Build()
 }
 
-func newDeployComponentCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newDeployComponentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     constants.DeployComponent.Use,
 		Short:   constants.DeployComponent.Short,
@@ -112,7 +115,7 @@ func newDeployComponentCmd(impl api.CommandImplementationInterface) *cobra.Comma
 			outputFormat, _ := cmd.Flags().GetString(flags.Output.Name)
 
 			// Create params
-			params := api.DeployComponentParams{
+			params := component.DeployParams{
 				ComponentName: componentName,
 				Namespace:     namespace,
 				Project:       project,
@@ -123,7 +126,8 @@ func newDeployComponentCmd(impl api.CommandImplementationInterface) *cobra.Comma
 			}
 
 			// Execute deploy
-			return impl.DeployComponent(params)
+			compImpl := component.New(constants.ComponentV1Config)
+			return compImpl.Deploy(params)
 		},
 	}
 
@@ -140,7 +144,7 @@ func newDeployComponentCmd(impl api.CommandImplementationInterface) *cobra.Comma
 	return cmd
 }
 
-func newLogsComponentCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newLogsComponentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs COMPONENT_NAME",
 		Short: "Get logs for a component",
@@ -170,7 +174,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 			since, _ := cmd.Flags().GetString(flags.Since.Name)
 
 			// Create params
-			params := api.ComponentLogsParams{
+			params := component.LogsParams{
 				Namespace:   namespace,
 				Project:     project,
 				Component:   componentName,
@@ -180,7 +184,8 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 			}
 
 			// Execute logs
-			return impl.ComponentLogs(params)
+			compImpl := component.New(constants.ComponentV1Config)
+			return compImpl.Logs(params)
 		},
 	}
 

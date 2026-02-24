@@ -53,8 +53,8 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		releasebinding.NewReleaseBindingCmd(impl),
 		// Resource commands
 		namespace.NewNamespaceCmd(impl),
-		project.NewProjectCmd(impl),
-		component.NewComponentCmd(impl),
+		project.NewProjectCmd(),
+		component.NewComponentCmd(),
 		environment.NewEnvironmentCmd(impl),
 		dataplane.NewDataPlaneCmd(impl),
 		buildplane.NewBuildPlaneCmd(impl),

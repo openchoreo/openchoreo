@@ -6,14 +6,15 @@ package project
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/project"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-func NewProjectCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewProjectCmd() *cobra.Command {
 	projectCmd := &cobra.Command{
 		Use:     constants.Project.Use,
 		Aliases: constants.Project.Aliases,
@@ -22,21 +23,22 @@ func NewProjectCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	projectCmd.AddCommand(
-		newListProjectCmd(impl),
+		newListProjectCmd(),
 	)
 
 	return projectCmd
 }
 
-func newListProjectCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newListProjectCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.ListProject,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.ListProjects(api.ListProjectsParams{
+			projectImpl := project.New()
+			return projectImpl.List(project.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
-		PreRunE: auth.RequireLogin(impl),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
 }

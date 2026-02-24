@@ -354,19 +354,6 @@ type CreateWorkloadParams struct {
 	RootDir       string // Root directory path for file-system mode
 }
 
-// ScaffoldComponentParams defines parameters for scaffolding a component
-type ScaffoldComponentParams struct {
-	ComponentName string
-	ComponentType string   // format: workloadType/componentTypeName
-	Traits        []string // trait names
-	WorkflowName  string
-	Namespace     string
-	ProjectName   string
-	OutputPath    string
-	SkipComments  bool // skip structural comments and field descriptions
-	SkipOptional  bool // skip optional fields without defaults
-}
-
 // GenerateComponentReleaseParams defines parameters for generating component releases
 type GenerateComponentReleaseParams struct {
 	All           bool   // Generate for all components
@@ -395,17 +382,6 @@ type GenerateReleaseBindingParams struct {
 
 // ListNamespacesParams defines parameters for listing namespaces
 type ListNamespacesParams struct{}
-
-// ListProjectsParams defines parameters for listing projects
-type ListProjectsParams struct {
-	Namespace string
-}
-
-// ListComponentsParams defines parameters for listing components
-type ListComponentsParams struct {
-	Namespace string
-	Project   string
-}
 
 // ListEnvironmentsParams defines parameters for listing environments
 type ListEnvironmentsParams struct {
@@ -447,17 +423,6 @@ type ListSecretReferencesParams struct {
 	Namespace string
 }
 
-// DeployComponentParams defines parameters for deploying or promoting a component
-type DeployComponentParams struct {
-	ComponentName string
-	Namespace     string
-	Project       string
-	Release       string   // --release flag (optional release name)
-	To            string   // --to flag (target env for promotion)
-	Set           []string // --set values (type.path=value)
-	OutputFormat  string
-}
-
 // ListComponentReleasesParams defines parameters for listing component releases
 type ListComponentReleasesParams struct {
 	Namespace string
@@ -491,4 +456,13 @@ type ComponentLogsParams struct {
 	Environment string
 	Follow      bool
 	Since       string // duration like "1h", "30m", "5m"
+}
+
+// StartComponentWorkflowRunParams defines parameters for starting a component workflow run
+type StartComponentWorkflowRunParams struct {
+	Namespace  string
+	Project    string
+	Component  string
+	Commit     string   // Git commit SHA
+	Parameters []string // --set key=value format
 }

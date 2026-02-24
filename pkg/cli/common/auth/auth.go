@@ -25,7 +25,7 @@ func CheckLoginStatus(impl api.CommandImplementationInterface) func(cmd *cobra.C
 
 // RequireLogin returns a PreRunE handler that checks if the user is logged in.
 // Commands that need authentication should add this as their PreRunE.
-func RequireLogin(impl api.CommandImplementationInterface) func(cmd *cobra.Command, args []string) error {
+func RequireLogin(impl api.LoginAPI) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		if !impl.IsLoggedIn() {
 			fmt.Println(impl.GetLoginPrompt())
