@@ -36,9 +36,6 @@ func (h *Handler) ListActions(
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListActions403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.ListActions403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
 		return gen.ListActions500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
