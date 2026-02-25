@@ -257,6 +257,102 @@ func (h *MCPHandler) GetComponentReleaseSchema(
 	return h.services.ComponentService.GetComponentSchema(ctx, namespaceName, componentName)
 }
 
+func (h *MCPHandler) ListComponentTypes(ctx context.Context, namespaceName string, opts tools.ListOpts) (any, error) {
+	result, err := h.services.ComponentTypeService.ListComponentTypes(ctx, namespaceName, toServiceListOptions(opts))
+	if err != nil {
+		return nil, err
+	}
+	return wrapList("component_types", result.Items, result.NextCursor), nil
+}
+
+func (h *MCPHandler) GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (any, error) {
+	return h.services.ComponentTypeService.GetComponentTypeSchema(ctx, namespaceName, ctName)
+}
+
+func (h *MCPHandler) ListTraits(ctx context.Context, namespaceName string, opts tools.ListOpts) (any, error) {
+	result, err := h.services.TraitService.ListTraits(ctx, namespaceName, toServiceListOptions(opts))
+	if err != nil {
+		return nil, err
+	}
+	return wrapList("traits", result.Items, result.NextCursor), nil
+}
+
+func (h *MCPHandler) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error) {
+	return h.services.TraitService.GetTraitSchema(ctx, namespaceName, traitName)
+}
+
+func (h *MCPHandler) CreateWorkflowRun(ctx context.Context, namespaceName, workflowName string, parameters map[string]any) (any, error) {
+	wfRun := &openchoreov1alpha1.WorkflowRun{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: workflowName + "-run-",
+			Namespace:    namespaceName,
+		},
+		Spec: openchoreov1alpha1.WorkflowRunSpec{
+			Workflow: openchoreov1alpha1.WorkflowRunConfig{
+				Name: workflowName,
+			},
+		},
+	}
+
+	if parameters != nil {
+		rawParams, err := json.Marshal(parameters)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal workflow parameters: %w", err)
+		}
+		wfRun.Spec.Workflow.Parameters = &runtime.RawExtension{Raw: rawParams}
+	}
+
+	return h.services.WorkflowRunService.CreateWorkflowRun(ctx, namespaceName, wfRun)
+}
+
+func (h *MCPHandler) ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string, opts tools.ListOpts) (any, error) {
+	result, err := h.services.WorkflowRunService.ListWorkflowRuns(ctx, namespaceName, projectName, componentName, toServiceListOptions(opts))
+	if err != nil {
+		return nil, err
+	}
+	return wrapList("workflow_runs", result.Items, result.NextCursor), nil
+}
+
+func (h *MCPHandler) GetWorkflowRun(ctx context.Context, namespaceName, runName string) (any, error) {
+	return h.services.WorkflowRunService.GetWorkflowRun(ctx, namespaceName, runName)
+}
+
+// ClusterComponentType operations
+
+func (h *MCPHandler) ListClusterComponentTypes(ctx context.Context, opts tools.ListOpts) (any, error) {
+	result, err := h.services.ClusterComponentTypeService.ListClusterComponentTypes(ctx, toServiceListOptions(opts))
+	if err != nil {
+		return nil, err
+	}
+	return wrapList("cluster_component_types", result.Items, result.NextCursor), nil
+}
+
+func (h *MCPHandler) GetClusterComponentType(ctx context.Context, cctName string) (any, error) {
+	return h.services.ClusterComponentTypeService.GetClusterComponentType(ctx, cctName)
+}
+
+func (h *MCPHandler) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (any, error) {
+	return h.services.ClusterComponentTypeService.GetClusterComponentTypeSchema(ctx, cctName)
+}
+
+// ClusterTrait operations
+
+func (h *MCPHandler) ListClusterTraits(ctx context.Context, opts tools.ListOpts) (any, error) {
+	result, err := h.services.ClusterTraitService.ListClusterTraits(ctx, toServiceListOptions(opts))
+	if err != nil {
+		return nil, err
+	}
+	return wrapList("cluster_traits", result.Items, result.NextCursor), nil
+}
+
+func (h *MCPHandler) GetClusterTrait(ctx context.Context, ctName string) (any, error) {
+	return h.services.ClusterTraitService.GetClusterTrait(ctx, ctName)
+}
+
+func (h *MCPHandler) GetClusterTraitSchema(ctx context.Context, ctName string) (any, error) {
+	return h.services.ClusterTraitService.GetClusterTraitSchema(ctx, ctName)
+}
+
 func (h *MCPHandler) TriggerWorkflowRun(
 	ctx context.Context, namespaceName, projectName, componentName, commit string,
 ) (any, error) {

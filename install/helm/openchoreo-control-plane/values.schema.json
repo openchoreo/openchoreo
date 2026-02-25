@@ -2452,35 +2452,6 @@
               "title": "legacy_mcp",
               "type": "object"
             },
-            "mcp": {
-              "additionalProperties": false,
-              "description": "Model Context Protocol (MCP) server configuration",
-              "properties": {
-                "enabled": {
-                  "default": true,
-                  "description": "Enable the MCP server for AI-friendly tool interfaces",
-                  "title": "enabled",
-                  "type": "boolean"
-                },
-                "toolsets": {
-                  "default": [
-                    "namespace",
-                    "project",
-                    "component",
-                    "infrastructure"
-                  ],
-                  "description": "List of enabled MCP toolsets. Each toolset exposes a group of related operations.",
-                  "items": {
-                    "type": "string"
-                  },
-                  "title": "toolsets",
-                  "type": "array"
-                }
-              },
-              "required": [],
-              "title": "mcp",
-              "type": "object"
-            },
             "logging": {
               "additionalProperties": false,
               "description": "Logging configuration",
@@ -2516,6 +2487,35 @@
               },
               "required": [],
               "title": "logging",
+              "type": "object"
+            },
+            "mcp": {
+              "additionalProperties": false,
+              "description": "Model Context Protocol (MCP) server configuration",
+              "properties": {
+                "enabled": {
+                  "default": true,
+                  "description": "Enable the MCP server for AI-friendly tool interfaces",
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "toolsets": {
+                  "default": [
+                    "namespace",
+                    "project",
+                    "component",
+                    "infrastructure"
+                  ],
+                  "description": "List of enabled MCP toolsets. Each toolset exposes a group of related operations. Allowed toolsets: namespace, project, component, infrastructure, pe",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "toolsets",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "mcp",
               "type": "object"
             },
             "security": {

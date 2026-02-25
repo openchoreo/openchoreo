@@ -98,6 +98,7 @@ var validToolsets = map[string]bool{
 	string(tools.ToolsetProject):        true,
 	string(tools.ToolsetComponent):      true,
 	string(tools.ToolsetInfrastructure): true,
+	string(tools.ToolsetPE):             true,
 }
 
 // ValidateMCPConfig validates the MCP configuration.

@@ -19,6 +19,7 @@ const (
 	ToolsetProject        ToolsetType = "project"
 	ToolsetComponent      ToolsetType = "component"
 	ToolsetInfrastructure ToolsetType = "infrastructure"
+	ToolsetPE             ToolsetType = "pe"
 )
 
 // DefaultPageSize is the default number of items per page for MCP list operations.
@@ -46,6 +47,34 @@ type Toolsets struct {
 	ProjectToolset        ProjectToolsetHandler
 	ComponentToolset      ComponentToolsetHandler
 	InfrastructureToolset InfrastructureToolsetHandler
+	PEToolset             PEToolsetHandler
+}
+
+// PEToolsetHandler handles platform engineering operations on openchoreo
+type PEToolsetHandler interface {
+	CreateEnvironment(ctx context.Context, namespaceName string, req *models.CreateEnvironmentRequest) (any, error)
+
+	// DataPlane operations
+	ListDataPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetDataPlane(ctx context.Context, namespaceName, dpName string) (any, error)
+	CreateDataPlane(ctx context.Context, namespaceName string, req *models.CreateDataPlaneRequest) (any, error)
+
+	// ObservabilityPlane operations
+	ListObservabilityPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+
+	// BuildPlane operations
+	ListBuildPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+
+	// ClusterDataPlane operations
+	ListClusterDataPlanes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterDataPlane(ctx context.Context, cdpName string) (any, error)
+	CreateClusterDataPlane(ctx context.Context, req *models.CreateClusterDataPlaneRequest) (any, error)
+
+	// ClusterBuildPlane operations
+	ListClusterBuildPlanes(ctx context.Context, opts ListOpts) (any, error)
+
+	// ClusterObservabilityPlane operations
+	ListClusterObservabilityPlanes(ctx context.Context, opts ListOpts) (any, error)
 }
 
 // NamespaceToolsetHandler handles namespace operations
@@ -120,19 +149,6 @@ type ComponentToolsetHandler interface {
 	TriggerWorkflowRun(
 		ctx context.Context, namespaceName, projectName, componentName, commit string,
 	) (any, error)
-}
-
-// InfrastructureToolsetHandler handles infrastructure operations
-type InfrastructureToolsetHandler interface {
-	// Environment operations
-	ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-	GetEnvironment(ctx context.Context, namespaceName, envName string) (any, error)
-	CreateEnvironment(ctx context.Context, namespaceName string, req *models.CreateEnvironmentRequest) (any, error)
-
-	// DataPlane operations
-	ListDataPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-	GetDataPlane(ctx context.Context, namespaceName, dpName string) (any, error)
-	CreateDataPlane(ctx context.Context, namespaceName string, req *models.CreateDataPlaneRequest) (any, error)
 
 	// ComponentType operations
 	ListComponentTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
@@ -141,19 +157,6 @@ type InfrastructureToolsetHandler interface {
 	// Trait operations
 	ListTraits(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error)
-
-	// ObservabilityPlane operations
-	ListObservabilityPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-
-	// DeploymentPipeline operations
-	GetDeploymentPipeline(ctx context.Context, namespaceName, pipelineName string) (any, error)
-	ListDeploymentPipelines(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-
-	// BuildPlane operations
-	ListBuildPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-
-	// Observer URL operations
-	GetObserverURL(ctx context.Context, namespaceName, envName string) (any, error)
 
 	// WorkflowRun operations
 	CreateWorkflowRun(
@@ -165,24 +168,6 @@ type InfrastructureToolsetHandler interface {
 		opts ListOpts,
 	) (any, error)
 	GetWorkflowRun(ctx context.Context, namespaceName, runName string) (any, error)
-}
-
-// ClusterPlaneHandler is an optional extension of InfrastructureToolsetHandler
-// for cluster-scoped plane operations. Handlers that implement this interface
-// alongside InfrastructureToolsetHandler will have cluster-plane MCP tools
-// registered automatically. If the InfrastructureToolset does not implement
-// ClusterPlaneHandler, the cluster-plane tools are silently skipped.
-type ClusterPlaneHandler interface {
-	// ClusterDataPlane operations
-	ListClusterDataPlanes(ctx context.Context, opts ListOpts) (any, error)
-	GetClusterDataPlane(ctx context.Context, cdpName string) (any, error)
-	CreateClusterDataPlane(ctx context.Context, req *models.CreateClusterDataPlaneRequest) (any, error)
-
-	// ClusterBuildPlane operations
-	ListClusterBuildPlanes(ctx context.Context, opts ListOpts) (any, error)
-
-	// ClusterObservabilityPlane operations
-	ListClusterObservabilityPlanes(ctx context.Context, opts ListOpts) (any, error)
 
 	// ClusterComponentType operations
 	ListClusterComponentTypes(ctx context.Context, opts ListOpts) (any, error)
@@ -193,6 +178,20 @@ type ClusterPlaneHandler interface {
 	ListClusterTraits(ctx context.Context, opts ListOpts) (any, error)
 	GetClusterTrait(ctx context.Context, ctName string) (any, error)
 	GetClusterTraitSchema(ctx context.Context, ctName string) (any, error)
+}
+
+// InfrastructureToolsetHandler handles infrastructure operations
+type InfrastructureToolsetHandler interface {
+	// Environment operations
+	ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetEnvironment(ctx context.Context, namespaceName, envName string) (any, error)
+
+	// DeploymentPipeline operations
+	GetDeploymentPipeline(ctx context.Context, namespaceName, pipelineName string) (any, error)
+	ListDeploymentPipelines(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+
+	// Observer URL operations
+	GetObserverURL(ctx context.Context, namespaceName, envName string) (any, error)
 }
 
 // RegisterFunc is a function type for registering MCP tools

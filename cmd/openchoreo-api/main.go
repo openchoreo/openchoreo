@@ -273,6 +273,9 @@ func buildMCPToolsets(cfg *config.Config, svc *handlerservices.Services, logger 
 		case tools.ToolsetInfrastructure:
 			toolsets.InfrastructureToolset = handler
 			logger.Debug("Enabled MCP toolset", slog.String("toolset", "infrastructure"))
+		case tools.ToolsetPE:
+			toolsets.PEToolset = handler
+			logger.Debug("Enabled MCP toolset", slog.String("toolset", "pe"))
 		default:
 			logger.Warn("Unknown toolset type", slog.String("toolset", string(toolsetType)))
 		}

@@ -39,14 +39,6 @@ func (h *MCPHandler) CreateDataPlane(ctx context.Context, namespaceName string, 
 					Value: req.ClusterAgentClientCA,
 				},
 			},
-			Gateway: openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:       req.PublicVirtualHost,
-				OrganizationVirtualHost: req.OrganizationVirtualHost,
-				PublicHTTPPort:          derefInt32(req.PublicHTTPPort),
-				PublicHTTPSPort:         derefInt32(req.PublicHTTPSPort),
-				OrganizationHTTPPort:    derefInt32(req.OrganizationHTTPPort),
-				OrganizationHTTPSPort:   derefInt32(req.OrganizationHTTPSPort),
-			},
 		},
 	}
 

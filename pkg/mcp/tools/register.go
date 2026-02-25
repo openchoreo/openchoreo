@@ -47,6 +47,19 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterUpdateReleaseBindingState,
 		t.RegisterGetComponentReleaseSchema,
 		t.RegisterTriggerWorkflowRun,
+		t.RegisterListComponentTypes,
+		t.RegisterGetComponentTypeSchema,
+		t.RegisterListTraits,
+		t.RegisterGetTraitSchema,
+		t.RegisterCreateWorkflowRun,
+		t.RegisterListWorkflowRuns,
+		t.RegisterGetWorkflowRun,
+		t.RegisterListClusterComponentTypes,
+		t.RegisterGetClusterComponentType,
+		t.RegisterGetClusterComponentTypeSchema,
+		t.RegisterListClusterTraits,
+		t.RegisterGetClusterTrait,
+		t.RegisterGetClusterTraitSchema,
 	}
 }
 
@@ -55,33 +68,26 @@ func (t *Toolsets) infrastructureToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
 		t.RegisterListEnvironments,
 		t.RegisterGetEnvironments,
+		t.RegisterGetDeploymentPipeline,
+		t.RegisterListDeploymentPipelines,
+		t.RegisterGetObserverURL,
+	}
+}
+
+// peToolRegistrations returns the list of pe toolset registration functions
+func (t *Toolsets) peToolRegistrations() []RegisterFunc {
+	return []RegisterFunc{
 		t.RegisterCreateEnvironment,
 		t.RegisterListDataPlanes,
 		t.RegisterGetDataPlane,
 		t.RegisterCreateDataPlane,
-		t.RegisterListComponentTypes,
-		t.RegisterGetComponentTypeSchema,
-		t.RegisterListTraits,
-		t.RegisterGetTraitSchema,
 		t.RegisterListObservabilityPlanes,
-		t.RegisterGetDeploymentPipeline,
-		t.RegisterListDeploymentPipelines,
 		t.RegisterListBuildPlanes,
-		t.RegisterGetObserverURL,
-		t.RegisterCreateWorkflowRun,
-		t.RegisterListWorkflowRuns,
-		t.RegisterGetWorkflowRun,
 		t.RegisterListClusterDataPlanes,
 		t.RegisterGetClusterDataPlane,
 		t.RegisterCreateClusterDataPlane,
 		t.RegisterListClusterBuildPlanes,
 		t.RegisterListClusterObservabilityPlanes,
-		t.RegisterListClusterComponentTypes,
-		t.RegisterGetClusterComponentType,
-		t.RegisterGetClusterComponentTypeSchema,
-		t.RegisterListClusterTraits,
-		t.RegisterGetClusterTrait,
-		t.RegisterGetClusterTraitSchema,
 	}
 }
 
@@ -110,6 +116,13 @@ func (t *Toolsets) Register(s *mcp.Server) {
 	// Register infrastructure tools if InfrastructureToolset is enabled
 	if t.InfrastructureToolset != nil {
 		for _, registerFunc := range t.infrastructureToolRegistrations() {
+			registerFunc(s)
+		}
+	}
+
+	// Register platform engineering tools if PEToolset is enabled
+	if t.PEToolset != nil {
+		for _, registerFunc := range t.peToolRegistrations() {
 			registerFunc(s)
 		}
 	}

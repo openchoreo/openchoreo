@@ -41,14 +41,6 @@ func (h *MCPHandler) CreateClusterDataPlane(ctx context.Context, req *models.Cre
 					Value: req.ClusterAgentClientCA,
 				},
 			},
-			Gateway: openchoreov1alpha1.GatewaySpec{
-				PublicVirtualHost:       req.PublicVirtualHost,
-				OrganizationVirtualHost: req.OrganizationVirtualHost,
-				PublicHTTPPort:          derefInt32(req.PublicHTTPPort),
-				PublicHTTPSPort:         derefInt32(req.PublicHTTPSPort),
-				OrganizationHTTPPort:    derefInt32(req.OrganizationHTTPPort),
-				OrganizationHTTPSPort:   derefInt32(req.OrganizationHTTPSPort),
-			},
 		},
 	}
 
@@ -88,38 +80,3 @@ func (h *MCPHandler) ListClusterObservabilityPlanes(ctx context.Context, opts to
 	return wrapList("cluster_observability_planes", result.Items, result.NextCursor), nil
 }
 
-// ClusterComponentType operations
-
-func (h *MCPHandler) ListClusterComponentTypes(ctx context.Context, opts tools.ListOpts) (any, error) {
-	result, err := h.services.ClusterComponentTypeService.ListClusterComponentTypes(ctx, toServiceListOptions(opts))
-	if err != nil {
-		return nil, err
-	}
-	return wrapList("cluster_component_types", result.Items, result.NextCursor), nil
-}
-
-func (h *MCPHandler) GetClusterComponentType(ctx context.Context, cctName string) (any, error) {
-	return h.services.ClusterComponentTypeService.GetClusterComponentType(ctx, cctName)
-}
-
-func (h *MCPHandler) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (any, error) {
-	return h.services.ClusterComponentTypeService.GetClusterComponentTypeSchema(ctx, cctName)
-}
-
-// ClusterTrait operations
-
-func (h *MCPHandler) ListClusterTraits(ctx context.Context, opts tools.ListOpts) (any, error) {
-	result, err := h.services.ClusterTraitService.ListClusterTraits(ctx, toServiceListOptions(opts))
-	if err != nil {
-		return nil, err
-	}
-	return wrapList("cluster_traits", result.Items, result.NextCursor), nil
-}
-
-func (h *MCPHandler) GetClusterTrait(ctx context.Context, ctName string) (any, error) {
-	return h.services.ClusterTraitService.GetClusterTrait(ctx, ctName)
-}
-
-func (h *MCPHandler) GetClusterTraitSchema(ctx context.Context, ctName string) (any, error) {
-	return h.services.ClusterTraitService.GetClusterTraitSchema(ctx, ctName)
-}

@@ -198,6 +198,79 @@ func (m *MockCoreToolsetHandler) TriggerWorkflowRun(
 	return `{"name":"my-component-workflow-run","status":"Running"}`, nil
 }
 
+func (m *MockCoreToolsetHandler) ListComponentTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
+	m.recordCall("ListComponentTypes", namespaceName, opts)
+	return `[{"name":"WebApplication"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetComponentTypeSchema(
+	ctx context.Context, namespaceName, ctName string,
+) (any, error) {
+	m.recordCall("GetComponentTypeSchema", namespaceName, ctName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) ListTraits(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
+	m.recordCall("ListTraits", namespaceName, opts)
+	return `[{"name":"autoscaling"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error) {
+	m.recordCall("GetTraitSchema", namespaceName, traitName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateWorkflowRun(
+	ctx context.Context, namespaceName, workflowName string,
+	parameters map[string]interface{},
+) (any, error) {
+	m.recordCall("CreateWorkflowRun", namespaceName, workflowName, parameters)
+	return `{"name":"workflow-run-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) ListWorkflowRuns(
+	ctx context.Context, namespaceName, projectName, componentName string,
+	opts ListOpts,
+) (any, error) {
+	m.recordCall("ListWorkflowRuns", namespaceName, projectName, componentName, opts)
+	return `[{"name":"workflow-run-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetWorkflowRun(ctx context.Context, namespaceName, runName string) (any, error) {
+	m.recordCall("GetWorkflowRun", namespaceName, runName)
+	return `{"name":"workflow-run-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) ListClusterComponentTypes(ctx context.Context, opts ListOpts) (any, error) {
+	m.recordCall("ListClusterComponentTypes", opts)
+	return `[{"name":"go-service"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterComponentType(ctx context.Context, cctName string) (any, error) {
+	m.recordCall("GetClusterComponentType", cctName)
+	return `{"name":"go-service"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (any, error) {
+	m.recordCall("GetClusterComponentTypeSchema", cctName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) ListClusterTraits(ctx context.Context, opts ListOpts) (any, error) {
+	m.recordCall("ListClusterTraits", opts)
+	return `[{"name":"autoscaler"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterTrait(ctx context.Context, ctName string) (any, error) {
+	m.recordCall("GetClusterTrait", ctName)
+	return `{"name":"autoscaler"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterTraitSchema(ctx context.Context, ctName string) (any, error) {
+	m.recordCall("GetClusterTraitSchema", ctName)
+	return emptyObjectSchema, nil
+}
+
 // InfrastructureToolsetHandler methods
 
 func (m *MockCoreToolsetHandler) ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
@@ -234,28 +307,6 @@ func (m *MockCoreToolsetHandler) CreateDataPlane(
 	return `{"name":"new-dp"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) ListComponentTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
-	m.recordCall("ListComponentTypes", namespaceName, opts)
-	return `[{"name":"WebApplication"}]`, nil
-}
-
-func (m *MockCoreToolsetHandler) GetComponentTypeSchema(
-	ctx context.Context, namespaceName, ctName string,
-) (any, error) {
-	m.recordCall("GetComponentTypeSchema", namespaceName, ctName)
-	return emptyObjectSchema, nil
-}
-
-func (m *MockCoreToolsetHandler) ListTraits(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
-	m.recordCall("ListTraits", namespaceName, opts)
-	return `[{"name":"autoscaling"}]`, nil
-}
-
-func (m *MockCoreToolsetHandler) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error) {
-	m.recordCall("GetTraitSchema", namespaceName, traitName)
-	return emptyObjectSchema, nil
-}
-
 func (m *MockCoreToolsetHandler) ListObservabilityPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
 	m.recordCall("ListObservabilityPlanes", namespaceName, opts)
 	return `[{"name":"observability-plane-1"}]`, nil
@@ -289,27 +340,6 @@ func (m *MockCoreToolsetHandler) GetObserverURL(
 	return `{"observerURL":"https://observer.example.com"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) CreateWorkflowRun(
-	ctx context.Context, namespaceName, workflowName string,
-	parameters map[string]interface{},
-) (any, error) {
-	m.recordCall("CreateWorkflowRun", namespaceName, workflowName, parameters)
-	return `{"name":"workflow-run-1"}`, nil
-}
-
-func (m *MockCoreToolsetHandler) ListWorkflowRuns(
-	ctx context.Context, namespaceName, projectName, componentName string,
-	opts ListOpts,
-) (any, error) {
-	m.recordCall("ListWorkflowRuns", namespaceName, projectName, componentName, opts)
-	return `[{"name":"workflow-run-1"}]`, nil
-}
-
-func (m *MockCoreToolsetHandler) GetWorkflowRun(ctx context.Context, namespaceName, runName string) (any, error) {
-	m.recordCall("GetWorkflowRun", namespaceName, runName)
-	return `{"name":"workflow-run-1"}`, nil
-}
-
 // ClusterPlaneHandler methods
 
 func (m *MockCoreToolsetHandler) ListClusterDataPlanes(ctx context.Context, opts ListOpts) (any, error) {
@@ -337,34 +367,4 @@ func (m *MockCoreToolsetHandler) ListClusterBuildPlanes(ctx context.Context, opt
 func (m *MockCoreToolsetHandler) ListClusterObservabilityPlanes(ctx context.Context, opts ListOpts) (any, error) {
 	m.recordCall("ListClusterObservabilityPlanes", opts)
 	return `[{"name":"cop1"}]`, nil
-}
-
-func (m *MockCoreToolsetHandler) ListClusterComponentTypes(ctx context.Context, opts ListOpts) (any, error) {
-	m.recordCall("ListClusterComponentTypes", opts)
-	return `[{"name":"go-service"}]`, nil
-}
-
-func (m *MockCoreToolsetHandler) GetClusterComponentType(ctx context.Context, cctName string) (any, error) {
-	m.recordCall("GetClusterComponentType", cctName)
-	return `{"name":"go-service"}`, nil
-}
-
-func (m *MockCoreToolsetHandler) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (any, error) {
-	m.recordCall("GetClusterComponentTypeSchema", cctName)
-	return emptyObjectSchema, nil
-}
-
-func (m *MockCoreToolsetHandler) ListClusterTraits(ctx context.Context, opts ListOpts) (any, error) {
-	m.recordCall("ListClusterTraits", opts)
-	return `[{"name":"autoscaler"}]`, nil
-}
-
-func (m *MockCoreToolsetHandler) GetClusterTrait(ctx context.Context, ctName string) (any, error) {
-	m.recordCall("GetClusterTrait", ctName)
-	return `{"name":"autoscaler"}`, nil
-}
-
-func (m *MockCoreToolsetHandler) GetClusterTraitSchema(ctx context.Context, ctName string) (any, error) {
-	m.recordCall("GetClusterTraitSchema", ctName)
-	return emptyObjectSchema, nil
 }

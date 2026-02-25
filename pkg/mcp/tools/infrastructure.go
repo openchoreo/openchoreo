@@ -91,7 +91,7 @@ func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
 			IsProduction: args.IsProduction,
 			DNSPrefix:    args.DNSPrefix,
 		}
-		result, err := t.InfrastructureToolset.CreateEnvironment(ctx, args.NamespaceName, envReq)
+		result, err := t.PEToolset.CreateEnvironment(ctx, args.NamespaceName, envReq)
 		return handleToolResult(result, err)
 	})
 }
@@ -109,7 +109,7 @@ func (t *Toolsets) RegisterListDataPlanes(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListDataPlanes(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.PEToolset.ListDataPlanes(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
@@ -127,7 +127,7 @@ func (t *Toolsets) RegisterGetDataPlane(s *mcp.Server) {
 		NamespaceName string `json:"namespace_name"`
 		DpName        string `json:"dp_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.GetDataPlane(ctx, args.NamespaceName, args.DpName)
+		result, err := t.PEToolset.GetDataPlane(ctx, args.NamespaceName, args.DpName)
 		return handleToolResult(result, err)
 	})
 }
@@ -179,12 +179,10 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 		} `json:"observability_plane_ref"`
 	}) (*mcp.CallToolResult, any, error) {
 		dataPlaneReq := &models.CreateDataPlaneRequest{
-			Name:                    args.Name,
-			DisplayName:             args.DisplayName,
-			Description:             args.Description,
-			ClusterAgentClientCA:    args.ClusterAgentClientCA,
-			PublicVirtualHost:       args.PublicVirtualHost,
-			OrganizationVirtualHost: args.NamespaceVirtualHost,
+			Name:                 args.Name,
+			DisplayName:          args.DisplayName,
+			Description:          args.Description,
+			ClusterAgentClientCA: args.ClusterAgentClientCA,
 		}
 		if args.ObservabilityPlaneRef != nil {
 			if args.ObservabilityPlaneRef.Name == "" {
@@ -203,7 +201,7 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 				Name: args.ObservabilityPlaneRef.Name,
 			}
 		}
-		result, err := t.InfrastructureToolset.CreateDataPlane(ctx, args.NamespaceName, dataPlaneReq)
+		result, err := t.PEToolset.CreateDataPlane(ctx, args.NamespaceName, dataPlaneReq)
 		return handleToolResult(result, err)
 	})
 }
@@ -222,7 +220,7 @@ func (t *Toolsets) RegisterListComponentTypes(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListComponentTypes(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.ComponentToolset.ListComponentTypes(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
@@ -240,7 +238,7 @@ func (t *Toolsets) RegisterGetComponentTypeSchema(s *mcp.Server) {
 		NamespaceName string `json:"namespace_name"`
 		CtName        string `json:"ct_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.GetComponentTypeSchema(ctx, args.NamespaceName, args.CtName)
+		result, err := t.ComponentToolset.GetComponentTypeSchema(ctx, args.NamespaceName, args.CtName)
 		return handleToolResult(result, err)
 	})
 }
@@ -258,7 +256,7 @@ func (t *Toolsets) RegisterListTraits(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListTraits(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.ComponentToolset.ListTraits(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
@@ -276,7 +274,7 @@ func (t *Toolsets) RegisterGetTraitSchema(s *mcp.Server) {
 		NamespaceName string `json:"namespace_name"`
 		TraitName     string `json:"trait_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.GetTraitSchema(ctx, args.NamespaceName, args.TraitName)
+		result, err := t.ComponentToolset.GetTraitSchema(ctx, args.NamespaceName, args.TraitName)
 		return handleToolResult(result, err)
 	})
 }
@@ -331,7 +329,7 @@ func (t *Toolsets) RegisterListBuildPlanes(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListBuildPlanes(
+		result, err := t.PEToolset.ListBuildPlanes(
 			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
@@ -373,7 +371,7 @@ func (t *Toolsets) RegisterCreateWorkflowRun(s *mcp.Server) {
 		WorkflowName  string                 `json:"workflow_name"`
 		Parameters    map[string]interface{} `json:"parameters"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.CreateWorkflowRun(ctx, args.NamespaceName, args.WorkflowName, args.Parameters)
+		result, err := t.ComponentToolset.CreateWorkflowRun(ctx, args.NamespaceName, args.WorkflowName, args.Parameters)
 		return handleToolResult(result, err)
 	})
 }
@@ -396,7 +394,7 @@ func (t *Toolsets) RegisterListWorkflowRuns(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListWorkflowRuns(
+		result, err := t.ComponentToolset.ListWorkflowRuns(
 			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
@@ -415,7 +413,7 @@ func (t *Toolsets) RegisterGetWorkflowRun(s *mcp.Server) {
 		NamespaceName string `json:"namespace_name"`
 		RunName       string `json:"run_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.GetWorkflowRun(ctx, args.NamespaceName, args.RunName)
+		result, err := t.ComponentToolset.GetWorkflowRun(ctx, args.NamespaceName, args.RunName)
 		return handleToolResult(result, err)
 	})
 }
@@ -434,7 +432,7 @@ func (t *Toolsets) RegisterListObservabilityPlanes(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListObservabilityPlanes(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.PEToolset.ListObservabilityPlanes(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
@@ -445,10 +443,6 @@ func (t *Toolsets) RegisterListObservabilityPlanes(s *mcp.Server) {
 // when InfrastructureToolset also implements ClusterPlaneHandler; otherwise it
 // is a no-op. Added in v0.12.0 (non-breaking, additive).
 func (t *Toolsets) RegisterListClusterDataPlanes(s *mcp.Server) {
-	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
-	if !ok {
-		return
-	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_cluster_dataplanes",
 		Description: "List all cluster-scoped data planes. These are shared infrastructure managed by " +
@@ -458,7 +452,7 @@ func (t *Toolsets) RegisterListClusterDataPlanes(s *mcp.Server) {
 		Limit  int    `json:"limit,omitempty"`
 		Cursor string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := cp.ListClusterDataPlanes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.PEToolset.ListClusterDataPlanes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
@@ -470,10 +464,6 @@ func (t *Toolsets) RegisterListClusterDataPlanes(s *mcp.Server) {
 // Only registered when InfrastructureToolset also implements ClusterPlaneHandler;
 // otherwise it is a no-op. Added in v0.12.0 (non-breaking, additive).
 func (t *Toolsets) RegisterGetClusterDataPlane(s *mcp.Server) {
-	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
-	if !ok {
-		return
-	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_cluster_dataplane",
 		Description: "Get detailed information about a cluster-scoped data plane including cluster details, " +
@@ -484,16 +474,12 @@ func (t *Toolsets) RegisterGetClusterDataPlane(s *mcp.Server) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		CdpName string `json:"cdp_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := cp.GetClusterDataPlane(ctx, args.CdpName)
+		result, err := t.PEToolset.GetClusterDataPlane(ctx, args.CdpName)
 		return handleToolResult(result, err)
 	})
 }
 
 func (t *Toolsets) RegisterCreateClusterDataPlane(s *mcp.Server) {
-	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
-	if !ok {
-		return
-	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_cluster_dataplane",
 		Description: "Create a new cluster-scoped data plane. Cluster data planes are shared infrastructure " +
@@ -554,17 +540,11 @@ func (t *Toolsets) RegisterCreateClusterDataPlane(s *mcp.Server) {
 		} `json:"observability_plane_ref"`
 	}) (*mcp.CallToolResult, any, error) {
 		cdpReq := &models.CreateClusterDataPlaneRequest{
-			Name:                    args.Name,
-			DisplayName:             args.DisplayName,
-			Description:             args.Description,
-			PlaneID:                 args.PlaneID,
-			ClusterAgentClientCA:    args.ClusterAgentClientCA,
-			PublicVirtualHost:       args.PublicVirtualHost,
-			OrganizationVirtualHost: args.OrganizationVirtualHost,
-			PublicHTTPPort:          args.PublicHTTPPort,
-			PublicHTTPSPort:         args.PublicHTTPSPort,
-			OrganizationHTTPPort:    args.OrganizationHTTPPort,
-			OrganizationHTTPSPort:   args.OrganizationHTTPSPort,
+			Name:                 args.Name,
+			DisplayName:          args.DisplayName,
+			Description:          args.Description,
+			PlaneID:              args.PlaneID,
+			ClusterAgentClientCA: args.ClusterAgentClientCA,
 		}
 		if args.ObservabilityPlaneRef != nil {
 			if args.ObservabilityPlaneRef.Name == "" {
@@ -578,16 +558,12 @@ func (t *Toolsets) RegisterCreateClusterDataPlane(s *mcp.Server) {
 		if err := cdpReq.Validate(); err != nil {
 			return nil, nil, fmt.Errorf("invalid cluster dataplane request: %w", err)
 		}
-		result, err := cp.CreateClusterDataPlane(ctx, cdpReq)
+		result, err := t.PEToolset.CreateClusterDataPlane(ctx, cdpReq)
 		return handleToolResult(result, err)
 	})
 }
 
 func (t *Toolsets) RegisterListClusterBuildPlanes(s *mcp.Server) {
-	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
-	if !ok {
-		return
-	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_cluster_buildplanes",
 		Description: "List all cluster-scoped build planes. These are shared build infrastructure managed by " +
@@ -597,16 +573,12 @@ func (t *Toolsets) RegisterListClusterBuildPlanes(s *mcp.Server) {
 		Limit  int    `json:"limit,omitempty"`
 		Cursor string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := cp.ListClusterBuildPlanes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.PEToolset.ListClusterBuildPlanes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
 
 func (t *Toolsets) RegisterListClusterObservabilityPlanes(s *mcp.Server) {
-	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
-	if !ok {
-		return
-	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_cluster_observability_planes",
 		Description: "List all cluster-scoped observability planes. These are shared observability infrastructure " +
@@ -616,20 +588,15 @@ func (t *Toolsets) RegisterListClusterObservabilityPlanes(s *mcp.Server) {
 		Limit  int    `json:"limit,omitempty"`
 		Cursor string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := cp.ListClusterObservabilityPlanes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.PEToolset.ListClusterObservabilityPlanes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
 
 // RegisterListClusterComponentTypes registers the "list_cluster_component_types" MCP tool
 // which lists all cluster-scoped component types (shared templates managed by platform
-// admins, not scoped to any namespace). Only registered when InfrastructureToolset also
-// implements ClusterPlaneHandler; otherwise it is a no-op.
+// admins, not scoped to any namespace).
 func (t *Toolsets) RegisterListClusterComponentTypes(s *mcp.Server) {
-	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
-	if !ok {
-		return
-	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_cluster_component_types",
 		Description: "List all cluster-scoped component types. These are shared component type templates managed " +
@@ -640,20 +607,14 @@ func (t *Toolsets) RegisterListClusterComponentTypes(s *mcp.Server) {
 		Limit  int    `json:"limit,omitempty"`
 		Cursor string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := cp.ListClusterComponentTypes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.ComponentToolset.ListClusterComponentTypes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
 
 // RegisterGetClusterComponentType registers the "get_cluster_component_type" MCP tool
 // which returns detailed information about a specific cluster-scoped component type.
-// Only registered when InfrastructureToolset also implements ClusterPlaneHandler;
-// otherwise it is a no-op.
 func (t *Toolsets) RegisterGetClusterComponentType(s *mcp.Server) {
-	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
-	if !ok {
-		return
-	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_cluster_component_type",
 		Description: "Get detailed information about a cluster-scoped component type including workload type, " +
@@ -664,20 +625,14 @@ func (t *Toolsets) RegisterGetClusterComponentType(s *mcp.Server) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		CctName string `json:"cct_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := cp.GetClusterComponentType(ctx, args.CctName)
+		result, err := t.ComponentToolset.GetClusterComponentType(ctx, args.CctName)
 		return handleToolResult(result, err)
 	})
 }
 
 // RegisterGetClusterComponentTypeSchema registers the "get_cluster_component_type_schema" MCP tool
 // which returns the JSON schema for a specific cluster-scoped component type.
-// Only registered when InfrastructureToolset also implements ClusterPlaneHandler;
-// otherwise it is a no-op.
 func (t *Toolsets) RegisterGetClusterComponentTypeSchema(s *mcp.Server) {
-	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
-	if !ok {
-		return
-	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_cluster_component_type_schema",
 		Description: "Get the schema definition for a cluster-scoped component type. Returns the JSON schema " +
@@ -688,20 +643,15 @@ func (t *Toolsets) RegisterGetClusterComponentTypeSchema(s *mcp.Server) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		CctName string `json:"cct_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := cp.GetClusterComponentTypeSchema(ctx, args.CctName)
+		result, err := t.ComponentToolset.GetClusterComponentTypeSchema(ctx, args.CctName)
 		return handleToolResult(result, err)
 	})
 }
 
 // RegisterListClusterTraits registers the "list_cluster_traits" MCP tool
 // which lists all cluster-scoped traits (shared trait definitions managed by platform
-// admins, not scoped to any namespace). Only registered when InfrastructureToolset also
-// implements ClusterPlaneHandler; otherwise it is a no-op.
+// admins, not scoped to any namespace).
 func (t *Toolsets) RegisterListClusterTraits(s *mcp.Server) {
-	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
-	if !ok {
-		return
-	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_cluster_traits",
 		Description: "List all cluster-scoped traits. These are shared trait definitions managed by platform " +
@@ -712,20 +662,14 @@ func (t *Toolsets) RegisterListClusterTraits(s *mcp.Server) {
 		Limit  int    `json:"limit,omitempty"`
 		Cursor string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := cp.ListClusterTraits(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.ComponentToolset.ListClusterTraits(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
 
 // RegisterGetClusterTrait registers the "get_cluster_trait" MCP tool
 // which returns detailed information about a specific cluster-scoped trait.
-// Only registered when InfrastructureToolset also implements ClusterPlaneHandler;
-// otherwise it is a no-op.
 func (t *Toolsets) RegisterGetClusterTrait(s *mcp.Server) {
-	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
-	if !ok {
-		return
-	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_cluster_trait",
 		Description: "Get detailed information about a cluster-scoped trait including its name, " +
@@ -736,20 +680,14 @@ func (t *Toolsets) RegisterGetClusterTrait(s *mcp.Server) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		CtName string `json:"ct_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := cp.GetClusterTrait(ctx, args.CtName)
+		result, err := t.ComponentToolset.GetClusterTrait(ctx, args.CtName)
 		return handleToolResult(result, err)
 	})
 }
 
 // RegisterGetClusterTraitSchema registers the "get_cluster_trait_schema" MCP tool
 // which returns the JSON schema for a specific cluster-scoped trait.
-// Only registered when InfrastructureToolset also implements ClusterPlaneHandler;
-// otherwise it is a no-op.
 func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server) {
-	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
-	if !ok {
-		return
-	}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_cluster_trait_schema",
 		Description: "Get the schema definition for a cluster-scoped trait. Returns the JSON schema " +
@@ -760,7 +698,7 @@ func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		CtName string `json:"ct_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := cp.GetClusterTraitSchema(ctx, args.CtName)
+		result, err := t.ComponentToolset.GetClusterTraitSchema(ctx, args.CtName)
 		return handleToolResult(result, err)
 	})
 }

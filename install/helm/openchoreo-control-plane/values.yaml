@@ -1223,7 +1223,7 @@ openchoreoApi:
       enabled: true
       # @schema
       # type: array
-      # description: List of enabled MCP toolsets. Each toolset exposes a group of related operations.
+      # description: "List of enabled MCP toolsets. Each toolset exposes a group of related operations. Allowed toolsets: namespace, project, component, infrastructure, pe"
       # items:
       #   type: string
       # default: ["namespace", "project", "component", "infrastructure"]
