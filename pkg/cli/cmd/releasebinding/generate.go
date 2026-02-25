@@ -11,16 +11,15 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
-	releasebinding "github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // NewReleaseBindingCmd creates the release-binding command group
-func NewReleaseBindingCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewReleaseBindingCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   constants.ReleaseBindingRoot.Use,
 		Short: constants.ReleaseBindingRoot.Short,
@@ -28,8 +27,8 @@ func NewReleaseBindingCmd(impl api.CommandImplementationInterface) *cobra.Comman
 	}
 
 	cmd.AddCommand(
-		newGenerateCmd(impl),
-		newListCmd(impl),
+		newGenerateCmd(),
+		newListCmd(),
 		newGetCmd(),
 		newDeleteCmd(),
 	)
@@ -37,7 +36,7 @@ func NewReleaseBindingCmd(impl api.CommandImplementationInterface) *cobra.Comman
 }
 
 // newGenerateCmd creates the release-binding generate command
-func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newGenerateCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ReleaseBindingGenerate,
 		Flags: []flags.Flag{
@@ -83,7 +82,7 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				return fmt.Errorf("one of --all, --project, or --component must be specified")
 			}
 
-			params := api.GenerateReleaseBindingParams{
+			params := releasebinding.GenerateParams{
 				TargetEnv:   fg.GetString(flags.TargetEnv),
 				UsePipeline: usePipeline,
 				OutputPath:  fg.GetString(flags.OutputPath),
@@ -105,7 +104,7 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				params.ComponentRelease = fg.GetString(flags.ComponentRelease)
 			}
 
-			return impl.GenerateReleaseBinding(params)
+			return releasebinding.New().Generate(params)
 		},
 	}).Build()
 
@@ -123,7 +122,7 @@ func isFlagInArgs(flagName string) bool {
 }
 
 // newListCmd creates the release-binding list command
-func newListCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newListCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.ListReleaseBinding,
 		Flags: []flags.Flag{
@@ -132,14 +131,14 @@ func newListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			flags.Component,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
-			params := api.ListReleaseBindingsParams{
+			params := releasebinding.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 				Project:   fg.GetString(flags.Project),
 				Component: fg.GetString(flags.Component),
 			}
-			return impl.ListReleaseBindings(params)
+			return releasebinding.New().List(params)
 		},
-		PreRunE: auth.RequireLogin(impl),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
 }
 

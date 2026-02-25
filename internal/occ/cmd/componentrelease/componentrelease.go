@@ -8,35 +8,36 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"text/tabwriter"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	printoutput "github.com/openchoreo/openchoreo/internal/occ/cmd/list/output"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	occonfig "github.com/openchoreo/openchoreo/internal/occ/fsmode/config"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
 const releaseConfigFileName = "release-config.yaml"
 
-// ComponentReleaseImpl implements ComponentReleaseAPI
-type ComponentReleaseImpl struct{}
+// ComponentRelease implements component release operations
+type ComponentRelease struct{}
 
-// NewComponentReleaseImpl creates a new ComponentReleaseImpl
-func NewComponentReleaseImpl() *ComponentReleaseImpl {
-	return &ComponentReleaseImpl{}
+// New creates a new ComponentRelease
+func New() *ComponentRelease {
+	return &ComponentRelease{}
 }
 
-// ListComponentReleases lists all component releases for a component
-func (l *ComponentReleaseImpl) ListComponentReleases(params api.ListComponentReleasesParams) error {
+// List lists all component releases for a component
+func (cr *ComponentRelease) List(params ListParams) error {
 	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponentRelease, params); err != nil {
 		return err
 	}
@@ -53,11 +54,11 @@ func (l *ComponentReleaseImpl) ListComponentReleases(params api.ListComponentRel
 		return fmt.Errorf("failed to list component releases: %w", err)
 	}
 
-	return printoutput.PrintComponentReleases(result)
+	return printComponentReleases(result)
 }
 
-// GenerateComponentRelease implements the component-release generate command
-func (c *ComponentReleaseImpl) GenerateComponentRelease(params api.GenerateComponentReleaseParams) error {
+// Generate implements the component-release generate command
+func (cr *ComponentRelease) Generate(params GenerateParams) error {
 	// 1. Determine mode from params (default to api-server)
 	mode := params.Mode
 	if mode == "" {
@@ -112,7 +113,7 @@ func (c *ComponentReleaseImpl) GenerateComponentRelease(params api.GenerateCompo
 	ocIndex := fsmode.WrapIndex(persistentIndex.Index)
 
 	// 3. Load release config (optional - when absent, output dirs are inferred from index)
-	releaseConfig, err := c.loadReleaseConfig(repoPath, false)
+	releaseConfig, err := cr.loadReleaseConfig(repoPath, false)
 	if err != nil {
 		return err
 	}
@@ -137,7 +138,7 @@ func (c *ComponentReleaseImpl) GenerateComponentRelease(params api.GenerateCompo
 
 	// 8. Generate releases based on scope
 	if params.All {
-		return c.generateAll(gen, namespace, baseDir, customOutputPath, params.DryRun, releaseConfig, resolver)
+		return cr.generateAll(gen, namespace, baseDir, customOutputPath, params.DryRun, releaseConfig, resolver)
 	}
 
 	// Check for specific component first (requires project to be specified)
@@ -145,20 +146,46 @@ func (c *ComponentReleaseImpl) GenerateComponentRelease(params api.GenerateCompo
 		if params.ProjectName == "" {
 			return fmt.Errorf("project name is required when specifying --component")
 		}
-		return c.generateForComponent(gen, params.ComponentName, params.ProjectName, namespace, baseDir, customOutputPath, params.ReleaseName, params.DryRun, releaseConfig)
+		return cr.generateForComponent(gen, params.ComponentName, params.ProjectName, namespace, baseDir, customOutputPath, params.ReleaseName, params.DryRun, releaseConfig)
 	}
 
 	// Project-only scope (all components in project)
 	if params.ProjectName != "" {
-		return c.generateForProject(gen, params.ProjectName, namespace, baseDir, customOutputPath, params.DryRun, releaseConfig, resolver)
+		return cr.generateForProject(gen, params.ProjectName, namespace, baseDir, customOutputPath, params.DryRun, releaseConfig, resolver)
 	}
 
 	return nil
 }
 
+// Get retrieves a single component release and outputs it as YAML
+func (cr *ComponentRelease) Get(params GetParams) error {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponentRelease, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.GetComponentRelease(ctx, params.Namespace, params.ComponentReleaseName)
+	if err != nil {
+		return fmt.Errorf("failed to get component release: %w", err)
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal component release to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
+}
+
 // loadReleaseConfig loads the release-config.yaml file
 // If requireForBulk is true and the file doesn't exist, returns an error
-func (c *ComponentReleaseImpl) loadReleaseConfig(repoPath string, requireForBulk bool) (*occonfig.ReleaseConfig, error) {
+func (cr *ComponentRelease) loadReleaseConfig(repoPath string, requireForBulk bool) (*occonfig.ReleaseConfig, error) {
 	configPath := filepath.Join(repoPath, releaseConfigFileName)
 
 	// Check if file exists
@@ -179,7 +206,7 @@ func (c *ComponentReleaseImpl) loadReleaseConfig(repoPath string, requireForBulk
 	return releaseConfig, nil
 }
 
-func (c *ComponentReleaseImpl) generateAll(gen *generator.ReleaseGenerator, namespace, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
+func (cr *ComponentRelease) generateAll(gen *generator.ReleaseGenerator, namespace, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	result, err := gen.GenerateBulkReleases(generator.BulkReleaseOptions{
 		All:       true,
 		Namespace: namespace,
@@ -188,10 +215,10 @@ func (c *ComponentReleaseImpl) generateAll(gen *generator.ReleaseGenerator, name
 		return err
 	}
 
-	return c.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
+	return cr.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
 }
 
-func (c *ComponentReleaseImpl) generateForProject(gen *generator.ReleaseGenerator, project, namespace, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
+func (cr *ComponentRelease) generateForProject(gen *generator.ReleaseGenerator, project, namespace, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	result, err := gen.GenerateBulkReleases(generator.BulkReleaseOptions{
 		ProjectName: project,
 		Namespace:   namespace,
@@ -200,10 +227,10 @@ func (c *ComponentReleaseImpl) generateForProject(gen *generator.ReleaseGenerato
 		return err
 	}
 
-	return c.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
+	return cr.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
 }
 
-func (c *ComponentReleaseImpl) generateForComponent(gen *generator.ReleaseGenerator, component, project, namespace, baseDir, customOutputPath, customReleaseName string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
+func (cr *ComponentRelease) generateForComponent(gen *generator.ReleaseGenerator, component, project, namespace, baseDir, customOutputPath, customReleaseName string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
 	release, err := gen.GenerateRelease(generator.ReleaseOptions{
 		ComponentName: component,
 		ProjectName:   project,
@@ -215,7 +242,7 @@ func (c *ComponentReleaseImpl) generateForComponent(gen *generator.ReleaseGenera
 	}
 
 	if dryRun {
-		return c.printYAML(release)
+		return cr.printYAML(release)
 	}
 
 	// Write to file
@@ -251,7 +278,7 @@ func (c *ComponentReleaseImpl) generateForComponent(gen *generator.ReleaseGenera
 	return nil
 }
 
-func (c *ComponentReleaseImpl) writeResults(result *generator.BulkReleaseResult, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
+func (cr *ComponentRelease) writeResults(result *generator.BulkReleaseResult, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	// Print errors first
 	for _, e := range result.Errors {
 		fmt.Fprintf(os.Stderr, "Error generating release for %s/%s: %v\n", e.ProjectName, e.ComponentName, e.Error)
@@ -262,7 +289,7 @@ func (c *ComponentReleaseImpl) writeResults(result *generator.BulkReleaseResult,
 		// Dry-run mode: print all releases to stdout
 		for _, info := range result.Releases {
 			fmt.Printf("# Release: %s (project: %s, component: %s)\n", info.ReleaseName, info.ProjectName, info.ComponentName)
-			if err := c.printYAML(info.Release); err != nil {
+			if err := cr.printYAML(info.Release); err != nil {
 				return err
 			}
 			fmt.Println("---")
@@ -310,7 +337,7 @@ func (c *ComponentReleaseImpl) writeResults(result *generator.BulkReleaseResult,
 	return nil
 }
 
-func (c *ComponentReleaseImpl) printYAML(resource interface{}) error {
+func (cr *ComponentRelease) printYAML(resource interface{}) error {
 	data, err := yaml.Marshal(resource)
 	if err != nil {
 		return fmt.Errorf("failed to marshal to YAML: %w", err)
@@ -319,36 +346,30 @@ func (c *ComponentReleaseImpl) printYAML(resource interface{}) error {
 	return nil
 }
 
-// ComponentRelease implements decoupled component release get operations
-type ComponentRelease struct{}
-
-// New creates a new component release implementation
-func New() *ComponentRelease {
-	return &ComponentRelease{}
-}
-
-// Get retrieves a single component release and outputs it as YAML
-func (cr *ComponentRelease) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponentRelease, params); err != nil {
-		return err
+func printComponentReleases(list *gen.ComponentReleaseList) error {
+	if list == nil || len(list.Items) == 0 {
+		fmt.Println("No component releases found")
+		return nil
 	}
 
-	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "NAME\tCOMPONENT\tSTATUS\tAGE")
+
+	for _, release := range list.Items {
+		componentName := ""
+		if release.Spec != nil {
+			componentName = release.Spec.Owner.ComponentName
+		}
+		age := ""
+		if release.Metadata.CreationTimestamp != nil {
+			age = utils.FormatAge(*release.Metadata.CreationTimestamp)
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+			release.Metadata.Name,
+			componentName,
+			"", // status field removed in K8s-native schema
+			age)
 	}
 
-	result, err := c.GetComponentRelease(ctx, params.Namespace, params.ComponentReleaseName)
-	if err != nil {
-		return fmt.Errorf("failed to get component release: %w", err)
-	}
-
-	data, err := yaml.Marshal(result)
-	if err != nil {
-		return fmt.Errorf("failed to marshal component release to YAML: %w", err)
-	}
-
-	fmt.Print(string(data))
-	return nil
+	return w.Flush()
 }

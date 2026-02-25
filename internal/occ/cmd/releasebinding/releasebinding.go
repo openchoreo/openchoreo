@@ -9,12 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	printoutput "github.com/openchoreo/openchoreo/internal/occ/cmd/list/output"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	occonfig "github.com/openchoreo/openchoreo/internal/occ/fsmode/config"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
@@ -22,8 +23,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/pipeline"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
@@ -33,16 +34,16 @@ const (
 	actionUpdated         = "Updated"
 )
 
-// ReleaseBindingImpl implements ReleaseBindingAPI
-type ReleaseBindingImpl struct{}
+// ReleaseBinding implements release binding operations
+type ReleaseBinding struct{}
 
-// NewReleaseBindingImpl creates a new ReleaseBindingImpl
-func NewReleaseBindingImpl() *ReleaseBindingImpl {
-	return &ReleaseBindingImpl{}
+// New creates a new ReleaseBinding
+func New() *ReleaseBinding {
+	return &ReleaseBinding{}
 }
 
-// ListReleaseBindings lists all release bindings for a component
-func (l *ReleaseBindingImpl) ListReleaseBindings(params api.ListReleaseBindingsParams) error {
+// List lists all release bindings for a component
+func (r *ReleaseBinding) List(params ListParams) error {
 	if err := validation.ValidateParams(validation.CmdList, validation.ResourceReleaseBinding, params); err != nil {
 		return err
 	}
@@ -59,11 +60,11 @@ func (l *ReleaseBindingImpl) ListReleaseBindings(params api.ListReleaseBindingsP
 		return fmt.Errorf("failed to list release bindings: %w", err)
 	}
 
-	return printoutput.PrintReleaseBindings(result)
+	return printReleaseBindings(result)
 }
 
-// GenerateReleaseBinding implements the release-binding generate command
-func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBindingParams) error {
+// Generate implements the release-binding generate command
+func (r *ReleaseBinding) Generate(params GenerateParams) error {
 	// 1. Determine mode from params (default to api-server)
 	mode := params.Mode
 	if mode == "" {
@@ -183,8 +184,54 @@ func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBi
 	return nil
 }
 
+// Get retrieves a single release binding and outputs it as YAML
+func (r *ReleaseBinding) Get(params GetParams) error {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceReleaseBinding, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.GetReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName)
+	if err != nil {
+		return fmt.Errorf("failed to get release binding: %w", err)
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal release binding to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
+}
+
+// Delete deletes a single release binding
+func (r *ReleaseBinding) Delete(params DeleteParams) error {
+	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceReleaseBinding, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := c.DeleteReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName); err != nil {
+		return fmt.Errorf("failed to delete release binding: %w", err)
+	}
+
+	fmt.Printf("ReleaseBinding '%s' deleted\n", params.ReleaseBindingName)
+	return nil
+}
+
 // loadReleaseConfig loads the release-config.yaml file
-func (r *ReleaseBindingImpl) loadReleaseConfig(repoPath string, requireForBulk bool) (*occonfig.ReleaseConfig, error) {
+func (r *ReleaseBinding) loadReleaseConfig(repoPath string, requireForBulk bool) (*occonfig.ReleaseConfig, error) {
 	configPath := filepath.Join(repoPath, releaseConfigFileName)
 
 	// Check if file exists
@@ -204,7 +251,7 @@ func (r *ReleaseBindingImpl) loadReleaseConfig(repoPath string, requireForBulk b
 	return releaseConfig, nil
 }
 
-func (r *ReleaseBindingImpl) generateAll(gen *generator.BindingGenerator, namespace, targetEnv string, pipelineInfo *pipeline.PipelineInfo, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
+func (r *ReleaseBinding) generateAll(gen *generator.BindingGenerator, namespace, targetEnv string, pipelineInfo *pipeline.PipelineInfo, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	result, err := gen.GenerateBulkBindings(generator.BulkBindingOptions{
 		All:          true,
 		TargetEnv:    targetEnv,
@@ -218,7 +265,7 @@ func (r *ReleaseBindingImpl) generateAll(gen *generator.BindingGenerator, namesp
 	return r.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
 }
 
-func (r *ReleaseBindingImpl) generateForProject(gen *generator.BindingGenerator, project, namespace, targetEnv string, pipelineInfo *pipeline.PipelineInfo, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
+func (r *ReleaseBinding) generateForProject(gen *generator.BindingGenerator, project, namespace, targetEnv string, pipelineInfo *pipeline.PipelineInfo, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	result, err := gen.GenerateBulkBindings(generator.BulkBindingOptions{
 		ProjectName:  project,
 		TargetEnv:    targetEnv,
@@ -232,7 +279,7 @@ func (r *ReleaseBindingImpl) generateForProject(gen *generator.BindingGenerator,
 	return r.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
 }
 
-func (r *ReleaseBindingImpl) generateForComponent(gen *generator.BindingGenerator, params api.GenerateReleaseBindingParams, namespace string, pipelineInfo *pipeline.PipelineInfo, baseDir string, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
+func (r *ReleaseBinding) generateForComponent(gen *generator.BindingGenerator, params GenerateParams, namespace string, pipelineInfo *pipeline.PipelineInfo, baseDir string, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	bindingInfo, err := gen.GenerateBindingWithInfo(generator.BindingOptions{
 		ProjectName:      params.ProjectName,
 		ComponentName:    params.ComponentName,
@@ -288,7 +335,7 @@ func (r *ReleaseBindingImpl) generateForComponent(gen *generator.BindingGenerato
 	return nil
 }
 
-func (r *ReleaseBindingImpl) writeResults(result *generator.BulkBindingResult, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
+func (r *ReleaseBinding) writeResults(result *generator.BulkBindingResult, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	// Print errors first
 	for _, e := range result.Errors {
 		fmt.Fprintf(os.Stderr, "Error generating binding for %s/%s: %v\n", e.ProjectName, e.ComponentName, e.Error)
@@ -366,7 +413,7 @@ func (r *ReleaseBindingImpl) writeResults(result *generator.BulkBindingResult, b
 
 // deriveUsePipeline resolves params.UsePipeline from the project's deploymentPipelineRef
 // when UsePipeline is not explicitly set.
-func deriveUsePipeline(ocIndex *fsmode.Index, namespace string, params *api.GenerateReleaseBindingParams) error {
+func deriveUsePipeline(ocIndex *fsmode.Index, namespace string, params *GenerateParams) error {
 	if params.UsePipeline == "" && params.All {
 		return fmt.Errorf("--use-pipeline is required when using --all")
 	}
@@ -391,7 +438,7 @@ func deriveUsePipeline(ocIndex *fsmode.Index, namespace string, params *api.Gene
 	return nil
 }
 
-func (r *ReleaseBindingImpl) printYAML(resource interface{}) error {
+func (r *ReleaseBinding) printYAML(resource interface{}) error {
 	data, err := yaml.Marshal(resource)
 	if err != nil {
 		return fmt.Errorf("failed to marshal to YAML: %w", err)
@@ -400,56 +447,44 @@ func (r *ReleaseBindingImpl) printYAML(resource interface{}) error {
 	return nil
 }
 
-// ReleaseBinding implements decoupled release binding get/delete operations
-type ReleaseBinding struct{}
-
-// New creates a new release binding implementation
-func New() *ReleaseBinding {
-	return &ReleaseBinding{}
-}
-
-// Get retrieves a single release binding and outputs it as YAML
-func (r *ReleaseBinding) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceReleaseBinding, params); err != nil {
-		return err
+func printReleaseBindings(list *gen.ReleaseBindingList) error {
+	if list == nil || len(list.Items) == 0 {
+		fmt.Println("No release bindings found")
+		return nil
 	}
 
-	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "NAME\tENVIRONMENT\tRELEASE\tSTATUS\tAGE")
+
+	for _, binding := range list.Items {
+		status := ""
+		if binding.Status != nil && binding.Status.Conditions != nil {
+			for _, c := range *binding.Status.Conditions {
+				if c.Type == "Ready" {
+					status = c.Reason
+					break
+				}
+			}
+		}
+		releaseName := ""
+		if binding.Spec != nil && binding.Spec.ReleaseName != nil {
+			releaseName = *binding.Spec.ReleaseName
+		}
+		environment := ""
+		if binding.Spec != nil {
+			environment = binding.Spec.Environment
+		}
+		age := ""
+		if binding.Metadata.CreationTimestamp != nil {
+			age = utils.FormatAge(*binding.Metadata.CreationTimestamp)
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+			binding.Metadata.Name,
+			environment,
+			releaseName,
+			status,
+			age)
 	}
 
-	result, err := c.GetReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName)
-	if err != nil {
-		return fmt.Errorf("failed to get release binding: %w", err)
-	}
-
-	data, err := yaml.Marshal(result)
-	if err != nil {
-		return fmt.Errorf("failed to marshal release binding to YAML: %w", err)
-	}
-
-	fmt.Print(string(data))
-	return nil
-}
-
-// Delete deletes a single release binding
-func (r *ReleaseBinding) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceReleaseBinding, params); err != nil {
-		return err
-	}
-
-	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName); err != nil {
-		return fmt.Errorf("failed to delete release binding: %w", err)
-	}
-
-	fmt.Printf("ReleaseBinding '%s' deleted\n", params.ReleaseBindingName)
-	return nil
+	return w.Flush()
 }

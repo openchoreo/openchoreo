@@ -12,10 +12,9 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-func NewWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewWorkloadCmd() *cobra.Command {
 	workloadCmd := &cobra.Command{
 		Use:     constants.Workload.Use,
 		Aliases: constants.Workload.Aliases,
@@ -24,7 +23,7 @@ func NewWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	workloadCmd.AddCommand(
-		newCreateWorkloadCmd(impl),
+		newCreateWorkloadCmd(),
 		newListWorkloadCmd(),
 		newGetWorkloadCmd(),
 		newDeleteWorkloadCmd(),
@@ -33,7 +32,7 @@ func NewWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	return workloadCmd
 }
 
-func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newCreateWorkloadCmd() *cobra.Command {
 	workloadFlags := []flags.Flag{
 		flags.Name,
 		flags.Namespace,
@@ -51,7 +50,7 @@ func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Comman
 		Command: constants.CreateWorkload,
 		Flags:   workloadFlags,
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.CreateWorkload(api.CreateWorkloadParams{
+			return workloadcmd.New().Create(workloadcmd.CreateParams{
 				FilePath:      fg.GetString(flags.WorkloadDescriptor),
 				NamespaceName: fg.GetString(flags.Namespace),
 				ProjectName:   fg.GetString(flags.Project),
@@ -72,7 +71,7 @@ func newListWorkloadCmd() *cobra.Command {
 		Flags:   []flags.Flag{flags.Namespace},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(fg *builder.FlagGetter) error {
-			return workloadcmd.NewWorkload().List(workloadcmd.ListParams{
+			return workloadcmd.New().List(workloadcmd.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
@@ -89,7 +88,7 @@ func newGetWorkloadCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return workloadcmd.NewWorkload().Get(workloadcmd.GetParams{
+			return workloadcmd.New().Get(workloadcmd.GetParams{
 				Namespace:    namespace,
 				WorkloadName: args[0],
 			})
@@ -109,7 +108,7 @@ func newDeleteWorkloadCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return workloadcmd.NewWorkload().Delete(workloadcmd.DeleteParams{
+			return workloadcmd.New().Delete(workloadcmd.DeleteParams{
 				Namespace:    namespace,
 				WorkloadName: args[0],
 			})

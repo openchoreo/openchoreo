@@ -9,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/index"
 )
 
@@ -25,7 +24,7 @@ func TestDeriveUsePipeline(t *testing.T) {
 		addProject(t, idx, namespace, projectName, pipelineName)
 		ocIndex := fsmode.WrapIndex(idx)
 
-		params := api.GenerateReleaseBindingParams{
+		params := GenerateParams{
 			ProjectName: projectName,
 		}
 
@@ -45,7 +44,7 @@ func TestDeriveUsePipeline(t *testing.T) {
 		ocIndex := fsmode.WrapIndex(idx)
 
 		explicit := "explicit-pipeline"
-		params := api.GenerateReleaseBindingParams{
+		params := GenerateParams{
 			ProjectName: projectName,
 			UsePipeline: explicit,
 		}
@@ -64,7 +63,7 @@ func TestDeriveUsePipeline(t *testing.T) {
 		idx := index.New("/repo")
 		ocIndex := fsmode.WrapIndex(idx)
 
-		params := api.GenerateReleaseBindingParams{
+		params := GenerateParams{
 			ProjectName: "nonexistent",
 		}
 
@@ -84,7 +83,7 @@ func TestDeriveUsePipeline(t *testing.T) {
 		addProject(t, idx, namespace, projectName, "") // empty pipelineRef
 		ocIndex := fsmode.WrapIndex(idx)
 
-		params := api.GenerateReleaseBindingParams{
+		params := GenerateParams{
 			ProjectName: projectName,
 		}
 
@@ -103,7 +102,7 @@ func TestDeriveUsePipeline(t *testing.T) {
 		idx := index.New("/repo")
 		ocIndex := fsmode.WrapIndex(idx)
 
-		params := api.GenerateReleaseBindingParams{
+		params := GenerateParams{
 			All: true,
 		}
 
@@ -122,7 +121,7 @@ func TestDeriveUsePipeline(t *testing.T) {
 		idx := index.New("/repo")
 		ocIndex := fsmode.WrapIndex(idx)
 
-		params := api.GenerateReleaseBindingParams{
+		params := GenerateParams{
 			All:         true,
 			UsePipeline: pipelineName,
 		}
@@ -141,7 +140,7 @@ func TestDeriveUsePipeline(t *testing.T) {
 		idx := index.New("/repo")
 		ocIndex := fsmode.WrapIndex(idx)
 
-		params := api.GenerateReleaseBindingParams{}
+		params := GenerateParams{}
 
 		err := deriveUsePipeline(ocIndex, namespace, &params)
 		if err == nil {
@@ -160,7 +159,7 @@ func TestDeriveUsePipeline(t *testing.T) {
 		ocIndex := fsmode.WrapIndex(idx)
 
 		// ProjectName is empty, so derivation is skipped; UsePipeline is also empty
-		params := api.GenerateReleaseBindingParams{}
+		params := GenerateParams{}
 
 		err := deriveUsePipeline(ocIndex, namespace, &params)
 		if err == nil {
@@ -178,7 +177,7 @@ func TestDeriveUsePipeline(t *testing.T) {
 		addProject(t, idx, "other-ns", "other-proj", pipelineName)
 		ocIndex := fsmode.WrapIndex(idx)
 
-		params := api.GenerateReleaseBindingParams{
+		params := GenerateParams{
 			ProjectName: "other-proj",
 		}
 
@@ -199,7 +198,7 @@ func TestDeriveUsePipeline(t *testing.T) {
 		addProjectRaw(t, idx, namespace, projectName, nil)
 		ocIndex := fsmode.WrapIndex(idx)
 
-		params := api.GenerateReleaseBindingParams{
+		params := GenerateParams{
 			ProjectName: projectName,
 		}
 

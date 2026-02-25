@@ -16,11 +16,10 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // NewComponentReleaseCmd creates the component-release command group
-func NewComponentReleaseCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewComponentReleaseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   constants.ComponentReleaseRoot.Use,
 		Short: constants.ComponentReleaseRoot.Short,
@@ -28,15 +27,15 @@ func NewComponentReleaseCmd(impl api.CommandImplementationInterface) *cobra.Comm
 	}
 
 	cmd.AddCommand(
-		newGenerateCmd(impl),
-		newListCmd(impl),
+		newGenerateCmd(),
+		newListCmd(),
 		newGetCmd(),
 	)
 	return cmd
 }
 
 // newGenerateCmd creates the component-release generate command
-func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newGenerateCmd() *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ComponentReleaseGenerate,
 		Flags: []flags.Flag{
@@ -98,7 +97,7 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			}
 
 			// Build params with only explicitly set values (not context defaults)
-			params := api.GenerateComponentReleaseParams{
+			params := componentrelease.GenerateParams{
 				OutputPath: fg.GetString(flags.OutputPath),
 				DryRun:     fg.GetBool(flags.DryRun),
 				Mode:       fg.GetString(flags.Mode),
@@ -119,7 +118,7 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				params.ReleaseName = fg.GetString(flags.Name)
 			}
 
-			return impl.GenerateComponentRelease(params)
+			return componentrelease.New().Generate(params)
 		},
 	}).Build()
 
@@ -137,7 +136,7 @@ func isFlagInArgs(flagName string) bool {
 }
 
 // newListCmd creates the component-release list command
-func newListCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newListCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.ListComponentRelease,
 		Flags: []flags.Flag{
@@ -146,14 +145,14 @@ func newListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			flags.Component,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
-			params := api.ListComponentReleasesParams{
+			params := componentrelease.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 				Project:   fg.GetString(flags.Project),
 				Component: fg.GetString(flags.Component),
 			}
-			return impl.ListComponentReleases(params)
+			return componentrelease.New().List(params)
 		},
-		PreRunE: auth.RequireLogin(impl),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
 }
 

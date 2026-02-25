@@ -9,9 +9,6 @@ type CommandImplementationInterface interface {
 	DeleteAPI
 	LoginAPI
 	LogoutAPI
-	WorkloadAPI
-	ComponentReleaseAPI
-	ReleaseBindingAPI
 }
 
 // ApplyAPI defines methods for applying configurations
@@ -34,21 +31,4 @@ type LoginAPI interface {
 // LogoutAPI defines methods for ending sessions
 type LogoutAPI interface {
 	Logout() error
-}
-
-// WorkloadAPI defines methods for creating workloads from descriptors
-type WorkloadAPI interface {
-	CreateWorkload(params CreateWorkloadParams) error
-}
-
-// ComponentReleaseAPI defines component release operations (file-system mode)
-type ComponentReleaseAPI interface {
-	GenerateComponentRelease(params GenerateComponentReleaseParams) error
-	ListComponentReleases(params ListComponentReleasesParams) error
-}
-
-// ReleaseBindingAPI defines release binding operations (file-system mode)
-type ReleaseBindingAPI interface {
-	GenerateReleaseBinding(params GenerateReleaseBindingParams) error
-	ListReleaseBindings(params ListReleaseBindingsParams) error
 }

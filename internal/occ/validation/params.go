@@ -864,15 +864,22 @@ func validateDeleteSecretReferenceParams(params interface{}) error {
 	return nil
 }
 
+// componentReleaseListParams is an interface for component release list parameter validation
+type componentReleaseListParams interface {
+	GetNamespace() string
+	GetProject() string
+	GetComponent() string
+}
+
 // validateComponentReleaseParams validates parameters for component release operations
 func validateComponentReleaseParams(cmdType CommandType, params interface{}) error {
 	switch cmdType {
 	case CmdList:
-		if p, ok := params.(api.ListComponentReleasesParams); ok {
+		if p, ok := params.(componentReleaseListParams); ok {
 			fields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-				"component": p.Component,
+				"namespace": p.GetNamespace(),
+				"project":   p.GetProject(),
+				"component": p.GetComponent(),
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(CmdList, ResourceComponentRelease, fields)
@@ -886,15 +893,22 @@ func validateComponentReleaseParams(cmdType CommandType, params interface{}) err
 	return nil
 }
 
+// releaseBindingListParams is an interface for release binding list parameter validation
+type releaseBindingListParams interface {
+	GetNamespace() string
+	GetProject() string
+	GetComponent() string
+}
+
 // validateReleaseBindingParams validates parameters for release binding operations
 func validateReleaseBindingParams(cmdType CommandType, params interface{}) error {
 	switch cmdType {
 	case CmdList:
-		if p, ok := params.(api.ListReleaseBindingsParams); ok {
+		if p, ok := params.(releaseBindingListParams); ok {
 			fields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-				"component": p.Component,
+				"namespace": p.GetNamespace(),
+				"project":   p.GetProject(),
+				"component": p.GetComponent(),
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(CmdList, ResourceReleaseBinding, fields)

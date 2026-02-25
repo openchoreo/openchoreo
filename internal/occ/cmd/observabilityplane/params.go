@@ -12,7 +12,7 @@ func (p ListParams) GetNamespace() string { return p.Namespace }
 
 // GetParams defines parameters for getting a single observability plane
 type GetParams struct {
-	Namespace            string
+	Namespace              string
 	ObservabilityPlaneName string
 }
 
@@ -20,7 +20,7 @@ func (p GetParams) GetNamespace() string { return p.Namespace }
 
 // DeleteParams defines parameters for deleting a single observability plane
 type DeleteParams struct {
-	Namespace            string
+	Namespace              string
 	ObservabilityPlaneName string
 }
 

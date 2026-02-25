@@ -26,18 +26,23 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
-type WorkloadImpl struct {
+// Workload implements workload operations
+type Workload struct {
 	config constants.CRDConfig
 }
 
-func NewWorkloadImpl(config constants.CRDConfig) *WorkloadImpl {
-	return &WorkloadImpl{
-		config: config,
+// New creates a new Workload with the default config
+func New() *Workload {
+	return &Workload{
+		config: constants.WorkloadV1Config,
 	}
 }
 
-func (i *WorkloadImpl) CreateWorkload(params api.CreateWorkloadParams) error {
-	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceWorkload, params); err != nil {
+// Create creates a workload from a descriptor or basic parameters
+func (w *Workload) Create(params CreateParams) error {
+	apiParams := toAPIParams(params)
+
+	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceWorkload, apiParams); err != nil {
 		return err
 	}
 
@@ -50,17 +55,17 @@ func (i *WorkloadImpl) CreateWorkload(params api.CreateWorkloadParams) error {
 	// Route to appropriate implementation based on mode
 	switch mode {
 	case flags.ModeFileSystem:
-		return i.createWorkloadFileSystemMode(params)
+		return w.createFileSystemMode(params, apiParams)
 	case flags.ModeAPIServer:
-		return i.createWorkloadAPIServerMode(params)
+		return w.createAPIServerMode(apiParams)
 	default:
 		return fmt.Errorf("unsupported mode %q: must be %q or %q", mode, flags.ModeAPIServer, flags.ModeFileSystem)
 	}
 }
 
-// createWorkloadAPIServerMode handles the existing API server mode logic
-func (i *WorkloadImpl) createWorkloadAPIServerMode(params api.CreateWorkloadParams) error {
-	workloadRes, err := kinds.NewWorkloadResource(i.config, params.NamespaceName)
+// createAPIServerMode handles the existing API server mode logic
+func (w *Workload) createAPIServerMode(params api.CreateWorkloadParams) error {
+	workloadRes, err := kinds.NewWorkloadResource(w.config, params.NamespaceName)
 	if err != nil {
 		return fmt.Errorf("failed to create Workload resource: %w", err)
 	}
@@ -72,8 +77,8 @@ func (i *WorkloadImpl) createWorkloadAPIServerMode(params api.CreateWorkloadPara
 	return nil
 }
 
-// createWorkloadFileSystemMode handles file-system mode for GitOps repos
-func (i *WorkloadImpl) createWorkloadFileSystemMode(params api.CreateWorkloadParams) error {
+// createFileSystemMode handles file-system mode for GitOps repos
+func (w *Workload) createFileSystemMode(params CreateParams, apiParams api.CreateWorkloadParams) error {
 	// Determine repo path
 	repoPath := params.RootDir
 	if repoPath == "" {
@@ -113,12 +118,12 @@ func (i *WorkloadImpl) createWorkloadFileSystemMode(params api.CreateWorkloadPar
 	// If we don't have a workload CR yet (no existing workload or descriptor provided),
 	// generate one from scratch.
 	if workloadCR == nil {
-		workloadRes, err := kinds.NewWorkloadResource(i.config, params.NamespaceName)
+		workloadRes, err := kinds.NewWorkloadResource(w.config, params.NamespaceName)
 		if err != nil {
 			return fmt.Errorf("failed to create Workload resource: %w", err)
 		}
 
-		workloadCR, err = workloadRes.GenerateWorkloadCR(params)
+		workloadCR, err = workloadRes.GenerateWorkloadCR(apiParams)
 		if err != nil {
 			return fmt.Errorf("failed to generate workload: %w", err)
 		}
@@ -143,14 +148,6 @@ func (i *WorkloadImpl) createWorkloadFileSystemMode(params api.CreateWorkloadPar
 		fmt.Printf("Workload written to: %s\n", writtenPath)
 	}
 	return nil
-}
-
-// Workload implements workload CRUD operations
-type Workload struct{}
-
-// NewWorkload creates a new workload implementation
-func NewWorkload() *Workload {
-	return &Workload{}
 }
 
 // List lists all workloads in a namespace
@@ -217,6 +214,21 @@ func (w *Workload) Delete(params DeleteParams) error {
 
 	fmt.Printf("Workload '%s' deleted\n", params.WorkloadName)
 	return nil
+}
+
+// toAPIParams converts CreateParams to api.CreateWorkloadParams for downstream callers
+func toAPIParams(p CreateParams) api.CreateWorkloadParams {
+	return api.CreateWorkloadParams{
+		FilePath:      p.FilePath,
+		NamespaceName: p.NamespaceName,
+		ProjectName:   p.ProjectName,
+		ComponentName: p.ComponentName,
+		ImageURL:      p.ImageURL,
+		OutputPath:    p.OutputPath,
+		DryRun:        p.DryRun,
+		Mode:          p.Mode,
+		RootDir:       p.RootDir,
+	}
 }
 
 func printWorkloadList(list *gen.WorkloadList) error {

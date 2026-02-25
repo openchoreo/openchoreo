@@ -297,46 +297,6 @@ type CreateWorkloadParams struct {
 	RootDir       string // Root directory path for file-system mode
 }
 
-// GenerateComponentReleaseParams defines parameters for generating component releases
-type GenerateComponentReleaseParams struct {
-	All           bool   // Generate for all components
-	ProjectName   string // Generate for all components in this project
-	ComponentName string // Generate for specific component
-	ReleaseName   string // Optional: custom release name (only valid with --component)
-	OutputPath    string // Optional: custom output directory
-	DryRun        bool   // Preview without writing files
-	Mode          string // Operational mode: "api-server" or "file-system"
-	RootDir       string // Root directory path for file-system mode
-}
-
-// GenerateReleaseBindingParams defines parameters for generating release bindings
-type GenerateReleaseBindingParams struct {
-	All              bool   // Generate for all components
-	ProjectName      string // Generate for all components in this project
-	ComponentName    string // Generate for specific component
-	ComponentRelease string // Explicit component release name (only with project+component)
-	TargetEnv        string // Required: target environment name
-	UsePipeline      string // Required: deployment pipeline name
-	OutputPath       string // Optional: custom output directory
-	DryRun           bool   // Preview without writing files
-	Mode             string // Operational mode: "api-server" or "file-system"
-	RootDir          string // Root directory path for file-system mode
-}
-
-// ListComponentReleasesParams defines parameters for listing component releases
-type ListComponentReleasesParams struct {
-	Namespace string
-	Project   string
-	Component string
-}
-
-// ListReleaseBindingsParams defines parameters for listing release bindings
-type ListReleaseBindingsParams struct {
-	Namespace string
-	Project   string
-	Component string
-}
-
 // ComponentLogsParams defines parameters for fetching component logs
 type ComponentLogsParams struct {
 	Namespace   string

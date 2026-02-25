@@ -24,5 +24,5 @@ type DeleteParams struct {
 	TraitName string
 }
 
-func (p DeleteParams) GetNamespace() string  { return p.Namespace }
+func (p DeleteParams) GetNamespace() string { return p.Namespace }
 func (p DeleteParams) GetTraitName() string { return p.TraitName }
