@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"testing"
 
+	disabledAuthz "github.com/openchoreo/openchoreo/internal/authz"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
@@ -110,22 +111,13 @@ func TestCheck_EvaluateError(t *testing.T) {
 	}
 }
 
-func TestCheck_MissingSubjectContext(t *testing.T) {
-	pdp := &mockPDP{
-		evaluateFunc: func(_ context.Context, _ *authz.EvaluateRequest) (*authz.Decision, error) {
-			t.Fatal("Evaluate should not be called when subject context is missing")
-			return nil, nil
-		},
-	}
-	checker := newTestChecker(pdp)
+func TestCheck_NilSubject_DisabledAuthz(t *testing.T) {
+	checker := NewAuthzChecker(disabledAuthz.NewDisabledAuthorizer(slog.Default()), slog.Default())
 
-	// context.Background() has no SubjectContext set.
+	// context.Background() has no SubjectContext — disabled authorizer should still allow.
 	err := checker.Check(context.Background(), testCheckRequest())
-	if err == nil {
-		t.Fatal("expected error for missing subject context, got nil")
-	}
-	if err.Error() != "failed to get user information from token" {
-		t.Fatalf("unexpected error message: %v", err)
+	if err != nil {
+		t.Fatalf("expected nil error with disabled authz, got %v", err)
 	}
 }
 
@@ -226,36 +218,16 @@ func TestBatchCheck_EvaluateError(t *testing.T) {
 	}
 }
 
-func TestBatchCheck_MissingSubjectContext(t *testing.T) {
-	pdp := &mockPDP{
-		batchEvaluateFunc: func(_ context.Context, _ *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error) {
-			t.Fatal("BatchEvaluate should not be called when subject context is missing")
-			return nil, nil
-		},
-	}
-	checker := newTestChecker(pdp)
+func TestBatchCheck_NilSubject_DisabledAuthz(t *testing.T) {
+	checker := NewAuthzChecker(disabledAuthz.NewDisabledAuthorizer(slog.Default()), slog.Default())
 
-	_, err := checker.BatchCheck(context.Background(), []CheckRequest{testCheckRequest()})
-	if err == nil {
-		t.Fatal("expected error for missing subject context, got nil")
+	// context.Background() has no SubjectContext — disabled authorizer should still allow.
+	results, err := checker.BatchCheck(context.Background(), []CheckRequest{testCheckRequest()})
+	if err != nil {
+		t.Fatalf("expected nil error with disabled authz, got %v", err)
 	}
-	if err.Error() != "failed to get user information from token" {
-		t.Fatalf("unexpected error message: %v", err)
-	}
-}
-
-func TestBatchCheck_NilSubjectContext(t *testing.T) {
-	pdp := &mockPDP{
-		batchEvaluateFunc: func(_ context.Context, _ *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error) {
-			t.Fatal("BatchEvaluate should not be called when subject context is nil")
-			return nil, nil
-		},
-	}
-	checker := newTestChecker(pdp)
-
-	_, err := checker.BatchCheck(ctxWithSubject(nil), []CheckRequest{testCheckRequest()})
-	if err == nil {
-		t.Fatal("expected error for nil subject context, got nil")
+	if len(results) != 1 || !results[0] {
+		t.Fatalf("expected [true], got %v", results)
 	}
 }
 
