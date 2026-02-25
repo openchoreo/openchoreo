@@ -164,6 +164,7 @@ func (s *DataPlaneService) buildDataPlaneCR(namespaceName string, req *models.Cr
 				Value: req.ClusterAgentClientCA,
 			},
 		},
+		Gateway: toGatewaySpec(req.Gateway),
 	}
 
 	// Set observability plane reference if provided
@@ -226,6 +227,7 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		Description:         description,
 		ImagePullSecretRefs: dp.Spec.ImagePullSecretRefs,
 		SecretStoreRef:      secretStoreRef,
+		Gateway:             fromGatewaySpec(dp.Spec.Gateway),
 		CreatedAt:           dp.CreationTimestamp.Time,
 		Status:              status,
 	}

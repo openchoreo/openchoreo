@@ -121,6 +121,34 @@ type DataPlaneRef struct {
 	Name string `json:"name"`
 }
 
+// GatewayListenerSpec represents a gateway listener configuration
+type GatewayListenerSpec struct {
+	ListenerName string `json:"listenerName,omitempty"`
+	Port         int32  `json:"port,omitempty"`
+	Host         string `json:"host,omitempty"`
+}
+
+// GatewayEndpointSpec represents a gateway endpoint configuration
+type GatewayEndpointSpec struct {
+	Name      string               `json:"name,omitempty"`
+	Namespace string               `json:"namespace,omitempty"`
+	HTTP      *GatewayListenerSpec `json:"http,omitempty"`
+	HTTPS     *GatewayListenerSpec `json:"https,omitempty"`
+	TLS       *GatewayListenerSpec `json:"tls,omitempty"`
+}
+
+// GatewayNetworkSpec represents external and internal gateway endpoints
+type GatewayNetworkSpec struct {
+	External *GatewayEndpointSpec `json:"external,omitempty"`
+	Internal *GatewayEndpointSpec `json:"internal,omitempty"`
+}
+
+// GatewaySpec represents the full gateway configuration
+type GatewaySpec struct {
+	Ingress *GatewayNetworkSpec `json:"ingress,omitempty"`
+	Egress  *GatewayNetworkSpec `json:"egress,omitempty"`
+}
+
 // CreateEnvironmentRequest represents the request to create a new environment
 type CreateEnvironmentRequest struct {
 	Name         string        `json:"name"`
@@ -129,6 +157,7 @@ type CreateEnvironmentRequest struct {
 	DataPlaneRef *DataPlaneRef `json:"dataPlaneRef,omitempty"`
 	IsProduction bool          `json:"isProduction"`
 	DNSPrefix    string        `json:"dnsPrefix,omitempty"`
+	Gateway      *GatewaySpec  `json:"gateway,omitempty"`
 }
 
 // CreateDataPlaneRequest represents the request to create a new dataplane
@@ -138,6 +167,7 @@ type CreateDataPlaneRequest struct {
 	Description           string                 `json:"description,omitempty"`
 	ClusterAgentClientCA  string                 `json:"clusterAgentClientCA"`
 	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+	Gateway               *GatewaySpec           `json:"gateway,omitempty"`
 }
 
 // Validate validates the CreateProjectRequest

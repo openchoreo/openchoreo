@@ -56,6 +56,97 @@ func checkAuthorization(ctx context.Context, logger *slog.Logger, pdp authz.PDP,
 	return nil
 }
 
+// toGatewaySpec converts a models.GatewaySpec to a v1alpha1.GatewaySpec for CR creation
+func toGatewaySpec(g *models.GatewaySpec) openchoreov1alpha1.GatewaySpec {
+	if g == nil {
+		return openchoreov1alpha1.GatewaySpec{}
+	}
+	return openchoreov1alpha1.GatewaySpec{
+		Ingress: toGatewayNetworkSpec(g.Ingress),
+		Egress:  toGatewayNetworkSpec(g.Egress),
+	}
+}
+
+func toGatewayNetworkSpec(g *models.GatewayNetworkSpec) *openchoreov1alpha1.GatewayNetworkSpec {
+	if g == nil {
+		return nil
+	}
+	return &openchoreov1alpha1.GatewayNetworkSpec{
+		External: toGatewayEndpointSpec(g.External),
+		Internal: toGatewayEndpointSpec(g.Internal),
+	}
+}
+
+func toGatewayEndpointSpec(g *models.GatewayEndpointSpec) *openchoreov1alpha1.GatewayEndpointSpec {
+	if g == nil {
+		return nil
+	}
+	return &openchoreov1alpha1.GatewayEndpointSpec{
+		Name:      g.Name,
+		Namespace: g.Namespace,
+		HTTP:      toGatewayListenerSpec(g.HTTP),
+		HTTPS:     toGatewayListenerSpec(g.HTTPS),
+		TLS:       toGatewayListenerSpec(g.TLS),
+	}
+}
+
+func toGatewayListenerSpec(g *models.GatewayListenerSpec) *openchoreov1alpha1.GatewayListenerSpec {
+	if g == nil {
+		return nil
+	}
+	return &openchoreov1alpha1.GatewayListenerSpec{
+		ListenerName: g.ListenerName,
+		Port:         g.Port,
+		Host:         g.Host,
+	}
+}
+
+// fromGatewaySpec converts a v1alpha1.GatewaySpec to a models.GatewaySpec for API responses.
+// Returns nil when no gateway configuration is present.
+func fromGatewaySpec(g openchoreov1alpha1.GatewaySpec) *models.GatewaySpec {
+	if g.Ingress == nil && g.Egress == nil {
+		return nil
+	}
+	return &models.GatewaySpec{
+		Ingress: fromGatewayNetworkSpec(g.Ingress),
+		Egress:  fromGatewayNetworkSpec(g.Egress),
+	}
+}
+
+func fromGatewayNetworkSpec(g *openchoreov1alpha1.GatewayNetworkSpec) *models.GatewayNetworkSpec {
+	if g == nil {
+		return nil
+	}
+	return &models.GatewayNetworkSpec{
+		External: fromGatewayEndpointSpec(g.External),
+		Internal: fromGatewayEndpointSpec(g.Internal),
+	}
+}
+
+func fromGatewayEndpointSpec(g *openchoreov1alpha1.GatewayEndpointSpec) *models.GatewayEndpointSpec {
+	if g == nil {
+		return nil
+	}
+	return &models.GatewayEndpointSpec{
+		Name:      g.Name,
+		Namespace: g.Namespace,
+		HTTP:      fromGatewayListenerSpec(g.HTTP),
+		HTTPS:     fromGatewayListenerSpec(g.HTTPS),
+		TLS:       fromGatewayListenerSpec(g.TLS),
+	}
+}
+
+func fromGatewayListenerSpec(g *openchoreov1alpha1.GatewayListenerSpec) *models.GatewayListenerSpec {
+	if g == nil {
+		return nil
+	}
+	return &models.GatewayListenerSpec{
+		ListenerName: g.ListenerName,
+		Port:         g.Port,
+		Host:         g.Host,
+	}
+}
+
 // toAgentConnectionStatusResponse converts a CRD AgentConnectionStatus to an API response
 func toAgentConnectionStatusResponse(ac *openchoreov1alpha1.AgentConnectionStatus) *models.AgentConnectionStatusResponse {
 	if ac == nil {
