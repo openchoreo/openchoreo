@@ -28,12 +28,14 @@ var BaselinePolicyNames = []string{
 type BaselinePolicyParams struct {
 	Namespace   string // data plane namespace name
 	CPNamespace string // control plane namespace name
+	Environment string // environment name (e.g., "development")
 }
 
 // ComponentPolicyParams holds parameters for generating per-component (Layer 2) ingress NetworkPolicies.
 type ComponentPolicyParams struct {
 	Namespace     string                                         // data plane namespace name
 	CPNamespace   string                                         // control plane namespace name
+	Environment   string                                         // environment name (e.g., "development")
 	ComponentName string                                         // for naming the policy
 	PodSelectors  map[string]string                              // platform pod selectors
 	Endpoints     map[string]openchoreov1alpha1.WorkloadEndpoint // from workload spec
@@ -41,7 +43,7 @@ type ComponentPolicyParams struct {
 
 // MakeBaselinePolicies returns two NetworkPolicy resources as map[string]any:
 // 1. A deny-all ingress policy
-// 2. An egress isolation policy that blocks cross-CP-namespace traffic
+// 2. An egress isolation policy that blocks cross-CP-namespace and cross-environment traffic
 func MakeBaselinePolicies(params BaselinePolicyParams) []map[string]any {
 	denyAllIngress := map[string]any{
 		"apiVersion": "networking.k8s.io/v1",
@@ -83,17 +85,14 @@ func MakeBaselinePolicies(params BaselinePolicyParams) []map[string]any {
 						},
 					},
 				},
-				// Allow egress to namespaces belonging to the SAME CP namespace
+				// Allow egress to dp namespaces in the same CP namespace and same environment
 				map[string]any{
 					"to": []any{
 						map[string]any{
 							"namespaceSelector": map[string]any{
-								"matchExpressions": []any{
-									map[string]any{
-										"key":      labels.LabelKeyControlPlaneNamespace,
-										"operator": "In",
-										"values":   []any{params.CPNamespace},
-									},
+								"matchLabels": map[string]any{
+									labels.LabelKeyControlPlaneNamespace: params.CPNamespace,
+									labels.LabelKeyEnvironmentName:       params.Environment,
 								},
 							},
 						},
@@ -176,18 +175,15 @@ func MakeComponentPolicies(params ComponentPolicyParams) []map[string]any {
 		})
 	}
 
-	// Rule 2: cross-project same CP namespace (namespace visibility)
+	// Rule 2: cross-project, same CP namespace and same environment (namespace visibility)
 	if len(namespacePorts) > 0 {
 		ingressRules = append(ingressRules, map[string]any{
 			"from": []any{
 				map[string]any{
 					"namespaceSelector": map[string]any{
-						"matchExpressions": []any{
-							map[string]any{
-								"key":      labels.LabelKeyControlPlaneNamespace,
-								"operator": "In",
-								"values":   []any{params.CPNamespace},
-							},
+						"matchLabels": map[string]any{
+							labels.LabelKeyControlPlaneNamespace: params.CPNamespace,
+							labels.LabelKeyEnvironmentName:       params.Environment,
 						},
 					},
 				},

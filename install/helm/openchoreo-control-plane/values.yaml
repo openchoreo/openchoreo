@@ -684,9 +684,9 @@ controllerManager:
     # @schema
     # type: boolean
     # description: Enable NetworkPolicy enforcement for endpoint visibility on the data plane
-    # default: false
+    # default: true
     # @schema
-    enabled: false
+    enabled: true
 
   # @schema
   # type: object

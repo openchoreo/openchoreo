@@ -459,6 +459,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		componentNetpols := networkpolicy.MakeComponentPolicies(networkpolicy.ComponentPolicyParams{
 			Namespace:     metadataContext.Namespace,
 			CPNamespace:   metadataContext.ComponentNamespace,
+			Environment:   metadataContext.EnvironmentName,
 			ComponentName: metadataContext.ComponentName,
 			PodSelectors:  metadataContext.PodSelectors,
 			Endpoints:     snapshotWorkload.Spec.Endpoints,

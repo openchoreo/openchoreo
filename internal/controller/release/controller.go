@@ -374,6 +374,7 @@ func (r *Reconciler) ensureBaselineNetworkPolicies(ctx context.Context, planeCli
 		policies := networkpolicy.MakeBaselinePolicies(networkpolicy.BaselinePolicyParams{
 			Namespace:   ns.Name,
 			CPNamespace: release.Namespace,
+			Environment: release.Spec.EnvironmentName,
 		})
 		for _, policyMap := range policies {
 			obj := &unstructured.Unstructured{Object: policyMap}

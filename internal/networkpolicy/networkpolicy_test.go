@@ -45,6 +45,7 @@ func TestMakeBaselinePolicies(t *testing.T) {
 	policies := MakeBaselinePolicies(BaselinePolicyParams{
 		Namespace:   "dp-acme-payment-dev-x1y2z3w4",
 		CPNamespace: "acme-corp",
+		Environment: "development",
 	})
 
 	if len(policies) != 2 {
@@ -81,11 +82,9 @@ spec:
                 operator: DoesNotExist
     - to:
         - namespaceSelector:
-            matchExpressions:
-              - key: openchoreo.dev/controlplane-namespace
-                operator: In
-                values:
-                  - acme-corp
+            matchLabels:
+              openchoreo.dev/controlplane-namespace: acme-corp
+              openchoreo.dev/environment: development
 `)
 }
 
@@ -93,6 +92,7 @@ func TestMakeComponentPolicies_NoEndpoints(t *testing.T) {
 	result := MakeComponentPolicies(ComponentPolicyParams{
 		Namespace:     "dp-ns",
 		CPNamespace:   "cp-ns",
+		Environment:   "development",
 		ComponentName: "my-comp",
 		PodSelectors:  map[string]string{"app": "test"},
 		Endpoints:     nil,
@@ -104,6 +104,7 @@ func TestMakeComponentPolicies_NoEndpoints(t *testing.T) {
 	result = MakeComponentPolicies(ComponentPolicyParams{
 		Namespace:     "dp-ns",
 		CPNamespace:   "cp-ns",
+		Environment:   "development",
 		ComponentName: "my-comp",
 		PodSelectors:  map[string]string{"app": "test"},
 		Endpoints:     map[string]openchoreov1alpha1.WorkloadEndpoint{},
@@ -117,6 +118,7 @@ func TestMakeComponentPolicies_ProjectOnly(t *testing.T) {
 	policies := MakeComponentPolicies(ComponentPolicyParams{
 		Namespace:     "dp-ns",
 		CPNamespace:   "cp-ns",
+		Environment:   "development",
 		ComponentName: "web-app",
 		PodSelectors: map[string]string{
 			labels.LabelKeyComponentName: "web-app",
@@ -156,6 +158,7 @@ func TestMakeComponentPolicies_NamespaceVisibility(t *testing.T) {
 	policies := MakeComponentPolicies(ComponentPolicyParams{
 		Namespace:     "dp-ns",
 		CPNamespace:   "cp-ns",
+		Environment:   "development",
 		ComponentName: "api-svc",
 		PodSelectors:  map[string]string{"app": "api-svc"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
@@ -190,11 +193,9 @@ spec:
           port: 9090
     - from:
         - namespaceSelector:
-            matchExpressions:
-              - key: openchoreo.dev/controlplane-namespace
-                operator: In
-                values:
-                  - cp-ns
+            matchLabels:
+              openchoreo.dev/controlplane-namespace: cp-ns
+              openchoreo.dev/environment: development
       ports:
         - protocol: TCP
           port: 9090
@@ -205,6 +206,7 @@ func TestMakeComponentPolicies_ExternalVisibility(t *testing.T) {
 	policies := MakeComponentPolicies(ComponentPolicyParams{
 		Namespace:     "dp-ns",
 		CPNamespace:   "cp-ns",
+		Environment:   "development",
 		ComponentName: "public-api",
 		PodSelectors:  map[string]string{"app": "public-api"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
@@ -252,6 +254,7 @@ func TestMakeComponentPolicies_InternalVisibility(t *testing.T) {
 	policies := MakeComponentPolicies(ComponentPolicyParams{
 		Namespace:     "dp-ns",
 		CPNamespace:   "cp-ns",
+		Environment:   "development",
 		ComponentName: "internal-svc",
 		PodSelectors:  map[string]string{"app": "internal-svc"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
@@ -299,6 +302,7 @@ func TestMakeComponentPolicies_MixedVisibility(t *testing.T) {
 	policies := MakeComponentPolicies(ComponentPolicyParams{
 		Namespace:     "dp-ns",
 		CPNamespace:   "cp-ns",
+		Environment:   "development",
 		ComponentName: "mixed-svc",
 		PodSelectors:  map[string]string{"app": "mixed-svc"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
@@ -348,11 +352,9 @@ spec:
           port: 8443
     - from:
         - namespaceSelector:
-            matchExpressions:
-              - key: openchoreo.dev/controlplane-namespace
-                operator: In
-                values:
-                  - cp-ns
+            matchLabels:
+              openchoreo.dev/controlplane-namespace: cp-ns
+              openchoreo.dev/environment: development
       ports:
         - protocol: TCP
           port: 8080
@@ -371,6 +373,7 @@ func TestMakeComponentPolicies_UDPEndpoint(t *testing.T) {
 	policies := MakeComponentPolicies(ComponentPolicyParams{
 		Namespace:     "dp-ns",
 		CPNamespace:   "cp-ns",
+		Environment:   "development",
 		ComponentName: "dns-svc",
 		PodSelectors:  map[string]string{"app": "dns-svc"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
@@ -407,6 +410,7 @@ func TestMakeComponentPolicies_NameTruncation(t *testing.T) {
 	policies := MakeComponentPolicies(ComponentPolicyParams{
 		Namespace:     "dp-ns",
 		CPNamespace:   "cp-ns",
+		Environment:   "development",
 		ComponentName: longName,
 		PodSelectors:  map[string]string{"app": "test"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
