@@ -8,12 +8,13 @@ import (
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ExtractValidationMessage extracts cause messages from a K8s StatusError, falling back to a generic message to avoid leaking internal details.
 func ExtractValidationMessage(err error) string {
 	var statusErr *apierrors.StatusError
-	if errors.As(err, &statusErr) && statusErr.ErrStatus.Details != nil {
+	if errors.As(err, &statusErr) && statusErr.ErrStatus.Reason == metav1.StatusReasonInvalid && statusErr.ErrStatus.Details != nil {
 		var msgs []string
 		for _, cause := range statusErr.ErrStatus.Details.Causes {
 			if cause.Message != "" {

@@ -110,6 +110,10 @@ func (s *workloadService) UpdateWorkload(ctx context.Context, namespaceName stri
 	w.Namespace = namespaceName
 
 	if err := s.k8sClient.Update(ctx, w); err != nil {
+		if apierrors.IsInvalid(err) {
+			s.logger.Error("Workload update rejected by validation", "error", err)
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to update workload CR", "error", err)
 		return nil, fmt.Errorf("failed to update workload: %w", err)
 	}

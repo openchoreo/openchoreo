@@ -120,6 +120,10 @@ func (s *componentService) UpdateComponent(ctx context.Context, namespaceName st
 	component.Namespace = namespaceName
 
 	if err := s.k8sClient.Update(ctx, component); err != nil {
+		if apierrors.IsInvalid(err) {
+			s.logger.Error("Component update rejected by validation", "error", err)
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to update component CR", "error", err)
 		return nil, fmt.Errorf("failed to update component: %w", err)
 	}
