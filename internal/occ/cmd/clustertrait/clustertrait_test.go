@@ -28,18 +28,18 @@ func captureStdout(t *testing.T, fn func()) string {
 	defer func() {
 		os.Stdout = origStdout
 		w.Close()
+		r.Close()
 	}()
 
 	fn()
 
-	w.Close()
 	os.Stdout = origStdout
+	w.Close()
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, r); err != nil {
 		t.Fatalf("failed to read captured output: %v", err)
 	}
-	r.Close()
 
 	return buf.String()
 }
