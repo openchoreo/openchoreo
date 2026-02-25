@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package releasebinding
@@ -754,3 +754,396 @@ func unmarshalHTTPRoute(raw []byte) *unstructured.Unstructured {
 	_ = obj.UnmarshalJSON(raw)
 	return obj
 }
+
+// makeServiceJSON builds an unstructured v1/Service JSON blob for testing.
+func makeServiceJSON(name, namespace string, ports []int32) []byte {
+	svcPorts := make([]interface{}, 0, len(ports))
+	for _, p := range ports {
+		svcPorts = append(svcPorts, map[string]interface{}{
+			"port":     p,
+			"protocol": "TCP",
+		})
+	}
+	svc := map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Service",
+		"metadata": map[string]interface{}{
+			"name":      name,
+			"namespace": namespace,
+		},
+		"spec": map[string]interface{}{
+			"ports": svcPorts,
+		},
+	}
+	b, _ := json.Marshal(svc)
+	return b
+}
+
+var _ = Describe("extractAllServiceInfos", func() {
+	It("should return empty when no Service is present", func() {
+		raw := makeHTTPRouteJSON(httpRouteOpts{name: "route"})
+		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{makeResource(raw)})
+		Expect(result).To(BeEmpty())
+	})
+
+	It("should extract name, namespace, and ports from a Service", func() {
+		raw := makeServiceJSON("my-component", "dp-ns-proj-dev-abc123", []int32{8080, 9090})
+		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{makeResource(raw)})
+		Expect(result).To(HaveLen(1))
+		Expect(result[0].name).To(Equal("my-component"))
+		Expect(result[0].namespace).To(Equal("dp-ns-proj-dev-abc123"))
+		Expect(result[0].ports).To(Equal([]int32{8080, 9090}))
+	})
+
+	It("should return all Services when multiple are present", func() {
+		svc1 := makeServiceJSON("first-svc", "ns1", []int32{8080})
+		svc2 := makeServiceJSON("second-svc", "ns2", []int32{9090})
+		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{
+			makeResource(svc1),
+			makeResource(svc2),
+		})
+		Expect(result).To(HaveLen(2))
+		Expect(result[0].name).To(Equal("first-svc"))
+		Expect(result[1].name).To(Equal("second-svc"))
+	})
+
+	It("should handle Service with no ports", func() {
+		raw := makeServiceJSON("my-component", "dp-ns", nil)
+		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{makeResource(raw)})
+		Expect(result).To(HaveLen(1))
+		Expect(result[0].name).To(Equal("my-component"))
+		Expect(result[0].ports).To(BeEmpty())
+	})
+
+	It("should skip resources with nil Object", func() {
+		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{
+			{ID: "empty", Object: nil},
+		})
+		Expect(result).To(BeEmpty())
+	})
+})
+
+var _ = Describe("bestMatchingService", func() {
+	It("should return nil when no services are provided", func() {
+		endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
+		Expect(bestMatchingService(nil, endpoints)).To(BeNil())
+	})
+
+	It("should return the only service when there is one", func() {
+		services := []serviceInfo{{name: "svc", namespace: "ns", ports: []int32{8080}}}
+		endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
+		result := bestMatchingService(services, endpoints)
+		Expect(result).NotTo(BeNil())
+		Expect(result.name).To(Equal("svc"))
+	})
+
+	It("should select the service with the most matching endpoint ports", func() {
+		services := []serviceInfo{
+			{name: "svc-one-match", namespace: "ns", ports: []int32{8080}},
+			{name: "svc-two-matches", namespace: "ns", ports: []int32{8080, 9090}},
+		}
+		endpoints := makeEndpoints(
+			endpointEntry{name: "greeter", port: 8080},
+			endpointEntry{name: "health", port: 9090},
+		)
+		result := bestMatchingService(services, endpoints)
+		Expect(result).NotTo(BeNil())
+		Expect(result.name).To(Equal("svc-two-matches"))
+	})
+
+	It("should select the first service when multiple tie", func() {
+		services := []serviceInfo{
+			{name: "first", namespace: "ns", ports: []int32{8080}},
+			{name: "second", namespace: "ns", ports: []int32{8080}},
+		}
+		endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
+		result := bestMatchingService(services, endpoints)
+		Expect(result).NotTo(BeNil())
+		Expect(result.name).To(Equal("first"))
+	})
+
+	It("should handle services with no matching ports", func() {
+		services := []serviceInfo{
+			{name: "no-match", namespace: "ns", ports: []int32{3000}},
+		}
+		endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
+		result := bestMatchingService(services, endpoints)
+		Expect(result).NotTo(BeNil())
+		Expect(result.name).To(Equal("no-match"))
+	})
+})
+
+var _ = Describe("resolveServiceURLs", func() {
+	const (
+		svcName = "greeter"
+		svcNS   = "dp-acme-payment-dev-x1y2z3"
+	)
+
+	Context("when there are no endpoints", func() {
+		It("should return existing statuses unchanged", func() {
+			existing := []openchoreov1alpha1.EndpointURLStatus{
+				{Name: "foo"},
+			}
+			result := resolveServiceURLs(ctx, nil, nil, existing)
+			Expect(result).To(Equal(existing))
+		})
+	})
+
+	Context("when there is no rendered Service", func() {
+		It("should return existing statuses unchanged", func() {
+			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
+			routeJSON := makeHTTPRouteJSON(httpRouteOpts{name: "route"})
+			existing := []openchoreov1alpha1.EndpointURLStatus{
+				{Name: "greeter"},
+			}
+			result := resolveServiceURLs(
+				ctx,
+				[]openchoreov1alpha1.Resource{makeResource(routeJSON)},
+				endpoints,
+				existing,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].ServiceURL).To(BeNil())
+		})
+	})
+
+	Context("when Service port matches endpoint port", func() {
+		It("should set ServiceURL on existing endpoint status", func() {
+			svcJSON := makeServiceJSON(svcName, svcNS, []int32{8080})
+			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
+			existing := []openchoreov1alpha1.EndpointURLStatus{
+				{Name: "greeter"},
+			}
+			result := resolveServiceURLs(
+				ctx,
+				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				endpoints,
+				existing,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].ServiceURL).NotTo(BeNil())
+			Expect(result[0].ServiceURL.Scheme).To(Equal("http"))
+			Expect(result[0].ServiceURL.Host).To(Equal(
+				fmt.Sprintf("%s.%s.svc.cluster.local", svcName, svcNS)))
+			Expect(result[0].ServiceURL.Port).To(Equal(int32(8080)))
+		})
+	})
+
+	Context("when endpoint has a basePath", func() {
+		It("should include basePath in ServiceURL", func() {
+			svcJSON := makeServiceJSON(svcName, svcNS, []int32{8080})
+			endpoints := map[string]openchoreov1alpha1.WorkloadEndpoint{
+				"greeter": {
+					Port:     8080,
+					Type:     openchoreov1alpha1.EndpointTypeHTTP,
+					BasePath: "/api/v1",
+				},
+			}
+			existing := []openchoreov1alpha1.EndpointURLStatus{
+				{Name: "greeter"},
+			}
+			result := resolveServiceURLs(
+				ctx,
+				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				endpoints,
+				existing,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].ServiceURL).NotTo(BeNil())
+			Expect(result[0].ServiceURL.Path).To(Equal("/api/v1"))
+		})
+	})
+
+	Context("when endpoint has no basePath", func() {
+		It("should leave Path empty in ServiceURL", func() {
+			svcJSON := makeServiceJSON(svcName, svcNS, []int32{8080})
+			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
+			existing := []openchoreov1alpha1.EndpointURLStatus{
+				{Name: "greeter"},
+			}
+			result := resolveServiceURLs(
+				ctx,
+				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				endpoints,
+				existing,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].ServiceURL).NotTo(BeNil())
+			Expect(result[0].ServiceURL.Path).To(BeEmpty())
+		})
+	})
+
+	Context("when Service port does not match endpoint port", func() {
+		It("should not set ServiceURL", func() {
+			svcJSON := makeServiceJSON(svcName, svcNS, []int32{9999})
+			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
+			existing := []openchoreov1alpha1.EndpointURLStatus{
+				{Name: "greeter"},
+			}
+			result := resolveServiceURLs(
+				ctx,
+				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				endpoints,
+				existing,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].ServiceURL).To(BeNil())
+		})
+	})
+
+	Context("with gRPC endpoint type", func() {
+		It("should use grpc scheme", func() {
+			svcJSON := makeServiceJSON(svcName, svcNS, []int32{9090})
+			endpoints := makeEndpoints(endpointEntry{
+				name:   "grpc-ep",
+				port:   9090,
+				epType: openchoreov1alpha1.EndpointTypeGRPC,
+			})
+			result := resolveServiceURLs(
+				ctx,
+				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				endpoints,
+				nil,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Name).To(Equal("grpc-ep"))
+			Expect(result[0].ServiceURL.Scheme).To(Equal("grpc"))
+		})
+	})
+
+	Context("with TCP endpoint type", func() {
+		It("should use tcp scheme and create new entry", func() {
+			svcJSON := makeServiceJSON(svcName, svcNS, []int32{5432})
+			endpoints := makeEndpoints(endpointEntry{
+				name:   "db",
+				port:   5432,
+				epType: openchoreov1alpha1.EndpointTypeTCP,
+			})
+			result := resolveServiceURLs(
+				ctx,
+				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				endpoints,
+				nil,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Name).To(Equal("db"))
+			Expect(result[0].ServiceURL.Scheme).To(Equal("tcp"))
+			Expect(result[0].Type).To(Equal(openchoreov1alpha1.EndpointTypeTCP))
+		})
+	})
+
+	Context("with UDP endpoint type", func() {
+		It("should use udp scheme", func() {
+			svcJSON := makeServiceJSON(svcName, svcNS, []int32{5353})
+			endpoints := makeEndpoints(endpointEntry{
+				name:   "dns",
+				port:   5353,
+				epType: openchoreov1alpha1.EndpointTypeUDP,
+			})
+			result := resolveServiceURLs(
+				ctx,
+				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				endpoints,
+				nil,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].ServiceURL.Scheme).To(Equal("udp"))
+		})
+	})
+
+	Context("with multiple endpoints and matching Service ports", func() {
+		It("should set ServiceURL for each matching endpoint", func() {
+			svcJSON := makeServiceJSON(svcName, svcNS, []int32{8080, 9090})
+			endpoints := makeEndpoints(
+				endpointEntry{name: "greeter", port: 8080},
+				endpointEntry{name: "health", port: 9090},
+			)
+			existing := []openchoreov1alpha1.EndpointURLStatus{
+				{Name: "greeter"},
+				{Name: "health"},
+			}
+			result := resolveServiceURLs(
+				ctx,
+				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				endpoints,
+				existing,
+			)
+			Expect(result).To(HaveLen(2))
+			Expect(result[0].ServiceURL).NotTo(BeNil())
+			Expect(result[0].ServiceURL.Port).To(Equal(int32(8080)))
+			Expect(result[1].ServiceURL).NotTo(BeNil())
+			Expect(result[1].ServiceURL.Port).To(Equal(int32(9090)))
+		})
+	})
+
+	Context("coexistence with gateway URLs", func() {
+		It("should preserve existing ExternalURLs while adding ServiceURL", func() {
+			svcJSON := makeServiceJSON(svcName, svcNS, []int32{8080})
+			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
+			existing := []openchoreov1alpha1.EndpointURLStatus{
+				{
+					Name: "greeter",
+					ExternalURLs: &openchoreov1alpha1.EndpointGatewayURLs{
+						HTTPS: &openchoreov1alpha1.EndpointURL{
+							Scheme: "https",
+							Host:   "app.example.com",
+							Port:   443,
+						},
+					},
+				},
+			}
+			result := resolveServiceURLs(
+				ctx,
+				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				endpoints,
+				existing,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].ExternalURLs).NotTo(BeNil())
+			Expect(result[0].ExternalURLs.HTTPS.Host).To(Equal("app.example.com"))
+			Expect(result[0].ServiceURL).NotTo(BeNil())
+			Expect(result[0].ServiceURL.Host).To(Equal(
+				fmt.Sprintf("%s.%s.svc.cluster.local", svcName, svcNS)))
+		})
+	})
+
+	Context("with mixed existing and new endpoints", func() {
+		It("should update existing and append new entries in sorted order", func() {
+			svcJSON := makeServiceJSON(svcName, svcNS, []int32{8080, 5432})
+			endpoints := map[string]openchoreov1alpha1.WorkloadEndpoint{
+				"greeter": {Port: 8080, Type: openchoreov1alpha1.EndpointTypeHTTP},
+				"db":      {Port: 5432, Type: openchoreov1alpha1.EndpointTypeTCP},
+			}
+			existing := []openchoreov1alpha1.EndpointURLStatus{
+				{Name: "greeter"},
+			}
+			result := resolveServiceURLs(
+				ctx,
+				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				endpoints,
+				existing,
+			)
+			Expect(result).To(HaveLen(2))
+			Expect(result[0].Name).To(Equal("greeter"))
+			Expect(result[0].ServiceURL).NotTo(BeNil())
+			Expect(result[1].Name).To(Equal("db"))
+			Expect(result[1].ServiceURL).NotTo(BeNil())
+			Expect(result[1].ServiceURL.Scheme).To(Equal("tcp"))
+		})
+	})
+})
+
+var _ = Describe("schemeForEndpointType", func() {
+	DescribeTable("should return correct scheme",
+		func(epType openchoreov1alpha1.EndpointType, expected string) {
+			Expect(schemeForEndpointType(epType)).To(Equal(expected))
+		},
+		Entry("HTTP", openchoreov1alpha1.EndpointTypeHTTP, "http"),
+		Entry("REST", openchoreov1alpha1.EndpointTypeREST, "http"),
+		Entry("GraphQL", openchoreov1alpha1.EndpointTypeGraphQL, "http"),
+		Entry("Websocket", openchoreov1alpha1.EndpointTypeWebsocket, "http"),
+		Entry("gRPC", openchoreov1alpha1.EndpointTypeGRPC, "grpc"),
+		Entry("TCP", openchoreov1alpha1.EndpointTypeTCP, "tcp"),
+		Entry("UDP", openchoreov1alpha1.EndpointTypeUDP, "udp"),
+	)
+})
