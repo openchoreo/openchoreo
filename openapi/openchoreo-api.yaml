@@ -3568,7 +3568,7 @@ paths:
   # Secret Reference Endpoints
   # =============================================================================
 
-  /api/v1/namespaces/{namespaceName}/secret-references:
+  /api/v1/namespaces/{namespaceName}/secretreferences:
     get:
       operationId: listSecretReferences
       summary: List secret references
@@ -3623,7 +3623,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/secret-references/{secretReferenceName}:
+  /api/v1/namespaces/{namespaceName}/secretreferences/{secretReferenceName}:
     get:
       operationId: getSecretReference
       summary: Get secret reference
@@ -4095,7 +4095,7 @@ paths:
   # Deployment Pipeline Endpoints
   # =============================================================================
 
-  /api/v1/namespaces/{namespaceName}/deployment-pipelines:
+  /api/v1/namespaces/{namespaceName}/deploymentpipelines:
     get:
       operationId: listDeploymentPipelines
       summary: List deployment pipelines
@@ -4150,7 +4150,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/deployment-pipelines/{deploymentPipelineName}:
+  /api/v1/namespaces/{namespaceName}/deploymentpipelines/{deploymentPipelineName}:
     get:
       operationId: getDeploymentPipeline
       summary: Get deployment pipeline
@@ -4231,7 +4231,7 @@ paths:
   # Observability Alerts Notification Channel Endpoints
   # =============================================================================
 
-  /api/v1/namespaces/{namespaceName}/observability-alerts-notification-channels:
+  /api/v1/namespaces/{namespaceName}/observabilityalertsnotificationchannels:
     get:
       operationId: listObservabilityAlertsNotificationChannels
       summary: List observability alerts notification channels
@@ -4286,7 +4286,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/observability-alerts-notification-channels/{observabilityAlertsNotificationChannelName}:
+  /api/v1/namespaces/{namespaceName}/observabilityalertsnotificationchannels/{observabilityAlertsNotificationChannelName}:
     get:
       operationId: getObservabilityAlertsNotificationChannel
       summary: Get observability alerts notification channel

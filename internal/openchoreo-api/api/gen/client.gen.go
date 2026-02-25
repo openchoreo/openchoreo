@@ -6655,7 +6655,7 @@ func NewListDeploymentPipelinesRequest(server string, namespaceName NamespaceNam
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deployment-pipelines", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deploymentpipelines", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -6738,7 +6738,7 @@ func NewCreateDeploymentPipelineRequestWithBody(server string, namespaceName Nam
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deployment-pipelines", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deploymentpipelines", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -6781,7 +6781,7 @@ func NewDeleteDeploymentPipelineRequest(server string, namespaceName NamespaceNa
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deployment-pipelines/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deploymentpipelines/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -6822,7 +6822,7 @@ func NewGetDeploymentPipelineRequest(server string, namespaceName NamespaceNameP
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deployment-pipelines/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deploymentpipelines/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -6874,7 +6874,7 @@ func NewUpdateDeploymentPipelineRequestWithBody(server string, namespaceName Nam
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deployment-pipelines/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deploymentpipelines/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -7247,7 +7247,7 @@ func NewListObservabilityAlertsNotificationChannelsRequest(server string, namesp
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observability-alerts-notification-channels", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observabilityalertsnotificationchannels", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -7330,7 +7330,7 @@ func NewCreateObservabilityAlertsNotificationChannelRequestWithBody(server strin
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observability-alerts-notification-channels", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observabilityalertsnotificationchannels", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -7373,7 +7373,7 @@ func NewDeleteObservabilityAlertsNotificationChannelRequest(server string, names
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observability-alerts-notification-channels/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observabilityalertsnotificationchannels/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -7414,7 +7414,7 @@ func NewGetObservabilityAlertsNotificationChannelRequest(server string, namespac
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observability-alerts-notification-channels/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observabilityalertsnotificationchannels/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -7466,7 +7466,7 @@ func NewUpdateObservabilityAlertsNotificationChannelRequestWithBody(server strin
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observability-alerts-notification-channels/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observabilityalertsnotificationchannels/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9227,7 +9227,7 @@ func NewListSecretReferencesRequest(server string, namespaceName NamespaceNamePa
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secret-references", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secretreferences", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9310,7 +9310,7 @@ func NewCreateSecretReferenceRequestWithBody(server string, namespaceName Namesp
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secret-references", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secretreferences", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9353,7 +9353,7 @@ func NewDeleteSecretReferenceRequest(server string, namespaceName NamespaceNameP
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secret-references/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secretreferences/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9394,7 +9394,7 @@ func NewGetSecretReferenceRequest(server string, namespaceName NamespaceNamePara
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secret-references/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secretreferences/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9446,7 +9446,7 @@ func NewUpdateSecretReferenceRequestWithBody(server string, namespaceName Namesp
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secret-references/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secretreferences/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
