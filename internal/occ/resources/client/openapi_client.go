@@ -525,6 +525,342 @@ func (c *Client) GetEnvironment(ctx context.Context, namespaceName, envName stri
 	return resp.JSON200, nil
 }
 
+// GetNamespace retrieves a specific namespace
+func (c *Client) GetNamespace(ctx context.Context, namespaceName string) (*gen.Namespace, error) {
+	resp, err := c.client.GetNamespaceWithResponse(ctx, namespaceName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get namespace: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteNamespace deletes a namespace
+func (c *Client) DeleteNamespace(ctx context.Context, namespaceName string) error {
+	resp, err := c.client.DeleteNamespaceWithResponse(ctx, namespaceName)
+	if err != nil {
+		return fmt.Errorf("failed to delete namespace: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// DeleteEnvironment deletes an environment
+func (c *Client) DeleteEnvironment(ctx context.Context, namespaceName, envName string) error {
+	resp, err := c.client.DeleteEnvironmentWithResponse(ctx, namespaceName, envName)
+	if err != nil {
+		return fmt.Errorf("failed to delete environment: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// GetDataPlane retrieves a specific data plane
+func (c *Client) GetDataPlane(ctx context.Context, namespaceName, dpName string) (*gen.DataPlane, error) {
+	resp, err := c.client.GetDataPlaneWithResponse(ctx, namespaceName, dpName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get data plane: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteDataPlane deletes a data plane
+func (c *Client) DeleteDataPlane(ctx context.Context, namespaceName, dpName string) error {
+	resp, err := c.client.DeleteDataPlaneWithResponse(ctx, namespaceName, dpName)
+	if err != nil {
+		return fmt.Errorf("failed to delete data plane: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// GetBuildPlane retrieves a specific build plane
+func (c *Client) GetBuildPlane(ctx context.Context, namespaceName, buildPlaneName string) (*gen.BuildPlane, error) {
+	resp, err := c.client.GetBuildPlaneWithResponse(ctx, namespaceName, buildPlaneName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get build plane: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteBuildPlane deletes a build plane
+func (c *Client) DeleteBuildPlane(ctx context.Context, namespaceName, buildPlaneName string) error {
+	resp, err := c.client.DeleteBuildPlaneWithResponse(ctx, namespaceName, buildPlaneName)
+	if err != nil {
+		return fmt.Errorf("failed to delete build plane: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// GetObservabilityPlane retrieves a specific observability plane
+func (c *Client) GetObservabilityPlane(ctx context.Context, namespaceName, observabilityPlaneName string) (*gen.ObservabilityPlane, error) {
+	resp, err := c.client.GetObservabilityPlaneWithResponse(ctx, namespaceName, observabilityPlaneName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get observability plane: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteObservabilityPlane deletes an observability plane
+func (c *Client) DeleteObservabilityPlane(ctx context.Context, namespaceName, observabilityPlaneName string) error {
+	resp, err := c.client.DeleteObservabilityPlaneWithResponse(ctx, namespaceName, observabilityPlaneName)
+	if err != nil {
+		return fmt.Errorf("failed to delete observability plane: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// GetClusterComponentType retrieves a specific cluster component type
+func (c *Client) GetClusterComponentType(ctx context.Context, cctName string) (*gen.ClusterComponentType, error) {
+	resp, err := c.client.GetClusterComponentTypeWithResponse(ctx, cctName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster component type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteClusterComponentType deletes a cluster component type
+func (c *Client) DeleteClusterComponentType(ctx context.Context, cctName string) error {
+	resp, err := c.client.DeleteClusterComponentTypeWithResponse(ctx, cctName)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster component type: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// GetClusterTrait retrieves a specific cluster trait
+func (c *Client) GetClusterTrait(ctx context.Context, clusterTraitName string) (*gen.ClusterTrait, error) {
+	resp, err := c.client.GetClusterTraitWithResponse(ctx, clusterTraitName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster trait: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteClusterTrait deletes a cluster trait
+func (c *Client) DeleteClusterTrait(ctx context.Context, clusterTraitName string) error {
+	resp, err := c.client.DeleteClusterTraitWithResponse(ctx, clusterTraitName)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster trait: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// GetSecretReference retrieves a specific secret reference
+func (c *Client) GetSecretReference(ctx context.Context, namespaceName, secretReferenceName string) (*gen.SecretReference, error) {
+	resp, err := c.client.GetSecretReferenceWithResponse(ctx, namespaceName, secretReferenceName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secret reference: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteSecretReference deletes a secret reference
+func (c *Client) DeleteSecretReference(ctx context.Context, namespaceName, secretReferenceName string) error {
+	resp, err := c.client.DeleteSecretReferenceWithResponse(ctx, namespaceName, secretReferenceName)
+	if err != nil {
+		return fmt.Errorf("failed to delete secret reference: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// GetWorkflowRun retrieves a specific workflow run
+func (c *Client) GetWorkflowRun(ctx context.Context, namespaceName, runName string) (*gen.WorkflowRun, error) {
+	resp, err := c.client.GetWorkflowRunWithResponse(ctx, namespaceName, runName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow run: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// GetWorkload retrieves a specific workload
+func (c *Client) GetWorkload(ctx context.Context, namespaceName, workloadName string) (*gen.Workload, error) {
+	resp, err := c.client.GetWorkloadWithResponse(ctx, namespaceName, workloadName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workload: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// ListWorkloads retrieves all workloads for a namespace
+func (c *Client) ListWorkloads(ctx context.Context, namespaceName string) (*gen.WorkloadList, error) {
+	resp, err := c.client.ListWorkloadsWithResponse(ctx, namespaceName, &gen.ListWorkloadsParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list workloads: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteWorkload deletes a workload
+func (c *Client) DeleteWorkload(ctx context.Context, namespaceName, workloadName string) error {
+	resp, err := c.client.DeleteWorkloadWithResponse(ctx, namespaceName, workloadName)
+	if err != nil {
+		return fmt.Errorf("failed to delete workload: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// GetDeploymentPipeline retrieves a specific deployment pipeline
+func (c *Client) GetDeploymentPipeline(ctx context.Context, namespaceName, deploymentPipelineName string) (*gen.DeploymentPipeline, error) {
+	resp, err := c.client.GetDeploymentPipelineWithResponse(ctx, namespaceName, deploymentPipelineName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployment pipeline: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// ListDeploymentPipelines retrieves all deployment pipelines for a namespace
+func (c *Client) ListDeploymentPipelines(ctx context.Context, namespaceName string) (*gen.DeploymentPipelineList, error) {
+	resp, err := c.client.ListDeploymentPipelinesWithResponse(ctx, namespaceName, &gen.ListDeploymentPipelinesParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list deployment pipelines: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteDeploymentPipeline deletes a deployment pipeline
+func (c *Client) DeleteDeploymentPipeline(ctx context.Context, namespaceName, deploymentPipelineName string) error {
+	resp, err := c.client.DeleteDeploymentPipelineWithResponse(ctx, namespaceName, deploymentPipelineName)
+	if err != nil {
+		return fmt.Errorf("failed to delete deployment pipeline: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// GetReleaseBinding retrieves a specific release binding
+func (c *Client) GetReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) (*gen.ReleaseBinding, error) {
+	resp, err := c.client.GetReleaseBindingWithResponse(ctx, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteReleaseBinding deletes a release binding
+func (c *Client) DeleteReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) error {
+	resp, err := c.client.DeleteReleaseBindingWithResponse(ctx, namespaceName, releaseBindingName)
+	if err != nil {
+		return fmt.Errorf("failed to delete release binding: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// GetComponentRelease retrieves a specific component release
+func (c *Client) GetComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) (*gen.ComponentRelease, error) {
+	resp, err := c.client.GetComponentReleaseWithResponse(ctx, namespaceName, componentReleaseName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get component release: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// ListObservabilityAlertsNotificationChannels retrieves all observability alerts notification channels for a namespace
+func (c *Client) ListObservabilityAlertsNotificationChannels(ctx context.Context, namespaceName string) (*gen.ObservabilityAlertsNotificationChannelList, error) {
+	resp, err := c.client.ListObservabilityAlertsNotificationChannelsWithResponse(ctx, namespaceName, &gen.ListObservabilityAlertsNotificationChannelsParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list observability alerts notification channels: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// GetObservabilityAlertsNotificationChannel retrieves a specific observability alerts notification channel
+func (c *Client) GetObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName, channelName string) (*gen.ObservabilityAlertsNotificationChannel, error) {
+	resp, err := c.client.GetObservabilityAlertsNotificationChannelWithResponse(ctx, namespaceName, channelName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get observability alerts notification channel: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteObservabilityAlertsNotificationChannel deletes an observability alerts notification channel
+func (c *Client) DeleteObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName, channelName string) error {
+	resp, err := c.client.DeleteObservabilityAlertsNotificationChannelWithResponse(ctx, namespaceName, channelName)
+	if err != nil {
+		return fmt.Errorf("failed to delete observability alerts notification channel: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
 // GetEnvironmentObserverURL retrieves the observer URL for an environment
 func (c *Client) GetEnvironmentObserverURL(ctx context.Context, namespaceName, envName string) (string, error) {
 	resp, err := c.client.GetEnvironmentObserverURLWithResponse(ctx, namespaceName, envName)

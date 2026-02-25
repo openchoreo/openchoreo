@@ -9,3 +9,20 @@ type ListParams struct {
 }
 
 func (p ListParams) GetNamespace() string { return p.Namespace }
+
+// GetParams defines parameters for getting a single component type
+type GetParams struct {
+	Namespace         string
+	ComponentTypeName string
+}
+
+func (p GetParams) GetNamespace() string { return p.Namespace }
+
+// DeleteParams defines parameters for deleting a single component type
+type DeleteParams struct {
+	Namespace         string
+	ComponentTypeName string
+}
+
+func (p DeleteParams) GetNamespace() string         { return p.Namespace }
+func (p DeleteParams) GetComponentTypeName() string { return p.ComponentTypeName }

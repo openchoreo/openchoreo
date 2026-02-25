@@ -24,9 +24,45 @@ func NewClusterTraitCmd() *cobra.Command {
 
 	clusterTraitCmd.AddCommand(
 		newListClusterTraitCmd(),
+		newGetClusterTraitCmd(),
+		newDeleteClusterTraitCmd(),
 	)
 
 	return clusterTraitCmd
+}
+
+func newGetClusterTraitCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.GetClusterTrait.Use,
+		Short:   constants.GetClusterTrait.Short,
+		Long:    constants.GetClusterTrait.Long,
+		Example: constants.GetClusterTrait.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return clustertrait.New().Get(clustertrait.GetParams{
+				ClusterTraitName: args[0],
+			})
+		},
+	}
+	return cmd
+}
+
+func newDeleteClusterTraitCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteClusterTrait.Use,
+		Short:   constants.DeleteClusterTrait.Short,
+		Long:    constants.DeleteClusterTrait.Long,
+		Example: constants.DeleteClusterTrait.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return clustertrait.New().Delete(clustertrait.DeleteParams{
+				ClusterTraitName: args[0],
+			})
+		},
+	}
+	return cmd
 }
 
 func newListClusterTraitCmd() *cobra.Command {

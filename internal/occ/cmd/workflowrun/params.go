@@ -9,3 +9,11 @@ type ListParams struct {
 }
 
 func (p ListParams) GetNamespace() string { return p.Namespace }
+
+// GetParams defines parameters for getting a single workflow run
+type GetParams struct {
+	Namespace       string
+	WorkflowRunName string
+}
+
+func (p GetParams) GetNamespace() string { return p.Namespace }

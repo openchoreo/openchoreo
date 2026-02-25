@@ -9,3 +9,20 @@ type ListParams struct {
 }
 
 func (p ListParams) GetNamespace() string { return p.Namespace }
+
+// GetParams defines parameters for getting a single build plane
+type GetParams struct {
+	Namespace      string
+	BuildPlaneName string
+}
+
+func (p GetParams) GetNamespace() string { return p.Namespace }
+
+// DeleteParams defines parameters for deleting a single build plane
+type DeleteParams struct {
+	Namespace      string
+	BuildPlaneName string
+}
+
+func (p DeleteParams) GetNamespace() string      { return p.Namespace }
+func (p DeleteParams) GetBuildPlaneName() string { return p.BuildPlaneName }

@@ -4,15 +4,22 @@
 package workload
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"text/tabwriter"
+
+	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/kinds"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -136,4 +143,100 @@ func (i *WorkloadImpl) createWorkloadFileSystemMode(params api.CreateWorkloadPar
 		fmt.Printf("Workload written to: %s\n", writtenPath)
 	}
 	return nil
+}
+
+// Workload implements workload CRUD operations
+type Workload struct{}
+
+// NewWorkload creates a new workload implementation
+func NewWorkload() *Workload {
+	return &Workload{}
+}
+
+// List lists all workloads in a namespace
+func (w *Workload) List(params ListParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkload, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.ListWorkloads(ctx, params.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to list workloads: %w", err)
+	}
+
+	return printWorkloadList(result)
+}
+
+// Get retrieves a single workload and outputs it as YAML
+func (w *Workload) Get(params GetParams) error {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceWorkload, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.GetWorkload(ctx, params.Namespace, params.WorkloadName)
+	if err != nil {
+		return fmt.Errorf("failed to get workload: %w", err)
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal workload to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
+}
+
+// Delete deletes a single workload
+func (w *Workload) Delete(params DeleteParams) error {
+	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceWorkload, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := c.DeleteWorkload(ctx, params.Namespace, params.WorkloadName); err != nil {
+		return fmt.Errorf("failed to delete workload: %w", err)
+	}
+
+	fmt.Printf("Workload '%s' deleted\n", params.WorkloadName)
+	return nil
+}
+
+func printWorkloadList(list *gen.WorkloadList) error {
+	if list == nil || len(list.Items) == 0 {
+		fmt.Println("No workloads found")
+		return nil
+	}
+
+	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(tw, "NAME\tAGE")
+
+	for _, wl := range list.Items {
+		age := ""
+		if wl.Metadata.CreationTimestamp != nil {
+			age = utils.FormatAge(*wl.Metadata.CreationTimestamp)
+		}
+		fmt.Fprintf(tw, "%s\t%s\n",
+			wl.Metadata.Name,
+			age)
+	}
+
+	return tw.Flush()
 }

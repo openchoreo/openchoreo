@@ -10,6 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/componentrelease"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -28,6 +30,7 @@ func NewComponentReleaseCmd(impl api.CommandImplementationInterface) *cobra.Comm
 	cmd.AddCommand(
 		newGenerateCmd(impl),
 		newListCmd(impl),
+		newGetCmd(),
 	)
 	return cmd
 }
@@ -152,4 +155,24 @@ func newListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 		},
 		PreRunE: auth.RequireLogin(impl),
 	}).Build()
+}
+
+func newGetCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.GetComponentRelease.Use,
+		Short:   constants.GetComponentRelease.Short,
+		Long:    constants.GetComponentRelease.Long,
+		Example: constants.GetComponentRelease.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			return componentrelease.New().Get(componentrelease.GetParams{
+				Namespace:            namespace,
+				ComponentReleaseName: args[0],
+			})
+		},
+	}
+	flags.AddFlags(cmd, flags.Namespace)
+	return cmd
 }

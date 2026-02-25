@@ -9,6 +9,8 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
@@ -42,6 +44,32 @@ func (w *WorkflowRun) List(params ListParams) error {
 	}
 
 	return printList(result)
+}
+
+// Get retrieves a single workflow run and outputs it as YAML
+func (w *WorkflowRun) Get(params GetParams) error {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceWorkflowRun, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.GetWorkflowRun(ctx, params.Namespace, params.WorkflowRunName)
+	if err != nil {
+		return fmt.Errorf("failed to get workflow run: %w", err)
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal workflow run to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
 }
 
 func printList(list *gen.WorkflowRunList) error {

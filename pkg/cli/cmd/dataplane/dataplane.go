@@ -24,6 +24,8 @@ func NewDataPlaneCmd() *cobra.Command {
 
 	dataPlaneCmd.AddCommand(
 		newListDataPlaneCmd(),
+		newGetDataPlaneCmd(),
+		newDeleteDataPlaneCmd(),
 	)
 
 	return dataPlaneCmd
@@ -40,4 +42,44 @@ func newListDataPlaneCmd() *cobra.Command {
 		},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
+}
+
+func newGetDataPlaneCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.GetDataPlane.Use,
+		Short:   constants.GetDataPlane.Short,
+		Long:    constants.GetDataPlane.Long,
+		Example: constants.GetDataPlane.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			return dataplane.New().Get(dataplane.GetParams{
+				Namespace:     namespace,
+				DataPlaneName: args[0],
+			})
+		},
+	}
+	flags.AddFlags(cmd, flags.Namespace)
+	return cmd
+}
+
+func newDeleteDataPlaneCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteDataPlane.Use,
+		Short:   constants.DeleteDataPlane.Short,
+		Long:    constants.DeleteDataPlane.Long,
+		Example: constants.DeleteDataPlane.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			return dataplane.New().Delete(dataplane.DeleteParams{
+				Namespace:     namespace,
+				DataPlaneName: args[0],
+			})
+		},
+	}
+	flags.AddFlags(cmd, flags.Namespace)
+	return cmd
 }

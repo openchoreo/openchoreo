@@ -10,6 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	releasebinding "github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -28,6 +30,8 @@ func NewReleaseBindingCmd(impl api.CommandImplementationInterface) *cobra.Comman
 	cmd.AddCommand(
 		newGenerateCmd(impl),
 		newListCmd(impl),
+		newGetCmd(),
+		newDeleteCmd(),
 	)
 	return cmd
 }
@@ -137,4 +141,44 @@ func newListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 		},
 		PreRunE: auth.RequireLogin(impl),
 	}).Build()
+}
+
+func newGetCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.GetReleaseBinding.Use,
+		Short:   constants.GetReleaseBinding.Short,
+		Long:    constants.GetReleaseBinding.Long,
+		Example: constants.GetReleaseBinding.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			return releasebinding.New().Get(releasebinding.GetParams{
+				Namespace:          namespace,
+				ReleaseBindingName: args[0],
+			})
+		},
+	}
+	flags.AddFlags(cmd, flags.Namespace)
+	return cmd
+}
+
+func newDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteReleaseBinding.Use,
+		Short:   constants.DeleteReleaseBinding.Short,
+		Long:    constants.DeleteReleaseBinding.Long,
+		Example: constants.DeleteReleaseBinding.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			return releasebinding.New().Delete(releasebinding.DeleteParams{
+				Namespace:          namespace,
+				ReleaseBindingName: args[0],
+			})
+		},
+	}
+	flags.AddFlags(cmd, flags.Namespace)
+	return cmd
 }

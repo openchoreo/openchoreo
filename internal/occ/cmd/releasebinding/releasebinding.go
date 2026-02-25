@@ -399,3 +399,57 @@ func (r *ReleaseBindingImpl) printYAML(resource interface{}) error {
 	fmt.Print(string(data))
 	return nil
 }
+
+// ReleaseBinding implements decoupled release binding get/delete operations
+type ReleaseBinding struct{}
+
+// New creates a new release binding implementation
+func New() *ReleaseBinding {
+	return &ReleaseBinding{}
+}
+
+// Get retrieves a single release binding and outputs it as YAML
+func (r *ReleaseBinding) Get(params GetParams) error {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceReleaseBinding, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.GetReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName)
+	if err != nil {
+		return fmt.Errorf("failed to get release binding: %w", err)
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal release binding to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
+}
+
+// Delete deletes a single release binding
+func (r *ReleaseBinding) Delete(params DeleteParams) error {
+	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceReleaseBinding, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := c.DeleteReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName); err != nil {
+		return fmt.Errorf("failed to delete release binding: %w", err)
+	}
+
+	fmt.Printf("ReleaseBinding '%s' deleted\n", params.ReleaseBindingName)
+	return nil
+}

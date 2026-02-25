@@ -318,3 +318,37 @@ func (c *ComponentReleaseImpl) printYAML(resource interface{}) error {
 	fmt.Print(string(data))
 	return nil
 }
+
+// ComponentRelease implements decoupled component release get operations
+type ComponentRelease struct{}
+
+// New creates a new component release implementation
+func New() *ComponentRelease {
+	return &ComponentRelease{}
+}
+
+// Get retrieves a single component release and outputs it as YAML
+func (cr *ComponentRelease) Get(params GetParams) error {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponentRelease, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.GetComponentRelease(ctx, params.Namespace, params.ComponentReleaseName)
+	if err != nil {
+		return fmt.Errorf("failed to get component release: %w", err)
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal component release to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
+}

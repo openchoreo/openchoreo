@@ -24,9 +24,45 @@ func NewClusterComponentTypeCmd() *cobra.Command {
 
 	clusterComponentTypeCmd.AddCommand(
 		newListClusterComponentTypeCmd(),
+		newGetClusterComponentTypeCmd(),
+		newDeleteClusterComponentTypeCmd(),
 	)
 
 	return clusterComponentTypeCmd
+}
+
+func newGetClusterComponentTypeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.GetClusterComponentType.Use,
+		Short:   constants.GetClusterComponentType.Short,
+		Long:    constants.GetClusterComponentType.Long,
+		Example: constants.GetClusterComponentType.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return clustercomponenttype.New().Get(clustercomponenttype.GetParams{
+				ClusterComponentTypeName: args[0],
+			})
+		},
+	}
+	return cmd
+}
+
+func newDeleteClusterComponentTypeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteClusterComponentType.Use,
+		Short:   constants.DeleteClusterComponentType.Short,
+		Long:    constants.DeleteClusterComponentType.Long,
+		Example: constants.DeleteClusterComponentType.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return clustercomponenttype.New().Delete(clustercomponenttype.DeleteParams{
+				ClusterComponentTypeName: args[0],
+			})
+		},
+	}
+	return cmd
 }
 
 func newListClusterComponentTypeCmd() *cobra.Command {

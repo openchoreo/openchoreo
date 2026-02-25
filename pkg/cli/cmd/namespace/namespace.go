@@ -24,6 +24,8 @@ func NewNamespaceCmd() *cobra.Command {
 
 	namespaceCmd.AddCommand(
 		newListNamespaceCmd(),
+		newGetNamespaceCmd(),
+		newDeleteNamespaceCmd(),
 	)
 
 	return namespaceCmd
@@ -38,4 +40,36 @@ func newListNamespaceCmd() *cobra.Command {
 		},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
+}
+
+func newGetNamespaceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.GetNamespace.Use,
+		Short:   constants.GetNamespace.Short,
+		Long:    constants.GetNamespace.Long,
+		Example: constants.GetNamespace.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return namespace.New().Get(args[0])
+		},
+	}
+
+	return cmd
+}
+
+func newDeleteNamespaceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteNamespace.Use,
+		Short:   constants.DeleteNamespace.Short,
+		Long:    constants.DeleteNamespace.Long,
+		Example: constants.DeleteNamespace.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return namespace.New().Delete(args[0])
+		},
+	}
+
+	return cmd
 }

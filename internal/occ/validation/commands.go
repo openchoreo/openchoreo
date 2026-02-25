@@ -47,9 +47,10 @@ const (
 	ResourceDeploymentPipeline ResourceType = "deploymentpipeline"
 	ResourceConfigurationGroup ResourceType = "configurationgroup"
 	ResourceWorkload           ResourceType = "workload"
-	ResourceComponentRelease   ResourceType = "componentrelease"
-	ResourceReleaseBinding     ResourceType = "releasebinding"
-	ResourceWorkflowRun        ResourceType = "workflowrun"
+	ResourceComponentRelease                       ResourceType = "componentrelease"
+	ResourceReleaseBinding                         ResourceType = "releasebinding"
+	ResourceWorkflowRun                            ResourceType = "workflowrun"
+	ResourceObservabilityAlertsNotificationChannel ResourceType = "observabilityalertsnotificationchannel"
 )
 
 // checkRequiredFields verifies if all required fields are populated

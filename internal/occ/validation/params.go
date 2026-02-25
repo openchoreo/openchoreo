@@ -63,6 +63,8 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateReleaseBindingParams(cmdType, params)
 	case ResourceWorkflowRun:
 		return validateWorkflowRunParams(cmdType, params)
+	case ResourceObservabilityAlertsNotificationChannel:
+		return validateObservabilityAlertsNotificationChannelParams(cmdType, params)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resource)
 	}
@@ -279,16 +281,33 @@ func validateEnvironmentParams(cmdType CommandType, params interface{}) error {
 			}
 		}
 	case CmdGet:
-		if p, ok := params.(api.GetEnvironmentParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceEnvironment, fields)
-			}
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceEnvironment, p.GetNamespace())
 		}
+	case CmdDelete:
+		return validateDeleteEnvironmentParams(params)
 	case CmdList:
 		return validateEnvironmentListParams(params)
+	}
+	return nil
+}
+
+// deleteEnvironmentParams is an interface for delete environment parameter validation
+type deleteEnvironmentParams interface {
+	GetNamespace() string
+	GetEnvironmentName() string
+}
+
+// validateDeleteEnvironmentParams validates parameters for delete environment operations
+func validateDeleteEnvironmentParams(params interface{}) error {
+	if p, ok := params.(deleteEnvironmentParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetEnvironmentName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceEnvironment, fields)
+		}
 	}
 	return nil
 }
@@ -369,13 +388,8 @@ func validateLogParams(cmdType CommandType, params interface{}) error {
 func validateDataPlaneParams(cmdType CommandType, params interface{}) error {
 	switch cmdType {
 	case CmdGet:
-		if p, ok := params.(api.GetDataPlaneParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceDataPlane, fields)
-			}
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceDataPlane, p.GetNamespace())
 		}
 	case CmdCreate:
 		if p, ok := params.(api.CreateDataPlaneParams); ok {
@@ -387,6 +401,8 @@ func validateDataPlaneParams(cmdType CommandType, params interface{}) error {
 				return generateHelpError(cmdType, ResourceDataPlane, fields)
 			}
 		}
+	case CmdDelete:
+		return validateDeleteDataPlaneParams(params)
 	case CmdList:
 		return validateDataPlaneListParams(params)
 	}
@@ -455,10 +471,13 @@ func validateDeleteParams(cmdType CommandType, params interface{}) error {
 	return nil
 }
 
-// Add validation function:
+// validateDeploymentPipelineParams validates parameters for deployment pipeline operations
 func validateDeploymentPipelineParams(cmdType CommandType, params interface{}) error {
 	switch cmdType {
 	case CmdGet:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceDeploymentPipeline, p.GetNamespace())
+		}
 		if p, ok := params.(api.GetDeploymentPipelineParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
@@ -478,6 +497,32 @@ func validateDeploymentPipelineParams(cmdType CommandType, params interface{}) e
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDeploymentPipeline, fields)
 			}
+		}
+	case CmdDelete:
+		return validateDeleteDeploymentPipelineParams(params)
+	case CmdList:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdList, ResourceDeploymentPipeline, p.GetNamespace())
+		}
+	}
+	return nil
+}
+
+// deleteDeploymentPipelineParams is an interface for delete deployment pipeline parameter validation
+type deleteDeploymentPipelineParams interface {
+	GetNamespace() string
+	GetDeploymentPipelineName() string
+}
+
+// validateDeleteDeploymentPipelineParams validates parameters for delete deployment pipeline operations
+func validateDeleteDeploymentPipelineParams(params interface{}) error {
+	if p, ok := params.(deleteDeploymentPipelineParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetDeploymentPipelineName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceDeploymentPipeline, fields)
 		}
 	}
 	return nil
@@ -499,7 +544,7 @@ func validateConfigurationGroupParams(cmdType CommandType, params interface{}) e
 
 // validateWorkloadParams validates parameters for workload operations
 func validateWorkloadParams(cmdType CommandType, params interface{}) error {
-	switch cmdType { //nolint:gocritic // switch is needed for future extensibility
+	switch cmdType {
 	case CmdCreate:
 		if p, ok := params.(api.CreateWorkloadParams); ok {
 			fields := map[string]string{
@@ -511,6 +556,36 @@ func validateWorkloadParams(cmdType CommandType, params interface{}) error {
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceWorkload, fields)
 			}
+		}
+	case CmdList:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdList, ResourceWorkload, p.GetNamespace())
+		}
+	case CmdGet:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceWorkload, p.GetNamespace())
+		}
+	case CmdDelete:
+		return validateDeleteWorkloadParams(params)
+	}
+	return nil
+}
+
+// deleteWorkloadParams is an interface for delete workload parameter validation
+type deleteWorkloadParams interface {
+	GetNamespace() string
+	GetWorkloadName() string
+}
+
+// validateDeleteWorkloadParams validates parameters for delete workload operations
+func validateDeleteWorkloadParams(params interface{}) error {
+	if p, ok := params.(deleteWorkloadParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetWorkloadName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceWorkload, fields)
 		}
 	}
 	return nil
@@ -574,9 +649,36 @@ func validateDataPlaneListParams(params interface{}) error {
 	return nil
 }
 
+// deleteDataPlaneParams is an interface for delete data plane parameter validation
+type deleteDataPlaneParams interface {
+	GetNamespace() string
+	GetDataPlaneName() string
+}
+
+// validateDeleteDataPlaneParams validates parameters for delete data plane operations
+func validateDeleteDataPlaneParams(params interface{}) error {
+	if p, ok := params.(deleteDataPlaneParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetDataPlaneName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceDataPlane, fields)
+		}
+	}
+	return nil
+}
+
 // validateBuildPlaneParams validates parameters for build plane operations
 func validateBuildPlaneParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList {
+	switch cmdType {
+	case CmdGet:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceBuildPlane, p.GetNamespace())
+		}
+	case CmdDelete:
+		return validateDeleteBuildPlaneParams(params)
+	case CmdList:
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(CmdList, ResourceBuildPlane, p.GetNamespace())
 		}
@@ -584,9 +686,36 @@ func validateBuildPlaneParams(cmdType CommandType, params interface{}) error {
 	return nil
 }
 
+// deleteBuildPlaneParams is an interface for delete build plane parameter validation
+type deleteBuildPlaneParams interface {
+	GetNamespace() string
+	GetBuildPlaneName() string
+}
+
+// validateDeleteBuildPlaneParams validates parameters for delete build plane operations
+func validateDeleteBuildPlaneParams(params interface{}) error {
+	if p, ok := params.(deleteBuildPlaneParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetBuildPlaneName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceBuildPlane, fields)
+		}
+	}
+	return nil
+}
+
 // validateObservabilityPlaneParams validates parameters for observability plane operations
 func validateObservabilityPlaneParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList {
+	switch cmdType {
+	case CmdGet:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceObservabilityPlane, p.GetNamespace())
+		}
+	case CmdDelete:
+		return validateDeleteObservabilityPlaneParams(params)
+	case CmdList:
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(CmdList, ResourceObservabilityPlane, p.GetNamespace())
 		}
@@ -594,11 +723,58 @@ func validateObservabilityPlaneParams(cmdType CommandType, params interface{}) e
 	return nil
 }
 
+// deleteObservabilityPlaneParams is an interface for delete observability plane parameter validation
+type deleteObservabilityPlaneParams interface {
+	GetNamespace() string
+	GetObservabilityPlaneName() string
+}
+
+// validateDeleteObservabilityPlaneParams validates parameters for delete observability plane operations
+func validateDeleteObservabilityPlaneParams(params interface{}) error {
+	if p, ok := params.(deleteObservabilityPlaneParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetObservabilityPlaneName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceObservabilityPlane, fields)
+		}
+	}
+	return nil
+}
+
 // validateComponentTypeParams validates parameters for component type operations
 func validateComponentTypeParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList {
+	switch cmdType {
+	case CmdList:
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(CmdList, ResourceComponentType, p.GetNamespace())
+		}
+	case CmdGet:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceComponentType, p.GetNamespace())
+		}
+	case CmdDelete:
+		return validateDeleteComponentTypeParams(params)
+	}
+	return nil
+}
+
+// deleteComponentTypeParams is an interface for delete component type parameter validation
+type deleteComponentTypeParams interface {
+	GetNamespace() string
+	GetComponentTypeName() string
+}
+
+// validateDeleteComponentTypeParams validates parameters for delete component type operations
+func validateDeleteComponentTypeParams(params interface{}) error {
+	if p, ok := params.(deleteComponentTypeParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetComponentTypeName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceComponentType, fields)
 		}
 	}
 	return nil
@@ -606,9 +782,36 @@ func validateComponentTypeParams(cmdType CommandType, params interface{}) error 
 
 // validateTraitParams validates parameters for trait operations
 func validateTraitParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList {
+	switch cmdType {
+	case CmdList:
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(CmdList, ResourceTrait, p.GetNamespace())
+		}
+	case CmdGet:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceTrait, p.GetNamespace())
+		}
+	case CmdDelete:
+		return validateDeleteTraitParams(params)
+	}
+	return nil
+}
+
+// deleteTraitParams is an interface for delete trait parameter validation
+type deleteTraitParams interface {
+	GetNamespace() string
+	GetTraitName() string
+}
+
+// validateDeleteTraitParams validates parameters for delete trait operations
+func validateDeleteTraitParams(params interface{}) error {
+	if p, ok := params.(deleteTraitParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetTraitName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceTrait, fields)
 		}
 	}
 	return nil
@@ -626,9 +829,36 @@ func validateWorkflowParams(cmdType CommandType, params interface{}) error {
 
 // validateSecretReferenceParams validates parameters for secret reference operations
 func validateSecretReferenceParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList {
+	switch cmdType {
+	case CmdList:
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(CmdList, ResourceSecretReference, p.GetNamespace())
+		}
+	case CmdGet:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceSecretReference, p.GetNamespace())
+		}
+	case CmdDelete:
+		return validateDeleteSecretReferenceParams(params)
+	}
+	return nil
+}
+
+// deleteSecretReferenceParams is an interface for delete secret reference parameter validation
+type deleteSecretReferenceParams interface {
+	GetNamespace() string
+	GetSecretReferenceName() string
+}
+
+// validateDeleteSecretReferenceParams validates parameters for delete secret reference operations
+func validateDeleteSecretReferenceParams(params interface{}) error {
+	if p, ok := params.(deleteSecretReferenceParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetSecretReferenceName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceSecretReference, fields)
 		}
 	}
 	return nil
@@ -636,7 +866,8 @@ func validateSecretReferenceParams(cmdType CommandType, params interface{}) erro
 
 // validateComponentReleaseParams validates parameters for component release operations
 func validateComponentReleaseParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList {
+	switch cmdType {
+	case CmdList:
 		if p, ok := params.(api.ListComponentReleasesParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
@@ -647,13 +878,18 @@ func validateComponentReleaseParams(cmdType CommandType, params interface{}) err
 				return generateHelpError(CmdList, ResourceComponentRelease, fields)
 			}
 		}
+	case CmdGet:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceComponentRelease, p.GetNamespace())
+		}
 	}
 	return nil
 }
 
 // validateReleaseBindingParams validates parameters for release binding operations
 func validateReleaseBindingParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList {
+	switch cmdType {
+	case CmdList:
 		if p, ok := params.(api.ListReleaseBindingsParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
@@ -664,15 +900,83 @@ func validateReleaseBindingParams(cmdType CommandType, params interface{}) error
 				return generateHelpError(CmdList, ResourceReleaseBinding, fields)
 			}
 		}
+	case CmdGet:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceReleaseBinding, p.GetNamespace())
+		}
+	case CmdDelete:
+		return validateDeleteReleaseBindingParams(params)
+	}
+	return nil
+}
+
+// deleteReleaseBindingParams is an interface for delete release binding parameter validation
+type deleteReleaseBindingParams interface {
+	GetNamespace() string
+	GetReleaseBindingName() string
+}
+
+// validateDeleteReleaseBindingParams validates parameters for delete release binding operations
+func validateDeleteReleaseBindingParams(params interface{}) error {
+	if p, ok := params.(deleteReleaseBindingParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetReleaseBindingName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceReleaseBinding, fields)
+		}
 	}
 	return nil
 }
 
 // validateWorkflowRunParams validates parameters for workflow run operations
 func validateWorkflowRunParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList {
+	switch cmdType {
+	case CmdList:
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(CmdList, ResourceWorkflowRun, p.GetNamespace())
+		}
+	case CmdGet:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceWorkflowRun, p.GetNamespace())
+		}
+	}
+	return nil
+}
+
+// validateObservabilityAlertsNotificationChannelParams validates parameters for observability alerts notification channel operations
+func validateObservabilityAlertsNotificationChannelParams(cmdType CommandType, params interface{}) error {
+	switch cmdType {
+	case CmdList:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdList, ResourceObservabilityAlertsNotificationChannel, p.GetNamespace())
+		}
+	case CmdGet:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdGet, ResourceObservabilityAlertsNotificationChannel, p.GetNamespace())
+		}
+	case CmdDelete:
+		return validateDeleteObservabilityAlertsNotificationChannelParams(params)
+	}
+	return nil
+}
+
+// deleteObservabilityAlertsNotificationChannelParams is an interface for delete observability alerts notification channel parameter validation
+type deleteObservabilityAlertsNotificationChannelParams interface {
+	GetNamespace() string
+	GetChannelName() string
+}
+
+// validateDeleteObservabilityAlertsNotificationChannelParams validates parameters for delete observability alerts notification channel operations
+func validateDeleteObservabilityAlertsNotificationChannelParams(params interface{}) error {
+	if p, ok := params.(deleteObservabilityAlertsNotificationChannelParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetChannelName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceObservabilityAlertsNotificationChannel, fields)
 		}
 	}
 	return nil

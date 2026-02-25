@@ -6,6 +6,9 @@ package workload
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	workloadcmd "github.com/openchoreo/openchoreo/internal/occ/cmd/workload"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
@@ -22,6 +25,9 @@ func NewWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Command {
 
 	workloadCmd.AddCommand(
 		newCreateWorkloadCmd(impl),
+		newListWorkloadCmd(),
+		newGetWorkloadCmd(),
+		newDeleteWorkloadCmd(),
 	)
 
 	return workloadCmd
@@ -58,4 +64,57 @@ func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Comman
 			})
 		},
 	}).Build()
+}
+
+func newListWorkloadCmd() *cobra.Command {
+	return (&builder.CommandBuilder{
+		Command: constants.ListWorkload,
+		Flags:   []flags.Flag{flags.Namespace},
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(fg *builder.FlagGetter) error {
+			return workloadcmd.NewWorkload().List(workloadcmd.ListParams{
+				Namespace: fg.GetString(flags.Namespace),
+			})
+		},
+	}).Build()
+}
+
+func newGetWorkloadCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.GetWorkload.Use,
+		Short:   constants.GetWorkload.Short,
+		Long:    constants.GetWorkload.Long,
+		Example: constants.GetWorkload.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			return workloadcmd.NewWorkload().Get(workloadcmd.GetParams{
+				Namespace:    namespace,
+				WorkloadName: args[0],
+			})
+		},
+	}
+	flags.AddFlags(cmd, flags.Namespace)
+	return cmd
+}
+
+func newDeleteWorkloadCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteWorkload.Use,
+		Short:   constants.DeleteWorkload.Short,
+		Long:    constants.DeleteWorkload.Long,
+		Example: constants.DeleteWorkload.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			return workloadcmd.NewWorkload().Delete(workloadcmd.DeleteParams{
+				Namespace:    namespace,
+				WorkloadName: args[0],
+			})
+		},
+	}
+	flags.AddFlags(cmd, flags.Namespace)
+	return cmd
 }

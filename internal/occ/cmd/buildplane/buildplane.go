@@ -9,6 +9,8 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
@@ -42,6 +44,54 @@ func (b *BuildPlane) List(params ListParams) error {
 	}
 
 	return printList(result)
+}
+
+// Get retrieves a single build plane and outputs it as YAML
+func (b *BuildPlane) Get(params GetParams) error {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceBuildPlane, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.GetBuildPlane(ctx, params.Namespace, params.BuildPlaneName)
+	if err != nil {
+		return fmt.Errorf("failed to get build plane: %w", err)
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal build plane to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
+}
+
+// Delete deletes a single build plane
+func (b *BuildPlane) Delete(params DeleteParams) error {
+	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceBuildPlane, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := c.DeleteBuildPlane(ctx, params.Namespace, params.BuildPlaneName); err != nil {
+		return fmt.Errorf("failed to delete build plane: %w", err)
+	}
+
+	fmt.Printf("BuildPlane '%s' deleted\n", params.BuildPlaneName)
+	return nil
 }
 
 func printList(list *gen.BuildPlaneList) error {

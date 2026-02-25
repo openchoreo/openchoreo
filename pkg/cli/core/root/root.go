@@ -16,10 +16,12 @@ import (
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/dataplane"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/delete"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/environment"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/login"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/logout"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/namespace"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/observabilityalertsnotificationchannel"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/observabilityplane"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/project"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/releasebinding"
@@ -67,6 +69,8 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		workflowrun.NewWorkflowRunCmd(),
 		secretreference.NewSecretReferenceCmd(),
 		workload.NewWorkloadCmd(impl),
+		deploymentpipeline.NewDeploymentPipelineCmd(),
+		observabilityalertsnotificationchannel.NewObservabilityAlertsNotificationChannelCmd(),
 	)
 
 	return rootCmd

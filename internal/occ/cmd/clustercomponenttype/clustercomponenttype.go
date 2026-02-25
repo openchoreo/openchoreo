@@ -9,6 +9,8 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -37,6 +39,46 @@ func (c *ClusterComponentType) List() error {
 	}
 
 	return printList(result)
+}
+
+// Get retrieves a single cluster component type and outputs it as YAML
+func (c *ClusterComponentType) Get(params GetParams) error {
+	ctx := context.Background()
+
+	cl, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := cl.GetClusterComponentType(ctx, params.ClusterComponentTypeName)
+	if err != nil {
+		return fmt.Errorf("failed to get cluster component type: %w", err)
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal cluster component type to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
+}
+
+// Delete deletes a single cluster component type
+func (c *ClusterComponentType) Delete(params DeleteParams) error {
+	ctx := context.Background()
+
+	cl, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := cl.DeleteClusterComponentType(ctx, params.ClusterComponentTypeName); err != nil {
+		return fmt.Errorf("failed to delete cluster component type: %w", err)
+	}
+
+	fmt.Printf("ClusterComponentType '%s' deleted\n", params.ClusterComponentTypeName)
+	return nil
 }
 
 func printList(list *gen.ClusterComponentTypeList) error {

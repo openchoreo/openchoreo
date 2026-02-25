@@ -185,6 +185,22 @@ Examples:
   occ namespace list`,
 	}
 
+	GetNamespace = Command{
+		Use:   "get [NAMESPACE_NAME]",
+		Short: "Get a namespace",
+		Long:  `Get a namespace and display its details in YAML format.`,
+		Example: `  # Get a namespace
+  occ namespace get acme-corp`,
+	}
+
+	DeleteNamespace = Command{
+		Use:   "delete [NAMESPACE_NAME]",
+		Short: "Delete a namespace",
+		Long:  `Delete a namespace by name.`,
+		Example: `  # Delete a namespace
+  occ namespace delete acme-corp`,
+	}
+
 	ListProject = Command{
 		Use:   "list",
 		Short: "List projects",
@@ -393,6 +409,22 @@ This command allows you to:
   occ environment list --namespace acme-corp`,
 	}
 
+	GetEnvironment = Command{
+		Use:   "get [ENVIRONMENT_NAME]",
+		Short: "Get an environment",
+		Long:  `Get an environment and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get an environment
+  %[1]s environment get dev --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteEnvironment = Command{
+		Use:   "delete [ENVIRONMENT_NAME]",
+		Short: "Delete an environment",
+		Long:  `Delete an environment by name.`,
+		Example: fmt.Sprintf(`  # Delete an environment
+  %[1]s environment delete dev --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
 	CreateDataPlane = Command{
 		Use:     "dataplane",
 		Aliases: []string{"dp", "dataplanes"},
@@ -410,6 +442,22 @@ This command allows you to:
 		Long:  `List all data planes in a namespace.`,
 		Example: `  # List all data planes in a namespace
   occ dataplane list --namespace acme-corp`,
+	}
+
+	GetDataPlane = Command{
+		Use:   "get [DATAPLANE_NAME]",
+		Short: "Get a data plane",
+		Long:  `Get a data plane and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a data plane
+  %[1]s dataplane get primary-dataplane --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteDataPlane = Command{
+		Use:   "delete [DATAPLANE_NAME]",
+		Short: "Delete a data plane",
+		Long:  `Delete a data plane by name.`,
+		Example: fmt.Sprintf(`  # Delete a data plane
+  %[1]s dataplane delete primary-dataplane --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
 	ListEndpoint = Command{
@@ -482,6 +530,37 @@ This command allows you to:
   occ get deploymentpipeline --namespace acme-corp -o yaml`,
 	}
 
+	DeploymentPipelineRoot = Command{
+		Use:     "deploymentpipeline",
+		Aliases: []string{"deppipe", "deppipes", "deploymentpipelines"},
+		Short:   "Manage deployment pipelines",
+		Long:    `Manage deployment pipelines for OpenChoreo.`,
+	}
+
+	ListDeploymentPipelineDirect = Command{
+		Use:   "list",
+		Short: "List deployment pipelines",
+		Long:  `List all deployment pipelines in a namespace.`,
+		Example: `  # List all deployment pipelines in a namespace
+  occ deploymentpipeline list --namespace acme-corp`,
+	}
+
+	GetDeploymentPipeline = Command{
+		Use:   "get [DEPLOYMENT_PIPELINE_NAME]",
+		Short: "Get a deployment pipeline",
+		Long:  `Get a deployment pipeline and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a deployment pipeline
+  %[1]s deploymentpipeline get my-pipeline --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteDeploymentPipeline = Command{
+		Use:   "delete [DEPLOYMENT_PIPELINE_NAME]",
+		Short: "Delete a deployment pipeline",
+		Long:  `Delete a deployment pipeline by name.`,
+		Example: fmt.Sprintf(`  # Delete a deployment pipeline
+  %[1]s deploymentpipeline delete my-pipeline --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
 	ListConfigurationGroup = Command{
 		Use:     "configurationgroup [name]",
 		Aliases: []string{"cg", "configurationgroup"},
@@ -505,12 +584,44 @@ This command allows you to:
   occ buildplane list --namespace acme-corp`,
 	}
 
+	GetBuildPlane = Command{
+		Use:   "get [BUILDPLANE_NAME]",
+		Short: "Get a build plane",
+		Long:  `Get a build plane and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a build plane
+  %[1]s buildplane get primary-buildplane --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteBuildPlane = Command{
+		Use:   "delete [BUILDPLANE_NAME]",
+		Short: "Delete a build plane",
+		Long:  `Delete a build plane by name.`,
+		Example: fmt.Sprintf(`  # Delete a build plane
+  %[1]s buildplane delete primary-buildplane --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
 	ListObservabilityPlane = Command{
 		Use:   "list",
 		Short: "List observability planes",
 		Long:  `List all observability planes in a namespace.`,
 		Example: `  # List all observability planes in a namespace
   occ observabilityplane list --namespace acme-corp`,
+	}
+
+	GetObservabilityPlane = Command{
+		Use:   "get [OBSERVABILITYPLANE_NAME]",
+		Short: "Get an observability plane",
+		Long:  `Get an observability plane and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get an observability plane
+  %[1]s observabilityplane get primary-observabilityplane --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteObservabilityPlane = Command{
+		Use:   "delete [OBSERVABILITYPLANE_NAME]",
+		Short: "Delete an observability plane",
+		Long:  `Delete an observability plane by name.`,
+		Example: fmt.Sprintf(`  # Delete an observability plane
+  %[1]s observabilityplane delete primary-observabilityplane --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
 	ListComponentType = Command{
@@ -521,12 +632,44 @@ This command allows you to:
   occ componenttype list --namespace acme-corp`,
 	}
 
+	GetComponentType = Command{
+		Use:   "get [COMPONENT_TYPE_NAME]",
+		Short: "Get a component type",
+		Long:  `Get a component type and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a component type
+  %[1]s componenttype get web-app --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteComponentType = Command{
+		Use:   "delete [COMPONENT_TYPE_NAME]",
+		Short: "Delete a component type",
+		Long:  `Delete a component type by name.`,
+		Example: fmt.Sprintf(`  # Delete a component type
+  %[1]s componenttype delete web-app --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
 	ListTrait = Command{
 		Use:   "list",
 		Short: "List traits",
 		Long:  `List all traits available in a namespace.`,
 		Example: `  # List all traits in a namespace
   occ trait list --namespace acme-corp`,
+	}
+
+	GetTrait = Command{
+		Use:   "get [TRAIT_NAME]",
+		Short: "Get a trait",
+		Long:  `Get a trait and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a trait
+  %[1]s trait get ingress --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteTrait = Command{
+		Use:   "delete [TRAIT_NAME]",
+		Short: "Delete a trait",
+		Long:  `Delete a trait by name.`,
+		Example: fmt.Sprintf(`  # Delete a trait
+  %[1]s trait delete ingress --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
 	ClusterComponentType = Command{
@@ -544,6 +687,22 @@ This command allows you to:
   occ clustercomponenttype list`,
 	}
 
+	GetClusterComponentType = Command{
+		Use:   "get [CLUSTER_COMPONENT_TYPE_NAME]",
+		Short: "Get a cluster component type",
+		Long:  `Get a cluster component type and display its details in YAML format.`,
+		Example: `  # Get a cluster component type
+  occ clustercomponenttype get web-app`,
+	}
+
+	DeleteClusterComponentType = Command{
+		Use:   "delete [CLUSTER_COMPONENT_TYPE_NAME]",
+		Short: "Delete a cluster component type",
+		Long:  `Delete a cluster component type by name.`,
+		Example: `  # Delete a cluster component type
+  occ clustercomponenttype delete web-app`,
+	}
+
 	ClusterTrait = Command{
 		Use:     "clustertrait",
 		Aliases: []string{"clustertraits"},
@@ -557,6 +716,22 @@ This command allows you to:
 		Long:  `List all cluster-scoped traits available across the cluster.`,
 		Example: `  # List all cluster traits
   occ clustertrait list`,
+	}
+
+	GetClusterTrait = Command{
+		Use:   "get [CLUSTER_TRAIT_NAME]",
+		Short: "Get a cluster trait",
+		Long:  `Get a cluster trait and display its details in YAML format.`,
+		Example: `  # Get a cluster trait
+  occ clustertrait get ingress`,
+	}
+
+	DeleteClusterTrait = Command{
+		Use:   "delete [CLUSTER_TRAIT_NAME]",
+		Short: "Delete a cluster trait",
+		Long:  `Delete a cluster trait by name.`,
+		Example: `  # Delete a cluster trait
+  occ clustertrait delete ingress`,
 	}
 
 	ListWorkflow = Command{
@@ -584,6 +759,22 @@ This command allows you to:
 		Long:  `List all secret references in a namespace.`,
 		Example: `  # List all secret references in a namespace
   occ secretreference list --namespace acme-corp`,
+	}
+
+	GetSecretReference = Command{
+		Use:   "get [SECRET_REFERENCE_NAME]",
+		Short: "Get a secret reference",
+		Long:  `Get a secret reference and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a secret reference
+  %[1]s secretreference get my-secret --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteSecretReference = Command{
+		Use:   "delete [SECRET_REFERENCE_NAME]",
+		Short: "Delete a secret reference",
+		Long:  `Delete a secret reference by name.`,
+		Example: fmt.Sprintf(`  # Delete a secret reference
+  %[1]s secretreference delete my-secret --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
 	// Resource root commands
@@ -687,6 +878,30 @@ This command allows you to:
 		Aliases: []string{"wl", "workloads"},
 		Short:   "Manage workloads",
 		Long:    `Manage workloads for OpenChoreo.`,
+	}
+
+	ListWorkload = Command{
+		Use:   "list",
+		Short: "List workloads",
+		Long:  `List all workloads in a namespace.`,
+		Example: `  # List all workloads in a namespace
+  occ workload list --namespace acme-corp`,
+	}
+
+	GetWorkload = Command{
+		Use:   "get [WORKLOAD_NAME]",
+		Short: "Get a workload",
+		Long:  `Get a workload and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a workload
+  %[1]s workload get my-workload --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteWorkload = Command{
+		Use:   "delete [WORKLOAD_NAME]",
+		Short: "Delete a workload",
+		Long:  `Delete a workload by name.`,
+		Example: fmt.Sprintf(`  # Delete a workload
+  %[1]s workload delete my-workload --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
 	// ------------------------------------------------------------------------
@@ -950,6 +1165,14 @@ This command allows you to:
   occ componentrelease list --namespace acme-corp --project online-store --component product-catalog`,
 	}
 
+	GetComponentRelease = Command{
+		Use:   "get [COMPONENT_RELEASE_NAME]",
+		Short: "Get a component release",
+		Long:  `Get a component release and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a component release
+  %[1]s componentrelease get my-release --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
 	ListReleaseBinding = Command{
 		Use:   "list",
 		Short: "List release bindings",
@@ -958,12 +1181,69 @@ This command allows you to:
   occ releasebinding list --namespace acme-corp --project online-store --component product-catalog`,
 	}
 
+	GetReleaseBinding = Command{
+		Use:   "get [RELEASE_BINDING_NAME]",
+		Short: "Get a release binding",
+		Long:  `Get a release binding and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a release binding
+  %[1]s releasebinding get my-binding --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteReleaseBinding = Command{
+		Use:   "delete [RELEASE_BINDING_NAME]",
+		Short: "Delete a release binding",
+		Long:  `Delete a release binding by name.`,
+		Example: fmt.Sprintf(`  # Delete a release binding
+  %[1]s releasebinding delete my-binding --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	// Observability Alerts Notification Channel commands
+
+	ObservabilityAlertsNotificationChannel = Command{
+		Use:     "observabilityalertsnotificationchannel",
+		Aliases: []string{"oanc", "obsnotifchannel"},
+		Short:   "Manage observability alerts notification channels",
+		Long:    `Manage observability alerts notification channels for OpenChoreo.`,
+	}
+
+	ListObservabilityAlertsNotificationChannel = Command{
+		Use:   "list",
+		Short: "List observability alerts notification channels",
+		Long:  `List all observability alerts notification channels in a namespace.`,
+		Example: `  # List all observability alerts notification channels
+  occ observabilityalertsnotificationchannel list --namespace acme-corp`,
+	}
+
+	GetObservabilityAlertsNotificationChannel = Command{
+		Use:   "get [CHANNEL_NAME]",
+		Short: "Get an observability alerts notification channel",
+		Long:  `Get an observability alerts notification channel and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get an observability alerts notification channel
+  %[1]s observabilityalertsnotificationchannel get my-channel --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteObservabilityAlertsNotificationChannel = Command{
+		Use:   "delete [CHANNEL_NAME]",
+		Short: "Delete an observability alerts notification channel",
+		Long:  `Delete an observability alerts notification channel by name.`,
+		Example: fmt.Sprintf(`  # Delete an observability alerts notification channel
+  %[1]s observabilityalertsnotificationchannel delete my-channel --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
 	ListWorkflowRun = Command{
 		Use:   "list",
 		Short: "List workflow runs",
 		Long:  `List all workflow runs in a namespace.`,
 		Example: `  # List all workflow runs in a namespace
   occ workflowrun list --namespace acme-corp`,
+	}
+
+	GetWorkflowRun = Command{
+		Use:   "get [WORKFLOW_RUN_NAME]",
+		Short: "Get a workflow run",
+		Long:  `Get a workflow run and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a workflow run
+  %[1]s workflowrun get my-run --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
 	WorkflowRun = Command{

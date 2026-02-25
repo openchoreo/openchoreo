@@ -9,6 +9,8 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
@@ -42,6 +44,54 @@ func (t *Trait) List(params ListParams) error {
 	}
 
 	return printList(result)
+}
+
+// Get retrieves a single trait and outputs it as YAML
+func (t *Trait) Get(params GetParams) error {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceTrait, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.GetTrait(ctx, params.Namespace, params.TraitName)
+	if err != nil {
+		return fmt.Errorf("failed to get trait: %w", err)
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal trait to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
+}
+
+// Delete deletes a single trait
+func (t *Trait) Delete(params DeleteParams) error {
+	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceTrait, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := c.DeleteTrait(ctx, params.Namespace, params.TraitName); err != nil {
+		return fmt.Errorf("failed to delete trait: %w", err)
+	}
+
+	fmt.Printf("Trait '%s' deleted\n", params.TraitName)
+	return nil
 }
 
 func printList(list *gen.TraitList) error {
