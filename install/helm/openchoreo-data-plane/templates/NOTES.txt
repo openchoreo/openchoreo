@@ -19,6 +19,6 @@ Cluster Agent:
 
 Components:
   Gateway:       {{ ternary "enabled" "disabled" .Values.gateway.enabled }}
-  Cluster Agent: {{ ternary "enabled" "disabled" .Values.clusterAgent.enabled }}
+  Cluster Agent: enabled
   Networking:    {{ ternary "enabled" "disabled" .Values.networking.enabled }}
   Observability: {{ ternary "enabled" "disabled" .Values.observability.enabled }}

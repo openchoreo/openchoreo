@@ -1849,13 +1849,6 @@ prometheus:
 # @schema
 clusterAgent:
   # @schema
-  # type: boolean
-  # description: Enable cluster agent deployment for multi-cluster communication
-  # default: true
-  # @schema
-  enabled: true
-
-  # @schema
   # type: string
   # description: Name of the cluster agent deployment and associated resources
   # default: cluster-agent-observabilityplane

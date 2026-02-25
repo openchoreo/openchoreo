@@ -1,4 +1,4 @@
-{{- if and .Values.clusterAgent.enabled .Values.clusterAgent.podDisruptionBudget.enabled }}
+{{- if .Values.clusterAgent.podDisruptionBudget.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:

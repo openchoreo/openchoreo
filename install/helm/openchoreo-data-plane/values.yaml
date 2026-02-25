@@ -1147,13 +1147,6 @@ opentelemetry-collector:
 # @schema
 clusterAgent:
   # @schema
-  # type: boolean
-  # description: Enable the cluster agent deployment
-  # default: true
-  # @schema
-  enabled: true
-
-  # @schema
   # type: string
   # description: Name of the cluster agent deployment
   # default: cluster-agent-dataplane

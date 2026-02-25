@@ -1,4 +1,3 @@
-{{- if .Values.clusterAgent.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -89,4 +88,3 @@ spec:
       - name: server-ca
         configMap:
           name: {{ .Values.clusterAgent.tls.serverCAConfigMap }}
-{{- end }}

@@ -65,12 +65,6 @@
           "title": "affinity",
           "type": "object"
         },
-        "enabled": {
-          "default": true,
-          "description": "Enable the cluster agent deployment",
-          "title": "enabled",
-          "type": "boolean"
-        },
         "heartbeatInterval": {
           "default": "30s",
           "description": "Interval between heartbeat messages to control plane",

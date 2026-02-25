@@ -14,12 +14,6 @@
           "title": "affinity",
           "type": "object"
         },
-        "enabled": {
-          "default": true,
-          "description": "Enable cluster agent deployment for multi-cluster communication",
-          "title": "enabled",
-          "type": "boolean"
-        },
         "heartbeatInterval": {
           "default": "30s",
           "description": "Interval between heartbeat messages to the control plane",

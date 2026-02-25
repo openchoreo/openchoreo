@@ -642,13 +642,6 @@ openbao:
 
 clusterAgent:
   # @schema
-  # type: boolean
-  # description: Enable the cluster agent for control plane communication
-  # default: true
-  # @schema
-  enabled: true
-
-  # @schema
   # type: string
   # description: Name of the cluster agent deployment
   # default: cluster-agent-buildplane

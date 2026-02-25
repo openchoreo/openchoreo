@@ -1,4 +1,3 @@
-{{- if .Values.clusterAgent.enabled }}
 {{- if .Values.clusterAgent.tls.enabled }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -33,5 +32,4 @@ spec:
   {{- with .Values.clusterAgent.tls.renewBefore }}
   renewBefore: {{ . }}
   {{- end }}
-{{- end }}
 {{- end }}

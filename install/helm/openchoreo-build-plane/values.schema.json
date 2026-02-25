@@ -150,12 +150,6 @@
           "title": "affinity",
           "type": "object"
         },
-        "enabled": {
-          "default": true,
-          "description": "Enable the cluster agent for control plane communication",
-          "title": "enabled",
-          "type": "boolean"
-        },
         "heartbeatInterval": {
           "default": "30s",
           "description": "Heartbeat interval for control plane connection",
