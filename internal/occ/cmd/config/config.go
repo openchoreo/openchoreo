@@ -754,6 +754,9 @@ func (c *Config) DeleteCredentials(params DeleteCredentialsParams) error {
 
 // validateAddContextParams validates parameters for adding a configuration context.
 func validateAddContextParams(params AddContextParams) error {
+	if params.Name == "" {
+		return fmt.Errorf("name is required")
+	}
 	if params.ControlPlane == "" {
 		return fmt.Errorf("control plane name is required")
 	}
