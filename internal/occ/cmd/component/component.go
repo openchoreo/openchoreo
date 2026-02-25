@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -367,8 +368,9 @@ func mergeOverridesWithBinding(existingBinding *gen.ReleaseBinding, setValues []
 			return nil, fmt.Errorf("empty key in --set flag")
 		}
 
-		// Use sjson to update the value at the given path
-		jsonStr, err = sjson.Set(jsonStr, key, value)
+		// Use sjson.SetRaw with a properly typed JSON literal so that
+		// numeric and boolean values are not quoted as strings.
+		jsonStr, err = sjson.SetRaw(jsonStr, key, toJSONLiteral(value))
 		if err != nil {
 			return nil, fmt.Errorf("failed to set value for key '%s': %w", key, err)
 		}
@@ -381,6 +383,20 @@ func mergeOverridesWithBinding(existingBinding *gen.ReleaseBinding, setValues []
 	}
 
 	return &rb, nil
+}
+
+// toJSONLiteral converts a CLI string value to its raw JSON representation.
+// It preserves the correct JSON type: booleans become true/false, numbers stay
+// unquoted, and everything else is quoted as a JSON string.
+func toJSONLiteral(s string) string {
+	if s == "true" || s == "false" || s == "null" {
+		return s
+	}
+	if _, err := strconv.ParseFloat(s, 64); err == nil {
+		return s
+	}
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 func print(list *gen.ComponentList, showProject bool) error {
