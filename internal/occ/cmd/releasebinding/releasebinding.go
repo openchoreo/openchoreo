@@ -57,7 +57,7 @@ func (r *ReleaseBinding) List(params ListParams) error {
 
 	result, err := c.ListReleaseBindings(ctx, params.Namespace, params.Project, params.Component)
 	if err != nil {
-		return fmt.Errorf("failed to list release bindings: %w", err)
+		return err
 	}
 
 	return printReleaseBindings(result)
@@ -198,7 +198,7 @@ func (r *ReleaseBinding) Get(params GetParams) error {
 
 	result, err := c.GetReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName)
 	if err != nil {
-		return fmt.Errorf("failed to get release binding: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -223,7 +223,7 @@ func (r *ReleaseBinding) Delete(params DeleteParams) error {
 	}
 
 	if err := c.DeleteReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName); err != nil {
-		return fmt.Errorf("failed to delete release binding: %w", err)
+		return err
 	}
 
 	fmt.Printf("ReleaseBinding '%s' deleted\n", params.ReleaseBindingName)

@@ -39,7 +39,7 @@ func (o *ObservabilityAlertsNotificationChannel) List(params ListParams) error {
 
 	result, err := c.ListObservabilityAlertsNotificationChannels(ctx, params.Namespace)
 	if err != nil {
-		return fmt.Errorf("failed to list observability alerts notification channels: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -59,7 +59,7 @@ func (o *ObservabilityAlertsNotificationChannel) Get(params GetParams) error {
 
 	result, err := c.GetObservabilityAlertsNotificationChannel(ctx, params.Namespace, params.ChannelName)
 	if err != nil {
-		return fmt.Errorf("failed to get observability alerts notification channel: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -84,7 +84,7 @@ func (o *ObservabilityAlertsNotificationChannel) Delete(params DeleteParams) err
 	}
 
 	if err := c.DeleteObservabilityAlertsNotificationChannel(ctx, params.Namespace, params.ChannelName); err != nil {
-		return fmt.Errorf("failed to delete observability alerts notification channel: %w", err)
+		return err
 	}
 
 	fmt.Printf("ObservabilityAlertsNotificationChannel '%s' deleted\n", params.ChannelName)

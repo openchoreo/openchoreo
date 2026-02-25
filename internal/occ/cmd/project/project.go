@@ -40,7 +40,7 @@ func (l *Project) List(params ListParams) error {
 
 	result, err := c.ListProjects(ctx, params.Namespace, &gen.ListProjectsParams{})
 	if err != nil {
-		return fmt.Errorf("failed to list projects: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -61,7 +61,7 @@ func (l *Project) Get(params GetParams) error {
 
 	result, err := c.GetProject(ctx, params.Namespace, params.ProjectName)
 	if err != nil {
-		return fmt.Errorf("failed to get project: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -87,7 +87,7 @@ func (l *Project) Delete(params DeleteParams) error {
 	}
 
 	if err := c.DeleteProject(ctx, params.Namespace, params.ProjectName); err != nil {
-		return fmt.Errorf("failed to delete project: %w", err)
+		return err
 	}
 
 	fmt.Printf("Project '%s' deleted\n", params.ProjectName)

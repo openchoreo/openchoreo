@@ -35,7 +35,7 @@ func (c *ClusterComponentType) List() error {
 
 	result, err := cl.ListClusterComponentTypes(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list cluster component types: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -52,7 +52,7 @@ func (c *ClusterComponentType) Get(params GetParams) error {
 
 	result, err := cl.GetClusterComponentType(ctx, params.ClusterComponentTypeName)
 	if err != nil {
-		return fmt.Errorf("failed to get cluster component type: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -74,7 +74,7 @@ func (c *ClusterComponentType) Delete(params DeleteParams) error {
 	}
 
 	if err := cl.DeleteClusterComponentType(ctx, params.ClusterComponentTypeName); err != nil {
-		return fmt.Errorf("failed to delete cluster component type: %w", err)
+		return err
 	}
 
 	fmt.Printf("ClusterComponentType '%s' deleted\n", params.ClusterComponentTypeName)

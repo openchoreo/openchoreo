@@ -164,7 +164,7 @@ func (w *Workload) List(params ListParams) error {
 
 	result, err := c.ListWorkloads(ctx, params.Namespace)
 	if err != nil {
-		return fmt.Errorf("failed to list workloads: %w", err)
+		return err
 	}
 
 	return printWorkloadList(result)
@@ -184,7 +184,7 @@ func (w *Workload) Get(params GetParams) error {
 
 	result, err := c.GetWorkload(ctx, params.Namespace, params.WorkloadName)
 	if err != nil {
-		return fmt.Errorf("failed to get workload: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -209,7 +209,7 @@ func (w *Workload) Delete(params DeleteParams) error {
 	}
 
 	if err := c.DeleteWorkload(ctx, params.Namespace, params.WorkloadName); err != nil {
-		return fmt.Errorf("failed to delete workload: %w", err)
+		return err
 	}
 
 	fmt.Printf("Workload '%s' deleted\n", params.WorkloadName)

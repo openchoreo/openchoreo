@@ -51,7 +51,7 @@ func (cr *ComponentRelease) List(params ListParams) error {
 
 	result, err := c.ListComponentReleases(ctx, params.Namespace, params.Project, params.Component)
 	if err != nil {
-		return fmt.Errorf("failed to list component releases: %w", err)
+		return err
 	}
 
 	return printComponentReleases(result)
@@ -171,7 +171,7 @@ func (cr *ComponentRelease) Get(params GetParams) error {
 
 	result, err := c.GetComponentRelease(ctx, params.Namespace, params.ComponentReleaseName)
 	if err != nil {
-		return fmt.Errorf("failed to get component release: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -353,7 +353,7 @@ func printComponentReleases(list *gen.ComponentReleaseList) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tCOMPONENT\tSTATUS\tAGE")
+	fmt.Fprintln(w, "NAME\tCOMPONENT\tAGE")
 
 	for _, release := range list.Items {
 		componentName := ""
@@ -364,10 +364,9 @@ func printComponentReleases(list *gen.ComponentReleaseList) error {
 		if release.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*release.Metadata.CreationTimestamp)
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\n",
 			release.Metadata.Name,
 			componentName,
-			"", // status field removed in K8s-native schema
 			age)
 	}
 

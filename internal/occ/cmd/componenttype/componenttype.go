@@ -40,7 +40,7 @@ func (ct *ComponentType) List(params ListParams) error {
 
 	result, err := c.ListComponentTypes(ctx, params.Namespace)
 	if err != nil {
-		return fmt.Errorf("failed to list component types: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -61,7 +61,7 @@ func (ct *ComponentType) Get(params GetParams) error {
 
 	result, err := c.GetComponentType(ctx, params.Namespace, params.ComponentTypeName)
 	if err != nil {
-		return fmt.Errorf("failed to get component type: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -87,7 +87,7 @@ func (ct *ComponentType) Delete(params DeleteParams) error {
 	}
 
 	if err := c.DeleteComponentType(ctx, params.Namespace, params.ComponentTypeName); err != nil {
-		return fmt.Errorf("failed to delete component type: %w", err)
+		return err
 	}
 
 	fmt.Printf("ComponentType '%s' deleted\n", params.ComponentTypeName)

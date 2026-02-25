@@ -39,7 +39,7 @@ func (d *DeploymentPipeline) List(params ListParams) error {
 
 	result, err := c.ListDeploymentPipelines(ctx, params.Namespace)
 	if err != nil {
-		return fmt.Errorf("failed to list deployment pipelines: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -59,7 +59,7 @@ func (d *DeploymentPipeline) Get(params GetParams) error {
 
 	result, err := c.GetDeploymentPipeline(ctx, params.Namespace, params.DeploymentPipelineName)
 	if err != nil {
-		return fmt.Errorf("failed to get deployment pipeline: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -84,7 +84,7 @@ func (d *DeploymentPipeline) Delete(params DeleteParams) error {
 	}
 
 	if err := c.DeleteDeploymentPipeline(ctx, params.Namespace, params.DeploymentPipelineName); err != nil {
-		return fmt.Errorf("failed to delete deployment pipeline: %w", err)
+		return err
 	}
 
 	fmt.Printf("DeploymentPipeline '%s' deleted\n", params.DeploymentPipelineName)

@@ -40,7 +40,7 @@ func (b *BuildPlane) List(params ListParams) error {
 
 	result, err := c.ListBuildPlanes(ctx, params.Namespace)
 	if err != nil {
-		return fmt.Errorf("failed to list build planes: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -61,7 +61,7 @@ func (b *BuildPlane) Get(params GetParams) error {
 
 	result, err := c.GetBuildPlane(ctx, params.Namespace, params.BuildPlaneName)
 	if err != nil {
-		return fmt.Errorf("failed to get build plane: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -87,7 +87,7 @@ func (b *BuildPlane) Delete(params DeleteParams) error {
 	}
 
 	if err := c.DeleteBuildPlane(ctx, params.Namespace, params.BuildPlaneName); err != nil {
-		return fmt.Errorf("failed to delete build plane: %w", err)
+		return err
 	}
 
 	fmt.Printf("BuildPlane '%s' deleted\n", params.BuildPlaneName)

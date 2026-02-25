@@ -35,7 +35,7 @@ func (n *Namespace) List() error {
 
 	result, err := c.ListNamespaces(ctx, &gen.ListNamespacesParams{})
 	if err != nil {
-		return fmt.Errorf("failed to list namespaces: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -52,7 +52,7 @@ func (n *Namespace) Get(name string) error {
 
 	result, err := c.GetNamespace(ctx, name)
 	if err != nil {
-		return fmt.Errorf("failed to get namespace: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -74,7 +74,7 @@ func (n *Namespace) Delete(name string) error {
 	}
 
 	if err := c.DeleteNamespace(ctx, name); err != nil {
-		return fmt.Errorf("failed to delete namespace: %w", err)
+		return err
 	}
 
 	fmt.Printf("Namespace '%s' deleted\n", name)

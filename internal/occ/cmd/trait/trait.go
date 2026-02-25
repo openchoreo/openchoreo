@@ -40,7 +40,7 @@ func (t *Trait) List(params ListParams) error {
 
 	result, err := c.ListTraits(ctx, params.Namespace)
 	if err != nil {
-		return fmt.Errorf("failed to list traits: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -61,7 +61,7 @@ func (t *Trait) Get(params GetParams) error {
 
 	result, err := c.GetTrait(ctx, params.Namespace, params.TraitName)
 	if err != nil {
-		return fmt.Errorf("failed to get trait: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -87,7 +87,7 @@ func (t *Trait) Delete(params DeleteParams) error {
 	}
 
 	if err := c.DeleteTrait(ctx, params.Namespace, params.TraitName); err != nil {
-		return fmt.Errorf("failed to delete trait: %w", err)
+		return err
 	}
 
 	fmt.Printf("Trait '%s' deleted\n", params.TraitName)

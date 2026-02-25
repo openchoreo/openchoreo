@@ -40,7 +40,7 @@ func (s *SecretReference) List(params ListParams) error {
 
 	result, err := c.ListSecretReferences(ctx, params.Namespace)
 	if err != nil {
-		return fmt.Errorf("failed to list secret references: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -60,7 +60,7 @@ func (s *SecretReference) Get(params GetParams) error {
 
 	result, err := c.GetSecretReference(ctx, params.Namespace, params.SecretReferenceName)
 	if err != nil {
-		return fmt.Errorf("failed to get secret reference: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -85,7 +85,7 @@ func (s *SecretReference) Delete(params DeleteParams) error {
 	}
 
 	if err := c.DeleteSecretReference(ctx, params.Namespace, params.SecretReferenceName); err != nil {
-		return fmt.Errorf("failed to delete secret reference: %w", err)
+		return err
 	}
 
 	fmt.Printf("SecretReference '%s' deleted\n", params.SecretReferenceName)

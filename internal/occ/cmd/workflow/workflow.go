@@ -38,7 +38,7 @@ func (w *Workflow) List(params ListParams) error {
 
 	result, err := c.ListWorkflows(ctx, params.Namespace, &gen.ListWorkflowsParams{})
 	if err != nil {
-		return fmt.Errorf("failed to list workflows: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -61,7 +61,7 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 
 	workflowRun, err := c.CreateWorkflowRun(ctx, params.Namespace, params.WorkflowName, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create workflow run: %w", err)
+		return err
 	}
 
 	fmt.Printf("Successfully started workflow run: %s\n", workflowRun.Name)

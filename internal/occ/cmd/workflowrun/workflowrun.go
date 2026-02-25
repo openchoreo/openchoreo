@@ -40,7 +40,7 @@ func (w *WorkflowRun) List(params ListParams) error {
 
 	result, err := c.ListWorkflowRuns(ctx, params.Namespace)
 	if err != nil {
-		return fmt.Errorf("failed to list workflow runs: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -60,7 +60,7 @@ func (w *WorkflowRun) Get(params GetParams) error {
 
 	result, err := c.GetWorkflowRun(ctx, params.Namespace, params.WorkflowRunName)
 	if err != nil {
-		return fmt.Errorf("failed to get workflow run: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)

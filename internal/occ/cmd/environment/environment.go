@@ -40,7 +40,7 @@ func (e *Environment) List(params ListParams) error {
 
 	result, err := c.ListEnvironments(ctx, params.Namespace, &gen.ListEnvironmentsParams{})
 	if err != nil {
-		return fmt.Errorf("failed to list environments: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -61,7 +61,7 @@ func (e *Environment) Get(params GetParams) error {
 
 	result, err := c.GetEnvironment(ctx, params.Namespace, params.EnvironmentName)
 	if err != nil {
-		return fmt.Errorf("failed to get environment: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -87,7 +87,7 @@ func (e *Environment) Delete(params DeleteParams) error {
 	}
 
 	if err := c.DeleteEnvironment(ctx, params.Namespace, params.EnvironmentName); err != nil {
-		return fmt.Errorf("failed to delete environment: %w", err)
+		return err
 	}
 
 	fmt.Printf("Environment '%s' deleted\n", params.EnvironmentName)

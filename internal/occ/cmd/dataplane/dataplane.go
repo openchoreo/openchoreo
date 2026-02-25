@@ -40,7 +40,7 @@ func (d *DataPlane) List(params ListParams) error {
 
 	result, err := c.ListDataPlanes(ctx, params.Namespace, &gen.ListDataPlanesParams{})
 	if err != nil {
-		return fmt.Errorf("failed to list data planes: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -61,7 +61,7 @@ func (d *DataPlane) Get(params GetParams) error {
 
 	result, err := c.GetDataPlane(ctx, params.Namespace, params.DataPlaneName)
 	if err != nil {
-		return fmt.Errorf("failed to get data plane: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -87,7 +87,7 @@ func (d *DataPlane) Delete(params DeleteParams) error {
 	}
 
 	if err := c.DeleteDataPlane(ctx, params.Namespace, params.DataPlaneName); err != nil {
-		return fmt.Errorf("failed to delete data plane: %w", err)
+		return err
 	}
 
 	fmt.Printf("DataPlane '%s' deleted\n", params.DataPlaneName)

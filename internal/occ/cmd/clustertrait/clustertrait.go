@@ -35,7 +35,7 @@ func (c *ClusterTrait) List() error {
 
 	result, err := cl.ListClusterTraits(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list cluster traits: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -52,7 +52,7 @@ func (c *ClusterTrait) Get(params GetParams) error {
 
 	result, err := cl.GetClusterTrait(ctx, params.ClusterTraitName)
 	if err != nil {
-		return fmt.Errorf("failed to get cluster trait: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -74,7 +74,7 @@ func (c *ClusterTrait) Delete(params DeleteParams) error {
 	}
 
 	if err := cl.DeleteClusterTrait(ctx, params.ClusterTraitName); err != nil {
-		return fmt.Errorf("failed to delete cluster trait: %w", err)
+		return err
 	}
 
 	fmt.Printf("ClusterTrait '%s' deleted\n", params.ClusterTraitName)

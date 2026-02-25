@@ -46,7 +46,7 @@ func (l *Component) List(params ListParams) error {
 
 	result, err := c.ListComponents(ctx, params.Namespace, params.Project, &gen.ListComponentsParams{})
 	if err != nil {
-		return fmt.Errorf("failed to list components: %w", err)
+		return err
 	}
 
 	return printList(result, params.Project == "")
@@ -67,7 +67,7 @@ func (l *Component) Get(params GetParams) error {
 
 	result, err := c.GetComponent(ctx, params.Namespace, params.ComponentName)
 	if err != nil {
-		return fmt.Errorf("failed to get component: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -93,7 +93,7 @@ func (l *Component) Delete(params DeleteParams) error {
 	}
 
 	if err := c.DeleteComponent(ctx, params.Namespace, params.ComponentName); err != nil {
-		return fmt.Errorf("failed to delete component: %w", err)
+		return err
 	}
 
 	fmt.Printf("Component '%s' deleted\n", params.ComponentName)
@@ -167,7 +167,7 @@ func (d *Component) deployComponent(ctx context.Context, c *client.Client, param
 	if releaseName == "" {
 		release, err := c.GenerateRelease(ctx, params.Namespace, params.ComponentName, gen.GenerateReleaseRequest{})
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to generate component release: %w", err)
+			return nil, "", err
 		}
 		releaseName = release.Metadata.Name
 		fmt.Printf("Created release: %s\n", releaseName)
@@ -177,7 +177,7 @@ func (d *Component) deployComponent(ctx context.Context, c *client.Client, param
 		ReleaseName: releaseName,
 	})
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to deploy release: %w", err)
+		return nil, "", err
 	}
 
 	return binding, binding.Metadata.Name, nil
@@ -187,7 +187,7 @@ func (d *Component) deployComponent(ctx context.Context, c *client.Client, param
 func (d *Component) promoteComponent(ctx context.Context, c *client.Client, params DeployParams) (*gen.ReleaseBinding, string, error) {
 	project, err := c.GetProject(ctx, params.Namespace, params.Project)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get project: %w", err)
+		return nil, "", err
 	}
 
 	if project.Spec == nil || project.Spec.DeploymentPipelineRef == nil {
@@ -196,7 +196,7 @@ func (d *Component) promoteComponent(ctx context.Context, c *client.Client, para
 
 	pipeline, err := c.GetProjectDeploymentPipeline(ctx, params.Namespace, params.Project)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get deployment pipeline: %w", err)
+		return nil, "", err
 	}
 
 	sourceEnv, err := d.findSourceEnvironment(pipeline, params.To)
@@ -209,7 +209,7 @@ func (d *Component) promoteComponent(ctx context.Context, c *client.Client, para
 		TargetEnv: params.To,
 	})
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to promote component: %w", err)
+		return nil, "", err
 	}
 
 	return binding, binding.Metadata.Name, nil
@@ -244,7 +244,7 @@ func (d *Component) applyOverrides(ctx context.Context, c *client.Client, params
 	// Apply update
 	binding, err := c.UpdateReleaseBinding(ctx, params.Namespace, bindingName, *merged)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update release binding: %w", err)
+		return nil, err
 	}
 
 	return binding, nil

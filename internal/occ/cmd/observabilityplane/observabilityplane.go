@@ -40,7 +40,7 @@ func (o *ObservabilityPlane) List(params ListParams) error {
 
 	result, err := c.ListObservabilityPlanes(ctx, params.Namespace)
 	if err != nil {
-		return fmt.Errorf("failed to list observability planes: %w", err)
+		return err
 	}
 
 	return printList(result)
@@ -61,7 +61,7 @@ func (o *ObservabilityPlane) Get(params GetParams) error {
 
 	result, err := c.GetObservabilityPlane(ctx, params.Namespace, params.ObservabilityPlaneName)
 	if err != nil {
-		return fmt.Errorf("failed to get observability plane: %w", err)
+		return err
 	}
 
 	data, err := yaml.Marshal(result)
@@ -87,7 +87,7 @@ func (o *ObservabilityPlane) Delete(params DeleteParams) error {
 	}
 
 	if err := c.DeleteObservabilityPlane(ctx, params.Namespace, params.ObservabilityPlaneName); err != nil {
-		return fmt.Errorf("failed to delete observability plane: %w", err)
+		return err
 	}
 
 	fmt.Printf("ObservabilityPlane '%s' deleted\n", params.ObservabilityPlaneName)
