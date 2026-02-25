@@ -41,10 +41,10 @@ func (s *SecretReference) List(params ListParams) error {
 		return fmt.Errorf("failed to list secret references: %w", err)
 	}
 
-	return print(result)
+	return printList(result)
 }
 
-func print(list *gen.SecretReferenceList) error {
+func printList(list *gen.SecretReferenceList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No secret references found")
 		return nil

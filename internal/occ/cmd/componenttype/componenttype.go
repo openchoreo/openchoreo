@@ -41,10 +41,10 @@ func (ct *ComponentType) List(params ListParams) error {
 		return fmt.Errorf("failed to list component types: %w", err)
 	}
 
-	return print(result)
+	return printList(result)
 }
 
-func print(list *gen.ComponentTypeList) error {
+func printList(list *gen.ComponentTypeList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No component types found")
 		return nil

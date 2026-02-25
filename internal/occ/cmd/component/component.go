@@ -13,6 +13,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/tidwall/sjson"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
@@ -20,7 +21,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	scaffold "github.com/openchoreo/openchoreo/internal/scaffold/component"
-	"github.com/tidwall/sjson"
 )
 
 type Component struct{}
@@ -47,7 +47,7 @@ func (l *Component) List(params ListParams) error {
 		return fmt.Errorf("failed to list components: %w", err)
 	}
 
-	return print(result, params.Project == "")
+	return printList(result, params.Project == "")
 }
 
 // Scaffold generates a scaffold YAML for a component based on its ComponentType and optional Traits and Workflow
@@ -394,7 +394,7 @@ func toJSONLiteral(s string) string {
 	return string(b)
 }
 
-func print(list *gen.ComponentList, showProject bool) error {
+func printList(list *gen.ComponentList, showProject bool) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No components found")
 		return nil

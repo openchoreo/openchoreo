@@ -41,7 +41,7 @@ func (w *Workflow) List(params ListParams) error {
 		return fmt.Errorf("failed to list workflows: %w", err)
 	}
 
-	return print(result)
+	return printList(result)
 }
 
 // StartRun starts a workflow run
@@ -72,7 +72,7 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 	return nil
 }
 
-func print(list *gen.WorkflowList) error {
+func printList(list *gen.WorkflowList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No workflows found")
 		return nil

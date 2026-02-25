@@ -36,10 +36,10 @@ func (c *ClusterTrait) List() error {
 		return fmt.Errorf("failed to list cluster traits: %w", err)
 	}
 
-	return print(result)
+	return printList(result)
 }
 
-func print(list *gen.ClusterTraitList) error {
+func printList(list *gen.ClusterTraitList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No cluster traits found")
 		return nil

@@ -41,10 +41,10 @@ func (b *BuildPlane) List(params ListParams) error {
 		return fmt.Errorf("failed to list build planes: %w", err)
 	}
 
-	return print(result)
+	return printList(result)
 }
 
-func print(list *gen.BuildPlaneList) error {
+func printList(list *gen.BuildPlaneList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No build planes found")
 		return nil

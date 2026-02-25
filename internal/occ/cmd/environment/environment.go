@@ -41,10 +41,10 @@ func (e *Environment) List(params ListParams) error {
 		return fmt.Errorf("failed to list environments: %w", err)
 	}
 
-	return print(result)
+	return printList(result)
 }
 
-func print(list *gen.EnvironmentList) error {
+func printList(list *gen.EnvironmentList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No environments found")
 		return nil

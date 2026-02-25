@@ -46,7 +46,7 @@ func captureStdout(t *testing.T, fn func()) string {
 
 func TestPrint_Nil(t *testing.T) {
 	out := captureStdout(t, func() {
-		if err := print(nil); err != nil {
+		if err := printList(nil); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -58,7 +58,7 @@ func TestPrint_Nil(t *testing.T) {
 func TestPrint_Empty(t *testing.T) {
 	list := &gen.ClusterComponentTypeList{Items: []gen.ClusterComponentType{}}
 	out := captureStdout(t, func() {
-		if err := print(list); err != nil {
+		if err := printList(list); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -90,7 +90,7 @@ func TestPrint_WithItems(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		if err := print(list); err != nil {
+		if err := printList(list); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -127,7 +127,7 @@ func TestPrint_NilSpec(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		if err := print(list); err != nil {
+		if err := printList(list); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})

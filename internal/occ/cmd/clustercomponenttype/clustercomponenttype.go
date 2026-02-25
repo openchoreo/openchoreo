@@ -36,10 +36,10 @@ func (c *ClusterComponentType) List() error {
 		return fmt.Errorf("failed to list cluster component types: %w", err)
 	}
 
-	return print(result)
+	return printList(result)
 }
 
-func print(list *gen.ClusterComponentTypeList) error {
+func printList(list *gen.ClusterComponentTypeList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No cluster component types found")
 		return nil

@@ -36,10 +36,10 @@ func (n *Namespace) List() error {
 		return fmt.Errorf("failed to list namespaces: %w", err)
 	}
 
-	return print(result)
+	return printList(result)
 }
 
-func print(list *gen.NamespaceList) error {
+func printList(list *gen.NamespaceList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No namespaces found")
 		return nil

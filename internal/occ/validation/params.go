@@ -656,5 +656,3 @@ func validateWorkflowRunParams(cmdType CommandType, params interface{}) error {
 	}
 	return nil
 }
-
-

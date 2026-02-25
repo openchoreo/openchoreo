@@ -41,10 +41,10 @@ func (w *WorkflowRun) List(params ListParams) error {
 		return fmt.Errorf("failed to list workflow runs: %w", err)
 	}
 
-	return print(result)
+	return printList(result)
 }
 
-func print(list *gen.WorkflowRunList) error {
+func printList(list *gen.WorkflowRunList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No workflow runs found")
 		return nil

@@ -41,10 +41,10 @@ func (o *ObservabilityPlane) List(params ListParams) error {
 		return fmt.Errorf("failed to list observability planes: %w", err)
 	}
 
-	return print(result)
+	return printList(result)
 }
 
-func print(list *gen.ObservabilityPlaneList) error {
+func printList(list *gen.ObservabilityPlaneList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No observability planes found")
 		return nil

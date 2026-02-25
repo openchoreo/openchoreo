@@ -41,10 +41,10 @@ func (t *Trait) List(params ListParams) error {
 		return fmt.Errorf("failed to list traits: %w", err)
 	}
 
-	return print(result)
+	return printList(result)
 }
 
-func print(list *gen.TraitList) error {
+func printList(list *gen.TraitList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No traits found")
 		return nil

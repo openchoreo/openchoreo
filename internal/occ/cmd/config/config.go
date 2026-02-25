@@ -75,14 +75,7 @@ func (c *Config) AddContext(params AddContextParams) error {
 	}
 
 	// Create the new context
-	newCtx := Context{
-		Name:         params.Name,
-		ControlPlane: params.ControlPlane,
-		Credentials:  params.Credentials,
-		Namespace:    params.Namespace,
-		Project:      params.Project,
-		Component:    params.Component,
-	}
+	newCtx := Context(params)
 	cfg.Contexts = append(cfg.Contexts, newCtx)
 
 	if err := SaveStoredConfig(cfg); err != nil {
@@ -754,13 +747,13 @@ func (c *Config) DeleteCredentials(params DeleteCredentialsParams) error {
 
 // validateAddContextParams validates parameters for adding a configuration context.
 func validateAddContextParams(params AddContextParams) error {
-	if params.Name == "" {
+	if strings.TrimSpace(params.Name) == "" {
 		return fmt.Errorf("name is required")
 	}
-	if params.ControlPlane == "" {
+	if strings.TrimSpace(params.ControlPlane) == "" {
 		return fmt.Errorf("control plane name is required")
 	}
-	if params.Credentials == "" {
+	if strings.TrimSpace(params.Credentials) == "" {
 		return fmt.Errorf("credentials name is required")
 	}
 	return nil
@@ -790,7 +783,7 @@ func validateControlPlaneNameUniqueness(cfg *StoredConfig, name string) error {
 func validateCredentialsNameUniqueness(cfg *StoredConfig, name string) error {
 	for _, cred := range cfg.Credentials {
 		if cred.Name == name {
-			return fmt.Errorf("credentials %q already exist", name)
+			return fmt.Errorf("credentials %q already exists", name)
 		}
 	}
 	return nil
