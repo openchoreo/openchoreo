@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -387,7 +388,7 @@ func toJSONLiteral(s string) string {
 	if s == "true" || s == "false" || s == "null" {
 		return s
 	}
-	if _, err := strconv.ParseFloat(s, 64); err == nil {
+	if f, err := strconv.ParseFloat(s, 64); err == nil && !math.IsNaN(f) && !math.IsInf(f, 0) {
 		return s
 	}
 	b, _ := json.Marshal(s)
