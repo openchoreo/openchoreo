@@ -127,6 +127,63 @@ func (s *DataPlaneService) CreateDataPlane(ctx context.Context, namespaceName st
 	return s.toDataPlaneResponse(dataplaneCR), nil
 }
 
+// UpdateDataPlaneGateway updates only the gateway spec of an existing dataplane.
+// All other fields (clusterAgent, observabilityPlaneRef, name, etc.) remain immutable.
+func (s *DataPlaneService) UpdateDataPlaneGateway(ctx context.Context, namespaceName, dpName string, req *models.UpdateDataPlaneGatewayRequest) (*models.DataPlaneResponse, error) {
+	s.logger.Debug("Updating dataplane gateway", "namespace", namespaceName, "dataplane", dpName)
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionUpdateDataPlane, ResourceTypeDataPlane, dpName,
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
+		return nil, err
+	}
+
+	dp := &openchoreov1alpha1.DataPlane{}
+	key := client.ObjectKey{Name: dpName, Namespace: namespaceName}
+	if err := s.k8sClient.Get(ctx, key, dp); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil, ErrDataPlaneNotFound
+		}
+		return nil, fmt.Errorf("failed to get dataplane: %w", err)
+	}
+
+	patch := client.MergeFrom(dp.DeepCopy())
+	dp.Spec.Gateway = toGatewaySpec(req.Gateway)
+	if err := s.k8sClient.Patch(ctx, dp, patch); err != nil {
+		s.logger.Error("Failed to patch dataplane gateway", "error", err, "namespace", namespaceName, "dataplane", dpName)
+		return nil, fmt.Errorf("failed to update dataplane gateway: %w", err)
+	}
+
+	s.logger.Debug("DataPlane gateway updated successfully", "namespace", namespaceName, "dataplane", dpName)
+	return s.toDataPlaneResponse(dp), nil
+}
+
+// DeleteDataPlane deletes a dataplane by name.
+func (s *DataPlaneService) DeleteDataPlane(ctx context.Context, namespaceName, dpName string) error {
+	s.logger.Debug("Deleting dataplane", "namespace", namespaceName, "dataplane", dpName)
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeleteDataPlane, ResourceTypeDataPlane, dpName,
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
+		return err
+	}
+
+	dp := &openchoreov1alpha1.DataPlane{}
+	key := client.ObjectKey{Name: dpName, Namespace: namespaceName}
+	if err := s.k8sClient.Get(ctx, key, dp); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return ErrDataPlaneNotFound
+		}
+		return fmt.Errorf("failed to get dataplane: %w", err)
+	}
+
+	if err := s.k8sClient.Delete(ctx, dp); err != nil {
+		s.logger.Error("Failed to delete dataplane", "error", err, "namespace", namespaceName, "dataplane", dpName)
+		return fmt.Errorf("failed to delete dataplane: %w", err)
+	}
+
+	s.logger.Debug("DataPlane deleted successfully", "namespace", namespaceName, "dataplane", dpName)
+	return nil
+}
+
 // dataPlaneExists checks if a dataplane exists in the given namespace
 func (s *DataPlaneService) dataPlaneExists(ctx context.Context, namespaceName, dpName string) (bool, error) {
 	dp := &openchoreov1alpha1.DataPlane{}

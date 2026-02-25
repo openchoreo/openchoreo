@@ -159,6 +159,63 @@ func (s *EnvironmentService) CreateEnvironment(ctx context.Context, namespaceNam
 	return s.toEnvironmentResponse(environmentCR), nil
 }
 
+// UpdateEnvironmentGateway updates only the gateway spec of an existing environment.
+// All other fields (dataPlaneRef, isProduction, name, etc.) remain immutable.
+func (s *EnvironmentService) UpdateEnvironmentGateway(ctx context.Context, namespaceName, envName string, req *models.UpdateEnvironmentGatewayRequest) (*models.EnvironmentResponse, error) {
+	s.logger.Debug("Updating environment gateway", "namespace", namespaceName, "env", envName)
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionUpdateEnvironment, ResourceTypeEnvironment, envName,
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
+		return nil, err
+	}
+
+	env := &openchoreov1alpha1.Environment{}
+	key := client.ObjectKey{Name: envName, Namespace: namespaceName}
+	if err := s.k8sClient.Get(ctx, key, env); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil, ErrEnvironmentNotFound
+		}
+		return nil, fmt.Errorf("failed to get environment: %w", err)
+	}
+
+	patch := client.MergeFrom(env.DeepCopy())
+	env.Spec.Gateway = toGatewaySpec(req.Gateway)
+	if err := s.k8sClient.Patch(ctx, env, patch); err != nil {
+		s.logger.Error("Failed to patch environment gateway", "error", err, "namespace", namespaceName, "env", envName)
+		return nil, fmt.Errorf("failed to update environment gateway: %w", err)
+	}
+
+	s.logger.Debug("Environment gateway updated successfully", "namespace", namespaceName, "env", envName)
+	return s.toEnvironmentResponse(env), nil
+}
+
+// DeleteEnvironment deletes an environment by name.
+func (s *EnvironmentService) DeleteEnvironment(ctx context.Context, namespaceName, envName string) error {
+	s.logger.Debug("Deleting environment", "namespace", namespaceName, "env", envName)
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeleteEnvironment, ResourceTypeEnvironment, envName,
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
+		return err
+	}
+
+	env := &openchoreov1alpha1.Environment{}
+	key := client.ObjectKey{Name: envName, Namespace: namespaceName}
+	if err := s.k8sClient.Get(ctx, key, env); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return ErrEnvironmentNotFound
+		}
+		return fmt.Errorf("failed to get environment: %w", err)
+	}
+
+	if err := s.k8sClient.Delete(ctx, env); err != nil {
+		s.logger.Error("Failed to delete environment", "error", err, "namespace", namespaceName, "env", envName)
+		return fmt.Errorf("failed to delete environment: %w", err)
+	}
+
+	s.logger.Debug("Environment deleted successfully", "namespace", namespaceName, "env", envName)
+	return nil
+}
+
 // environmentExists checks if an environment exists in the given namespace
 func (s *EnvironmentService) environmentExists(ctx context.Context, namespaceName, envName string) (bool, error) {
 	env := &openchoreov1alpha1.Environment{}

@@ -110,11 +110,15 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/dataplanes", h.ListDataPlanes)
 	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/dataplanes", h.CreateDataPlane)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/dataplanes/{dpName}", h.GetDataPlane)
+	api.HandleFunc("PATCH "+v1+"/namespaces/{namespaceName}/dataplanes/{dpName}", h.UpdateDataPlaneGateway)
+	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/dataplanes/{dpName}", h.DeleteDataPlane)
 
 	// Environment management
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/environments", h.ListEnvironments)
 	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/environments", h.CreateEnvironment)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/environments/{envName}", h.GetEnvironment)
+	api.HandleFunc("PATCH "+v1+"/namespaces/{namespaceName}/environments/{envName}", h.UpdateEnvironmentGateway)
+	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/environments/{envName}", h.DeleteEnvironment)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/environments/{envName}/observer-url", h.GetEnvironmentObserverURL)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/environments/{envName}/rca-agent-url", h.GetRCAAgentURL)
 

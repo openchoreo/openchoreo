@@ -113,6 +113,89 @@ func (h *Handler) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusCreated, environment)
 }
 
+// UpdateEnvironmentGateway handles PATCH /api/v1/namespaces/{namespaceName}/environments/{envName}
+// Only the gateway spec is mutable; all other fields are immutable after creation.
+func (h *Handler) UpdateEnvironmentGateway(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	namespaceName := r.PathValue("namespaceName")
+	envName := r.PathValue("envName")
+
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
+		return
+	}
+
+	if envName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Environment name is required", services.CodeInvalidInput)
+		return
+	}
+
+	var req models.UpdateEnvironmentGatewayRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Error("Failed to decode request body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
+		return
+	}
+
+	setAuditResource(ctx, "environment", envName, envName)
+	addAuditMetadata(ctx, "namespace", namespaceName)
+
+	environment, err := h.services.EnvironmentService.UpdateEnvironmentGateway(ctx, namespaceName, envName, &req)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to update environment", "namespace", namespaceName, "env", envName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrEnvironmentNotFound) {
+			writeErrorResponse(w, http.StatusNotFound, "Environment not found", services.CodeEnvironmentNotFound)
+			return
+		}
+		h.logger.Error("Failed to update environment gateway", "error", err, "namespace", namespaceName, "env", envName)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to update environment gateway", services.CodeInternalError)
+		return
+	}
+
+	writeSuccessResponse(w, http.StatusOK, environment)
+}
+
+// DeleteEnvironment handles DELETE /api/v1/namespaces/{namespaceName}/environments/{envName}
+func (h *Handler) DeleteEnvironment(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	namespaceName := r.PathValue("namespaceName")
+	envName := r.PathValue("envName")
+
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
+		return
+	}
+
+	if envName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Environment name is required", services.CodeInvalidInput)
+		return
+	}
+
+	setAuditResource(ctx, "environment", envName, envName)
+	addAuditMetadata(ctx, "namespace", namespaceName)
+
+	if err := h.services.EnvironmentService.DeleteEnvironment(ctx, namespaceName, envName); err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to delete environment", "namespace", namespaceName, "env", envName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrEnvironmentNotFound) {
+			writeErrorResponse(w, http.StatusNotFound, "Environment not found", services.CodeEnvironmentNotFound)
+			return
+		}
+		h.logger.Error("Failed to delete environment", "error", err, "namespace", namespaceName, "env", envName)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to delete environment", services.CodeInternalError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // GetEnvironmentObserverURL handles GET /api/v1/namespaces/{namespaceName}/environments/{envName}/observer-url
 func (h *Handler) GetEnvironmentObserverURL(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

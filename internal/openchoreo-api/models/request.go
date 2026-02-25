@@ -149,6 +149,18 @@ type GatewaySpec struct {
 	Egress  *GatewayNetworkSpec `json:"egress,omitempty"`
 }
 
+// UpdateDataPlaneGatewayRequest represents the request to update the gateway spec of a dataplane.
+// Only the gateway field is mutable; all other dataplane fields are immutable after creation.
+type UpdateDataPlaneGatewayRequest struct {
+	Gateway *GatewaySpec `json:"gateway"`
+}
+
+// UpdateEnvironmentGatewayRequest represents the request to update the gateway spec of an environment.
+// Only the gateway field is mutable; all other environment fields are immutable after creation.
+type UpdateEnvironmentGatewayRequest struct {
+	Gateway *GatewaySpec `json:"gateway"`
+}
+
 // CreateEnvironmentRequest represents the request to create a new environment
 type CreateEnvironmentRequest struct {
 	Name         string        `json:"name"`
