@@ -24,6 +24,8 @@ func NewProjectCmd() *cobra.Command {
 
 	projectCmd.AddCommand(
 		newListProjectCmd(),
+		newGetProjectCmd(),
+		newDeleteProjectCmd(),
 	)
 
 	return projectCmd
@@ -41,4 +43,50 @@ func newListProjectCmd() *cobra.Command {
 		},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
+}
+
+func newGetProjectCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.GetProject.Use,
+		Short:   constants.GetProject.Short,
+		Long:    constants.GetProject.Long,
+		Example: constants.GetProject.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+
+			return project.New().Get(project.GetParams{
+				Namespace:   namespace,
+				ProjectName: args[0],
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace)
+
+	return cmd
+}
+
+func newDeleteProjectCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteProject.Use,
+		Short:   constants.DeleteProject.Short,
+		Long:    constants.DeleteProject.Long,
+		Example: constants.DeleteProject.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+
+			return project.New().Delete(project.DeleteParams{
+				Namespace:   namespace,
+				ProjectName: args[0],
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace)
+
+	return cmd
 }

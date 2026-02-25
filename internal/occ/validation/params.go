@@ -82,13 +82,8 @@ func validateProjectParams(cmdType CommandType, params interface{}) error {
 			}
 		}
 	case CmdGet:
-		if p, ok := params.(api.GetProjectParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceProject, fields)
-			}
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(ResourceProject, p.GetNamespace())
 		}
 	case CmdList:
 		return validateProjectListParams(params)

@@ -193,6 +193,22 @@ Examples:
   occ project list --namespace acme-corp`,
 	}
 
+	GetProject = Command{
+		Use:   "get [PROJECT_NAME]",
+		Short: "Get a project",
+		Long:  `Get a project and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a project
+  %[1]s project get my-project --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteProject = Command{
+		Use:   "delete [PROJECT_NAME]",
+		Short: "Delete a project",
+		Long:  `Delete a project by name.`,
+		Example: fmt.Sprintf(`  # Delete a project
+  %[1]s project delete my-project --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
 	ListComponent = Command{
 		Use:   "list",
 		Short: "List components",

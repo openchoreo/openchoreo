@@ -9,3 +9,19 @@ type ListParams struct {
 }
 
 func (p ListParams) GetNamespace() string { return p.Namespace }
+
+// GetParams defines parameters for getting a single project
+type GetParams struct {
+	Namespace   string
+	ProjectName string
+}
+
+func (p GetParams) GetNamespace() string { return p.Namespace }
+
+// DeleteParams defines parameters for deleting a single project
+type DeleteParams struct {
+	Namespace   string
+	ProjectName string
+}
+
+func (p DeleteParams) GetNamespace() string { return p.Namespace }

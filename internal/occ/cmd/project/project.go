@@ -9,6 +9,8 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
@@ -42,6 +44,57 @@ func (l *Project) List(params ListParams) error {
 	}
 
 	return printList(result)
+}
+
+// Get retrieves a single project and outputs it as YAML
+func (l *Project) Get(params GetParams) error {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceProject, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.GetProject(ctx, params.Namespace, params.ProjectName)
+	if err != nil {
+		return fmt.Errorf("failed to get project: %w", err)
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal project to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
+}
+
+// Delete deletes a single project
+func (l *Project) Delete(params DeleteParams) error {
+	if params.Namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	if params.ProjectName == "" {
+		return fmt.Errorf("project name is required")
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := c.DeleteProject(ctx, params.Namespace, params.ProjectName); err != nil {
+		return fmt.Errorf("failed to delete project: %w", err)
+	}
+
+	fmt.Printf("Project '%s' deleted\n", params.ProjectName)
+	return nil
 }
 
 func printList(list *gen.ProjectList) error {
