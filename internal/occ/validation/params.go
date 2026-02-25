@@ -120,10 +120,32 @@ func validateComponentParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(CmdGet, ResourceComponent, p.GetNamespace())
 		}
+	case CmdDelete:
+		return validateDeleteComponentParams(params)
 	case CmdList:
 		return validateComponentListParams(params)
 	case CmdDeploy:
 		return validateDeployComponentParams(params)
+	}
+	return nil
+}
+
+// deleteComponentParams is an interface for delete component parameter validation
+type deleteComponentParams interface {
+	GetNamespace() string
+	GetComponentName() string
+}
+
+// validateDeleteComponentParams validates parameters for delete component operations
+func validateDeleteComponentParams(params interface{}) error {
+	if p, ok := params.(deleteComponentParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetComponentName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceComponent, fields)
+		}
 	}
 	return nil
 }

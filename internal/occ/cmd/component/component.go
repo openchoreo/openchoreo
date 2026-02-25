@@ -81,11 +81,8 @@ func (l *Component) Get(params GetParams) error {
 
 // Delete deletes a single component
 func (l *Component) Delete(params DeleteParams) error {
-	if params.Namespace == "" {
-		return fmt.Errorf("namespace is required")
-	}
-	if params.ComponentName == "" {
-		return fmt.Errorf("component name is required")
+	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceComponent, params); err != nil {
+		return err
 	}
 
 	ctx := context.Background()

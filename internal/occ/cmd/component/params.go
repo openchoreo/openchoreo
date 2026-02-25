@@ -53,7 +53,8 @@ type DeleteParams struct {
 	ComponentName string
 }
 
-func (p DeleteParams) GetNamespace() string { return p.Namespace }
+func (p DeleteParams) GetNamespace() string     { return p.Namespace }
+func (p DeleteParams) GetComponentName() string { return p.ComponentName }
 
 // LogsParams defines parameters for fetching component logs
 type LogsParams struct {
