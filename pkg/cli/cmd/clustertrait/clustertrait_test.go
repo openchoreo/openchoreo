@@ -4,30 +4,11 @@
 package clustertrait
 
 import (
-	"fmt"
 	"testing"
-
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-// mockImpl satisfies api.CommandImplementationInterface for testing command wiring.
-type mockImpl struct {
-	api.CommandImplementationInterface
-	listClusterTraitsCalled bool
-	listClusterTraitsErr    error
-}
-
-func (m *mockImpl) ListClusterTraits() error {
-	m.listClusterTraitsCalled = true
-	return m.listClusterTraitsErr
-}
-
-func (m *mockImpl) IsLoggedIn() bool       { return true }
-func (m *mockImpl) GetLoginPrompt() string { return "" }
-
 func TestNewClusterTraitCmd(t *testing.T) {
-	impl := &mockImpl{}
-	cmd := NewClusterTraitCmd(impl)
+	cmd := NewClusterTraitCmd()
 
 	if cmd.Use != "clustertrait" {
 		t.Errorf("expected Use to be 'clustertrait', got %q", cmd.Use)
@@ -54,8 +35,7 @@ func TestNewClusterTraitCmd(t *testing.T) {
 }
 
 func TestNewClusterTraitCmd_NoNamespaceFlag(t *testing.T) {
-	impl := &mockImpl{}
-	cmd := NewClusterTraitCmd(impl)
+	cmd := NewClusterTraitCmd()
 
 	listCmd, _, err := cmd.Find([]string{"list"})
 	if err != nil {
@@ -66,38 +46,5 @@ func TestNewClusterTraitCmd_NoNamespaceFlag(t *testing.T) {
 	nsFlag := listCmd.Flags().Lookup("namespace")
 	if nsFlag != nil {
 		t.Error("cluster-scoped command should not have a --namespace flag")
-	}
-}
-
-func TestListClusterTraitCmd_Execute(t *testing.T) {
-	impl := &mockImpl{}
-	cmd := NewClusterTraitCmd(impl)
-	cmd.SetArgs([]string{"list"})
-
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatalf("unexpected error executing list command: %v", err)
-	}
-
-	if !impl.listClusterTraitsCalled {
-		t.Error("expected ListClusterTraits to be called")
-	}
-}
-
-func TestListClusterTraitCmd_ExecuteError(t *testing.T) {
-	impl := &mockImpl{
-		listClusterTraitsErr: fmt.Errorf("api error"),
-	}
-	cmd := NewClusterTraitCmd(impl)
-	cmd.SetArgs([]string{"list"})
-	// Silence usage output on error
-	cmd.SilenceUsage = true
-
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if err.Error() != "api error" {
-		t.Errorf("expected 'api error', got %q", err.Error())
 	}
 }

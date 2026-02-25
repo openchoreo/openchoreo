@@ -25,6 +25,10 @@ func captureStdout(t *testing.T, fn func()) string {
 
 	origStdout := os.Stdout
 	os.Stdout = w
+	defer func() {
+		os.Stdout = origStdout
+		w.Close()
+	}()
 
 	fn()
 
