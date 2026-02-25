@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:bookworm-slim@sha256:058d5540ce80a272d4f61551a8bfe9a4bdb9064923042285e61351721430661a AS builder
+FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim@sha256:afdc829233119f8bb7ffc68839aaac57b3a4eda72947b2317ad218138fbd955a AS builder
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
@@ -36,8 +36,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
         *) LIBZ_PATH="/lib" ;; \
     esac; \
     echo "libz path: $LIBZ_PATH"; \
-    cp "$LIBZ_PATH/libz.so.1" /lib/libz.so.1; \
-    cp "$LIBZ_PATH/libz.so.1.2.13" /lib/libz.so.1.2.13
+    cp "$LIBZ_PATH/libz.so.1" /lib/libz.so.1
 
 FROM gcr.io/distroless/cc@sha256:72344f7f909a8bf003c67f55687e6d51a441b49661af8f660aa7b285f00e57df
 
@@ -46,12 +45,11 @@ WORKDIR /app
 COPY --from=builder --chown=12000:12000 /app/.venv /app/.venv
 COPY --from=builder --chown=12000:12000 /app/src /app/src
 
-# Copy zlib libs from builder
+# Copy zlib from builder
 COPY --from=builder --chown=12000:12000 /lib/libz.so.1 /lib/libz.so.1
-COPY --from=builder --chown=12000:12000 /lib/libz.so.1.2.13 /lib/libz.so.1.2.13
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app"
 USER 12000
 
-CMD ["fastapi", "run", "src/main.py", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]

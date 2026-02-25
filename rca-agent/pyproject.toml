@@ -5,7 +5,8 @@ description = "Add your description here"
 requires-python = ">=3.14"
 dependencies = [
     "authlib>=1.4.0",
-    "fastapi[standard]>=0.121.1",
+    "fastapi>=0.121.1",
+    "httpx>=0.23.0",
     "jinja2>=3.1.0",
     "langchain>=1.0.5",
     "langchain-anthropic>=1.3.1",
@@ -17,10 +18,8 @@ dependencies = [
     "uvicorn>=0.38.0",
 ]
 
-[dependency-groups]
-dev = [
-    "ruff>=0.8.5",
-]
+[tool.uv]
+exclude-dependencies = ["zstandard", "pywin32"]
 
 [tool.ruff]
 line-length = 100
