@@ -20,18 +20,13 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	scaffold "github.com/openchoreo/openchoreo/internal/scaffold/component"
-	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/tidwall/sjson"
 )
 
-type Component struct {
-	config constants.CRDConfig
-}
+type Component struct{}
 
-func New(config constants.CRDConfig) *Component {
-	return &Component{
-		config: config,
-	}
+func New() *Component {
+	return &Component{}
 }
 
 // List lists all components in a project

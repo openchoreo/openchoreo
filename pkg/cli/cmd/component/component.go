@@ -38,8 +38,9 @@ func newListComponentCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.ListComponent,
 		Flags:   []flags.Flag{flags.Namespace, flags.Project},
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(fg *builder.FlagGetter) error {
-			compImpl := component.New(constants.ComponentV1Config)
+			compImpl := component.New()
 			return compImpl.List(component.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 				Project:   fg.GetString(flags.Project),
@@ -79,7 +80,7 @@ func newScaffoldComponentCmd() *cobra.Command {
 				}
 			}
 
-			compImpl := component.New(constants.ComponentV1Config)
+			compImpl := component.New()
 			return compImpl.Scaffold(component.ScaffoldParams{
 				ComponentName: fg.GetString(flags.Name),
 				ComponentType: fg.GetString(flags.ScaffoldType),
@@ -126,7 +127,7 @@ func newDeployComponentCmd() *cobra.Command {
 			}
 
 			// Execute deploy
-			compImpl := component.New(constants.ComponentV1Config)
+			compImpl := component.New()
 			return compImpl.Deploy(params)
 		},
 	}
@@ -184,7 +185,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 			}
 
 			// Execute logs
-			compImpl := component.New(constants.ComponentV1Config)
+			compImpl := component.New()
 			return compImpl.Logs(params)
 		},
 	}
