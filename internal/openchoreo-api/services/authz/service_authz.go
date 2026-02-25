@@ -24,11 +24,9 @@ const (
 	actionViewRoleMapping   = "rolemapping:view"
 	actionUpdateRoleMapping = "rolemapping:update"
 	actionDeleteRoleMapping = "rolemapping:delete"
-	actionViewAction        = "action:view"
 
 	resourceTypeRole        = "role"
 	resourceTypeRoleMapping = "roleMapping"
-	resourceTypeAction      = "action"
 )
 
 // authzServiceWithAuthz wraps a Service and adds authorization checks.
@@ -288,14 +286,8 @@ func (s *authzServiceWithAuthz) Evaluate(ctx context.Context, requests []authzco
 	return s.internal.Evaluate(ctx, requests)
 }
 
-// ListActions checks authorization for viewing actions, then delegates to the internal service.
+// ListActions delegates to the internal service without authz checks (actions are public metadata).
 func (s *authzServiceWithAuthz) ListActions(ctx context.Context) ([]string, error) {
-	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewAction,
-		ResourceType: resourceTypeAction,
-	}); err != nil {
-		return nil, err
-	}
 	return s.internal.ListActions(ctx)
 }
 
