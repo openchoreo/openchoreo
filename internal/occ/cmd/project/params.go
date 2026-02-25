@@ -24,4 +24,5 @@ type DeleteParams struct {
 	ProjectName string
 }
 
-func (p DeleteParams) GetNamespace() string { return p.Namespace }
+func (p DeleteParams) GetNamespace() string   { return p.Namespace }
+func (p DeleteParams) GetProjectName() string { return p.ProjectName }

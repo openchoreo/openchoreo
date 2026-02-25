@@ -75,11 +75,8 @@ func (l *Project) Get(params GetParams) error {
 
 // Delete deletes a single project
 func (l *Project) Delete(params DeleteParams) error {
-	if params.Namespace == "" {
-		return fmt.Errorf("namespace is required")
-	}
-	if params.ProjectName == "" {
-		return fmt.Errorf("project name is required")
+	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceProject, params); err != nil {
+		return err
 	}
 
 	ctx := context.Background()
