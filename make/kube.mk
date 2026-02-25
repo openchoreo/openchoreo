@@ -32,6 +32,7 @@ test-e2e: manifests generate fmt vet ## Run the e2e tests. Expected an isolated 
 		exit 1; \
 	}
 	go test ./test/e2e/ -v -ginkgo.v
+	go test ./test/e2e/suites/... -v -ginkgo.v
 
 .PHONY: dev-deploy
 dev-deploy: ## Deploy the OpenChoreo developer version to a k3d cluster configured in ~/.kube/config (Single Cluster Mode)

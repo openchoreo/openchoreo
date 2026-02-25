@@ -334,6 +334,8 @@ e2e.test: ## Run e2e test suite
 	@$(call log_info, Running e2e tests)
 	go test $(E2E_DIR)/ -v -ginkgo.v -timeout $(E2E_TEST_TIMEOUT) \
 		--e2e.kubecontext=$(E2E_KUBECONTEXT)
+	go test $(E2E_DIR)/suites/... -v -ginkgo.v -timeout $(E2E_TEST_TIMEOUT) \
+		--e2e.kubecontext=$(E2E_KUBECONTEXT)
 
 # ---------------------------------------------------------------------------
 # Utility targets

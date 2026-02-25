@@ -4,6 +4,7 @@
 package e2e
 
 import (
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2" //nolint:revive
@@ -102,12 +103,24 @@ var _ = Describe("Platform Health", Ordered, func() {
 		})
 
 		It("should have cluster-agent logs showing connection", func() {
-			Eventually(func(g Gomega) {
+			// The "connected" log is only printed once at startup. If the pod
+			// has been running for a while the line may have rotated out of
+			// the tail window. Check the current logs first; if the substring
+			// is missing, rollout-restart the agent so a fresh pod prints it.
+			checkLogs := func(g Gomega) {
 				output, err := framework.KubectlLogs(kubeContext, dpNamespace, "app=cluster-agent", 50)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(output).To(ContainSubstring("connected"),
 					"cluster-agent logs should indicate connection to control plane")
-			}).Should(Succeed())
+			}
+
+			output, err := framework.KubectlLogs(kubeContext, dpNamespace, "app=cluster-agent", 50)
+			if err != nil || !strings.Contains(output, "connected") {
+				By("'connected' log not found, restarting cluster-agent to get a fresh log")
+				Expect(framework.KubectlRolloutRestart(kubeContext, dpNamespace, "deployment/cluster-agent-dataplane")).To(Succeed())
+			}
+
+			Eventually(checkLogs, 2*time.Minute).Should(Succeed())
 		})
 	})
 })

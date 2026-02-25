@@ -71,6 +71,28 @@ func AssertAllPodsRunning(g gomega.Gomega, kubeContext, namespace string) {
 	}
 }
 
+// GetDPNamespace discovers a data plane namespace by its control plane labels.
+// DP namespace names include a hash suffix and cannot be predicted, so we
+// query by label selectors instead.
+func GetDPNamespace(kubeContext, cpNamespace, project, environment string) (string, error) {
+	selector := fmt.Sprintf(
+		"openchoreo.dev/controlplane-namespace=%s,openchoreo.dev/project=%s,openchoreo.dev/environment=%s",
+		cpNamespace, project, environment,
+	)
+	output, err := Kubectl(kubeContext,
+		"get", "namespace",
+		"-l", selector,
+		"-o", "jsonpath={.items[0].metadata.name}",
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to find dp namespace for cp=%s project=%s env=%s: %w", cpNamespace, project, environment, err)
+	}
+	if output == "" {
+		return "", fmt.Errorf("no dp namespace found for cp=%s project=%s env=%s", cpNamespace, project, environment)
+	}
+	return output, nil
+}
+
 // AssertResourceExists checks that a named resource exists in the namespace.
 // Designed for use inside Eventually(func(g Gomega) { ... }).
 func AssertResourceExists(g gomega.Gomega, kubeContext, namespace, resource, name string) {
