@@ -51,6 +51,9 @@ spec:
                 - componentName
                 - projectName
                 type: object
+                x-kubernetes-validations:
+                - message: spec.owner is immutable
+                  rule: self == oldSelf
               repository:
                 description: Repository contains the source repository configuration
                 properties:

@@ -16,6 +16,7 @@ type ReleaseSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.owner is immutable"
 	Owner ReleaseOwner `json:"owner"`
 	// +kubebuilder:validation:MinLength=1
 	EnvironmentName string `json:"environmentName"`

@@ -58,6 +58,7 @@ type BuildOwner struct {
 
 // BuildSpec defines the desired state of Build.
 type BuildSpec struct {
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.owner is immutable"
 	Owner BuildOwner `json:"owner"`
 
 	// Repository contains the source repository configuration
