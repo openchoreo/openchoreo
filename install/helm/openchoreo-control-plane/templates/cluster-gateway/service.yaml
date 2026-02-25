@@ -1,4 +1,3 @@
-{{- if .Values.clusterGateway.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -28,4 +27,3 @@ spec:
     app: cluster-gateway
     app.kubernetes.io/component: cluster-gateway
     {{- include "openchoreo-control-plane.selectorLabels" . | nindent 4 }}
-{{- end }}

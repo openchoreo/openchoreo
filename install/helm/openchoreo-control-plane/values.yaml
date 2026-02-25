@@ -694,12 +694,6 @@ controllerManager:
   # @schema
   clusterGateway:
     # @schema
-    # type: boolean
-    # description: Enable cluster gateway integration for remote data plane communication
-    # default: true
-    # @schema
-    enabled: true
-    # @schema
     # type: string
     # description: Cluster gateway service URL
     # default: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
@@ -2477,16 +2471,6 @@ backstage:
 # description: Cluster Gateway configuration - manages WebSocket connections from cluster agents
 # @schema
 clusterGateway:
-  # type: boolean
-  # description: Enable the cluster gateway
-  # default: true
-  # @schema
-  # type: boolean
-  # description: Enable the cluster gateway
-  # default: true
-  # @schema
-  enabled: true
-
   # type: string
   # description: Name of the cluster gateway deployment
   # default: cluster-gateway

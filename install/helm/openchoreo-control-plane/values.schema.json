@@ -928,12 +928,6 @@
           "title": "affinity",
           "type": "object"
         },
-        "enabled": {
-          "default": true,
-          "description": "Enable the cluster gateway",
-          "title": "enabled",
-          "type": "boolean"
-        },
         "heartbeatInterval": {
           "default": "30s",
           "description": "Heartbeat interval for agent connections",
@@ -1520,12 +1514,6 @@
           "additionalProperties": false,
           "description": "Cluster Gateway configuration for agent-based data plane communication",
           "properties": {
-            "enabled": {
-              "default": true,
-              "description": "Enable cluster gateway integration for remote data plane communication",
-              "title": "enabled",
-              "type": "boolean"
-            },
             "tls": {
               "additionalProperties": false,
               "description": "TLS configuration for cluster gateway connection",

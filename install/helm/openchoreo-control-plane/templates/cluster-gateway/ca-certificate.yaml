@@ -1,4 +1,3 @@
-{{- if .Values.clusterGateway.enabled }}
 {{- if .Values.clusterGateway.tls.enabled }}
 ---
 # Self-signed issuer for creating the cluster gateway CA
@@ -38,5 +37,4 @@ spec:
   issuerRef:
     name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}-ca-issuer
     kind: Issuer
-{{- end }}
 {{- end }}

@@ -1,4 +1,3 @@
-{{- if .Values.clusterGateway.enabled }}
 {{- if .Values.clusterGateway.tls.enabled }}
 ---
 # Placeholder ConfigMap for cluster-gateway CA certificate
@@ -17,5 +16,4 @@ data:
   ca.crt: |
     # Placeholder certificate - will be replaced by actual CA certificate
     # after cluster-gateway TLS secret is ready
-{{- end }}
 {{- end }}

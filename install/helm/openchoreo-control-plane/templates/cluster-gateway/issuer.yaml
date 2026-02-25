@@ -1,4 +1,3 @@
-{{- if .Values.clusterGateway.enabled }}
 {{- if .Values.clusterGateway.tls.enabled }}
 apiVersion: cert-manager.io/v1
 kind: Issuer
@@ -11,5 +10,4 @@ metadata:
 spec:
   ca:
     secretName: cluster-gateway-ca
-{{- end }}
 {{- end }}

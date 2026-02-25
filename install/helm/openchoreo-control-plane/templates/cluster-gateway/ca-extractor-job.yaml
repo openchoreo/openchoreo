@@ -1,4 +1,3 @@
-{{- if .Values.clusterGateway.enabled }}
 {{- if .Values.clusterGateway.tls.enabled }}
 ---
 # Job to extract CA certificate from cluster-gateway TLS secret and populate ConfigMap
@@ -105,5 +104,4 @@ spec:
 
           echo ""
           echo "=== CA Extraction Completed Successfully ==="
-{{- end }}
 {{- end }}

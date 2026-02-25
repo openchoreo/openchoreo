@@ -50,24 +50,17 @@ spec:
         command:
         - /manager
         args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
-        {{- if .Values.controllerManager.clusterGateway.enabled }}
         - --cluster-gateway-url={{ .Values.controllerManager.clusterGateway.url }}
         - --cluster-gateway-ca-cert={{ .Values.controllerManager.clusterGateway.tls.caPath }}
-        {{- end }}
-        {{- if .Values.controllerManager.dataplaneNetworkPolicies.enabled }}
-        - --enable-network-policies
-        {{- end }}
         env:
         - name: ENABLE_WEBHOOKS
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        {{- if .Values.controllerManager.clusterGateway.enabled }}
         - name: CLUSTER_GATEWAY_URL
           value: {{ quote .Values.controllerManager.clusterGateway.url }}
         - name: CLUSTER_GATEWAY_CA_CERT
           value: {{ quote .Values.controllerManager.clusterGateway.tls.caPath }}
-        {{- end }}
         ports:
         - containerPort: 8080
           name: metrics
@@ -101,11 +94,9 @@ spec:
           name: cert
           readOnly: true
         {{- end }}
-        {{- if .Values.controllerManager.clusterGateway.enabled }}
         - mountPath: /etc/cluster-gateway
           name: cluster-gateway-ca
           readOnly: true
-        {{- end }}
       volumes:
       {{- if eq (toString .Values.controllerManager.manager.env.enableWebhooks) "true" }}
       - name: cert
@@ -113,8 +104,6 @@ spec:
           defaultMode: 420
           secretName: {{ .Values.controllerManager.name }}-webhook-server-cert
       {{- end }}
-      {{- if .Values.controllerManager.clusterGateway.enabled }}
       - name: cluster-gateway-ca
         secret:
           secretName: {{ .Values.controllerManager.clusterGateway.tls.caSecret | default "cluster-gateway-ca" }}
-      {{- end }}

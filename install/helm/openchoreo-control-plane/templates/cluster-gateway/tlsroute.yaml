@@ -1,4 +1,3 @@
-{{- if .Values.clusterGateway.enabled }}
 {{- if and .Values.clusterGateway.tlsRoute.enabled .Values.gateway.enabled }}
 ---
 # TLSRoute for TLS passthrough
@@ -24,5 +23,4 @@ spec:
     - backendRefs:
         - name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}
           port: {{ .Values.clusterGateway.service.port }}
-{{- end }}
 {{- end }}

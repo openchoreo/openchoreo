@@ -1,4 +1,3 @@
-{{- if .Values.clusterGateway.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -87,4 +86,3 @@ spec:
       - name: server-certs
         secret:
           secretName: {{ .Values.clusterGateway.tls.secretName }}
-{{- end }}

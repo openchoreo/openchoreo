@@ -42,7 +42,7 @@ spec:
             {{- end }}
           {{- end }}
 {{- end }}
-{{- if and .Values.clusterGateway.enabled .Values.clusterGateway.tlsRoute.enabled }}
+{{- if .Values.clusterGateway.tlsRoute.enabled }}
     - name: tls-passthrough
       protocol: TLS
       port: {{ .Values.gateway.httpsPort | default 443 }}
