@@ -201,6 +201,22 @@ Examples:
   occ component list --namespace acme-corp --project online-store`,
 	}
 
+	GetComponent = Command{
+		Use:   "get [COMPONENT_NAME]",
+		Short: "Get a component",
+		Long:  `Get a component and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a component
+  %[1]s component get my-component --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteComponent = Command{
+		Use:   "delete [COMPONENT_NAME]",
+		Short: "Delete a component",
+		Long:  `Delete a component by name.`,
+		Example: fmt.Sprintf(`  # Delete a component
+  %[1]s component delete my-component --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
 	Logs = Command{
 		Use:     "logs",
 		Aliases: []string{"log"},

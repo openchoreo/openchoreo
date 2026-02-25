@@ -218,6 +218,18 @@ func (c *Client) UpdateComponentType(ctx context.Context, namespaceName, ctName 
 	return resp.JSON200, nil
 }
 
+// DeleteComponent deletes a component
+func (c *Client) DeleteComponent(ctx context.Context, namespaceName, componentName string) error {
+	resp, err := c.client.DeleteComponentWithResponse(ctx, namespaceName, componentName)
+	if err != nil {
+		return fmt.Errorf("failed to delete component: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
 // DeleteComponentType deletes a component type
 func (c *Client) DeleteComponentType(ctx context.Context, namespaceName, ctName string) error {
 	resp, err := c.client.DeleteComponentTypeWithResponse(ctx, namespaceName, ctName)

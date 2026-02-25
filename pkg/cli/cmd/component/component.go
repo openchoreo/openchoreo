@@ -26,6 +26,8 @@ func NewComponentCmd() *cobra.Command {
 
 	componentCmd.AddCommand(
 		newListComponentCmd(),
+		newGetComponentCmd(),
+		newDeleteComponentCmd(),
 		newScaffoldComponentCmd(),
 		newDeployComponentCmd(),
 		newLogsComponentCmd(),
@@ -47,6 +49,54 @@ func newListComponentCmd() *cobra.Command {
 			})
 		},
 	}).Build()
+}
+
+func newGetComponentCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.GetComponent.Use,
+		Short:   constants.GetComponent.Short,
+		Long:    constants.GetComponent.Long,
+		Example: constants.GetComponent.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+
+			compImpl := component.New()
+			return compImpl.Get(component.GetParams{
+				Namespace:     namespace,
+				ComponentName: args[0],
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace)
+
+	return cmd
+}
+
+func newDeleteComponentCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteComponent.Use,
+		Short:   constants.DeleteComponent.Short,
+		Long:    constants.DeleteComponent.Long,
+		Example: constants.DeleteComponent.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+
+			compImpl := component.New()
+			return compImpl.Delete(component.DeleteParams{
+				Namespace:     namespace,
+				ComponentName: args[0],
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace)
+
+	return cmd
 }
 
 func newScaffoldComponentCmd() *cobra.Command {

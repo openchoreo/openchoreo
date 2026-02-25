@@ -39,6 +39,22 @@ func (p DeployParams) GetNamespace() string     { return p.Namespace }
 func (p DeployParams) GetProject() string       { return p.Project }
 func (p DeployParams) GetComponentName() string { return p.ComponentName }
 
+// GetParams defines parameters for getting a single component
+type GetParams struct {
+	Namespace     string
+	ComponentName string
+}
+
+func (p GetParams) GetNamespace() string { return p.Namespace }
+
+// DeleteParams defines parameters for deleting a single component
+type DeleteParams struct {
+	Namespace     string
+	ComponentName string
+}
+
+func (p DeleteParams) GetNamespace() string { return p.Namespace }
+
 // LogsParams defines parameters for fetching component logs
 type LogsParams struct {
 	Namespace   string

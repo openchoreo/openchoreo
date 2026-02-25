@@ -16,6 +16,7 @@ import (
 
 	"github.com/tidwall/sjson"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
@@ -49,6 +50,57 @@ func (l *Component) List(params ListParams) error {
 	}
 
 	return printList(result, params.Project == "")
+}
+
+// Get retrieves a single component and outputs it as YAML
+func (l *Component) Get(params GetParams) error {
+	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponent, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.GetComponent(ctx, params.Namespace, params.ComponentName)
+	if err != nil {
+		return fmt.Errorf("failed to get component: %w", err)
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal component to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
+}
+
+// Delete deletes a single component
+func (l *Component) Delete(params DeleteParams) error {
+	if params.Namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	if params.ComponentName == "" {
+		return fmt.Errorf("component name is required")
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := c.DeleteComponent(ctx, params.Namespace, params.ComponentName); err != nil {
+		return fmt.Errorf("failed to delete component: %w", err)
+	}
+
+	fmt.Printf("Component '%s' deleted\n", params.ComponentName)
+	return nil
 }
 
 // Scaffold generates a scaffold YAML for a component based on its ComponentType and optional Traits and Workflow

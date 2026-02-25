@@ -99,27 +99,9 @@ func validateProjectParams(cmdType CommandType, params interface{}) error {
 // validateComponentParams validates parameters for component operations
 func validateComponentParams(cmdType CommandType, params interface{}) error {
 	switch cmdType {
-	case CmdCreate:
-		if p, ok := params.(api.CreateComponentParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-				"name":      p.Name,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceComponent, fields)
-			}
-			return ValidateGitHubURL(p.GitRepositoryURL)
-		}
 	case CmdGet:
-		if p, ok := params.(api.GetComponentParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceComponent, fields)
-			}
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(ResourceComponent, p.GetNamespace())
 		}
 	case CmdList:
 		return validateComponentListParams(params)
