@@ -438,6 +438,18 @@ type ServerInterface interface {
 	// List workflows
 	// (GET /api/v1/namespaces/{namespaceName}/workflows)
 	ListWorkflows(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListWorkflowsParams)
+	// Create workflow
+	// (POST /api/v1/namespaces/{namespaceName}/workflows)
+	CreateWorkflow(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
+	// Delete workflow
+	// (DELETE /api/v1/namespaces/{namespaceName}/workflows/{workflowName})
+	DeleteWorkflow(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, workflowName WorkflowNameParam)
+	// Get workflow
+	// (GET /api/v1/namespaces/{namespaceName}/workflows/{workflowName})
+	GetWorkflow(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, workflowName WorkflowNameParam)
+	// Update workflow
+	// (PUT /api/v1/namespaces/{namespaceName}/workflows/{workflowName})
+	UpdateWorkflow(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, workflowName WorkflowNameParam)
 	// Get workflow schema
 	// (GET /api/v1/namespaces/{namespaceName}/workflows/{workflowName}/schema)
 	GetWorkflowSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, workflowName WorkflowNameParam)
@@ -5844,6 +5856,157 @@ func (siw *ServerInterfaceWrapper) ListWorkflows(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// CreateWorkflow operation middleware
+func (siw *ServerInterfaceWrapper) CreateWorkflow(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateWorkflow(w, r, namespaceName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteWorkflow operation middleware
+func (siw *ServerInterfaceWrapper) DeleteWorkflow(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "workflowName" -------------
+	var workflowName WorkflowNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workflowName", r.PathValue("workflowName"), &workflowName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workflowName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteWorkflow(w, r, namespaceName, workflowName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetWorkflow operation middleware
+func (siw *ServerInterfaceWrapper) GetWorkflow(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "workflowName" -------------
+	var workflowName WorkflowNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workflowName", r.PathValue("workflowName"), &workflowName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workflowName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWorkflow(w, r, namespaceName, workflowName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateWorkflow operation middleware
+func (siw *ServerInterfaceWrapper) UpdateWorkflow(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "workflowName" -------------
+	var workflowName WorkflowNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workflowName", r.PathValue("workflowName"), &workflowName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workflowName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateWorkflow(w, r, namespaceName, workflowName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetWorkflowSchema operation middleware
 func (siw *ServerInterfaceWrapper) GetWorkflowSchema(w http.ResponseWriter, r *http.Request) {
 
@@ -6571,6 +6734,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns/{runName}/logs", wrapper.GetWorkflowRunLogs)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns/{runName}/status", wrapper.GetWorkflowRunStatus)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflows", wrapper.ListWorkflows)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflows", wrapper.CreateWorkflow)
+	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflows/{workflowName}", wrapper.DeleteWorkflow)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflows/{workflowName}", wrapper.GetWorkflow)
+	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflows/{workflowName}", wrapper.UpdateWorkflow)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflows/{workflowName}/schema", wrapper.GetWorkflowSchema)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workloads", wrapper.ListWorkloads)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workloads", wrapper.CreateWorkload)
@@ -14435,6 +14602,249 @@ func (response ListWorkflows500JSONResponse) VisitListWorkflowsResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
+type CreateWorkflowRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Body          *CreateWorkflowJSONRequestBody
+}
+
+type CreateWorkflowResponseObject interface {
+	VisitCreateWorkflowResponse(w http.ResponseWriter) error
+}
+
+type CreateWorkflow201JSONResponse Workflow
+
+func (response CreateWorkflow201JSONResponse) VisitCreateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkflow400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateWorkflow400JSONResponse) VisitCreateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkflow401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateWorkflow401JSONResponse) VisitCreateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkflow403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateWorkflow403JSONResponse) VisitCreateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkflow409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateWorkflow409JSONResponse) VisitCreateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkflow500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateWorkflow500JSONResponse) VisitCreateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteWorkflowRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	WorkflowName  WorkflowNameParam  `json:"workflowName"`
+}
+
+type DeleteWorkflowResponseObject interface {
+	VisitDeleteWorkflowResponse(w http.ResponseWriter) error
+}
+
+type DeleteWorkflow204Response struct {
+}
+
+func (response DeleteWorkflow204Response) VisitDeleteWorkflowResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteWorkflow401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteWorkflow401JSONResponse) VisitDeleteWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteWorkflow403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteWorkflow403JSONResponse) VisitDeleteWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteWorkflow404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteWorkflow404JSONResponse) VisitDeleteWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteWorkflow500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteWorkflow500JSONResponse) VisitDeleteWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkflowRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	WorkflowName  WorkflowNameParam  `json:"workflowName"`
+}
+
+type GetWorkflowResponseObject interface {
+	VisitGetWorkflowResponse(w http.ResponseWriter) error
+}
+
+type GetWorkflow200JSONResponse Workflow
+
+func (response GetWorkflow200JSONResponse) VisitGetWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkflow401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetWorkflow401JSONResponse) VisitGetWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkflow403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetWorkflow403JSONResponse) VisitGetWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkflow404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetWorkflow404JSONResponse) VisitGetWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkflow500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetWorkflow500JSONResponse) VisitGetWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWorkflowRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	WorkflowName  WorkflowNameParam  `json:"workflowName"`
+	Body          *UpdateWorkflowJSONRequestBody
+}
+
+type UpdateWorkflowResponseObject interface {
+	VisitUpdateWorkflowResponse(w http.ResponseWriter) error
+}
+
+type UpdateWorkflow200JSONResponse Workflow
+
+func (response UpdateWorkflow200JSONResponse) VisitUpdateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWorkflow400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateWorkflow400JSONResponse) VisitUpdateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWorkflow401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateWorkflow401JSONResponse) VisitUpdateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWorkflow403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateWorkflow403JSONResponse) VisitUpdateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWorkflow404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateWorkflow404JSONResponse) VisitUpdateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWorkflow409JSONResponse struct{ ConflictJSONResponse }
+
+func (response UpdateWorkflow409JSONResponse) VisitUpdateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateWorkflow500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response UpdateWorkflow500JSONResponse) VisitUpdateWorkflowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetWorkflowSchemaRequestObject struct {
 	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	WorkflowName  WorkflowNameParam  `json:"workflowName"`
@@ -15585,6 +15995,18 @@ type StrictServerInterface interface {
 	// List workflows
 	// (GET /api/v1/namespaces/{namespaceName}/workflows)
 	ListWorkflows(ctx context.Context, request ListWorkflowsRequestObject) (ListWorkflowsResponseObject, error)
+	// Create workflow
+	// (POST /api/v1/namespaces/{namespaceName}/workflows)
+	CreateWorkflow(ctx context.Context, request CreateWorkflowRequestObject) (CreateWorkflowResponseObject, error)
+	// Delete workflow
+	// (DELETE /api/v1/namespaces/{namespaceName}/workflows/{workflowName})
+	DeleteWorkflow(ctx context.Context, request DeleteWorkflowRequestObject) (DeleteWorkflowResponseObject, error)
+	// Get workflow
+	// (GET /api/v1/namespaces/{namespaceName}/workflows/{workflowName})
+	GetWorkflow(ctx context.Context, request GetWorkflowRequestObject) (GetWorkflowResponseObject, error)
+	// Update workflow
+	// (PUT /api/v1/namespaces/{namespaceName}/workflows/{workflowName})
+	UpdateWorkflow(ctx context.Context, request UpdateWorkflowRequestObject) (UpdateWorkflowResponseObject, error)
 	// Get workflow schema
 	// (GET /api/v1/namespaces/{namespaceName}/workflows/{workflowName}/schema)
 	GetWorkflowSchema(ctx context.Context, request GetWorkflowSchemaRequestObject) (GetWorkflowSchemaResponseObject, error)
@@ -19656,6 +20078,127 @@ func (sh *strictHandler) ListWorkflows(w http.ResponseWriter, r *http.Request, n
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListWorkflowsResponseObject); ok {
 		if err := validResponse.VisitListWorkflowsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateWorkflow operation middleware
+func (sh *strictHandler) CreateWorkflow(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam) {
+	var request CreateWorkflowRequestObject
+
+	request.NamespaceName = namespaceName
+
+	var body CreateWorkflowJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateWorkflow(ctx, request.(CreateWorkflowRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateWorkflow")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateWorkflowResponseObject); ok {
+		if err := validResponse.VisitCreateWorkflowResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteWorkflow operation middleware
+func (sh *strictHandler) DeleteWorkflow(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, workflowName WorkflowNameParam) {
+	var request DeleteWorkflowRequestObject
+
+	request.NamespaceName = namespaceName
+	request.WorkflowName = workflowName
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteWorkflow(ctx, request.(DeleteWorkflowRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteWorkflow")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteWorkflowResponseObject); ok {
+		if err := validResponse.VisitDeleteWorkflowResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetWorkflow operation middleware
+func (sh *strictHandler) GetWorkflow(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, workflowName WorkflowNameParam) {
+	var request GetWorkflowRequestObject
+
+	request.NamespaceName = namespaceName
+	request.WorkflowName = workflowName
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetWorkflow(ctx, request.(GetWorkflowRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetWorkflow")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetWorkflowResponseObject); ok {
+		if err := validResponse.VisitGetWorkflowResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateWorkflow operation middleware
+func (sh *strictHandler) UpdateWorkflow(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, workflowName WorkflowNameParam) {
+	var request UpdateWorkflowRequestObject
+
+	request.NamespaceName = namespaceName
+	request.WorkflowName = workflowName
+
+	var body UpdateWorkflowJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateWorkflow(ctx, request.(UpdateWorkflowRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateWorkflow")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateWorkflowResponseObject); ok {
+		if err := validResponse.VisitUpdateWorkflowResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

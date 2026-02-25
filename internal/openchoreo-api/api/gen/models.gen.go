@@ -273,15 +273,6 @@ const (
 	UpdateRoleMappingRequestEffectDeny  UpdateRoleMappingRequestEffect = "deny"
 )
 
-// Defines values for WorkflowRunStatus.
-const (
-	WorkflowRunStatusError     WorkflowRunStatus = "Error"
-	WorkflowRunStatusFailed    WorkflowRunStatus = "Failed"
-	WorkflowRunStatusPending   WorkflowRunStatus = "Pending"
-	WorkflowRunStatusRunning   WorkflowRunStatus = "Running"
-	WorkflowRunStatusSucceeded WorkflowRunStatus = "Succeeded"
-)
-
 // Defines values for WorkflowRunStatusResponseStatus.
 const (
 	WorkflowRunStatusResponseStatusError     WorkflowRunStatusResponseStatus = "Error"
@@ -293,12 +284,12 @@ const (
 
 // Defines values for WorkflowStepStatusPhase.
 const (
-	Error     WorkflowStepStatusPhase = "Error"
-	Failed    WorkflowStepStatusPhase = "Failed"
-	Pending   WorkflowStepStatusPhase = "Pending"
-	Running   WorkflowStepStatusPhase = "Running"
-	Skipped   WorkflowStepStatusPhase = "Skipped"
-	Succeeded WorkflowStepStatusPhase = "Succeeded"
+	WorkflowStepStatusPhaseError     WorkflowStepStatusPhase = "Error"
+	WorkflowStepStatusPhaseFailed    WorkflowStepStatusPhase = "Failed"
+	WorkflowStepStatusPhasePending   WorkflowStepStatusPhase = "Pending"
+	WorkflowStepStatusPhaseRunning   WorkflowStepStatusPhase = "Running"
+	WorkflowStepStatusPhaseSkipped   WorkflowStepStatusPhase = "Skipped"
+	WorkflowStepStatusPhaseSucceeded WorkflowStepStatusPhase = "Succeeded"
 )
 
 // Defines values for WorkloadConnectionType.
@@ -2516,6 +2507,14 @@ type ResourceRef struct {
 	Version string `json:"version"`
 }
 
+// ResourceReference Reference to a Kubernetes resource applied during a workflow run
+type ResourceReference struct {
+	ApiVersion string  `json:"apiVersion"`
+	Kind       string  `json:"kind"`
+	Name       string  `json:"name"`
+	Namespace  *string `json:"namespace,omitempty"`
+}
+
 // ResourceTreeResponse Response containing the resource tree for a release
 type ResourceTreeResponse struct {
 	// Nodes All resource nodes in the tree
@@ -2978,19 +2977,15 @@ type WebhookEventResponse struct {
 	TriggeredBuilds int `json:"triggeredBuilds"`
 }
 
-// Workflow Generic workflow resource
+// Workflow defines model for Workflow.
 type Workflow struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// Description Workflow description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name Workflow name (unique within namespace)
-	Name string `json:"name"`
+	// Spec Desired state of a Workflow
+	Spec   *WorkflowSpec   `json:"spec,omitempty"`
+	Status *WorkflowStatus `json:"status,omitempty"`
 }
 
 // WorkflowList Paginated list of workflows
@@ -3002,38 +2997,37 @@ type WorkflowList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
-// WorkflowRun Generic workflow run (execution)
-type WorkflowRun struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
+// WorkflowResource Template for generating an additional Kubernetes resource for a workflow run.
+type WorkflowResource struct {
+	// Id Unique identifier for this resource within the workflow.
+	Id string `json:"id"`
 
-	// FinishedAt Completion timestamp
-	FinishedAt *time.Time `json:"finishedAt,omitempty"`
+	// IncludeWhen CEL expression that determines whether this resource is rendered.
+	IncludeWhen *string `json:"includeWhen,omitempty"`
 
-	// Name Workflow run name
-	Name string `json:"name"`
-
-	// OrgName Organization name
-	OrgName string `json:"orgName"`
-
-	// Parameters User-defined workflow parameters
-	Parameters *map[string]interface{} `json:"parameters,omitempty"`
-
-	// Phase Detailed execution phase
-	Phase *string `json:"phase,omitempty"`
-
-	// Status Current execution status
-	Status WorkflowRunStatus `json:"status"`
-
-	// Uuid Unique identifier
-	Uuid *string `json:"uuid,omitempty"`
-
-	// WorkflowName Parent workflow name
-	WorkflowName string `json:"workflowName"`
+	// Template Kubernetes resource template with CEL expressions.
+	Template map[string]interface{} `json:"template"`
 }
 
-// WorkflowRunStatus Current execution status
-type WorkflowRunStatus string
+// WorkflowRun defines model for WorkflowRun.
+type WorkflowRun struct {
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a WorkflowRun
+	Spec   *WorkflowRunSpec   `json:"spec,omitempty"`
+	Status *WorkflowRunStatus `json:"status,omitempty"`
+}
+
+// WorkflowRunConfig Workflow configuration referencing the Workflow and providing schema values.
+type WorkflowRunConfig struct {
+	// Name Referenced Workflow name
+	Name string `json:"name"`
+
+	// Parameters Developer-provided parameters for the referenced workflow
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+}
 
 // WorkflowRunEventEntry A single Kubernetes event from a workflow run
 type WorkflowRunEventEntry struct {
@@ -3068,6 +3062,29 @@ type WorkflowRunLogEntry struct {
 	Timestamp *time.Time `json:"timestamp,omitempty"`
 }
 
+// WorkflowRunSpec Desired state of a WorkflowRun
+type WorkflowRunSpec struct {
+	// TtlAfterCompletion Time-to-live for this workflow run after completion (duration string like 10d1h30m).
+	TtlAfterCompletion *string `json:"ttlAfterCompletion,omitempty"`
+
+	// Workflow Workflow configuration referencing the Workflow and providing schema values.
+	Workflow WorkflowRunConfig `json:"workflow"`
+}
+
+// WorkflowRunStatus Observed state of a WorkflowRun
+type WorkflowRunStatus struct {
+	CompletedAt *time.Time `json:"completedAt,omitempty"`
+
+	// Conditions Kubernetes-style conditions
+	Conditions *[]Condition         `json:"conditions,omitempty"`
+	Resources  *[]ResourceReference `json:"resources,omitempty"`
+
+	// RunReference Reference to a Kubernetes resource applied during a workflow run
+	RunReference *ResourceReference `json:"runReference,omitempty"`
+	StartedAt    *time.Time         `json:"startedAt,omitempty"`
+	Tasks        *[]WorkflowTask    `json:"tasks,omitempty"`
+}
+
 // WorkflowRunStatusResponse Status of a workflow run including per-step details
 type WorkflowRunStatusResponse struct {
 	// HasLiveObservability Whether live logs/events are available from the build plane
@@ -3082,6 +3099,36 @@ type WorkflowRunStatusResponse struct {
 
 // WorkflowRunStatusResponseStatus Overall workflow run status
 type WorkflowRunStatusResponseStatus string
+
+// WorkflowSchema Developer-facing schema definition for workflow parameters
+type WorkflowSchema struct {
+	// Parameters Developer-facing configuration options
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// Types Reusable type definitions
+	Types *map[string]interface{} `json:"types,omitempty"`
+}
+
+// WorkflowSpec Desired state of a Workflow
+type WorkflowSpec struct {
+	// Resources Additional resource templates to render and apply alongside the workflow run.
+	Resources *[]WorkflowResource `json:"resources,omitempty"`
+
+	// RunTemplate Kubernetes resource template to render and apply for this workflow run.
+	RunTemplate map[string]interface{} `json:"runTemplate"`
+
+	// Schema Developer-facing schema definition for workflow parameters
+	Schema *WorkflowSchema `json:"schema,omitempty"`
+
+	// TtlAfterCompletion Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
+	TtlAfterCompletion *string `json:"ttlAfterCompletion,omitempty"`
+}
+
+// WorkflowStatus Observed state of a Workflow
+type WorkflowStatus struct {
+	// Conditions Kubernetes-style conditions
+	Conditions *[]Condition `json:"conditions,omitempty"`
+}
 
 // WorkflowStepStatus Status of an individual workflow step
 type WorkflowStepStatus struct {
@@ -3100,6 +3147,17 @@ type WorkflowStepStatus struct {
 
 // WorkflowStepStatusPhase Step phase
 type WorkflowStepStatusPhase string
+
+// WorkflowTask A single task/step within a workflow execution
+type WorkflowTask struct {
+	CompletedAt *time.Time `json:"completedAt,omitempty"`
+	Message     *string    `json:"message,omitempty"`
+	Name        string     `json:"name"`
+
+	// Phase Current execution phase of the task
+	Phase     *string    `json:"phase,omitempty"`
+	StartedAt *time.Time `json:"startedAt,omitempty"`
+}
 
 // Workload Workload resource (Kubernetes object without kind/apiVersion).
 // Defines the source code, container, endpoints and connections for a component.
@@ -3840,7 +3898,13 @@ type CreateTraitJSONRequestBody = Trait
 type UpdateTraitJSONRequestBody = Trait
 
 // CreateWorkflowRunJSONRequestBody defines body for CreateWorkflowRun for application/json ContentType.
-type CreateWorkflowRunJSONRequestBody = CreateWorkflowRunRequest
+type CreateWorkflowRunJSONRequestBody = WorkflowRun
+
+// CreateWorkflowJSONRequestBody defines body for CreateWorkflow for application/json ContentType.
+type CreateWorkflowJSONRequestBody = Workflow
+
+// UpdateWorkflowJSONRequestBody defines body for UpdateWorkflow for application/json ContentType.
+type UpdateWorkflowJSONRequestBody = Workflow
 
 // CreateWorkloadJSONRequestBody defines body for CreateWorkload for application/json ContentType.
 type CreateWorkloadJSONRequestBody = Workload
