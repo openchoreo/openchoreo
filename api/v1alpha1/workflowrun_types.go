@@ -75,7 +75,9 @@ type ResourceReference struct {
 // (e.g., Argo Workflow nodes, Tekton TaskRuns).
 type WorkflowTask struct {
 	// Name is the name of the task/step.
-	// For Argo Workflows, this corresponds to the templateName.
+	// For Argo Workflows, this corresponds to the node's displayName (or parsed node name from the
+	// node name pattern "workflow-name[N].step-name"), not the templateName, since workflows now use
+	// ClusterWorkflowTemplates with templateRef instead of inline templates.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`

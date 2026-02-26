@@ -237,7 +237,9 @@ spec:
                     name:
                       description: |-
                         Name is the name of the task/step.
-                        For Argo Workflows, this corresponds to the templateName.
+                        For Argo Workflows, this corresponds to the node's displayName (or parsed node name from the
+                        node name pattern "workflow-name[N].step-name"), not the templateName, since workflows now use
+                        ClusterWorkflowTemplates with templateRef instead of inline templates.
                       minLength: 1
                       type: string
                     phase:

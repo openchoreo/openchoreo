@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -404,7 +405,12 @@ func (r *Reconciler) createWorkloadFromWorkflowRun(
 // extractWorkloadCRFromRunResource extracts workload CR from run resource outputs.
 func extractWorkloadCRFromRunResource(runResource *argoproj.Workflow) string {
 	for _, node := range runResource.Status.Nodes {
-		if node.TemplateName == generateWorkloadTaskName && node.Phase == argoproj.NodeSucceeded {
+		nodeTaskName := node.DisplayName
+		if nodeTaskName == "" {
+			nodeTaskName = extractTaskNameFromArgoNodeName(node.Name)
+		}
+
+		if nodeTaskName == generateWorkloadTaskName && node.Phase == argoproj.NodeSucceeded {
 			if node.Outputs != nil {
 				for _, param := range node.Outputs.Parameters {
 					if param.Name == workloadCRParamName && param.Value != nil {
@@ -818,19 +824,10 @@ func extractArgoStepOrderFromNodeName(nodeName string) int {
 // Node names follow the pattern: "workflow-name[N].step-name" where step-name is the task name.
 // Returns empty string if the pattern doesn't match.
 func extractTaskNameFromArgoNodeName(nodeName string) string {
-	// Find the last dot to extract the step name
-	lastDotIdx := -1
-	for i := len(nodeName) - 1; i >= 0; i-- {
-		if nodeName[i] == '.' {
-			lastDotIdx = i
-			break
-		}
-	}
-
+	lastDotIdx := strings.LastIndex(nodeName, ".")
 	if lastDotIdx == -1 || lastDotIdx >= len(nodeName)-1 {
 		return ""
 	}
-
 	return nodeName[lastDotIdx+1:]
 }
 
