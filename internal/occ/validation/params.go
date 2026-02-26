@@ -35,8 +35,6 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateEndpointParams(cmdType, params)
 	case ResourceLogs:
 		return validateLogParams(cmdType, params)
-	case ResourceApply:
-		return validateApplyParams(cmdType, params)
 	case ResourceDeploymentPipeline:
 		return validateDeploymentPipelineParams(cmdType, params)
 	case ResourceConfigurationGroup:
@@ -441,21 +439,6 @@ func validateEndpointParams(cmdType CommandType, params interface{}) error {
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceEndpoint, fields)
-			}
-		}
-	}
-	return nil
-}
-
-// validateApplyParams validates parameters for apply operations
-func validateApplyParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdApply {
-		if p, ok := params.(api.ApplyParams); ok {
-			fields := map[string]string{
-				"file": p.FilePath,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, "", fields)
 			}
 		}
 	}

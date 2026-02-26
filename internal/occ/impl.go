@@ -4,7 +4,6 @@
 package occ
 
 import (
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/apply"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -38,9 +37,4 @@ func (c *CommandImplementation) GetLoginPrompt() string {
 func (c *CommandImplementation) Logout() error {
 	logoutImpl := logout.NewLogoutImpl()
 	return logoutImpl.Logout()
-}
-
-func (c *CommandImplementation) Apply(params api.ApplyParams) error {
-	applyImpl := apply.NewApplyImpl()
-	return applyImpl.Apply(params)
 }

@@ -6,20 +6,21 @@ package apply
 import (
 	"github.com/spf13/cobra"
 
+	internalApply "github.com/openchoreo/openchoreo/internal/occ/cmd/apply"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-func NewApplyCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func NewApplyCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.Apply,
 		Flags:   []flags.Flag{flags.ApplyFileFlag},
-		PreRunE: auth.RequireLogin(impl),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.Apply(api.ApplyParams{
+			return internalApply.Apply(internalApply.Params{
 				FilePath: fg.GetString(flags.ApplyFileFlag),
 			})
 		},

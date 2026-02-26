@@ -4,103 +4,245 @@
 package apply
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-type ApplyImpl struct{}
-
-func NewApplyImpl() *ApplyImpl {
-	return &ApplyImpl{}
+// resourceInfo holds extracted metadata from a YAML resource.
+type resourceInfo struct {
+	kind       string
+	apiVersion string
+	name       string
+	namespace  string
 }
 
-func (i *ApplyImpl) Apply(params api.ApplyParams) error {
-	if err := validation.ValidateParams(validation.CmdApply, validation.ResourceApply, params); err != nil {
-		return err
+// Apply applies resources from the specified file or directory.
+func Apply(params Params) error {
+	if params.FilePath == "" {
+		return fmt.Errorf("file path is required")
 	}
 
-	// Create API client with auto-detection
-	apiClient, err := client.NewAPIClient()
+	c, err := client.NewClient()
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
-
-	// Check API server connectivity
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := apiClient.HealthCheck(ctx); err != nil {
-		return fmt.Errorf("OpenChoreo API server not accessible: %w", err)
-	}
+	genClient := c.GetClient()
 
 	// Discover all resource files to process
 	resourceFiles, err := discoverResourceFiles(params.FilePath)
 	if err != nil {
 		return fmt.Errorf("failed to discover resources: %w", err)
 	}
-
 	if len(resourceFiles) == 0 {
 		return fmt.Errorf("no YAML files found in: %s", params.FilePath)
 	}
 
+	registry := buildRegistry()
+
+	// Resolve default namespace from CLI context
+	defaultNamespace := resolveDefaultNamespace()
+
+	ctx := context.Background()
 	totalResources := 0
+	var errs []string
 
-	// Process each file
 	for _, filePath := range resourceFiles {
-		fmt.Printf("Processing file: %s\n", filePath)
-
-		// Read resource content
 		content, err := readResourceContent(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to read resource file %s: %w", filePath, err)
-		}
-
-		// Parse resources from this file
-		resources, err := parseYAMLResources(content)
-		if err != nil {
-			return fmt.Errorf("failed to parse resources in %s: %w", filePath, err)
-		}
-
-		if len(resources) == 0 {
-			fmt.Printf("  No resources found in %s\n", filePath)
+			errs = append(errs, fmt.Sprintf("failed to read %s: %v", filePath, err))
 			continue
 		}
 
-		// Apply each resource in this file
-		for j, resource := range resources {
-			if err := applyResource(ctx, apiClient, resource, j+1, len(resources)); err != nil {
-				return fmt.Errorf("failed to apply resource from %s: %w", filePath, err)
-			}
+		resources, err := parseYAMLResources(content)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("failed to parse %s: %v", filePath, err))
+			continue
 		}
 
-		totalResources += len(resources)
-		fmt.Printf("  Applied %d resource(s) from %s\n", len(resources), filePath)
+		for _, resource := range resources {
+			if err := applyResource(ctx, genClient, registry, resource, defaultNamespace); err != nil {
+				errs = append(errs, err.Error())
+			} else {
+				totalResources++
+			}
+		}
 	}
 
-	fmt.Printf("\nSuccessfully applied %d resource(s) from %d file(s) in: %s\n", totalResources, len(resourceFiles), params.FilePath)
+	if len(errs) > 0 {
+		for _, e := range errs {
+			fmt.Printf("Error: %s\n", e)
+		}
+		fmt.Printf("\nApplied %d resource(s) from %d file(s) with %d error(s)\n",
+			totalResources, len(resourceFiles), len(errs))
+		return fmt.Errorf("apply completed with %d error(s)", len(errs))
+	}
+
+	fmt.Printf("\nApplied %d resource(s) from %d file(s)\n", totalResources, len(resourceFiles))
 	return nil
 }
 
-// discoverResourceFiles discovers all YAML files to process
+// extractResourceInfo extracts kind, apiVersion, name, and namespace from a resource map.
+func extractResourceInfo(resource map[string]interface{}) (resourceInfo, error) {
+	kind, _ := resource["kind"].(string)
+	if kind == "" {
+		return resourceInfo{}, fmt.Errorf("resource is missing 'kind'")
+	}
+
+	apiVersion, _ := resource["apiVersion"].(string)
+
+	metadata, _ := resource["metadata"].(map[string]interface{})
+	name, _ := metadata["name"].(string)
+	if name == "" {
+		return resourceInfo{}, fmt.Errorf("%s: resource is missing 'metadata.name'", kind)
+	}
+
+	namespace, _ := metadata["namespace"].(string)
+
+	return resourceInfo{
+		kind:       kind,
+		apiVersion: apiVersion,
+		name:       name,
+		namespace:  namespace,
+	}, nil
+}
+
+// stripKindAndAPIVersion removes kind and apiVersion from the resource map
+// and marshals the result to JSON.
+func stripKindAndAPIVersion(resource map[string]interface{}) ([]byte, error) {
+	delete(resource, "kind")
+	delete(resource, "apiVersion")
+	return json.Marshal(resource)
+}
+
+// applyResource applies a single resource using the registry.
+func applyResource(
+	ctx context.Context,
+	c *gen.ClientWithResponses,
+	registry map[string]resourceEntry,
+	resource map[string]interface{},
+	defaultNamespace string,
+) error {
+	info, err := extractResourceInfo(resource)
+	if err != nil {
+		return err
+	}
+
+	// Check for read-only kinds
+	if readOnlyKinds[info.kind] {
+		return fmt.Errorf("%s/%s: kind %q is not supported by apply (read-only resource)", strings.ToLower(info.kind), info.name, info.kind)
+	}
+
+	// Validate apiVersion if present
+	if info.apiVersion != "" && !strings.Contains(info.apiVersion, apiGroup) {
+		return fmt.Errorf("%s/%s: unsupported apiVersion %q (expected group %q)", strings.ToLower(info.kind), info.name, info.apiVersion, apiGroup)
+	}
+
+	entry, ok := registry[info.kind]
+	if !ok {
+		return fmt.Errorf("%s/%s: unsupported kind %q (supported: %s)", strings.ToLower(info.kind), info.name, info.kind, strings.Join(supportedKinds(), ", "))
+	}
+
+	// Resolve namespace for namespaced resources
+	ns := info.namespace
+	if entry.scope == scopeNamespaced {
+		if ns == "" {
+			ns = defaultNamespace
+		}
+		if ns == "" {
+			return fmt.Errorf("%s/%s: namespace is required (set in YAML metadata.namespace or via 'occ config set-context')", strings.ToLower(info.kind), info.name)
+		}
+	}
+
+	// Prepare JSON body (strip kind and apiVersion)
+	jsonBody, err := stripKindAndAPIVersion(resource)
+	if err != nil {
+		return fmt.Errorf("%s/%s: failed to marshal resource: %w", strings.ToLower(info.kind), info.name, err)
+	}
+
+	// Check if resource exists
+	statusCode, err := entry.get(ctx, c, ns, info.name)
+	if err != nil {
+		return fmt.Errorf("%s/%s: failed to check existence: %w", strings.ToLower(info.kind), info.name, err)
+	}
+
+	switch {
+	case statusCode == http.StatusOK:
+		// Resource exists — update (or error for create-only)
+		if entry.capability == capCreateOnly {
+			return fmt.Errorf("%s/%s: resource already exists and cannot be updated (create-only resource)", strings.ToLower(info.kind), info.name)
+		}
+		code, body, err := entry.update(ctx, c, ns, info.name, bytes.NewReader(jsonBody))
+		if err != nil {
+			return fmt.Errorf("%s/%s: update failed: %w", strings.ToLower(info.kind), info.name, err)
+		}
+		if code < 200 || code >= 300 {
+			return fmt.Errorf("%s/%s: update failed: %s", strings.ToLower(info.kind), info.name, parseErrorBody(body))
+		}
+		fmt.Printf("%s/%s configured\n", strings.ToLower(info.kind), info.name)
+
+	case statusCode == http.StatusNotFound:
+		// Resource doesn't exist — create
+		code, body, err := entry.create(ctx, c, ns, bytes.NewReader(jsonBody))
+		if err != nil {
+			return fmt.Errorf("%s/%s: create failed: %w", strings.ToLower(info.kind), info.name, err)
+		}
+		if code < 200 || code >= 300 {
+			return fmt.Errorf("%s/%s: create failed: %s", strings.ToLower(info.kind), info.name, parseErrorBody(body))
+		}
+		fmt.Printf("%s/%s created\n", strings.ToLower(info.kind), info.name)
+
+	default:
+		return fmt.Errorf("%s/%s: unexpected status %d when checking existence", strings.ToLower(info.kind), info.name, statusCode)
+	}
+
+	return nil
+}
+
+// parseErrorBody attempts to extract a human-readable message from an error response body.
+func parseErrorBody(body []byte) string {
+	if len(body) == 0 {
+		return "unknown error (empty response)"
+	}
+	var errResp gen.ErrorResponse
+	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error != "" {
+		return errResp.Error
+	}
+	// Truncate raw body for readability
+	s := string(body)
+	if len(s) > 200 {
+		s = s[:200] + "..."
+	}
+	return s
+}
+
+// resolveDefaultNamespace returns the namespace from the current CLI context, or empty string.
+func resolveDefaultNamespace() string {
+	ctx, err := config.GetCurrentContext()
+	if err != nil {
+		return ""
+	}
+	return ctx.Namespace
+}
+
+// discoverResourceFiles discovers all YAML files to process.
 func discoverResourceFiles(path string) ([]string, error) {
-	// Check if path is a URL
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
 		return []string{path}, nil
 	}
 
-	// Check if path exists
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -109,122 +251,73 @@ func discoverResourceFiles(path string) ([]string, error) {
 		return nil, fmt.Errorf("error accessing path %s: %w", path, err)
 	}
 
-	// If it's a file, return it directly
 	if !info.IsDir() {
 		return []string{path}, nil
 	}
 
-	// It's a directory - recursively find all YAML files
 	var yamlFiles []string
 	err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-
-		// Skip directories
 		if info.IsDir() {
 			return nil
 		}
-
-		// Check for YAML file extensions
 		ext := strings.ToLower(filepath.Ext(filePath))
 		if ext == ".yaml" || ext == ".yml" {
 			yamlFiles = append(yamlFiles, filePath)
 		}
-
 		return nil
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("error walking directory %s: %w", path, err)
 	}
-
 	return yamlFiles, nil
 }
 
-// readResourceContent reads resource content from file or URL
+// readResourceContent reads resource content from file or URL.
 func readResourceContent(filePath string) ([]byte, error) {
-	isRemoteURL := strings.HasPrefix(filePath, "http://") || strings.HasPrefix(filePath, "https://")
-
-	if isRemoteURL {
-		// Download from remote URL
+	if strings.HasPrefix(filePath, "http://") || strings.HasPrefix(filePath, "https://") {
 		// #nosec G107 - URL is validated to be HTTP/HTTPS and is intentional functionality
 		resp, err := http.Get(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download from %s: %w", filePath, err)
 		}
 		defer resp.Body.Close()
-
 		if resp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("failed to download from %s: HTTP %d", filePath, resp.StatusCode)
 		}
-
 		return io.ReadAll(resp.Body)
-	} else {
-		// Read from local file
-		if _, err := os.Stat(filePath); os.IsNotExist(err) {
-			return nil, fmt.Errorf("file %s does not exist", filePath)
-		}
-
-		content, err := os.ReadFile(filePath)
-		if err != nil {
-			if os.IsPermission(err) {
-				return nil, fmt.Errorf("permission denied: %s", filePath)
-			}
-			return nil, fmt.Errorf("error reading file %s: %w", filePath, err)
-		}
-		return content, nil
 	}
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		if os.IsPermission(err) {
+			return nil, fmt.Errorf("permission denied: %s", filePath)
+		}
+		return nil, fmt.Errorf("error reading file %s: %w", filePath, err)
+	}
+	return content, nil
 }
 
-// parseYAMLResources parses YAML content that may contain multiple documents
+// parseYAMLResources parses YAML content that may contain multiple documents.
 func parseYAMLResources(content []byte) ([]map[string]interface{}, error) {
-	// Split by YAML document separator
 	documents := strings.Split(string(content), "---")
 	resources := make([]map[string]interface{}, 0, len(documents))
 
 	for _, doc := range documents {
 		doc = strings.TrimSpace(doc)
 		if doc == "" {
-			continue // Skip empty documents
+			continue
 		}
-
 		var resource map[string]interface{}
 		if err := yaml.Unmarshal([]byte(doc), &resource); err != nil {
 			return nil, fmt.Errorf("failed to parse YAML document: %w", err)
 		}
-
-		// Skip if it's an empty resource or missing kind
 		if resource == nil || resource["kind"] == nil {
 			continue
 		}
-
 		resources = append(resources, resource)
 	}
-
 	return resources, nil
-}
-
-// applyResource applies a single resource to the API server
-func applyResource(ctx context.Context, apiClient *client.APIClient, resource map[string]interface{}, index, total int) error {
-	kind, _ := resource["kind"].(string)
-	metadata, _ := resource["metadata"].(map[string]interface{})
-	name, _ := metadata["name"].(string)
-
-	fmt.Printf("Applying %d/%d: %s/%s...", index, total, kind, name)
-
-	resp, err := apiClient.Apply(ctx, resource)
-	if err != nil {
-		fmt.Printf(" FAILED\n")
-		return fmt.Errorf("failed to apply %s/%s: %w", kind, name, err)
-	}
-
-	operation := resp.Data.Operation
-	if resp.Data.Namespace != "" {
-		fmt.Printf(" %s (%s/%s in %s)\n", strings.ToUpper(operation), kind, name, resp.Data.Namespace)
-	} else {
-		fmt.Printf(" %s (%s/%s)\n", strings.ToUpper(operation), kind, name)
-	}
-
-	return nil
 }

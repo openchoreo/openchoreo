@@ -48,7 +48,7 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 
 	// Add all commands directly
 	rootCmd.AddCommand(
-		apply.NewApplyCmd(impl),
+		apply.NewApplyCmd(),
 		login.NewLoginCmd(impl),
 		logout.NewLogoutCmd(impl),
 		configContext.NewConfigCmd(),

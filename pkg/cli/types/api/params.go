@@ -66,11 +66,6 @@ type CreateComponentParams struct {
 	Endpoint         string
 }
 
-// ApplyParams defines parameters for applying configuration files
-type ApplyParams struct {
-	FilePath string
-}
-
 // LoginParams defines parameters for login
 type LoginParams struct {
 	ClientCredentials bool // Flag to use client credentials flow

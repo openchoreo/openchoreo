@@ -5,14 +5,8 @@ package api
 
 // CommandImplementationInterface combines all APIs
 type CommandImplementationInterface interface {
-	ApplyAPI
 	LoginAPI
 	LogoutAPI
-}
-
-// ApplyAPI defines methods for applying configurations
-type ApplyAPI interface {
-	Apply(params ApplyParams) error
 }
 
 // LoginAPI defines methods for authentication

@@ -68,6 +68,11 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
+// GetClient returns the underlying generated OpenAPI client.
+func (c *Client) GetClient() *gen.ClientWithResponses {
+	return c.client
+}
+
 // ListNamespaces retrieves all namespaces
 func (c *Client) ListNamespaces(ctx context.Context, params *gen.ListNamespacesParams) (*gen.NamespaceList, error) {
 	resp, err := c.client.ListNamespacesWithResponse(ctx, params)
