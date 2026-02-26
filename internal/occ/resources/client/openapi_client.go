@@ -496,9 +496,17 @@ func (c *Client) CreateWorkflowRun(
 	workflowName string,
 	parameters map[string]interface{},
 ) (*gen.WorkflowRun, error) {
+	var params *map[string]interface{}
+	if parameters != nil {
+		params = &parameters
+	}
 	req := gen.CreateWorkflowRunJSONRequestBody{
-		WorkflowName: workflowName,
-		Parameters:   parameters,
+		Spec: &gen.WorkflowRunSpec{
+			Workflow: gen.WorkflowRunConfig{
+				Name:       workflowName,
+				Parameters: params,
+			},
+		},
 	}
 
 	resp, err := c.client.CreateWorkflowRunWithResponse(ctx, namespace, req)

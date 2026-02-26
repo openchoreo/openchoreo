@@ -64,10 +64,17 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 		return err
 	}
 
-	fmt.Printf("Successfully started workflow run: %s\n", workflowRun.Name)
-	fmt.Printf("  Workflow: %s\n", workflowRun.WorkflowName)
-	fmt.Printf("  Namespace: %s\n", workflowRun.OrgName)
-	fmt.Printf("  Status: %s\n", workflowRun.Status)
+	workflowName := ""
+	if workflowRun.Spec != nil {
+		workflowName = workflowRun.Spec.Workflow.Name
+	}
+	ns := ""
+	if workflowRun.Metadata.Namespace != nil {
+		ns = *workflowRun.Metadata.Namespace
+	}
+	fmt.Printf("Successfully started workflow run: %s\n", workflowRun.Metadata.Name)
+	fmt.Printf("  Workflow: %s\n", workflowName)
+	fmt.Printf("  Namespace: %s\n", ns)
 
 	return nil
 }
@@ -82,9 +89,13 @@ func printList(list *gen.WorkflowList) error {
 	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, wf := range list.Items {
+		age := "<unknown>"
+		if wf.Metadata.CreationTimestamp != nil {
+			age = utils.FormatAge(*wf.Metadata.CreationTimestamp)
+		}
 		fmt.Fprintf(w, "%s\t%s\n",
-			wf.Name,
-			utils.FormatAge(wf.CreatedAt),
+			wf.Metadata.Name,
+			age,
 		)
 	}
 

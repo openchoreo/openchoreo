@@ -82,11 +82,32 @@ func printList(list *gen.WorkflowRunList) error {
 	fmt.Fprintln(w, "NAME\tWORKFLOW\tSTATUS\tAGE")
 
 	for _, run := range list.Items {
+		workflowName := ""
+		if run.Spec != nil {
+			workflowName = run.Spec.Workflow.Name
+		}
+		age := "<unknown>"
+		if run.Metadata.CreationTimestamp != nil {
+			age = utils.FormatAge(*run.Metadata.CreationTimestamp)
+		}
+		status := "Pending"
+		if run.Status != nil && run.Status.Conditions != nil {
+			for _, c := range *run.Status.Conditions {
+				if c.Type == "Ready" {
+					if c.Status == "True" {
+						status = "Ready"
+					} else {
+						status = c.Reason
+					}
+					break
+				}
+			}
+		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			run.Name,
-			run.WorkflowName,
-			run.Status,
-			utils.FormatAge(run.CreatedAt))
+			run.Metadata.Name,
+			workflowName,
+			status,
+			age)
 	}
 
 	return w.Flush()

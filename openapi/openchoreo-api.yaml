@@ -2189,6 +2189,116 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    post:
+      operationId: createWorkflow
+      summary: Create workflow
+      description: Creates a new generic workflow within a namespace.
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Workflow'
+      responses:
+        '201':
+          description: Workflow created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workflow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/workflows/{workflowName}:
+    get:
+      operationId: getWorkflow
+      summary: Get workflow
+      description: Returns details of a specific workflow.
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkflowNameParam'
+      responses:
+        '200':
+          description: Workflow details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workflow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateWorkflow
+      summary: Update workflow
+      description: Replaces an existing workflow (full update).
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkflowNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Workflow'
+      responses:
+        '200':
+          description: Workflow updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workflow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteWorkflow
+      summary: Delete workflow
+      description: Deletes a workflow by name.
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkflowNameParam'
+      responses:
+        '204':
+          description: Workflow deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/namespaces/{namespaceName}/workflows/{workflowName}/schema:
     get:
       operationId: getWorkflowSchema
@@ -2254,7 +2364,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateWorkflowRunRequest'
+              $ref: '#/components/schemas/WorkflowRun'
       responses:
         '201':
           description: Workflow run created
@@ -6895,28 +7005,79 @@ components:
 
     Workflow:
       type: object
-      description: Generic workflow resource
       required:
-        - name
-        - createdAt
+        - metadata
       properties:
-        name:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/WorkflowSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/WorkflowStatus'
+
+    WorkflowSpec:
+      type: object
+      description: Desired state of a Workflow
+      required:
+        - runTemplate
+      properties:
+        schema:
+          $ref: '#/components/schemas/WorkflowSchema'
+        runTemplate:
+          type: object
+          description: Kubernetes resource template to render and apply for this workflow run.
+          additionalProperties: true
+        resources:
+          type: array
+          description: Additional resource templates to render and apply alongside the workflow run.
+          items:
+            $ref: '#/components/schemas/WorkflowResource'
+        ttlAfterCompletion:
           type: string
-          description: Workflow name (unique within namespace)
-          example: database-migration
-        displayName:
+          description: Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
+
+    WorkflowSchema:
+      type: object
+      description: Developer-facing schema definition for workflow parameters
+      properties:
+        types:
+          type: object
+          description: Reusable type definitions
+          additionalProperties: true
+        parameters:
+          type: object
+          description: Developer-facing configuration options
+          additionalProperties: true
+
+    WorkflowResource:
+      type: object
+      description: Template for generating an additional Kubernetes resource for a workflow run.
+      required:
+        - id
+        - template
+      properties:
+        id:
           type: string
-          description: Human-readable display name
-          example: Database Migration
-        description:
+          description: Unique identifier for this resource within the workflow.
+        includeWhen:
           type: string
-          description: Workflow description
-          example: Runs database migration scripts
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
+          description: CEL expression that determines whether this resource is rendered.
+        template:
+          type: object
+          description: Kubernetes resource template with CEL expressions.
+          additionalProperties: true
+
+    WorkflowStatus:
+      type: object
+      description: Observed state of a Workflow
+      properties:
+        conditions:
+          type: array
+          description: Kubernetes-style conditions
+          items:
+            $ref: '#/components/schemas/Condition'
 
     # -------------------------------------------------------------------------
     # WorkflowRuns
@@ -6937,56 +7098,106 @@ components:
 
     WorkflowRun:
       type: object
-      description: Generic workflow run (execution)
+      required:
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/WorkflowRunSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/WorkflowRunStatus'
+
+    WorkflowRunSpec:
+      type: object
+      description: Desired state of a WorkflowRun
+      required:
+        - workflow
+      properties:
+        workflow:
+          $ref: '#/components/schemas/WorkflowRunConfig'
+        ttlAfterCompletion:
+          type: string
+          description: Time-to-live for this workflow run after completion (duration string like 10d1h30m).
+
+    WorkflowRunConfig:
+      type: object
+      description: Workflow configuration referencing the Workflow and providing schema values.
       required:
         - name
-        - workflowName
-        - orgName
-        - createdAt
-        - status
       properties:
         name:
           type: string
-          description: Workflow run name
-          example: database-migration-run-1234
-        uuid:
-          type: string
-          description: Unique identifier
-          example: 550e8400-e29b-41d4-a716-446655440000
-        workflowName:
-          type: string
-          description: Parent workflow name
-          example: database-migration
-        orgName:
-          type: string
-          description: Organization name
-          example: my-org
-        status:
-          type: string
-          enum: [Pending, Running, Succeeded, Failed, Error]
-          description: Current execution status
-          example: Succeeded
+          description: Referenced Workflow name
         parameters:
           type: object
-          description: User-defined workflow parameters
+          description: Developer-provided parameters for the referenced workflow
           additionalProperties: true
-          example:
-            database_url: "postgresql://localhost:5432/mydb"
-            migration_version: "v2.1.0"
-        createdAt:
+
+    ResourceReference:
+      type: object
+      description: Reference to a Kubernetes resource applied during a workflow run
+      required:
+        - apiVersion
+        - kind
+        - name
+      properties:
+        apiVersion:
           type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
-        finishedAt:
+        kind:
           type: string
-          format: date-time
-          description: Completion timestamp
-          example: "2025-01-06T10:05:00Z"
+        name:
+          type: string
+        namespace:
+          type: string
+
+    WorkflowTask:
+      type: object
+      description: A single task/step within a workflow execution
+      required:
+        - name
+      properties:
+        name:
+          type: string
         phase:
           type: string
-          description: Detailed execution phase
-          example: "Clone completed, build in progress"
+          description: Current execution phase of the task
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+
+    WorkflowRunStatus:
+      type: object
+      description: Observed state of a WorkflowRun
+      properties:
+        conditions:
+          type: array
+          description: Kubernetes-style conditions
+          items:
+            $ref: '#/components/schemas/Condition'
+        runReference:
+          $ref: '#/components/schemas/ResourceReference'
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceReference'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowTask'
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
 
     WorkflowRunStatusResponse:
       type: object

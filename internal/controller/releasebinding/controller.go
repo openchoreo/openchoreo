@@ -565,6 +565,14 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		dataPlane,
 	)
 
+	// Resolve in-cluster Service URLs for all endpoints (including non-HTTP types like TCP, gRPC).
+	releaseBinding.Status.Endpoints = resolveServiceURLs(
+		ctx,
+		dataPlaneReleaseResources,
+		componentRelease.Spec.Workload.Endpoints,
+		releaseBinding.Status.Endpoints,
+	)
+
 	// Set ReleaseSynced condition based on operation results.
 	r.setReleaseSyncedCondition(releaseBinding, dataPlaneRelease.Name, dpOp, len(dataPlaneReleaseResources), obsResult)
 	if dpOp == controllerutil.OperationResultCreated || dpOp == controllerutil.OperationResultUpdated {
@@ -1084,7 +1092,10 @@ func resolveEndpointURLStatuses(
 			continue
 		}
 
-		status := openchoreov1alpha1.EndpointURLStatus{Name: name}
+		status := openchoreov1alpha1.EndpointURLStatus{
+			Name: name,
+			Type: httpEndpoints[name].endpointType,
+		}
 
 		if routes.external != nil {
 			hostname := extractFirstHostname(routes.external)

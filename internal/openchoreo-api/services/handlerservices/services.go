@@ -32,6 +32,7 @@ import (
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
 	secretreferencesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
+	workflowsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflow"
 	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
 	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
 )
@@ -60,6 +61,7 @@ type Services struct {
 	ReleaseBindingService                         releasebindingsvc.Service
 	SecretReferenceService                        secretreferencesvc.Service
 	TraitService                                  traitsvc.Service
+	WorkflowService                               workflowsvc.Service
 	WorkflowRunService                            workflowrunsvc.Service
 	WorkloadService                               workloadsvc.Service
 }
@@ -89,6 +91,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		ReleaseBindingService:                         releasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "releasebinding-service")),
 		SecretReferenceService:                        secretreferencesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "secretreference-service")),
 		TraitService:                                  traitsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "trait-service")),
+		WorkflowService:                               workflowsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workflow-service")),
 		WorkflowRunService:                            workflowrunsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workflowrun-service")),
 		WorkloadService:                               workloadsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workload-service")),
 	}
