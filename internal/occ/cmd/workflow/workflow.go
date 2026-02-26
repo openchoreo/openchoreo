@@ -89,9 +89,13 @@ func printList(list *gen.WorkflowList) error {
 	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, wf := range list.Items {
+		age := "<unknown>"
+		if wf.Metadata.CreationTimestamp != nil {
+			age = utils.FormatAge(*wf.Metadata.CreationTimestamp)
+		}
 		fmt.Fprintf(w, "%s\t%s\n",
-			wf.Name,
-			utils.FormatAge(wf.CreatedAt),
+			wf.Metadata.Name,
+			age,
 		)
 	}
 
