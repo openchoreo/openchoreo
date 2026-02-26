@@ -64,6 +64,23 @@ func (c *AuthzClusterRole) Get(params GetParams) error {
 	return nil
 }
 
+// Delete deletes a single authz cluster role
+func (c *AuthzClusterRole) Delete(params DeleteParams) error {
+	ctx := context.Background()
+
+	cl, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := cl.DeleteClusterRole(ctx, params.Name); err != nil {
+		return fmt.Errorf("failed to delete authz cluster role: %w", err)
+	}
+
+	fmt.Printf("Authz cluster role '%s' deleted\n", params.Name)
+	return nil
+}
+
 func printList(list *gen.AuthzClusterRoleList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No authz cluster roles found")

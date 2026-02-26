@@ -800,6 +800,14 @@ This command allows you to:
   %[1]s authzclusterrole get my-role`, messages.DefaultCLIName),
 	}
 
+	DeleteAuthzClusterRole = Command{
+		Use:   "delete [NAME]",
+		Short: "Delete an authz cluster role",
+		Long:  `Delete a cluster-scoped authorization role by name.`,
+		Example: fmt.Sprintf(`  # Delete an authz cluster role
+  %[1]s authzclusterrole delete my-role`, messages.DefaultCLIName),
+	}
+
 	AuthzClusterRoleBinding = Command{
 		Use:     "authzclusterrolebinding",
 		Aliases: []string{"authzclusterrolebindings", "crb"},
@@ -821,6 +829,14 @@ This command allows you to:
 		Long:  `Get an authz cluster role binding and display its details in YAML format.`,
 		Example: fmt.Sprintf(`  # Get an authz cluster role binding
   %[1]s authzclusterrolebinding get my-binding`, messages.DefaultCLIName),
+	}
+
+	DeleteAuthzClusterRoleBinding = Command{
+		Use:   "delete [NAME]",
+		Short: "Delete an authz cluster role binding",
+		Long:  `Delete a cluster-scoped authorization role binding by name.`,
+		Example: fmt.Sprintf(`  # Delete an authz cluster role binding
+  %[1]s authzclusterrolebinding delete my-binding`, messages.DefaultCLIName),
 	}
 
 	AuthzRole = Command{
@@ -846,6 +862,14 @@ This command allows you to:
   %[1]s authzrole get my-role --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
+	DeleteAuthzRole = Command{
+		Use:   "delete [NAME]",
+		Short: "Delete an authz role",
+		Long:  `Delete an authorization role by name.`,
+		Example: fmt.Sprintf(`  # Delete an authz role
+  %[1]s authzrole delete my-role --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
 	AuthzRoleBinding = Command{
 		Use:     "authzrolebinding",
 		Aliases: []string{"authzrolebindings", "rb"},
@@ -867,6 +891,14 @@ This command allows you to:
 		Long:  `Get an authz role binding and display its details in YAML format.`,
 		Example: fmt.Sprintf(`  # Get an authz role binding
   %[1]s authzrolebinding get my-binding --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	DeleteAuthzRoleBinding = Command{
+		Use:   "delete [NAME]",
+		Short: "Delete an authz role binding",
+		Long:  `Delete an authorization role binding by name.`,
+		Example: fmt.Sprintf(`  # Delete an authz role binding
+  %[1]s authzrolebinding delete my-binding --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
 	// Resource root commands

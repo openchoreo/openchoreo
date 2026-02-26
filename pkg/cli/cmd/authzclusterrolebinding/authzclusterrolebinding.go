@@ -26,6 +26,7 @@ func NewAuthzClusterRoleBindingCmd() *cobra.Command {
 	cmd.AddCommand(
 		newListAuthzClusterRoleBindingCmd(),
 		newGetAuthzClusterRoleBindingCmd(),
+		newDeleteAuthzClusterRoleBindingCmd(),
 	)
 
 	return cmd
@@ -52,6 +53,24 @@ func newGetAuthzClusterRoleBindingCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return authzclusterrolebinding.New().Get(authzclusterrolebinding.GetParams{
+				Name: args[0],
+			})
+		},
+	}
+
+	return cmd
+}
+
+func newDeleteAuthzClusterRoleBindingCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteAuthzClusterRoleBinding.Use,
+		Short:   constants.DeleteAuthzClusterRoleBinding.Short,
+		Long:    constants.DeleteAuthzClusterRoleBinding.Long,
+		Example: constants.DeleteAuthzClusterRoleBinding.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return authzclusterrolebinding.New().Delete(authzclusterrolebinding.DeleteParams{
 				Name: args[0],
 			})
 		},

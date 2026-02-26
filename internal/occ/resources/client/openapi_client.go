@@ -965,6 +965,54 @@ func (c *Client) GetNamespaceRoleBinding(ctx context.Context, namespaceName, nam
 	return resp.JSON200, nil
 }
 
+// DeleteClusterRole deletes a cluster-scoped authorization role
+func (c *Client) DeleteClusterRole(ctx context.Context, name string) error {
+	resp, err := c.client.DeleteClusterRoleWithResponse(ctx, name)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster role: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// DeleteClusterRoleBinding deletes a cluster-scoped role binding
+func (c *Client) DeleteClusterRoleBinding(ctx context.Context, name string) error {
+	resp, err := c.client.DeleteClusterRoleBindingWithResponse(ctx, name)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster role binding: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// DeleteNamespaceRole deletes a namespace-scoped authorization role
+func (c *Client) DeleteNamespaceRole(ctx context.Context, namespaceName, name string) error {
+	resp, err := c.client.DeleteNamespaceRoleWithResponse(ctx, namespaceName, name)
+	if err != nil {
+		return fmt.Errorf("failed to delete role: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
+// DeleteNamespaceRoleBinding deletes a namespace-scoped role binding
+func (c *Client) DeleteNamespaceRoleBinding(ctx context.Context, namespaceName, name string) error {
+	resp, err := c.client.DeleteNamespaceRoleBindingWithResponse(ctx, namespaceName, name)
+	if err != nil {
+		return fmt.Errorf("failed to delete role binding: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
 // GetEnvironmentObserverURL retrieves the observer URL for an environment
 func (c *Client) GetEnvironmentObserverURL(ctx context.Context, namespaceName, envName string) (string, error) {
 	resp, err := c.client.GetEnvironmentObserverURLWithResponse(ctx, namespaceName, envName)

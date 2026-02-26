@@ -73,6 +73,27 @@ func (r *AuthzRoleBinding) Get(params GetParams) error {
 	return nil
 }
 
+// Delete deletes a single authz role binding
+func (r *AuthzRoleBinding) Delete(params DeleteParams) error {
+	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceAuthzRoleBinding, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := c.DeleteNamespaceRoleBinding(ctx, params.Namespace, params.Name); err != nil {
+		return fmt.Errorf("failed to delete authz role binding: %w", err)
+	}
+
+	fmt.Printf("Authz role binding '%s' deleted\n", params.Name)
+	return nil
+}
+
 func printList(list *gen.AuthzRoleBindingList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No authz role bindings found")

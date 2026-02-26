@@ -7,3 +7,8 @@ package authzclusterrole
 type GetParams struct {
 	Name string
 }
+
+// DeleteParams defines parameters for deleting a single authz cluster role
+type DeleteParams struct {
+	Name string
+}

@@ -26,6 +26,7 @@ func NewAuthzClusterRoleCmd() *cobra.Command {
 	cmd.AddCommand(
 		newListAuthzClusterRoleCmd(),
 		newGetAuthzClusterRoleCmd(),
+		newDeleteAuthzClusterRoleCmd(),
 	)
 
 	return cmd
@@ -52,6 +53,24 @@ func newGetAuthzClusterRoleCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return authzclusterrole.New().Get(authzclusterrole.GetParams{
+				Name: args[0],
+			})
+		},
+	}
+
+	return cmd
+}
+
+func newDeleteAuthzClusterRoleCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteAuthzClusterRole.Use,
+		Short:   constants.DeleteAuthzClusterRole.Short,
+		Long:    constants.DeleteAuthzClusterRole.Long,
+		Example: constants.DeleteAuthzClusterRole.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return authzclusterrole.New().Delete(authzclusterrole.DeleteParams{
 				Name: args[0],
 			})
 		},

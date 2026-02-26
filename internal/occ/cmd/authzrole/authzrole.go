@@ -73,6 +73,27 @@ func (r *AuthzRole) Get(params GetParams) error {
 	return nil
 }
 
+// Delete deletes a single authz role
+func (r *AuthzRole) Delete(params DeleteParams) error {
+	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceAuthzRole, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := c.DeleteNamespaceRole(ctx, params.Namespace, params.Name); err != nil {
+		return fmt.Errorf("failed to delete authz role: %w", err)
+	}
+
+	fmt.Printf("Authz role '%s' deleted\n", params.Name)
+	return nil
+}
+
 func printList(list *gen.AuthzRoleList) error {
 	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No authz roles found")

@@ -19,3 +19,12 @@ type GetParams struct {
 
 // GetNamespace returns the namespace
 func (p GetParams) GetNamespace() string { return p.Namespace }
+
+// DeleteParams defines parameters for deleting a single authz role binding
+type DeleteParams struct {
+	Namespace string
+	Name      string
+}
+
+// GetNamespace returns the namespace
+func (p DeleteParams) GetNamespace() string { return p.Namespace }

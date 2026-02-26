@@ -999,7 +999,7 @@ func validateAuthzClusterRoleBindingParams(_ CommandType, _ interface{}) error {
 
 // validateAuthzRoleParams validates parameters for authz role operations
 func validateAuthzRoleParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList || cmdType == CmdGet {
+	if cmdType == CmdList || cmdType == CmdGet || cmdType == CmdDelete {
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(cmdType, ResourceAuthzRole, p.GetNamespace())
 		}
@@ -1009,7 +1009,7 @@ func validateAuthzRoleParams(cmdType CommandType, params interface{}) error {
 
 // validateAuthzRoleBindingParams validates parameters for authz role binding operations
 func validateAuthzRoleBindingParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList || cmdType == CmdGet {
+	if cmdType == CmdList || cmdType == CmdGet || cmdType == CmdDelete {
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(cmdType, ResourceAuthzRoleBinding, p.GetNamespace())
 		}

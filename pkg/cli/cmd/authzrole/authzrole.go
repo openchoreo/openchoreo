@@ -26,6 +26,7 @@ func NewAuthzRoleCmd() *cobra.Command {
 	cmd.AddCommand(
 		newListAuthzRoleCmd(),
 		newGetAuthzRoleCmd(),
+		newDeleteAuthzRoleCmd(),
 	)
 
 	return cmd
@@ -56,6 +57,29 @@ func newGetAuthzRoleCmd() *cobra.Command {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 
 			return authzrole.New().Get(authzrole.GetParams{
+				Namespace: namespace,
+				Name:      args[0],
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace)
+
+	return cmd
+}
+
+func newDeleteAuthzRoleCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteAuthzRole.Use,
+		Short:   constants.DeleteAuthzRole.Short,
+		Long:    constants.DeleteAuthzRole.Long,
+		Example: constants.DeleteAuthzRole.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+
+			return authzrole.New().Delete(authzrole.DeleteParams{
 				Namespace: namespace,
 				Name:      args[0],
 			})
