@@ -26,7 +26,6 @@ func setupTestServer(t *testing.T) (*mcp.ClientSession, *MockCoreToolsetHandler)
 		NamespaceToolset:      mockHandler,
 		ProjectToolset:        mockHandler,
 		ComponentToolset:      mockHandler,
-		BuildToolset:          mockHandler,
 		DeploymentToolset:     mockHandler,
 		InfrastructureToolset: mockHandler,
 		SchemaToolset:         mockHandler,
@@ -96,7 +95,6 @@ var allToolSpecs = func() []toolTestSpec {
 	specs = append(specs, namespaceToolSpecs()...)
 	specs = append(specs, projectToolSpecs()...)
 	specs = append(specs, componentToolSpecs()...)
-	specs = append(specs, buildToolSpecs()...)
 	specs = append(specs, deploymentToolSpecs()...)
 	specs = append(specs, infrastructureToolSpecs()...)
 	specs = append(specs, schemaToolSpecs()...)

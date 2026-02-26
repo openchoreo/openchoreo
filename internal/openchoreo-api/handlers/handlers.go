@@ -355,8 +355,6 @@ func getLegacyMCPServerToolsets(h *Handler) *legacytools.Toolsets {
 		case legacytools.ToolsetComponent:
 			toolsets.ComponentToolset = handler
 			h.logger.Debug("Enabled legacy MCP toolset", slog.String("toolset", "component"))
-		case legacytools.ToolsetBuild:
-			h.logger.Debug("Enabled legacy MCP toolset", slog.String("toolset", "build"))
 		case legacytools.ToolsetDeployment:
 			toolsets.DeploymentToolset = handler
 			h.logger.Debug("Enabled legacy MCP toolset", slog.String("toolset", "deployment"))

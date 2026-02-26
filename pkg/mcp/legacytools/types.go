@@ -18,7 +18,6 @@ const (
 	ToolsetNamespace      ToolsetType = "namespace"
 	ToolsetProject        ToolsetType = "project"
 	ToolsetComponent      ToolsetType = "component"
-	ToolsetBuild          ToolsetType = "build"
 	ToolsetDeployment     ToolsetType = "deployment"
 	ToolsetInfrastructure ToolsetType = "infrastructure"
 	ToolsetSchema         ToolsetType = "schema"
@@ -29,7 +28,6 @@ type Toolsets struct {
 	NamespaceToolset      NamespaceToolsetHandler
 	ProjectToolset        ProjectToolsetHandler
 	ComponentToolset      ComponentToolsetHandler
-	BuildToolset          BuildToolsetHandler
 	DeploymentToolset     DeploymentToolsetHandler
 	InfrastructureToolset InfrastructureToolsetHandler
 	SchemaToolset         SchemaToolsetHandler
@@ -111,15 +109,6 @@ type ComponentToolsetHandler interface {
 	TriggerWorkflowRunForComponent(
 		ctx context.Context, namespaceName, projectName, componentName, commit string,
 	) (any, error)
-}
-
-// BuildToolsetHandler handles build operations
-type BuildToolsetHandler interface {
-	ListBuildTemplates(ctx context.Context, namespaceName string) (any, error)
-	TriggerBuild(ctx context.Context, namespaceName, projectName, componentName, commit string) (any, error)
-	ListBuilds(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
-	GetBuildObserverURL(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
-	ListBuildPlanes(ctx context.Context, namespaceName string) (any, error)
 }
 
 // DeploymentToolsetHandler handles deployment operations

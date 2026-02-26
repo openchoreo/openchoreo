@@ -52,17 +52,6 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 	}
 }
 
-// buildToolRegistrations returns the list of build toolset registration functions
-func (t *Toolsets) buildToolRegistrations() []RegisterFunc {
-	return []RegisterFunc{
-		t.RegisterListBuildTemplates,
-		t.RegisterTriggerBuild,
-		t.RegisterListBuilds,
-		t.RegisterGetBuildObserverURL,
-		t.RegisterListBuildPlanes,
-	}
-}
-
 // deploymentToolRegistrations returns the list of deployment toolset registration functions
 func (t *Toolsets) deploymentToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
@@ -140,13 +129,6 @@ func (t *Toolsets) Register(s *mcp.Server) {
 	// Register component tools if ComponentToolset is enabled
 	if t.ComponentToolset != nil {
 		for _, registerFunc := range t.componentToolRegistrations() {
-			registerFunc(s)
-		}
-	}
-
-	// Register build tools if BuildToolset is enabled
-	if t.BuildToolset != nil {
-		for _, registerFunc := range t.buildToolRegistrations() {
 			registerFunc(s)
 		}
 	}

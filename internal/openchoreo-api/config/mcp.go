@@ -27,7 +27,6 @@ func LegacyMCPDefaults() LegacyMCPConfig {
 			string(legacytools.ToolsetNamespace),
 			string(legacytools.ToolsetProject),
 			string(legacytools.ToolsetComponent),
-			string(legacytools.ToolsetBuild),
 			string(legacytools.ToolsetDeployment),
 			string(legacytools.ToolsetInfrastructure),
 			string(legacytools.ToolsetSchema),
@@ -41,7 +40,6 @@ var validLegacyToolsets = map[string]bool{
 	string(legacytools.ToolsetNamespace):      true,
 	string(legacytools.ToolsetProject):        true,
 	string(legacytools.ToolsetComponent):      true,
-	string(legacytools.ToolsetBuild):          true,
 	string(legacytools.ToolsetDeployment):     true,
 	string(legacytools.ToolsetInfrastructure): true,
 	string(legacytools.ToolsetSchema):         true,
@@ -55,7 +53,7 @@ func (c *LegacyMCPConfig) ValidateLegacyMCPConfig(path *config.Path) config.Vali
 	for i, ts := range c.Toolsets {
 		if !validLegacyToolsets[ts] {
 			errs = append(errs, config.Invalid(path.Child("toolsets").Index(i),
-				fmt.Sprintf("unknown toolset %q; valid legacy toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource", ts)))
+				fmt.Sprintf("unknown toolset %q; valid legacy toolsets: namespace, project, component, deployment, infrastructure, schema, resource", ts)))
 		}
 	}
 
@@ -108,7 +106,7 @@ func (c *MCPConfig) ValidateMCPConfig(path *config.Path) config.ValidationErrors
 	for i, ts := range c.Toolsets {
 		if !validToolsets[ts] {
 			errs = append(errs, config.Invalid(path.Child("toolsets").Index(i),
-				fmt.Sprintf("unknown toolset %q; valid toolsets: namespace, project, component, infrastructure", ts)))
+				fmt.Sprintf("unknown toolset %q; valid toolsets: namespace, project, component, infrastructure, pe", ts)))
 		}
 	}
 

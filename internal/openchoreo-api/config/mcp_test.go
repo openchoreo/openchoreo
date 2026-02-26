@@ -41,7 +41,6 @@ func TestMCPConfig_Validate(t *testing.T) {
 					"namespace",
 					"project",
 					"component",
-					"build",
 					"deployment",
 					"infrastructure",
 					"schema",
@@ -65,7 +64,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 				Toolsets: []string{"invalid"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "legacy_mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid legacy toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "legacy_mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid legacy toolsets: namespace, project, component, deployment, infrastructure, schema, resource`},
 			},
 		},
 		{
@@ -75,8 +74,8 @@ func TestMCPConfig_Validate(t *testing.T) {
 				Toolsets: []string{"foo", "bar"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "legacy_mcp.toolsets[0]", Message: `unknown toolset "foo"; valid legacy toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
-				{Field: "legacy_mcp.toolsets[1]", Message: `unknown toolset "bar"; valid legacy toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "legacy_mcp.toolsets[0]", Message: `unknown toolset "foo"; valid legacy toolsets: namespace, project, component, deployment, infrastructure, schema, resource`},
+				{Field: "legacy_mcp.toolsets[1]", Message: `unknown toolset "bar"; valid legacy toolsets: namespace, project, component, deployment, infrastructure, schema, resource`},
 			},
 		},
 		{
@@ -86,7 +85,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 				Toolsets: []string{"namespace", "invalid", "project"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "legacy_mcp.toolsets[1]", Message: `unknown toolset "invalid"; valid legacy toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "legacy_mcp.toolsets[1]", Message: `unknown toolset "invalid"; valid legacy toolsets: namespace, project, component, deployment, infrastructure, schema, resource`},
 			},
 		},
 		{
@@ -96,7 +95,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 				Toolsets: []string{"invalid"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "legacy_mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid legacy toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "legacy_mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid legacy toolsets: namespace, project, component, deployment, infrastructure, schema, resource`},
 			},
 		},
 	}

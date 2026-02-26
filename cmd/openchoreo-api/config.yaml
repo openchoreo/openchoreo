@@ -155,7 +155,6 @@ legacy_mcp:
     - namespace
     - project
     - component
-    - build
     - deployment
     - infrastructure
     - schema
