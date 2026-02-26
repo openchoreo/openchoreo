@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -60,7 +61,7 @@ func Apply(params Params) error {
 	var errs []string
 
 	for _, filePath := range resourceFiles {
-		content, err := readResourceContent(filePath)
+		content, err := readResourceContent(ctx, filePath)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("failed to read %s: %v", filePath, err))
 			continue
@@ -276,10 +277,14 @@ func discoverResourceFiles(path string) ([]string, error) {
 }
 
 // readResourceContent reads resource content from file or URL.
-func readResourceContent(filePath string) ([]byte, error) {
+func readResourceContent(ctx context.Context, filePath string) ([]byte, error) {
 	if strings.HasPrefix(filePath, "http://") || strings.HasPrefix(filePath, "https://") {
 		// #nosec G107 - URL is validated to be HTTP/HTTPS and is intentional functionality
-		resp, err := http.Get(filePath)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, filePath, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request for %s: %w", filePath, err)
+		}
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download from %s: %w", filePath, err)
 		}
@@ -302,16 +307,15 @@ func readResourceContent(filePath string) ([]byte, error) {
 
 // parseYAMLResources parses YAML content that may contain multiple documents.
 func parseYAMLResources(content []byte) ([]map[string]interface{}, error) {
-	documents := strings.Split(string(content), "---")
-	resources := make([]map[string]interface{}, 0, len(documents))
+	var resources []map[string]interface{}
+	decoder := yaml.NewDecoder(bytes.NewReader(content))
 
-	for _, doc := range documents {
-		doc = strings.TrimSpace(doc)
-		if doc == "" {
-			continue
-		}
+	for {
 		var resource map[string]interface{}
-		if err := yaml.Unmarshal([]byte(doc), &resource); err != nil {
+		if err := decoder.Decode(&resource); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
 			return nil, fmt.Errorf("failed to parse YAML document: %w", err)
 		}
 		if resource == nil || resource["kind"] == nil {
