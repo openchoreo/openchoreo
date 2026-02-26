@@ -51,7 +51,7 @@ func Apply(params Params) error {
 		return fmt.Errorf("no YAML files found in: %s", params.FilePath)
 	}
 
-	registry := buildRegistry()
+	registry := getResourceRegistry()
 
 	// Resolve default namespace from CLI context
 	defaultNamespace := resolveDefaultNamespace()
@@ -162,6 +162,7 @@ func applyResource(
 		if ns == "" {
 			ns = defaultNamespace
 		}
+		// If the namespace is not in the YAML or CLI context, return an error since we don't want to accidentally apply to the wrong namespace
 		if ns == "" {
 			return fmt.Errorf("%s/%s: namespace is required (set in YAML metadata.namespace or via 'occ config set-context')", strings.ToLower(info.kind), info.name)
 		}
@@ -179,8 +180,8 @@ func applyResource(
 		return fmt.Errorf("%s/%s: failed to check existence: %w", strings.ToLower(info.kind), info.name, err)
 	}
 
-	switch {
-	case statusCode == http.StatusOK:
+	switch statusCode {
+	case http.StatusOK:
 		// Resource exists — update (or error for create-only)
 		if entry.capability == capCreateOnly {
 			return fmt.Errorf("%s/%s: resource already exists and cannot be updated (create-only resource)", strings.ToLower(info.kind), info.name)
@@ -189,18 +190,18 @@ func applyResource(
 		if err != nil {
 			return fmt.Errorf("%s/%s: update failed: %w", strings.ToLower(info.kind), info.name, err)
 		}
-		if code < 200 || code >= 300 {
+		if code != http.StatusOK {
 			return fmt.Errorf("%s/%s: update failed: %s", strings.ToLower(info.kind), info.name, parseErrorBody(body))
 		}
 		fmt.Printf("%s/%s configured\n", strings.ToLower(info.kind), info.name)
 
-	case statusCode == http.StatusNotFound:
+	case http.StatusNotFound:
 		// Resource doesn't exist — create
 		code, body, err := entry.create(ctx, c, ns, bytes.NewReader(jsonBody))
 		if err != nil {
 			return fmt.Errorf("%s/%s: create failed: %w", strings.ToLower(info.kind), info.name, err)
 		}
-		if code < 200 || code >= 300 {
+		if code != http.StatusOK && code != http.StatusCreated {
 			return fmt.Errorf("%s/%s: create failed: %s", strings.ToLower(info.kind), info.name, parseErrorBody(body))
 		}
 		fmt.Printf("%s/%s created\n", strings.ToLower(info.kind), info.name)

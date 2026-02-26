@@ -53,7 +53,7 @@ type resourceEntry struct {
 	update     updateFn // nil for capCreateOnly
 }
 
-func buildRegistry() map[string]resourceEntry {
+func getResourceRegistry() map[string]resourceEntry {
 	reg := make(map[string]resourceEntry)
 	addClusterScopedResources(reg)
 	addNamespacedScopedResources(reg)
@@ -212,7 +212,7 @@ func addClusterScopedResources(reg map[string]resourceEntry) {
 		},
 	}
 
-	reg["ClusterRole"] = resourceEntry{
+	reg["AuthzClusterRole"] = resourceEntry{
 		scope: scopeCluster,
 		get: func(ctx context.Context, c *gen.ClientWithResponses, _, name string) (int, error) {
 			r, err := c.GetClusterRoleWithResponse(ctx, name)
@@ -237,7 +237,7 @@ func addClusterScopedResources(reg map[string]resourceEntry) {
 		},
 	}
 
-	reg["ClusterRoleBinding"] = resourceEntry{
+	reg["AuthzClusterRoleBinding"] = resourceEntry{
 		scope: scopeCluster,
 		get: func(ctx context.Context, c *gen.ClientWithResponses, _, name string) (int, error) {
 			r, err := c.GetClusterRoleBindingWithResponse(ctx, name)
@@ -615,7 +615,7 @@ func addNamespacedScopedResources(reg map[string]resourceEntry) {
 		},
 	}
 
-	reg["Role"] = resourceEntry{
+	reg["AuthzRole"] = resourceEntry{
 		scope: scopeNamespaced,
 		get: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string) (int, error) {
 			r, err := c.GetNamespaceRoleWithResponse(ctx, ns, name)
@@ -640,7 +640,7 @@ func addNamespacedScopedResources(reg map[string]resourceEntry) {
 		},
 	}
 
-	reg["RoleBinding"] = resourceEntry{
+	reg["AuthzRoleBinding"] = resourceEntry{
 		scope: scopeNamespaced,
 		get: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string) (int, error) {
 			r, err := c.GetNamespaceRoleBindingWithResponse(ctx, ns, name)
@@ -689,7 +689,7 @@ func addNamespacedScopedResources(reg map[string]resourceEntry) {
 
 // supportedKinds returns a sorted list of supported kind names.
 func supportedKinds() []string {
-	reg := buildRegistry()
+	reg := getResourceRegistry()
 	kinds := make([]string, 0, len(reg))
 	for k := range reg {
 		kinds = append(kinds, k)
