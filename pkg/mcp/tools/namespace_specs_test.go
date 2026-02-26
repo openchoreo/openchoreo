@@ -25,21 +25,6 @@ func namespaceToolSpecs() []toolTestSpec {
 			},
 		},
 		{
-			name:                "get_namespace",
-			toolset:             "namespace",
-			descriptionKeywords: []string{"namespace"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"name"},
-			optionalParams:      []string{},
-			testArgs:            map[string]any{"name": "test-namespace"},
-			expectedMethod:      "GetNamespace",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != "test-namespace" {
-					t.Errorf("Expected namespace 'test-namespace', got %v", args[0])
-				}
-			},
-		},
-		{
 			name:                "create_namespace",
 			toolset:             "namespace",
 			descriptionKeywords: []string{"create", "namespace"},

@@ -29,11 +29,6 @@ func (m *MockCoreToolsetHandler) recordCall(method string, args ...interface{}) 
 
 // NamespaceToolsetHandler methods
 
-func (m *MockCoreToolsetHandler) GetNamespace(ctx context.Context, name string) (any, error) {
-	m.recordCall("GetNamespace", name)
-	return `{"name":"test-namespace"}`, nil
-}
-
 func (m *MockCoreToolsetHandler) ListNamespaces(ctx context.Context, opts ListOpts) (any, error) {
 	m.recordCall("ListNamespaces", opts)
 	return `[{"name":"test-namespace"}]`, nil
@@ -58,11 +53,6 @@ func (m *MockCoreToolsetHandler) ListSecretReferences(
 func (m *MockCoreToolsetHandler) ListProjects(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
 	m.recordCall("ListProjects", namespaceName, opts)
 	return `[{"name":"project1"}]`, nil
-}
-
-func (m *MockCoreToolsetHandler) GetProject(ctx context.Context, namespaceName, projectName string) (any, error) {
-	m.recordCall("GetProject", namespaceName, projectName)
-	return `{"name":"project1"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) CreateProject(
