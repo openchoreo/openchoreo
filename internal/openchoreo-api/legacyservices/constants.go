@@ -43,8 +43,6 @@ const (
 
 	SystemActionCreateDataPlane systemAction = "dataplane:create"
 	SystemActionViewDataPlane   systemAction = "dataplane:view"
-	SystemActionUpdateDataPlane systemAction = "dataplane:update"
-	SystemActionDeleteDataPlane systemAction = "dataplane:delete"
 
 	SystemActionViewBuildPlane systemAction = "buildplane:view"
 
@@ -60,8 +58,6 @@ const (
 
 	SystemActionCreateEnvironment systemAction = "environment:create"
 	SystemActionViewEnvironment   systemAction = "environment:view"
-	SystemActionUpdateEnvironment systemAction = "environment:update"
-	SystemActionDeleteEnvironment systemAction = "environment:delete"
 
 	SystemActionViewDeploymentPipeline systemAction = "deploymentpipeline:view"
 

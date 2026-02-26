@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"strings"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -49,6 +50,10 @@ func (h *Handler) CreateEnvironment(
 
 	if request.Body == nil {
 		return gen.CreateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	if strings.TrimSpace(request.Body.Metadata.Name) == "" {
+		return gen.CreateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest("metadata.name is required")}, nil
 	}
 
 	envCR, err := convert[gen.Environment, openchoreov1alpha1.Environment](*request.Body)

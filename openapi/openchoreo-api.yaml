@@ -5669,15 +5669,7 @@ components:
           description: Whether this is a production environment
           example: false
         gateway:
-          type: object
-          description: Gateway configuration for the environment
-          properties:
-            publicVirtualHost:
-              type: string
-              description: Public virtual host for the gateway
-            organizationVirtualHost:
-              type: string
-              description: Organization-specific virtual host for the gateway
+          $ref: '#/components/schemas/GatewaySpec'
 
     EnvironmentStatus:
       type: object
@@ -5825,52 +5817,53 @@ components:
 
     GatewaySpec:
       type: object
-      description: Gateway configuration for a data plane
+      description: Gateway configuration with ingress and egress network specs
       properties:
-        publicVirtualHost:
+        ingress:
+          $ref: '#/components/schemas/GatewayNetworkSpec'
+        egress:
+          $ref: '#/components/schemas/GatewayNetworkSpec'
+
+    GatewayNetworkSpec:
+      type: object
+      description: External and internal gateway endpoints
+      properties:
+        external:
+          $ref: '#/components/schemas/GatewayEndpointSpec'
+        internal:
+          $ref: '#/components/schemas/GatewayEndpointSpec'
+
+    GatewayEndpointSpec:
+      type: object
+      description: Gateway resource endpoint configuration
+      properties:
+        name:
           type: string
-          description: Public virtual host for external traffic
-          example: apps.example.com
-        organizationVirtualHost:
+          description: Name of the Gateway resource
+        namespace:
           type: string
-          description: Organization-specific virtual host
-          example: internal.example.com
-        publicHTTPPort:
+          description: Namespace of the Gateway resource
+        http:
+          $ref: '#/components/schemas/GatewayListenerSpec'
+        https:
+          $ref: '#/components/schemas/GatewayListenerSpec'
+        tls:
+          $ref: '#/components/schemas/GatewayListenerSpec'
+
+    GatewayListenerSpec:
+      type: object
+      description: Gateway listener configuration
+      properties:
+        listenerName:
+          type: string
+          description: Name of the listener on the Gateway resource
+        port:
           type: integer
           format: int32
-          description: Public HTTP port
-          example: 19080
-        publicHTTPSPort:
-          type: integer
-          format: int32
-          description: Public HTTPS port
-          example: 19443
-        organizationHTTPPort:
-          type: integer
-          format: int32
-          description: Organization HTTP port
-          example: 19081
-        organizationHTTPSPort:
-          type: integer
-          format: int32
-          description: Organization HTTPS port
-          example: 19444
-        publicGatewayName:
+          description: Port number
+        host:
           type: string
-          description: Name of the public Gateway resource
-          example: gateway-default
-        publicGatewayNamespace:
-          type: string
-          description: Namespace of the public Gateway resource
-          example: openchoreo-data-plane
-        organizationGatewayName:
-          type: string
-          description: Name of the organization Gateway resource
-          example: gateway-default
-        organizationGatewayNamespace:
-          type: string
-          description: Namespace of the organization Gateway resource
-          example: openchoreo-data-plane
+          description: Virtual host for the listener
 
     # -------------------------------------------------------------------------
     # BuildPlanes

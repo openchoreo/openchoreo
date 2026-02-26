@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"strings"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -52,6 +53,10 @@ func (h *Handler) CreateDataPlane(
 
 	if request.Body == nil {
 		return gen.CreateDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	if strings.TrimSpace(request.Body.Metadata.Name) == "" {
+		return gen.CreateDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("metadata.name is required")}, nil
 	}
 
 	dpCR, err := convert[gen.DataPlane, openchoreov1alpha1.DataPlane](*request.Body)

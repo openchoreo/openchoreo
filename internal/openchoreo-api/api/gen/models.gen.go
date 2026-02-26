@@ -784,7 +784,7 @@ type ClusterDataPlaneSpec struct {
 	// ClusterAgent Configuration for cluster agent-based communication
 	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
 
-	// Gateway Gateway configuration for a data plane
+	// Gateway Gateway configuration with ingress and egress network specs
 	Gateway *GatewaySpec `json:"gateway,omitempty"`
 
 	// ImagePullSecretRefs References to SecretReference resources for image pulling
@@ -1500,7 +1500,7 @@ type DataPlaneSpec struct {
 	// ClusterAgent Configuration for cluster agent-based communication
 	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
 
-	// Gateway Gateway configuration for a data plane
+	// Gateway Gateway configuration with ingress and egress network specs
 	Gateway *GatewaySpec `json:"gateway,omitempty"`
 
 	// ImagePullSecretRefs References to SecretReference resources for image pulling
@@ -1656,14 +1656,8 @@ type EnvironmentSpec struct {
 		Name string `json:"name"`
 	} `json:"dataPlaneRef,omitempty"`
 
-	// Gateway Gateway configuration for the environment
-	Gateway *struct {
-		// OrganizationVirtualHost Organization-specific virtual host for the gateway
-		OrganizationVirtualHost *string `json:"organizationVirtualHost,omitempty"`
-
-		// PublicVirtualHost Public virtual host for the gateway
-		PublicVirtualHost *string `json:"publicVirtualHost,omitempty"`
-	} `json:"gateway,omitempty"`
+	// Gateway Gateway configuration with ingress and egress network specs
+	Gateway *GatewaySpec `json:"gateway,omitempty"`
 
 	// IsProduction Whether this is a production environment
 	IsProduction *bool `json:"isProduction,omitempty"`
@@ -1732,37 +1726,52 @@ type FileVar struct {
 	ValueFrom *EnvVarValueFrom `json:"valueFrom,omitempty"`
 }
 
-// GatewaySpec Gateway configuration for a data plane
+// GatewayEndpointSpec Gateway resource endpoint configuration
+type GatewayEndpointSpec struct {
+	// Http Gateway listener configuration
+	Http *GatewayListenerSpec `json:"http,omitempty"`
+
+	// Https Gateway listener configuration
+	Https *GatewayListenerSpec `json:"https,omitempty"`
+
+	// Name Name of the Gateway resource
+	Name *string `json:"name,omitempty"`
+
+	// Namespace Namespace of the Gateway resource
+	Namespace *string `json:"namespace,omitempty"`
+
+	// Tls Gateway listener configuration
+	Tls *GatewayListenerSpec `json:"tls,omitempty"`
+}
+
+// GatewayListenerSpec Gateway listener configuration
+type GatewayListenerSpec struct {
+	// Host Virtual host for the listener
+	Host *string `json:"host,omitempty"`
+
+	// ListenerName Name of the listener on the Gateway resource
+	ListenerName *string `json:"listenerName,omitempty"`
+
+	// Port Port number
+	Port *int32 `json:"port,omitempty"`
+}
+
+// GatewayNetworkSpec External and internal gateway endpoints
+type GatewayNetworkSpec struct {
+	// External Gateway resource endpoint configuration
+	External *GatewayEndpointSpec `json:"external,omitempty"`
+
+	// Internal Gateway resource endpoint configuration
+	Internal *GatewayEndpointSpec `json:"internal,omitempty"`
+}
+
+// GatewaySpec Gateway configuration with ingress and egress network specs
 type GatewaySpec struct {
-	// OrganizationGatewayName Name of the organization Gateway resource
-	OrganizationGatewayName *string `json:"organizationGatewayName,omitempty"`
+	// Egress External and internal gateway endpoints
+	Egress *GatewayNetworkSpec `json:"egress,omitempty"`
 
-	// OrganizationGatewayNamespace Namespace of the organization Gateway resource
-	OrganizationGatewayNamespace *string `json:"organizationGatewayNamespace,omitempty"`
-
-	// OrganizationHTTPPort Organization HTTP port
-	OrganizationHTTPPort *int32 `json:"organizationHTTPPort,omitempty"`
-
-	// OrganizationHTTPSPort Organization HTTPS port
-	OrganizationHTTPSPort *int32 `json:"organizationHTTPSPort,omitempty"`
-
-	// OrganizationVirtualHost Organization-specific virtual host
-	OrganizationVirtualHost *string `json:"organizationVirtualHost,omitempty"`
-
-	// PublicGatewayName Name of the public Gateway resource
-	PublicGatewayName *string `json:"publicGatewayName,omitempty"`
-
-	// PublicGatewayNamespace Namespace of the public Gateway resource
-	PublicGatewayNamespace *string `json:"publicGatewayNamespace,omitempty"`
-
-	// PublicHTTPPort Public HTTP port
-	PublicHTTPPort *int32 `json:"publicHTTPPort,omitempty"`
-
-	// PublicHTTPSPort Public HTTPS port
-	PublicHTTPSPort *int32 `json:"publicHTTPSPort,omitempty"`
-
-	// PublicVirtualHost Public virtual host for external traffic
-	PublicVirtualHost *string `json:"publicVirtualHost,omitempty"`
+	// Ingress External and internal gateway endpoints
+	Ingress *GatewayNetworkSpec `json:"ingress,omitempty"`
 }
 
 // GenerateReleaseRequest Request to generate an immutable release snapshot from the current component state

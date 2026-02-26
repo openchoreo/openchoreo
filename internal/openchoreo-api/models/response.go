@@ -183,7 +183,6 @@ type EnvironmentResponse struct {
 	DataPlaneRef *DataPlaneRef `json:"dataPlaneRef,omitempty"`
 	IsProduction bool          `json:"isProduction"`
 	DNSPrefix    string        `json:"dnsPrefix,omitempty"`
-	Gateway      *GatewaySpec  `json:"gateway,omitempty"`
 	CreatedAt    time.Time     `json:"createdAt"`
 	Status       string        `json:"status,omitempty"`
 }
@@ -207,7 +206,6 @@ type DataPlaneResponse struct {
 	ImagePullSecretRefs   []string                       `json:"imagePullSecretRefs,omitempty"`
 	SecretStoreRef        string                         `json:"secretStoreRef,omitempty"`
 	ObservabilityPlaneRef *ObservabilityPlaneRef         `json:"observabilityPlaneRef,omitempty"`
-	Gateway               *GatewaySpec                   `json:"gateway,omitempty"`
 	AgentConnection       *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
 	CreatedAt             time.Time                      `json:"createdAt"`
 	Status                string                         `json:"status,omitempty"`
