@@ -29,6 +29,16 @@ func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, re
 			Namespace:   namespaceName,
 			Annotations: make(map[string]string),
 		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: req.DeploymentPipeline,
+		},
+	}
+
+	if req.BuildPlaneRef != nil {
+		project.Spec.BuildPlaneRef = &openchoreov1alpha1.BuildPlaneRef{
+			Kind: openchoreov1alpha1.BuildPlaneRefKind(req.BuildPlaneRef.Kind),
+			Name: req.BuildPlaneRef.Name,
+		}
 	}
 
 	if req.DisplayName != "" {

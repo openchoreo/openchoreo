@@ -42,4 +42,5 @@ type Service interface {
 	PromoteComponent(ctx context.Context, namespaceName, componentName string, req *PromoteComponentRequest) (*openchoreov1alpha1.ReleaseBinding, error)
 	GenerateRelease(ctx context.Context, namespaceName, componentName string, req *GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error)
 	GetComponentSchema(ctx context.Context, namespaceName, componentName string) (*extv1.JSONSchemaProps, error)
+	GetComponentReleaseSchema(ctx context.Context, namespaceName, releaseName, componentName string) (*extv1.JSONSchemaProps, error)
 }

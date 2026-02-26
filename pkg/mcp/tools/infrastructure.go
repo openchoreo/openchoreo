@@ -144,8 +144,6 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 			"display_name":            stringProperty("Human-readable display name"),
 			"description":             stringProperty("Human-readable description"),
 			"cluster_agent_client_ca": stringProperty("CA certificate to verify cluster agent's client certificate"),
-			"public_virtual_host":     stringProperty("Public virtual host for the data plane"),
-			"namespace_virtual_host":  stringProperty("Namespace-specific virtual host"),
 			"observability_plane_ref": map[string]any{
 				"type":        "object",
 				"description": "Optional: Reference to an ObservabilityPlane or ClusterObservabilityPlane resource",
@@ -163,9 +161,7 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 					},
 				},
 			},
-		}, []string{
-			"namespace_name", "name", "cluster_agent_client_ca", "public_virtual_host", "namespace_virtual_host",
-		}),
+		}, []string{"namespace_name", "name", "cluster_agent_client_ca"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName         string `json:"namespace_name"`
 		Name                  string `json:"name"`
@@ -525,21 +521,15 @@ func (t *Toolsets) RegisterCreateClusterDataPlane(s *mcp.Server) {
 				},
 			},
 		}, []string{
-			"name", "plane_id", "cluster_agent_client_ca", "public_virtual_host", "organization_virtual_host",
+			"name", "plane_id", "cluster_agent_client_ca",
 		}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Name                    string `json:"name"`
-		DisplayName             string `json:"display_name"`
-		Description             string `json:"description"`
-		PlaneID                 string `json:"plane_id"`
-		ClusterAgentClientCA    string `json:"cluster_agent_client_ca"`
-		PublicVirtualHost       string `json:"public_virtual_host"`
-		OrganizationVirtualHost string `json:"organization_virtual_host"`
-		PublicHTTPPort          *int32 `json:"public_http_port"`
-		PublicHTTPSPort         *int32 `json:"public_https_port"`
-		OrganizationHTTPPort    *int32 `json:"organization_http_port"`
-		OrganizationHTTPSPort   *int32 `json:"organization_https_port"`
-		ObservabilityPlaneRef   *struct {
+		Name                  string `json:"name"`
+		DisplayName           string `json:"display_name"`
+		Description           string `json:"description"`
+		PlaneID               string `json:"plane_id"`
+		ClusterAgentClientCA  string `json:"cluster_agent_client_ca"`
+		ObservabilityPlaneRef *struct {
 			Name string `json:"name"`
 		} `json:"observability_plane_ref"`
 	}) (*mcp.CallToolResult, any, error) {

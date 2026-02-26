@@ -54,6 +54,12 @@ func (h *MCPHandler) CreateComponent(
 	if req.Parameters != nil {
 		component.Spec.Parameters = req.Parameters
 	}
+	if req.WorkflowConfig != nil {
+		component.Spec.Workflow = &openchoreov1alpha1.WorkflowRunConfig{
+			Name:       req.WorkflowConfig.Name,
+			Parameters: req.WorkflowConfig.Parameters,
+		}
+	}
 
 	created, err := h.services.ComponentService.CreateComponent(ctx, namespaceName, component)
 	if err != nil {
@@ -165,6 +171,9 @@ func (h *MCPHandler) PatchReleaseBinding(
 
 	if req.ReleaseName != "" {
 		rb.Spec.ReleaseName = req.ReleaseName
+	}
+	if req.Environment != "" {
+		rb.Spec.Environment = req.Environment
 	}
 	if req.ComponentTypeEnvOverrides != nil {
 		overrideBytes, err := json.Marshal(req.ComponentTypeEnvOverrides)
@@ -321,9 +330,9 @@ func (h *MCPHandler) UpdateReleaseBindingState(
 }
 
 func (h *MCPHandler) GetComponentReleaseSchema(
-	ctx context.Context, namespaceName, _, componentName, _ string,
+	ctx context.Context, namespaceName, _, componentName, releaseName string,
 ) (any, error) {
-	return h.services.ComponentService.GetComponentSchema(ctx, namespaceName, componentName)
+	return h.services.ComponentService.GetComponentReleaseSchema(ctx, namespaceName, releaseName, componentName)
 }
 
 func (h *MCPHandler) ListComponentTypes(ctx context.Context, namespaceName string, opts tools.ListOpts) (any, error) {

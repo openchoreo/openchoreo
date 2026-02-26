@@ -219,3 +219,24 @@ func (s *componentServiceWithAuthz) GetComponentSchema(ctx context.Context, name
 	}
 	return s.internal.GetComponentSchema(ctx, namespaceName, componentName)
 }
+
+func (s *componentServiceWithAuthz) GetComponentReleaseSchema(ctx context.Context, namespaceName, releaseName, componentName string) (*extv1.JSONSchemaProps, error) {
+	// Fetch component to get the project for authz hierarchy
+	comp, err := s.internal.GetComponent(ctx, namespaceName, componentName)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionViewComponent,
+		ResourceType: resourceTypeComponent,
+		ResourceID:   componentName,
+		Hierarchy: authz.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   comp.Spec.Owner.ProjectName,
+			Component: componentName,
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.GetComponentReleaseSchema(ctx, namespaceName, releaseName, componentName)
+}
