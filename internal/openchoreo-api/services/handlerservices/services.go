@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
 	buildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/buildplane"
@@ -24,6 +25,7 @@ import (
 	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
 	gitsecretsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/gitsecret"
+	k8sresourcessvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/k8sresources"
 	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
 	observabilityalertsnotificationchannelsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityalertsnotificationchannel"
 	observabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityplane"
@@ -58,6 +60,7 @@ type Services struct {
 	ObservabilityAlertsNotificationChannelService observabilityalertsnotificationchannelsvc.Service
 	ObservabilityPlaneService                     observabilityplanesvc.Service
 	ReleaseService                                releasesvc.Service
+	K8sResourcesService                           k8sresourcessvc.Service
 	ReleaseBindingService                         releasebindingsvc.Service
 	SecretReferenceService                        secretreferencesvc.Service
 	TraitService                                  traitsvc.Service
@@ -67,7 +70,7 @@ type Services struct {
 }
 
 // NewServices creates all K8s-native API services with authorization wrappers.
-func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, bpClientMgr *kubernetesClient.KubeMultiClientManager, gatewayURL string, logger *slog.Logger) *Services {
+func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, bpClientMgr *kubernetesClient.KubeMultiClientManager, gatewayURL string, logger *slog.Logger, gwClient *gatewayClient.Client) *Services {
 	return &Services{
 		AuthzService:                                  authzsvc.NewServiceWithAuthz(pap, pdp, k8sClient, logger.With("component", "authz-service")),
 		ProjectService:                                projectsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "project-service")),
@@ -88,6 +91,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		ObservabilityAlertsNotificationChannelService: observabilityalertsnotificationchannelsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "observabilityalertsnotificationchannel-service")),
 		ObservabilityPlaneService:                     observabilityplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "observabilityplane-service")),
 		ReleaseService:                                releasesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "release-service")),
+		K8sResourcesService:                           k8sresourcessvc.NewServiceWithAuthz(k8sClient, gwClient, pdp, logger.With("component", "k8sresources-service")),
 		ReleaseBindingService:                         releasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "releasebinding-service")),
 		SecretReferenceService:                        secretreferencesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "secretreference-service")),
 		TraitService:                                  traitsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "trait-service")),

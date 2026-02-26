@@ -4189,6 +4189,125 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/namespaces/{namespaceName}/releasebindings/{releaseBindingName}/k8sresources/tree:
+    get:
+      operationId: getReleaseBindingK8sResourceTree
+      summary: Get K8s resource tree for a release binding
+      description: Returns a hierarchical view of all live Kubernetes resources deployed by the releases owned by this release binding, including child resources (ReplicaSets, Pods, Jobs).
+      tags: [ReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ReleaseBindingNameParam'
+      responses:
+        '200':
+          description: K8s resource tree
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/K8sResourceTreeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/releasebindings/{releaseBindingName}/k8sresources/events:
+    get:
+      operationId: getReleaseBindingK8sResourceEvents
+      summary: Get K8s resource events for a release binding
+      description: Returns Kubernetes events for a specific resource in the release binding's resource tree.
+      tags: [ReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ReleaseBindingNameParam'
+        - name: group
+          in: query
+          required: true
+          description: API group of the resource (empty string for core resources)
+          schema:
+            type: string
+        - name: version
+          in: query
+          required: true
+          description: API version of the resource (e.g. v1)
+          schema:
+            type: string
+        - name: kind
+          in: query
+          required: true
+          description: Kind of the resource
+          schema:
+            type: string
+        - name: name
+          in: query
+          required: true
+          description: Name of the resource
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceEventsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/releasebindings/{releaseBindingName}/k8sresources/logs:
+    get:
+      operationId: getReleaseBindingK8sResourceLogs
+      summary: Get pod logs for a release binding
+      description: Returns logs for a specific pod in the release binding's resource tree.
+      tags: [ReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ReleaseBindingNameParam'
+        - name: podName
+          in: query
+          required: true
+          description: Name of the pod
+          schema:
+            type: string
+        - name: sinceSeconds
+          in: query
+          required: false
+          description: Number of seconds since which to show logs
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        '200':
+          description: Pod logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourcePodLogsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # =============================================================================
   # Deployment Pipeline Endpoints
   # =============================================================================
@@ -7922,6 +8041,39 @@ components:
           description: Log entries from the pod
           items:
             $ref: '#/components/schemas/PodLogEntry'
+
+    K8sResourceTreeResponse:
+      type: object
+      description: Response containing resource trees for all releases owned by a release binding
+      required:
+        - releases
+      properties:
+        releases:
+          type: array
+          description: Resource trees per release (dataplane and/or observabilityplane)
+          items:
+            $ref: '#/components/schemas/ReleaseResourceTree'
+
+    ReleaseResourceTree:
+      type: object
+      description: Resource tree for a single release
+      required:
+        - name
+        - targetPlane
+        - nodes
+      properties:
+        name:
+          type: string
+          description: Name of the release
+        targetPlane:
+          type: string
+          description: Target plane of the release
+          enum: [dataplane, observabilityplane]
+        nodes:
+          type: array
+          description: All resource nodes in the tree
+          items:
+            $ref: '#/components/schemas/ResourceNode'
 
     # -------------------------------------------------------------------------
     # Deploy/Promote Requests

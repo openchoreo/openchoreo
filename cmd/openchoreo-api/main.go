@@ -156,7 +156,7 @@ func main() {
 	legacyRoutes := legacyHandler.Routes()
 
 	// Initialize all handler services
-	services := handlerservices.NewServices(k8sClient, runtime.pap, runtime.pdp, planeK8sClientMgr, gatewayURL, logger)
+	services := handlerservices.NewServices(k8sClient, runtime.pap, runtime.pdp, planeK8sClientMgr, gatewayURL, logger, gwClient)
 
 	// Initialize OpenAPI handlers
 	openapiHandler := openapihandlers.New(legacySvc, services, logger.With("component", "openapi-handlers"), &cfg)

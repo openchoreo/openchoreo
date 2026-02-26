@@ -198,6 +198,12 @@ const (
 	ReleaseBindingSpecStateUndeploy ReleaseBindingSpecState = "Undeploy"
 )
 
+// Defines values for ReleaseResourceTreeTargetPlane.
+const (
+	ReleaseResourceTreeTargetPlaneDataplane          ReleaseResourceTreeTargetPlane = "dataplane"
+	ReleaseResourceTreeTargetPlaneObservabilityplane ReleaseResourceTreeTargetPlane = "observabilityplane"
+)
+
 // Defines values for ReleaseSpecTargetPlane.
 const (
 	ReleaseSpecTargetPlaneDataplane          ReleaseSpecTargetPlane = "dataplane"
@@ -251,8 +257,8 @@ const (
 
 // Defines values for TraitSpecPatchesTargetPlane.
 const (
-	Dataplane          TraitSpecPatchesTargetPlane = "dataplane"
-	Observabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
+	TraitSpecPatchesTargetPlaneDataplane          TraitSpecPatchesTargetPlane = "dataplane"
+	TraitSpecPatchesTargetPlaneObservabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
 )
 
 // Defines values for UpdateClusterRoleBindingRequestEffect.
@@ -1813,6 +1819,12 @@ type HealthInfo struct {
 	Status string `json:"status"`
 }
 
+// K8sResourceTreeResponse Response containing resource trees for all releases owned by a release binding
+type K8sResourceTreeResponse struct {
+	// Releases Resource trees per release (dataplane and/or observabilityplane)
+	Releases []ReleaseResourceTree `json:"releases"`
+}
+
 // MessageResponse Simple message response
 type MessageResponse struct {
 	// Message Response message
@@ -2314,6 +2326,21 @@ type ReleaseList struct {
 	// for efficient pagination through large result sets.
 	Pagination *Pagination `json:"pagination,omitempty"`
 }
+
+// ReleaseResourceTree Resource tree for a single release
+type ReleaseResourceTree struct {
+	// Name Name of the release
+	Name string `json:"name"`
+
+	// Nodes All resource nodes in the tree
+	Nodes []ResourceNode `json:"nodes"`
+
+	// TargetPlane Target plane of the release
+	TargetPlane ReleaseResourceTreeTargetPlane `json:"targetPlane"`
+}
+
+// ReleaseResourceTreeTargetPlane Target plane of the release
+type ReleaseResourceTreeTargetPlane string
 
 // ReleaseSpec Desired state of a Release
 type ReleaseSpec struct {
@@ -3647,6 +3674,30 @@ type ListReleaseBindingsParams struct {
 	// Cursor Opaque pagination cursor from a previous response.
 	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// GetReleaseBindingK8sResourceEventsParams defines parameters for GetReleaseBindingK8sResourceEvents.
+type GetReleaseBindingK8sResourceEventsParams struct {
+	// Group API group of the resource (empty string for core resources)
+	Group string `form:"group" json:"group"`
+
+	// Version API version of the resource (e.g. v1)
+	Version string `form:"version" json:"version"`
+
+	// Kind Kind of the resource
+	Kind string `form:"kind" json:"kind"`
+
+	// Name Name of the resource
+	Name string `form:"name" json:"name"`
+}
+
+// GetReleaseBindingK8sResourceLogsParams defines parameters for GetReleaseBindingK8sResourceLogs.
+type GetReleaseBindingK8sResourceLogsParams struct {
+	// PodName Name of the pod
+	PodName string `form:"podName" json:"podName"`
+
+	// SinceSeconds Number of seconds since which to show logs
+	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
 }
 
 // ListReleasesParams defines parameters for ListReleases.
