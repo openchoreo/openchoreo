@@ -231,6 +231,10 @@ func (h *Handler) UpdateComponent(
 		if errors.Is(err, componentsvc.ErrComponentNotFound) {
 			return gen.UpdateComponent404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
 		}
+		var validationErr *svcerrors.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateComponent400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to update component", "error", err)
 		return gen.UpdateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

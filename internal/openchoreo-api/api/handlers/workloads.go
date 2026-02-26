@@ -145,6 +145,10 @@ func (h *Handler) UpdateWorkload(
 		if errors.Is(err, workloadsvc.ErrWorkloadNotFound) {
 			return gen.UpdateWorkload404JSONResponse{NotFoundJSONResponse: notFound("Workload")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateWorkload400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to update workload", "error", err)
 		return gen.UpdateWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

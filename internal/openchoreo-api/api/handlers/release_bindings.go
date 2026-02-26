@@ -163,6 +163,10 @@ func (h *Handler) UpdateReleaseBinding(
 		if errors.Is(err, releasebindingsvc.ErrReleaseBindingNotFound) {
 			return gen.UpdateReleaseBinding404JSONResponse{NotFoundJSONResponse: notFound("ReleaseBinding")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to update release binding", "error", err)
 		return gen.UpdateReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
