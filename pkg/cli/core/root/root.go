@@ -15,7 +15,6 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componenttype"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/dataplane"
-	"github.com/openchoreo/openchoreo/pkg/cli/cmd/delete"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/environment"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/login"
@@ -49,7 +48,6 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		login.NewLoginCmd(impl),
 		logout.NewLogoutCmd(impl),
 		configContext.NewConfigCmd(),
-		delete.NewDeleteCmd(impl),
 		version.NewVersionCmd(),
 		componentrelease.NewComponentReleaseCmd(),
 		releasebinding.NewReleaseBindingCmd(),

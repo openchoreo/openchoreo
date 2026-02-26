@@ -37,8 +37,6 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateLogParams(cmdType, params)
 	case ResourceApply:
 		return validateApplyParams(cmdType, params)
-	case ResourceDelete:
-		return validateDeleteParams(cmdType, params)
 	case ResourceDeploymentPipeline:
 		return validateDeploymentPipelineParams(cmdType, params)
 	case ResourceConfigurationGroup:
@@ -445,21 +443,6 @@ func validateEndpointParams(cmdType CommandType, params interface{}) error {
 func validateApplyParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdApply {
 		if p, ok := params.(api.ApplyParams); ok {
-			fields := map[string]string{
-				"file": p.FilePath,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, "", fields)
-			}
-		}
-	}
-	return nil
-}
-
-// validateDeleteParams validates parameters for delete operations
-func validateDeleteParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdDelete {
-		if p, ok := params.(api.DeleteParams); ok {
 			fields := map[string]string{
 				"file": p.FilePath,
 			}

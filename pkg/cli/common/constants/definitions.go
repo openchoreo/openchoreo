@@ -1252,17 +1252,4 @@ This command allows you to:
 		Short:   "Manage workflow runs",
 		Long:    `Manage workflow runs for OpenChoreo.`,
 	}
-
-	// ------------------------------------------------------------------------
-	// Delete Command Definitions
-	// ------------------------------------------------------------------------
-
-	// Delete command definitions
-	Delete = Command{
-		Use:   "delete",
-		Short: "Delete OpenChoreo resources by file names",
-		Long:  "Delete resources in OpenChoreo platform such as namespaces, projects, components, etc.",
-		Example: `  # Delete resources from a YAML file
-  occ delete -f resources.yaml`,
-	}
 )

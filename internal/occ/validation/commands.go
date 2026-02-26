@@ -43,7 +43,6 @@ const (
 	ResourceSecretReference                        ResourceType = "secretreference"
 	ResourceLogs                                   ResourceType = "logs"
 	ResourceApply                                  ResourceType = "apply"
-	ResourceDelete                                 ResourceType = "delete"
 	ResourceDeploymentPipeline                     ResourceType = "deploymentpipeline"
 	ResourceConfigurationGroup                     ResourceType = "configurationgroup"
 	ResourceWorkload                               ResourceType = "workload"

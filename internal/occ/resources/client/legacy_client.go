@@ -39,19 +39,6 @@ type ApplyResponse struct {
 	Code  string `json:"code,omitempty"`
 }
 
-type DeleteResponse struct {
-	Success bool `json:"success"`
-	Data    struct {
-		APIVersion string `json:"apiVersion"`
-		Kind       string `json:"kind"`
-		Name       string `json:"name"`
-		Namespace  string `json:"namespace,omitempty"`
-		Operation  string `json:"operation"` // "deleted" or "not_found"
-	} `json:"data"`
-	Error string `json:"error,omitempty"`
-	Code  string `json:"code,omitempty"`
-}
-
 // NamespaceResponse represents an namespace from the API
 type NamespaceResponse struct {
 	Name        string `json:"name"`
@@ -186,30 +173,6 @@ func (c *APIClient) Apply(ctx context.Context, resource map[string]interface{}) 
 	}
 
 	return &applyResp, nil
-}
-
-func (c *APIClient) Delete(ctx context.Context, resource map[string]interface{}) (*DeleteResponse, error) {
-	resp, err := c.delete(ctx, "/api/v1/delete", resource)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make delete request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	var deleteResp DeleteResponse
-	if err := json.Unmarshal(body, &deleteResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w\nResponse body: %s", err, string(body))
-	}
-
-	if !deleteResp.Success {
-		return &deleteResp, fmt.Errorf("delete failed: %s", deleteResp.Error)
-	}
-
-	return &deleteResp, nil
 }
 
 // ListNamespaces retrieves all namespaces from the API
@@ -358,10 +321,6 @@ func (c *APIClient) get(ctx context.Context, path string) (*http.Response, error
 
 func (c *APIClient) post(ctx context.Context, path string, body interface{}) (*http.Response, error) {
 	return c.doRequest(ctx, "POST", path, body)
-}
-
-func (c *APIClient) delete(ctx context.Context, path string, body interface{}) (*http.Response, error) {
-	return c.doRequest(ctx, "DELETE", path, body)
 }
 
 func (c *APIClient) doRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {

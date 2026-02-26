@@ -6,7 +6,6 @@ package api
 // CommandImplementationInterface combines all APIs
 type CommandImplementationInterface interface {
 	ApplyAPI
-	DeleteAPI
 	LoginAPI
 	LogoutAPI
 }
@@ -14,11 +13,6 @@ type CommandImplementationInterface interface {
 // ApplyAPI defines methods for applying configurations
 type ApplyAPI interface {
 	Apply(params ApplyParams) error
-}
-
-// DeleteAPI defines methods for deleting resources from configuration files
-type DeleteAPI interface {
-	Delete(params DeleteParams) error
 }
 
 // LoginAPI defines methods for authentication

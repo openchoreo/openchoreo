@@ -5,7 +5,6 @@ package occ
 
 import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/apply"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/delete"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -17,13 +16,6 @@ var _ api.CommandImplementationInterface = &CommandImplementation{}
 
 func NewCommandImplementation() *CommandImplementation {
 	return &CommandImplementation{}
-}
-
-// Delete Operations
-
-func (c *CommandImplementation) Delete(params api.DeleteParams) error {
-	deleteImpl := delete.NewDeleteImpl()
-	return deleteImpl.Delete(params)
 }
 
 // Authentication Operations

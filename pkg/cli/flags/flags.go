@@ -240,19 +240,6 @@ var (
 		Usage: "Name of the kubeconfig context to use",
 	}
 
-	Wait = Flag{
-		Name:      "wait",
-		Shorthand: "w",
-		Usage:     messages.FlagWaitDesc,
-		Type:      "bool",
-	}
-
-	DeleteFileFlag = Flag{
-		Name:      "file",
-		Shorthand: "f",
-		Usage:     messages.DeleteFileFlag,
-	}
-
 	WorkloadDescriptor = Flag{
 		Name:  "descriptor",
 		Usage: messages.WorkloadDescriptorFlag,
