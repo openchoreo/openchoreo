@@ -79,7 +79,6 @@ type PEToolsetHandler interface {
 
 // NamespaceToolsetHandler handles namespace operations
 type NamespaceToolsetHandler interface {
-	GetNamespace(ctx context.Context, name string) (any, error)
 	ListNamespaces(ctx context.Context, opts ListOpts) (any, error)
 	CreateNamespace(ctx context.Context, req *models.CreateNamespaceRequest) (any, error)
 	ListSecretReferences(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
@@ -89,7 +88,6 @@ type NamespaceToolsetHandler interface {
 type ProjectToolsetHandler interface {
 	// Project operations
 	ListProjects(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-	GetProject(ctx context.Context, namespaceName, projectName string) (any, error)
 	CreateProject(ctx context.Context, namespaceName string, req *models.CreateProjectRequest) (any, error)
 }
 
@@ -103,13 +101,18 @@ type ComponentToolsetHandler interface {
 		ctx context.Context, namespaceName, projectName, componentName string, additionalResources []string,
 	) (any, error)
 	GetComponentWorkloads(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
+	GetComponentWorkload(ctx context.Context, namespaceName, projectName, componentName, workloadName string) (any, error)
 	// Component release operations
-	ListComponentReleases(ctx context.Context, namespaceName, projectName, componentName string, opts ListOpts) (any, error)
+	ListComponentReleases(ctx context.Context, namespaceName, projectName, componentName string, opts ListOpts,
+	) (any, error)
 	CreateComponentRelease(ctx context.Context, namespaceName, projectName, componentName, releaseName string) (any, error)
 	GetComponentRelease(ctx context.Context, namespaceName, projectName, componentName, releaseName string) (any, error)
 	// Release binding operations
 	ListReleaseBindings(
 		ctx context.Context, namespaceName, projectName, componentName string, environments []string, opts ListOpts,
+	) (any, error)
+	GetReleaseBinding(
+		ctx context.Context, namespaceName, projectName, componentName, bindingName string,
 	) (any, error)
 	PatchReleaseBinding(
 		ctx context.Context, namespaceName, projectName, componentName, bindingName string,

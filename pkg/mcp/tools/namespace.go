@@ -26,21 +26,6 @@ func (t *Toolsets) RegisterListNamespaces(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetNamespace(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_namespace",
-		Description: "Get detailed information about a specific namespace.",
-		InputSchema: createSchema(map[string]any{
-			"name": stringProperty("The name of the namespace to retrieve"),
-		}, []string{"name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Name string `json:"name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.NamespaceToolset.GetNamespace(ctx, args.Name)
-		return handleToolResult(result, err)
-	})
-}
-
 func (t *Toolsets) RegisterCreateNamespace(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_namespace",
@@ -79,7 +64,8 @@ func (t *Toolsets) RegisterListSecretReferences(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.NamespaceToolset.ListSecretReferences(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.NamespaceToolset.ListSecretReferences(
+			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }

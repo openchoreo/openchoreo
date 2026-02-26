@@ -20,11 +20,7 @@ func (h *MCPHandler) ListNamespaces(ctx context.Context, opts tools.ListOpts) (a
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("namespaces", result.Items, result.NextCursor), nil
-}
-
-func (h *MCPHandler) GetNamespace(ctx context.Context, name string) (any, error) {
-	return h.services.NamespaceService.GetNamespace(ctx, name)
+	return wrapTransformedList("namespaces", result.Items, result.NextCursor, namespaceSummary), nil
 }
 
 func (h *MCPHandler) CreateNamespace(ctx context.Context, req *models.CreateNamespaceRequest) (any, error) {
@@ -45,7 +41,11 @@ func (h *MCPHandler) CreateNamespace(ctx context.Context, req *models.CreateName
 		ns.Annotations[controller.AnnotationKeyDescription] = req.Description
 	}
 
-	return h.services.NamespaceService.CreateNamespace(ctx, ns)
+	created, err := h.services.NamespaceService.CreateNamespace(ctx, ns)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(created, "created"), nil
 }
 
 func (h *MCPHandler) ListSecretReferences(ctx context.Context, namespaceName string, opts tools.ListOpts) (any, error) {
@@ -53,5 +53,5 @@ func (h *MCPHandler) ListSecretReferences(ctx context.Context, namespaceName str
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("secret_references", result.Items, result.NextCursor), nil
+	return wrapTransformedList("secret_references", result.Items, result.NextCursor, secretReferenceSummary), nil
 }

@@ -101,6 +101,27 @@ func componentBasicSpecs() []toolTestSpec {
 			},
 		},
 		{
+			name:                "get_component_workload",
+			toolset:             "component",
+			descriptionKeywords: []string{"workload", "component"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "project_name", "component_name", "workload_name"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"project_name":   testProjectName,
+				"component_name": testComponentName,
+				"workload_name":  "workload1",
+			},
+			expectedMethod: "GetComponentWorkload",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != testProjectName ||
+					args[2] != testComponentName || args[3] != "workload1" {
+					t.Errorf("Expected (%s, %s, %s, workload1), got (%v, %v, %v, %v)",
+						testNamespaceName, testProjectName, testComponentName, args[0], args[1], args[2], args[3])
+				}
+			},
+		},
+		{
 			name:                "create_component",
 			toolset:             "component",
 			descriptionKeywords: []string{"create", "component"},
@@ -235,6 +256,27 @@ func componentReleaseSpecs() []toolTestSpec {
 				expected := []string{"dev", "staging"}
 				if diff := cmp.Diff(expected, envs); diff != "" {
 					t.Errorf("environments mismatch (-want +got):\n%s", diff)
+				}
+			},
+		},
+		{
+			name:                "get_release_binding",
+			toolset:             "component",
+			descriptionKeywords: []string{"release", "binding"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "project_name", "component_name", "binding_name"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"project_name":   testProjectName,
+				"component_name": testComponentName,
+				"binding_name":   "binding-dev",
+			},
+			expectedMethod: "GetReleaseBinding",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != testProjectName ||
+					args[2] != testComponentName || args[3] != "binding-dev" {
+					t.Errorf("Expected (%s, %s, %s, binding-dev), got (%v, %v, %v, %v)",
+						testNamespaceName, testProjectName, testComponentName, args[0], args[1], args[2], args[3])
 				}
 			},
 		},

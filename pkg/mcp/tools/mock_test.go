@@ -46,7 +46,9 @@ func (m *MockCoreToolsetHandler) CreateNamespace(
 	return `{"name":"new-namespace"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) ListSecretReferences(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
+func (m *MockCoreToolsetHandler) ListSecretReferences(
+	ctx context.Context, namespaceName string, opts ListOpts,
+) (any, error) {
 	m.recordCall("ListSecretReferences", namespaceName, opts)
 	return `[{"name":"secret-ref-1"}]`, nil
 }
@@ -79,7 +81,9 @@ func (m *MockCoreToolsetHandler) CreateComponent(
 	return `{"name":"new-component"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) ListComponents(ctx context.Context, namespaceName, projectName string, opts ListOpts) (any, error) {
+func (m *MockCoreToolsetHandler) ListComponents(
+	ctx context.Context, namespaceName, projectName string, opts ListOpts,
+) (any, error) {
 	m.recordCall("ListComponents", namespaceName, projectName, opts)
 	return `[{"name":"component1"}]`, nil
 }
@@ -96,6 +100,13 @@ func (m *MockCoreToolsetHandler) GetComponentWorkloads(
 ) (any, error) {
 	m.recordCall("GetComponentWorkloads", namespaceName, projectName, componentName)
 	return `[{"name":"workload1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetComponentWorkload(
+	ctx context.Context, namespaceName, projectName, componentName, workloadName string,
+) (any, error) {
+	m.recordCall("GetComponentWorkload", namespaceName, projectName, componentName, workloadName)
+	return `{"name":"workload1"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) ListComponentReleases(
@@ -124,6 +135,13 @@ func (m *MockCoreToolsetHandler) ListReleaseBindings(
 ) (any, error) {
 	m.recordCall("ListReleaseBindings", namespaceName, projectName, componentName, environments, opts)
 	return `[{"environment":"dev"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetReleaseBinding(
+	ctx context.Context, namespaceName, projectName, componentName, bindingName string,
+) (any, error) {
+	m.recordCall("GetReleaseBinding", namespaceName, projectName, componentName, bindingName)
+	return `{"name":"binding-dev","environment":"dev"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) PatchReleaseBinding(
@@ -198,7 +216,9 @@ func (m *MockCoreToolsetHandler) TriggerWorkflowRun(
 	return `{"name":"my-component-workflow-run","status":"Running"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) ListComponentTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
+func (m *MockCoreToolsetHandler) ListComponentTypes(
+	ctx context.Context, namespaceName string, opts ListOpts,
+) (any, error) {
 	m.recordCall("ListComponentTypes", namespaceName, opts)
 	return `[{"name":"WebApplication"}]`, nil
 }
@@ -273,7 +293,9 @@ func (m *MockCoreToolsetHandler) GetClusterTraitSchema(ctx context.Context, ctNa
 
 // InfrastructureToolsetHandler methods
 
-func (m *MockCoreToolsetHandler) ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
+func (m *MockCoreToolsetHandler) ListEnvironments(
+	ctx context.Context, namespaceName string, opts ListOpts,
+) (any, error) {
 	m.recordCall("ListEnvironments", namespaceName, opts)
 	return `[{"name":"dev"}]`, nil
 }
@@ -307,7 +329,9 @@ func (m *MockCoreToolsetHandler) CreateDataPlane(
 	return `{"name":"new-dp"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) ListObservabilityPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
+func (m *MockCoreToolsetHandler) ListObservabilityPlanes(
+	ctx context.Context, namespaceName string, opts ListOpts,
+) (any, error) {
 	m.recordCall("ListObservabilityPlanes", namespaceName, opts)
 	return `[{"name":"observability-plane-1"}]`, nil
 }

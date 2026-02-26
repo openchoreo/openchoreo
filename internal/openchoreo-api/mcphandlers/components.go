@@ -55,7 +55,13 @@ func (h *MCPHandler) CreateComponent(
 		component.Spec.Parameters = req.Parameters
 	}
 
-	return h.services.ComponentService.CreateComponent(ctx, namespaceName, component)
+	created, err := h.services.ComponentService.CreateComponent(ctx, namespaceName, component)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(created, "created", map[string]any{
+		"componentType": created.Spec.ComponentType.Name,
+	}), nil
 }
 
 func (h *MCPHandler) ListComponents(ctx context.Context, namespaceName, projectName string, opts tools.ListOpts) (any, error) {
@@ -63,13 +69,17 @@ func (h *MCPHandler) ListComponents(ctx context.Context, namespaceName, projectN
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("components", result.Items, result.NextCursor), nil
+	return wrapTransformedList("components", result.Items, result.NextCursor, componentSummary), nil
 }
 
 func (h *MCPHandler) GetComponent(
 	ctx context.Context, namespaceName, _, componentName string, _ []string,
 ) (any, error) {
-	return h.services.ComponentService.GetComponent(ctx, namespaceName, componentName)
+	component, err := h.services.ComponentService.GetComponent(ctx, namespaceName, componentName)
+	if err != nil {
+		return nil, err
+	}
+	return componentDetail(component), nil
 }
 
 func (h *MCPHandler) GetComponentWorkloads(
@@ -79,7 +89,17 @@ func (h *MCPHandler) GetComponentWorkloads(
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("workloads", result.Items, result.NextCursor), nil
+	return wrapTransformedList("workloads", result.Items, result.NextCursor, workloadSummary), nil
+}
+
+func (h *MCPHandler) GetComponentWorkload(
+	ctx context.Context, namespaceName, _, _, workloadName string,
+) (any, error) {
+	w, err := h.services.WorkloadService.GetWorkload(ctx, namespaceName, workloadName)
+	if err != nil {
+		return nil, err
+	}
+	return workloadDetail(w), nil
 }
 
 func (h *MCPHandler) ListComponentReleases(
@@ -89,21 +109,29 @@ func (h *MCPHandler) ListComponentReleases(
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("releases", result.Items, result.NextCursor), nil
+	return wrapTransformedList("releases", result.Items, result.NextCursor, componentReleaseSummary), nil
 }
 
 func (h *MCPHandler) CreateComponentRelease(
 	ctx context.Context, namespaceName, _, componentName, releaseName string,
 ) (any, error) {
-	return h.services.ComponentService.GenerateRelease(ctx, namespaceName, componentName, &componentsvc.GenerateReleaseRequest{
+	cr, err := h.services.ComponentService.GenerateRelease(ctx, namespaceName, componentName, &componentsvc.GenerateReleaseRequest{
 		ReleaseName: releaseName,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(cr, "created"), nil
 }
 
 func (h *MCPHandler) GetComponentRelease(
 	ctx context.Context, namespaceName, _, _, releaseName string,
 ) (any, error) {
-	return h.services.ComponentReleaseService.GetComponentRelease(ctx, namespaceName, releaseName)
+	cr, err := h.services.ComponentReleaseService.GetComponentRelease(ctx, namespaceName, releaseName)
+	if err != nil {
+		return nil, err
+	}
+	return componentReleaseDetail(cr), nil
 }
 
 func (h *MCPHandler) ListReleaseBindings(
@@ -113,7 +141,17 @@ func (h *MCPHandler) ListReleaseBindings(
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("bindings", result.Items, result.NextCursor), nil
+	return wrapTransformedList("bindings", result.Items, result.NextCursor, releaseBindingSummary), nil
+}
+
+func (h *MCPHandler) GetReleaseBinding(
+	ctx context.Context, namespaceName, _, _, bindingName string,
+) (any, error) {
+	rb, err := h.services.ReleaseBindingService.GetReleaseBinding(ctx, namespaceName, bindingName)
+	if err != nil {
+		return nil, err
+	}
+	return releaseBindingDetail(rb), nil
 }
 
 func (h *MCPHandler) PatchReleaseBinding(
@@ -158,28 +196,45 @@ func (h *MCPHandler) PatchReleaseBinding(
 		rb.Spec.WorkloadOverrides = &wo
 	}
 
-	return h.services.ReleaseBindingService.UpdateReleaseBinding(ctx, namespaceName, rb)
+	updated, err := h.services.ReleaseBindingService.UpdateReleaseBinding(ctx, namespaceName, rb)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(updated, "patched"), nil
 }
 
 func (h *MCPHandler) DeployRelease(
 	ctx context.Context, namespaceName, _, componentName string, req *models.DeployReleaseRequest,
 ) (any, error) {
-	return h.services.ComponentService.DeployRelease(ctx, namespaceName, componentName, &componentsvc.DeployReleaseRequest{
+	rb, err := h.services.ComponentService.DeployRelease(ctx, namespaceName, componentName, &componentsvc.DeployReleaseRequest{
 		ReleaseName: req.ReleaseName,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(rb, "deployed", map[string]any{
+		"environment": rb.Spec.Environment,
+		"releaseName": rb.Spec.ReleaseName,
+	}), nil
 }
 
 func (h *MCPHandler) PromoteComponent(
 	ctx context.Context, namespaceName, _, componentName string, req *models.PromoteComponentRequest,
 ) (any, error) {
-	return h.services.ComponentService.PromoteComponent(ctx, namespaceName, componentName, &componentsvc.PromoteComponentRequest{
+	rb, err := h.services.ComponentService.PromoteComponent(ctx, namespaceName, componentName, &componentsvc.PromoteComponentRequest{
 		SourceEnvironment: req.SourceEnvironment,
 		TargetEnvironment: req.TargetEnvironment,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(rb, "promoted", map[string]any{
+		"environment": rb.Spec.Environment,
+	}), nil
 }
 
 func (h *MCPHandler) CreateWorkload(
-	ctx context.Context, namespaceName, _, componentName string, workloadSpec interface{},
+	ctx context.Context, namespaceName, _, componentName string, workloadSpec any,
 ) (any, error) {
 	specBytes, err := json.Marshal(workloadSpec)
 	if err != nil {
@@ -198,7 +253,11 @@ func (h *MCPHandler) CreateWorkload(
 		Spec: spec,
 	}
 
-	return h.services.WorkloadService.CreateWorkload(ctx, namespaceName, workload)
+	created, err := h.services.WorkloadService.CreateWorkload(ctx, namespaceName, workload)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(created, "created"), nil
 }
 
 func (h *MCPHandler) GetComponentSchema(
@@ -217,7 +276,7 @@ func (h *MCPHandler) GetEnvironmentRelease(
 	if len(result.Items) == 0 {
 		return nil, nil
 	}
-	return result.Items[0], nil
+	return releaseDetail(&result.Items[0]), nil
 }
 
 func (h *MCPHandler) PatchComponent(
@@ -235,7 +294,11 @@ func (h *MCPHandler) PatchComponent(
 		component.Spec.Parameters = req.Parameters
 	}
 
-	return h.services.ComponentService.UpdateComponent(ctx, namespaceName, component)
+	updated, err := h.services.ComponentService.UpdateComponent(ctx, namespaceName, component)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(updated, "patched"), nil
 }
 
 func (h *MCPHandler) UpdateReleaseBindingState(
@@ -248,7 +311,13 @@ func (h *MCPHandler) UpdateReleaseBindingState(
 
 	rb.Spec.State = openchoreov1alpha1.ReleaseState(req.ReleaseState)
 
-	return h.services.ReleaseBindingService.UpdateReleaseBinding(ctx, namespaceName, rb)
+	updated, err := h.services.ReleaseBindingService.UpdateReleaseBinding(ctx, namespaceName, rb)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(updated, "updated", map[string]any{
+		"state": string(updated.Spec.State),
+	}), nil
 }
 
 func (h *MCPHandler) GetComponentReleaseSchema(
@@ -262,7 +331,7 @@ func (h *MCPHandler) ListComponentTypes(ctx context.Context, namespaceName strin
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("component_types", result.Items, result.NextCursor), nil
+	return wrapTransformedList("component_types", result.Items, result.NextCursor, componentTypeSummary), nil
 }
 
 func (h *MCPHandler) GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (any, error) {
@@ -274,7 +343,7 @@ func (h *MCPHandler) ListTraits(ctx context.Context, namespaceName string, opts 
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("traits", result.Items, result.NextCursor), nil
+	return wrapTransformedList("traits", result.Items, result.NextCursor, traitSummary), nil
 }
 
 func (h *MCPHandler) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error) {
@@ -302,7 +371,13 @@ func (h *MCPHandler) CreateWorkflowRun(ctx context.Context, namespaceName, workf
 		wfRun.Spec.Workflow.Parameters = &runtime.RawExtension{Raw: rawParams}
 	}
 
-	return h.services.WorkflowRunService.CreateWorkflowRun(ctx, namespaceName, wfRun)
+	created, err := h.services.WorkflowRunService.CreateWorkflowRun(ctx, namespaceName, wfRun)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(created, "created", map[string]any{
+		"workflowName": workflowName,
+	}), nil
 }
 
 func (h *MCPHandler) ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string, opts tools.ListOpts) (any, error) {
@@ -310,11 +385,15 @@ func (h *MCPHandler) ListWorkflowRuns(ctx context.Context, namespaceName, projec
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("workflow_runs", result.Items, result.NextCursor), nil
+	return wrapTransformedList("workflow_runs", result.Items, result.NextCursor, workflowRunSummary), nil
 }
 
 func (h *MCPHandler) GetWorkflowRun(ctx context.Context, namespaceName, runName string) (any, error) {
-	return h.services.WorkflowRunService.GetWorkflowRun(ctx, namespaceName, runName)
+	wr, err := h.services.WorkflowRunService.GetWorkflowRun(ctx, namespaceName, runName)
+	if err != nil {
+		return nil, err
+	}
+	return workflowRunDetail(wr), nil
 }
 
 // ClusterComponentType operations
@@ -324,11 +403,15 @@ func (h *MCPHandler) ListClusterComponentTypes(ctx context.Context, opts tools.L
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("cluster_component_types", result.Items, result.NextCursor), nil
+	return wrapTransformedList("cluster_component_types", result.Items, result.NextCursor, clusterComponentTypeSummary), nil
 }
 
 func (h *MCPHandler) GetClusterComponentType(ctx context.Context, cctName string) (any, error) {
-	return h.services.ClusterComponentTypeService.GetClusterComponentType(ctx, cctName)
+	cct, err := h.services.ClusterComponentTypeService.GetClusterComponentType(ctx, cctName)
+	if err != nil {
+		return nil, err
+	}
+	return clusterComponentTypeDetail(cct), nil
 }
 
 func (h *MCPHandler) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (any, error) {
@@ -342,11 +425,15 @@ func (h *MCPHandler) ListClusterTraits(ctx context.Context, opts tools.ListOpts)
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("cluster_traits", result.Items, result.NextCursor), nil
+	return wrapTransformedList("cluster_traits", result.Items, result.NextCursor, clusterTraitSummary), nil
 }
 
 func (h *MCPHandler) GetClusterTrait(ctx context.Context, ctName string) (any, error) {
-	return h.services.ClusterTraitService.GetClusterTrait(ctx, ctName)
+	ct, err := h.services.ClusterTraitService.GetClusterTrait(ctx, ctName)
+	if err != nil {
+		return nil, err
+	}
+	return clusterTraitDetail(ct), nil
 }
 
 func (h *MCPHandler) GetClusterTraitSchema(ctx context.Context, ctName string) (any, error) {
@@ -371,7 +458,7 @@ func (h *MCPHandler) TriggerWorkflowRun(
 
 	// If a commit is provided, inject it into the parameters
 	if commit != "" && parameters != nil {
-		var params map[string]interface{}
+		var params map[string]any
 		if err := json.Unmarshal(parameters.Raw, &params); err == nil {
 			params["commit"] = commit
 			updatedRaw, err := json.Marshal(params)
@@ -380,7 +467,7 @@ func (h *MCPHandler) TriggerWorkflowRun(
 			}
 		}
 	} else if commit != "" {
-		raw, _ := json.Marshal(map[string]interface{}{"commit": commit})
+		raw, _ := json.Marshal(map[string]any{"commit": commit})
 		parameters = &runtime.RawExtension{Raw: raw}
 	}
 
@@ -402,5 +489,11 @@ func (h *MCPHandler) TriggerWorkflowRun(
 		},
 	}
 
-	return h.services.WorkflowRunService.CreateWorkflowRun(ctx, namespaceName, workflowRun)
+	created, err := h.services.WorkflowRunService.CreateWorkflowRun(ctx, namespaceName, workflowRun)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(created, "triggered", map[string]any{
+		"workflowName": component.Spec.Workflow.Name,
+	}), nil
 }

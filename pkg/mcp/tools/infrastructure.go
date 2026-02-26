@@ -25,7 +25,8 @@ func (t *Toolsets) RegisterListEnvironments(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListEnvironments(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.InfrastructureToolset.ListEnvironments(
+			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
@@ -220,7 +221,8 @@ func (t *Toolsets) RegisterListComponentTypes(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListComponentTypes(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.ComponentToolset.ListComponentTypes(
+			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
@@ -256,7 +258,8 @@ func (t *Toolsets) RegisterListTraits(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListTraits(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.ComponentToolset.ListTraits(
+			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
@@ -432,7 +435,8 @@ func (t *Toolsets) RegisterListObservabilityPlanes(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListObservabilityPlanes(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.PEToolset.ListObservabilityPlanes(
+			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }

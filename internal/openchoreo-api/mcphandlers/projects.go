@@ -19,11 +19,7 @@ func (h *MCPHandler) ListProjects(ctx context.Context, namespaceName string, opt
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("projects", result.Items, result.NextCursor), nil
-}
-
-func (h *MCPHandler) GetProject(ctx context.Context, namespaceName, projectName string) (any, error) {
-	return h.services.ProjectService.GetProject(ctx, namespaceName, projectName)
+	return wrapTransformedList("projects", result.Items, result.NextCursor, projectSummary), nil
 }
 
 func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, req *models.CreateProjectRequest) (any, error) {
@@ -42,5 +38,9 @@ func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, re
 		project.Annotations[controller.AnnotationKeyDescription] = req.Description
 	}
 
-	return h.services.ProjectService.CreateProject(ctx, namespaceName, project)
+	created, err := h.services.ProjectService.CreateProject(ctx, namespaceName, project)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(created, "created"), nil
 }

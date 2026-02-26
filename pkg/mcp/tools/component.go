@@ -29,7 +29,8 @@ func (t *Toolsets) RegisterListComponents(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListComponents(ctx, args.NamespaceName, args.ProjectName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.ComponentToolset.ListComponents(
+			ctx, args.NamespaceName, args.ProjectName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
@@ -76,6 +77,52 @@ func (t *Toolsets) RegisterGetComponentWorkloads(s *mcp.Server) {
 		ComponentName string `json:"component_name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.ComponentToolset.GetComponentWorkloads(ctx, args.NamespaceName, args.ProjectName, args.ComponentName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetComponentWorkload(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_component_workload",
+		Description: "Get detailed information about a specific workload of a component including container " +
+			"configuration, endpoints, and connections.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": defaultStringProperty(),
+			"workload_name":  stringProperty("Use get_component_workloads to discover valid names"),
+		}, []string{"namespace_name", "project_name", "component_name", "workload_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		ProjectName   string `json:"project_name"`
+		ComponentName string `json:"component_name"`
+		WorkloadName  string `json:"workload_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.GetComponentWorkload(
+			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.WorkloadName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetReleaseBinding(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_release_binding",
+		Description: "Get detailed information about a specific release binding including environment, " +
+			"release name, state, overrides, endpoints, and deployment status.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": defaultStringProperty(),
+			"binding_name":   stringProperty("Use list_release_bindings to discover valid names"),
+		}, []string{"namespace_name", "project_name", "component_name", "binding_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		ProjectName   string `json:"project_name"`
+		ComponentName string `json:"component_name"`
+		BindingName   string `json:"binding_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.GetReleaseBinding(
+			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.BindingName)
 		return handleToolResult(result, err)
 	})
 }
@@ -206,7 +253,9 @@ func (t *Toolsets) RegisterListComponentReleases(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListComponentReleases(ctx, args.NamespaceName, args.ProjectName, args.ComponentName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.ComponentToolset.ListComponentReleases(
+			ctx, args.NamespaceName, args.ProjectName, args.ComponentName,
+			ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
@@ -279,7 +328,8 @@ func (t *Toolsets) RegisterListReleaseBindings(s *mcp.Server) {
 		Cursor        string   `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.ComponentToolset.ListReleaseBindings(
-			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.Environments, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+			ctx, args.NamespaceName, args.ProjectName, args.ComponentName,
+			args.Environments, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }

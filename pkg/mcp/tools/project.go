@@ -24,25 +24,8 @@ func (t *Toolsets) RegisterListProjects(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ProjectToolset.ListProjects(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetProject(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_project",
-		Description: "Get detailed information about a specific project including deployment pipeline " +
-			"configuration and component summary.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"project_name":   stringProperty("Use list_projects to discover valid names"),
-		}, []string{"namespace_name", "project_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		ProjectName   string `json:"project_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ProjectToolset.GetProject(ctx, args.NamespaceName, args.ProjectName)
+		result, err := t.ProjectToolset.ListProjects(
+			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }

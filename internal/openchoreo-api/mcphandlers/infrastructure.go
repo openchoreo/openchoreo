@@ -14,11 +14,15 @@ func (h *MCPHandler) ListObservabilityPlanes(ctx context.Context, namespaceName 
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("observability_planes", result.Items, result.NextCursor), nil
+	return wrapTransformedList("observability_planes", result.Items, result.NextCursor, observabilityPlaneSummary), nil
 }
 
 func (h *MCPHandler) GetDeploymentPipeline(ctx context.Context, namespaceName, pipelineName string) (any, error) {
-	return h.services.DeploymentPipelineService.GetDeploymentPipeline(ctx, namespaceName, pipelineName)
+	dp, err := h.services.DeploymentPipelineService.GetDeploymentPipeline(ctx, namespaceName, pipelineName)
+	if err != nil {
+		return nil, err
+	}
+	return deploymentPipelineDetail(dp), nil
 }
 
 func (h *MCPHandler) ListDeploymentPipelines(ctx context.Context, namespaceName string, opts tools.ListOpts) (any, error) {
@@ -26,7 +30,7 @@ func (h *MCPHandler) ListDeploymentPipelines(ctx context.Context, namespaceName 
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("deployment_pipelines", result.Items, result.NextCursor), nil
+	return wrapTransformedList("deployment_pipelines", result.Items, result.NextCursor, deploymentPipelineSummary), nil
 }
 
 func (h *MCPHandler) ListBuildPlanes(ctx context.Context, namespaceName string, opts tools.ListOpts) (any, error) {
@@ -34,10 +38,9 @@ func (h *MCPHandler) ListBuildPlanes(ctx context.Context, namespaceName string, 
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("build_planes", result.Items, result.NextCursor), nil
+	return wrapTransformedList("build_planes", result.Items, result.NextCursor, buildPlaneSummary), nil
 }
 
 func (h *MCPHandler) GetObserverURL(ctx context.Context, namespaceName, envName string) (any, error) {
 	return h.services.EnvironmentService.GetObserverURL(ctx, namespaceName, envName)
 }
-

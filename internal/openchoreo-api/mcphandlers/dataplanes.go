@@ -19,11 +19,15 @@ func (h *MCPHandler) ListDataPlanes(ctx context.Context, namespaceName string, o
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("data_planes", result.Items, result.NextCursor), nil
+	return wrapTransformedList("data_planes", result.Items, result.NextCursor, dataplaneSummary), nil
 }
 
 func (h *MCPHandler) GetDataPlane(ctx context.Context, namespaceName, dpName string) (any, error) {
-	return h.services.DataPlaneService.GetDataPlane(ctx, namespaceName, dpName)
+	dp, err := h.services.DataPlaneService.GetDataPlane(ctx, namespaceName, dpName)
+	if err != nil {
+		return nil, err
+	}
+	return dataplaneDetail(dp), nil
 }
 
 func (h *MCPHandler) CreateDataPlane(ctx context.Context, namespaceName string, req *models.CreateDataPlaneRequest) (any, error) {
@@ -55,5 +59,9 @@ func (h *MCPHandler) CreateDataPlane(ctx context.Context, namespaceName string, 
 		}
 	}
 
-	return h.services.DataPlaneService.CreateDataPlane(ctx, namespaceName, dp)
+	created, err := h.services.DataPlaneService.CreateDataPlane(ctx, namespaceName, dp)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(created, "created"), nil
 }

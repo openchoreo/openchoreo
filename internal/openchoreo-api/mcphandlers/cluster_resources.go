@@ -21,11 +21,15 @@ func (h *MCPHandler) ListClusterDataPlanes(ctx context.Context, opts tools.ListO
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("cluster_data_planes", result.Items, result.NextCursor), nil
+	return wrapTransformedList("cluster_data_planes", result.Items, result.NextCursor, clusterDataPlaneSummary), nil
 }
 
 func (h *MCPHandler) GetClusterDataPlane(ctx context.Context, cdpName string) (any, error) {
-	return h.services.ClusterDataPlaneService.GetClusterDataPlane(ctx, cdpName)
+	cdp, err := h.services.ClusterDataPlaneService.GetClusterDataPlane(ctx, cdpName)
+	if err != nil {
+		return nil, err
+	}
+	return clusterDataPlaneDetail(cdp), nil
 }
 
 func (h *MCPHandler) CreateClusterDataPlane(ctx context.Context, req *models.CreateClusterDataPlaneRequest) (any, error) {
@@ -57,7 +61,11 @@ func (h *MCPHandler) CreateClusterDataPlane(ctx context.Context, req *models.Cre
 		}
 	}
 
-	return h.services.ClusterDataPlaneService.CreateClusterDataPlane(ctx, cdp)
+	created, err := h.services.ClusterDataPlaneService.CreateClusterDataPlane(ctx, cdp)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(created, "created"), nil
 }
 
 // ClusterBuildPlane operations
@@ -67,7 +75,7 @@ func (h *MCPHandler) ListClusterBuildPlanes(ctx context.Context, opts tools.List
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("cluster_build_planes", result.Items, result.NextCursor), nil
+	return wrapTransformedList("cluster_build_planes", result.Items, result.NextCursor, clusterBuildPlaneSummary), nil
 }
 
 // ClusterObservabilityPlane operations
@@ -77,6 +85,5 @@ func (h *MCPHandler) ListClusterObservabilityPlanes(ctx context.Context, opts to
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("cluster_observability_planes", result.Items, result.NextCursor), nil
+	return wrapTransformedList("cluster_observability_planes", result.Items, result.NextCursor, clusterObservabilityPlaneSummary), nil
 }
-

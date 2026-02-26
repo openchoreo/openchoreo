@@ -11,7 +11,6 @@ import (
 func (t *Toolsets) namespaceToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
 		t.RegisterListNamespaces,
-		t.RegisterGetNamespace,
 		t.RegisterCreateNamespace,
 		t.RegisterListSecretReferences,
 	}
@@ -21,7 +20,6 @@ func (t *Toolsets) namespaceToolRegistrations() []RegisterFunc {
 func (t *Toolsets) projectToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
 		t.RegisterListProjects,
-		t.RegisterGetProject,
 		t.RegisterCreateProject,
 	}
 }
@@ -34,11 +32,13 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterGetComponent,
 		t.RegisterPatchComponent,
 		t.RegisterGetComponentWorkloads,
+		t.RegisterGetComponentWorkload,
 		t.RegisterListComponentReleases,
 		t.RegisterCreateComponentRelease,
 		t.RegisterGetComponentRelease,
 		t.RegisterGetComponentSchema,
 		t.RegisterListReleaseBindings,
+		t.RegisterGetReleaseBinding,
 		t.RegisterPatchReleaseBinding,
 		t.RegisterDeployRelease,
 		t.RegisterPromoteComponent,

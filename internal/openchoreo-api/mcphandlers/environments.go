@@ -19,11 +19,15 @@ func (h *MCPHandler) ListEnvironments(ctx context.Context, namespaceName string,
 	if err != nil {
 		return nil, err
 	}
-	return wrapList("environments", result.Items, result.NextCursor), nil
+	return wrapTransformedList("environments", result.Items, result.NextCursor, environmentSummary), nil
 }
 
 func (h *MCPHandler) GetEnvironment(ctx context.Context, namespaceName, envName string) (any, error) {
-	return h.services.EnvironmentService.GetEnvironment(ctx, namespaceName, envName)
+	env, err := h.services.EnvironmentService.GetEnvironment(ctx, namespaceName, envName)
+	if err != nil {
+		return nil, err
+	}
+	return environmentDetail(env), nil
 }
 
 func (h *MCPHandler) CreateEnvironment(ctx context.Context, namespaceName string, req *models.CreateEnvironmentRequest) (any, error) {
@@ -51,5 +55,9 @@ func (h *MCPHandler) CreateEnvironment(ctx context.Context, namespaceName string
 		}
 	}
 
-	return h.services.EnvironmentService.CreateEnvironment(ctx, namespaceName, env)
+	created, err := h.services.EnvironmentService.CreateEnvironment(ctx, namespaceName, env)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(created, "created"), nil
 }
