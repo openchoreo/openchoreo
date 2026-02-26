@@ -738,8 +738,14 @@ func extractArgoTasksFromWorkflowNodes(nodes argoproj.Nodes) []openchoreodevv1al
 		// Extract order from node name (e.g., "workflow-name[0].step-name" -> 0)
 		order := extractArgoStepOrderFromNodeName(node.Name)
 
+		// Extract task name: prefer DisplayName, fallback to parsing node name
+		taskName := node.DisplayName
+		if taskName == "" {
+			taskName = extractTaskNameFromArgoNodeName(node.Name)
+		}
+
 		task := openchoreodevv1alpha1.WorkflowTask{
-			Name:    node.TemplateName,
+			Name:    taskName,
 			Phase:   string(node.Phase),
 			Message: node.Message,
 		}
@@ -806,6 +812,26 @@ func extractArgoStepOrderFromNodeName(nodeName string) int {
 	}
 
 	return order
+}
+
+// extractTaskNameFromArgoNodeName extracts the task name from an Argo node name.
+// Node names follow the pattern: "workflow-name[N].step-name" where step-name is the task name.
+// Returns empty string if the pattern doesn't match.
+func extractTaskNameFromArgoNodeName(nodeName string) string {
+	// Find the last dot to extract the step name
+	lastDotIdx := -1
+	for i := len(nodeName) - 1; i >= 0; i-- {
+		if nodeName[i] == '.' {
+			lastDotIdx = i
+			break
+		}
+	}
+
+	if lastDotIdx == -1 || lastDotIdx >= len(nodeName)-1 {
+		return ""
+	}
+
+	return nodeName[lastDotIdx+1:]
 }
 
 // checkTTLExpiration checks if the TTL has expired and deletes the WorkflowRun if needed.
