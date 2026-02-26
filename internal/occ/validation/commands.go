@@ -50,6 +50,10 @@ const (
 	ResourceReleaseBinding                         ResourceType = "releasebinding"
 	ResourceWorkflowRun                            ResourceType = "workflowrun"
 	ResourceObservabilityAlertsNotificationChannel ResourceType = "observabilityalertsnotificationchannel"
+	ResourceAuthzClusterRole                       ResourceType = "authzclusterrole"
+	ResourceAuthzClusterRoleBinding                ResourceType = "authzclusterrolebinding"
+	ResourceAuthzRole                              ResourceType = "authzrole"
+	ResourceAuthzRoleBinding                       ResourceType = "authzrolebinding"
 )
 
 // checkRequiredFields verifies if all required fields are populated

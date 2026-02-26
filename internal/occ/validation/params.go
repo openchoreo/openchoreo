@@ -63,6 +63,14 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateWorkflowRunParams(cmdType, params)
 	case ResourceObservabilityAlertsNotificationChannel:
 		return validateObservabilityAlertsNotificationChannelParams(cmdType, params)
+	case ResourceAuthzClusterRole:
+		return validateAuthzClusterRoleParams(cmdType, params)
+	case ResourceAuthzClusterRoleBinding:
+		return validateAuthzClusterRoleBindingParams(cmdType, params)
+	case ResourceAuthzRole:
+		return validateAuthzRoleParams(cmdType, params)
+	case ResourceAuthzRoleBinding:
+		return validateAuthzRoleBindingParams(cmdType, params)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resource)
 	}
@@ -974,6 +982,36 @@ func validateDeleteObservabilityAlertsNotificationChannelParams(params interface
 		}
 		if !checkRequiredFields(fields) {
 			return generateHelpError(CmdDelete, ResourceObservabilityAlertsNotificationChannel, fields)
+		}
+	}
+	return nil
+}
+
+// validateAuthzClusterRoleParams validates parameters for authz cluster role operations
+func validateAuthzClusterRoleParams(_ CommandType, _ interface{}) error {
+	return nil
+}
+
+// validateAuthzClusterRoleBindingParams validates parameters for authz cluster role binding operations
+func validateAuthzClusterRoleBindingParams(_ CommandType, _ interface{}) error {
+	return nil
+}
+
+// validateAuthzRoleParams validates parameters for authz role operations
+func validateAuthzRoleParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList || cmdType == CmdGet {
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(cmdType, ResourceAuthzRole, p.GetNamespace())
+		}
+	}
+	return nil
+}
+
+// validateAuthzRoleBindingParams validates parameters for authz role binding operations
+func validateAuthzRoleBindingParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList || cmdType == CmdGet {
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(cmdType, ResourceAuthzRoleBinding, p.GetNamespace())
 		}
 	}
 	return nil

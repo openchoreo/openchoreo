@@ -869,6 +869,102 @@ func (c *Client) DeleteObservabilityAlertsNotificationChannel(ctx context.Contex
 	return nil
 }
 
+// ListClusterRoles retrieves all cluster-scoped authorization roles
+func (c *Client) ListClusterRoles(ctx context.Context) (*gen.AuthzClusterRoleList, error) {
+	resp, err := c.client.ListClusterRolesWithResponse(ctx, &gen.ListClusterRolesParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster roles: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// GetClusterRole retrieves a specific cluster-scoped authorization role
+func (c *Client) GetClusterRole(ctx context.Context, name string) (*gen.AuthzClusterRole, error) {
+	resp, err := c.client.GetClusterRoleWithResponse(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster role: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// ListClusterRoleBindings retrieves all cluster-scoped role bindings
+func (c *Client) ListClusterRoleBindings(ctx context.Context) (*gen.AuthzClusterRoleBindingList, error) {
+	resp, err := c.client.ListClusterRoleBindingsWithResponse(ctx, &gen.ListClusterRoleBindingsParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster role bindings: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// GetClusterRoleBinding retrieves a specific cluster-scoped role binding
+func (c *Client) GetClusterRoleBinding(ctx context.Context, name string) (*gen.AuthzClusterRoleBinding, error) {
+	resp, err := c.client.GetClusterRoleBindingWithResponse(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster role binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// ListNamespaceRoles retrieves all namespace-scoped authorization roles
+func (c *Client) ListNamespaceRoles(ctx context.Context, namespaceName string) (*gen.AuthzRoleList, error) {
+	resp, err := c.client.ListNamespaceRolesWithResponse(ctx, namespaceName, &gen.ListNamespaceRolesParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list roles: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// GetNamespaceRole retrieves a specific namespace-scoped authorization role
+func (c *Client) GetNamespaceRole(ctx context.Context, namespaceName, name string) (*gen.AuthzRole, error) {
+	resp, err := c.client.GetNamespaceRoleWithResponse(ctx, namespaceName, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get role: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// ListNamespaceRoleBindings retrieves all namespace-scoped role bindings
+func (c *Client) ListNamespaceRoleBindings(ctx context.Context, namespaceName string) (*gen.AuthzRoleBindingList, error) {
+	resp, err := c.client.ListNamespaceRoleBindingsWithResponse(ctx, namespaceName, &gen.ListNamespaceRoleBindingsParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list role bindings: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// GetNamespaceRoleBinding retrieves a specific namespace-scoped role binding
+func (c *Client) GetNamespaceRoleBinding(ctx context.Context, namespaceName, name string) (*gen.AuthzRoleBinding, error) {
+	resp, err := c.client.GetNamespaceRoleBindingWithResponse(ctx, namespaceName, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get role binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
 // GetEnvironmentObserverURL retrieves the observer URL for an environment
 func (c *Client) GetEnvironmentObserverURL(ctx context.Context, namespaceName, envName string) (string, error) {
 	resp, err := c.client.GetEnvironmentObserverURLWithResponse(ctx, namespaceName, envName)

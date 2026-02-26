@@ -777,6 +777,98 @@ This command allows you to:
   %[1]s secretreference delete my-secret --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
+	AuthzClusterRole = Command{
+		Use:     "authzclusterrole",
+		Aliases: []string{"authzclusterroles", "cr"},
+		Short:   "Manage authz cluster roles",
+		Long:    `Manage cluster-scoped authorization roles for OpenChoreo.`,
+	}
+
+	ListAuthzClusterRole = Command{
+		Use:   "list",
+		Short: "List authz cluster roles",
+		Long:  `List all cluster-scoped authorization roles.`,
+		Example: `  # List all authz cluster roles
+  occ authzclusterrole list`,
+	}
+
+	GetAuthzClusterRole = Command{
+		Use:   "get [NAME]",
+		Short: "Get an authz cluster role",
+		Long:  `Get an authz cluster role and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get an authz cluster role
+  %[1]s authzclusterrole get my-role`, messages.DefaultCLIName),
+	}
+
+	AuthzClusterRoleBinding = Command{
+		Use:     "authzclusterrolebinding",
+		Aliases: []string{"authzclusterrolebindings", "crb"},
+		Short:   "Manage authz cluster role bindings",
+		Long:    `Manage cluster-scoped authorization role bindings for OpenChoreo.`,
+	}
+
+	ListAuthzClusterRoleBinding = Command{
+		Use:   "list",
+		Short: "List authz cluster role bindings",
+		Long:  `List all cluster-scoped authorization role bindings.`,
+		Example: `  # List all authz cluster role bindings
+  occ authzclusterrolebinding list`,
+	}
+
+	GetAuthzClusterRoleBinding = Command{
+		Use:   "get [NAME]",
+		Short: "Get an authz cluster role binding",
+		Long:  `Get an authz cluster role binding and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get an authz cluster role binding
+  %[1]s authzclusterrolebinding get my-binding`, messages.DefaultCLIName),
+	}
+
+	AuthzRole = Command{
+		Use:     "authzrole",
+		Aliases: []string{"authzroles"},
+		Short:   "Manage authz roles",
+		Long:    `Manage namespace-scoped authorization roles for OpenChoreo.`,
+	}
+
+	ListAuthzRole = Command{
+		Use:   "list",
+		Short: "List authz roles",
+		Long:  `List all authz roles in a namespace.`,
+		Example: `  # List all authz roles in a namespace
+  occ authzrole list --namespace acme-corp`,
+	}
+
+	GetAuthzRole = Command{
+		Use:   "get [NAME]",
+		Short: "Get an authz role",
+		Long:  `Get an authz role and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get an authz role
+  %[1]s authzrole get my-role --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	AuthzRoleBinding = Command{
+		Use:     "authzrolebinding",
+		Aliases: []string{"authzrolebindings", "rb"},
+		Short:   "Manage authz role bindings",
+		Long:    `Manage namespace-scoped authorization role bindings for OpenChoreo.`,
+	}
+
+	ListAuthzRoleBinding = Command{
+		Use:   "list",
+		Short: "List authz role bindings",
+		Long:  `List all authz role bindings in a namespace.`,
+		Example: `  # List all authz role bindings in a namespace
+  occ authzrolebinding list --namespace acme-corp`,
+	}
+
+	GetAuthzRoleBinding = Command{
+		Use:   "get [NAME]",
+		Short: "Get an authz role binding",
+		Long:  `Get an authz role binding and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get an authz role binding
+  %[1]s authzrolebinding get my-binding --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
 	// Resource root commands
 
 	BuildPlane = Command{
