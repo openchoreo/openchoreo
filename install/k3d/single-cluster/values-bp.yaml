@@ -10,7 +10,3 @@ argo-workflows:
     authModes:
       - server
 
-openbao:
-  server:
-    dev:
-      enabled: true

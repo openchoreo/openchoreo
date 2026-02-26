@@ -31,7 +31,3 @@ dependencies:
     repository: https://fluent.github.io/helm-charts
     version: 0.54.0
     condition: fluent-bit.enabled
-  - name: openbao
-    version: 0.4.0
-    repository: "https://openbao.github.io/openbao-helm"
-    condition: openbao.enabled

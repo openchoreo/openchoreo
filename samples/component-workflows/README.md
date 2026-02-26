@@ -687,7 +687,7 @@ resources:
         refreshInterval: 15s
         secretStoreRef:
           kind: ClusterSecretStore
-          name: openbao
+          name: default
         target:
           name: ${metadata.workflowRunName}-git-secret
           creationPolicy: Owner

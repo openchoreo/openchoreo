@@ -653,10 +653,81 @@ setup_build_plane_ca() {
     log_success "Build Plane CA configured"
 }
 
-# Create fake ClusterSecretStore for development
-create_fake_secret_store() {
-    log_info "Creating development ClusterSecretStore..."
+# Install OpenBao and create ClusterSecretStore backed by Vault provider
+install_openbao() {
+    local openbao_ns="openbao"
+    local dev_root_token="root"
 
+    log_info "Installing OpenBao..."
+
+    install_helm_chart "openbao" "oci://ghcr.io/openbao/charts/openbao" "$openbao_ns" "true" "true" "true" "600" \
+        "--version" "0.25.6" \
+        "--set" "server.image.tag=2.4.4" \
+        "--set" "injector.enabled=false" \
+        "--set" "server.dev.enabled=true" \
+        "--set" "server.dev.devRootToken=${dev_root_token}" \
+        "--set" "server.resources.requests.memory=64Mi" \
+        "--set" "server.resources.requests.cpu=50m" \
+        "--set" "server.resources.limits.memory=128Mi" \
+        "--set" "server.resources.limits.cpu=100m"
+
+    log_info "Waiting for OpenBao to be ready..."
+    kubectl wait --namespace "$openbao_ns" \
+        --for=condition=Ready pods \
+        -l app.kubernetes.io/name=openbao,component=server \
+        --timeout=300s >/dev/null 2>&1
+
+    log_info "Configuring OpenBao policies and auth..."
+    kubectl exec -n "$openbao_ns" openbao-0 -- sh -c "
+        export BAO_ADDR=http://127.0.0.1:8200
+        export BAO_TOKEN=${dev_root_token}
+
+        bao auth enable kubernetes 2>/dev/null || true
+
+        bao write auth/kubernetes/config \
+            kubernetes_host=\"https://\${KUBERNETES_PORT_443_TCP_ADDR}:443\"
+
+        bao policy write openchoreo-secret-reader-policy - <<'POLICY'
+path \"secret/data/*\" {
+  capabilities = [\"read\"]
+}
+path \"secret/metadata/*\" {
+  capabilities = [\"list\", \"read\"]
+}
+POLICY
+
+        bao policy write openchoreo-secret-writer-policy - <<'POLICY'
+path \"secret/data/*\" {
+  capabilities = [\"create\", \"read\", \"update\", \"delete\"]
+}
+path \"secret/metadata/*\" {
+  capabilities = [\"create\", \"read\", \"update\", \"delete\", \"list\"]
+}
+POLICY
+
+        bao write auth/kubernetes/role/openchoreo-secret-reader-role \
+            bound_service_account_names=default \
+            bound_service_account_namespaces='dp*' \
+            policies=openchoreo-secret-reader-policy \
+            ttl=20m
+
+        bao write auth/kubernetes/role/openchoreo-secret-writer-role \
+            bound_service_account_names='*' \
+            bound_service_account_namespaces='openbao,openchoreo-build-plane' \
+            policies=openchoreo-secret-writer-policy \
+            ttl=20m
+    " >/dev/null 2>&1
+
+    # ServiceAccount for ESO
+    kubectl apply --server-side -f - >/dev/null 2>&1 <<SAEOF
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-secrets-openbao
+  namespace: ${openbao_ns}
+SAEOF
+
+    # ClusterSecretStore backed by OpenBao
     kubectl apply --server-side -f - >/dev/null 2>&1 <<CSSEOF
 apiVersion: external-secrets.io/v1
 kind: ClusterSecretStore
@@ -664,25 +735,33 @@ metadata:
   name: default
 spec:
   provider:
-    fake:
-      data:
-      - key: npm-token
-        value: "fake-npm-token-for-development"
-      - key: docker-username
-        value: "dev-user"
-      - key: docker-password
-        value: "dev-password"
-      - key: github-pat
-        value: "fake-github-token-for-development"
-      - key: username
-        value: "dev-user"
-      - key: password
-        value: "dev-password"
-      - key: RCA_LLM_API_KEY
-        value: "fake-llm-api-key-for-development"
+    vault:
+      server: "http://openbao.${openbao_ns}.svc:8200"
+      path: "secret"
+      version: "v2"
+      auth:
+        kubernetes:
+          mountPath: "kubernetes"
+          role: "openchoreo-secret-writer-role"
+          serviceAccountRef:
+            name: "external-secrets-openbao"
+            namespace: "${openbao_ns}"
 CSSEOF
 
-    log_success "ClusterSecretStore created"
+    # Seed placeholder secrets for local development
+    log_info "Seeding development secrets..."
+    kubectl exec -n "$openbao_ns" openbao-0 -- sh -c "
+        export BAO_ADDR=http://127.0.0.1:8200
+        export BAO_TOKEN=${dev_root_token}
+
+        bao kv put secret/backstage-backend-secret value='local-dev-backend-secret'
+        bao kv put secret/backstage-client-secret value='backstage-portal-secret'
+        bao kv put secret/backstage-jenkins-api-key value='placeholder-not-in-use'
+        bao kv put secret/opensearch-username value='admin'
+        bao kv put secret/opensearch-password value='ThisIsTheOpenSearchPassword1'
+    " >/dev/null 2>&1
+
+    log_success "OpenBao installed and ClusterSecretStore created"
 }
 
 # Extract cluster-agent CA and create DataPlane CR
@@ -764,7 +843,7 @@ spec:
       value: |
 $(echo "$agent_ca" | sed 's/^/        /')
   secretStoreRef:
-    name: openbao
+    name: default
 BPEOF
 
     log_success "BuildPlane resource created"

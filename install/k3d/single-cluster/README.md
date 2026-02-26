@@ -163,32 +163,17 @@ kubectl create configmap cluster-gateway-ca \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-### Secret Store
+### OpenBao (Secret Store)
+
+Install [OpenBao](https://openbao.org/) as the secret backend and create a `ClusterSecretStore` named `default`:
 
 ```bash
-kubectl apply -f - <<EOF
-apiVersion: external-secrets.io/v1
-kind: ClusterSecretStore
-metadata:
-  name: default
-spec:
-  provider:
-    fake:
-      data:
-      - key: npm-token
-        value: "fake-npm-token-for-development"
-      - key: docker-username
-        value: "dev-user"
-      - key: docker-password
-        value: "dev-password"
-      - key: github-pat
-        value: "fake-github-token-for-development"
-      - key: username
-        value: "dev-user"
-      - key: password
-        value: "dev-password"
-EOF
+install/prerequisites/openbao/setup.sh --dev --seed-dev-secrets
 ```
+
+This installs OpenBao in dev mode into the `openbao` namespace, configures Kubernetes auth with reader/writer policies, seeds placeholder development secrets, and creates the `ClusterSecretStore`.
+
+To use a different secret backend (Vault, AWS Secrets Manager, etc.), skip this step and create your own `ClusterSecretStore` named `default` following the [ESO provider docs](https://external-secrets.io/latest/provider/).
 
 ### Install Data Plane
 
@@ -309,7 +294,7 @@ spec:
       value: |
 $(echo "$AGENT_CA" | sed 's/^/        /')
   secretStoreRef:
-    name: openbao
+    name: default
 EOF
 ```
 

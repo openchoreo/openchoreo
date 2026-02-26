@@ -40,7 +40,3 @@ fluent-bit:
           tls.verify Off
           tls.vhost opensearch.observability.openchoreo.localhost
 
-openbao:
-  server:
-    dev:
-      enabled: true

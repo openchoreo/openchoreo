@@ -180,32 +180,17 @@ kubectl --context k3d-openchoreo-dp create configmap cluster-gateway-ca \
   --dry-run=client -o yaml | kubectl --context k3d-openchoreo-dp apply -f -
 ```
 
-### Secret Store
+### OpenBao (Secret Store)
+
+Install [OpenBao](https://openbao.org/) as the secret backend on the data plane cluster:
 
 ```bash
-kubectl --context k3d-openchoreo-dp apply -f - <<EOF
-apiVersion: external-secrets.io/v1
-kind: ClusterSecretStore
-metadata:
-  name: default
-spec:
-  provider:
-    fake:
-      data:
-      - key: npm-token
-        value: "fake-npm-token-for-development"
-      - key: docker-username
-        value: "dev-user"
-      - key: docker-password
-        value: "dev-password"
-      - key: github-pat
-        value: "fake-github-token-for-development"
-      - key: username
-        value: "dev-user"
-      - key: password
-        value: "dev-password"
-EOF
+install/prerequisites/openbao/setup.sh --dev --seed-dev-secrets --kube-context k3d-openchoreo-dp
 ```
+
+This installs OpenBao in dev mode into the `openbao` namespace, configures Kubernetes auth, seeds placeholder development secrets, and creates a `ClusterSecretStore` named `default`.
+
+To use a different secret backend, skip this and create your own `ClusterSecretStore` named `default` following the [ESO provider docs](https://external-secrets.io/latest/provider/).
 
 ### Install Data Plane
 
@@ -371,7 +356,7 @@ spec:
       value: |
 $(echo "$AGENT_CA" | sed 's/^/        /')
   secretStoreRef:
-    name: openbao
+    name: default
 EOF
 ```
 

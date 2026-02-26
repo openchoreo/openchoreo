@@ -11,4 +11,4 @@ spec:
     clientCA:
       value: ""
   secretStoreRef:
-    name: openbao
+    name: default

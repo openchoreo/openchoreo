@@ -113,7 +113,7 @@ extract_cluster_gateway_ca
 
 # Step 7: Set up Data Plane CA and secret store
 setup_data_plane_ca
-create_fake_secret_store
+install_openbao
 
 # Step 8: Install Data Plane
 install_data_plane

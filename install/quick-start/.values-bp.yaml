@@ -1,6 +1,1 @@
 # Helm values for OpenChoreo Build Plane in quick-start environment
-
-openbao:
-  server:
-    dev:
-      enabled: true
