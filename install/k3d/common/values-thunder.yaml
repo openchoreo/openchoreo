@@ -217,7 +217,8 @@ bootstrap:
               ],
               "grant_types": [
                 "authorization_code",
-                "client_credentials"
+                "client_credentials",
+                "refresh_token"
               ],
               "response_types": [
                 "code"
