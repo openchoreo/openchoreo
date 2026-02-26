@@ -73,25 +73,27 @@ func Apply(params Params) error {
 			continue
 		}
 
+		totalResources += len(resources)
 		for _, resource := range resources {
 			if err := applyResource(ctx, genClient, registry, resource, defaultNamespace); err != nil {
 				errs = append(errs, err.Error())
-			} else {
-				totalResources++
 			}
 		}
 	}
 
+	applied := totalResources - len(errs)
+
+	for _, e := range errs {
+		fmt.Printf("Error: %s\n", e)
+	}
+
 	if len(errs) > 0 {
-		for _, e := range errs {
-			fmt.Printf("Error: %s\n", e)
-		}
 		fmt.Printf("\nApplied %d resource(s) from %d file(s) with %d error(s)\n",
-			totalResources, len(resourceFiles), len(errs))
+			applied, len(resourceFiles), len(errs))
 		return fmt.Errorf("apply completed with %d error(s)", len(errs))
 	}
 
-	fmt.Printf("\nApplied %d resource(s) from %d file(s)\n", totalResources, len(resourceFiles))
+	fmt.Printf("\nApplied %d resource(s) from %d file(s)\n", applied, len(resourceFiles))
 	return nil
 }
 
