@@ -1078,6 +1078,8 @@ openchoreoApi:
                 - "observabilityplane:view"
                 - "clusterobservabilityplane:view"
                 - "clusterdataplane:view"
+                - "clustercomponenttype:view"
+                - "clustertrait:view"
 
             # Root Cause Analysis (RCA) agent role for troubleshooting and debugging
             - name: rca-agent
