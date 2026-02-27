@@ -56,9 +56,8 @@ func TestPrint_Nil(t *testing.T) {
 }
 
 func TestPrint_Empty(t *testing.T) {
-	list := &gen.ClusterComponentTypeList{Items: []gen.ClusterComponentType{}}
 	out := captureStdout(t, func() {
-		if err := printList(list); err != nil {
+		if err := printList([]gen.ClusterComponentType{}); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -70,27 +69,25 @@ func TestPrint_Empty(t *testing.T) {
 func TestPrint_WithItems(t *testing.T) {
 	now := time.Now()
 	workloadType := gen.ClusterComponentTypeSpecWorkloadTypeDeployment
-	list := &gen.ClusterComponentTypeList{
-		Items: []gen.ClusterComponentType{
-			{
-				Metadata: gen.ObjectMeta{
-					Name:              "web-app",
-					CreationTimestamp: &now,
-				},
-				Spec: &gen.ClusterComponentTypeSpec{
-					WorkloadType: workloadType,
-				},
+	items := []gen.ClusterComponentType{
+		{
+			Metadata: gen.ObjectMeta{
+				Name:              "web-app",
+				CreationTimestamp: &now,
 			},
-			{
-				Metadata: gen.ObjectMeta{
-					Name: "batch-job",
-				},
+			Spec: &gen.ClusterComponentTypeSpec{
+				WorkloadType: workloadType,
+			},
+		},
+		{
+			Metadata: gen.ObjectMeta{
+				Name: "batch-job",
 			},
 		},
 	}
 
 	out := captureStdout(t, func() {
-		if err := printList(list); err != nil {
+		if err := printList(items); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -114,20 +111,18 @@ func TestPrint_WithItems(t *testing.T) {
 
 func TestPrint_NilSpec(t *testing.T) {
 	now := time.Now()
-	list := &gen.ClusterComponentTypeList{
-		Items: []gen.ClusterComponentType{
-			{
-				Metadata: gen.ObjectMeta{
-					Name:              "no-spec-type",
-					CreationTimestamp: &now,
-				},
-				Spec: nil,
+	items := []gen.ClusterComponentType{
+		{
+			Metadata: gen.ObjectMeta{
+				Name:              "no-spec-type",
+				CreationTimestamp: &now,
 			},
+			Spec: nil,
 		},
 	}
 
 	out := captureStdout(t, func() {
-		if err := printList(list); err != nil {
+		if err := printList(items); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})

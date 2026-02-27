@@ -164,8 +164,8 @@ func (c *Client) ListDataPlanes(ctx context.Context, namespaceName string, param
 }
 
 // ListBuildPlanes retrieves all build planes for a namespace
-func (c *Client) ListBuildPlanes(ctx context.Context, namespaceName string) (*gen.BuildPlaneList, error) {
-	resp, err := c.client.ListBuildPlanesWithResponse(ctx, namespaceName, nil)
+func (c *Client) ListBuildPlanes(ctx context.Context, namespaceName string, params *gen.ListBuildPlanesParams) (*gen.BuildPlaneList, error) {
+	resp, err := c.client.ListBuildPlanesWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list build planes: %w", err)
 	}
@@ -176,8 +176,11 @@ func (c *Client) ListBuildPlanes(ctx context.Context, namespaceName string) (*ge
 }
 
 // ListObservabilityPlanes retrieves all observability planes for a namespace
-func (c *Client) ListObservabilityPlanes(ctx context.Context, namespaceName string) (*gen.ObservabilityPlaneList, error) {
-	resp, err := c.client.ListObservabilityPlanesWithResponse(ctx, namespaceName, &gen.ListObservabilityPlanesParams{})
+func (c *Client) ListObservabilityPlanes(ctx context.Context, namespaceName string, params *gen.ListObservabilityPlanesParams) (*gen.ObservabilityPlaneList, error) {
+	if params == nil {
+		params = &gen.ListObservabilityPlanesParams{}
+	}
+	resp, err := c.client.ListObservabilityPlanesWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list observability planes: %w", err)
 	}
@@ -188,8 +191,11 @@ func (c *Client) ListObservabilityPlanes(ctx context.Context, namespaceName stri
 }
 
 // ListComponentTypes retrieves all component types for a namespace
-func (c *Client) ListComponentTypes(ctx context.Context, namespaceName string) (*gen.ComponentTypeList, error) {
-	resp, err := c.client.ListComponentTypesWithResponse(ctx, namespaceName, &gen.ListComponentTypesParams{})
+func (c *Client) ListComponentTypes(ctx context.Context, namespaceName string, params *gen.ListComponentTypesParams) (*gen.ComponentTypeList, error) {
+	if params == nil {
+		params = &gen.ListComponentTypesParams{}
+	}
+	resp, err := c.client.ListComponentTypesWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list component types: %w", err)
 	}
@@ -260,8 +266,11 @@ func (c *Client) DeleteComponentType(ctx context.Context, namespaceName, ctName 
 }
 
 // ListClusterComponentTypes retrieves all cluster-scoped component types
-func (c *Client) ListClusterComponentTypes(ctx context.Context) (*gen.ClusterComponentTypeList, error) {
-	resp, err := c.client.ListClusterComponentTypesWithResponse(ctx, &gen.ListClusterComponentTypesParams{})
+func (c *Client) ListClusterComponentTypes(ctx context.Context, params *gen.ListClusterComponentTypesParams) (*gen.ClusterComponentTypeList, error) {
+	if params == nil {
+		params = &gen.ListClusterComponentTypesParams{}
+	}
+	resp, err := c.client.ListClusterComponentTypesWithResponse(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list cluster component types: %w", err)
 	}
@@ -272,8 +281,11 @@ func (c *Client) ListClusterComponentTypes(ctx context.Context) (*gen.ClusterCom
 }
 
 // ListClusterTraits retrieves all cluster-scoped traits
-func (c *Client) ListClusterTraits(ctx context.Context) (*gen.ClusterTraitList, error) {
-	resp, err := c.client.ListClusterTraitsWithResponse(ctx, &gen.ListClusterTraitsParams{})
+func (c *Client) ListClusterTraits(ctx context.Context, params *gen.ListClusterTraitsParams) (*gen.ClusterTraitList, error) {
+	if params == nil {
+		params = &gen.ListClusterTraitsParams{}
+	}
+	resp, err := c.client.ListClusterTraitsWithResponse(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list cluster traits: %w", err)
 	}
@@ -284,8 +296,11 @@ func (c *Client) ListClusterTraits(ctx context.Context) (*gen.ClusterTraitList, 
 }
 
 // ListTraits retrieves all traits for a namespace
-func (c *Client) ListTraits(ctx context.Context, namespaceName string) (*gen.TraitList, error) {
-	resp, err := c.client.ListTraitsWithResponse(ctx, namespaceName, &gen.ListTraitsParams{})
+func (c *Client) ListTraits(ctx context.Context, namespaceName string, params *gen.ListTraitsParams) (*gen.TraitList, error) {
+	if params == nil {
+		params = &gen.ListTraitsParams{}
+	}
+	resp, err := c.client.ListTraitsWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list traits: %w", err)
 	}
@@ -356,8 +371,11 @@ func (c *Client) ListWorkflows(ctx context.Context, namespaceName string, params
 }
 
 // ListSecretReferences retrieves all secret references for a namespace
-func (c *Client) ListSecretReferences(ctx context.Context, namespaceName string) (*gen.SecretReferenceList, error) {
-	resp, err := c.client.ListSecretReferencesWithResponse(ctx, namespaceName, nil)
+func (c *Client) ListSecretReferences(ctx context.Context, namespaceName string, params *gen.ListSecretReferencesParams) (*gen.SecretReferenceList, error) {
+	if params == nil {
+		params = &gen.ListSecretReferencesParams{}
+	}
+	resp, err := c.client.ListSecretReferencesWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list secret references: %w", err)
 	}
@@ -412,8 +430,11 @@ func (c *Client) ListComponentReleases(ctx context.Context, namespaceName, proje
 }
 
 // ListWorkflowRuns retrieves all workflow runs for a namespace
-func (c *Client) ListWorkflowRuns(ctx context.Context, namespaceName string) (*gen.WorkflowRunList, error) {
-	resp, err := c.client.ListWorkflowRunsWithResponse(ctx, namespaceName, &gen.ListWorkflowRunsParams{})
+func (c *Client) ListWorkflowRuns(ctx context.Context, namespaceName string, params *gen.ListWorkflowRunsParams) (*gen.WorkflowRunList, error) {
+	if params == nil {
+		params = &gen.ListWorkflowRunsParams{}
+	}
+	resp, err := c.client.ListWorkflowRunsWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list workflow runs: %w", err)
 	}
@@ -743,8 +764,11 @@ func (c *Client) GetWorkload(ctx context.Context, namespaceName, workloadName st
 }
 
 // ListWorkloads retrieves all workloads for a namespace
-func (c *Client) ListWorkloads(ctx context.Context, namespaceName string) (*gen.WorkloadList, error) {
-	resp, err := c.client.ListWorkloadsWithResponse(ctx, namespaceName, &gen.ListWorkloadsParams{})
+func (c *Client) ListWorkloads(ctx context.Context, namespaceName string, params *gen.ListWorkloadsParams) (*gen.WorkloadList, error) {
+	if params == nil {
+		params = &gen.ListWorkloadsParams{}
+	}
+	resp, err := c.client.ListWorkloadsWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list workloads: %w", err)
 	}
@@ -779,8 +803,11 @@ func (c *Client) GetDeploymentPipeline(ctx context.Context, namespaceName, deplo
 }
 
 // ListDeploymentPipelines retrieves all deployment pipelines for a namespace
-func (c *Client) ListDeploymentPipelines(ctx context.Context, namespaceName string) (*gen.DeploymentPipelineList, error) {
-	resp, err := c.client.ListDeploymentPipelinesWithResponse(ctx, namespaceName, &gen.ListDeploymentPipelinesParams{})
+func (c *Client) ListDeploymentPipelines(ctx context.Context, namespaceName string, params *gen.ListDeploymentPipelinesParams) (*gen.DeploymentPipelineList, error) {
+	if params == nil {
+		params = &gen.ListDeploymentPipelinesParams{}
+	}
+	resp, err := c.client.ListDeploymentPipelinesWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list deployment pipelines: %w", err)
 	}
@@ -839,8 +866,11 @@ func (c *Client) GetComponentRelease(ctx context.Context, namespaceName, compone
 }
 
 // ListObservabilityAlertsNotificationChannels retrieves all observability alerts notification channels for a namespace
-func (c *Client) ListObservabilityAlertsNotificationChannels(ctx context.Context, namespaceName string) (*gen.ObservabilityAlertsNotificationChannelList, error) {
-	resp, err := c.client.ListObservabilityAlertsNotificationChannelsWithResponse(ctx, namespaceName, &gen.ListObservabilityAlertsNotificationChannelsParams{})
+func (c *Client) ListObservabilityAlertsNotificationChannels(ctx context.Context, namespaceName string, params *gen.ListObservabilityAlertsNotificationChannelsParams) (*gen.ObservabilityAlertsNotificationChannelList, error) {
+	if params == nil {
+		params = &gen.ListObservabilityAlertsNotificationChannelsParams{}
+	}
+	resp, err := c.client.ListObservabilityAlertsNotificationChannelsWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list observability alerts notification channels: %w", err)
 	}
@@ -875,8 +905,11 @@ func (c *Client) DeleteObservabilityAlertsNotificationChannel(ctx context.Contex
 }
 
 // ListClusterRoles retrieves all cluster-scoped authorization roles
-func (c *Client) ListClusterRoles(ctx context.Context) (*gen.AuthzClusterRoleList, error) {
-	resp, err := c.client.ListClusterRolesWithResponse(ctx, &gen.ListClusterRolesParams{})
+func (c *Client) ListClusterRoles(ctx context.Context, params *gen.ListClusterRolesParams) (*gen.AuthzClusterRoleList, error) {
+	if params == nil {
+		params = &gen.ListClusterRolesParams{}
+	}
+	resp, err := c.client.ListClusterRolesWithResponse(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list cluster roles: %w", err)
 	}
@@ -899,8 +932,11 @@ func (c *Client) GetClusterRole(ctx context.Context, name string) (*gen.AuthzClu
 }
 
 // ListClusterRoleBindings retrieves all cluster-scoped role bindings
-func (c *Client) ListClusterRoleBindings(ctx context.Context) (*gen.AuthzClusterRoleBindingList, error) {
-	resp, err := c.client.ListClusterRoleBindingsWithResponse(ctx, &gen.ListClusterRoleBindingsParams{})
+func (c *Client) ListClusterRoleBindings(ctx context.Context, params *gen.ListClusterRoleBindingsParams) (*gen.AuthzClusterRoleBindingList, error) {
+	if params == nil {
+		params = &gen.ListClusterRoleBindingsParams{}
+	}
+	resp, err := c.client.ListClusterRoleBindingsWithResponse(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list cluster role bindings: %w", err)
 	}
@@ -923,8 +959,11 @@ func (c *Client) GetClusterRoleBinding(ctx context.Context, name string) (*gen.A
 }
 
 // ListNamespaceRoles retrieves all namespace-scoped authorization roles
-func (c *Client) ListNamespaceRoles(ctx context.Context, namespaceName string) (*gen.AuthzRoleList, error) {
-	resp, err := c.client.ListNamespaceRolesWithResponse(ctx, namespaceName, &gen.ListNamespaceRolesParams{})
+func (c *Client) ListNamespaceRoles(ctx context.Context, namespaceName string, params *gen.ListNamespaceRolesParams) (*gen.AuthzRoleList, error) {
+	if params == nil {
+		params = &gen.ListNamespaceRolesParams{}
+	}
+	resp, err := c.client.ListNamespaceRolesWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list roles: %w", err)
 	}
@@ -947,8 +986,11 @@ func (c *Client) GetNamespaceRole(ctx context.Context, namespaceName, name strin
 }
 
 // ListNamespaceRoleBindings retrieves all namespace-scoped role bindings
-func (c *Client) ListNamespaceRoleBindings(ctx context.Context, namespaceName string) (*gen.AuthzRoleBindingList, error) {
-	resp, err := c.client.ListNamespaceRoleBindingsWithResponse(ctx, namespaceName, &gen.ListNamespaceRoleBindingsParams{})
+func (c *Client) ListNamespaceRoleBindings(ctx context.Context, namespaceName string, params *gen.ListNamespaceRoleBindingsParams) (*gen.AuthzRoleBindingList, error) {
+	if params == nil {
+		params = &gen.ListNamespaceRoleBindingsParams{}
+	}
+	resp, err := c.client.ListNamespaceRoleBindingsWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role bindings: %w", err)
 	}

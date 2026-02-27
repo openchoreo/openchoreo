@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	occonfig "github.com/openchoreo/openchoreo/internal/occ/fsmode/config"
@@ -55,12 +56,33 @@ func (r *ReleaseBinding) List(params ListParams) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := c.ListReleaseBindings(ctx, params.Namespace, params.Project, params.Component)
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ReleaseBinding, string, error) {
+		p := &gen.ListReleaseBindingsParams{}
+		if params.Component != "" {
+			p.Component = &params.Component
+		}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		resp, err := c.GetClient().ListReleaseBindingsWithResponse(ctx, params.Namespace, p)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to list release bindings: %w", err)
+		}
+		if resp.JSON200 == nil {
+			return nil, "", fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		}
+		next := ""
+		if resp.JSON200.Pagination.NextCursor != nil {
+			next = *resp.JSON200.Pagination.NextCursor
+		}
+		return resp.JSON200.Items, next, nil
+	})
 	if err != nil {
 		return err
 	}
 
-	return printReleaseBindings(result)
+	return printReleaseBindings(items)
 }
 
 // Generate implements the release-binding generate command
@@ -447,8 +469,8 @@ func (r *ReleaseBinding) printYAML(resource interface{}) error {
 	return nil
 }
 
-func printReleaseBindings(list *gen.ReleaseBindingList) error {
-	if list == nil || len(list.Items) == 0 {
+func printReleaseBindings(items []gen.ReleaseBinding) error {
+	if len(items) == 0 {
 		fmt.Println("No release bindings found")
 		return nil
 	}
@@ -456,7 +478,7 @@ func printReleaseBindings(list *gen.ReleaseBindingList) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NAME\tENVIRONMENT\tRELEASE\tSTATUS\tAGE")
 
-	for _, binding := range list.Items {
+	for _, binding := range items {
 		status := ""
 		if binding.Status != nil && binding.Status.Conditions != nil {
 			for _, c := range *binding.Status.Conditions {

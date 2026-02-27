@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	occonfig "github.com/openchoreo/openchoreo/internal/occ/fsmode/config"
@@ -49,12 +50,33 @@ func (cr *ComponentRelease) List(params ListParams) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := c.ListComponentReleases(ctx, params.Namespace, params.Project, params.Component)
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ComponentRelease, string, error) {
+		p := &gen.ListComponentReleasesParams{}
+		if params.Component != "" {
+			p.Component = &params.Component
+		}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		resp, err := c.GetClient().ListComponentReleasesWithResponse(ctx, params.Namespace, p)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to list component releases: %w", err)
+		}
+		if resp.JSON200 == nil {
+			return nil, "", fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		}
+		next := ""
+		if resp.JSON200.Pagination.NextCursor != nil {
+			next = *resp.JSON200.Pagination.NextCursor
+		}
+		return resp.JSON200.Items, next, nil
+	})
 	if err != nil {
 		return err
 	}
 
-	return printComponentReleases(result)
+	return printComponentReleases(items)
 }
 
 // Generate implements the component-release generate command
@@ -346,8 +368,8 @@ func (cr *ComponentRelease) printYAML(resource interface{}) error {
 	return nil
 }
 
-func printComponentReleases(list *gen.ComponentReleaseList) error {
-	if list == nil || len(list.Items) == 0 {
+func printComponentReleases(items []gen.ComponentRelease) error {
+	if len(items) == 0 {
 		fmt.Println("No component releases found")
 		return nil
 	}
@@ -355,7 +377,7 @@ func printComponentReleases(list *gen.ComponentReleaseList) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NAME\tCOMPONENT\tAGE")
 
-	for _, release := range list.Items {
+	for _, release := range items {
 		componentName := ""
 		if release.Spec != nil {
 			componentName = release.Spec.Owner.ComponentName

@@ -9,6 +9,7 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
@@ -36,12 +37,26 @@ func (w *Workflow) List(params ListParams) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := c.ListWorkflows(ctx, params.Namespace, &gen.ListWorkflowsParams{})
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Workflow, string, error) {
+		p := &gen.ListWorkflowsParams{}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		result, err := c.ListWorkflows(ctx, params.Namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		next := ""
+		if result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
+		}
+		return result.Items, next, nil
+	})
 	if err != nil {
 		return err
 	}
-
-	return printList(result)
+	return printList(items)
 }
 
 // StartRun starts a workflow run
@@ -79,8 +94,8 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 	return nil
 }
 
-func printList(list *gen.WorkflowList) error {
-	if list == nil || len(list.Items) == 0 {
+func printList(items []gen.Workflow) error {
+	if len(items) == 0 {
 		fmt.Println("No workflows found")
 		return nil
 	}
@@ -88,7 +103,7 @@ func printList(list *gen.WorkflowList) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NAME\tAGE")
 
-	for _, wf := range list.Items {
+	for _, wf := range items {
 		age := "<unknown>"
 		if wf.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*wf.Metadata.CreationTimestamp)

@@ -11,6 +11,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -33,12 +34,26 @@ func (c *ClusterComponentType) List() error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := cl.ListClusterComponentTypes(ctx)
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ClusterComponentType, string, error) {
+		p := &gen.ListClusterComponentTypesParams{}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		result, err := cl.ListClusterComponentTypes(ctx, p)
+		if err != nil {
+			return nil, "", err
+		}
+		next := ""
+		if result.Pagination != nil && result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
+		}
+		return result.Items, next, nil
+	})
 	if err != nil {
 		return err
 	}
-
-	return printList(result)
+	return printList(items)
 }
 
 // Get retrieves a single cluster component type and outputs it as YAML
@@ -81,8 +96,8 @@ func (c *ClusterComponentType) Delete(params DeleteParams) error {
 	return nil
 }
 
-func printList(list *gen.ClusterComponentTypeList) error {
-	if list == nil || len(list.Items) == 0 {
+func printList(items []gen.ClusterComponentType) error {
+	if len(items) == 0 {
 		fmt.Println("No cluster component types found")
 		return nil
 	}
@@ -90,7 +105,7 @@ func printList(list *gen.ClusterComponentTypeList) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NAME\tWORKLOAD TYPE\tAGE")
 
-	for _, ct := range list.Items {
+	for _, ct := range items {
 		workloadType := ""
 		if ct.Spec != nil {
 			workloadType = string(ct.Spec.WorkloadType)

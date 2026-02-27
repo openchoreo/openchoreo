@@ -11,6 +11,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
@@ -38,12 +39,26 @@ func (r *AuthzRoleBinding) List(params ListParams) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := c.ListNamespaceRoleBindings(ctx, params.Namespace)
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.AuthzRoleBinding, string, error) {
+		p := &gen.ListNamespaceRoleBindingsParams{}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		result, err := c.ListNamespaceRoleBindings(ctx, params.Namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		next := ""
+		if result.Pagination != nil && result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
+		}
+		return result.Items, next, nil
+	})
 	if err != nil {
 		return fmt.Errorf("failed to list authz role bindings: %w", err)
 	}
-
-	return printList(result)
+	return printList(items)
 }
 
 // Get retrieves a single authz role binding and outputs it as YAML
@@ -94,8 +109,8 @@ func (r *AuthzRoleBinding) Delete(params DeleteParams) error {
 	return nil
 }
 
-func printList(list *gen.AuthzRoleBindingList) error {
-	if list == nil || len(list.Items) == 0 {
+func printList(items []gen.AuthzRoleBinding) error {
+	if len(items) == 0 {
 		fmt.Println("No authz role bindings found")
 		return nil
 	}
@@ -103,7 +118,7 @@ func printList(list *gen.AuthzRoleBindingList) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NAME\tROLE\tAGE")
 
-	for _, rb := range list.Items {
+	for _, rb := range items {
 		roleRef := ""
 		if rb.Spec != nil {
 			roleRef = string(rb.Spec.RoleRef.Kind) + "/" + rb.Spec.RoleRef.Name

@@ -11,6 +11,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
@@ -38,12 +39,26 @@ func (s *SecretReference) List(params ListParams) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := c.ListSecretReferences(ctx, params.Namespace)
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.SecretReference, string, error) {
+		p := &gen.ListSecretReferencesParams{}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		result, err := c.ListSecretReferences(ctx, params.Namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		next := ""
+		if result.Pagination != nil && result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
+		}
+		return result.Items, next, nil
+	})
 	if err != nil {
 		return err
 	}
-
-	return printList(result)
+	return printList(items)
 }
 
 // Get retrieves a single secret reference and outputs it as YAML
@@ -92,8 +107,8 @@ func (s *SecretReference) Delete(params DeleteParams) error {
 	return nil
 }
 
-func printList(list *gen.SecretReferenceList) error {
-	if list == nil || len(list.Items) == 0 {
+func printList(items []gen.SecretReference) error {
+	if len(items) == 0 {
 		fmt.Println("No secret references found")
 		return nil
 	}
@@ -101,7 +116,7 @@ func printList(list *gen.SecretReferenceList) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NAME\tAGE")
 
-	for _, sr := range list.Items {
+	for _, sr := range items {
 		age := "<unknown>"
 		if sr.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*sr.Metadata.CreationTimestamp)

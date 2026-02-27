@@ -11,6 +11,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -33,12 +34,27 @@ func (n *Namespace) List() error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := c.ListNamespaces(ctx, &gen.ListNamespacesParams{})
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Namespace, string, error) {
+		p := &gen.ListNamespacesParams{}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		result, err := c.ListNamespaces(ctx, p)
+		if err != nil {
+			return nil, "", err
+		}
+		next := ""
+		if result.Pagination != nil && result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
+		}
+		return result.Items, next, nil
+	})
 	if err != nil {
 		return err
 	}
 
-	return printList(result)
+	return printList(items)
 }
 
 // Get retrieves a single namespace and outputs it as YAML
@@ -81,8 +97,8 @@ func (n *Namespace) Delete(name string) error {
 	return nil
 }
 
-func printList(list *gen.NamespaceList) error {
-	if list == nil || len(list.Items) == 0 {
+func printList(items []gen.Namespace) error {
+	if len(items) == 0 {
 		fmt.Println("No namespaces found")
 		return nil
 	}
@@ -90,7 +106,7 @@ func printList(list *gen.NamespaceList) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NAME\tAGE")
 
-	for _, ns := range list.Items {
+	for _, ns := range items {
 		age := ""
 		if ns.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*ns.Metadata.CreationTimestamp)

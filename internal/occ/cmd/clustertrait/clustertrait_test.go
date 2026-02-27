@@ -56,9 +56,8 @@ func TestPrint_Nil(t *testing.T) {
 }
 
 func TestPrint_Empty(t *testing.T) {
-	list := &gen.ClusterTraitList{Items: []gen.ClusterTrait{}}
 	out := captureStdout(t, func() {
-		if err := printList(list); err != nil {
+		if err := printList([]gen.ClusterTrait{}); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -69,24 +68,22 @@ func TestPrint_Empty(t *testing.T) {
 
 func TestPrint_WithItems(t *testing.T) {
 	now := time.Now()
-	list := &gen.ClusterTraitList{
-		Items: []gen.ClusterTrait{
-			{
-				Metadata: gen.ObjectMeta{
-					Name:              "ingress",
-					CreationTimestamp: &now,
-				},
+	items := []gen.ClusterTrait{
+		{
+			Metadata: gen.ObjectMeta{
+				Name:              "ingress",
+				CreationTimestamp: &now,
 			},
-			{
-				Metadata: gen.ObjectMeta{
-					Name: "storage",
-				},
+		},
+		{
+			Metadata: gen.ObjectMeta{
+				Name: "storage",
 			},
 		},
 	}
 
 	out := captureStdout(t, func() {
-		if err := printList(list); err != nil {
+		if err := printList(items); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -106,19 +103,17 @@ func TestPrint_WithItems(t *testing.T) {
 }
 
 func TestPrint_NilTimestamp(t *testing.T) {
-	list := &gen.ClusterTraitList{
-		Items: []gen.ClusterTrait{
-			{
-				Metadata: gen.ObjectMeta{
-					Name:              "no-timestamp",
-					CreationTimestamp: nil,
-				},
+	items := []gen.ClusterTrait{
+		{
+			Metadata: gen.ObjectMeta{
+				Name:              "no-timestamp",
+				CreationTimestamp: nil,
 			},
 		},
 	}
 
 	out := captureStdout(t, func() {
-		if err := printList(list); err != nil {
+		if err := printList(items); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})

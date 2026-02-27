@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
@@ -162,12 +163,27 @@ func (w *Workload) List(params ListParams) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := c.ListWorkloads(ctx, params.Namespace)
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Workload, string, error) {
+		p := &gen.ListWorkloadsParams{}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		result, err := c.ListWorkloads(ctx, params.Namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		next := ""
+		if result.Pagination != nil && result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
+		}
+		return result.Items, next, nil
+	})
 	if err != nil {
 		return err
 	}
 
-	return printWorkloadList(result)
+	return printWorkloadList(items)
 }
 
 // Get retrieves a single workload and outputs it as YAML
@@ -231,8 +247,8 @@ func toAPIParams(p CreateParams) api.CreateWorkloadParams {
 	}
 }
 
-func printWorkloadList(list *gen.WorkloadList) error {
-	if list == nil || len(list.Items) == 0 {
+func printWorkloadList(items []gen.Workload) error {
+	if len(items) == 0 {
 		fmt.Println("No workloads found")
 		return nil
 	}
@@ -240,7 +256,7 @@ func printWorkloadList(list *gen.WorkloadList) error {
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(tw, "NAME\tAGE")
 
-	for _, wl := range list.Items {
+	for _, wl := range items {
 		age := ""
 		if wl.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*wl.Metadata.CreationTimestamp)

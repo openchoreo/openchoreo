@@ -18,6 +18,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
@@ -44,12 +45,30 @@ func (l *Component) List(params ListParams) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := c.ListComponents(ctx, params.Namespace, params.Project, &gen.ListComponentsParams{})
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Component, string, error) {
+		p := &gen.ListComponentsParams{}
+		if params.Project != "" {
+			p.Project = &params.Project
+		}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		result, err := c.ListComponents(ctx, params.Namespace, "", p)
+		if err != nil {
+			return nil, "", err
+		}
+		next := ""
+		if result.Pagination != nil && result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
+		}
+		return result.Items, next, nil
+	})
 	if err != nil {
 		return err
 	}
 
-	return printList(result, params.Project == "")
+	return printList(items, params.Project == "")
 }
 
 // Get retrieves a single component and outputs it as YAML
@@ -444,8 +463,8 @@ func toJSONLiteral(s string) string {
 	return string(b)
 }
 
-func printList(list *gen.ComponentList, showProject bool) error {
-	if list == nil || len(list.Items) == 0 {
+func printList(items []gen.Component, showProject bool) error {
+	if len(items) == 0 {
 		fmt.Println("No components found")
 		return nil
 	}
@@ -457,7 +476,7 @@ func printList(list *gen.ComponentList, showProject bool) error {
 		fmt.Fprintln(w, "NAME\tTYPE\tAGE")
 	}
 
-	for _, comp := range list.Items {
+	for _, comp := range items {
 		projectName := ""
 		componentType := ""
 		if comp.Spec != nil {

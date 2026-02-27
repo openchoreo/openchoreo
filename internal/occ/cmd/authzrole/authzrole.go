@@ -11,6 +11,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
@@ -38,12 +39,26 @@ func (r *AuthzRole) List(params ListParams) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := c.ListNamespaceRoles(ctx, params.Namespace)
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.AuthzRole, string, error) {
+		p := &gen.ListNamespaceRolesParams{}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		result, err := c.ListNamespaceRoles(ctx, params.Namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		next := ""
+		if result.Pagination != nil && result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
+		}
+		return result.Items, next, nil
+	})
 	if err != nil {
 		return fmt.Errorf("failed to list authz roles: %w", err)
 	}
-
-	return printList(result)
+	return printList(items)
 }
 
 // Get retrieves a single authz role and outputs it as YAML
@@ -94,8 +109,8 @@ func (r *AuthzRole) Delete(params DeleteParams) error {
 	return nil
 }
 
-func printList(list *gen.AuthzRoleList) error {
-	if list == nil || len(list.Items) == 0 {
+func printList(items []gen.AuthzRole) error {
+	if len(items) == 0 {
 		fmt.Println("No authz roles found")
 		return nil
 	}
@@ -103,7 +118,7 @@ func printList(list *gen.AuthzRoleList) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NAME\tDESCRIPTION\tAGE")
 
-	for _, r := range list.Items {
+	for _, r := range items {
 		description := ""
 		if r.Spec != nil && r.Spec.Description != nil {
 			description = *r.Spec.Description

@@ -11,6 +11,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
@@ -38,12 +39,26 @@ func (b *BuildPlane) List(params ListParams) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := c.ListBuildPlanes(ctx, params.Namespace)
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.BuildPlane, string, error) {
+		p := &gen.ListBuildPlanesParams{}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		result, err := c.ListBuildPlanes(ctx, params.Namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		next := ""
+		if result.Pagination != nil && result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
+		}
+		return result.Items, next, nil
+	})
 	if err != nil {
 		return err
 	}
-
-	return printList(result)
+	return printList(items)
 }
 
 // Get retrieves a single build plane and outputs it as YAML
@@ -94,8 +109,8 @@ func (b *BuildPlane) Delete(params DeleteParams) error {
 	return nil
 }
 
-func printList(list *gen.BuildPlaneList) error {
-	if list == nil || len(list.Items) == 0 {
+func printList(items []gen.BuildPlane) error {
+	if len(items) == 0 {
 		fmt.Println("No build planes found")
 		return nil
 	}
@@ -103,7 +118,7 @@ func printList(list *gen.BuildPlaneList) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NAME\tAGE")
 
-	for _, bp := range list.Items {
+	for _, bp := range items {
 		age := ""
 		if bp.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*bp.Metadata.CreationTimestamp)
