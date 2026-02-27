@@ -828,7 +828,7 @@ metadata:
   namespace: default
   annotations:
     openchoreo.dev/description: "Docker build workflow for containerized builds using Dockerfile"
-    backstage.io/component-workflow-parameters: |
+    openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch
       appPath: parameters.repository.appPath
@@ -990,7 +990,7 @@ metadata:
   namespace: default
   annotations:
     openchoreo.dev/description: "Build workflow for React web applications"
-    backstage.io/component-workflow-parameters: |
+    openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch
       appPath: parameters.repository.appPath
@@ -1149,7 +1149,7 @@ metadata:
   namespace: default
   annotations:
     openchoreo.dev/description: "Ballerina build workflow for containerized builds using Ballerina Buildpack"
-    backstage.io/component-workflow-parameters: |
+    openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch
       appPath: parameters.repository.appPath
@@ -1305,7 +1305,7 @@ metadata:
   namespace: default
   annotations:
     openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
-    backstage.io/component-workflow-parameters: |
+    openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch
       appPath: parameters.repository.appPath

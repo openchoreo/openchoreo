@@ -16,10 +16,10 @@ const (
 	// component build information for webhook auto-build and workflow triggering.
 	// Format: YAML multi-line block scalar with "key: value" pairs per line.
 	// Example:
-	//   backstage.io/component-workflow-parameters: |
+	//   openchoreo.dev/component-workflow-parameters: |
 	//     repoUrl: parameters.repository.url
 	//     branch: parameters.repository.revision.branch
-	AnnotationKeyComponentWorkflowParameters = "backstage.io/component-workflow-parameters"
+	AnnotationKeyComponentWorkflowParameters = "openchoreo.dev/component-workflow-parameters"
 )
 
 // ParseWorkflowParameterAnnotation parses the component-workflow-parameters annotation
