@@ -113,7 +113,9 @@ func main() {
 
 	// Initialize build plane client manager
 	var planeK8sClientMgr *kubernetesClient.KubeMultiClientManager
-	if cfg.ClusterGateway.TLS.CACertPath != "" || cfg.ClusterGateway.TLS.ClientCertPath != "" || cfg.ClusterGateway.TLS.ClientKeyPath != "" {
+	if cfg.ClusterGateway.TLS.CACertPath != "" ||
+		cfg.ClusterGateway.TLS.ClientCertPath != "" ||
+		cfg.ClusterGateway.TLS.ClientKeyPath != "" {
 		planeK8sClientMgr = kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
 			CACertPath:     cfg.ClusterGateway.TLS.CACertPath,
 			ClientCertPath: cfg.ClusterGateway.TLS.ClientCertPath,
@@ -155,14 +157,18 @@ func main() {
 	}
 
 	// Initialize legacy services with PAP and PDP
-	legacySvc := legacyservices.NewServices(k8sClient, planeK8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL, gwClient)
+	legacySvc := legacyservices.NewServices(
+		k8sClient, planeK8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL, gwClient,
+	)
 
 	// Initialize legacy HTTP handlers with unified config
 	legacyHandler := handlers.New(legacySvc, &cfg, logger.With("component", "legacy-handlers"))
 	legacyRoutes := legacyHandler.Routes()
 
 	// Initialize all handler services
-	services := handlerservices.NewServices(k8sClient, runtime.pap, runtime.pdp, planeK8sClientMgr, gatewayURL, logger, gwClient)
+	services := handlerservices.NewServices(
+		k8sClient, runtime.pap, runtime.pdp, planeK8sClientMgr, gatewayURL, logger, gwClient,
+	)
 
 	// Initialize OpenAPI handlers
 	openapiHandler := openapihandlers.New(legacySvc, services, logger.With("component", "openapi-handlers"), &cfg)
@@ -287,7 +293,9 @@ func buildMCPToolsets(cfg *config.Config, svc *handlerservices.Services, logger 
 // enabled it creates a controller-runtime manager with an informer-based cache
 // for the authz CRDs; when disabled the manager is left nil and
 // authz.Initialize returns a passthrough implementation.
-func setupRuntime(ctx context.Context, cfg *config.Config, k8sClient client.Client, logger *slog.Logger) (*runtime, error) {
+func setupRuntime(
+	ctx context.Context, cfg *config.Config, k8sClient client.Client, logger *slog.Logger,
+) (*runtime, error) {
 	authzCfg := cfg.Security.Authorization
 	var mgr ctrl.Manager
 

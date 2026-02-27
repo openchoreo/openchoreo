@@ -1693,7 +1693,7 @@ func TestHashDeterminism(t *testing.T) {
 	// Compute hash multiple times
 	var hashes []string
 	for i := 0; i < 5; i++ {
-		var hashContent []map[string]any
+		hashContent := make([]map[string]any, 0, len(resources))
 		for _, rr := range resources {
 			hashContent = append(hashContent, extractContentExcludingMetadata(rr.Resource))
 		}
@@ -1885,21 +1885,20 @@ func computeTestHash(content []map[string]any) string {
 	// Import the hash package indirectly through the pipeline
 	// We use the same algorithm as the production code
 	p := NewPipeline()
-	resources := []renderer.RenderedResource{
-		{
-			Resource: map[string]any{
-				"apiVersion": "apps/v1",
-				"kind":       "Deployment",
-				"metadata":   map[string]any{"name": "test"},
-				"spec": map[string]any{
-					"template": map[string]any{
-						"metadata": map[string]any{},
-					},
+	resources := make([]renderer.RenderedResource, 0, 1+len(content))
+	resources = append(resources, renderer.RenderedResource{
+		Resource: map[string]any{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata":   map[string]any{"name": "test"},
+			"spec": map[string]any{
+				"template": map[string]any{
+					"metadata": map[string]any{},
 				},
 			},
-			TargetPlane: "dataplane",
 		},
-	}
+		TargetPlane: "dataplane",
+	})
 
 	// Add test content as additional resources
 	for _, c := range content {

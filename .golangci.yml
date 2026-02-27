@@ -1,6 +1,7 @@
 version: "2"
 
 run:
+  timeout: 10m
   allow-parallel-runners: true
 
 linters:
@@ -45,7 +46,9 @@ linters:
         - "-QF1001" # De Morgan's law suggestions
         - "-QF1003" # tagged switch suggestions
         - "-QF1008" # embedded field selector suggestions
+        - "-QF1011" # omit type from declaration - needed for compile-time interface checks
         - "-ST1000" # missing package comment
+        - "-ST1001" # dot imports - used by gomega/ginkgo test suites
         - "-ST1020" # comment on exported function
         - "-ST1021" # comment on exported type
         - "-ST1022" # comment on exported var/const
@@ -115,22 +118,14 @@ linters:
         text: "var-naming: avoid"
       - linters:
           - lll
-        path: api/*
+        path: ^api/
       - linters:
           - dupl
           - lll
-        path: internal/*
-      # Exclude gci check for +kubebuilder:scaffold comments.
-      # See https://github.com/daixiang0/gci/issues/135
-      - linters:
-          - gci
-        source: "\\+kubebuilder:scaffold"
+        path: ^internal/
     paths:
       - internal/dataplane/kubernetes/types # 3rd party types for CustomResourceDefinitions
-      - test # E2E tests
-      - third_party$
-      - builtin$
-      - examples$
+      - ^test/ # E2E tests
 
 issues:
   # Set to 0 to disable the limit.
@@ -157,7 +152,8 @@ formatters:
     generated: lax
     paths:
       - internal/dataplane/kubernetes/types
-      - test
-      - third_party$
-      - builtin$
-      - examples$
+      # Exclude suite_test.go files with +kubebuilder:scaffold:imports from gci formatting.
+      # gci strips standalone scaffold comments from import blocks.
+      # See https://github.com/daixiang0/gci/issues/135
+      - internal/controller/.+/suite_test\.go
+      - ^test/
