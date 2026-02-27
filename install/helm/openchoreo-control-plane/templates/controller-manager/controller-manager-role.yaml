@@ -146,6 +146,7 @@ rules:
     - componentreleases/status
     - components/status
     - componenttypes/status
+    - connectionbindings/status
     - dataplanes/status
     - deploymentpipelines/status
     - deploymenttracks/status
@@ -165,6 +166,14 @@ rules:
     - get
     - patch
     - update
+- apiGroups:
+    - openchoreo.dev
+  resources:
+    - connectionbindings
+  verbs:
+    - get
+    - list
+    - watch
 - apiGroups:
     - openchoreo.dev
   resources:

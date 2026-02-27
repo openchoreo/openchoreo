@@ -36,6 +36,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
+	"github.com/openchoreo/openchoreo/internal/controller/connectionbinding"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymenttrack"
@@ -224,6 +225,13 @@ func setupControlPlaneControllers(
 		Scheme:              mgr.GetScheme(),
 		Pipeline:            componentpipeline.NewPipeline(),
 		EnableNetworkPolicy: enableNetworkPolicy,
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&connectionbinding.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}

@@ -1,0 +1,268 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: connectionbindings.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: ConnectionBinding
+    listKind: ConnectionBindingList
+    plural: connectionbindings
+    singular: connectionbinding
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.releaseBindingRef
+      name: ReleaseBinding
+      type: string
+    - jsonPath: .spec.environment
+      name: Environment
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ConnectionBinding is the Schema for the connectionbindings API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ConnectionBindingSpec defines the desired state of ConnectionBinding.
+            properties:
+              connections:
+                description: Connections is the list of connection targets to resolve.
+                items:
+                  description: ConnectionTarget identifies a specific endpoint on
+                    a target component to resolve.
+                  properties:
+                    component:
+                      description: Component is the name of the target component.
+                      minLength: 1
+                      type: string
+                    endpoint:
+                      description: Endpoint is the name of the endpoint on the target
+                        component.
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: Namespace is the control plane namespace of the
+                        target component.
+                      minLength: 1
+                      type: string
+                    project:
+                      description: Project is the name of the project that owns the
+                        target component.
+                      minLength: 1
+                      type: string
+                    visibility:
+                      description: Visibility is the desired visibility level for
+                        resolving the endpoint URL.
+                      enum:
+                      - project
+                      - namespace
+                      - internal
+                      - external
+                      type: string
+                  required:
+                  - component
+                  - endpoint
+                  - namespace
+                  - project
+                  - visibility
+                  type: object
+                minItems: 1
+                type: array
+              environment:
+                description: Environment is the name of the environment this ConnectionBinding
+                  resolves connections for.
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: spec.environment is immutable
+                  rule: self == oldSelf
+              releaseBindingRef:
+                description: ReleaseBindingRef is the name of the ReleaseBinding this
+                  ConnectionBinding belongs to.
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: spec.releaseBindingRef is immutable
+                  rule: self == oldSelf
+            required:
+            - connections
+            - environment
+            - releaseBindingRef
+            type: object
+          status:
+            description: ConnectionBindingStatus defines the observed state of ConnectionBinding.
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the ConnectionBinding's current state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              pending:
+                description: Pending contains the connections that could not be resolved.
+                items:
+                  description: PendingConnection represents a connection that could
+                    not be resolved.
+                  properties:
+                    component:
+                      description: Component is the name of the target component.
+                      type: string
+                    endpoint:
+                      description: Endpoint is the name of the endpoint on the target
+                        component.
+                      type: string
+                    namespace:
+                      description: Namespace is the control plane namespace of the
+                        target component.
+                      type: string
+                    project:
+                      description: Project is the name of the project that owns the
+                        target component.
+                      type: string
+                    reason:
+                      description: Reason describes why the connection could not be
+                        resolved.
+                      type: string
+                  required:
+                  - component
+                  - endpoint
+                  - namespace
+                  - project
+                  - reason
+                  type: object
+                type: array
+              resolved:
+                description: Resolved contains the connections that have been successfully
+                  resolved.
+                items:
+                  description: ResolvedConnection holds the resolved URL for a single
+                    connection.
+                  properties:
+                    component:
+                      description: Component is the name of the target component.
+                      type: string
+                    endpoint:
+                      description: Endpoint is the name of the endpoint on the target
+                        component.
+                      type: string
+                    namespace:
+                      description: Namespace is the control plane namespace of the
+                        target component.
+                      type: string
+                    project:
+                      description: Project is the name of the project that owns the
+                        target component.
+                      type: string
+                    url:
+                      description: URL is the resolved endpoint URL.
+                      properties:
+                        host:
+                          description: Host is the hostname or IP address.
+                          minLength: 1
+                          type: string
+                        path:
+                          description: Path is the URL path.
+                          type: string
+                        port:
+                          description: Port is the port number.
+                          format: int32
+                          type: integer
+                        scheme:
+                          description: Scheme is the URL scheme (e.g., http, https,
+                            tcp, udp, ws, wss, tls).
+                          type: string
+                      required:
+                      - host
+                      type: object
+                  required:
+                  - component
+                  - endpoint
+                  - namespace
+                  - project
+                  - url
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
