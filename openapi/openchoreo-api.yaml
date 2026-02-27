@@ -4227,8 +4227,8 @@ paths:
         - $ref: '#/components/parameters/ReleaseBindingNameParam'
         - name: group
           in: query
-          required: true
-          description: API group of the resource (empty string for core resources)
+          required: false
+          description: API group of the resource (empty string or omitted for core resources)
           schema:
             type: string
         - name: version

@@ -59,11 +59,16 @@ func (h *Handler) GetReleaseBindingK8sResourceEvents(
 		"kind", request.Params.Kind,
 		"name", request.Params.Name)
 
+	group := ""
+	if request.Params.Group != nil {
+		group = *request.Params.Group
+	}
+
 	resp, err := h.services.K8sResourcesService.GetResourceEvents(
 		ctx,
 		request.NamespaceName,
 		request.ReleaseBindingName,
-		request.Params.Group,
+		group,
 		request.Params.Version,
 		request.Params.Kind,
 		request.Params.Name,

@@ -3734,8 +3734,8 @@ type ListReleaseBindingsParams struct {
 
 // GetReleaseBindingK8sResourceEventsParams defines parameters for GetReleaseBindingK8sResourceEvents.
 type GetReleaseBindingK8sResourceEventsParams struct {
-	// Group API group of the resource (empty string for core resources)
-	Group string `form:"group" json:"group"`
+	// Group API group of the resource (empty string or omitted for core resources)
+	Group *string `form:"group,omitempty" json:"group,omitempty"`
 
 	// Version API version of the resource (e.g. v1)
 	Version string `form:"version" json:"version"`
