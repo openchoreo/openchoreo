@@ -22,6 +22,7 @@ func (p GetParams) GetNamespace() string { return p.Namespace }
 type StartRunParams struct {
 	Namespace    string
 	WorkflowName string
-	RunName      string   // optional; auto-generated if empty
-	Set          []string // --set overrides applied on top of Parameters
+	RunName      string                 // optional; auto-generated if empty
+	Parameters   map[string]interface{} // base parameters (e.g., from component workflow config)
+	Set          []string               // --set overrides applied on top of Parameters
 }

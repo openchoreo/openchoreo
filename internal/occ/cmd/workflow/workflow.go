@@ -144,6 +144,10 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 	if runName == "" {
 		runName = fmt.Sprintf("%s-%d", params.WorkflowName, time.Now().Unix())
 	}
+	var baseParams *map[string]interface{}
+	if len(params.Parameters) > 0 {
+		baseParams = &params.Parameters
+	}
 	req := gen.WorkflowRun{
 		Metadata: gen.ObjectMeta{
 			Name:      runName,
@@ -151,7 +155,8 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 		},
 		Spec: &gen.WorkflowRunSpec{
 			Workflow: gen.WorkflowRunConfig{
-				Name: params.WorkflowName,
+				Name:       params.WorkflowName,
+				Parameters: baseParams,
 			},
 		},
 	}
