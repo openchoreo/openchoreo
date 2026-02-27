@@ -1099,6 +1099,14 @@ openchoreoApi:
                 - "alerts:view"
                 - "traces:view"
 
+            # Observer service role for resolving resource UIDs
+            - name: observer
+              actions:
+                - "component:view"
+                - "project:view"
+                - "namespace:view"
+                - "environment:view"
+
           # @schema
           # type: array
           # description: Default role-to-entitlement mappings to create at installation
@@ -1172,6 +1180,15 @@ openchoreoApi:
               entitlement:
                 claim: sub
                 value: openchoreo-rca-agent
+              effect: allow
+
+            # Observer mapping - grants observer service account logs and resolver access
+            - name: observer-binding
+              roleRef:
+                name: observer
+              entitlement:
+                claim: sub
+                value: openchoreo-observer
               effect: allow
 
             # MCP tryout client mapping - grants MCP tryout client full access

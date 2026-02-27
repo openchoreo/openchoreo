@@ -846,6 +846,19 @@ observer:
               display_name: "Client ID"
 
   # @schema
+  # type: string
+  # description: OAuth2 client ID used by the Observer when calling the control plane API
+  # default: openchoreo-observer
+  # @schema
+  oauthClientId: "openchoreo-observer"
+  # @schema
+  # type: string
+  # description: OAuth2 client secret for the Observer when calling the control plane API
+  # default: openchoreo-observer-secret
+  # @schema
+  oauthClientSecret: "openchoreo-observer-secret"
+
+  # @schema
   # type: array
   # description: Extra environment variables for the Observer container
   # items:
