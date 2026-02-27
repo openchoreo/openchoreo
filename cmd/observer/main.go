@@ -111,15 +111,33 @@ func main() {
 		legacyLoggingService, logger, authzClient, cfg.Alerting.RCAServiceURL, cfg.Alerting.AIRCAEnabled,
 	)
 
+	// Initialize resource UID resolver for name-to-UID resolution
+	uidResolver := service.NewResourceUIDResolver(&cfg.UIDResolver, logger.With("component", "resource-resolver"))
+
+	// Initialize logs service
+	logsService, logsServiceErr := service.NewLogsService(
+		logsBackend, uidResolver, cfg, logger.With("component", "logs-service"),
+	)
+	if logsServiceErr != nil {
+		logger.Error("Failed to initialize logs service", "error", logsServiceErr)
+		os.Exit(1)
+	}
+
 	// Initialize health service
-	healthService := service.NewHealthService(logger.With("component", "health-service"))
+	healthService, healthServiceErr := service.NewHealthService(logger.With("component", "health-service"))
+	if healthServiceErr != nil {
+		logger.Error("Failed to initialize health service", "error", healthServiceErr)
+		os.Exit(1)
+	}
 
 	// Initialize new API handler
 	newAPIHandler := apihandler.NewHandler(
 		healthService,
+		logsService,
 		logger.With("component", "api-handler"),
 		authzClient,
 	)
+
 	// ===== Initialize Middlewares =====
 
 	// Global middlewares - applies to all routes
@@ -177,6 +195,9 @@ func main() {
 	// API routes - Metrics
 	api.HandleFunc("POST /api/metrics/component/http", legacyHandler.GetComponentHTTPMetrics)
 	api.HandleFunc("POST /api/metrics/component/usage", legacyHandler.GetComponentResourceMetrics)
+
+	// ===== New API Routes (v1) =====
+	api.HandleFunc("POST /api/v1/logs/query", newAPIHandler.QueryLogs)
 
 	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
 	mcpMiddleware := initMCPMiddleware(logger)

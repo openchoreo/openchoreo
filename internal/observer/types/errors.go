@@ -5,6 +5,10 @@ package types
 
 // Error codes for the new API
 const (
-	// Error codes for internal server error
-	ErrorCodeInternalError = "OBS-V1-L-29"
+	// Logs API (v1) internal server error codes.
+	ErrorCodeV1LogsInternalGeneric = "OBS-V1-L-01"
+	ErrorCodeV1LogsAuthzInternal   = "OBS-V1-L-02"
+	ErrorCodeV1LogsServiceNotReady = "OBS-V1-L-03"
+	ErrorCodeV1LogsResolverFailed  = "OBS-V1-L-04"
+	ErrorCodeV1LogsRetrievalFailed = "OBS-V1-L-05"
 )

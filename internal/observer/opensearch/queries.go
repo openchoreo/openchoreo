@@ -955,3 +955,85 @@ func buildWebhookMessageTemplate(params types.AlertingRuleRequest) string {
 		string(enableAiRootCauseAnalysis),
 	)
 }
+
+// BuildComponentLogsQueryV1 builds a query for the new API component logs endpoint
+// This properly handles optional filters (only adds term filters when values are non-empty)
+func (qb *QueryBuilder) BuildComponentLogsQueryV1(params ComponentLogsQueryParamsV1) (map[string]interface{}, error) {
+	if params.StartTime == "" || params.EndTime == "" || params.NamespaceName == "" {
+		return nil, fmt.Errorf("start time, end time, and namespace name are required")
+	}
+	mustConditions := []map[string]interface{}{}
+
+	// Add time range filter (required)
+	mustConditions = addTimeRangeFilter(mustConditions, params.StartTime, params.EndTime)
+
+	// Add namespace filter (required) - filter by OpenChoreo namespace name label
+	namespaceFilter := map[string]interface{}{
+		"term": map[string]interface{}{
+			labels.OSNamespaceName + ".keyword": params.NamespaceName,
+		},
+	}
+	mustConditions = append(mustConditions, namespaceFilter)
+
+	// Add optional filters only if values are non-empty
+	if params.ProjectID != "" {
+		projectFilter := map[string]interface{}{
+			"term": map[string]interface{}{
+				labels.OSProjectID + ".keyword": params.ProjectID,
+			},
+		}
+		mustConditions = append(mustConditions, projectFilter)
+	}
+
+	if params.ComponentID != "" {
+		componentFilter := map[string]interface{}{
+			"term": map[string]interface{}{
+				labels.OSComponentID + ".keyword": params.ComponentID,
+			},
+		}
+		mustConditions = append(mustConditions, componentFilter)
+	}
+
+	if params.EnvironmentID != "" {
+		environmentFilter := map[string]interface{}{
+			"term": map[string]interface{}{
+				labels.OSEnvironmentID + ".keyword": params.EnvironmentID,
+			},
+		}
+		mustConditions = append(mustConditions, environmentFilter)
+	}
+
+	// Add common filters
+	mustConditions = addSearchPhraseFilter(mustConditions, params.SearchPhrase)
+	mustConditions = addLogLevelFilter(mustConditions, params.LogLevels)
+
+	// Set default limit if not specified
+	limit := params.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+
+	// Set default sort order if not specified
+	sortOrder := params.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
+	query := map[string]interface{}{
+		"size": limit,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": mustConditions,
+			},
+		},
+		"sort": []map[string]interface{}{
+			{
+				"@timestamp": map[string]interface{}{
+					"order": sortOrder,
+				},
+			},
+		},
+	}
+
+	return query, nil
+}

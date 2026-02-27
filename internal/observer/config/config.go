@@ -26,6 +26,7 @@ type Config struct {
 	Logging      LoggingConfig      `koanf:"logging"`
 	Alerting     AlertingConfig     `koanf:"alerting"`
 	Experimental ExperimentalConfig `koanf:"experimental"`
+	UIDResolver  UIDResolverConfig  `koanf:"uid_resolver"`
 	LogLevel     string             `koanf:"loglevel"`
 }
 
@@ -96,6 +97,23 @@ type AlertingConfig struct {
 	ObservabilityNamespace string `koanf:"observability.namespace"`
 }
 
+// UIDResolverConfig holds configuration for the resource UID resolver
+// which resolves resource names to UIDs via the openchoreo-api
+type UIDResolverConfig struct {
+	// OpenChoreoAPIURL is the base URL for the openchoreo-api service
+	OpenChoreoAPIURL string `koanf:"openchoreo.api.url"`
+	// OAuthTokenURL is the OAuth2 token endpoint URL for client credentials grant
+	OAuthTokenURL string `koanf:"oauth.token.url"`
+	// OAuthClientID is the OAuth2 client ID for authentication
+	OAuthClientID string `koanf:"oauth.client.id"`
+	// OAuthClientSecret is the OAuth2 client secret for authentication
+	OAuthClientSecret string `koanf:"oauth.client.secret"`
+	// TLSInsecureSkipVerify skips TLS certificate verification (for development)
+	TLSInsecureSkipVerify bool `koanf:"tls.insecure.skip.verify"`
+	// Timeout is the HTTP client timeout for API calls
+	Timeout time.Duration `koanf:"timeout"`
+}
+
 // Load loads configuration from environment variables and defaults
 func Load() (*Config, error) {
 	k := koanf.New(".")
@@ -131,40 +149,46 @@ func Load() (*Config, error) {
 
 	// Define environment variable mappings
 	envMappings := map[string]string{
-		"SERVER_PORT":                       "server.port",
-		"SERVER_READ_TIMEOUT":               "server.read.timeout",
-		"SERVER_WRITE_TIMEOUT":              "server.write.timeout",
-		"SERVER_SHUTDOWN_TIMEOUT":           "server.shutdown.timeout",
-		"OPENSEARCH_ADDRESS":                "opensearch.address",
-		"OPENSEARCH_USERNAME":               "opensearch.username",
-		"OPENSEARCH_PASSWORD":               "opensearch.password",
-		"OPENSEARCH_TIMEOUT":                "opensearch.timeout",
-		"OPENSEARCH_MAX_RETRIES":            "opensearch.max.retries",
-		"OPENSEARCH_INDEX_PREFIX":           "opensearch.index.prefix",
-		"OPENSEARCH_INDEX_PATTERN":          "opensearch.index.pattern",
-		"OPENSEARCH_LEGACY_PATTERN":         "opensearch.legacy.pattern",
-		"PROMETHEUS_ADDRESS":                "prometheus.address",
-		"PROMETHEUS_TIMEOUT":                "prometheus.timeout",
-		"AUTH_JWT_SECRET":                   "auth.jwt.secret",
-		"AUTH_ENABLE_AUTH":                  "auth.enable.auth",
-		"AUTH_REQUIRED_ROLE":                "auth.required.role",
-		"AUTHZ_SERVICE_URL":                 "authz.service.url",
-		"AUTHZ_TIMEOUT":                     "authz.timeout",
-		"LOGGING_MAX_LOG_LIMIT":             "logging.max.log.limit",
-		"LOGGING_DEFAULT_LOG_LIMIT":         "logging.default.log.limit",
-		"LOGGING_DEFAULT_BUILD_LOG_LIMIT":   "logging.default.build.log.limit",
-		"LOGGING_MAX_LOG_LINES_PER_FILE":    "logging.max.log.lines.per.file",
-		"RCA_SERVICE_URL":                   "alerting.rca.service.url",
-		"AI_RCA_ENABLED":                    "alerting.ai.rca.enabled",
-		"OBSERVABILITY_NAMESPACE":           "alerting.observability.namespace",
-		"LOG_LEVEL":                         "loglevel",
-		"PORT":                              "server.port",           // Common alias
-		"JWT_SECRET":                        "auth.jwt.secret",       // Common alias
-		"ENABLE_AUTH":                       "auth.enable.auth",      // Common alias
-		"MAX_LOG_LIMIT":                     "logging.max.log.limit", // Common alias
-		"EXPERIMENTAL_USE_LOGS_BACKEND":     "experimental.use.logs.backend",
-		"EXPERIMENTAL_LOGS_BACKEND_URL":     "experimental.logs.backend.url",
-		"EXPERIMENTAL_LOGS_BACKEND_TIMEOUT": "experimental.logs.backend.timeout",
+		"SERVER_PORT":                           "server.port",
+		"SERVER_READ_TIMEOUT":                   "server.read.timeout",
+		"SERVER_WRITE_TIMEOUT":                  "server.write.timeout",
+		"SERVER_SHUTDOWN_TIMEOUT":               "server.shutdown.timeout",
+		"OPENSEARCH_ADDRESS":                    "opensearch.address",
+		"OPENSEARCH_USERNAME":                   "opensearch.username",
+		"OPENSEARCH_PASSWORD":                   "opensearch.password",
+		"OPENSEARCH_TIMEOUT":                    "opensearch.timeout",
+		"OPENSEARCH_MAX_RETRIES":                "opensearch.max.retries",
+		"OPENSEARCH_INDEX_PREFIX":               "opensearch.index.prefix",
+		"OPENSEARCH_INDEX_PATTERN":              "opensearch.index.pattern",
+		"OPENSEARCH_LEGACY_PATTERN":             "opensearch.legacy.pattern",
+		"PROMETHEUS_ADDRESS":                    "prometheus.address",
+		"PROMETHEUS_TIMEOUT":                    "prometheus.timeout",
+		"AUTH_JWT_SECRET":                       "auth.jwt.secret",
+		"AUTH_ENABLE_AUTH":                      "auth.enable.auth",
+		"AUTH_REQUIRED_ROLE":                    "auth.required.role",
+		"AUTHZ_SERVICE_URL":                     "authz.service.url",
+		"AUTHZ_TIMEOUT":                         "authz.timeout",
+		"LOGGING_MAX_LOG_LIMIT":                 "logging.max.log.limit",
+		"LOGGING_DEFAULT_LOG_LIMIT":             "logging.default.log.limit",
+		"LOGGING_DEFAULT_BUILD_LOG_LIMIT":       "logging.default.build.log.limit",
+		"LOGGING_MAX_LOG_LINES_PER_FILE":        "logging.max.log.lines.per.file",
+		"RCA_SERVICE_URL":                       "alerting.rca.service.url",
+		"AI_RCA_ENABLED":                        "alerting.ai.rca.enabled",
+		"OBSERVABILITY_NAMESPACE":               "alerting.observability.namespace",
+		"LOG_LEVEL":                             "loglevel",
+		"PORT":                                  "server.port",           // Common alias
+		"JWT_SECRET":                            "auth.jwt.secret",       // Common alias
+		"ENABLE_AUTH":                           "auth.enable.auth",      // Common alias
+		"MAX_LOG_LIMIT":                         "logging.max.log.limit", // Common alias
+		"EXPERIMENTAL_USE_LOGS_BACKEND":         "experimental.use.logs.backend",
+		"EXPERIMENTAL_LOGS_BACKEND_URL":         "experimental.logs.backend.url",
+		"EXPERIMENTAL_LOGS_BACKEND_TIMEOUT":     "experimental.logs.backend.timeout",
+		"UID_RESOLVER_OPENCHOREO_API_URL":       "uid_resolver.openchoreo.api.url",
+		"UID_RESOLVER_OAUTH_TOKEN_URL":          "uid_resolver.oauth.token.url",
+		"UID_RESOLVER_OAUTH_CLIENT_ID":          "uid_resolver.oauth.client.id",
+		"UID_RESOLVER_OAUTH_CLIENT_SECRET":      "uid_resolver.oauth.client.secret",
+		"UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY": "uid_resolver.tls.insecure.skip.verify",
+		"UID_RESOLVER_TIMEOUT":                  "uid_resolver.timeout",
 	}
 
 	// Check for environment variables and map them to nested structure
@@ -274,6 +298,14 @@ func getDefaults() map[string]interface{} {
 			"logs.backend.url":     "",
 			"logs.backend.timeout": "30s",
 		},
+		"uid_resolver": map[string]interface{}{
+			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",
+			"oauth.token.url":          "http://thunder.openchoreo.localhost:8080/oauth2/token",
+			"oauth.client.id":          "openchoreo-observer",
+			"oauth.client.secret":      "openchoreo-observer-secret",
+			"tls.insecure.skip.verify": false,
+			"timeout":                  "30s",
+		},
 		"loglevel": "info",
 	}
 }
@@ -308,6 +340,22 @@ func (c *Config) validate() error {
 	}
 	if c.Authz.Timeout <= 0 {
 		return fmt.Errorf("authz timeout must be positive")
+	}
+
+	if c.UIDResolver.OpenChoreoAPIURL == "" {
+		return fmt.Errorf("uid resolver openchoreo API URL is required")
+	}
+	if c.UIDResolver.OAuthTokenURL == "" {
+		return fmt.Errorf("uid resolver oauth token URL is required")
+	}
+	if c.UIDResolver.OAuthClientID == "" {
+		return fmt.Errorf("uid resolver oauth client ID is required")
+	}
+	if c.UIDResolver.OAuthClientSecret == "" {
+		return fmt.Errorf("uid resolver oauth client secret is required")
+	}
+	if c.UIDResolver.Timeout <= 0 {
+		return fmt.Errorf("uid resolver timeout must be positive")
 	}
 
 	return nil

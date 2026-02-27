@@ -29,6 +29,15 @@ const (
 	// ProjectID identifies the project that groups multiple components
 	ProjectID = "openchoreo.dev/project-uid"
 
+	// ComponentName is the human-readable component name
+	ComponentName = "openchoreo.dev/component"
+
+	// EnvironmentName is the human-readable environment name
+	EnvironmentName = "openchoreo.dev/environment"
+
+	// ProjectName is the human-readable project name
+	ProjectName = "openchoreo.dev/project-name"
+
 	// Version is the human-readable version string (e.g., "v1.2.3")
 	Version = "version"
 
@@ -36,7 +45,7 @@ const (
 	VersionID = "version_id"
 
 	// NamespaceName identifies the namespace that owns the resources
-	NamespaceName = "namespace-name"
+	NamespaceName = "openchoreo.dev/namespace"
 
 	// PipelineID identifies the CI/CD pipeline that deployed the component
 	PipelineID = "pipeline-id"

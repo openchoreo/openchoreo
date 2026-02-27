@@ -65,6 +65,13 @@ type LogEntry struct {
 	PodID         string            `json:"podId"`
 	ContainerName string            `json:"containerName"`
 	Labels        map[string]string `json:"labels"`
+	// Additional fields for logs API v1
+	ComponentName   string `json:"componentName,omitempty"`
+	EnvironmentName string `json:"environmentName,omitempty"`
+	ProjectName     string `json:"projectName,omitempty"`
+	NamespaceName   string `json:"namespaceName,omitempty"`
+	PodNamespace    string `json:"podNamespace,omitempty"`
+	PodName         string `json:"podName,omitempty"`
 }
 
 // WorkflowRunLogEntry represents a log entry for workflow run logs
@@ -153,6 +160,21 @@ type WorkflowRunLogsQueryParams struct {
 	Limit    int    `json:"limit"`
 }
 
+// ComponentLogsQueryParamsV1 holds query parameters for the new API component logs query
+// This properly handles optional filters (only adds term filters when values are non-empty)
+type ComponentLogsQueryParamsV1 struct {
+	StartTime     string   `json:"startTime"`
+	EndTime       string   `json:"endTime"`
+	NamespaceName string   `json:"namespaceName"` // OpenChoreo namespace name (required)
+	ProjectID     string   `json:"projectId,omitempty"`
+	ComponentID   string   `json:"componentId,omitempty"`
+	EnvironmentID string   `json:"environmentId,omitempty"`
+	SearchPhrase  string   `json:"searchPhrase,omitempty"`
+	LogLevels     []string `json:"logLevels,omitempty"`
+	Limit         int      `json:"limit"`
+	SortOrder     string   `json:"sortOrder"`
+}
+
 // buildSearchBody converts a query map to an io.Reader for the search request
 func buildSearchBody(query map[string]interface{}) io.Reader {
 	body, _ := json.Marshal(query)
@@ -209,6 +231,12 @@ func ParseLogEntry(hit Hit) LogEntry {
 			entry.Version = getStringValue(labelMap, labels.ReplaceDots(labels.Version))
 			entry.VersionID = getStringValue(labelMap, labels.ReplaceDots(labels.VersionID))
 
+			// Parse name fields for logs API v1
+			entry.ComponentName = getStringValue(labelMap, labels.ReplaceDots(labels.ComponentName))
+			entry.EnvironmentName = getStringValue(labelMap, labels.ReplaceDots(labels.EnvironmentName))
+			entry.ProjectName = getStringValue(labelMap, labels.ReplaceDots(labels.ProjectName))
+			entry.NamespaceName = getStringValue(labelMap, labels.ReplaceDots(labels.NamespaceName))
+
 			// Convert all labels to string map
 			for k, v := range labelMap {
 				if str, ok := v.(string); ok {
@@ -219,7 +247,9 @@ func ParseLogEntry(hit Hit) LogEntry {
 
 		// Parse other Kubernetes fields
 		entry.Namespace = getStringValue(k8s, "namespace_name")
+		entry.PodNamespace = getStringValue(k8s, "namespace_name")
 		entry.PodID = getStringValue(k8s, "pod_id")
+		entry.PodName = getStringValue(k8s, "pod_name")
 		entry.ContainerName = getStringValue(k8s, "container_name")
 	}
 
@@ -250,7 +280,7 @@ func extractLogLevel(log string) string {
 		}
 	}
 
-	return "UNDEFINED" // Default to INFO if no level found
+	return "INFO" // Default to INFO if no level found
 }
 
 // ExtractLogType determines the log type from query parameters or defaults to RUNTIME

@@ -14,13 +14,13 @@ type HealthService struct {
 }
 
 // NewHealthService creates a new HealthService instance
-func NewHealthService(logger *slog.Logger) *HealthService {
+func NewHealthService(logger *slog.Logger) (*HealthService, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &HealthService{
 		logger: logger,
-	}
+	}, nil
 }
 
 // Check performs a health check on the observer service

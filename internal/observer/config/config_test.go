@@ -138,6 +138,13 @@ func TestValidate(t *testing.T) {
 					ServiceURL: "http://localhost:8081",
 					Timeout:    30 * time.Second,
 				},
+				UIDResolver: UIDResolverConfig{
+					OpenChoreoAPIURL:  "http://localhost:9099",
+					OAuthTokenURL:     "http://localhost:8080/oauth2/token",
+					OAuthClientID:     "test-client",
+					OAuthClientSecret: "test-secret",
+					Timeout:           30 * time.Second,
+				},
 			},
 			expectErr: false,
 		},
