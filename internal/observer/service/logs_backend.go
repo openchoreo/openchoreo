@@ -73,3 +73,39 @@ func (p *LogsBackend) GetComponentApplicationLogs(ctx context.Context, params ob
 
 	return &result, nil
 }
+
+// GetWorkflowLogs implements observability.LogsBackend interface
+// It makes an HTTP POST request to the logs API with workflow logs parameters
+func (p *LogsBackend) GetWorkflowLogs(ctx context.Context, params observability.WorkflowLogsParams) (*observability.WorkflowLogsResult, error) {
+	url := fmt.Sprintf("%s/api/v1/workflow-logs", p.baseURL)
+
+	requestBody, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(requestBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request for workflow logs to logs backend: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result observability.WorkflowLogsResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}

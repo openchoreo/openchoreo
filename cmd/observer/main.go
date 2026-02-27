@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	apihandler "github.com/openchoreo/openchoreo/internal/observer/api/handler"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
@@ -110,6 +111,27 @@ func main() {
 		legacyLoggingService, logger, authzClient, cfg.Alerting.RCAServiceURL, cfg.Alerting.AIRCAEnabled,
 	)
 
+	// ===== Initialize New API Services and Handler =====
+
+	// Initialize resource resolver for name-to-UID resolution
+	resolver := service.NewResourceResolver(&cfg.Resolver, logger.With("component", "resource-resolver"))
+
+	// Initialize new API services
+	logsService, err := service.NewLogsService(logsBackend, resolver, cfg, logger.With("component", "logs-service"))
+	if err != nil {
+		logger.Error("Failed to initialize logs service", "error", err)
+		os.Exit(1)
+	}
+	healthService := service.NewHealthService(logger.With("component", "health-service"))
+
+	// Initialize new API handler
+	newAPIHandler := apihandler.NewHandler(
+		logsService,
+		healthService,
+		logger.With("component", "api-handler"),
+		authzClient,
+	)
+
 	// ===== Initialize Middlewares =====
 
 	// Global middlewares - applies to all routes
@@ -167,6 +189,9 @@ func main() {
 	// API routes - Metrics
 	api.HandleFunc("POST /api/metrics/component/http", legacyHandler.GetComponentHTTPMetrics)
 	api.HandleFunc("POST /api/metrics/component/usage", legacyHandler.GetComponentResourceMetrics)
+
+	// ===== New API Routes (v1) =====
+	api.HandleFunc("POST /api/v1/logs/query", newAPIHandler.QueryLogs)
 
 	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
 	mcpMiddleware := initMCPMiddleware(logger)

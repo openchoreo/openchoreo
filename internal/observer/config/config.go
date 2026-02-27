@@ -26,6 +26,7 @@ type Config struct {
 	Logging      LoggingConfig      `koanf:"logging"`
 	Alerting     AlertingConfig     `koanf:"alerting"`
 	Experimental ExperimentalConfig `koanf:"experimental"`
+	Resolver     ResolverConfig     `koanf:"resolver"`
 	LogLevel     string             `koanf:"loglevel"`
 }
 
@@ -94,6 +95,25 @@ type AlertingConfig struct {
 	// ObservabilityNamespace is the Kubernetes namespace where openchoreo-observability-plane is deployed.
 	// Used for creating/listing PrometheusRule CRs for metric-based alerting.
 	ObservabilityNamespace string `koanf:"observability.namespace"`
+}
+
+// ResolverConfig holds configuration for the resource resolver
+// which resolves resource names to UIDs via the openchoreo-api
+type ResolverConfig struct {
+	// OpenChoreoAPIURL is the base URL for the openchoreo-api service
+	OpenChoreoAPIURL string `koanf:"openchoreo.api.url"`
+	// OAuthTokenURL is the OAuth2 token endpoint URL for client credentials grant
+	OAuthTokenURL string `koanf:"oauth.token.url"`
+	// OAuthClientID is the OAuth2 client ID for authentication
+	OAuthClientID string `koanf:"oauth.client.id"`
+	// OAuthClientSecret is the OAuth2 client secret for authentication
+	OAuthClientSecret string `koanf:"oauth.client.secret"`
+	// TLSInsecureSkipVerify skips TLS certificate verification (for development)
+	TLSInsecureSkipVerify bool `koanf:"tls.insecure.skip.verify"`
+	// CacheTTL is the time-to-live for cached UID resolutions
+	CacheTTL time.Duration `koanf:"cache.ttl"`
+	// Timeout is the HTTP client timeout for API calls
+	Timeout time.Duration `koanf:"timeout"`
 }
 
 // Load loads configuration from environment variables and defaults
@@ -165,6 +185,13 @@ func Load() (*Config, error) {
 		"EXPERIMENTAL_USE_LOGS_BACKEND":     "experimental.use.logs.backend",
 		"EXPERIMENTAL_LOGS_BACKEND_URL":     "experimental.logs.backend.url",
 		"EXPERIMENTAL_LOGS_BACKEND_TIMEOUT": "experimental.logs.backend.timeout",
+		"RESOLVER_OPENCHOREO_API_URL":       "resolver.openchoreo.api.url",
+		"RESOLVER_OAUTH_TOKEN_URL":          "resolver.oauth.token.url",
+		"RESOLVER_OAUTH_CLIENT_ID":          "resolver.oauth.client.id",
+		"RESOLVER_OAUTH_CLIENT_SECRET":      "resolver.oauth.client.secret",
+		"RESOLVER_TLS_INSECURE_SKIP_VERIFY": "resolver.tls.insecure.skip.verify",
+		"RESOLVER_CACHE_TTL":                "resolver.cache.ttl",
+		"RESOLVER_TIMEOUT":                  "resolver.timeout",
 	}
 
 	// Check for environment variables and map them to nested structure
@@ -273,6 +300,15 @@ func getDefaults() map[string]interface{} {
 			"use.logs.backend":     false,
 			"logs.backend.url":     "",
 			"logs.backend.timeout": "30s",
+		},
+		"resolver": map[string]interface{}{
+			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",
+			"oauth.token.url":          "http://thunder.openchoreo.localhost:8080/oauth2/token",
+			"oauth.client.id":          "openchoreo-observer",
+			"oauth.client.secret":      "openchoreo-observer-secret",
+			"tls.insecure.skip.verify": false,
+			"cache.ttl":                "5m",
+			"timeout":                  "30s",
 		},
 		"loglevel": "info",
 	}

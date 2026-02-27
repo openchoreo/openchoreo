@@ -28,7 +28,19 @@ type ComponentApplicationLogsParams struct {
 	SortOrder     string    `json:"sortOrder"`
 }
 
-// LogEntry represents a parsed log entry
+// WorkflowLogsParams holds parameters for workflow log queries
+type WorkflowLogsParams struct {
+	Namespace       string    `json:"namespace"`
+	WorkflowRunName string    `json:"workflowRunName"`
+	StartTime       time.Time `json:"startTime"`
+	EndTime         time.Time `json:"endTime"`
+	SearchPhrase    string    `json:"searchPhrase"`
+	LogLevels       []string  `json:"logLevels"`
+	Limit           int       `json:"limit"`
+	SortOrder       string    `json:"sortOrder"`
+}
+
+// LogEntry represents a parsed log entry for component logs
 type LogEntry struct {
 	Timestamp     time.Time         `json:"timestamp"`
 	Log           string            `json:"log"`
@@ -42,6 +54,25 @@ type LogEntry struct {
 	PodID         string            `json:"podId"`
 	ContainerName string            `json:"containerName"`
 	Labels        map[string]string `json:"labels"`
+	// Additional fields for logs API v1
+	ComponentName   string `json:"componentName,omitempty"`
+	EnvironmentName string `json:"environmentName,omitempty"`
+	ProjectName     string `json:"projectName,omitempty"`
+	NamespaceName   string `json:"namespaceName,omitempty"`
+	PodNamespace    string `json:"podNamespace,omitempty"`
+	PodName         string `json:"podName,omitempty"`
+}
+
+// WorkflowLogEntry represents a parsed log entry for workflow logs
+type WorkflowLogEntry struct {
+	Timestamp     time.Time         `json:"timestamp"`
+	Log           string            `json:"log"`
+	LogLevel      string            `json:"logLevel"`
+	PodNamespace  string            `json:"podNamespace,omitempty"`
+	PodID         string            `json:"podId,omitempty"`
+	PodName       string            `json:"podName,omitempty"`
+	ContainerName string            `json:"containerName,omitempty"`
+	Labels        map[string]string `json:"labels,omitempty"`
 }
 
 // ComponentApplicationLogsResult represents the result of a component log query
@@ -51,7 +82,20 @@ type ComponentApplicationLogsResult struct {
 	Took       int        `json:"took"`
 }
 
+// WorkflowLogsResult represents the result of a workflow log query
+type WorkflowLogsResult struct {
+	Logs       []WorkflowLogEntry `json:"logs"`
+	TotalCount int                `json:"totalCount"`
+	Took       int                `json:"took"`
+}
+
+// LogsBackend defines the interface for logs backend implementations
 type LogsBackend interface {
+	// GetComponentApplicationLogs retrieves component application logs
 	GetComponentApplicationLogs(ctx context.Context,
 		params ComponentApplicationLogsParams) (*ComponentApplicationLogsResult, error)
+
+	// GetWorkflowLogs retrieves workflow run logs
+	GetWorkflowLogs(ctx context.Context,
+		params WorkflowLogsParams) (*WorkflowLogsResult, error)
 }
