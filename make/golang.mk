@@ -183,9 +183,15 @@ go.mod.lint: go.mod.tidy ## Lint go.mod file.
 
 .PHONY: openapi-codegen
 openapi-codegen: oapi-codegen ## Generate Go server and client code from OpenAPI spec.
-	@$(call log, "Generating OpenAPI models")
+	@$(call log, "Generating OpenChoreo API OpenAPI models")
 	$(OAPI_CODEGEN) -config internal/openchoreo-api/api/cfg-models.yaml openapi/openchoreo-api.yaml
-	@$(call log, "Generating OpenAPI server interface")
+	@$(call log, "Generating OpenChoreo API OpenAPI server interface")
 	$(OAPI_CODEGEN) -config internal/openchoreo-api/api/cfg-server.yaml openapi/openchoreo-api.yaml
-	@$(call log, "Generating OpenAPI client")
+	@$(call log, "Generating OpenChoreo API OpenAPI client")
 	$(OAPI_CODEGEN) -config internal/openchoreo-api/api/cfg-client.yaml openapi/openchoreo-api.yaml
+	@$(call log, "Generating Observer OpenAPI models")
+	$(OAPI_CODEGEN) -config internal/observer/api/cfg-models.yaml openapi/observer-api.yaml
+	@$(call log, "Generating Observer OpenAPI server interface")
+	$(OAPI_CODEGEN) -config internal/observer/api/cfg-server.yaml openapi/observer-api.yaml
+	@$(call log, "Generating Observer OpenAPI client")
+	$(OAPI_CODEGEN) -config internal/observer/api/cfg-client.yaml openapi/observer-api.yaml

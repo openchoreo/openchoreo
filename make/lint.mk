@@ -8,6 +8,7 @@ ALL_GO_FILES := $(shell \
 		! -path './internal/dataplane/kubernetes/types/*' \
 		! -path './internal/openchoreo-api/api/gen/*' \
 		! -path './api/v1alpha1/zz_generated.deepcopy.go' \
+		! -path './internal/observer/api/gen/*' \
 	| sort)
 
 # Path to your tool (update if different)

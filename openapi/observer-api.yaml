@@ -1,0 +1,1049 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+openapi: 3.0.3
+info:
+  title: OpenChoreo Observer API
+  description: |
+    The OpenChoreo Observer API provides endpoints for querying logs,
+    traces, and metrics from namespaces for components, projects, and environments,
+    as well as logs from workflows.
+    It integrates with separate observability modules to fetch the actual data via
+    API calls to the adaptors provided by the modules.
+  version: 1.0.0
+  contact:
+    name: OpenChoreo Team
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+tags:
+  - name: Logs
+    description: Log retrieval endpoints
+  - name: Health
+    description: Health check endpoints
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check the health status of the observer service.
+      operationId: health
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+        "503":
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: unhealthy
+                  error:
+                    type: string
+                    example: "opensearch: connection failed"
+
+  # Logs query endpoint
+  /api/v1/logs/query:
+    post:
+      tags:
+        - Logs
+      summary: Query logs
+      description: Query logs from the observer service
+      operationId: queryLogs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogsQueryRequest"
+      responses:
+        "200":
+          description: Logs queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogsQueryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "badRequest"
+                errorCode: ""
+                message: "Missing required fields 'startTime' and 'endTime'"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "unauthorized"
+                errorCode: ""
+                message: "Invalid or missing token"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "forbidden"
+                errorCode: ""
+                message: "Subject <xyz> has no permission to view logs of Namespace foo, Project bar, Component baz in Environment development"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "internalServerError"
+                errorCode: "OBS-V1-L-29"
+                message: ""
+
+  # Metrics query endpoint
+  /api/v1/metrics/query:
+    post:
+      tags:
+        - Metrics
+      summary: Query metrics
+      description: Query metrics from the observer service
+      operationId: queryMetrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MetricsQueryRequest"
+      responses:
+        "200":
+          description: Metrics queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricsQueryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Traces query endpoints
+  /api/v1alpha1/traces/query:
+    post:
+      tags:
+        - Traces
+      summary: Query traces
+      description: Query traces from the observer service
+      operationId: queryTraces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TracesQueryRequest"
+      responses:
+        "200":
+          description: Traces queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TracesQueryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1alpha1/traces/{traceId}/spans/query:
+    post:
+      tags:
+        - Traces
+      summary: Query spans for a trace
+      description: Query spans for a trace from the observer service
+      operationId: querySpansForTrace
+      parameters:
+        - name: traceId
+          in: path
+          required: true
+          description: The ID of the trace
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TracesQueryRequest"
+      responses:
+        "200":
+          description: Spans queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraceSpansQueryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1alpha1/traces/{traceId}/spans/{spanId}:
+    get:
+      tags:
+        - Traces
+      summary: Get details of a span for a trace
+      description: Get details of a span for a trace from the observer service
+      operationId: getSpanDetailsForTrace
+      parameters:
+        - name: traceId
+          in: path
+          required: true
+          description: The ID of the trace
+          schema:
+            type: string
+        - name: spanId
+          in: path
+          required: true
+          description: The ID of the span
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Span details queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraceSpanDetailsResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1alpha1/alerts/rules:
+    post:
+      tags:
+        - Alerts
+      summary: Create alert rule
+      description: Create an alert rule in the observer service
+      operationId: createAlertRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertRuleRequest"
+      responses:
+        "200":
+          description: Alert rule created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertingRuleSyncResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1alpha1/alerts/rules/{ruleName}:
+    parameters:
+      - name: ruleName
+        in: path
+        required: true
+        description: The name of the alert rule
+        schema:
+          type: string
+    get:
+      tags:
+        - Alerts
+      summary: Get alert rule
+      description: Get an alert rule in the observer service
+      operationId: getAlertRule
+      responses:
+        "200":
+          description: Alert rule retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertRuleResponse"
+        "404":
+          description: Alert rule not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      tags:
+        - Alerts
+      summary: Update alert rule
+      description: Update an alert rule in the observer service
+      operationId: updateAlertRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertRuleRequest"
+      responses:
+        "200":
+          description: Alert rule updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertingRuleSyncResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+        - Alerts
+      summary: Delete alert rule
+      description: Delete an alert rule in the observer service
+      operationId: deleteAlertRule
+      responses:
+        "200":
+          description: Alert rule deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertingRuleSyncResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1alpha1/alerts/webhook:
+    post:
+      security: []
+      tags:
+        - Alerts
+      summary: Handles triggered alerts from the alerting backend
+      description: Handles triggered alerts from the alerting backend
+      operationId: handleAlertWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertWebhookRequest"
+      responses:
+        "200":
+          description: Alert webhook handled successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertWebhookResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    # Request schemas for logs
+    ComponentSearchScope:
+      type: object
+      properties:
+        namespace:
+          type: string
+        project:
+          type: string
+        component:
+          type: string
+        environment:
+          type: string
+      required: [namespace]
+
+    WorkflowSearchScope:
+      type: object
+      properties:
+        namespace:
+          type: string
+        workflowRunName:
+          type: string
+      required: [namespace]
+
+    LogsQueryRequest:
+      type: object
+      properties:
+        startTime:
+          type: string
+          description: The start time of the query
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the query
+          format: date-time
+        limit:
+          type: integer
+          default: 100
+          minimum: 1
+          maximum: 1000
+          description: The maximum number of items to return
+        sortOrder:
+          type: string
+          description: The sort order of the query
+          enum:
+            - asc
+            - desc
+          default: desc
+        searchScope:
+          oneOf:
+            - $ref: "#/components/schemas/ComponentSearchScope"
+            - $ref: "#/components/schemas/WorkflowSearchScope"
+        logLevels:
+          type: array
+          items:
+            type: string
+            enum: ["DEBUG", "INFO", "WARN", "ERROR"]
+        searchPhrase:
+          type: string
+      required: [startTime, endTime, searchScope]
+
+    # Response schemas for logs
+    ComponentLogEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          description: The timestamp of the log entry
+          format: date-time
+        log:
+          type: string
+          description: The log message
+        level:
+          type: string
+          description: The log level
+        metadata:
+          type: object
+          description: The metadata of the log entry
+          properties:
+            componentName:
+              type: string
+              description: The OpenChoreo component name that generated the log
+            projectName:
+              type: string
+              description: The OpenChoreo project name that generated the log
+            environmentName:
+              type: string
+              description: The OpenChoreo environment name that generated the log
+            namespaceName:
+              type: string
+              description: The OpenChoreo namespace name that generated the log
+            componentUid:
+              type: string
+              description: The OpenChoreo component UID that generated the log
+              format: uuid
+            projectUid:
+              type: string
+              description: The OpenChoreo project UID that generated the log
+              format: uuid
+            environmentUid:
+              type: string
+              description: The OpenChoreo environment UID that generated the log
+              format: uuid
+            containerName:
+              type: string
+              description: The container name that generated the log
+            podName:
+              type: string
+              description: The Kubernetes pod name that generated the log
+            podNamespace:
+              type: string
+              description: The namespace of the Kubernetes pod that generated the log
+
+    WorkflowLogEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          description: The timestamp of the log entry
+          format: date-time
+        log:
+          type: string
+          description: The log message
+        metadata:
+          type: object
+          description: The metadata of the log entry
+
+    LogsQueryResponse:
+      type: object
+      properties:
+        logs:
+          oneOf:
+            - type: array
+              items:
+                $ref: "#/components/schemas/ComponentLogEntry"
+            - type: array
+              items:
+                $ref: "#/components/schemas/WorkflowLogEntry"
+          description: The logs queried successfully
+        total:
+          type: integer
+          description: The total number of logs queried
+        tookMs:
+          type: integer
+          description: The time taken to query the logs in milliseconds
+
+    # Request schemas for metrics
+    MetricsQueryRequest:
+      type: object
+      properties:
+        metric:
+          type: string
+          description: The type of query to execute
+          enum:
+            - resource
+            - http
+        startTime:
+          type: string
+          description: The start time of the query
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the query
+          format: date-time
+        step:
+          type: string
+          description: The step of the query to determine the number of points to return. E.g. 1m, 5m, 15m, 30m, 1h
+        searchScope:
+          $ref: "#/components/schemas/ComponentSearchScope"
+      required: [metric, startTime, endTime]
+
+    # Response schemas for metrics
+    MetricsTimeSeriesItem:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          description: The timestamp of the time series item
+          format: date-time
+        value:
+          type: number
+          format: double
+          description: The value of the time series item
+
+    ResourceMetricsTimeSeries:
+      type: object
+      properties:
+        cpuUsage:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        cpuRequests:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        cpuLimits:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        memoryUsage:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        memoryRequests:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        memoryLimits:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+
+    HttpMetricsTimeSeries:
+      type: object
+      properties:
+        requestCount:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        successfulRequestCount:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        unsuccessfulRequestCount:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        averageResponseTime:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        meanLatency:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        latencyP50:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        latencyP90:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        latencyP99:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+
+    MetricsQueryResponse:
+      oneOf:
+        - $ref: "#/components/schemas/ResourceMetricsTimeSeries"
+        - $ref: "#/components/schemas/HttpMetricsTimeSeries"
+
+    # Request schemas for traces
+    TracesQueryRequest:
+      type: object
+      properties:
+        startTime:
+          type: string
+          description: The start time of the query
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the query
+          format: date-time
+        limit:
+          type: integer
+          default: 100
+          minimum: 1
+          maximum: 1000
+          description: The maximum number of items to return
+        sort:
+          type: string
+          description: The sort order of the query
+          enum:
+            - asc
+            - desc
+          default: desc
+        searchScope:
+          $ref: "#/components/schemas/ComponentSearchScope"
+      required: [startTime, endTime, searchScope]
+
+    # Response schemas for traces
+    TracesQueryResponse:
+      type: object
+      properties:
+        traces:
+          type: array
+          description: The list of traces
+          items:
+            type: object
+            properties:
+              traceId:
+                type: string
+                description: The trace ID
+              traceName:
+                type: string
+                description: The name of the trace
+              spanCount:
+                type: integer
+                description: The number of spans in the trace
+              rootSpanId:
+                type: string
+              rootSpanName:
+                type: string
+              rootSpanKind:
+                type: string
+              startTime:
+                type: string
+                description: The start time of the trace
+                format: date-time
+              endTime:
+                type: string
+                description: The end time of the trace
+                format: date-time
+              durationNs:
+                type: number
+                description: The duration of the trace in nanoseconds
+        total:
+          type: integer
+          description: The total number of traces
+        tookMs:
+          type: integer
+          description: The time taken to query the traces in milliseconds
+
+    TraceSpansQueryResponse:
+      type: object
+      properties:
+        spans:
+          type: array
+          description: The list of spans
+          items:
+            type: object
+            properties:
+              spanId:
+                type: string
+                description: The span ID
+              spanName:
+                type: string
+                description: The name of the span
+              spanKind:
+                type: string
+                description: The name of the span
+              startTime:
+                type: string
+                description: The start time of the span
+                format: date-time
+              endTime:
+                type: string
+                description: The end time of the span
+                format: date-time
+              durationNs:
+                type: number
+                description: The duration of the span in nanoseconds
+              parentSpanId:
+                type: string
+                description: The parent span ID
+        total:
+          type: integer
+          description: The total number of spans
+        tookMs:
+          type: integer
+          description: The time taken to query the spans in milliseconds
+
+    TraceSpanDetailsResponse:
+      type: object
+      properties:
+        spanId:
+          type: string
+          description: The span ID
+        spanName:
+          type: string
+          description: The name of the span
+        startTime:
+          type: string
+          description: The start time of the span
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the span
+          format: date-time
+        durationNs:
+          type: number
+          description: The duration of the span in nanoseconds
+        parentSpanId:
+          type: string
+          description: The parent span ID
+        attributes:
+          type: array
+          items:
+            type: object
+            description: The attributes of the span
+            properties:
+              key:
+                type: string
+                description: The key of the attribute
+              value:
+                type: string
+                description: The value of the attribute
+
+    # Request schemas for alert rules
+    AlertRuleRequest:
+      type: object
+      properties:
+        metadata:
+          type: object
+          properties:
+            name:
+              type: string
+              description: The name of the alert rule
+            namespace:
+              type: string
+              description: The namespace of the alert rule CR
+            projectUid:
+              type: string
+              description: The OpenChoreo project UID to query
+              format: uuid
+            environmentUid:
+              type: string
+              description: The OpenChoreo environment UID to query
+              format: uuid
+            componentUid:
+              type: string
+              description: The OpenChoreo component UID to query
+              format: uuid
+        source:
+          type: object
+          properties:
+            type:
+              type: string
+              description: The type of the source
+              enum:
+                - log
+                - metric
+            query:
+              type: string
+              description: The query to execute for log based alerts
+            metric:
+              type: string
+              description: The metric to query for metric based alerts
+              enum:
+                - cpu_usage
+                - memory_usage
+        condition:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              description: Whether the alert rule is enabled
+            window:
+              type: string
+              description: The window of time to query for the alert rule
+            interval:
+              type: string
+              description: The interval of time to query for the alert rule
+            operator:
+              type: string
+              description: The operator to use for the alert rule
+              enum:
+                - gt
+                - gte
+                - lt
+                - lte
+                - eq
+                - neq
+            threshold:
+              type: number
+              description: The threshold value to use for the alert rule
+
+    # Response schemas for alert rules
+    AlertRuleResponse:
+      type: object
+      properties:
+        ruleLogicalId:
+          type: string
+          description: The logical ID (name) of the alert rule
+        ruleBackendId:
+          type: string
+          description: The backend ID (UID from observability backend) of the alert rule
+
+    AlertingRuleSyncResponse:
+      type: object
+      properties:
+        action:
+          type: string
+          description: The action taken on the alert rule
+          enum:
+            - created
+            - updated
+            - deleted
+        lastSyncedAt:
+          type: string
+          description: The timestamp of the last sync
+        status:
+          type: string
+          description: The status of the alert rule
+          enum:
+            - synced
+            - failed
+        ruleLogicalId:
+          type: string
+          description: The logical ID (name) of the alert rule
+        ruleBackendId:
+          type: string
+          description: The backend ID (UID from observability backend) of the alert rule
+
+    # Request schema for alert webhook
+    AlertWebhookRequest:
+      type: object
+      properties:
+        ruleName:
+          type: string
+          description: The name of the alert rule
+        ruleNamespace:
+          type: string
+          description: The namespace of the alert rule
+        alertValue:
+          type: number
+          description: The value of the alert
+        alertTimestamp:
+          type: string
+          description: The timestamp of the alert
+          format: date-time
+
+    # Response schema for alert webhook
+    AlertWebhookResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The message of the alert webhook
+        status:
+          type: string
+          description: The status of the alert webhook
+          enum:
+            - success
+            - error
+
+    # New error response schema
+    ErrorResponse:
+      type: object
+      properties:
+        title:
+          type: string
+          description: The error message
+          enum:
+            - badRequest
+            - unauthorized
+            - forbidden
+            - internalServerError
+        errorCode:
+          type: string
+          description: The error code from observer service
+          example: OBS-V1-L-22
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Missing required fields 'startTime' and 'endTime'"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for authentication. Include the token in the Authorization header as 'Bearer <token>'.
