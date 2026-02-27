@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package service
+package legacy
 
 import (
 	"context"
@@ -356,7 +356,7 @@ func TestParseLogEntry(t *testing.T) {
 	}
 
 	if entry.Namespace != "default" {
-		t.Errorf("Expected namespace 'default', got '%s'", entry.Namespace)
+		t.Errorf("Expected pod namespace 'default', got '%s'", entry.Namespace)
 	}
 
 	if entry.PodID != "pod-123" {

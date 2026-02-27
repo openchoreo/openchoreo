@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
-	"github.com/openchoreo/openchoreo/internal/observer/service"
+	legacyservice "github.com/openchoreo/openchoreo/internal/observer/service/legacy"
 )
 
 type MCPHandler struct {
-	Service *service.LoggingService
+	Service *legacyservice.LoggingService
 }
 
 // GetComponentLogs retrieves logs for a specific component

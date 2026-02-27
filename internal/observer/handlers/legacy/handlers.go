@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package handlers
+package legacy
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/httputil"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
-	"github.com/openchoreo/openchoreo/internal/observer/service"
+	legacyservice "github.com/openchoreo/openchoreo/internal/observer/service/legacy"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
@@ -72,17 +72,17 @@ const (
 	ErrorMsgAlertSourceRequired       = "Alert source is required"
 )
 
-// Handler contains the HTTP handlers for the logging API
+// Handler contains the HTTP handlers for the legacy logging API
 type Handler struct {
-	service       *service.LoggingService
+	service       *legacyservice.LoggingService
 	logger        *slog.Logger
 	authzPDP      authzcore.PDP
 	rcaServiceURL string
 	aiRCAEnabled  bool
 }
 
-// NewHandler creates a new handler instance
-func NewHandler(service *service.LoggingService, logger *slog.Logger, authzPDP authzcore.PDP, rcaServiceURL string, aiRCAEnabled bool) *Handler {
+// NewHandler creates a new legacy handler instance
+func NewHandler(service *legacyservice.LoggingService, logger *slog.Logger, authzPDP authzcore.PDP, rcaServiceURL string, aiRCAEnabled bool) *Handler {
 	return &Handler{
 		service:       service,
 		logger:        logger,

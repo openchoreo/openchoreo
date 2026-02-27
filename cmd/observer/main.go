@@ -18,12 +18,13 @@ import (
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
-	"github.com/openchoreo/openchoreo/internal/observer/handlers"
+	legacyhandlers "github.com/openchoreo/openchoreo/internal/observer/handlers/legacy"
 	"github.com/openchoreo/openchoreo/internal/observer/mcp"
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	legacyservice "github.com/openchoreo/openchoreo/internal/observer/service/legacy"
 	apiconfig "github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
@@ -91,8 +92,8 @@ func main() {
 		logger.Info("Using OpenSearch for component logs")
 	}
 
-	// Initialize logging service
-	loggingService := service.NewLoggingService(osClient, metricsService, k8sClient, cfg, logger, logsBackend)
+	// Initialize legacy logging service (for legacy API endpoints)
+	legacyLoggingService := legacyservice.NewLoggingService(osClient, metricsService, k8sClient, cfg, logger, logsBackend)
 
 	// Initialize authz client
 	authzClient, err := observerAuthz.NewClient(&cfg.Authz, logger.With("component", "authz-client"))
@@ -104,9 +105,9 @@ func main() {
 	// Initialize HTTP server
 	mux := http.NewServeMux()
 
-	// Initialize handlers
-	handler := handlers.NewHandler(
-		loggingService, logger, authzClient, cfg.Alerting.RCAServiceURL, cfg.Alerting.AIRCAEnabled,
+	// Legacy API handler (for legacy endpoints)
+	legacyHandler := legacyhandlers.NewHandler(
+		legacyLoggingService, logger, authzClient, cfg.Alerting.RCAServiceURL, cfg.Alerting.AIRCAEnabled,
 	)
 
 	// ===== Initialize Middlewares =====
@@ -121,19 +122,19 @@ func main() {
 	// ===== Public Routes (No Authentication Required) =====
 
 	// Health check endpoint
-	routes.HandleFunc("GET /health", handler.Health)
+	routes.HandleFunc("GET /health", legacyHandler.Health)
 
 	// OAuth Protected Resource Metadata endpoint
 	routes.HandleFunc("GET /.well-known/oauth-protected-resource", oauthProtectedResourceMetadata(logger))
 
 	// ===== Internal Routes (No Authentication Required) =====
 	// TODO: Expose through a separate route group
-	routes.HandleFunc("PUT /api/alerting/rule/{sourceType}/{ruleName}", handler.UpsertAlertingRule)
-	routes.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", handler.DeleteAlertingRule)
+	routes.HandleFunc("PUT /api/alerting/rule/{sourceType}/{ruleName}", legacyHandler.UpsertAlertingRule)
+	routes.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", legacyHandler.DeleteAlertingRule)
 
 	// ===== Vendor-specific Alerting Webhook Endpoint (No JWT Authentication) =====
 	// TODO: Expose through a separate route group
-	routes.HandleFunc("POST /api/alerting/webhook/{alertSource}", handler.AlertingWebhook)
+	routes.HandleFunc("POST /api/alerting/webhook/{alertSource}", legacyHandler.AlertingWebhook)
 
 	// ===== Protected API Routes (JWT Authentication Required) =====
 
@@ -143,33 +144,34 @@ func main() {
 	// Create protected route group with JWT auth
 	api := routes.With(jwtAuth)
 
+	// ===== Legacy API Routes =====
 	// API routes - Build Logs
 	api.HandleFunc("GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/"+
-		"workflow-runs/{runName}/logs", handler.GetWorkflowRunPodLogs)
-	api.HandleFunc("POST /api/logs/build/{buildId}", handler.GetBuildLogs) // TODO: Deprecate this endpoint
+		"workflow-runs/{runName}/logs", legacyHandler.GetWorkflowRunPodLogs)
+	api.HandleFunc("POST /api/logs/build/{buildId}", legacyHandler.GetBuildLogs) // TODO: Deprecate this endpoint
 	api.HandleFunc("GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/"+
-		"workflow-runs/{runName}/events", handler.GetWorkflowRunPodEvents)
+		"workflow-runs/{runName}/events", legacyHandler.GetWorkflowRunPodEvents)
 
 	// API routes - Workflow Run Logs
-	api.HandleFunc("POST /api/v1/workflow-runs/{runId}/logs", handler.GetWorkflowRunLogs)
+	api.HandleFunc("POST /api/v1/workflow-runs/{runId}/logs", legacyHandler.GetWorkflowRunLogs)
 
 	// API routes - Logs
-	api.HandleFunc("POST /api/logs/component/{componentId}", handler.GetComponentLogs)
-	api.HandleFunc("POST /api/logs/project/{projectId}", handler.GetProjectLogs)
-	api.HandleFunc("POST /api/logs/gateway", handler.GetGatewayLogs)
-	api.HandleFunc("POST /api/logs/namespace/{namespaceName}", handler.GetNamespaceLogs)
+	api.HandleFunc("POST /api/logs/component/{componentId}", legacyHandler.GetComponentLogs)
+	api.HandleFunc("POST /api/logs/project/{projectId}", legacyHandler.GetProjectLogs)
+	api.HandleFunc("POST /api/logs/gateway", legacyHandler.GetGatewayLogs)
+	api.HandleFunc("POST /api/logs/namespace/{namespaceName}", legacyHandler.GetNamespaceLogs)
 
 	// API routes - Traces
-	api.HandleFunc("POST /api/traces", handler.GetTraces)
+	api.HandleFunc("POST /api/traces", legacyHandler.GetTraces)
 
 	// API routes - Metrics
-	api.HandleFunc("POST /api/metrics/component/http", handler.GetComponentHTTPMetrics)
-	api.HandleFunc("POST /api/metrics/component/usage", handler.GetComponentResourceMetrics)
+	api.HandleFunc("POST /api/metrics/component/http", legacyHandler.GetComponentHTTPMetrics)
+	api.HandleFunc("POST /api/metrics/component/usage", legacyHandler.GetComponentResourceMetrics)
 
 	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
 	mcpMiddleware := initMCPMiddleware(logger)
 	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
-	mcpRoutes.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))
+	mcpRoutes.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: legacyLoggingService}))
 
 	// Create HTTP server
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
