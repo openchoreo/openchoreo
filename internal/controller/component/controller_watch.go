@@ -46,7 +46,7 @@ func (r *Reconciler) setupTraitsRefIndex(ctx context.Context, mgr ctrl.Manager) 
 	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Component{},
 		traitsIndex, func(obj client.Object) []string {
 			comp := obj.(*openchoreov1alpha1.Component)
-			keys := []string{}
+			keys := make([]string, 0, len(comp.Spec.Traits))
 			for _, trait := range comp.Spec.Traits {
 				kind := trait.Kind
 				if kind == "" {

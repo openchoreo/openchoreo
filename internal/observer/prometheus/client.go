@@ -59,7 +59,7 @@ func NewClient(cfg *config.PrometheusConfig, logger *slog.Logger) (*Client, erro
 		Address: cfg.Address,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create prometheus client: %w", err)
+		return nil, fmt.Errorf("failed to create prometheus client: %w", err)
 	}
 
 	v1api := v1.NewAPI(client)

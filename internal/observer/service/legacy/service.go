@@ -295,7 +295,7 @@ func (s *LoggingService) getComponentApplicationLogsFromBackend(ctx context.Cont
 	result, err := s.logsBackend.GetComponentApplicationLogs(ctx, params)
 	if err != nil {
 		s.logger.Error("Failed to get component logs from backend", "error", err)
-		return nil, fmt.Errorf("Failed to get component logs from backend: %w", err)
+		return nil, fmt.Errorf("failed to get component logs from backend: %w", err)
 	}
 
 	s.logger.Debug("Component logs retrieved from backend",

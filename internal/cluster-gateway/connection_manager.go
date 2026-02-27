@@ -326,7 +326,7 @@ func (cm *ConnectionManager) GetAll() []*AgentConnection {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 
-	var connections []*AgentConnection
+	connections := make([]*AgentConnection, 0, len(cm.connections))
 	for _, conns := range cm.connections {
 		connections = append(connections, conns...)
 	}

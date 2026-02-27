@@ -78,14 +78,14 @@ func generateHelpError(cmdType CommandType, resource ResourceType, fields map[st
 		}
 	}
 
-	errMsg.WriteString(fmt.Sprintf("Missing required parameter%s: --%s\n\n",
-		pluralS(len(missingFields)), strings.Join(missingFields, ", --")))
+	fmt.Fprintf(&errMsg, "Missing required parameter%s: --%s\n\n",
+		pluralS(len(missingFields)), strings.Join(missingFields, ", --"))
 
 	errMsg.WriteString("To see usage details:\n")
 	if resource == "" {
-		errMsg.WriteString(fmt.Sprintf("  occ %s -h", cmdType))
+		fmt.Fprintf(&errMsg, "  occ %s -h", cmdType)
 	} else {
-		errMsg.WriteString(fmt.Sprintf("  occ %s %s -h", cmdType, resource))
+		fmt.Fprintf(&errMsg, "  occ %s %s -h", cmdType, resource)
 	}
 
 	return fmt.Errorf("%s", errMsg.String())

@@ -185,9 +185,7 @@ func (r *Reconciler) deleteExternalResourcesAndWait(ctx context.Context, project
 }
 
 func (r *Reconciler) makeExternalResourceHandlers() []dataplane.ResourceHandler[dataplane.ProjectContext] {
-	var handlers []dataplane.ResourceHandler[dataplane.ProjectContext]
-
-	handlers = append(handlers, k8sintegrations.NewNamespaceHandler(r.Client))
-
-	return handlers
+	return []dataplane.ResourceHandler[dataplane.ProjectContext]{
+		k8sintegrations.NewNamespaceHandler(r.Client),
+	}
 }

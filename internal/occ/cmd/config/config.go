@@ -186,7 +186,7 @@ func (c *Config) UpdateContext(params UpdateContextParams) error {
 			}
 		}
 		if !credExists {
-			return fmt.Errorf("credentials %q do not exist.", params.Credentials)
+			return fmt.Errorf("credentials %q do not exist", params.Credentials)
 		}
 	}
 

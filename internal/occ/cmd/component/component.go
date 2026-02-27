@@ -35,7 +35,7 @@ func New() *Component {
 }
 
 // List lists all components in a project
-func (l *Component) List(params ListParams) error {
+func (cp *Component) List(params ListParams) error {
 	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponent, params); err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (l *Component) ListWorkflowRuns(params ListWorkflowRunsParams) error {
 }
 
 // Get retrieves a single component and outputs it as YAML
-func (l *Component) Get(params GetParams) error {
+func (cp *Component) Get(params GetParams) error {
 	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponent, params); err != nil {
 		return err
 	}
@@ -163,7 +163,7 @@ func (l *Component) Get(params GetParams) error {
 }
 
 // Delete deletes a single component
-func (l *Component) Delete(params DeleteParams) error {
+func (cp *Component) Delete(params DeleteParams) error {
 	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceComponent, params); err != nil {
 		return err
 	}
@@ -184,12 +184,12 @@ func (l *Component) Delete(params DeleteParams) error {
 }
 
 // Scaffold generates a scaffold YAML for a component based on its ComponentType and optional Traits and Workflow
-func (i *Component) Scaffold(params ScaffoldParams) error {
+func (cp *Component) Scaffold(params ScaffoldParams) error {
 	return scaffoldComponent(params)
 }
 
 // Deploy deploys or promotes a component
-func (d *Component) Deploy(params DeployParams) error {
+func (cp *Component) Deploy(params DeployParams) error {
 	// Validate required params
 	if err := validation.ValidateParams(validation.CmdDeploy, validation.ResourceComponent, params); err != nil {
 		return err
@@ -208,13 +208,13 @@ func (d *Component) Deploy(params DeployParams) error {
 	// Check if this is a promotion or initial deployment
 	if params.To != "" {
 		// Promotion flow
-		binding, bindingName, err = d.promoteComponent(ctx, c, params)
+		binding, bindingName, err = cp.promoteComponent(ctx, c, params)
 		if err != nil {
 			return err
 		}
 	} else {
 		// Deploy to lowest environment in the pipeline
-		binding, bindingName, err = d.deployComponent(ctx, c, params)
+		binding, bindingName, err = cp.deployComponent(ctx, c, params)
 		if err != nil {
 			return err
 		}
@@ -223,7 +223,7 @@ func (d *Component) Deploy(params DeployParams) error {
 	// Apply overrides if provided
 	// TODO: Update the deploy and promote API to accept overrides directly so we don't have to do a separate PATCH call here
 	if len(params.Set) > 0 {
-		binding, err = d.applyOverrides(ctx, c, params, bindingName, binding)
+		binding, err = cp.applyOverrides(ctx, c, params, bindingName, binding)
 		if err != nil {
 			return err
 		}
@@ -243,7 +243,7 @@ func (d *Component) Deploy(params DeployParams) error {
 }
 
 // deployComponent deploys a component to the lowest environment in the pipeline
-func (d *Component) deployComponent(ctx context.Context, c *client.Client, params DeployParams) (*gen.ReleaseBinding, string, error) {
+func (cp *Component) deployComponent(ctx context.Context, c *client.Client, params DeployParams) (*gen.ReleaseBinding, string, error) {
 	releaseName := params.Release
 
 	// If no release specified, generate a new one
@@ -267,7 +267,7 @@ func (d *Component) deployComponent(ctx context.Context, c *client.Client, param
 }
 
 // promoteComponent promotes a component to the target environment
-func (d *Component) promoteComponent(ctx context.Context, c *client.Client, params DeployParams) (*gen.ReleaseBinding, string, error) {
+func (cp *Component) promoteComponent(ctx context.Context, c *client.Client, params DeployParams) (*gen.ReleaseBinding, string, error) {
 	project, err := c.GetProject(ctx, params.Namespace, params.Project)
 	if err != nil {
 		return nil, "", err
@@ -282,7 +282,7 @@ func (d *Component) promoteComponent(ctx context.Context, c *client.Client, para
 		return nil, "", err
 	}
 
-	sourceEnv, err := d.findSourceEnvironment(pipeline, params.To)
+	sourceEnv, err := cp.findSourceEnvironment(pipeline, params.To)
 	if err != nil {
 		return nil, "", err
 	}
@@ -299,7 +299,7 @@ func (d *Component) promoteComponent(ctx context.Context, c *client.Client, para
 }
 
 // findSourceEnvironment finds the source environment for a given target environment in the pipeline
-func (d *Component) findSourceEnvironment(pipeline *gen.DeploymentPipeline, targetEnv string) (string, error) {
+func (cp *Component) findSourceEnvironment(pipeline *gen.DeploymentPipeline, targetEnv string) (string, error) {
 	if pipeline.Spec == nil || pipeline.Spec.PromotionPaths == nil || len(*pipeline.Spec.PromotionPaths) == 0 {
 		return "", fmt.Errorf("deployment pipeline has no promotion paths")
 	}
@@ -317,7 +317,7 @@ func (d *Component) findSourceEnvironment(pipeline *gen.DeploymentPipeline, targ
 }
 
 // applyOverrides applies override values to the release binding by merging with existing values
-func (d *Component) applyOverrides(ctx context.Context, c *client.Client, params DeployParams, bindingName string, existingBinding *gen.ReleaseBinding) (*gen.ReleaseBinding, error) {
+func (cp *Component) applyOverrides(ctx context.Context, c *client.Client, params DeployParams, bindingName string, existingBinding *gen.ReleaseBinding) (*gen.ReleaseBinding, error) {
 	// Merge --set values with existing binding using sjson
 	merged, err := mergeOverridesWithBinding(existingBinding, params.Set)
 	if err != nil {

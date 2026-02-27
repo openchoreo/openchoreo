@@ -563,7 +563,7 @@ func makeConfigEnvList(containerConfig map[string]any, prefix string) []map[stri
 		return []map[string]any{}
 	}
 
-	result := make([]map[string]any, 0)
+	result := make([]map[string]any, 0, 1)
 
 	configs, ok := containerConfig["configs"].(map[string]any)
 	if !ok {
@@ -611,7 +611,7 @@ func makeSecretEnvList(containerConfig map[string]any, prefix string) []map[stri
 		return []map[string]any{}
 	}
 
-	result := make([]map[string]any, 0)
+	result := make([]map[string]any, 0, 1)
 
 	secrets, ok := containerConfig["secrets"].(map[string]any)
 	if !ok {

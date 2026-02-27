@@ -82,7 +82,7 @@ func GetNextVersionNumber(outputDir, componentName, dateStr string) (string, err
 
 	// Find all release files for this component and date
 	prefix := fmt.Sprintf("%s-%s-", componentName, dateStr)
-	var maxVersion int = 0
+	var maxVersion int
 
 	for _, entry := range entries {
 		if entry.IsDir() {

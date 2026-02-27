@@ -117,9 +117,9 @@ func (d *DeploymentPipelineResource) CreateDeploymentPipeline(params api.CreateD
 	k8sName := resources.GenerateResourceName(params.Namespace, params.Name)
 
 	// Convert promotion paths from API params to CR structure
-	promotionPaths := []openchoreov1alpha1.PromotionPath{}
+	promotionPaths := make([]openchoreov1alpha1.PromotionPath, 0, len(params.PromotionPaths))
 	for _, path := range params.PromotionPaths {
-		targetEnvRefs := []openchoreov1alpha1.TargetEnvironmentRef{}
+		targetEnvRefs := make([]openchoreov1alpha1.TargetEnvironmentRef, 0, len(path.TargetEnvironments))
 		for _, target := range path.TargetEnvironments {
 			targetEnvRefs = append(targetEnvRefs, openchoreov1alpha1.TargetEnvironmentRef{
 				Name:                     target.Name,

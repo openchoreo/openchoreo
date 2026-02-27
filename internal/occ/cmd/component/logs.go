@@ -17,7 +17,7 @@ import (
 )
 
 // Logs fetches and displays logs for a component
-func (c *Component) Logs(params LogsParams) error {
+func (cp *Component) Logs(params LogsParams) error {
 	ctx := context.Background()
 
 	// Create API client
@@ -97,14 +97,14 @@ func (c *Component) Logs(params LogsParams) error {
 	}
 
 	if params.Follow {
-		return c.followLogs(ctx, observerURL, credential.Token, componentUID, environmentUID, params, startTime, endTime)
+		return cp.followLogs(ctx, observerURL, credential.Token, componentUID, environmentUID, params, startTime, endTime)
 	}
 
-	return c.fetchAndPrintLogs(ctx, observerURL, credential.Token, componentUID, environmentUID, params, startTime, endTime)
+	return cp.fetchAndPrintLogs(ctx, observerURL, credential.Token, componentUID, environmentUID, params, startTime, endTime)
 }
 
 // fetchAndPrintLogs fetches logs for a given time range and prints them
-func (c *Component) fetchAndPrintLogs(
+func (cp *Component) fetchAndPrintLogs(
 	ctx context.Context,
 	observerURL string,
 	token string,
@@ -114,7 +114,7 @@ func (c *Component) fetchAndPrintLogs(
 	startTime time.Time,
 	endTime time.Time,
 ) error {
-	logs, err := c.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
+	logs, err := cp.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (c *Component) fetchAndPrintLogs(
 }
 
 // followLogs continuously fetches and prints new logs
-func (c *Component) followLogs(
+func (cp *Component) followLogs(
 	ctx context.Context,
 	observerURL string,
 	token string,
@@ -142,7 +142,7 @@ func (c *Component) followLogs(
 	defer stop()
 
 	// Initial fetch
-	logs, err := c.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
+	logs, err := cp.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (c *Component) followLogs(
 		case <-ticker.C:
 			endTime = time.Now()
 
-			logs, err := c.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
+			logs, err := cp.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
 			if err != nil {
 				// Check if context was cancelled
 				if ctx.Err() != nil {
@@ -205,7 +205,7 @@ func (c *Component) followLogs(
 }
 
 // fetchLogs makes an HTTP request to the observer to fetch logs
-func (c *Component) fetchLogs(
+func (cp *Component) fetchLogs(
 	ctx context.Context,
 	observerURL string,
 	token string,

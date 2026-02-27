@@ -45,12 +45,12 @@ func (p *LogsBackend) GetComponentApplicationLogs(ctx context.Context, params ob
 
 	requestBody, err := json.Marshal(params)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(requestBody))
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create HTTP request for component logs to logs backend: %w", err)
+		return nil, fmt.Errorf("failed to create HTTP request for component logs to logs backend: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")

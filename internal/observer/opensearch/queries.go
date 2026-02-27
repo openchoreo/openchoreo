@@ -87,7 +87,7 @@ func addSearchPhraseFilter(mustConditions []map[string]interface{}, searchPhrase
 // addLogLevelFilter adds log level filter to must conditions
 func addLogLevelFilter(mustConditions []map[string]interface{}, logLevels []string) []map[string]interface{} {
 	if len(logLevels) > 0 {
-		shouldConditions := []map[string]interface{}{}
+		shouldConditions := make([]map[string]interface{}, 0, len(logLevels))
 
 		for _, logLevel := range logLevels {
 			// Use wildcard query since the log field is mapped as wildcard type in OpenSearch
@@ -361,7 +361,7 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params ComponentQueryParams) map
 
 	// Add version filters as "should" conditions
 	if len(params.Versions) > 0 || len(params.VersionIDs) > 0 {
-		shouldConditions := []map[string]interface{}{}
+		shouldConditions := make([]map[string]interface{}, 0, len(params.Versions)+len(params.VersionIDs))
 
 		for _, version := range params.Versions {
 			shouldConditions = append(shouldConditions, map[string]interface{}{
@@ -426,7 +426,7 @@ func (qb *QueryBuilder) BuildProjectLogsQuery(params QueryParams, componentIDs [
 
 	// Add component ID filters as "should" conditions
 	if len(componentIDs) > 0 {
-		shouldConditions := []map[string]interface{}{}
+		shouldConditions := make([]map[string]interface{}, 0, len(componentIDs))
 
 		for _, componentID := range componentIDs {
 			shouldConditions = append(shouldConditions, map[string]interface{}{
@@ -479,7 +479,7 @@ func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[str
 
 	// Add gateway vhost filters
 	if len(params.GatewayVHosts) > 0 {
-		shouldConditions := []map[string]interface{}{}
+		shouldConditions := make([]map[string]interface{}, 0, len(params.GatewayVHosts))
 
 		for _, vhost := range params.GatewayVHosts {
 			shouldConditions = append(shouldConditions, map[string]interface{}{
@@ -497,7 +497,7 @@ func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[str
 
 	// Add API ID filters
 	if len(params.APIIDToVersionMap) > 0 {
-		apiShouldConditions := []map[string]interface{}{}
+		apiShouldConditions := make([]map[string]interface{}, 0, len(params.APIIDToVersionMap))
 
 		for apiID := range params.APIIDToVersionMap {
 			apiShouldConditions = append(apiShouldConditions, map[string]interface{}{
@@ -674,7 +674,7 @@ func (qb *QueryBuilder) BuildTracesQuery(params TracesRequestParams) map[string]
 
 	// Add ComponentUIDs filter if present
 	if len(params.ComponentUIDs) > 0 {
-		shouldConditions := []map[string]interface{}{}
+		shouldConditions := make([]map[string]interface{}, 0, len(params.ComponentUIDs))
 		for _, componentUID := range params.ComponentUIDs {
 			shouldConditions = append(shouldConditions, map[string]interface{}{
 				"term": map[string]interface{}{

@@ -53,14 +53,15 @@ func (e *Engine) makeWorkflowSpec(build *openchoreov1alpha1.Build) argoproj.Work
 
 // buildWorkflowParameters constructs the parameters for the workflow
 func (e *Engine) buildWorkflowParameters(build *openchoreov1alpha1.Build) []argoproj.Parameter {
-	parameters := []argoproj.Parameter{
+	parameters := make([]argoproj.Parameter, 0, 8+len(build.Spec.TemplateRef.Parameters))
+	parameters = append(parameters,
 		e.createParameter("project-name", build.Spec.Owner.ProjectName),
 		e.createParameter("component-name", build.Spec.Owner.ComponentName),
 		e.createParameter("git-repo", build.Spec.Repository.URL),
 		e.createParameter("app-path", build.Spec.Repository.AppPath),
 		e.createParameter("image-name", names.MakeImageName(build)),
 		e.createParameter("image-tag", names.MakeImageTag(build)),
-	}
+	)
 
 	commit := build.Spec.Repository.Revision.Commit
 	branch := build.Spec.Repository.Revision.Branch
