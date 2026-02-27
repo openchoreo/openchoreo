@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -134,10 +135,17 @@ func TestLogsBackend_GetComponentApplicationLogs_InvalidJSON(t *testing.T) {
 }
 
 func TestLogsBackend_GetComponentApplicationLogs_ConnectionRefused(t *testing.T) {
-	// Use a port that should not be listening
-	backend := newTestLogsBackend("http://127.0.0.1:19299")
+	// Grab an ephemeral port that nothing is listening on
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to allocate ephemeral port: %v", err)
+	}
+	addr := ln.Addr().String()
+	_ = ln.Close() // close immediately so the port is not listening
 
-	_, err := backend.GetComponentApplicationLogs(context.Background(), observability.ComponentApplicationLogsParams{
+	backend := newTestLogsBackend("http://" + addr)
+
+	_, err = backend.GetComponentApplicationLogs(context.Background(), observability.ComponentApplicationLogsParams{
 		StartTime: time.Now().Add(-1 * time.Hour),
 		EndTime:   time.Now(),
 	})
@@ -235,9 +243,17 @@ func TestLogsBackend_GetWorkflowLogs_InvalidJSON(t *testing.T) {
 }
 
 func TestLogsBackend_GetWorkflowLogs_ConnectionRefused(t *testing.T) {
-	backend := newTestLogsBackend("http://127.0.0.1:19298")
+	// Grab an ephemeral port that nothing is listening on
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to allocate ephemeral port: %v", err)
+	}
+	addr := ln.Addr().String()
+	_ = ln.Close() // close immediately so the port is not listening
 
-	_, err := backend.GetWorkflowLogs(context.Background(), observability.WorkflowLogsParams{
+	backend := newTestLogsBackend("http://" + addr)
+
+	_, err = backend.GetWorkflowLogs(context.Background(), observability.WorkflowLogsParams{
 		StartTime: time.Now().Add(-1 * time.Hour),
 		EndTime:   time.Now(),
 	})

@@ -191,7 +191,7 @@ func (a *DefaultLogsAdaptor) GetWorkflowLogs(
 			LogLevel:      osEntry.LogLevel,
 			PodNamespace:  osEntry.PodNamespace,
 			PodID:         osEntry.PodID,
-			PodName:       osEntry.PodID, // PodID contains the pod name from OpenSearch
+			PodName:       osEntry.PodName,
 			ContainerName: osEntry.ContainerName,
 			Labels:        osEntry.Labels,
 		})

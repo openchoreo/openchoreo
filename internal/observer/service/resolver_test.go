@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -70,7 +71,7 @@ func newTestResolver(t *testing.T, apiURL, tokenURL string) *ResourceResolver {
 
 func TestResourceResolver_GetNamespaceUID_Empty(t *testing.T) {
 	resolver := newTestResolver(t, "", "")
-	uid := resolver.GetNamespaceUID("")
+	uid := resolver.GetNamespaceUID(context.Background(), "")
 	if uid != "" {
 		t.Errorf("expected empty string for empty namespace, got %q", uid)
 	}
@@ -85,7 +86,7 @@ func TestResourceResolver_GetNamespaceUID_Success(t *testing.T) {
 
 	resolver := newTestResolver(t, apiSrv.URL, tokenSrv.URL)
 
-	uid := resolver.GetNamespaceUID("my-namespace")
+	uid := resolver.GetNamespaceUID(context.Background(), "my-namespace")
 	if uid != "ns-uid-123" {
 		t.Errorf("uid = %q, want %q", uid, "ns-uid-123")
 	}
@@ -100,7 +101,7 @@ func TestResourceResolver_GetNamespaceUID_APIError_FallsBackToName(t *testing.T)
 
 	resolver := newTestResolver(t, apiSrv.URL, tokenSrv.URL)
 
-	uid := resolver.GetNamespaceUID("fallback-ns")
+	uid := resolver.GetNamespaceUID(context.Background(), "fallback-ns")
 	if uid != "fallback-ns" {
 		t.Errorf("uid = %q, want %q (fallback to name)", uid, "fallback-ns")
 	}
@@ -109,7 +110,7 @@ func TestResourceResolver_GetNamespaceUID_APIError_FallsBackToName(t *testing.T)
 func TestResourceResolver_GetNamespaceUID_NoAPIURL_FallsBackToName(t *testing.T) {
 	resolver := newTestResolver(t, "", "")
 
-	uid := resolver.GetNamespaceUID("my-ns")
+	uid := resolver.GetNamespaceUID(context.Background(), "my-ns")
 	if uid != "my-ns" {
 		t.Errorf("uid = %q, want %q (fallback)", uid, "my-ns")
 	}
@@ -132,8 +133,8 @@ func TestResourceResolver_GetNamespaceUID_Caching(t *testing.T) {
 	resolver := newTestResolver(t, apiSrv.URL, tokenSrv.URL)
 
 	// Call twice — second should hit cache, not API
-	uid1 := resolver.GetNamespaceUID("ns")
-	uid2 := resolver.GetNamespaceUID("ns")
+	uid1 := resolver.GetNamespaceUID(context.Background(), "ns")
+	uid2 := resolver.GetNamespaceUID(context.Background(), "ns")
 
 	if uid1 != cachedUID || uid2 != cachedUID {
 		t.Errorf("expected cached-uid, got %q and %q", uid1, uid2)
@@ -150,7 +151,7 @@ func TestResourceResolver_GetNamespaceUID_Caching(t *testing.T) {
 
 func TestResourceResolver_GetProjectUID_Empty(t *testing.T) {
 	resolver := newTestResolver(t, "", "")
-	uid := resolver.GetProjectUID("ns", "")
+	uid := resolver.GetProjectUID(context.Background(), "ns", "")
 	if uid != "" {
 		t.Errorf("expected empty string for empty project, got %q", uid)
 	}
@@ -165,7 +166,7 @@ func TestResourceResolver_GetProjectUID_Success(t *testing.T) {
 
 	resolver := newTestResolver(t, apiSrv.URL, tokenSrv.URL)
 
-	uid := resolver.GetProjectUID("ns", "my-project")
+	uid := resolver.GetProjectUID(context.Background(), "ns", "my-project")
 	if uid != "proj-uid-456" {
 		t.Errorf("uid = %q, want %q", uid, "proj-uid-456")
 	}
@@ -174,7 +175,7 @@ func TestResourceResolver_GetProjectUID_Success(t *testing.T) {
 func TestResourceResolver_GetProjectUID_Fallback(t *testing.T) {
 	resolver := newTestResolver(t, "", "")
 
-	uid := resolver.GetProjectUID("ns", "proj")
+	uid := resolver.GetProjectUID(context.Background(), "ns", "proj")
 	if uid != "proj" {
 		t.Errorf("uid = %q, want %q (fallback)", uid, "proj")
 	}
@@ -186,7 +187,7 @@ func TestResourceResolver_GetProjectUID_Fallback(t *testing.T) {
 
 func TestResourceResolver_GetComponentUID_Empty(t *testing.T) {
 	resolver := newTestResolver(t, "", "")
-	uid := resolver.GetComponentUID("ns", "proj", "")
+	uid := resolver.GetComponentUID(context.Background(), "ns", "proj", "")
 	if uid != "" {
 		t.Errorf("expected empty string for empty component, got %q", uid)
 	}
@@ -201,7 +202,7 @@ func TestResourceResolver_GetComponentUID_Success(t *testing.T) {
 
 	resolver := newTestResolver(t, apiSrv.URL, tokenSrv.URL)
 
-	uid := resolver.GetComponentUID("ns", "proj", "my-component")
+	uid := resolver.GetComponentUID(context.Background(), "ns", "proj", "my-component")
 	if uid != "comp-uid-789" {
 		t.Errorf("uid = %q, want %q", uid, "comp-uid-789")
 	}
@@ -210,7 +211,7 @@ func TestResourceResolver_GetComponentUID_Success(t *testing.T) {
 func TestResourceResolver_GetComponentUID_Fallback(t *testing.T) {
 	resolver := newTestResolver(t, "", "")
 
-	uid := resolver.GetComponentUID("ns", "proj", "comp")
+	uid := resolver.GetComponentUID(context.Background(), "ns", "proj", "comp")
 	if uid != "comp" {
 		t.Errorf("uid = %q, want %q (fallback)", uid, "comp")
 	}
@@ -222,7 +223,7 @@ func TestResourceResolver_GetComponentUID_Fallback(t *testing.T) {
 
 func TestResourceResolver_GetEnvironmentUID_Empty(t *testing.T) {
 	resolver := newTestResolver(t, "", "")
-	uid := resolver.GetEnvironmentUID("ns", "")
+	uid := resolver.GetEnvironmentUID(context.Background(), "ns", "")
 	if uid != "" {
 		t.Errorf("expected empty string for empty environment, got %q", uid)
 	}
@@ -237,7 +238,7 @@ func TestResourceResolver_GetEnvironmentUID_Success(t *testing.T) {
 
 	resolver := newTestResolver(t, apiSrv.URL, tokenSrv.URL)
 
-	uid := resolver.GetEnvironmentUID("ns", "dev")
+	uid := resolver.GetEnvironmentUID(context.Background(), "ns", "dev")
 	if uid != "env-uid-abc" {
 		t.Errorf("uid = %q, want %q", uid, "env-uid-abc")
 	}
@@ -246,7 +247,7 @@ func TestResourceResolver_GetEnvironmentUID_Success(t *testing.T) {
 func TestResourceResolver_GetEnvironmentUID_Fallback(t *testing.T) {
 	resolver := newTestResolver(t, "", "")
 
-	uid := resolver.GetEnvironmentUID("ns", "prod")
+	uid := resolver.GetEnvironmentUID(context.Background(), "ns", "prod")
 	if uid != "prod" {
 		t.Errorf("uid = %q, want %q (fallback)", uid, "prod")
 	}
@@ -345,7 +346,7 @@ func TestResourceResolver_FetchAccessToken_EmptyToken(t *testing.T) {
 func TestResourceResolver_FetchResourceUID_NoURL(t *testing.T) {
 	resolver := newTestResolver(t, "", "")
 
-	_, err := resolver.fetchResourceUID("/api/v1/namespaces/ns")
+	_, err := resolver.fetchResourceUID(context.Background(), "/api/v1/namespaces/ns")
 	if err == nil {
 		t.Error("expected error when API URL is not configured")
 	}
@@ -366,7 +367,7 @@ func TestResourceResolver_FetchResourceUID_EmptyUID(t *testing.T) {
 
 	resolver := newTestResolver(t, apiSrv.URL, tokenSrv.URL)
 
-	_, err := resolver.fetchResourceUID("/api/v1/namespaces/ns")
+	_, err := resolver.fetchResourceUID(context.Background(), "/api/v1/namespaces/ns")
 	if err == nil {
 		t.Error("expected error when uid is empty in response")
 	}

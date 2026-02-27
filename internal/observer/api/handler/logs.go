@@ -103,6 +103,11 @@ func (h *Handler) QueryLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	if h.logsService == nil {
+		h.logger.Error("Logs service not initialized")
+		h.writeErrorResponse(w, http.StatusInternalServerError, types.ErrorTypeInternal, types.ErrorCodeInternalError, "Logs service not initialized")
+		return
+	}
 	result, err := h.logsService.QueryLogs(ctx, &req)
 	if err != nil {
 		h.logger.Error("Failed to query logs", "error", err)

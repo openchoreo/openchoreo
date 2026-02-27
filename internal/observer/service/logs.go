@@ -83,7 +83,10 @@ func (s *LogsService) QueryLogs(ctx context.Context, req *types.LogsQueryRequest
 		"useLogsBackend", s.config.Experimental.UseLogsBackend)
 
 	// Convert request to internal representation with resolved UIDs
-	scope := s.resolveSearchScope(req.SearchScope)
+	scope, err := s.resolveSearchScopeWithContext(ctx, req.SearchScope)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve search scope: %w", err)
+	}
 
 	// Parse time parameters
 	startTime, err := time.Parse(time.RFC3339, req.StartTime)
@@ -329,9 +332,15 @@ func (s *LogsService) convertWorkflowLogsToResponse(
 }
 
 // resolveSearchScope converts search scope to internal representation with resolved UIDs
-func (s *LogsService) resolveSearchScope(searchScope *types.SearchScope) *internalSearchScope {
+func (s *LogsService) resolveSearchScope(searchScope *types.SearchScope) (*internalSearchScope, error) {
+	return s.resolveSearchScopeWithContext(context.Background(), searchScope)
+}
+
+// resolveSearchScopeWithContext converts search scope to internal representation with resolved UIDs,
+// passing the provided context through to resolver calls.
+func (s *LogsService) resolveSearchScopeWithContext(ctx context.Context, searchScope *types.SearchScope) (*internalSearchScope, error) {
 	if searchScope == nil {
-		return &internalSearchScope{}
+		return nil, fmt.Errorf("searchScope must not be nil")
 	}
 
 	if searchScope.Workflow != nil {
@@ -340,19 +349,19 @@ func (s *LogsService) resolveSearchScope(searchScope *types.SearchScope) *intern
 			NamespaceName:   scope.Namespace,
 			WorkflowRunName: scope.WorkflowRunName,
 			IsWorkflowScope: true,
-		}
+		}, nil
 	}
 
 	if searchScope.Component != nil {
 		scope := searchScope.Component
 		return &internalSearchScope{
 			NamespaceName:   scope.Namespace,
-			ProjectUID:      s.resolver.GetProjectUID(scope.Namespace, scope.Project),
-			ComponentUID:    s.resolver.GetComponentUID(scope.Namespace, scope.Project, scope.Component),
-			EnvironmentUID:  s.resolver.GetEnvironmentUID(scope.Namespace, scope.Environment),
+			ProjectUID:      s.resolver.GetProjectUID(ctx, scope.Namespace, scope.Project),
+			ComponentUID:    s.resolver.GetComponentUID(ctx, scope.Namespace, scope.Project, scope.Component),
+			EnvironmentUID:  s.resolver.GetEnvironmentUID(ctx, scope.Namespace, scope.Environment),
 			IsWorkflowScope: false,
-		}
+		}, nil
 	}
 
-	return &internalSearchScope{}
+	return nil, fmt.Errorf("searchScope must specify either a component or workflow scope")
 }

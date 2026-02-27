@@ -75,6 +75,7 @@ func TestQueryLogs_EmptyBody(t *testing.T) {
 	h := newTestHandler(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", nil)
+	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
 	h.QueryLogs(w, req)
@@ -216,7 +217,7 @@ func TestQueryLogs_AuthzSkippedWithNilPDP_ComponentScope(t *testing.T) {
 		defer func() {
 			// If a panic occurs it means we got past authz and hit the nil service.
 			// That is acceptable behavior for this boundary test.
-			recover() //nolint:errcheck
+			_ = recover()
 		}()
 		h.QueryLogs(w, req)
 	}()
@@ -240,7 +241,7 @@ func TestQueryLogs_AuthzSkippedWithNilPDP_WorkflowScope(t *testing.T) {
 
 	func() {
 		defer func() {
-			recover() //nolint:errcheck
+			_ = recover()
 		}()
 		h.QueryLogs(w, req)
 	}()
@@ -264,7 +265,7 @@ func TestQueryLogs_AuthzSkippedWithNilPDP_NamespaceOnlyScope(t *testing.T) {
 
 	func() {
 		defer func() {
-			recover() //nolint:errcheck
+			_ = recover()
 		}()
 		h.QueryLogs(w, req)
 	}()

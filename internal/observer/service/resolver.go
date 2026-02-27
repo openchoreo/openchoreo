@@ -49,6 +49,9 @@ type ResourceResolver struct {
 
 // NewResourceResolver creates a new ResourceResolver instance
 func NewResourceResolver(cfg *config.ResolverConfig, logger *slog.Logger) *ResourceResolver {
+	if cfg.Timeout == 0 {
+		cfg.Timeout = 30 * time.Second
+	}
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			MinVersion:         tls.VersionTLS12,
@@ -56,23 +59,18 @@ func NewResourceResolver(cfg *config.ResolverConfig, logger *slog.Logger) *Resou
 		},
 	}
 
-	timeout := cfg.Timeout
-	if timeout == 0 {
-		timeout = 30 * time.Second
-	}
-
 	return &ResourceResolver{
 		config: cfg,
 		httpClient: &http.Client{
 			Transport: transport,
-			Timeout:   timeout,
+			Timeout:   cfg.Timeout,
 		},
 		logger: logger,
 	}
 }
 
 // GetNamespaceUID resolves a namespace name to its UID
-func (r *ResourceResolver) GetNamespaceUID(namespaceName string) string {
+func (r *ResourceResolver) GetNamespaceUID(ctx context.Context, namespaceName string) string {
 	if namespaceName == "" {
 		return ""
 	}
@@ -84,7 +82,7 @@ func (r *ResourceResolver) GetNamespaceUID(namespaceName string) string {
 
 	// Call API: GET /api/v1/namespaces/{namespaceName}
 	path := fmt.Sprintf("/api/v1/namespaces/%s", url.PathEscape(namespaceName))
-	uid, err := r.fetchResourceUID(path)
+	uid, err := r.fetchResourceUID(ctx, path)
 	if err != nil {
 		r.logger.Warn("Failed to resolve namespace UID, using name as fallback",
 			"namespace", namespaceName,
@@ -97,7 +95,7 @@ func (r *ResourceResolver) GetNamespaceUID(namespaceName string) string {
 }
 
 // GetProjectUID resolves a project name to its UID within a namespace
-func (r *ResourceResolver) GetProjectUID(namespaceName, projectName string) string {
+func (r *ResourceResolver) GetProjectUID(ctx context.Context, namespaceName, projectName string) string {
 	if projectName == "" {
 		return ""
 	}
@@ -111,7 +109,7 @@ func (r *ResourceResolver) GetProjectUID(namespaceName, projectName string) stri
 	path := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s",
 		url.PathEscape(namespaceName),
 		url.PathEscape(projectName))
-	uid, err := r.fetchResourceUID(path)
+	uid, err := r.fetchResourceUID(ctx, path)
 	if err != nil {
 		r.logger.Warn("Failed to resolve project UID, using name as fallback",
 			"namespace", namespaceName,
@@ -125,7 +123,7 @@ func (r *ResourceResolver) GetProjectUID(namespaceName, projectName string) stri
 }
 
 // GetComponentUID resolves a component name to its UID within a namespace and project
-func (r *ResourceResolver) GetComponentUID(namespaceName, projectName, componentName string) string {
+func (r *ResourceResolver) GetComponentUID(ctx context.Context, namespaceName, projectName, componentName string) string {
 	if componentName == "" {
 		return ""
 	}
@@ -140,7 +138,7 @@ func (r *ResourceResolver) GetComponentUID(namespaceName, projectName, component
 		url.PathEscape(namespaceName),
 		url.PathEscape(projectName),
 		url.PathEscape(componentName))
-	uid, err := r.fetchResourceUID(path)
+	uid, err := r.fetchResourceUID(ctx, path)
 	if err != nil {
 		r.logger.Warn("Failed to resolve component UID, using name as fallback",
 			"namespace", namespaceName,
@@ -155,7 +153,7 @@ func (r *ResourceResolver) GetComponentUID(namespaceName, projectName, component
 }
 
 // GetEnvironmentUID resolves an environment name to its UID within a namespace
-func (r *ResourceResolver) GetEnvironmentUID(namespaceName, environmentName string) string {
+func (r *ResourceResolver) GetEnvironmentUID(ctx context.Context, namespaceName, environmentName string) string {
 	if environmentName == "" {
 		return ""
 	}
@@ -169,7 +167,7 @@ func (r *ResourceResolver) GetEnvironmentUID(namespaceName, environmentName stri
 	path := fmt.Sprintf("/api/v1/namespaces/%s/environments/%s",
 		url.PathEscape(namespaceName),
 		url.PathEscape(environmentName))
-	uid, err := r.fetchResourceUID(path)
+	uid, err := r.fetchResourceUID(ctx, path)
 	if err != nil {
 		r.logger.Warn("Failed to resolve environment UID, using name as fallback",
 			"namespace", namespaceName,
@@ -183,7 +181,7 @@ func (r *ResourceResolver) GetEnvironmentUID(namespaceName, environmentName stri
 }
 
 // fetchResourceUID makes an HTTP GET request to the openchoreo-api and extracts data.uid
-func (r *ResourceResolver) fetchResourceUID(path string) (string, error) {
+func (r *ResourceResolver) fetchResourceUID(ctx context.Context, path string) (string, error) {
 	// Skip API call if not configured
 	if r.config.OpenChoreoAPIURL == "" {
 		return "", fmt.Errorf("openchoreo API URL not configured")
@@ -198,10 +196,10 @@ func (r *ResourceResolver) fetchResourceUID(path string) (string, error) {
 	// Build request URL
 	reqURL := strings.TrimSuffix(r.config.OpenChoreoAPIURL, "/") + path
 
-	ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
+	reqCtx, cancel := context.WithTimeout(ctx, r.config.Timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}

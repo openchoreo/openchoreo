@@ -88,7 +88,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
-                title: "badRequest"
+                title: "validation_error"
                 errorCode: "OBS-V1-001"
                 message: "Missing required fields 'startTime' and 'endTime'"
         "401":
@@ -118,7 +118,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
-                title: "internalServerError"
+                title: "internal_error"
                 errorCode: "OBS-V1-100"
                 message: ""
 
@@ -145,7 +145,7 @@ components:
           type: string
         workflowRunName:
           type: string
-      required: [namespace]
+      required: [namespace, workflowRunName]
 
     LogsQueryRequest:
       type: object
@@ -275,12 +275,13 @@ components:
       properties:
         title:
           type: string
-          description: The error message
+          description: The error type
           enum:
-            - badRequest
+            - validation_error
             - unauthorized
             - forbidden
-            - internalServerError
+            - internal_error
+            - not_found
         errorCode:
           type: string
           description: The error code from observer service

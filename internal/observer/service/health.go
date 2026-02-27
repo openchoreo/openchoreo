@@ -15,6 +15,9 @@ type HealthService struct {
 
 // NewHealthService creates a new HealthService instance
 func NewHealthService(logger *slog.Logger) *HealthService {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &HealthService{
 		logger: logger,
 	}

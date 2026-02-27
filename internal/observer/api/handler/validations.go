@@ -14,10 +14,15 @@ const (
 	defaultLimit     = 100
 	maxLimit         = 10000
 	defaultSortOrder = "desc"
+	maxTimeRange     = 30 * 24 * time.Hour // 30 days
 )
 
 // ValidateLogsQueryRequest validates the LogsQueryRequest
 func ValidateLogsQueryRequest(req *types.LogsQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request must not be nil")
+	}
+
 	// Validate search scope
 	if req.SearchScope == nil {
 		return fmt.Errorf("searchScope is required")
@@ -113,6 +118,10 @@ func ValidateTimeRange(startTime, endTime string) error {
 
 	if parsedEnd.Before(parsedStart) {
 		return fmt.Errorf("endTime must be after startTime")
+	}
+
+	if parsedEnd.Sub(parsedStart) > maxTimeRange {
+		return fmt.Errorf("time range cannot exceed 30 days")
 	}
 
 	return nil

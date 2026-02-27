@@ -17,10 +17,11 @@ const (
 
 // Defines values for ErrorResponseTitle.
 const (
-	BadRequest          ErrorResponseTitle = "badRequest"
-	Forbidden           ErrorResponseTitle = "forbidden"
-	InternalServerError ErrorResponseTitle = "internalServerError"
-	Unauthorized        ErrorResponseTitle = "unauthorized"
+	Forbidden       ErrorResponseTitle = "forbidden"
+	InternalError   ErrorResponseTitle = "internal_error"
+	NotFound        ErrorResponseTitle = "not_found"
+	Unauthorized    ErrorResponseTitle = "unauthorized"
+	ValidationError ErrorResponseTitle = "validation_error"
 )
 
 // Defines values for LogsQueryRequestSortOrder.
@@ -90,11 +91,11 @@ type ErrorResponse struct {
 	// Message Human-readable error message
 	Message *string `json:"message,omitempty"`
 
-	// Title The error message
+	// Title The error type
 	Title *ErrorResponseTitle `json:"title,omitempty"`
 }
 
-// ErrorResponseTitle The error message
+// ErrorResponseTitle The error type
 type ErrorResponseTitle string
 
 // LogsQueryRequest defines model for LogsQueryRequest.
@@ -160,8 +161,8 @@ type WorkflowLogEntry struct {
 
 // WorkflowSearchScope defines model for WorkflowSearchScope.
 type WorkflowSearchScope struct {
-	Namespace       string  `json:"namespace"`
-	WorkflowRunName *string `json:"workflowRunName,omitempty"`
+	Namespace       string `json:"namespace"`
+	WorkflowRunName string `json:"workflowRunName"`
 }
 
 // QueryLogsJSONRequestBody defines body for QueryLogs for application/json ContentType.

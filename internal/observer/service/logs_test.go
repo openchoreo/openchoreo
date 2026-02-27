@@ -42,13 +42,10 @@ func newTestLogsService(t *testing.T) *LogsService {
 
 func TestLogsService_ResolveSearchScope_NilScope(t *testing.T) {
 	svc := newTestLogsService(t)
-	scope := svc.resolveSearchScope(nil)
+	_, err := svc.resolveSearchScope(nil)
 
-	if scope == nil {
-		t.Fatal("expected non-nil internalSearchScope")
-	}
-	if scope.IsWorkflowScope {
-		t.Error("expected IsWorkflowScope=false for nil scope")
+	if err == nil {
+		t.Fatal("expected error for nil scope")
 	}
 }
 
@@ -62,7 +59,10 @@ func TestLogsService_ResolveSearchScope_WorkflowScope(t *testing.T) {
 		},
 	}
 
-	scope := svc.resolveSearchScope(searchScope)
+	scope, err := svc.resolveSearchScope(searchScope)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if !scope.IsWorkflowScope {
 		t.Error("expected IsWorkflowScope=true")
@@ -87,7 +87,10 @@ func TestLogsService_ResolveSearchScope_ComponentScope(t *testing.T) {
 		},
 	}
 
-	scope := svc.resolveSearchScope(searchScope)
+	scope, err := svc.resolveSearchScope(searchScope)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if scope.IsWorkflowScope {
 		t.Error("expected IsWorkflowScope=false for component scope")
@@ -116,7 +119,10 @@ func TestLogsService_ResolveSearchScope_EmptyComponentScope(t *testing.T) {
 		},
 	}
 
-	scope := svc.resolveSearchScope(searchScope)
+	scope, err := svc.resolveSearchScope(searchScope)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if scope.IsWorkflowScope {
 		t.Error("expected IsWorkflowScope=false")
@@ -336,8 +342,7 @@ func TestNewLogsService_FailsWithBadOpenSearchConfig(t *testing.T) {
 	// OpenSearch client creation does not fail if address is unreachable
 	// (it only fails on invalid config). So we expect no error here.
 	if err != nil {
-		t.Logf("NewLogsService returned error (expected in some envs): %v", err)
-		return
+		t.Fatalf("NewLogsService returned unexpected error: %v", err)
 	}
 	if svc == nil {
 		t.Error("expected non-nil LogsService")

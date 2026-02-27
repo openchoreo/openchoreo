@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/openchoreo/openchoreo/internal/observer/service"
@@ -84,8 +85,8 @@ func TestHandler_writeJSON(t *testing.T) {
 			}
 			if tt.wantBodySubstr != "" {
 				body := w.Body.String()
-				if len(body) == 0 {
-					t.Errorf("expected body containing %q, got empty body", tt.wantBodySubstr)
+				if !strings.Contains(body, tt.wantBodySubstr) {
+					t.Errorf("body %q does not contain %q", body, tt.wantBodySubstr)
 				}
 			}
 		})
