@@ -1071,6 +1071,7 @@ openchoreoApi:
                 - "dataplane:view"
                 - "environment:view"
                 - "trait:view"
+                - "workload:view"
                 - "buildplane:view"
                 - "clusterbuildplane:view"
                 - "workflow:view"
