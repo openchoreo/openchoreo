@@ -158,6 +158,17 @@ const (
 	CreateNamespaceRoleBindingRequestEffectDeny  CreateNamespaceRoleBindingRequestEffect = "deny"
 )
 
+// Defines values for EndpointURLStatusType.
+const (
+	EndpointURLStatusTypeGRPC      EndpointURLStatusType = "gRPC"
+	EndpointURLStatusTypeGraphQL   EndpointURLStatusType = "GraphQL"
+	EndpointURLStatusTypeHTTP      EndpointURLStatusType = "HTTP"
+	EndpointURLStatusTypeREST      EndpointURLStatusType = "REST"
+	EndpointURLStatusTypeTCP       EndpointURLStatusType = "TCP"
+	EndpointURLStatusTypeUDP       EndpointURLStatusType = "UDP"
+	EndpointURLStatusTypeWebsocket EndpointURLStatusType = "Websocket"
+)
+
 // Defines values for EnvironmentSpecDataPlaneRefKind.
 const (
 	EnvironmentSpecDataPlaneRefKindClusterDataPlane EnvironmentSpecDataPlaneRefKind = "ClusterDataPlane"
@@ -305,13 +316,13 @@ const (
 
 // Defines values for WorkloadEndpointType.
 const (
-	GRPC      WorkloadEndpointType = "gRPC"
-	GraphQL   WorkloadEndpointType = "GraphQL"
-	HTTP      WorkloadEndpointType = "HTTP"
-	REST      WorkloadEndpointType = "REST"
-	TCP       WorkloadEndpointType = "TCP"
-	UDP       WorkloadEndpointType = "UDP"
-	Websocket WorkloadEndpointType = "Websocket"
+	WorkloadEndpointTypeGRPC      WorkloadEndpointType = "gRPC"
+	WorkloadEndpointTypeGraphQL   WorkloadEndpointType = "GraphQL"
+	WorkloadEndpointTypeHTTP      WorkloadEndpointType = "HTTP"
+	WorkloadEndpointTypeREST      WorkloadEndpointType = "REST"
+	WorkloadEndpointTypeTCP       WorkloadEndpointType = "TCP"
+	WorkloadEndpointTypeUDP       WorkloadEndpointType = "UDP"
+	WorkloadEndpointTypeWebsocket WorkloadEndpointType = "Websocket"
 )
 
 // Defines values for WorkloadEndpointVisibility.
@@ -1586,6 +1597,57 @@ type DeploymentPipelineStatus struct {
 	Conditions *[]Condition `json:"conditions,omitempty"`
 }
 
+// EndpointGatewayURLs Resolved gateway URLs for an endpoint
+type EndpointGatewayURLs struct {
+	// Http Structured URL with its components
+	Http *EndpointURL `json:"http,omitempty"`
+
+	// Https Structured URL with its components
+	Https *EndpointURL `json:"https,omitempty"`
+
+	// Tls Structured URL with its components
+	Tls *EndpointURL `json:"tls,omitempty"`
+}
+
+// EndpointURL Structured URL with its components
+type EndpointURL struct {
+	// Host Hostname or IP address
+	Host string `json:"host"`
+
+	// Path URL path
+	Path *string `json:"path,omitempty"`
+
+	// Port Port number
+	Port *int32 `json:"port,omitempty"`
+
+	// Scheme URL scheme (http, https, tcp, udp, ws, wss, tls)
+	Scheme *string `json:"scheme,omitempty"`
+}
+
+// EndpointURLStatus Resolved URLs for a single named workload endpoint
+type EndpointURLStatus struct {
+	// ExternalURLs Resolved gateway URLs for an endpoint
+	ExternalURLs *EndpointGatewayURLs `json:"externalURLs,omitempty"`
+
+	// InternalURLs Resolved gateway URLs for an endpoint
+	InternalURLs *EndpointGatewayURLs `json:"internalURLs,omitempty"`
+
+	// InvokeURL Resolved public URL for this endpoint, derived from the rendered HTTPRoute
+	InvokeURL *string `json:"invokeURL,omitempty"`
+
+	// Name Endpoint name as defined in the Workload spec
+	Name string `json:"name"`
+
+	// ServiceURL Structured URL with its components
+	ServiceURL *EndpointURL `json:"serviceURL,omitempty"`
+
+	// Type Endpoint type (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP)
+	Type *EndpointURLStatusType `json:"type,omitempty"`
+}
+
+// EndpointURLStatusType Endpoint type (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP)
+type EndpointURLStatusType string
+
 // Entitlement Entitlement with claim and value
 type Entitlement struct {
 	// Claim JWT claim name
@@ -2309,13 +2371,7 @@ type ReleaseBindingStatus struct {
 	Conditions *[]Condition `json:"conditions,omitempty"`
 
 	// Endpoints Resolved invoke URLs for each named workload endpoint
-	Endpoints *[]struct {
-		// InvokeURL Resolved public URL for this endpoint
-		InvokeURL string `json:"invokeURL"`
-
-		// Name Endpoint name as defined in the Workload spec
-		Name string `json:"name"`
-	} `json:"endpoints,omitempty"`
+	Endpoints *[]EndpointURLStatus `json:"endpoints,omitempty"`
 }
 
 // ReleaseList Paginated list of releases

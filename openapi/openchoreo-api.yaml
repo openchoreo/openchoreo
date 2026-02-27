@@ -7656,19 +7656,68 @@ components:
           type: array
           description: Resolved invoke URLs for each named workload endpoint
           items:
-            type: object
-            required:
-              - name
-              - invokeURL
-            properties:
-              name:
-                type: string
-                description: Endpoint name as defined in the Workload spec
-                example: http
-              invokeURL:
-                type: string
-                description: Resolved public URL for this endpoint
-                example: https://api-service-dev-default.example.com
+            $ref: '#/components/schemas/EndpointURLStatus'
+
+    EndpointURLStatus:
+      type: object
+      description: Resolved URLs for a single named workload endpoint
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Endpoint name as defined in the Workload spec
+          example: http
+        type:
+          type: string
+          description: Endpoint type (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP)
+          enum: [HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP]
+          example: HTTP
+        serviceURL:
+          $ref: '#/components/schemas/EndpointURL'
+        invokeURL:
+          type: string
+          description: Resolved public URL for this endpoint, derived from the rendered HTTPRoute
+          example: https://api-service-dev-default.example.com
+        internalURLs:
+          $ref: '#/components/schemas/EndpointGatewayURLs'
+        externalURLs:
+          $ref: '#/components/schemas/EndpointGatewayURLs'
+
+    EndpointURL:
+      type: object
+      description: Structured URL with its components
+      required:
+        - host
+      properties:
+        scheme:
+          type: string
+          description: URL scheme (http, https, tcp, udp, ws, wss, tls)
+          example: https
+        host:
+          type: string
+          description: Hostname or IP address
+          example: api-service-dev-default.example.com
+        port:
+          type: integer
+          format: int32
+          description: Port number
+          example: 443
+        path:
+          type: string
+          description: URL path
+          example: /api/v1
+
+    EndpointGatewayURLs:
+      type: object
+      description: Resolved gateway URLs for an endpoint
+      properties:
+        http:
+          $ref: '#/components/schemas/EndpointURL'
+        https:
+          $ref: '#/components/schemas/EndpointURL'
+        tls:
+          $ref: '#/components/schemas/EndpointURL'
 
     WorkloadOverrides:
       type: object
