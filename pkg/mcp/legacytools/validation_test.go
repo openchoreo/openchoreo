@@ -121,8 +121,8 @@ func TestToolSchemas(t *testing.T) {
 			}
 
 			// Check that all parameters (required and optional) are in properties
-			allParams := make([]string, len(spec.requiredParams))
-			copy(allParams, spec.requiredParams)
+			allParams := make([]string, 0, len(spec.requiredParams)+len(spec.optionalParams))
+			allParams = append(allParams, spec.requiredParams...)
 			allParams = append(allParams, spec.optionalParams...)
 			if len(allParams) > 0 {
 				properties, ok := schemaMap["properties"].(map[string]any)

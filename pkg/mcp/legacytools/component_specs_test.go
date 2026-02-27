@@ -13,7 +13,7 @@ const testReleaseName = "release-1"
 
 // componentToolSpecs returns test specs for component toolset
 func componentToolSpecs() []toolTestSpec {
-	specs := []toolTestSpec{}
+	specs := make([]toolTestSpec, 0, 5)
 	specs = append(specs, componentBasicSpecs()...)
 	specs = append(specs, componentReleaseSpecs()...)
 	specs = append(specs, componentBindingSpecs()...)

@@ -91,7 +91,7 @@ type toolTestSpec struct {
 
 // allToolSpecs aggregates all tool specs from all toolsets
 var allToolSpecs = func() []toolTestSpec {
-	specs := []toolTestSpec{}
+	specs := make([]toolTestSpec, 0, 7)
 	specs = append(specs, namespaceToolSpecs()...)
 	specs = append(specs, projectToolSpecs()...)
 	specs = append(specs, componentToolSpecs()...)
