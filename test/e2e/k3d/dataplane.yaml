@@ -13,6 +13,11 @@ spec:
   secretStoreRef:
     name: default
   gateway:
-    publicVirtualHost: e2e-dp.local
-    publicHTTPPort: 29080
-    publicHTTPSPort: 29443
+    ingress:
+      external:
+        http:
+          port: 29080
+          host: e2e-dp.local
+        https:
+          port: 29443
+          host: e2e-dp.local

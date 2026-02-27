@@ -362,8 +362,18 @@ spec:
     prefix: docker.io/myorg
     secretRef: registry-credentials
   gateway:
-    publicVirtualHost: api.example.com
-    organizationVirtualHost: internal.example.com
+    ingress:
+      external:
+        http:
+          port: 80
+          host: api.example.com
+        https:
+          port: 443
+          host: api.example.com
+      internal:
+        http:
+          port: 80
+          host: internal.example.com
   observer:
     url: https://observer.example.com
     authentication:
@@ -537,8 +547,18 @@ spec:
     prefix: docker.io/myorg
     secretRef: registry-credentials
   gateway:
-    publicVirtualHost: api.example.com
-    organizationVirtualHost: internal.example.com
+    ingress:
+      external:
+        http:
+          port: 80
+          host: api.example.com
+        https:
+          port: 443
+          host: api.example.com
+      internal:
+        http:
+          port: 80
+          host: internal.example.com
   observer:
     url: https://observer.example.com
     authentication:
