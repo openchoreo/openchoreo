@@ -398,8 +398,8 @@
               "type": "boolean"
             },
             "generateCerts": {
-              "default": false,
-              "description": "Generate client certificates using cert-manager (for multi-cluster setups)",
+              "default": true,
+              "description": "Generate client certificates locally using cert-manager with a self-signed CA",
               "title": "generateCerts",
               "type": "boolean"
             },

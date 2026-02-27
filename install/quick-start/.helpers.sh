@@ -601,23 +601,21 @@ apply_coredns_config() {
     log_success "CoreDNS config applied"
 }
 
-# Read CA cert and key from the cluster-gateway-ca secret in the control plane.
-# Sets caller-scoped variables: ca_crt, tls_crt, tls_key
+# Read CA cert from the cluster-gateway-ca ConfigMap in the control plane.
+# Sets caller-scoped variable: ca_crt
 read_cluster_gateway_ca() {
-    if ! kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" >/dev/null 2>&1; then
-        log_error "Secret 'cluster-gateway-ca' not found in namespace '$CONTROL_PLANE_NS'"
+    if ! kubectl get configmap cluster-gateway-ca -n "$CONTROL_PLANE_NS" >/dev/null 2>&1; then
+        log_error "ConfigMap 'cluster-gateway-ca' not found in namespace '$CONTROL_PLANE_NS'"
         return 1
     fi
-    ca_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
-    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
-    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
-    if [[ -z "$ca_crt" || -z "$tls_crt" || -z "$tls_key" ]]; then
-        log_error "One or more fields (ca.crt, tls.crt, tls.key) are empty in secret 'cluster-gateway-ca'"
+    ca_crt=$(kubectl get configmap cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}')
+    if [[ -z "$ca_crt" ]]; then
+        log_error "ca.crt field is empty in ConfigMap 'cluster-gateway-ca'"
         return 1
     fi
 }
 
-# Copy cluster-gateway CA from control plane to data plane namespace
+# Copy cluster-gateway CA (public cert only) from control plane to data plane namespace
 setup_data_plane_ca() {
     log_info "Setting up Data Plane CA..."
 
@@ -625,25 +623,18 @@ setup_data_plane_ca() {
         kubectl create namespace "$DATA_PLANE_NS" >/dev/null
     fi
 
-    local ca_crt tls_crt tls_key
+    local ca_crt
     read_cluster_gateway_ca
 
-    # Copy CA ConfigMap
+    # Copy CA ConfigMap (public cert only, so the agent can verify the gateway server)
     kubectl create configmap cluster-gateway-ca \
-        --from-literal=ca.crt="$ca_crt" \
-        -n "$DATA_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
-
-    # Copy CA Secret (needed by cluster-agent CA issuer)
-    kubectl create secret generic cluster-gateway-ca \
-        --from-literal=tls.crt="$tls_crt" \
-        --from-literal=tls.key="$tls_key" \
         --from-literal=ca.crt="$ca_crt" \
         -n "$DATA_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
 
     log_success "Data Plane CA configured"
 }
 
-# Copy cluster-gateway CA from control plane to build plane namespace
+# Copy cluster-gateway CA (public cert only) from control plane to build plane namespace
 setup_build_plane_ca() {
     log_info "Setting up Build Plane CA..."
 
@@ -651,18 +642,11 @@ setup_build_plane_ca() {
         kubectl create namespace "$BUILD_PLANE_NS" >/dev/null
     fi
 
-    local ca_crt tls_crt tls_key
+    local ca_crt
     read_cluster_gateway_ca
 
-    # Copy CA ConfigMap
+    # Copy CA ConfigMap (public cert only, so the agent can verify the gateway server)
     kubectl create configmap cluster-gateway-ca \
-        --from-literal=ca.crt="$ca_crt" \
-        -n "$BUILD_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
-
-    # Copy CA Secret (needed by cluster-agent CA issuer)
-    kubectl create secret generic cluster-gateway-ca \
-        --from-literal=tls.crt="$tls_crt" \
-        --from-literal=tls.key="$tls_key" \
         --from-literal=ca.crt="$ca_crt" \
         -n "$BUILD_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
 
@@ -857,6 +841,39 @@ install_control_plane() {
     fi
 }
 
+# Extract the cluster-gateway CA certificate from the cert-manager Secret
+# and populate the ConfigMap that controller-manager and cluster-agents use
+# to verify the gateway server.
+extract_cluster_gateway_ca() {
+    log_info "Extracting cluster-gateway CA certificate..."
+
+    # Wait for cert-manager to issue the cluster-gateway CA certificate
+    if kubectl wait -n "$CONTROL_PLANE_NS" \
+        --for=condition=Ready certificate/cluster-gateway-ca --timeout=120s >/dev/null 2>&1; then
+        log_success "cluster-gateway-ca certificate is ready"
+    else
+        log_error "Timed out waiting for cluster-gateway-ca certificate"
+        return 1
+    fi
+
+    # Extract the public CA cert into the ConfigMap
+    local ca_crt_b64
+    ca_crt_b64=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" \
+        -o jsonpath='{.data.ca\.crt}')
+    if [[ -z "$ca_crt_b64" ]]; then
+        log_error "ca.crt field is empty in secret 'cluster-gateway-ca'"
+        return 1
+    fi
+
+    echo "$ca_crt_b64" | base64 -d | \
+        kubectl create configmap cluster-gateway-ca \
+            --from-file=ca.crt=/dev/stdin \
+            -n "$CONTROL_PLANE_NS" \
+            --dry-run=client -o yaml | kubectl apply --server-side -f - >/dev/null 2>&1
+
+    log_success "cluster-gateway-ca ConfigMap populated"
+}
+
 # Install OpenChoreo Data Plane
 install_data_plane() {
     log_info "Installing OpenChoreo Data Plane..."
@@ -896,7 +913,7 @@ install_build_plane() {
         "--values" "$HOME/.values-bp.yaml"
 }
 
-# Copy cluster-gateway CA from control plane to observability plane namespace
+# Copy cluster-gateway CA (public cert only) from control plane to observability plane namespace
 setup_observability_plane_ca() {
     log_info "Setting up Observability Plane CA..."
 
@@ -904,18 +921,11 @@ setup_observability_plane_ca() {
         kubectl create namespace "$OBSERVABILITY_NS" >/dev/null
     fi
 
-    local ca_crt tls_crt tls_key
+    local ca_crt
     read_cluster_gateway_ca
 
-    # Copy CA ConfigMap
+    # Copy CA ConfigMap (public cert only, so the agent can verify the gateway server)
     kubectl create configmap cluster-gateway-ca \
-        --from-literal=ca.crt="$ca_crt" \
-        -n "$OBSERVABILITY_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
-
-    # Copy CA Secret (needed by cluster-agent CA issuer)
-    kubectl create secret generic cluster-gateway-ca \
-        --from-literal=tls.crt="$tls_crt" \
-        --from-literal=tls.key="$tls_key" \
         --from-literal=ca.crt="$ca_crt" \
         -n "$OBSERVABILITY_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
 

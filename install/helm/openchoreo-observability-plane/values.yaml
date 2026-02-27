@@ -2072,10 +2072,10 @@ clusterAgent:
     enabled: true
     # @schema
     # type: boolean
-    # description: Generate client certificates using cert-manager (for multi-cluster setups)
-    # default: false
+    # description: Generate client certificates locally using cert-manager with a self-signed CA
+    # default: true
     # @schema
-    generateCerts: false
+    generateCerts: true
     # @schema
     # type: string
     # description: Name of the Secret containing client certificate and key

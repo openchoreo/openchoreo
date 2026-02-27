@@ -49,8 +49,6 @@ gateway:
 
 clusterAgent:
   serverUrl: "wss://cluster-gateway.openchoreo.localhost:8443/ws"
-  tls:
-    generateCerts: true
 
 tls:
   enabled: true

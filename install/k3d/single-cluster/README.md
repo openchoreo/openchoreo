@@ -121,6 +121,24 @@ kubectl wait -n openchoreo-control-plane \
   --for=condition=available --timeout=300s deployment --all
 ```
 
+### Extract Cluster Gateway CA
+
+Wait for cert-manager to issue the cluster-gateway CA certificate, then populate the ConfigMap that the controller-manager and cluster-agents use to verify the gateway server.
+
+```bash
+# Wait for the cert-manager secret to be ready
+kubectl wait -n openchoreo-control-plane \
+  --for=condition=Ready certificate/cluster-gateway-ca --timeout=120s
+
+# Extract the public CA cert into the ConfigMap
+kubectl get secret cluster-gateway-ca -n openchoreo-control-plane \
+  -o jsonpath='{.data.ca\.crt}' | base64 -d | \
+  kubectl create configmap cluster-gateway-ca \
+    --from-file=ca.crt=/dev/stdin \
+    -n openchoreo-control-plane \
+    --dry-run=client -o yaml | kubectl apply -f -
+```
+
 ## 4. Install Default Resources
 
 ```bash
@@ -135,23 +153,14 @@ kubectl label namespace default openchoreo.dev/controlplane-namespace=true
 ```bash
 kubectl create namespace openchoreo-data-plane --dry-run=client -o yaml | kubectl apply -f -
 
+# Copy cluster-gateway CA (public cert only) so the agent can verify the gateway server
 CA_CRT=$(kubectl get configmap cluster-gateway-ca \
   -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}')
 
 kubectl create configmap cluster-gateway-ca \
   --from-literal=ca.crt="$CA_CRT" \
-  -n openchoreo-data-plane
-
-TLS_CRT=$(kubectl get secret cluster-gateway-ca \
-  -n openchoreo-control-plane -o jsonpath='{.data.tls\.crt}' | base64 -d)
-TLS_KEY=$(kubectl get secret cluster-gateway-ca \
-  -n openchoreo-control-plane -o jsonpath='{.data.tls\.key}' | base64 -d)
-
-kubectl create secret generic cluster-gateway-ca \
-  --from-literal=tls.crt="$TLS_CRT" \
-  --from-literal=tls.key="$TLS_KEY" \
-  --from-literal=ca.crt="$CA_CRT" \
-  -n openchoreo-data-plane
+  -n openchoreo-data-plane \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 ### Secret Store
@@ -211,10 +220,6 @@ spec:
 $(echo "$AGENT_CA" | sed 's/^/        /')
   secretStoreRef:
     name: default
-  gateway:
-    publicVirtualHost: openchoreoapis.localhost
-    publicHTTPPort: 19080
-    publicHTTPSPort: 19443
 EOF
 ```
 
@@ -225,23 +230,14 @@ EOF
 ```bash
 kubectl create namespace openchoreo-build-plane --dry-run=client -o yaml | kubectl apply -f -
 
+# Copy cluster-gateway CA (public cert only) so the agent can verify the gateway server
 CA_CRT=$(kubectl get configmap cluster-gateway-ca \
   -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}')
 
 kubectl create configmap cluster-gateway-ca \
   --from-literal=ca.crt="$CA_CRT" \
-  -n openchoreo-build-plane
-
-TLS_CRT=$(kubectl get secret cluster-gateway-ca \
-  -n openchoreo-control-plane -o jsonpath='{.data.tls\.crt}' | base64 -d)
-TLS_KEY=$(kubectl get secret cluster-gateway-ca \
-  -n openchoreo-control-plane -o jsonpath='{.data.tls\.key}' | base64 -d)
-
-kubectl create secret generic cluster-gateway-ca \
-  --from-literal=tls.crt="$TLS_CRT" \
-  --from-literal=tls.key="$TLS_KEY" \
-  --from-literal=ca.crt="$CA_CRT" \
-  -n openchoreo-build-plane
+  -n openchoreo-build-plane \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 ### Container Registry
@@ -315,23 +311,14 @@ EOF
 ```bash
 kubectl create namespace openchoreo-observability-plane --dry-run=client -o yaml | kubectl apply -f -
 
+# Copy cluster-gateway CA (public cert only) so the agent can verify the gateway server
 CA_CRT=$(kubectl get configmap cluster-gateway-ca \
   -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}')
 
 kubectl create configmap cluster-gateway-ca \
   --from-literal=ca.crt="$CA_CRT" \
-  -n openchoreo-observability-plane
-
-TLS_CRT=$(kubectl get secret cluster-gateway-ca \
-  -n openchoreo-control-plane -o jsonpath='{.data.tls\.crt}' | base64 -d)
-TLS_KEY=$(kubectl get secret cluster-gateway-ca \
-  -n openchoreo-control-plane -o jsonpath='{.data.tls\.key}' | base64 -d)
-
-kubectl create secret generic cluster-gateway-ca \
-  --from-literal=tls.crt="$TLS_CRT" \
-  --from-literal=tls.key="$TLS_KEY" \
-  --from-literal=ca.crt="$CA_CRT" \
-  -n openchoreo-observability-plane
+  -n openchoreo-observability-plane \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 ### OpenSearch Credentials

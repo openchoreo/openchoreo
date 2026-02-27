@@ -432,8 +432,8 @@
               "type": "boolean"
             },
             "generateCerts": {
-              "default": false,
-              "description": "Generate client certificates locally using cert-manager (for multi-cluster setups where data plane is in different cluster)",
+              "default": true,
+              "description": "Generate client certificates locally using cert-manager with a self-signed CA",
               "title": "generateCerts",
               "type": "boolean"
             },

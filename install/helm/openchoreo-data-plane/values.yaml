@@ -1374,10 +1374,10 @@ clusterAgent:
 
     # @schema
     # type: boolean
-    # description: Generate client certificates locally using cert-manager (for multi-cluster setups where data plane is in different cluster)
-    # default: false
+    # description: Generate client certificates locally using cert-manager with a self-signed CA
+    # default: true
     # @schema
-    generateCerts: false
+    generateCerts: true
 
     # @schema
     # type: string

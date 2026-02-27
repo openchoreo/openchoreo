@@ -108,6 +108,9 @@ apply_coredns_config
 create_backstage_secret "$CONTROL_PLANE_NS"
 install_control_plane
 
+# Step 6b: Extract cluster-gateway CA into ConfigMap
+extract_cluster_gateway_ca
+
 # Step 7: Set up Data Plane CA and secret store
 setup_data_plane_ca
 create_fake_secret_store
