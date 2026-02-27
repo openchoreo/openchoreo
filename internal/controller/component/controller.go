@@ -843,10 +843,10 @@ func (r *Reconciler) ensureReleaseBinding(
 ) error {
 	logger := log.FromContext(ctx)
 
-	envKey := makeReleaseBindingIndexKey(comp.Spec.Owner.ProjectName, comp.Name, firstEnv)
+	envKey := controller.MakeReleaseBindingOwnerEnvKey(comp.Spec.Owner.ProjectName, comp.Name, firstEnv)
 	releaseBindingList := openchoreov1alpha1.ReleaseBindingList{}
 	err := r.List(ctx, &releaseBindingList, client.InNamespace(comp.Namespace),
-		client.MatchingFields{releaseBindingIndex: envKey})
+		client.MatchingFields{controller.IndexKeyReleaseBindingOwnerEnv: envKey})
 	if err != nil {
 		return fmt.Errorf("failed to list ReleaseBinding: %w", err)
 	}
@@ -951,9 +951,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup workload owner index: %w", err)
 	}
 
-	if err := r.setupReleaseBindingIndex(ctx, mgr); err != nil {
-		return fmt.Errorf("failed to setup release binding index: %w", err)
-	}
+	// Note: ReleaseBinding owner+env index is set up in controller.SetupSharedIndexes
 
 	if err := r.setupComponentReleaseOwnerIndex(ctx, mgr); err != nil {
 		return fmt.Errorf("failed to setup component release owner index: %w", err)

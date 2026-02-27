@@ -20,12 +20,22 @@ const (
 	// IndexKeyReleaseBindingOwnerComponentName indexes ReleaseBinding by owner component name.
 	IndexKeyReleaseBindingOwnerComponentName = "releasebinding.spec.owner.componentName"
 
+	// IndexKeyReleaseBindingOwnerEnv indexes ReleaseBinding by the composite key
+	// (projectName, componentName, environment) for efficient lookups.
+	IndexKeyReleaseBindingOwnerEnv = "releasebinding.spec.owner.projectName/componentName/environment"
+
 	// IndexKeyComponentOwnerProjectName indexes Component by owner project name.
 	IndexKeyComponentOwnerProjectName = "component.spec.owner.projectName"
 
 	// IndexKeyProjectDeploymentPipelineRef indexes Project by deploymentPipelineRef.
 	IndexKeyProjectDeploymentPipelineRef = "project.spec.deploymentPipelineRef"
 )
+
+// MakeReleaseBindingOwnerEnvKey creates the composite index key for ReleaseBinding lookups
+// by (project, component, environment).
+func MakeReleaseBindingOwnerEnvKey(projectName, componentName, environment string) string {
+	return projectName + "/" + componentName + "/" + environment
+}
 
 // SetupSharedIndexes registers field indexes that are shared across multiple controllers.
 // This must be called before any controllers are set up with the manager.
@@ -39,6 +49,21 @@ func SetupSharedIndexes(ctx context.Context, mgr ctrl.Manager) error {
 			return []string{binding.Spec.Owner.ComponentName}
 		}); err != nil {
 		return fmt.Errorf("failed to setup ReleaseBinding owner index: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
+		IndexKeyReleaseBindingOwnerEnv, func(obj client.Object) []string {
+			rb := obj.(*openchoreov1alpha1.ReleaseBinding)
+			if rb.Spec.Owner.ProjectName == "" || rb.Spec.Owner.ComponentName == "" || rb.Spec.Environment == "" {
+				return nil
+			}
+			return []string{MakeReleaseBindingOwnerEnvKey(
+				rb.Spec.Owner.ProjectName,
+				rb.Spec.Owner.ComponentName,
+				rb.Spec.Environment,
+			)}
+		}); err != nil {
+		return fmt.Errorf("failed to setup ReleaseBinding owner+env index: %w", err)
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Component{},

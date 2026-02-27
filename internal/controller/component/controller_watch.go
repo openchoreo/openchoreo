@@ -26,16 +26,9 @@ const (
 	workflowIndex = "spec.workflow.name"
 	// workloadOwnerIndex is the field index name for workload owner references
 	workloadOwnerIndex = "spec.owner"
-	// releaseBindingIndex is the field index name for ReleaseBinding owner fields and environment
-	releaseBindingIndex = "spec.owner.projectName/spec.owner.componentName/spec.environment"
 	// workflowRunOwnerIndex is the field index name for WorkflowRun owner references
 	workflowRunOwnerIndex = "metadata.labels.openchoreo.dev/component"
 )
-
-// makeReleaseBindingIndexKey creates the index key for ReleaseBinding lookups.
-func makeReleaseBindingIndexKey(projectName, componentName, environment string) string {
-	return fmt.Sprintf("%s/%s/%s", projectName, componentName, environment)
-}
 
 // setupComponentTypeRefIndex sets up the field index for componentType references.
 // Index key format: "{kind}:{name}" (e.g., "ComponentType:deployment/web-app")
@@ -87,20 +80,6 @@ func (r *Reconciler) setupWorkloadOwnerIndex(ctx context.Context, mgr ctrl.Manag
 				workload.Spec.Owner.ProjectName,
 				workload.Spec.Owner.ComponentName)
 			return []string{ownerKey}
-		})
-}
-
-// setupReleaseBindingIndex registers an index for ReleaseBinding by owner fields and environment.
-func (r *Reconciler) setupReleaseBindingIndex(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
-		releaseBindingIndex, func(obj client.Object) []string {
-			releaseBinding := obj.(*openchoreov1alpha1.ReleaseBinding)
-			key := makeReleaseBindingIndexKey(
-				releaseBinding.Spec.Owner.ProjectName,
-				releaseBinding.Spec.Owner.ComponentName,
-				releaseBinding.Spec.Environment,
-			)
-			return []string{key}
 		})
 }
 
