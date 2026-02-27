@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/tidwall/sjson"
 	"sigs.k8s.io/yaml"
@@ -138,7 +139,16 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 		return fmt.Errorf("workflow name is required")
 	}
 
+	ns := params.Namespace
+	runName := params.RunName
+	if runName == "" {
+		runName = fmt.Sprintf("%s-%d", params.WorkflowName, time.Now().Unix())
+	}
 	req := gen.WorkflowRun{
+		Metadata: gen.ObjectMeta{
+			Name:      runName,
+			Namespace: &ns,
+		},
 		Spec: &gen.WorkflowRunSpec{
 			Workflow: gen.WorkflowRunConfig{
 				Name: params.WorkflowName,
@@ -166,13 +176,13 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 	if workflowRun.Spec != nil {
 		workflowName = workflowRun.Spec.Workflow.Name
 	}
-	ns := ""
+	runNs := ""
 	if workflowRun.Metadata.Namespace != nil {
-		ns = *workflowRun.Metadata.Namespace
+		runNs = *workflowRun.Metadata.Namespace
 	}
 	fmt.Printf("Successfully started workflow run: %s\n", workflowRun.Metadata.Name)
 	fmt.Printf("  Workflow: %s\n", workflowName)
-	fmt.Printf("  Namespace: %s\n", ns)
+	fmt.Printf("  Namespace: %s\n", runNs)
 
 	return nil
 }
