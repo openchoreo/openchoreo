@@ -105,6 +105,9 @@ bootstrap:
             \"name\": \"openchoreo-user\",
             \"ouId\": \"$ORG_UNIT_ID\",
             \"allowSelfRegistration\": true,
+            \"systemAttributes\": {
+              \"display\": \"username\"
+            },
             \"schema\": {
               \"username\": {
                 \"type\": \"string\",
@@ -131,63 +134,86 @@ bootstrap:
         log_info "User schema created successfully"
       fi
 
-      log_info "Checking if user 'admin@openchoreo.dev' already exists..."
-      existing_users=$(curl -s --max-time 10 "${THUNDER_URL}/users")
+      # Returns the ID of an existing user by username, or creates and returns it.
+      # Usage: ensure_user <username> <password> <given_name> <family_name>
+      ensure_user() {
+        local username="$1" password="$2" given_name="$3" family_name="$4"
+        local existing_users user_id response
 
-      if echo "$existing_users" | grep -q '"username" *: *"admin@openchoreo.dev"'; then
-        log_info "User 'admin@openchoreo.dev' already exists, getting ID..."
-        USER_ID_0=$(echo "$existing_users" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"username":"admin@openchoreo.dev"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"username":"admin@openchoreo.dev"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-      else
-        log_info "User does not exist, creating user 'admin@openchoreo.dev'..."
-        USER_RESPONSE=$(curl --location "${THUNDER_URL}/users" \
-          --header 'accept: application/json' \
-          --header 'Content-Type: application/json' \
-          --data "{
-            \"type\": \"openchoreo-user\",
-            \"organizationUnit\": \"$ORG_UNIT_ID\",
-            \"attributes\": {
-              \"username\": \"admin@openchoreo.dev\",
-              \"password\": \"Admin@123\",
-              \"given_name\": \"Admin\",
-              \"family_name\": \"User\"
-            }
-          }" \
-          --fail-with-body \
-          --max-time 30 \
-          --retry 3 \
-          --retry-delay 5)
-
-        log_info "User 'admin@openchoreo.dev' created successfully"
-        USER_ID_0=$(echo "$USER_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-      fi
-
-      log_info "Checking if group 'admins' already exists..."
-      existing_groups=$(curl -s --max-time 10 "${THUNDER_URL}/groups")
-
-      if echo "$existing_groups" | grep -q '"name" *: *"admins"'; then
-        log_info "Group 'admins' already exists, skipping creation"
-      else
-        log_info "Group does not exist, creating group 'admins' with members..."
-        GROUP_MEMBERS=""
-        if [ -n "$USER_ID_0" ]; then
-          GROUP_MEMBERS="{\"type\":\"user\",\"id\":\"$USER_ID_0\"}"
+        existing_users=$(curl -s --max-time 10 "${THUNDER_URL}/users")
+        if echo "$existing_users" | grep -q "\"username\" *: *\"${username}\""; then
+          log_info "User '${username}' already exists, getting ID..." >&2
+          user_id=$(echo "$existing_users" | tr '\n' ' ' | sed 's/" *: *"/":"/g' \
+            | grep -o "\"username\":\"${username}\"[^}]*\"id\":\"[^\"]*\"\|\"id\":\"[^\"]*\"[^}]*\"username\":\"${username}\"" \
+            | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        else
+          log_info "Creating user '${username}'..." >&2
+          response=$(curl --location "${THUNDER_URL}/users" \
+            --header 'accept: application/json' \
+            --header 'Content-Type: application/json' \
+            --data "{
+              \"type\": \"openchoreo-user\",
+              \"organizationUnit\": \"$ORG_UNIT_ID\",
+              \"attributes\": {
+                \"username\": \"${username}\",
+                \"password\": \"${password}\",
+                \"given_name\": \"${given_name}\",
+                \"family_name\": \"${family_name}\"
+              }
+            }" \
+            --fail-with-body \
+            --max-time 30 \
+            --retry 3 \
+            --retry-delay 5)
+          log_info "User '${username}' created successfully" >&2
+          user_id=$(echo "$response" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
         fi
+        echo "$user_id"
+      }
+
+      # Creates a group with a single member if it does not already exist.
+      # Usage: ensure_group <group_name> <description> <member_user_id>
+      ensure_group() {
+        local group_name="$1" description="$2" member_id="$3"
+        local existing_groups group_members
+
+        existing_groups=$(curl -s --max-time 10 "${THUNDER_URL}/groups")
+        if echo "$existing_groups" | grep -q "\"name\" *: *\"${group_name}\""; then
+          log_info "Group '${group_name}' already exists, skipping creation"
+          return
+        fi
+
+        group_members=""
+        if [ -n "$member_id" ]; then
+          group_members="{\"type\":\"user\",\"id\":\"${member_id}\"}"
+        fi
+
+        log_info "Creating group '${group_name}'..."
         curl --location "${THUNDER_URL}/groups" \
           --header 'accept: application/json' \
           --header 'Content-Type: application/json' \
           --data "{
-            \"name\": \"admins\",
+            \"name\": \"${group_name}\",
             \"organizationUnitId\": \"$ORG_UNIT_ID\",
-            \"description\": \"Admins group\",
-            \"members\": [$GROUP_MEMBERS]
+            \"description\": \"${description}\",
+            \"members\": [${group_members}]
           }" \
           --fail-with-body \
           --max-time 30 \
           --retry 3 \
           --retry-delay 5
+        log_info "Group '${group_name}' created successfully"
+      }
 
-        log_info "Group 'admins' created successfully with members"
-      fi
+      ADMIN_ID=$(ensure_user "admin@openchoreo.dev"            "Admin@123" "Admin"     "User")
+      DEVELOPER_ID=$(ensure_user "developer@openchoreo.dev"   "Dev@123"   "Developer" "User")
+      PE_ID=$(ensure_user "platform-engineer@openchoreo.dev"  "PE@123"    "Platform"  "Engineer")
+      SRE_ID=$(ensure_user "sre@openchoreo.dev"               "SRE@123"   "SRE"       "User")
+
+      ensure_group "admins"             "Admins group"             "$ADMIN_ID"
+      ensure_group "developers"         "Developers group"         "$DEVELOPER_ID"
+      ensure_group "platform-engineers" "Platform Engineers group" "$PE_ID"
+      ensure_group "sres"               "SREs group"               "$SRE_ID"
 
     51-backstage-app.sh: |
       #!/bin/bash

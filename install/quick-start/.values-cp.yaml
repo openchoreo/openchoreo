@@ -13,11 +13,11 @@ openchoreoApi:
           # Helm replaces lists so all mappings must be specified here.
           # The chart defaults provide the first 3; quick-start adds the CLI binding.
           mappings:
-            - name: super-admin-binding
+            - name: admin-binding
               system: true
               roleMappings:
                 - roleRef:
-                    name: super-admin
+                    name: admin
               entitlement:
                 claim: groups
                 value: admins
@@ -40,10 +40,10 @@ openchoreoApi:
                 claim: sub
                 value: openchoreo-rca-agent
               effect: allow
-            - name: quickstart-cli-super-admin-binding
+            - name: quickstart-cli-admin-binding
               roleMappings:
                 - roleRef:
-                    name: super-admin
+                    name: admin
               entitlement:
                 claim: sub
                 value: openchoreo-cli-quickstart

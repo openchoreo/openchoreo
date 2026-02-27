@@ -1060,8 +1060,8 @@ openchoreoApi:
           # default: []
           # @schema
           roles:
-            # Super admin role with full permissions to all resources
-            - name: super-admin
+            # Admin role with full permissions to all resources
+            - name: admin
               system: true
               actions:
                 - "*"
@@ -1117,6 +1117,209 @@ openchoreoApi:
                 - "workload:update"
                 - "workflowrun:view"
                 - "workflowrun:update"
+
+            # Cluster reader role - read-only access to cluster-scoped platform resources.
+            # Assign alongside project-level roles to grant visibility into cluster infrastructure
+            # (e.g. so developers can see the DataPlanes and BuildPlanes their projects depend on).
+            - name: cluster-reader
+              actions:
+                - "clusterdataplane:view"
+                - "clusterbuildplane:view"
+                - "clusterobservabilityplane:view"
+                - "clustercomponenttype:view"
+                - "clustertrait:view"
+                - "clusterworkflow:view"
+
+            # Namespace reader role - read-only access to namespace-scoped platform resources.
+            # Assign alongside project-level roles to bridge the cross-scope visibility gap
+            # (e.g. so developers can see the Environments and DeploymentPipelines their projects reference).
+            - name: namespace-reader
+              actions:
+                - "namespace:view"
+                - "environment:view"
+                - "deploymentpipeline:view"
+                - "dataplane:view"
+                - "buildplane:view"
+                - "observabilityplane:view"
+                - "componenttype:view"
+                - "trait:view"
+                - "workflow:view"
+
+            # Developer role - engineers who build, deploy, and iterate on components.
+            # Assign namespace-reader and cluster-reader alongside this role so developers
+            # can view the platform resources their projects reference.
+            - name: developer
+              actions:
+                - "clusterdataplane:view"
+                - "clusterbuildplane:view"
+                - "clusterobservabilityplane:view"
+                - "clustercomponenttype:view"
+                - "clustertrait:view"
+                - "clusterworkflow:view"
+                - "namespace:view"
+                - "environment:view"
+                - "deploymentpipeline:view"
+                - "dataplane:view"
+                - "buildplane:view"
+                - "observabilityplane:view"
+                - "componenttype:view"
+                - "trait:view"
+                - "workflow:view"
+                - "project:view"
+                - "component:view"
+                - "component:create"
+                - "component:update"
+                - "component:deploy"
+                - "component:delete"
+                - "componentrelease:view"
+                - "componentrelease:create"
+                - "releasebinding:view"
+                - "releasebinding:create"
+                - "releasebinding:update"
+                - "workflowrun:view"
+                - "workflowrun:create"
+                - "secretreference:view"
+                - "secretreference:create"
+                - "secretreference:delete"
+                - "workload:view"
+                - "workload:create"
+                - "workload:update"
+                - "workload:delete"
+                - "logs:view"
+                - "metrics:view"
+                - "traces:view"
+                - "alerts:view"
+                - "rcareport:view"
+
+            # SRE role - operations engineers focused on reliability and incident response.
+            # Assign namespace-reader and cluster-reader alongside this role so SREs
+            # can view the platform infrastructure they monitor and troubleshoot.
+            - name: sre
+              actions:
+                - "clusterdataplane:view"
+                - "clusterbuildplane:view"
+                - "clusterobservabilityplane:view"
+                - "clustercomponenttype:view"
+                - "clustertrait:view"
+                - "clusterworkflow:view"
+                - "namespace:view"
+                - "environment:view"
+                - "deploymentpipeline:view"
+                - "dataplane:view"
+                - "buildplane:view"
+                - "observabilityplane:view"
+                - "componenttype:view"
+                - "trait:view"
+                - "workflow:view"
+                - "project:view"
+                - "component:view"
+                - "componentrelease:view"
+                - "releasebinding:view"
+                - "releasebinding:update"
+                - "workflowrun:view"
+                - "workflowrun:create"
+                - "workload:view"
+                - "workload:create"
+                - "secretreference:view"
+                - "logs:view"
+                - "metrics:view"
+                - "traces:view"
+                - "alerts:view"
+                - "incidents:view"
+                - "rcareport:view"
+                - "rcareport:update"
+                - "rcareport:delete"
+                - "observabilityalertsnotificationchannel:view"
+
+            # Platform engineer role - engineers managing the OpenChoreo platform infrastructure
+            - name: platform-engineer
+              actions:
+                - "namespace:view"
+                - "namespace:create"
+                - "project:view"
+                - "project:create"
+                - "project:delete"
+                - "component:view"
+                - "componentrelease:view"
+                - "releasebinding:view"
+                - "environment:view"
+                - "environment:create"
+                - "environment:update"
+                - "environment:delete"
+                - "dataplane:view"
+                - "dataplane:create"
+                - "dataplane:update"
+                - "dataplane:delete"
+                - "buildplane:view"
+                - "buildplane:create"
+                - "buildplane:update"
+                - "buildplane:delete"
+                - "observabilityplane:view"
+                - "observabilityplane:create"
+                - "observabilityplane:update"
+                - "observabilityplane:delete"
+                - "componenttype:view"
+                - "componenttype:create"
+                - "trait:view"
+                - "trait:create"
+                - "workflow:view"
+                - "workflow:create"
+                - "workflowrun:view"
+                - "workflowrun:create"
+                - "deploymentpipeline:view"
+                - "deploymentpipeline:create"
+                - "deploymentpipeline:update"
+                - "deploymentpipeline:delete"
+                - "secretreference:view"
+                - "secretreference:create"
+                - "secretreference:update"
+                - "secretreference:delete"
+                - "workload:view"
+                - "workload:create"
+                - "logs:view"
+                - "metrics:view"
+                - "traces:view"
+                - "alerts:view"
+                - "incidents:view"
+                - "rcareport:view"
+                - "rcareport:update"
+                - "rcareport:delete"
+                - "observabilityalertsnotificationchannel:view"
+                - "observabilityalertsnotificationchannel:create"
+                - "observabilityalertsnotificationchannel:update"
+                - "observabilityalertsnotificationchannel:delete"
+                - "role:view"
+                - "role:create"
+                - "role:update"
+                - "role:delete"
+                - "rolemapping:view"
+                - "rolemapping:create"
+                - "rolemapping:update"
+                - "rolemapping:delete"
+                - "clusterdataplane:view"
+                - "clusterdataplane:create"
+                - "clusterdataplane:update"
+                - "clusterdataplane:delete"
+                - "clusterbuildplane:view"
+                - "clusterbuildplane:create"
+                - "clusterbuildplane:update"
+                - "clusterbuildplane:delete"
+                - "clusterobservabilityplane:view"
+                - "clusterobservabilityplane:create"
+                - "clusterobservabilityplane:update"
+                - "clusterobservabilityplane:delete"
+                - "clustercomponenttype:view"
+                - "clustercomponenttype:create"
+                - "clustercomponenttype:update"
+                - "clustercomponenttype:delete"
+                - "clustertrait:view"
+                - "clustertrait:create"
+                - "clustertrait:update"
+                - "clustertrait:delete"
+                - "clusterworkflow:view"
+                - "clusterworkflow:create"
+                - "clusterworkflow:update"
+                - "clusterworkflow:delete"
 
             # Observer service role for resolving resource UIDs
             - name: observer
@@ -1198,15 +1401,48 @@ openchoreoApi:
           # default: []
           # @schema
           mappings:
-            # Super admin mapping - grants admins group full access
-            - name: super-admin-binding
+            # Admin mapping - grants admins group full access
+            - name: admin-binding
               system: true
               roleMappings:
                 - roleRef:
-                    name: super-admin
+                    name: admin
               entitlement:
                 claim: groups
                 value: admins
+              effect: allow
+            
+            # Developer mapping - grants developers group developer access
+            - name: developer-binding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: developer
+              entitlement:
+                claim: groups
+                value: developers
+              effect: allow
+
+            # PE mapping - grants platform engineers group platform engineer access
+            - name: platform-engineer-binding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: platform-engineer
+              entitlement:
+                claim: groups
+                value: platform-engineers
+              effect: allow
+
+            # SRE mapping - grants SREs group SRE access
+            - name: sre-binding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: sre
+              entitlement:
+                claim: groups
+                value: sres
               effect: allow
 
             # Backstage catalog reader mapping - grants backstage service account read access
@@ -1258,7 +1494,7 @@ openchoreoApi:
               system: true
               roleMappings:
                 - roleRef:
-                    name: super-admin
+                    name: admin
               entitlement:
                 claim: sub
                 value: service_mcp_client

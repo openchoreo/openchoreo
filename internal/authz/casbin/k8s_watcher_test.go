@@ -178,13 +178,13 @@ func TestAuthzInformerHandler_HandleAddClusterRole(t *testing.T) {
 		{
 			name: "add cluster role with global wildcard",
 			clusterRole: &authzv1alpha1.ClusterAuthzRole{
-				ObjectMeta: metav1.ObjectMeta{Name: "super-admin"},
+				ObjectMeta: metav1.ObjectMeta{Name: "admin"},
 				Spec: authzv1alpha1.ClusterAuthzRoleSpec{
 					Actions: []string{"*"},
 				},
 			},
 			wantPolicies: [][]string{
-				{"super-admin", "*", "*"},
+				{"admin", "*", "*"},
 			},
 		},
 	}
@@ -552,14 +552,14 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
 						RoleRef: authzv1alpha1.RoleRef{
 							Kind: CRDTypeClusterAuthzRole,
-							Name: "super-admin",
+							Name: "admin",
 						},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
 			wantPolicies: [][]string{
-				{"groups:platform-admins", "*", "super-admin", "*", "allow", "{}", "global-admin-binding"},
+				{"groups:platform-admins", "*", "admin", "*", "allow", "{}", "global-admin-binding"},
 			},
 		},
 		{
@@ -757,7 +757,7 @@ func TestAuthzInformerHandler_HandleAddClusterBinding_Idempotent(t *testing.T) {
 			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
 				RoleRef: authzv1alpha1.RoleRef{
 					Kind: CRDTypeClusterAuthzRole,
-					Name: "super-admin",
+					Name: "admin",
 				},
 			}},
 			Effect: authzv1alpha1.EffectAllow,
@@ -1608,7 +1608,7 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding(t *testing.T) {
 	handler, enforcer := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
 
 	// Setup: directly add policy to Casbin
-	_, err := enforcer.AddPolicy("groups:platform-admins", "*", "super-admin", "*", "allow", "{}", "global-admin-binding")
+	_, err := enforcer.AddPolicy("groups:platform-admins", "*", "admin", "*", "allow", "{}", "global-admin-binding")
 	if err != nil {
 		t.Fatalf("AddPolicy() error = %v", err)
 	}
@@ -1623,7 +1623,7 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding(t *testing.T) {
 			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
 				RoleRef: authzv1alpha1.RoleRef{
 					Kind: CRDTypeClusterAuthzRole,
-					Name: "super-admin",
+					Name: "admin",
 				},
 			}},
 			Effect: authzv1alpha1.EffectAllow,
@@ -1634,7 +1634,7 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding(t *testing.T) {
 		t.Fatalf("handleDeleteClusterBinding() error = %v", err)
 	}
 
-	hasPolicy, _ := enforcer.HasPolicy("groups:platform-admins", "*", "super-admin", "*", "allow", "{}", "global-admin-binding")
+	hasPolicy, _ := enforcer.HasPolicy("groups:platform-admins", "*", "admin", "*", "allow", "{}", "global-admin-binding")
 	if hasPolicy {
 		t.Error("policy should be removed after delete")
 	}
