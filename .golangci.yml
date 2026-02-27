@@ -1,24 +1,21 @@
+version: "2"
+
 run:
-  timeout: 5m
   allow-parallel-runners: true
 
 linters:
-  disable-all: true
+  default: none
   enable:
+    - copyloopvar
     - dupl
     - errcheck
     - errorlint
-    - copyloopvar
     - ginkgolinter
-    - gci
     - goconst
     - gocritic
     - gocyclo
-    - gofmt
-    - goimports
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - lll
@@ -26,113 +23,141 @@ linters:
     - nakedret
     - prealloc
     - revive
-    - staticcheck
-    - typecheck
+    - staticcheck # includes gosimple
     - unconvert
     - unparam
     - unused
     - whitespace
 
-linters-settings:
-  errcheck:
-    # report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`;
-    # default is false: such cases aren't reported by default.
-    check-blank: false
-    # report about not checking of errors in type assertions: `a := b.(MyStruct)`;
-    # default is false: such cases aren't reported by default.
-    check-type-assertions: false
-    # List of functions to exclude from checking, where each entry is a single function to exclude.
-    # See https://github.com/kisielk/errcheck#excluding-functions for details.
-  gci:
-    # list of prefixes to use for grouping imports
-    sections:
-      - standard
-      - default
-      - prefix(github.com/openchoreo/openchoreo)
-  govet:
-    # Enable all analyzers.
-    # Default: false
-    enable-all: true
-    # Disable analyzers by name.
-    disable:
-      - fieldalignment
-      - shadow
-  gocritic:
-    # Which checks should be enabled; can't be combined with 'disabled-checks';
-    # See https://go-critic.github.io/overview#checks-overview
-    # To check which checks are enabled run `GL_DEBUG=gocritic golangci-lint run`
-    # By default list of stable checks is used.
-    # Which checks should be disabled; can't be combined with 'enabled-checks'; default is empty
-    disabled-checks:
-      - exitAfterDefer
-      - ifElseChain
-      - elseif
-    # Enable multiple checks by tags, run `GL_DEBUG=gocritic golangci-lint run` to see all tags and checks.
-    # Empty list by default. See https://github.com/go-critic/go-critic#usage -> section "Tags".
-    enabled-tags:
-      - diagnostic
-    #      - style
-    #      - performance
-    #      - experimental
-    #      - opinionated
-    #    disabled-tags:
-    #      - experimental
-  goimports:
-    # put imports beginning with prefix after 3rd-party packages;
-    # it's a comma-separated list of prefixes
-    local-prefixes: github.com/openchoreo/openchoreo
-  misspell:
-    # Correct spellings using locale preferences for US or UK.
-    # Default is to use a neutral variety of English.
-    # Setting locale to US will correct the British spelling of 'colour' to 'color'.
-    locale: US
-    ignore-words:
-      - cancelled
-  revive:
+  settings:
+    gosec:
+      excludes:
+        - G101 # Potential hardcoded credentials - false positives on config/dto structs
+        - G117 # Exported secret fields - false positives on config/dto structs
+        # Taint analysis rules (G7xx) produce too many false positives.
+        # See https://github.com/securego/gosec/issues/1500
+        - G703 # Path traversal via taint analysis
+        - G704 # SSRF via taint analysis
+        - G705 # XSS via taint analysis
+    staticcheck:
+      checks:
+        - "all"
+        - "-QF1001" # De Morgan's law suggestions
+        - "-QF1003" # tagged switch suggestions
+        - "-QF1008" # embedded field selector suggestions
+        - "-ST1000" # missing package comment
+        - "-ST1020" # comment on exported function
+        - "-ST1021" # comment on exported type
+        - "-ST1022" # comment on exported var/const
+    errcheck:
+      # report about not checking of errors in type assertions: `a := b.(MyStruct)`;
+      check-type-assertions: false
+      # report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`;
+      check-blank: false
+      # See https://github.com/kisielk/errcheck#excluding-functions for details.
+    gocritic:
+      # See https://go-critic.github.io/overview#checks-overview
+      # To check which checks are enabled run `GL_DEBUG=gocritic golangci-lint run`
+      disabled-checks:
+        - exitAfterDefer
+        - ifElseChain
+        - elseif
+      # Enable multiple checks by tags, run `GL_DEBUG=gocritic golangci-lint run` to see all tags and checks.
+      # See https://github.com/go-critic/go-critic#usage -> section "Tags".
+      enabled-tags:
+        - diagnostic
+    govet:
+      # Enable all analyzers.
+      enable-all: true
+      # Disable analyzers by name.
+      disable:
+        - fieldalignment
+        - shadow
+    misspell:
+      # Correct spellings using locale preferences for US or UK.
+      # Setting locale to US will correct the British spelling of 'colour' to 'color'.
+      locale: US
+      ignore-rules:
+        - cancelled
+    revive:
+      rules:
+        - name: struct-tag
+          arguments:
+            - json,inline
+        - name: var-naming
+        - name: redundant-import-alias
+        - name: comment-spacings
+        - name: exported
+          arguments:
+            - disableStutteringCheck
+        - name: package-comments
+
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      - name: struct-tag
-        arguments: [ "json,inline" ]
-      - name: var-naming
-      #        arguments:
-      #          - [ "ID" ,"UUID" ] # Ignore list. The items in this list does not need to follow the rule of initialisms. https://go.dev/wiki/CodeReviewComments#initialisms
-      #          - [ "GRPC" ] # Deny list. Add custom initialisms to the linter.
-      - name: redundant-import-alias
-      - name: comment-spacings
-      - name: exported
-        arguments:
-          - disableStutteringCheck
-      - name: package-comments
+      # Suppress "exported X should have comment or be unexported" (EXC0012).
+      # Only the format of existing comments is enforced (EXC0013, EXC0014).
+      - linters:
+          - revive
+        text: "exported (.+) should have comment"
+      # Suppress "should have a package comment" (EXC0015).
+      - linters:
+          - revive
+        text: "should have a package comment"
+      # Suppress "avoid package names that conflict/meaningless" (var-naming).
+      # Renaming existing packages (build, version, hash, template, etc.) is too invasive.
+      - linters:
+          - revive
+        text: "var-naming: avoid"
+      - linters:
+          - lll
+        path: api/*
+      - linters:
+          - dupl
+          - lll
+        path: internal/*
+      # Exclude gci check for +kubebuilder:scaffold comments.
+      # See https://github.com/daixiang0/gci/issues/135
+      - linters:
+          - gci
+        source: "\\+kubebuilder:scaffold"
+    paths:
+      - internal/dataplane/kubernetes/types # 3rd party types for CustomResourceDefinitions
+      - test # E2E tests
+      - third_party$
+      - builtin$
+      - examples$
 
 issues:
-  # Maximum issues count per one linter.
-  # Set to 0 to disable.
-  # Default: 50
+  # Set to 0 to disable the limit.
   max-issues-per-linter: 0
-  # Maximum count of issues with the same text.
-  # Set to 0 to disable.
-  # Default: 3
   max-same-issues: 0
-  # restore some of the defaults
-  # (fill in the rest as needed)
-  exclude-rules:
-    - path: "api/*"
-      linters:
-        - lll
-    - path: "internal/*"
-      linters:
-        - dupl
-        - lll
-    # Exclude gci check for +kubebuilder:scaffold comments.
-    # See https://github.com/daixiang0/gci/issues/135
-    - linters:
-        - gci
-      source: "\\+kubebuilder:scaffold"
-  exclude-dirs:
-    - "internal/dataplane/kubernetes/types" #3rd party types for CustomResourceDefinitions
-    - "test" # E2E tests
-  # The list of ids of default excludes to include.
-  include:
-    - EXC0013 # Package comments should be of the form "Package pkg ..."
-    - EXC0014 # Comment on exported type should be of the form "Type T ..."
-output:
-  show-stats: true
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - goimports
+  settings:
+    gci:
+      # list of prefixes to use for grouping imports
+      sections:
+        - standard
+        - default
+        - prefix(github.com/openchoreo/openchoreo)
+    goimports:
+      # put imports beginning with prefix after 3rd-party packages
+      local-prefixes:
+        - github.com/openchoreo/openchoreo
+  exclusions:
+    generated: lax
+    paths:
+      - internal/dataplane/kubernetes/types
+      - test
+      - third_party$
+      - builtin$
+      - examples$

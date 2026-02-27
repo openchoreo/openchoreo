@@ -39,7 +39,7 @@ KUBEBUILDER_HELM_GEN ?= go run $(PROJECT_DIR)/tools/helm-gen
 KUSTOMIZE_VERSION ?= v5.5.0
 CONTROLLER_TOOLS_VERSION ?= v0.16.4
 ENVTEST_VERSION ?= release-0.19
-GOLANGCI_LINT_VERSION ?= v1.64.8
+GOLANGCI_LINT_VERSION ?= v2.10.1
 HELMIFY_VERSION ?= v0.4.17
 YQ_VERSION ?= v4.45.1
 OAPI_CODEGEN_VERSION ?= v2.5.1
@@ -63,7 +63,7 @@ $(ENVTEST): $(TOOL_BIN)
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(TOOL_BIN)
-	$(call go_install_tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
+	$(call go_install_tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
 
 .PHONY: helmify
 helmify: $(HELMIFY) ## Download helmify locally if necessary.
