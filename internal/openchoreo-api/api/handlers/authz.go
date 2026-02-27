@@ -267,7 +267,7 @@ func (h *Handler) ListClusterRoles(
 		return gen.ListClusterRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	return gen.ListClusterRoles200JSONResponse{Items: items, Pagination: ToPaginationPtr(result)}, nil
+	return gen.ListClusterRoles200JSONResponse{Items: items, Pagination: ToPagination(result)}, nil
 }
 
 // CreateClusterRole creates a new cluster-scoped role.
@@ -429,7 +429,7 @@ func (h *Handler) ListClusterRoleBindings(
 		return gen.ListClusterRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	return gen.ListClusterRoleBindings200JSONResponse{Items: items, Pagination: ToPaginationPtr(result)}, nil
+	return gen.ListClusterRoleBindings200JSONResponse{Items: items, Pagination: ToPagination(result)}, nil
 }
 
 // CreateClusterRoleBinding creates a new cluster-scoped role binding.
@@ -591,7 +591,7 @@ func (h *Handler) ListNamespaceRoles(
 		return gen.ListNamespaceRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	return gen.ListNamespaceRoles200JSONResponse{Items: items, Pagination: ToPaginationPtr(result)}, nil
+	return gen.ListNamespaceRoles200JSONResponse{Items: items, Pagination: ToPagination(result)}, nil
 }
 
 // CreateNamespaceRole creates a new namespace-scoped role.
@@ -753,7 +753,7 @@ func (h *Handler) ListNamespaceRoleBindings(
 		return gen.ListNamespaceRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	return gen.ListNamespaceRoleBindings200JSONResponse{Items: items, Pagination: ToPaginationPtr(result)}, nil
+	return gen.ListNamespaceRoleBindings200JSONResponse{Items: items, Pagination: ToPagination(result)}, nil
 }
 
 // CreateNamespaceRoleBinding creates a new namespace-scoped role binding.

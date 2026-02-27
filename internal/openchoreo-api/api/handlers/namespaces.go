@@ -40,7 +40,7 @@ func (h *Handler) ListNamespaces(
 
 	return gen.ListNamespaces200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

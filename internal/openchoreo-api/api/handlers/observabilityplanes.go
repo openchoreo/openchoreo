@@ -39,7 +39,7 @@ func (h *Handler) ListObservabilityPlanes(
 
 	return gen.ListObservabilityPlanes200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

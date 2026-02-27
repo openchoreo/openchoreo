@@ -51,7 +51,7 @@ func (h *Handler) ListComponents(
 
 	return gen.ListComponents200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

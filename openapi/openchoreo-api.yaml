@@ -5368,6 +5368,7 @@ components:
       description: Paginated list of namespaces
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -5471,6 +5472,7 @@ components:
       description: Paginated list of projects
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -5488,6 +5490,7 @@ components:
       description: Paginated list of components
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -5826,6 +5829,7 @@ components:
       description: Paginated list of environments
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -5868,6 +5872,7 @@ components:
       description: Paginated list of data planes
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -5992,6 +5997,7 @@ components:
       description: Paginated list of build planes
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -6146,6 +6152,7 @@ components:
       description: Paginated list of observability planes
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -6216,6 +6223,7 @@ components:
       description: Paginated list of cluster-scoped data planes
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -6290,6 +6298,7 @@ components:
       description: List of cluster-scoped build planes
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -6379,6 +6388,7 @@ components:
       description: List of cluster-scoped observability planes
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -6449,6 +6459,7 @@ components:
       description: Paginated list of cluster-scoped component types
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -6621,6 +6632,7 @@ components:
       description: Paginated list of cluster-scoped traits
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -6764,6 +6776,7 @@ components:
       description: Paginated list of component types
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -6931,6 +6944,7 @@ components:
       description: Paginated list of traits
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -7737,6 +7751,7 @@ components:
       description: Paginated list of releases
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -8163,6 +8178,7 @@ components:
       description: List of cluster-scoped authorization roles
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -8206,6 +8222,7 @@ components:
       description: List of namespace-scoped authorization roles
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -8250,6 +8267,7 @@ components:
       description: List of cluster-scoped role bindings
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -8296,6 +8314,7 @@ components:
       description: List of namespace-scoped role bindings
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -8859,6 +8878,7 @@ components:
       description: Paginated list of secret references
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -9017,6 +9037,7 @@ components:
       description: Paginated list of workloads
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -9197,6 +9218,7 @@ components:
       description: Paginated list of deployment pipelines
       required:
         - items
+        - pagination
       properties:
         items:
           type: array
@@ -9286,6 +9308,7 @@ components:
       description: Paginated list of observability alerts notification channels
       required:
         - items
+        - pagination
       properties:
         items:
           type: array

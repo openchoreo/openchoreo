@@ -40,7 +40,7 @@ func (h *Handler) ListClusterTraits(
 
 	return gen.ListClusterTraits200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

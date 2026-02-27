@@ -42,9 +42,7 @@ func (h *Handler) ListComponentReleases(
 	resp := gen.ListComponentReleases200JSONResponse{
 		Items: items,
 	}
-	if p := ToPaginationPtr(result); p != nil {
-		resp.Pagination = *p
-	}
+	resp.Pagination = ToPagination(result)
 
 	return resp, nil
 }

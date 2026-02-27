@@ -40,7 +40,7 @@ func (h *Handler) ListClusterComponentTypes(
 
 	return gen.ListClusterComponentTypes200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

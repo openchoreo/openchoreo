@@ -37,7 +37,7 @@ func (h *Handler) ListTraits(
 
 	return gen.ListTraits200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

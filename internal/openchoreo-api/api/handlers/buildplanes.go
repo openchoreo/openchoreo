@@ -36,7 +36,7 @@ func (h *Handler) ListBuildPlanes(
 
 	return gen.ListBuildPlanes200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

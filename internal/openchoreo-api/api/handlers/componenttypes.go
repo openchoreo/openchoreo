@@ -37,7 +37,7 @@ func (h *Handler) ListComponentTypes(
 
 	return gen.ListComponentTypes200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

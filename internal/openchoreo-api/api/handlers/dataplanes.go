@@ -40,7 +40,7 @@ func (h *Handler) ListDataPlanes(
 
 	return gen.ListDataPlanes200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

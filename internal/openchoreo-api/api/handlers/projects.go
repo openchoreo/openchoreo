@@ -36,7 +36,7 @@ func (h *Handler) ListProjects(
 
 	return gen.ListProjects200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

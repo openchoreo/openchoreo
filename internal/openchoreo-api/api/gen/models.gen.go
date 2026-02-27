@@ -389,7 +389,7 @@ type AuthzClusterRoleBindingList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // AuthzClusterRoleBindingSpec Specification for a cluster-scoped role binding
@@ -413,7 +413,7 @@ type AuthzClusterRoleList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // AuthzClusterRoleSpec Specification for a cluster-scoped authorization role
@@ -465,7 +465,7 @@ type AuthzRoleBindingList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // AuthzRoleBindingSpec Specification for a namespace-scoped role binding
@@ -492,7 +492,7 @@ type AuthzRoleList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // AuthzRoleRef Reference to an AuthzRole or AuthzClusterRole
@@ -543,7 +543,7 @@ type BuildPlaneList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
@@ -619,7 +619,7 @@ type ClusterBuildPlaneList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // ClusterBuildPlaneSpec Desired state of a ClusterBuildPlane
@@ -668,7 +668,7 @@ type ClusterComponentTypeList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // ClusterComponentTypeSpec Desired state of a ClusterComponentType
@@ -782,7 +782,7 @@ type ClusterDataPlaneList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // ClusterDataPlaneSpec Desired state of a ClusterDataPlane
@@ -837,7 +837,7 @@ type ClusterObservabilityPlaneList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // ClusterObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
@@ -904,7 +904,7 @@ type ClusterTraitList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // ClusterTraitSpec Desired state of a ClusterTrait
@@ -1009,7 +1009,7 @@ type ComponentList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // ComponentRelease ComponentRelease resource (Kubernetes object without kind/apiVersion).
@@ -1173,7 +1173,7 @@ type ComponentTypeList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // ComponentTypeSpec Desired state of a ComponentType
@@ -1498,7 +1498,7 @@ type DataPlaneList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // DataPlaneSpec Desired state of a DataPlane
@@ -1571,7 +1571,7 @@ type DeploymentPipelineList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // DeploymentPipelineSpec Desired state of a DeploymentPipeline
@@ -1646,7 +1646,7 @@ type EnvironmentList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // EnvironmentSpec Desired state of an Environment
@@ -1847,7 +1847,7 @@ type NamespaceList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // NamespaceStatus Observed state of a Namespace
@@ -2017,7 +2017,7 @@ type ObservabilityAlertsNotificationChannelList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // ObservabilityAlertsNotificationChannelSpec Desired state of an ObservabilityAlertsNotificationChannel
@@ -2073,7 +2073,7 @@ type ObservabilityPlaneList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
@@ -2188,7 +2188,7 @@ type ProjectList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // ProjectSpec Desired state of a Project
@@ -2324,7 +2324,7 @@ type ReleaseList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // ReleaseResourceTree Resource tree for a single release
@@ -2647,7 +2647,7 @@ type SecretReferenceList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // SecretReferenceSpec Desired state of a SecretReference
@@ -2764,7 +2764,7 @@ type TraitList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // TraitSpec Desired state of a Trait
@@ -3288,7 +3288,7 @@ type WorkloadList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // WorkloadOverrides Environment-specific workload overrides

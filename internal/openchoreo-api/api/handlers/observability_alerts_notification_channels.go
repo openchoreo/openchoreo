@@ -36,7 +36,7 @@ func (h *Handler) ListObservabilityAlertsNotificationChannels(
 
 	return gen.ListObservabilityAlertsNotificationChannels200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

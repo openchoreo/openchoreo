@@ -39,7 +39,7 @@ func (h *Handler) ListDeploymentPipelines(
 
 	return gen.ListDeploymentPipelines200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

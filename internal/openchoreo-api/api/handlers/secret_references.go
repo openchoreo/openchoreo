@@ -36,7 +36,7 @@ func (h *Handler) ListSecretReferences(
 
 	return gen.ListSecretReferences200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

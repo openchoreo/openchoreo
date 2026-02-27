@@ -44,9 +44,3 @@ func ToPagination[T any](result *services.ListResult[T]) gen.Pagination {
 	}
 	return p
 }
-
-// ToPaginationPtr builds a *gen.Pagination from a ListResult.
-func ToPaginationPtr[T any](result *services.ListResult[T]) *gen.Pagination {
-	p := ToPagination(result)
-	return &p
-}

@@ -48,9 +48,7 @@ func (h *Handler) ListReleaseBindings(
 	resp := gen.ListReleaseBindings200JSONResponse{
 		Items: items,
 	}
-	if p := ToPaginationPtr(result); p != nil {
-		resp.Pagination = *p
-	}
+	resp.Pagination = ToPagination(result)
 
 	return resp, nil
 }

@@ -59,7 +59,7 @@ func (l *Component) List(params ListParams) error {
 			return nil, "", err
 		}
 		next := ""
-		if result.Pagination != nil && result.Pagination.NextCursor != nil {
+		if result.Pagination.NextCursor != nil {
 			next = *result.Pagination.NextCursor
 		}
 		return result.Items, next, nil

@@ -41,7 +41,7 @@ func (h *Handler) ListWorkloads(
 
 	return gen.ListWorkloads200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

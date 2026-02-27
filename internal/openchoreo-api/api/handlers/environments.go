@@ -37,7 +37,7 @@ func (h *Handler) ListEnvironments(
 
 	return gen.ListEnvironments200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

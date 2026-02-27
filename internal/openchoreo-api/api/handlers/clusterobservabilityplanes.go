@@ -36,7 +36,7 @@ func (h *Handler) ListClusterObservabilityPlanes(
 
 	return gen.ListClusterObservabilityPlanes200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 

@@ -39,7 +39,7 @@ func (h *Handler) ListClusterDataPlanes(
 
 	return gen.ListClusterDataPlanes200JSONResponse{
 		Items:      items,
-		Pagination: ToPaginationPtr(result),
+		Pagination: ToPagination(result),
 	}, nil
 }
 
