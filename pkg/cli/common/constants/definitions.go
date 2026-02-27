@@ -742,6 +742,14 @@ This command allows you to:
   occ workflow list --namespace acme-corp`,
 	}
 
+	GetWorkflow = Command{
+		Use:   "get [WORKFLOW_NAME]",
+		Short: "Get a workflow",
+		Long:  `Get a workflow and display its details in YAML format.`,
+		Example: `  # Get a workflow
+  occ workflow get docker --namespace acme-corp`,
+	}
+
 	StartWorkflow = Command{
 		Use:   "start WORKFLOW_NAME",
 		Short: "Start a workflow run",
@@ -981,6 +989,14 @@ This command allows you to:
 
   # Deploy with overrides
   %[1]s component deploy api-service --set componentTypeEnvOverrides.replicas=3`, messages.DefaultCLIName),
+	}
+
+	StartComponentWorkflow = Command{
+		Use:   "start [COMPONENT_NAME]",
+		Short: "Start a component's workflow",
+		Long:  `Start a workflow run for a component using its configured workflow.`,
+		Example: `  # Start workflow for a component
+  occ component workflow start my-service --namespace acme-corp`,
 	}
 
 	Environment = Command{

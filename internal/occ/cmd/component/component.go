@@ -71,6 +71,102 @@ func (l *Component) List(params ListParams) error {
 	return printList(items, params.Project == "")
 }
 
+// StartWorkflow gets the component, resolves its workflow name, and starts a workflow run.
+func (l *Component) StartWorkflow(params StartWorkflowParams) error {
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	comp, err := c.GetComponent(ctx, params.Namespace, params.ComponentName)
+	if err != nil {
+		return err
+	}
+
+	if comp.Spec == nil || comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == nil {
+		return fmt.Errorf("component %q has no workflow configured", params.ComponentName)
+	}
+
+	workflowName := *comp.Spec.Workflow.Name
+
+	req := gen.WorkflowRun{
+		Spec: &gen.WorkflowRunSpec{
+			Workflow: gen.WorkflowRunConfig{
+				Name: workflowName,
+			},
+		},
+	}
+
+	req, err = applyWorkflowRunOverrides(req, workflowName, params.Set)
+	if err != nil {
+		return err
+	}
+
+	workflowRun, err := c.CreateWorkflowRun(ctx, params.Namespace, req)
+	if err != nil {
+		return err
+	}
+
+	runWorkflow := ""
+	if workflowRun.Spec != nil {
+		runWorkflow = workflowRun.Spec.Workflow.Name
+	}
+	ns := ""
+	if workflowRun.Metadata.Namespace != nil {
+		ns = *workflowRun.Metadata.Namespace
+	}
+	fmt.Printf("Successfully started workflow run: %s\n", workflowRun.Metadata.Name)
+	fmt.Printf("  Workflow: %s\n", runWorkflow)
+	fmt.Printf("  Component: %s\n", params.ComponentName)
+	fmt.Printf("  Namespace: %s\n", ns)
+
+	return nil
+}
+
+// applyWorkflowRunOverrides applies --set values as JSON paths to the full WorkflowRun object.
+// The workflow name is enforced and cannot be overridden.
+func applyWorkflowRunOverrides(req gen.WorkflowRun, workflowName string, setValues []string) (gen.WorkflowRun, error) {
+	if len(setValues) == 0 {
+		return req, nil
+	}
+
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		return req, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	jsonStr := string(reqJSON)
+	for _, s := range setValues {
+		parts := strings.SplitN(s, "=", 2)
+		if len(parts) != 2 {
+			return req, fmt.Errorf("invalid --set format %q, expected key=value", s)
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if key == "" {
+			return req, fmt.Errorf("empty key in --set flag")
+		}
+		jsonStr, err = sjson.SetRaw(jsonStr, key, toJSONLiteral(value))
+		if err != nil {
+			return req, fmt.Errorf("failed to set value for key %q: %w", key, err)
+		}
+	}
+
+	var result gen.WorkflowRun
+	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
+		return req, fmt.Errorf("failed to unmarshal request: %w", err)
+	}
+
+	// Enforce workflow name cannot be changed
+	if result.Spec != nil {
+		result.Spec.Workflow.Name = workflowName
+	}
+
+	return result, nil
+}
+
 // Get retrieves a single component and outputs it as YAML
 func (l *Component) Get(params GetParams) error {
 	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponent, params); err != nil {

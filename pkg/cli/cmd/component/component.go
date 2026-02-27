@@ -31,6 +31,7 @@ func NewComponentCmd() *cobra.Command {
 		newScaffoldComponentCmd(),
 		newDeployComponentCmd(),
 		newLogsComponentCmd(),
+		newComponentWorkflowCmd(),
 	)
 
 	return componentCmd
@@ -248,6 +249,43 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 		flags.Follow,
 		flags.Since,
 	)
+
+	return cmd
+}
+
+func newComponentWorkflowCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "workflow",
+		Aliases: []string{"wf"},
+		Short:   "Manage component workflows",
+		Long:    `Manage component workflows for OpenChoreo.`,
+	}
+
+	cmd.AddCommand(newStartComponentWorkflowCmd())
+
+	return cmd
+}
+
+func newStartComponentWorkflowCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.StartComponentWorkflow.Use,
+		Short:   constants.StartComponentWorkflow.Short,
+		Long:    constants.StartComponentWorkflow.Long,
+		Example: constants.StartComponentWorkflow.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			set, _ := cmd.Flags().GetStringArray(flags.Set.Name)
+			return component.New().StartWorkflow(component.StartWorkflowParams{
+				Namespace:     namespace,
+				ComponentName: args[0],
+				Set:           set,
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace, flags.Set)
 
 	return cmd
 }

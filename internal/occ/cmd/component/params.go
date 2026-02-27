@@ -56,6 +56,16 @@ type DeleteParams struct {
 func (p DeleteParams) GetNamespace() string     { return p.Namespace }
 func (p DeleteParams) GetComponentName() string { return p.ComponentName }
 
+// StartWorkflowParams defines parameters for starting a component's workflow
+type StartWorkflowParams struct {
+	Namespace     string
+	ComponentName string
+	Set           []string
+}
+
+func (p StartWorkflowParams) GetNamespace() string     { return p.Namespace }
+func (p StartWorkflowParams) GetComponentName() string { return p.ComponentName }
+
 // LogsParams defines parameters for fetching component logs
 type LogsParams struct {
 	Namespace   string

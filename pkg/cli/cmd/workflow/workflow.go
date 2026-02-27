@@ -24,6 +24,7 @@ func NewWorkflowCmd() *cobra.Command {
 
 	workflowCmd.AddCommand(
 		newListWorkflowCmd(),
+		newGetWorkflowCmd(),
 		newStartWorkflowCmd(),
 	)
 
@@ -43,19 +44,48 @@ func newListWorkflowCmd() *cobra.Command {
 	}).Build()
 }
 
-func newStartWorkflowCmd() *cobra.Command {
-	cmd := (&builder.CommandBuilder{
-		Command: constants.StartWorkflow,
-		Flags:   []flags.Flag{flags.Namespace},
-		RunE: func(fg *builder.FlagGetter) error {
-			workflowName := fg.GetArgs()[0]
-			return workflow.New().StartRun(workflow.StartRunParams{
-				Namespace:    fg.GetString(flags.Namespace),
-				WorkflowName: workflowName,
+func newGetWorkflowCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.GetWorkflow.Use,
+		Short:   constants.GetWorkflow.Short,
+		Long:    constants.GetWorkflow.Long,
+		Example: constants.GetWorkflow.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			return workflow.New().Get(workflow.GetParams{
+				Namespace:    namespace,
+				WorkflowName: args[0],
 			})
 		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace)
+
+	return cmd
+}
+
+func newStartWorkflowCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.StartWorkflow.Use,
+		Short:   constants.StartWorkflow.Short,
+		Long:    constants.StartWorkflow.Long,
+		Example: constants.StartWorkflow.Example,
+		Args:    cobra.ExactArgs(1),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
-	}).Build()
-	cmd.Args = cobra.ExactArgs(1)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			set, _ := cmd.Flags().GetStringArray(flags.Set.Name)
+			return workflow.New().StartRun(workflow.StartRunParams{
+				Namespace:    namespace,
+				WorkflowName: args[0],
+				Set:          set,
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace, flags.Set)
+
 	return cmd
 }

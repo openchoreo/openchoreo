@@ -370,6 +370,18 @@ func (c *Client) ListWorkflows(ctx context.Context, namespaceName string, params
 	return resp.JSON200, nil
 }
 
+// GetWorkflow retrieves a specific workflow by name
+func (c *Client) GetWorkflow(ctx context.Context, namespaceName, workflowName string) (*gen.Workflow, error) {
+	resp, err := c.client.GetWorkflowWithResponse(ctx, namespaceName, workflowName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
 // ListSecretReferences retrieves all secret references for a namespace
 func (c *Client) ListSecretReferences(ctx context.Context, namespaceName string, params *gen.ListSecretReferencesParams) (*gen.SecretReferenceList, error) {
 	if params == nil {
@@ -519,23 +531,9 @@ func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName
 func (c *Client) CreateWorkflowRun(
 	ctx context.Context,
 	namespace string,
-	workflowName string,
-	parameters map[string]interface{},
+	body gen.CreateWorkflowRunJSONRequestBody,
 ) (*gen.WorkflowRun, error) {
-	var params *map[string]interface{}
-	if parameters != nil {
-		params = &parameters
-	}
-	req := gen.CreateWorkflowRunJSONRequestBody{
-		Spec: &gen.WorkflowRunSpec{
-			Workflow: gen.WorkflowRunConfig{
-				Name:       workflowName,
-				Parameters: params,
-			},
-		},
-	}
-
-	resp, err := c.client.CreateWorkflowRunWithResponse(ctx, namespace, req)
+	resp, err := c.client.CreateWorkflowRunWithResponse(ctx, namespace, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow run: %w", err)
 	}
