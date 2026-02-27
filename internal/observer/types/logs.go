@@ -52,8 +52,6 @@ type SearchScope struct {
 
 // UnmarshalJSON implements custom JSON unmarshaling to handle oneOf
 // The JSON can be either a ComponentSearchScope or WorkflowSearchScope directly.
-// When the discriminator field "scopeType" is present it is used to dispatch;
-// otherwise heuristic field detection is used for backwards compatibility.
 func (s *SearchScope) UnmarshalJSON(data []byte) error {
 	// First, unmarshal into a map to check for distinguishing fields
 	var raw map[string]interface{}
@@ -61,27 +59,7 @@ func (s *SearchScope) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("failed to parse searchScope: %w", err)
 	}
 
-	// Prefer the explicit discriminator field when present.
-	if scopeType, ok := raw["scopeType"].(string); ok {
-		switch scopeType {
-		case "workflow":
-			var workflowScope WorkflowSearchScope
-			if err := json.Unmarshal(data, &workflowScope); err != nil {
-				return fmt.Errorf("failed to unmarshal as WorkflowSearchScope: %w", err)
-			}
-			s.Workflow = &workflowScope
-			return nil
-		case "component":
-			var componentScope ComponentSearchScope
-			if err := json.Unmarshal(data, &componentScope); err != nil {
-				return fmt.Errorf("failed to unmarshal as ComponentSearchScope: %w", err)
-			}
-			s.Component = &componentScope
-			return nil
-		}
-	}
-
-	// Fallback: heuristic field detection for backwards compatibility.
+	// Differentiate between ComponentSearchScope and WorkflowSearchScope based on the presence of the fields.
 	// - workflowRunName indicates WorkflowSearchScope
 	// - project, component, or environment indicates ComponentSearchScope
 	if _, hasWorkflowRunName := raw["workflowRunName"]; hasWorkflowRunName {
