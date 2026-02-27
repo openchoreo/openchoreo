@@ -98,7 +98,7 @@ func (idx *Index) ListAll() []*ResourceEntry {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	var entries []*ResourceEntry
+	entries := make([]*ResourceEntry, 0, len(idx.byGVK))
 	for _, gvkMap := range idx.byGVK {
 		for _, entry := range gvkMap {
 			entries = append(entries, entry)

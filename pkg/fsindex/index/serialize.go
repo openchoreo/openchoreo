@@ -29,7 +29,7 @@ func (idx *Index) ToSerializable() *SerializableIndex {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	var resources []SerializableResource
+	resources := make([]SerializableResource, 0, len(idx.byGVK))
 
 	// Iterate through all resources in the index
 	for gvk, gvkMap := range idx.byGVK {
