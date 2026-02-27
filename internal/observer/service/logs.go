@@ -33,19 +33,24 @@ func NewLogsService(
 	cfg *config.Config,
 	logger *slog.Logger,
 ) (*LogsService, error) {
-	// Initialize default logs adaptor (queries OpenSearch when logs backend is not enabled)
-	defaultAdaptor, err := adaptor.NewDefaultLogsAdaptor(&cfg.OpenSearch, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize default logs adaptor: %w", err)
+	svc := &LogsService{
+		logsBackend: logsBackend,
+		config:      cfg,
+		resolver:    resolver,
+		logger:      logger,
 	}
 
-	return &LogsService{
-		logsBackend:    logsBackend,
-		defaultAdaptor: defaultAdaptor,
-		config:         cfg,
-		resolver:       resolver,
-		logger:         logger,
-	}, nil
+	// Only initialize the default OpenSearch adaptor when the logs backend is not in use.
+	// This avoids requiring OpenSearch connectivity when an alternative backend is configured.
+	if !cfg.Experimental.UseLogsBackend || logsBackend == nil {
+		defaultAdaptor, err := adaptor.NewDefaultLogsAdaptor(&cfg.OpenSearch, logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize default logs adaptor: %w", err)
+		}
+		svc.defaultAdaptor = defaultAdaptor
+	}
+
+	return svc, nil
 }
 
 // internalSearchScope holds resolved UIDs for internal use
@@ -67,10 +72,13 @@ type internalSearchScope struct {
 // If experimental.use.logs.backend is enabled, uses logs backend
 // Otherwise, falls back to the default adaptor
 func (s *LogsService) QueryLogs(ctx context.Context, req *types.LogsQueryRequest) (*types.LogsQueryResponse, error) {
-	s.logger.Info("QueryLogs called",
+	if req == nil {
+		return nil, fmt.Errorf("request must not be nil")
+	}
+
+	s.logger.Debug("QueryLogs called",
 		"startTime", req.StartTime,
 		"endTime", req.EndTime,
-		"searchPhrase", req.SearchPhrase,
 		"limit", req.Limit,
 		"useLogsBackend", s.config.Experimental.UseLogsBackend)
 
@@ -207,6 +215,9 @@ func (s *LogsService) getComponentLogsFromDefaultAdaptor(
 	ctx context.Context,
 	params observability.ComponentApplicationLogsParams,
 ) (*observability.ComponentApplicationLogsResult, error) {
+	if s.defaultAdaptor == nil {
+		return nil, fmt.Errorf("default logs adaptor is not initialized")
+	}
 	result, err := s.defaultAdaptor.GetComponentApplicationLogs(ctx, params)
 	if err != nil {
 		s.logger.Error("Failed to get component logs from default adaptor", "error", err)
@@ -243,6 +254,9 @@ func (s *LogsService) getWorkflowLogsFromDefaultAdaptor(
 	ctx context.Context,
 	params observability.WorkflowLogsParams,
 ) (*observability.WorkflowLogsResult, error) {
+	if s.defaultAdaptor == nil {
+		return nil, fmt.Errorf("default logs adaptor is not initialized")
+	}
 	result, err := s.defaultAdaptor.GetWorkflowLogs(ctx, params)
 	if err != nil {
 		s.logger.Error("Failed to get workflow logs from default adaptor", "error", err)

@@ -12,9 +12,10 @@ import (
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	if err := h.healthService.Check(ctx); err != nil {
+		h.logger.Error("Health check failed", "error", err)
 		h.writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 			"status": "unhealthy",
-			"error":  err.Error(),
+			"error":  "service unavailable",
 		})
 		return
 	}

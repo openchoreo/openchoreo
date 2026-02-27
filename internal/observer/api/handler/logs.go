@@ -94,7 +94,7 @@ func (h *Handler) QueryLogs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
-			h.writeErrorResponse(w, http.StatusUnauthorized, types.ErrorTypeForbidden, types.ErrorCodeForbidden, "Unauthorized")
+			h.writeErrorResponse(w, http.StatusUnauthorized, types.ErrorTypeUnauthorized, types.ErrorCodeUnauthorized, "Unauthorized")
 			return
 		}
 		h.logger.Error("Authorization check failed", "error", err)

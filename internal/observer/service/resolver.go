@@ -51,6 +51,7 @@ type ResourceResolver struct {
 func NewResourceResolver(cfg *config.ResolverConfig, logger *slog.Logger) *ResourceResolver {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
+			MinVersion:         tls.VersionTLS12,
 			InsecureSkipVerify: cfg.TLSInsecureSkipVerify, //nolint:gosec // G402: Configurable for development
 		},
 	}

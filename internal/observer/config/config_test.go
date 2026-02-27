@@ -138,6 +138,10 @@ func TestValidate(t *testing.T) {
 					ServiceURL: "http://localhost:8081",
 					Timeout:    30 * time.Second,
 				},
+				Resolver: ResolverConfig{
+					Timeout:  30 * time.Second,
+					CacheTTL: 5 * time.Minute,
+				},
 			},
 			expectErr: false,
 		},

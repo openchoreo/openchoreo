@@ -163,15 +163,17 @@ type ErrorResponse struct {
 // Error codes for the new API
 const (
 	// Error types
-	ErrorTypeValidation = "validation_error"
-	ErrorTypeInternal   = "internal_error"
-	ErrorTypeForbidden  = "forbidden"
-	ErrorTypeNotFound   = "not_found"
+	ErrorTypeValidation   = "validation_error"
+	ErrorTypeInternal     = "internal_error"
+	ErrorTypeForbidden    = "forbidden"
+	ErrorTypeUnauthorized = "unauthorized"
+	ErrorTypeNotFound     = "not_found"
 
 	// Error codes
 	ErrorCodeInvalidRequest   = "OBS-V1-001"
 	ErrorCodeMissingField     = "OBS-V1-002"
 	ErrorCodeInvalidTimeRange = "OBS-V1-003"
 	ErrorCodeInternalError    = "OBS-V1-100"
+	ErrorCodeUnauthorized     = "OBS-V1-401"
 	ErrorCodeForbidden        = "OBS-V1-403"
 )

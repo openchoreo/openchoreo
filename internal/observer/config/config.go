@@ -305,7 +305,7 @@ func getDefaults() map[string]interface{} {
 			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",
 			"oauth.token.url":          "http://thunder.openchoreo.localhost:8080/oauth2/token",
 			"oauth.client.id":          "openchoreo-observer",
-			"oauth.client.secret":      "openchoreo-observer-secret",
+			"oauth.client.secret":      "",
 			"tls.insecure.skip.verify": false,
 			"cache.ttl":                "5m",
 			"timeout":                  "30s",
@@ -344,6 +344,13 @@ func (c *Config) validate() error {
 	}
 	if c.Authz.Timeout <= 0 {
 		return fmt.Errorf("authz timeout must be positive")
+	}
+
+	if c.Resolver.Timeout <= 0 {
+		return fmt.Errorf("resolver timeout must be positive")
+	}
+	if c.Resolver.CacheTTL <= 0 {
+		return fmt.Errorf("resolver cache TTL must be positive")
 	}
 
 	return nil

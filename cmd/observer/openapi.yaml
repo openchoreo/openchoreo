@@ -32,7 +32,7 @@ paths:
       tags:
         - Health
       summary: Health check
-      description: Check the health status of the observer service including OpenSearch and Prometheus connectivity
+      description: Check the health status of the observer service. Backends such as OpenSearch and Prometheus are optional; alternative backends (e.g., the logs backend) may be used for observability data.
       operationId: health
       security: []
       responses:
@@ -89,7 +89,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 title: "badRequest"
-                errorCode: "OBS-L-21"
+                errorCode: "OBS-V1-001"
                 message: "Missing required fields 'startTime' and 'endTime'"
         "401":
           description: Unauthorized
@@ -99,7 +99,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 title: "unauthorized"
-                errorCode: "OBS-L-25"
+                errorCode: "OBS-V1-401"
                 message: "Invalid or missing token"
         "403":
           description: Forbidden
@@ -109,7 +109,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 title: "forbidden"
-                errorCode: "OBS-L-26"
+                errorCode: "OBS-V1-403"
                 message: "Subject <xyz> has no permission to view logs of Namespace foo, Project bar, Component baz in Environment development"
         "500":
           description: Internal Server Error
@@ -119,7 +119,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 title: "internalServerError"
-                errorCode: "OBS-L-29"
+                errorCode: "OBS-V1-100"
                 message: ""
 
 components:
@@ -177,6 +177,7 @@ components:
             - $ref: "#/components/schemas/WorkflowSearchScope"
         logLevels:
           type: array
+          maxItems: 10
           items:
             type: string
         searchPhrase:
@@ -283,7 +284,7 @@ components:
         errorCode:
           type: string
           description: The error code from observer service
-          example: OBS-L-22
+          example: OBS-V1-001
         message:
           type: string
           description: Human-readable error message
