@@ -66,6 +66,19 @@ spec:
           value: /etc/openchoreo/auth-config.yaml
         - name: AUTHZ_SERVICE_URL
           value: {{ .Values.observer.controlPlaneApiUrl | quote }}
+        # UIDResolver configuration for calling openchoreo-api with OAuth2 client credentials
+        - name: UID_RESOLVER_OPENCHOREO_API_URL
+          value: {{ .Values.observer.controlPlaneApiUrl | quote }}
+        {{- if .Values.security.oidc.tokenUrl }}
+        - name: UID_RESOLVER_OAUTH_TOKEN_URL
+          value: {{ .Values.security.oidc.tokenUrl | quote }}
+        {{- end }}
+        - name: UID_RESOLVER_OAUTH_CLIENT_ID
+          value: {{ .Values.observer.oauthClientId | default "openchoreo-observer" | quote }}
+        {{- if .Values.observer.oauthClientSecret }}
+        - name: UID_RESOLVER_OAUTH_CLIENT_SECRET
+          value: {{ .Values.observer.oauthClientSecret | quote }}
+        {{- end }}
         {{- if .Values.security.oidc.authServerBaseUrl }}
         - name: AUTH_SERVER_BASE_URL
           value: {{ .Values.security.oidc.authServerBaseUrl | quote }}

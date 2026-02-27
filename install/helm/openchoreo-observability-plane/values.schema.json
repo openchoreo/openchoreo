@@ -1565,6 +1565,18 @@
           "required": [],
           "title": "logLevel"
         },
+        "oauthClientId": {
+          "default": "openchoreo-observer",
+          "description": "OAuth2 client ID used by the Observer when calling the control plane API",
+          "title": "oauthClientId",
+          "type": "string"
+        },
+        "oauthClientSecret": {
+          "default": "openchoreo-observer-secret",
+          "description": "OAuth2 client secret for the Observer when calling the control plane API",
+          "title": "oauthClientSecret",
+          "type": "string"
+        },
         "openSearchSecretName": {
           "default": "",
           "description": "Name of an existing Secret with 'username' and 'password' keys for OpenSearch authentication. Required.",
