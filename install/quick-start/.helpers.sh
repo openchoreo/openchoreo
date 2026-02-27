@@ -719,9 +719,14 @@ $(echo "$agent_ca" | sed 's/^/        /')
   secretStoreRef:
     name: default
   gateway:
-    publicVirtualHost: openchoreoapis.localhost
-    publicHTTPPort: 19080
-    publicHTTPSPort: 19443
+    ingress:
+      external:
+        http:
+          host: openchoreoapis.localhost
+          listenerName: http
+          port: 19080
+        name: gateway-default
+        namespace: openchoreo-data-plane
 DPEOF
 
     log_success "DataPlane resource created"

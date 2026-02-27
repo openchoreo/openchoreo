@@ -220,6 +220,15 @@ spec:
 $(echo "$AGENT_CA" | sed 's/^/        /')
   secretStoreRef:
     name: default
+  gateway:
+    ingress:
+      external:
+        http:
+          host: openchoreoapis.localhost
+          listenerName: http
+          port: 19080
+        name: gateway-default
+        namespace: openchoreo-data-plane
 EOF
 ```
 
