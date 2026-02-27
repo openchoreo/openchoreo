@@ -168,8 +168,6 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 		DisplayName           string `json:"display_name"`
 		Description           string `json:"description"`
 		ClusterAgentClientCA  string `json:"cluster_agent_client_ca"`
-		PublicVirtualHost     string `json:"public_virtual_host"`
-		NamespaceVirtualHost  string `json:"namespace_virtual_host"`
 		ObservabilityPlaneRef *struct {
 			Kind string `json:"kind"`
 			Name string `json:"name"`
@@ -413,6 +411,46 @@ func (t *Toolsets) RegisterGetWorkflowRun(s *mcp.Server) {
 		RunName       string `json:"run_name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.ComponentToolset.GetWorkflowRun(ctx, args.NamespaceName, args.RunName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterListWorkflows(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_workflows",
+		Description: "List all workflows in a namespace. Workflows are reusable templates that define " +
+			"automated processes such as CI/CD pipelines executed on the build plane. " +
+			"Use this to discover available workflow names for use with create_component or create_workflow_run. " +
+			"Supports pagination via limit and cursor.",
+		InputSchema: createSchema(addPaginationProperties(map[string]any{
+			"namespace_name": defaultStringProperty(),
+		}), []string{"namespace_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		Limit         int    `json:"limit,omitempty"`
+		Cursor        string `json:"cursor,omitempty"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.ListWorkflows(
+			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetWorkflowSchema(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_workflow_schema",
+		Description: "Get the parameter schema for a specific workflow. Use this to inspect what parameters " +
+			"a workflow accepts before configuring a component's workflow field or triggering a workflow run. " +
+			"Use list_workflows to discover valid workflow names.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"workflow_name":  stringProperty("Name of the workflow. Use list_workflows to discover valid names"),
+		}, []string{"namespace_name", "workflow_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		WorkflowName  string `json:"workflow_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.GetWorkflowSchema(ctx, args.NamespaceName, args.WorkflowName)
 		return handleToolResult(result, err)
 	})
 }

@@ -152,8 +152,9 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 				"description": "Optional: Component type parameters (port, replicas, exposed, etc.)",
 			},
 			"workflow": map[string]any{
-				"type":        "object",
-				"description": "Optional: Component workflow configuration with name, systemParameters, and parameters",
+				"type": "object",
+				"description": "Optional: Component workflow configuration. Use list_workflows to discover available " +
+					"workflow names, and get_workflow_schema to inspect the parameter schema a workflow accepts.",
 			},
 		}, []string{"namespace_name", "project_name", "name", "componentType"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
@@ -697,11 +698,14 @@ func (t *Toolsets) RegisterPatchComponent(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "patch_component",
 		Description: "Patch (partially update) a component's configuration. Only the fields provided in the request " +
-			"will be updated; omitted fields remain unchanged. Supports updating autoDeploy and parameters.",
+			"will be updated; omitted fields remain unchanged. Supports updating display name, description, " +
+			"autoDeploy, parameters, and workflow configuration.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
 			"component_name": stringProperty("Use list_components to discover valid names"),
+			"display_name":   stringProperty("Optional: human-readable display name"),
+			"description":    stringProperty("Optional: human-readable description"),
 			"auto_deploy": map[string]any{
 				"type":        "boolean",
 				"description": "Optional: Whether the component should automatically deploy to the default environment",
@@ -710,17 +714,26 @@ func (t *Toolsets) RegisterPatchComponent(s *mcp.Server) {
 				"type":        "object",
 				"description": "Optional: Component type parameters (port, replicas, exposed, etc.)",
 			},
+			"workflow": map[string]any{
+				"type": "object",
+				"description": "Optional: Component workflow configuration. Use list_workflows to discover available " +
+					"workflow names, and get_workflow_schema to inspect the parameter schema a workflow accepts.",
+			},
 		}, []string{"namespace_name", "project_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string                 `json:"namespace_name"`
 		ProjectName   string                 `json:"project_name"`
 		ComponentName string                 `json:"component_name"`
+		DisplayName   string                 `json:"display_name"`
+		Description   string                 `json:"description"`
 		AutoDeploy    *bool                  `json:"auto_deploy"`
 		Parameters    map[string]interface{} `json:"parameters"`
+		Workflow      map[string]interface{} `json:"workflow"`
 	}) (*mcp.CallToolResult, any, error) {
-		patchReq := &models.PatchComponentRequest{}
-		if args.AutoDeploy != nil {
-			patchReq.AutoDeploy = args.AutoDeploy
+		patchReq := &models.PatchComponentRequest{
+			DisplayName: args.DisplayName,
+			Description: args.Description,
+			AutoDeploy:  args.AutoDeploy,
 		}
 		if args.Parameters != nil {
 			rawParams, err := json.Marshal(args.Parameters)
@@ -733,6 +746,25 @@ func (t *Toolsets) RegisterPatchComponent(s *mcp.Server) {
 				}, nil, nil
 			}
 			patchReq.Parameters = &runtime.RawExtension{Raw: rawParams}
+		}
+		if args.Workflow != nil {
+			workflow := &models.WorkflowConfig{}
+			if name, ok := args.Workflow["name"].(string); ok {
+				workflow.Name = name
+			}
+			if params, ok := args.Workflow["parameters"].(map[string]interface{}); ok {
+				rawParams, err := json.Marshal(params)
+				if err != nil {
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{
+							&mcp.TextContent{Text: "Failed to marshal workflow parameters: " + err.Error()},
+						},
+						IsError: true,
+					}, nil, nil
+				}
+				workflow.Parameters = &runtime.RawExtension{Raw: rawParams}
+			}
+			patchReq.WorkflowConfig = workflow
 		}
 		result, err := t.ComponentToolset.PatchComponent(
 			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, patchReq)

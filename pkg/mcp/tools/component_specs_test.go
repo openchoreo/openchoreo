@@ -21,6 +21,7 @@ func componentToolSpecs() []toolTestSpec {
 	specs = append(specs, componentTypeSpecs()...)
 	specs = append(specs, componentTraitSpecs()...)
 	specs = append(specs, componentWorkflowRunSpecs()...)
+	specs = append(specs, componentWorkflowSpecs()...)
 	specs = append(specs, componentClusterComponentTypeSpecs()...)
 	specs = append(specs, componentClusterTraitSpecs()...)
 	return specs
@@ -147,12 +148,12 @@ func componentBasicSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"patch", "component"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
-			optionalParams:      []string{"auto_deploy"},
+			optionalParams:      []string{"display_name", "description", "auto_deploy", "parameters", "workflow"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
-				"auto_deploy":    true,
+				"display_name":   "My Component",
 			},
 			expectedMethod: "PatchComponent",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -530,20 +531,25 @@ func componentTypeSpecs() []toolTestSpec {
 	}
 }
 
-// componentTraitSpecs returns trait operation specs
-func componentTraitSpecs() []toolTestSpec {
+// listAndGetSchemaSpecs generates specs for list and get-schema operations on a named entity type.
+// entityKind is the human-readable kind (e.g. "trait"), entityNameParam is the request param name
+// (e.g. "trait_name"), testEntityName is the value used in test args, listMethod and getSchemaMethod
+// are the expected mock method names.
+func listAndGetSchemaSpecs(
+	entityKind, entityNameParam, testEntityName, listMethod, getSchemaMethod string,
+) []toolTestSpec {
 	return []toolTestSpec{
 		{
-			name:                "list_traits",
+			name:                "list_" + entityKind + "s",
 			toolset:             "component",
-			descriptionKeywords: []string{"list", "trait"},
+			descriptionKeywords: []string{"list", entityKind},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name"},
 			optionalParams:      []string{"limit", "cursor"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 			},
-			expectedMethod: "ListTraits",
+			expectedMethod: listMethod,
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
 					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
@@ -551,23 +557,28 @@ func componentTraitSpecs() []toolTestSpec {
 			},
 		},
 		{
-			name:                "get_trait_schema",
+			name:                "get_" + entityKind + "_schema",
 			toolset:             "component",
-			descriptionKeywords: []string{"trait", "schema"},
+			descriptionKeywords: []string{entityKind, "schema"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "trait_name"},
+			requiredParams:      []string{"namespace_name", entityNameParam},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"trait_name":     "autoscaling",
+				entityNameParam:  testEntityName,
 			},
-			expectedMethod: "GetTraitSchema",
+			expectedMethod: getSchemaMethod,
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "autoscaling" {
-					t.Errorf("Expected (%s, autoscaling), got (%v, %v)", testNamespaceName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != testEntityName {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testEntityName, args[0], args[1])
 				}
 			},
 		},
 	}
+}
+
+// componentTraitSpecs returns trait operation specs
+func componentTraitSpecs() []toolTestSpec {
+	return listAndGetSchemaSpecs("trait", "trait_name", "autoscaling", "ListTraits", "GetTraitSchema")
 }
 
 // componentWorkflowRunSpecs returns workflow run operation specs
@@ -626,6 +637,11 @@ func componentWorkflowRunSpecs() []toolTestSpec {
 			},
 		},
 	}
+}
+
+// componentWorkflowSpecs returns workflow operation specs
+func componentWorkflowSpecs() []toolTestSpec {
+	return listAndGetSchemaSpecs("workflow", "workflow_name", "build-workflow", "ListWorkflows", "GetWorkflowSchema")
 }
 
 // componentClusterComponentTypeSpecs returns cluster component type operation specs

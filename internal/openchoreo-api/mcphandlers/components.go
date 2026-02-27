@@ -296,11 +296,29 @@ func (h *MCPHandler) PatchComponent(
 		return nil, err
 	}
 
+	if req.DisplayName != "" {
+		if component.Annotations == nil {
+			component.Annotations = make(map[string]string)
+		}
+		component.Annotations[controller.AnnotationKeyDisplayName] = req.DisplayName
+	}
+	if req.Description != "" {
+		if component.Annotations == nil {
+			component.Annotations = make(map[string]string)
+		}
+		component.Annotations[controller.AnnotationKeyDescription] = req.Description
+	}
 	if req.AutoDeploy != nil {
 		component.Spec.AutoDeploy = *req.AutoDeploy
 	}
 	if req.Parameters != nil {
 		component.Spec.Parameters = req.Parameters
+	}
+	if req.WorkflowConfig != nil {
+		component.Spec.Workflow = &openchoreov1alpha1.WorkflowRunConfig{
+			Name:       req.WorkflowConfig.Name,
+			Parameters: req.WorkflowConfig.Parameters,
+		}
 	}
 
 	updated, err := h.services.ComponentService.UpdateComponent(ctx, namespaceName, component)
@@ -447,6 +465,20 @@ func (h *MCPHandler) GetClusterTrait(ctx context.Context, ctName string) (any, e
 
 func (h *MCPHandler) GetClusterTraitSchema(ctx context.Context, ctName string) (any, error) {
 	return h.services.ClusterTraitService.GetClusterTraitSchema(ctx, ctName)
+}
+
+// Workflow operations
+
+func (h *MCPHandler) ListWorkflows(ctx context.Context, namespaceName string, opts tools.ListOpts) (any, error) {
+	result, err := h.services.WorkflowService.ListWorkflows(ctx, namespaceName, toServiceListOptions(opts))
+	if err != nil {
+		return nil, err
+	}
+	return wrapTransformedList("workflows", result.Items, result.NextCursor, workflowSummary), nil
+}
+
+func (h *MCPHandler) GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error) {
+	return h.services.WorkflowService.GetWorkflowSchema(ctx, namespaceName, workflowName)
 }
 
 func (h *MCPHandler) TriggerWorkflowRun(

@@ -276,6 +276,18 @@ func (m *MockCoreToolsetHandler) GetClusterTrait(ctx context.Context, ctName str
 	return `{"name":"autoscaler"}`, nil
 }
 
+func (m *MockCoreToolsetHandler) ListWorkflows(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
+	m.recordCall("ListWorkflows", namespaceName, opts)
+	return `[{"name":"build-workflow"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetWorkflowSchema(
+	ctx context.Context, namespaceName, workflowName string,
+) (any, error) {
+	m.recordCall("GetWorkflowSchema", namespaceName, workflowName)
+	return emptyObjectSchema, nil
+}
+
 func (m *MockCoreToolsetHandler) GetClusterTraitSchema(ctx context.Context, ctName string) (any, error) {
 	m.recordCall("GetClusterTraitSchema", ctName)
 	return emptyObjectSchema, nil

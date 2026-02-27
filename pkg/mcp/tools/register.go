@@ -60,6 +60,8 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterListClusterTraits,
 		t.RegisterGetClusterTrait,
 		t.RegisterGetClusterTraitSchema,
+		t.RegisterListWorkflows,
+		t.RegisterGetWorkflowSchema,
 	}
 }
 

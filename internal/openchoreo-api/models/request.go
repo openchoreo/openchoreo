@@ -80,12 +80,21 @@ type PromoteComponentRequest struct {
 
 // PatchComponentRequest represents the request to patch a Component
 type PatchComponentRequest struct {
+	// DisplayName is a human-readable display name
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
+	// Description is a human-readable description
+	// +optional
+	Description string `json:"description,omitempty"`
 	// AutoDeploy controls whether the component should automatically deploy to the default environment
 	// +optional
 	AutoDeploy *bool `json:"autoDeploy,omitempty"`
 	// Parameters are component type parameters (port, replicas, exposed, etc.)
 	// +optional
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+	// WorkflowConfig is the workflow configuration for the component
+	// +optional
+	WorkflowConfig *WorkflowConfig `json:"workflow,omitempty"`
 }
 
 type CreateComponentReleaseRequest struct {

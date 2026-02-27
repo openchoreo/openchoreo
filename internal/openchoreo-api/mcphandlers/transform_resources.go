@@ -469,6 +469,17 @@ func workflowRunDetail(wr *openchoreov1alpha1.WorkflowRun) map[string]any {
 }
 
 // ---------------------------------------------------------------------------
+// Workflow
+// ---------------------------------------------------------------------------
+
+func workflowSummary(wf openchoreov1alpha1.Workflow) map[string]any {
+	m := extractCommonMeta(&wf)
+	setIfNotEmpty(m, "ttlAfterCompletion", wf.Spec.TTLAfterCompletion)
+	setIfNotEmpty(m, "status", readyStatus(wf.Status.Conditions))
+	return m
+}
+
+// ---------------------------------------------------------------------------
 // ComponentType
 // ---------------------------------------------------------------------------
 
