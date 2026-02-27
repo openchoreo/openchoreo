@@ -1,0 +1,14 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# oapi-codegen configuration for generating Observer API HTTP client
+# See: https://github.com/oapi-codegen/oapi-codegen
+
+package: gen
+output: internal/observer/api/gen/client.gen.go
+generate:
+  client: true
+  models: false
+output-options:
+  skip-prune: true
+  response-type-suffix: Resp
