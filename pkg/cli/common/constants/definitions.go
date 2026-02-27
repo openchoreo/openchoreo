@@ -751,14 +751,14 @@ This command allows you to:
 	}
 
 	StartWorkflow = Command{
-		Use:   "start WORKFLOW_NAME",
-		Short: "Start a workflow run",
-		Long:  `Start a new workflow run with optional parameters.`,
-		Example: `  # Start a workflow
-  occ workflow start database-migration --namespace acme-corp
+		Use:   "run WORKFLOW_NAME",
+		Short: "Run a workflow",
+		Long:  `Run a new workflow with optional parameters.`,
+		Example: `  # Run a workflow
+  occ workflow run database-migration --namespace acme-corp
 
-  # Start with parameters
-  occ workflow start migration --namespace acme --set version=v2 --set dry_run=false`,
+  # Run with parameters
+  occ workflow run migration --namespace acme --set version=v2 --set dry_run=false`,
 	}
 
 	ListSecretReference = Command{
@@ -992,11 +992,11 @@ This command allows you to:
 	}
 
 	StartComponentWorkflow = Command{
-		Use:   "start [COMPONENT_NAME]",
-		Short: "Start a component's workflow",
-		Long:  `Start a workflow run for a component using its configured workflow.`,
-		Example: `  # Start workflow for a component
-  occ component workflow start my-service --namespace acme-corp`,
+		Use:   "run [COMPONENT_NAME]",
+		Short: "Run a component's workflow",
+		Long:  `Run a workflow for a component using its configured workflow.`,
+		Example: `  # Run workflow for a component
+  occ component workflow run my-service --namespace acme-corp`,
 	}
 
 	Environment = Command{
