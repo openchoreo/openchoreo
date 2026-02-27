@@ -9,6 +9,247 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/labels"
 )
 
+func TestQueryBuilder_BuildComponentLogsQueryV1_MinimalQuery(t *testing.T) {
+	qb := NewQueryBuilder("container-logs-")
+	params := ComponentLogsQueryParamsV1{
+		StartTime:     "2024-01-01T00:00:00Z",
+		EndTime:       "2024-01-01T23:59:59Z",
+		NamespaceName: "my-namespace",
+		Limit:         50,
+		SortOrder:     "desc",
+	}
+
+	query := qb.BuildComponentLogsQueryV1(params)
+
+	if query["size"] != 50 {
+		t.Errorf("Expected size 50, got %v", query["size"])
+	}
+
+	boolQuery, ok := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected bool query not found")
+	}
+
+	mustConditions, ok := boolQuery["must"].([]map[string]interface{})
+	if !ok {
+		t.Fatal("Expected must conditions not found")
+	}
+
+	// time range + namespace = 2 conditions
+	if len(mustConditions) != 2 {
+		t.Errorf("Expected 2 must conditions (time range + namespace), got %d", len(mustConditions))
+	}
+
+	sortFields, ok := query["sort"].([]map[string]interface{})
+	if !ok || len(sortFields) == 0 {
+		t.Fatal("Expected sort configuration")
+	}
+	tsSort, ok := sortFields[0]["@timestamp"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected @timestamp sort field")
+	}
+	if tsSort["order"] != "desc" {
+		t.Errorf("Expected sort order 'desc', got %v", tsSort["order"])
+	}
+}
+
+func TestQueryBuilder_BuildComponentLogsQueryV1_FullQuery(t *testing.T) {
+	qb := NewQueryBuilder("container-logs-")
+	params := ComponentLogsQueryParamsV1{
+		StartTime:     "2024-01-01T00:00:00Z",
+		EndTime:       "2024-01-01T23:59:59Z",
+		NamespaceName: "my-namespace",
+		ProjectID:     "project-uid-123",
+		ComponentID:   "component-uid-456",
+		EnvironmentID: "env-uid-789",
+		SearchPhrase:  "error",
+		LogLevels:     []string{"ERROR"},
+		Limit:         200,
+		SortOrder:     "asc",
+	}
+
+	query := qb.BuildComponentLogsQueryV1(params)
+
+	if query["size"] != 200 {
+		t.Errorf("Expected size 200, got %v", query["size"])
+	}
+
+	boolQuery, ok := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected bool query not found")
+	}
+
+	mustConditions, ok := boolQuery["must"].([]map[string]interface{})
+	if !ok {
+		t.Fatal("Expected must conditions not found")
+	}
+
+	// time range + namespace + project + component + environment + search phrase + log level = 7
+	if len(mustConditions) != 7 {
+		t.Errorf("Expected 7 must conditions, got %d", len(mustConditions))
+	}
+}
+
+func TestQueryBuilder_BuildComponentLogsQueryV1_NoNamespace(t *testing.T) {
+	qb := NewQueryBuilder("container-logs-")
+	params := ComponentLogsQueryParamsV1{
+		StartTime: "2024-01-01T00:00:00Z",
+		EndTime:   "2024-01-01T23:59:59Z",
+		Limit:     100,
+		SortOrder: "desc",
+	}
+
+	query := qb.BuildComponentLogsQueryV1(params)
+
+	boolQuery, ok := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected bool query not found")
+	}
+
+	mustConditions, ok := boolQuery["must"].([]map[string]interface{})
+	if !ok {
+		t.Fatal("Expected must conditions not found")
+	}
+
+	// Only time range, no namespace
+	if len(mustConditions) != 1 {
+		t.Errorf("Expected 1 must condition (time range only), got %d", len(mustConditions))
+	}
+}
+
+func TestQueryBuilder_BuildComponentLogsQueryV1_DefaultLimit(t *testing.T) {
+	qb := NewQueryBuilder("container-logs-")
+	params := ComponentLogsQueryParamsV1{
+		StartTime:     "2024-01-01T00:00:00Z",
+		EndTime:       "2024-01-01T23:59:59Z",
+		NamespaceName: "my-namespace",
+		Limit:         0, // should default to 100
+		SortOrder:     "desc",
+	}
+
+	query := qb.BuildComponentLogsQueryV1(params)
+
+	if query["size"] != 100 {
+		t.Errorf("Expected default size 100, got %v", query["size"])
+	}
+}
+
+func TestQueryBuilder_BuildComponentLogsQueryV1_DefaultSortOrder(t *testing.T) {
+	qb := NewQueryBuilder("container-logs-")
+	params := ComponentLogsQueryParamsV1{
+		StartTime:     "2024-01-01T00:00:00Z",
+		EndTime:       "2024-01-01T23:59:59Z",
+		NamespaceName: "my-namespace",
+		Limit:         50,
+		SortOrder:     "", // should default to "desc"
+	}
+
+	query := qb.BuildComponentLogsQueryV1(params)
+
+	sortFields, ok := query["sort"].([]map[string]interface{})
+	if !ok || len(sortFields) == 0 {
+		t.Fatal("Expected sort configuration")
+	}
+	tsSort, ok := sortFields[0]["@timestamp"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected @timestamp sort field")
+	}
+	if tsSort["order"] != "desc" {
+		t.Errorf("Expected default sort order 'desc', got %v", tsSort["order"])
+	}
+}
+
+func TestQueryBuilder_BuildComponentLogsQueryV1_NamespaceFilterLabelKey(t *testing.T) {
+	qb := NewQueryBuilder("container-logs-")
+	params := ComponentLogsQueryParamsV1{
+		StartTime:     "2024-01-01T00:00:00Z",
+		EndTime:       "2024-01-01T23:59:59Z",
+		NamespaceName: "test-ns",
+		Limit:         50,
+		SortOrder:     "desc",
+	}
+
+	query := qb.BuildComponentLogsQueryV1(params)
+
+	boolQuery := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+	mustConditions := boolQuery["must"].([]map[string]interface{})
+
+	nsFound := false
+	for _, cond := range mustConditions {
+		if term, ok := cond["term"].(map[string]interface{}); ok {
+			key := labels.OSNamespaceName + ".keyword"
+			if val, exists := term[key]; exists && val == "test-ns" {
+				nsFound = true
+				break
+			}
+		}
+	}
+	if !nsFound {
+		t.Errorf("Expected namespace term filter with key %s not found", labels.OSNamespaceName+".keyword")
+	}
+}
+
+func TestQueryBuilder_BuildComponentLogsQueryV1_EmptyOptionalFilters(t *testing.T) {
+	qb := NewQueryBuilder("container-logs-")
+	params := ComponentLogsQueryParamsV1{
+		StartTime:     "2024-01-01T00:00:00Z",
+		EndTime:       "2024-01-01T23:59:59Z",
+		NamespaceName: "my-namespace",
+		ProjectID:     "",
+		ComponentID:   "",
+		EnvironmentID: "",
+		Limit:         100,
+		SortOrder:     "desc",
+	}
+
+	query := qb.BuildComponentLogsQueryV1(params)
+
+	boolQuery := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+	mustConditions := boolQuery["must"].([]map[string]interface{})
+
+	// Only time range + namespace (no project/component/environment)
+	if len(mustConditions) != 2 {
+		t.Errorf("Expected 2 must conditions, got %d", len(mustConditions))
+	}
+}
+
+func TestQueryBuilder_BuildComponentLogsQueryV1_LogLevelsFilter(t *testing.T) {
+	qb := NewQueryBuilder("container-logs-")
+	params := ComponentLogsQueryParamsV1{
+		StartTime:     "2024-01-01T00:00:00Z",
+		EndTime:       "2024-01-01T23:59:59Z",
+		NamespaceName: "my-namespace",
+		LogLevels:     []string{"ERROR", "WARN"},
+		Limit:         50,
+		SortOrder:     "desc",
+	}
+
+	query := qb.BuildComponentLogsQueryV1(params)
+
+	boolQuery := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+	mustConditions := boolQuery["must"].([]map[string]interface{})
+
+	// time range + namespace + log level bool = 3
+	if len(mustConditions) != 3 {
+		t.Errorf("Expected 3 must conditions (time+namespace+logLevel), got %d", len(mustConditions))
+	}
+
+	logLevelFound := false
+	for _, cond := range mustConditions {
+		if boolCond, ok := cond["bool"].(map[string]interface{}); ok {
+			if should, ok := boolCond["should"].([]map[string]interface{}); ok && len(should) == 2 {
+				logLevelFound = true
+				if boolCond["minimum_should_match"] != 1 {
+					t.Errorf("Expected minimum_should_match=1, got %v", boolCond["minimum_should_match"])
+				}
+			}
+		}
+	}
+	if !logLevelFound {
+		t.Error("Expected log level filter with 2 should conditions not found")
+	}
+}
+
 const sortOrderAsc = "asc"
 
 func TestQueryBuilder_BuildComponentLogsQuery(t *testing.T) {

@@ -14,6 +14,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
+// defaultSortOrderDesc is the default sort order for log queries.
+const defaultSortOrderDesc = "desc"
+
 // sanitizeWildcardValue escapes OpenSearch wildcard metacharacters from user-provided values
 // to prevent wildcard injection attacks. Escaped characters: \, ", *, ?
 func sanitizeWildcardValue(s string) string {
@@ -998,7 +1001,7 @@ func (qb *QueryBuilder) BuildComponentLogsQueryV1(params ComponentLogsQueryParam
 	// Set default sort order if not specified
 	sortOrder := params.SortOrder
 	if sortOrder == "" {
-		sortOrder = "desc"
+		sortOrder = defaultSortOrderDesc
 	}
 
 	query := map[string]interface{}{
