@@ -8,7 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 // ToolsetType represents a type of toolset that can be enabled
@@ -52,12 +52,12 @@ type Toolsets struct {
 
 // PEToolsetHandler handles platform engineering operations on openchoreo
 type PEToolsetHandler interface {
-	CreateEnvironment(ctx context.Context, namespaceName string, req *models.CreateEnvironmentRequest) (any, error)
+	CreateEnvironment(ctx context.Context, namespaceName string, req *gen.CreateEnvironmentJSONRequestBody) (any, error)
 
 	// DataPlane operations
 	ListDataPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetDataPlane(ctx context.Context, namespaceName, dpName string) (any, error)
-	CreateDataPlane(ctx context.Context, namespaceName string, req *models.CreateDataPlaneRequest) (any, error)
+	CreateDataPlane(ctx context.Context, namespaceName string, req *gen.CreateDataPlaneJSONRequestBody) (any, error)
 
 	// ObservabilityPlane operations
 	ListObservabilityPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
@@ -68,7 +68,7 @@ type PEToolsetHandler interface {
 	// ClusterDataPlane operations
 	ListClusterDataPlanes(ctx context.Context, opts ListOpts) (any, error)
 	GetClusterDataPlane(ctx context.Context, cdpName string) (any, error)
-	CreateClusterDataPlane(ctx context.Context, req *models.CreateClusterDataPlaneRequest) (any, error)
+	CreateClusterDataPlane(ctx context.Context, req *gen.CreateClusterDataPlaneJSONRequestBody) (any, error)
 
 	// ClusterBuildPlane operations
 	ListClusterBuildPlanes(ctx context.Context, opts ListOpts) (any, error)
@@ -80,7 +80,7 @@ type PEToolsetHandler interface {
 // NamespaceToolsetHandler handles namespace operations
 type NamespaceToolsetHandler interface {
 	ListNamespaces(ctx context.Context, opts ListOpts) (any, error)
-	CreateNamespace(ctx context.Context, req *models.CreateNamespaceRequest) (any, error)
+	CreateNamespace(ctx context.Context, req *gen.CreateNamespaceJSONRequestBody) (any, error)
 	ListSecretReferences(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 }
 
@@ -88,13 +88,13 @@ type NamespaceToolsetHandler interface {
 type ProjectToolsetHandler interface {
 	// Project operations
 	ListProjects(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-	CreateProject(ctx context.Context, namespaceName string, req *models.CreateProjectRequest) (any, error)
+	CreateProject(ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody) (any, error)
 }
 
 // ComponentToolsetHandler handles component operations
 type ComponentToolsetHandler interface {
 	CreateComponent(
-		ctx context.Context, namespaceName, projectName string, req *models.CreateComponentRequest,
+		ctx context.Context, namespaceName, projectName string, req *gen.CreateComponentRequest,
 	) (any, error)
 	ListComponents(ctx context.Context, namespaceName, projectName string, opts ListOpts) (any, error)
 	GetComponent(
@@ -111,19 +111,17 @@ type ComponentToolsetHandler interface {
 	ListReleaseBindings(
 		ctx context.Context, namespaceName, projectName, componentName string, environments []string, opts ListOpts,
 	) (any, error)
-	GetReleaseBinding(
-		ctx context.Context, namespaceName, projectName, componentName, bindingName string,
-	) (any, error)
+	GetReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
 	PatchReleaseBinding(
 		ctx context.Context, namespaceName, projectName, componentName, bindingName string,
-		req *models.PatchReleaseBindingRequest,
+		req *gen.ReleaseBindingSpec,
 	) (any, error)
 	// Deployment operations
 	DeployRelease(
-		ctx context.Context, namespaceName, projectName, componentName string, req *models.DeployReleaseRequest,
+		ctx context.Context, namespaceName, projectName, componentName string, req *gen.DeployReleaseRequest,
 	) (any, error)
 	PromoteComponent(
-		ctx context.Context, namespaceName, projectName, componentName string, req *models.PromoteComponentRequest,
+		ctx context.Context, namespaceName, projectName, componentName string, req *gen.PromoteComponentRequest,
 	) (any, error)
 	// Workload operations
 	CreateWorkload(
@@ -137,12 +135,12 @@ type ComponentToolsetHandler interface {
 	) (any, error)
 	// Component patch operations
 	PatchComponent(
-		ctx context.Context, namespaceName, projectName, componentName string, req *models.PatchComponentRequest,
+		ctx context.Context, namespaceName, projectName, componentName string, req *gen.PatchComponentRequest,
 	) (any, error)
 	// Release binding state operations
 	UpdateReleaseBindingState(
 		ctx context.Context, namespaceName, projectName, componentName, bindingName string,
-		req *models.UpdateBindingRequest,
+		state *gen.ReleaseBindingSpecState,
 	) (any, error)
 	// Component release schema
 	GetComponentReleaseSchema(

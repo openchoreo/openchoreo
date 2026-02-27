@@ -6,7 +6,7 @@ package tools
 import (
 	"context"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 const emptyObjectSchema = `{"type":"object","properties":{}}`
@@ -35,7 +35,7 @@ func (m *MockCoreToolsetHandler) ListNamespaces(ctx context.Context, opts ListOp
 }
 
 func (m *MockCoreToolsetHandler) CreateNamespace(
-	ctx context.Context, req *models.CreateNamespaceRequest,
+	ctx context.Context, req *gen.CreateNamespaceJSONRequestBody,
 ) (any, error) {
 	m.recordCall("CreateNamespace", req)
 	return `{"name":"new-namespace"}`, nil
@@ -56,7 +56,7 @@ func (m *MockCoreToolsetHandler) ListProjects(ctx context.Context, namespaceName
 }
 
 func (m *MockCoreToolsetHandler) CreateProject(
-	ctx context.Context, namespaceName string, req *models.CreateProjectRequest,
+	ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody,
 ) (any, error) {
 	m.recordCall("CreateProject", namespaceName, req)
 	return `{"name":"new-project"}`, nil
@@ -65,7 +65,7 @@ func (m *MockCoreToolsetHandler) CreateProject(
 // ComponentToolsetHandler methods
 
 func (m *MockCoreToolsetHandler) CreateComponent(
-	ctx context.Context, namespaceName, projectName string, req *models.CreateComponentRequest,
+	ctx context.Context, namespaceName, projectName string, req *gen.CreateComponentRequest,
 ) (any, error) {
 	m.recordCall("CreateComponent", namespaceName, projectName, req)
 	return `{"name":"new-component"}`, nil
@@ -128,29 +128,29 @@ func (m *MockCoreToolsetHandler) ListReleaseBindings(
 }
 
 func (m *MockCoreToolsetHandler) GetReleaseBinding(
-	ctx context.Context, namespaceName, projectName, componentName, bindingName string,
+	ctx context.Context, namespaceName, bindingName string,
 ) (any, error) {
-	m.recordCall("GetReleaseBinding", namespaceName, projectName, componentName, bindingName)
+	m.recordCall("GetReleaseBinding", namespaceName, bindingName)
 	return `{"name":"binding-dev","environment":"dev"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) PatchReleaseBinding(
 	ctx context.Context, namespaceName, projectName, componentName, bindingName string,
-	req *models.PatchReleaseBindingRequest,
+	req *gen.ReleaseBindingSpec,
 ) (any, error) {
 	m.recordCall("PatchReleaseBinding", namespaceName, projectName, componentName, bindingName, req)
 	return `{"status":"updated"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) DeployRelease(
-	ctx context.Context, namespaceName, projectName, componentName string, req *models.DeployReleaseRequest,
+	ctx context.Context, namespaceName, projectName, componentName string, req *gen.DeployReleaseRequest,
 ) (any, error) {
 	m.recordCall("DeployRelease", namespaceName, projectName, componentName, req)
 	return `{"environment":"dev"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) PromoteComponent(
-	ctx context.Context, namespaceName, projectName, componentName string, req *models.PromoteComponentRequest,
+	ctx context.Context, namespaceName, projectName, componentName string, req *gen.PromoteComponentRequest,
 ) (any, error) {
 	m.recordCall("PromoteComponent", namespaceName, projectName, componentName, req)
 	return `{"environment":"staging"}`, nil
@@ -178,7 +178,7 @@ func (m *MockCoreToolsetHandler) GetEnvironmentRelease(
 }
 
 func (m *MockCoreToolsetHandler) PatchComponent(
-	ctx context.Context, namespaceName, projectName, componentName string, req *models.PatchComponentRequest,
+	ctx context.Context, namespaceName, projectName, componentName string, req *gen.PatchComponentRequest,
 ) (any, error) {
 	m.recordCall("PatchComponent", namespaceName, projectName, componentName, req)
 	return `{"name":"patched-component"}`, nil
@@ -186,10 +186,13 @@ func (m *MockCoreToolsetHandler) PatchComponent(
 
 func (m *MockCoreToolsetHandler) UpdateReleaseBindingState(
 	ctx context.Context, namespaceName, projectName, componentName, bindingName string,
-	req *models.UpdateBindingRequest,
+	state *gen.ReleaseBindingSpecState,
 ) (any, error) {
-	m.recordCall("UpdateReleaseBindingState", namespaceName, projectName, componentName, bindingName, req)
-	return `{"status":"updated","state":"` + string(req.ReleaseState) + `"}`, nil
+	m.recordCall("UpdateReleaseBindingState", namespaceName, projectName, componentName, bindingName, state)
+	if state == nil {
+		return `{"status":"updated"}`, nil
+	}
+	return `{"status":"updated","state":"` + string(*state) + `"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) GetComponentReleaseSchema(
@@ -308,7 +311,7 @@ func (m *MockCoreToolsetHandler) GetEnvironment(ctx context.Context, namespaceNa
 }
 
 func (m *MockCoreToolsetHandler) CreateEnvironment(
-	ctx context.Context, namespaceName string, req *models.CreateEnvironmentRequest,
+	ctx context.Context, namespaceName string, req *gen.CreateEnvironmentJSONRequestBody,
 ) (any, error) {
 	m.recordCall("CreateEnvironment", namespaceName, req)
 	return `{"name":"new-env"}`, nil
@@ -325,7 +328,7 @@ func (m *MockCoreToolsetHandler) GetDataPlane(ctx context.Context, namespaceName
 }
 
 func (m *MockCoreToolsetHandler) CreateDataPlane(
-	ctx context.Context, namespaceName string, req *models.CreateDataPlaneRequest,
+	ctx context.Context, namespaceName string, req *gen.CreateDataPlaneJSONRequestBody,
 ) (any, error) {
 	m.recordCall("CreateDataPlane", namespaceName, req)
 	return `{"name":"new-dp"}`, nil
@@ -379,7 +382,7 @@ func (m *MockCoreToolsetHandler) GetClusterDataPlane(ctx context.Context, cdpNam
 }
 
 func (m *MockCoreToolsetHandler) CreateClusterDataPlane(
-	ctx context.Context, req *models.CreateClusterDataPlaneRequest,
+	ctx context.Context, req *gen.CreateClusterDataPlaneJSONRequestBody,
 ) (any, error) {
 	m.recordCall("CreateClusterDataPlane", req)
 	return `{"name":"new-cdp"}`, nil

@@ -34,7 +34,7 @@ func peCoreSpecs() []toolTestSpec {
 				if args[0] != testNamespaceName {
 					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
-				// args[1] is *models.CreateEnvironmentRequest
+				// args[1] is *gen.CreateEnvironmentJSONRequestBody
 			},
 		},
 		{
@@ -90,7 +90,7 @@ func peCoreSpecs() []toolTestSpec {
 				if args[0] != testNamespaceName {
 					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
-				// args[1] is *models.CreateDataPlaneRequest
+				// args[1] is *gen.CreateDataPlaneJSONRequestBody
 			},
 		},
 		{
@@ -177,7 +177,7 @@ func peClusterSpecs() []toolTestSpec {
 			},
 			expectedMethod: "CreateClusterDataPlane",
 			validateCall: func(t *testing.T, args []interface{}) {
-				// args[0] is *models.CreateClusterDataPlaneRequest
+				// args[0] is *gen.CreateClusterDataPlaneJSONRequestBody
 			},
 		},
 		{

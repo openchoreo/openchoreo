@@ -10,7 +10,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
@@ -30,29 +30,36 @@ func (h *MCPHandler) GetEnvironment(ctx context.Context, namespaceName, envName 
 	return environmentDetail(env), nil
 }
 
-func (h *MCPHandler) CreateEnvironment(ctx context.Context, namespaceName string, req *models.CreateEnvironmentRequest) (any, error) {
-	env := &openchoreov1alpha1.Environment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        req.Name,
-			Namespace:   namespaceName,
-			Annotations: make(map[string]string),
-		},
-		Spec: openchoreov1alpha1.EnvironmentSpec{
-			IsProduction: req.IsProduction,
-		},
+func (h *MCPHandler) CreateEnvironment(ctx context.Context, namespaceName string, req *gen.CreateEnvironmentJSONRequestBody) (any, error) {
+	annotations := map[string]string{}
+	if req.Metadata.Annotations != nil {
+		annotations = *req.Metadata.Annotations
 	}
 
-	if req.DisplayName != "" {
-		env.Annotations[controller.AnnotationKeyDisplayName] = req.DisplayName
+	env := &openchoreov1alpha1.Environment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        req.Metadata.Name,
+			Namespace:   namespaceName,
+			Annotations: annotations,
+		},
+		Spec: openchoreov1alpha1.EnvironmentSpec{},
 	}
-	if req.Description != "" {
-		env.Annotations[controller.AnnotationKeyDescription] = req.Description
+
+	if req.Spec != nil && req.Spec.IsProduction != nil {
+		env.Spec.IsProduction = *req.Spec.IsProduction
 	}
-	if req.DataPlaneRef != nil {
+	if req.Spec != nil && req.Spec.DataPlaneRef != nil {
 		env.Spec.DataPlaneRef = &openchoreov1alpha1.DataPlaneRef{
-			Kind: openchoreov1alpha1.DataPlaneRefKind(req.DataPlaneRef.Kind),
-			Name: req.DataPlaneRef.Name,
+			Kind: openchoreov1alpha1.DataPlaneRefKind(req.Spec.DataPlaneRef.Kind),
+			Name: req.Spec.DataPlaneRef.Name,
 		}
+	}
+
+	if displayName, ok := env.Annotations[controller.AnnotationKeyDisplayName]; ok && displayName == "" {
+		delete(env.Annotations, controller.AnnotationKeyDisplayName)
+	}
+	if description, ok := env.Annotations[controller.AnnotationKeyDescription]; ok && description == "" {
+		delete(env.Annotations, controller.AnnotationKeyDescription)
 	}
 
 	created, err := h.services.EnvironmentService.CreateEnvironment(ctx, namespaceName, env)

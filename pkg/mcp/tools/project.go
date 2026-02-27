@@ -8,7 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 func (t *Toolsets) RegisterListProjects(s *mcp.Server) {
@@ -46,9 +46,16 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server) {
 		Name          string `json:"name"`
 		Description   string `json:"description"`
 	}) (*mcp.CallToolResult, any, error) {
-		projectReq := &models.CreateProjectRequest{
-			Name:        args.Name,
-			Description: args.Description,
+		annotations := map[string]string{}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+
+		projectReq := &gen.CreateProjectJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
 		}
 		result, err := t.ProjectToolset.CreateProject(ctx, args.NamespaceName, projectReq)
 		return handleToolResult(result, err)

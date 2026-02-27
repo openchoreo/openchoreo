@@ -5,13 +5,11 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 func (t *Toolsets) RegisterListComponents(s *mcp.Server) {
@@ -111,18 +109,13 @@ func (t *Toolsets) RegisterGetReleaseBinding(s *mcp.Server) {
 			"release name, state, overrides, endpoints, and deployment status.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"project_name":   defaultStringProperty(),
-			"component_name": defaultStringProperty(),
 			"binding_name":   stringProperty("Use list_release_bindings to discover valid names"),
-		}, []string{"namespace_name", "project_name", "component_name", "binding_name"}),
+		}, []string{"namespace_name", "binding_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		ProjectName   string `json:"project_name"`
-		ComponentName string `json:"component_name"`
 		BindingName   string `json:"binding_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetReleaseBinding(
-			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.BindingName)
+		result, err := t.ComponentToolset.GetReleaseBinding(ctx, args.NamespaceName, args.BindingName)
 		return handleToolResult(result, err)
 	})
 }
@@ -169,67 +162,58 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 		Parameters        map[string]interface{} `json:"parameters"`
 		Workflow          map[string]interface{} `json:"workflow"`
 	}) (*mcp.CallToolResult, any, error) {
-		var componentTypeRef *models.ComponentTypeRef
+		var componentType *string
 		if args.ComponentType != "" {
-			kind := "ComponentType"
+			// ComponentType in gen is a string in format: {workloadType}/{componentTypeName}
+			// If ComponentTypeKind is provided, we construct it, otherwise use ComponentType as-is
+			ct := args.ComponentType
 			if args.ComponentTypeKind != "" {
-				kind = args.ComponentTypeKind
+				// If kind is provided, assume ComponentType is just the name
+				ct = args.ComponentType
 			}
-			componentTypeRef = &models.ComponentTypeRef{
-				Kind: kind,
-				Name: args.ComponentType,
-			}
+			componentType = &ct
 		}
 
-		componentReq := &models.CreateComponentRequest{
-			Name:          args.Name,
-			DisplayName:   args.DisplayName,
-			Description:   args.Description,
-			ComponentType: componentTypeRef,
+		componentReq := &gen.CreateComponentRequest{
+			Name: args.Name,
+		}
+
+		if args.DisplayName != "" {
+			componentReq.DisplayName = &args.DisplayName
+		}
+		if args.Description != "" {
+			componentReq.Description = &args.Description
+		}
+		if componentType != nil {
+			componentReq.ComponentType = componentType
 		}
 
 		// Set the component to auto deploy by default
 		if args.AutoDeploy == nil {
 			autoDeploy := true
 			componentReq.AutoDeploy = &autoDeploy
+		} else {
+			componentReq.AutoDeploy = args.AutoDeploy
 		}
 
 		// Convert parameters if provided
 		if args.Parameters != nil {
-			rawParams, err := json.Marshal(args.Parameters)
-			if err != nil {
-				return &mcp.CallToolResult{
-					Content: []mcp.Content{
-						&mcp.TextContent{Text: "Failed to marshal parameters: " + err.Error()},
-					},
-					IsError: true,
-				}, nil, nil
-			}
-			componentReq.Parameters = &runtime.RawExtension{Raw: rawParams}
+			componentReq.Parameters = &args.Parameters
 		}
 
 		// Convert workflow if provided
 		if args.Workflow != nil {
-			workflow := &models.WorkflowConfig{}
+			workflow := &gen.ComponentWorkflowInput{}
 			if name, ok := args.Workflow["name"].(string); ok {
 				workflow.Name = name
 			}
 
 			// Convert parameters if provided
 			if params, ok := args.Workflow["parameters"].(map[string]interface{}); ok {
-				rawParams, err := json.Marshal(params)
-				if err != nil {
-					return &mcp.CallToolResult{
-						Content: []mcp.Content{
-							&mcp.TextContent{Text: "Failed to marshal workflow parameters: " + err.Error()},
-						},
-						IsError: true,
-					}, nil, nil
-				}
-				workflow.Parameters = &runtime.RawExtension{Raw: rawParams}
+				workflow.Parameters = &params
 			}
 
-			componentReq.WorkflowConfig = workflow
+			componentReq.Workflow = workflow
 		}
 
 		result, err := t.ComponentToolset.CreateComponent(ctx, args.NamespaceName, args.ProjectName, componentReq)
@@ -373,21 +357,28 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 		WorkloadOverrides         map[string]interface{} `json:"workload_overrides"`
 	}) (*mcp.CallToolResult, any, error) {
 		// Convert trait overrides to the correct type
-		var traitOverrides map[string]map[string]interface{}
+		// gen.ReleaseBindingSpec.TraitOverrides is *map[string]interface{}
+		var traitOverrides map[string]interface{}
 		if args.TraitOverrides != nil {
-			traitOverrides = make(map[string]map[string]interface{})
+			traitOverrides = make(map[string]interface{})
 			for k, v := range args.TraitOverrides {
-				if vMap, ok := v.(map[string]interface{}); ok {
-					traitOverrides[k] = vMap
-				}
+				// v is already map[string]interface{} from the JSON unmarshaling
+				traitOverrides[k] = v
 			}
 		}
 
-		patchReq := &models.PatchReleaseBindingRequest{
-			ReleaseName:               args.ReleaseName,
-			Environment:               args.Environment,
-			ComponentTypeEnvOverrides: args.ComponentTypeEnvOverrides,
-			TraitOverrides:            traitOverrides,
+		patchReq := &gen.ReleaseBindingSpec{
+			Environment: args.Environment,
+		}
+
+		if args.ReleaseName != "" {
+			patchReq.ReleaseName = &args.ReleaseName
+		}
+		if args.ComponentTypeEnvOverrides != nil {
+			patchReq.ComponentTypeEnvOverrides = &args.ComponentTypeEnvOverrides
+		}
+		if traitOverrides != nil {
+			patchReq.TraitOverrides = &traitOverrides
 		}
 		if args.WorkloadOverrides != nil {
 			// Validate no unknown top-level fields
@@ -397,7 +388,8 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 				}
 			}
 
-			containerOverride := models.ContainerOverride{}
+			var envVars []gen.EnvVar
+			var fileVars []gen.FileVar
 			if container, ok := args.WorkloadOverrides["container"].(map[string]interface{}); ok {
 				// Validate no unknown fields in container
 				for k := range container {
@@ -406,8 +398,8 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 					}
 				}
 
-				if envVars, ok := container["env"].([]interface{}); ok {
-					for i, ev := range envVars {
+				if envs, ok := container["env"].([]interface{}); ok {
+					for i, ev := range envs {
 						evMap, ok := ev.(map[string]interface{})
 						if !ok {
 							return nil, nil, fmt.Errorf(
@@ -433,9 +425,9 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 									" \"key\" is required and must be non-empty", i)
 						}
 						value, _ := evMap["value"].(string)
-						containerOverride.Env = append(containerOverride.Env, models.EnvVar{
+						envVars = append(envVars, gen.EnvVar{
 							Key:   key,
-							Value: value,
+							Value: &value,
 						})
 					}
 				}
@@ -472,17 +464,24 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 									" \"mountPath\" is required and must be non-empty", i)
 						}
 						value, _ := fMap["value"].(string)
-						containerOverride.Files = append(containerOverride.Files, models.FileVar{
+						fileVars = append(fileVars, gen.FileVar{
 							Key:       key,
 							MountPath: mountPath,
-							Value:     value,
+							Value:     &value,
 						})
 					}
 				}
 			}
-			if len(containerOverride.Env) > 0 || len(containerOverride.Files) > 0 {
-				patchReq.WorkloadOverrides = &models.WorkloadOverrides{
-					Container: &containerOverride,
+			if len(envVars) > 0 || len(fileVars) > 0 {
+				containerOverride := &gen.ContainerOverride{}
+				if len(envVars) > 0 {
+					containerOverride.Env = &envVars
+				}
+				if len(fileVars) > 0 {
+					containerOverride.Files = &fileVars
+				}
+				patchReq.WorkloadOverrides = &gen.WorkloadOverrides{
+					Container: containerOverride,
 				}
 			}
 		}
@@ -509,7 +508,7 @@ func (t *Toolsets) RegisterDeployRelease(s *mcp.Server) {
 		ComponentName string `json:"component_name"`
 		ReleaseName   string `json:"release_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		deployReq := &models.DeployReleaseRequest{
+		deployReq := &gen.DeployReleaseRequest{
 			ReleaseName: args.ReleaseName,
 		}
 		result, err := t.ComponentToolset.DeployRelease(
@@ -538,9 +537,9 @@ func (t *Toolsets) RegisterPromoteComponent(s *mcp.Server) {
 		SourceEnv     string `json:"source_env"`
 		TargetEnv     string `json:"target_env"`
 	}) (*mcp.CallToolResult, any, error) {
-		promoteReq := &models.PromoteComponentRequest{
-			SourceEnvironment: args.SourceEnv,
-			TargetEnvironment: args.TargetEnv,
+		promoteReq := &gen.PromoteComponentRequest{
+			SourceEnv: args.SourceEnv,
+			TargetEnv: args.TargetEnv,
 		}
 		result, err := t.ComponentToolset.PromoteComponent(
 			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, promoteReq)
@@ -636,14 +635,14 @@ func (t *Toolsets) RegisterUpdateReleaseBindingState(s *mcp.Server) {
 		BindingName   string `json:"binding_name"`
 		ReleaseState  string `json:"release_state"`
 	}) (*mcp.CallToolResult, any, error) {
-		bindingReq := &models.UpdateBindingRequest{
-			ReleaseState: models.BindingReleaseState(args.ReleaseState),
+		// Validate releaseState
+		validStates := map[string]bool{"Active": true, "Suspend": true, "Undeploy": true}
+		if !validStates[args.ReleaseState] {
+			return nil, nil, fmt.Errorf("releaseState must be one of: Active, Suspend, Undeploy")
 		}
-		if err := bindingReq.Validate(); err != nil {
-			return nil, nil, err
-		}
+		state := gen.ReleaseBindingSpecState(args.ReleaseState)
 		result, err := t.ComponentToolset.UpdateReleaseBindingState(
-			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.BindingName, bindingReq)
+			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.BindingName, &state)
 		return handleToolResult(result, err)
 	})
 }
@@ -698,14 +697,11 @@ func (t *Toolsets) RegisterPatchComponent(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "patch_component",
 		Description: "Patch (partially update) a component's configuration. Only the fields provided in the request " +
-			"will be updated; omitted fields remain unchanged. Supports updating display name, description, " +
-			"autoDeploy, parameters, and workflow configuration.",
+			"will be updated; omitted fields remain unchanged. Supports updating autoDeploy and parameters.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
 			"component_name": stringProperty("Use list_components to discover valid names"),
-			"display_name":   stringProperty("Optional: human-readable display name"),
-			"description":    stringProperty("Optional: human-readable description"),
 			"auto_deploy": map[string]any{
 				"type":        "boolean",
 				"description": "Optional: Whether the component should automatically deploy to the default environment",
@@ -714,57 +710,19 @@ func (t *Toolsets) RegisterPatchComponent(s *mcp.Server) {
 				"type":        "object",
 				"description": "Optional: Component type parameters (port, replicas, exposed, etc.)",
 			},
-			"workflow": map[string]any{
-				"type": "object",
-				"description": "Optional: Component workflow configuration. Use list_workflows to discover available " +
-					"workflow names, and get_workflow_schema to inspect the parameter schema a workflow accepts.",
-			},
 		}, []string{"namespace_name", "project_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string                 `json:"namespace_name"`
 		ProjectName   string                 `json:"project_name"`
 		ComponentName string                 `json:"component_name"`
-		DisplayName   string                 `json:"display_name"`
-		Description   string                 `json:"description"`
-		AutoDeploy    *bool                  `json:"auto_deploy"`
-		Parameters    map[string]interface{} `json:"parameters"`
-		Workflow      map[string]interface{} `json:"workflow"`
+		AutoDeploy    *bool                  `json:"auto_deploy,omitempty"`
+		Parameters    map[string]interface{} `json:"parameters,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		patchReq := &models.PatchComponentRequest{
-			DisplayName: args.DisplayName,
-			Description: args.Description,
-			AutoDeploy:  args.AutoDeploy,
+		patchReq := &gen.PatchComponentRequest{
+			AutoDeploy: args.AutoDeploy,
 		}
 		if args.Parameters != nil {
-			rawParams, err := json.Marshal(args.Parameters)
-			if err != nil {
-				return &mcp.CallToolResult{
-					Content: []mcp.Content{
-						&mcp.TextContent{Text: "Failed to marshal parameters: " + err.Error()},
-					},
-					IsError: true,
-				}, nil, nil
-			}
-			patchReq.Parameters = &runtime.RawExtension{Raw: rawParams}
-		}
-		if args.Workflow != nil {
-			workflow := &models.WorkflowConfig{}
-			if name, ok := args.Workflow["name"].(string); ok {
-				workflow.Name = name
-			}
-			if params, ok := args.Workflow["parameters"].(map[string]interface{}); ok {
-				rawParams, err := json.Marshal(params)
-				if err != nil {
-					return &mcp.CallToolResult{
-						Content: []mcp.Content{
-							&mcp.TextContent{Text: "Failed to marshal workflow parameters: " + err.Error()},
-						},
-						IsError: true,
-					}, nil, nil
-				}
-				workflow.Parameters = &runtime.RawExtension{Raw: rawParams}
-			}
-			patchReq.WorkflowConfig = workflow
+			patchReq.Parameters = &args.Parameters
 		}
 		result, err := t.ComponentToolset.PatchComponent(
 			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, patchReq)

@@ -8,7 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 func (t *Toolsets) RegisterListNamespaces(s *mcp.Server) {
@@ -41,10 +41,19 @@ func (t *Toolsets) RegisterCreateNamespace(s *mcp.Server) {
 		DisplayName string `json:"display_name,omitempty"`
 		Description string `json:"description,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		createReq := &models.CreateNamespaceRequest{
-			Name:        args.Name,
-			DisplayName: args.DisplayName,
-			Description: args.Description,
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+
+		createReq := &gen.CreateNamespaceJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
 		}
 		result, err := t.NamespaceToolset.CreateNamespace(ctx, createReq)
 		return handleToolResult(result, err)

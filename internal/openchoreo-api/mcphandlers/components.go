@@ -14,14 +14,14 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
 func (h *MCPHandler) CreateComponent(
-	ctx context.Context, namespaceName, projectName string, req *models.CreateComponentRequest,
+	ctx context.Context, namespaceName, projectName string, req *gen.CreateComponentRequest,
 ) (any, error) {
 	component := &openchoreov1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{
@@ -36,28 +36,42 @@ func (h *MCPHandler) CreateComponent(
 		},
 	}
 
-	if req.DisplayName != "" {
-		component.Annotations[controller.AnnotationKeyDisplayName] = req.DisplayName
+	if req.DisplayName != nil && *req.DisplayName != "" {
+		component.Annotations[controller.AnnotationKeyDisplayName] = *req.DisplayName
 	}
-	if req.Description != "" {
-		component.Annotations[controller.AnnotationKeyDescription] = req.Description
+	if req.Description != nil && *req.Description != "" {
+		component.Annotations[controller.AnnotationKeyDescription] = *req.Description
 	}
-	if req.ComponentType != nil {
+	if req.ComponentType != nil && *req.ComponentType != "" {
+		// ComponentType in gen is a string in format: {workloadType}/{componentTypeName}
+		// Default to ComponentType kind if not specified
 		component.Spec.ComponentType = openchoreov1alpha1.ComponentTypeRef{
-			Kind: openchoreov1alpha1.ComponentTypeRefKind(req.ComponentType.Kind),
-			Name: req.ComponentType.Name,
+			Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+			Name: *req.ComponentType,
 		}
 	}
 	if req.AutoDeploy != nil {
 		component.Spec.AutoDeploy = *req.AutoDeploy
 	}
 	if req.Parameters != nil {
-		component.Spec.Parameters = req.Parameters
+		paramsBytes, err := json.Marshal(*req.Parameters)
+		if err != nil {
+			return nil, err
+		}
+		component.Spec.Parameters = &runtime.RawExtension{Raw: paramsBytes}
 	}
-	if req.WorkflowConfig != nil {
+	if req.Workflow != nil {
+		var workflowParams *runtime.RawExtension
+		if req.Workflow.Parameters != nil {
+			paramsBytes, err := json.Marshal(*req.Workflow.Parameters)
+			if err != nil {
+				return nil, err
+			}
+			workflowParams = &runtime.RawExtension{Raw: paramsBytes}
+		}
 		component.Spec.Workflow = &openchoreov1alpha1.WorkflowRunConfig{
-			Name:       req.WorkflowConfig.Name,
-			Parameters: req.WorkflowConfig.Parameters,
+			Name:       req.Workflow.Name,
+			Parameters: workflowParams,
 		}
 	}
 
@@ -151,7 +165,7 @@ func (h *MCPHandler) ListReleaseBindings(
 }
 
 func (h *MCPHandler) GetReleaseBinding(
-	ctx context.Context, namespaceName, _, _, bindingName string,
+	ctx context.Context, namespaceName, bindingName string,
 ) (any, error) {
 	rb, err := h.services.ReleaseBindingService.GetReleaseBinding(ctx, namespaceName, bindingName)
 	if err != nil {
@@ -162,29 +176,29 @@ func (h *MCPHandler) GetReleaseBinding(
 
 func (h *MCPHandler) PatchReleaseBinding(
 	ctx context.Context, namespaceName, _, _, bindingName string,
-	req *models.PatchReleaseBindingRequest,
+	req *gen.ReleaseBindingSpec,
 ) (any, error) {
 	rb, err := h.services.ReleaseBindingService.GetReleaseBinding(ctx, namespaceName, bindingName)
 	if err != nil {
 		return nil, err
 	}
 
-	if req.ReleaseName != "" {
-		rb.Spec.ReleaseName = req.ReleaseName
+	if req.ReleaseName != nil && *req.ReleaseName != "" {
+		rb.Spec.ReleaseName = *req.ReleaseName
 	}
 	if req.Environment != "" {
 		rb.Spec.Environment = req.Environment
 	}
 	if req.ComponentTypeEnvOverrides != nil {
-		overrideBytes, err := json.Marshal(req.ComponentTypeEnvOverrides)
+		overrideBytes, err := json.Marshal(*req.ComponentTypeEnvOverrides)
 		if err != nil {
 			return nil, err
 		}
 		rb.Spec.ComponentTypeEnvOverrides = &runtime.RawExtension{Raw: overrideBytes}
 	}
 	if req.TraitOverrides != nil {
-		traitOverrides := make(map[string]runtime.RawExtension, len(req.TraitOverrides))
-		for k, v := range req.TraitOverrides {
+		traitOverrides := make(map[string]runtime.RawExtension, len(*req.TraitOverrides))
+		for k, v := range *req.TraitOverrides {
 			overrideBytes, err := json.Marshal(v)
 			if err != nil {
 				return nil, err
@@ -213,7 +227,7 @@ func (h *MCPHandler) PatchReleaseBinding(
 }
 
 func (h *MCPHandler) DeployRelease(
-	ctx context.Context, namespaceName, _, componentName string, req *models.DeployReleaseRequest,
+	ctx context.Context, namespaceName, _, componentName string, req *gen.DeployReleaseRequest,
 ) (any, error) {
 	rb, err := h.services.ComponentService.DeployRelease(ctx, namespaceName, componentName, &componentsvc.DeployReleaseRequest{
 		ReleaseName: req.ReleaseName,
@@ -228,11 +242,11 @@ func (h *MCPHandler) DeployRelease(
 }
 
 func (h *MCPHandler) PromoteComponent(
-	ctx context.Context, namespaceName, _, componentName string, req *models.PromoteComponentRequest,
+	ctx context.Context, namespaceName, _, componentName string, req *gen.PromoteComponentRequest,
 ) (any, error) {
 	rb, err := h.services.ComponentService.PromoteComponent(ctx, namespaceName, componentName, &componentsvc.PromoteComponentRequest{
-		SourceEnvironment: req.SourceEnvironment,
-		TargetEnvironment: req.TargetEnvironment,
+		SourceEnvironment: req.SourceEnv,
+		TargetEnvironment: req.TargetEnv,
 	})
 	if err != nil {
 		return nil, err
@@ -289,36 +303,22 @@ func (h *MCPHandler) GetEnvironmentRelease(
 }
 
 func (h *MCPHandler) PatchComponent(
-	ctx context.Context, namespaceName, _, componentName string, req *models.PatchComponentRequest,
+	ctx context.Context, namespaceName, _, componentName string, req *gen.PatchComponentRequest,
 ) (any, error) {
 	component, err := h.services.ComponentService.GetComponent(ctx, namespaceName, componentName)
 	if err != nil {
 		return nil, err
 	}
 
-	if req.DisplayName != "" {
-		if component.Annotations == nil {
-			component.Annotations = make(map[string]string)
-		}
-		component.Annotations[controller.AnnotationKeyDisplayName] = req.DisplayName
-	}
-	if req.Description != "" {
-		if component.Annotations == nil {
-			component.Annotations = make(map[string]string)
-		}
-		component.Annotations[controller.AnnotationKeyDescription] = req.Description
-	}
 	if req.AutoDeploy != nil {
 		component.Spec.AutoDeploy = *req.AutoDeploy
 	}
 	if req.Parameters != nil {
-		component.Spec.Parameters = req.Parameters
-	}
-	if req.WorkflowConfig != nil {
-		component.Spec.Workflow = &openchoreov1alpha1.WorkflowRunConfig{
-			Name:       req.WorkflowConfig.Name,
-			Parameters: req.WorkflowConfig.Parameters,
+		paramsBytes, err := json.Marshal(*req.Parameters)
+		if err != nil {
+			return nil, err
 		}
+		component.Spec.Parameters = &runtime.RawExtension{Raw: paramsBytes}
 	}
 
 	updated, err := h.services.ComponentService.UpdateComponent(ctx, namespaceName, component)
@@ -329,14 +329,16 @@ func (h *MCPHandler) PatchComponent(
 }
 
 func (h *MCPHandler) UpdateReleaseBindingState(
-	ctx context.Context, namespaceName, _, _, bindingName string, req *models.UpdateBindingRequest,
+	ctx context.Context, namespaceName, _, _, bindingName string, state *gen.ReleaseBindingSpecState,
 ) (any, error) {
 	rb, err := h.services.ReleaseBindingService.GetReleaseBinding(ctx, namespaceName, bindingName)
 	if err != nil {
 		return nil, err
 	}
 
-	rb.Spec.State = openchoreov1alpha1.ReleaseState(req.ReleaseState)
+	if state != nil {
+		rb.Spec.State = openchoreov1alpha1.ReleaseState(*state)
+	}
 
 	updated, err := h.services.ReleaseBindingService.UpdateReleaseBinding(ctx, namespaceName, rb)
 	if err != nil {

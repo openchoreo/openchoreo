@@ -38,7 +38,7 @@ func namespaceToolSpecs() []toolTestSpec {
 			},
 			expectedMethod: "CreateNamespace",
 			validateCall: func(t *testing.T, args []interface{}) {
-				// args[0] is *models.CreateNamespaceRequest
+				// args[0] is *gen.CreateNamespaceJSONRequestBody
 			},
 		},
 		{
