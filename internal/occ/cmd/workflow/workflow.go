@@ -144,6 +144,10 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 	if runName == "" {
 		runName = fmt.Sprintf("%s-%d", params.WorkflowName, time.Now().Unix())
 	}
+	// K8s names are limited to 253 characters
+	if len(runName) > 253 {
+		runName = runName[:253]
+	}
 	var baseParams *map[string]interface{}
 	if len(params.Parameters) > 0 {
 		baseParams = &params.Parameters

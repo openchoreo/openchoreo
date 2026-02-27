@@ -74,6 +74,13 @@ func (l *Component) List(params ListParams) error {
 
 // StartWorkflow gets the component, resolves its workflow name, and starts a workflow run.
 func (l *Component) StartWorkflow(params StartWorkflowParams) error {
+	if params.Namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	if params.ComponentName == "" {
+		return fmt.Errorf("component name is required")
+	}
+
 	ctx := context.Background()
 
 	c, err := client.NewClient()
