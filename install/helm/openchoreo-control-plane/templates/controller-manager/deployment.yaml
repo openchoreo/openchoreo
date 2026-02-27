@@ -52,6 +52,7 @@ spec:
         args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
         - --cluster-gateway-url={{ .Values.controllerManager.clusterGateway.url }}
         - --cluster-gateway-ca-cert={{ .Values.controllerManager.clusterGateway.tls.caPath }}
+        - --enable-network-policies={{ .Values.controllerManager.dataplaneNetworkPolicies.enabled }}
         env:
         - name: ENABLE_WEBHOOKS
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}
