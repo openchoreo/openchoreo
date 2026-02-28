@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -57,12 +56,6 @@ func (s *observabilityAlertsNotificationChannelService) CreateObservabilityAlert
 		APIVersion: "openchoreo.dev/v1alpha1",
 	}
 	nc.Namespace = namespaceName
-	if nc.Labels == nil {
-		nc.Labels = make(map[string]string)
-	}
-	nc.Labels[labels.LabelKeyNamespaceName] = namespaceName
-	nc.Labels[labels.LabelKeyName] = nc.Name
-
 	if err := s.k8sClient.Create(ctx, nc); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			s.logger.Warn("Observability alerts notification channel already exists", "namespace", namespaceName, "channel", nc.Name)

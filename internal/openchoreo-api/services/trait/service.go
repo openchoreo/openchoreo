@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/schema"
 	"github.com/openchoreo/openchoreo/internal/schema/extractor"
@@ -61,12 +60,6 @@ func (s *traitService) CreateTrait(ctx context.Context, namespaceName string, t 
 		APIVersion: "openchoreo.dev/v1alpha1",
 	}
 	t.Namespace = namespaceName
-	if t.Labels == nil {
-		t.Labels = make(map[string]string)
-	}
-	t.Labels[labels.LabelKeyNamespaceName] = namespaceName
-	t.Labels[labels.LabelKeyName] = t.Name
-
 	if err := s.k8sClient.Create(ctx, t); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			s.logger.Warn("Trait already exists", "namespace", namespaceName, "trait", t.Name)

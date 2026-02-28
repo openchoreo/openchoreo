@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/schema"
 	"github.com/openchoreo/openchoreo/internal/schema/extractor"
@@ -61,12 +60,6 @@ func (s *componentTypeService) CreateComponentType(ctx context.Context, namespac
 		APIVersion: "openchoreo.dev/v1alpha1",
 	}
 	ct.Namespace = namespaceName
-	if ct.Labels == nil {
-		ct.Labels = make(map[string]string)
-	}
-	ct.Labels[labels.LabelKeyNamespaceName] = namespaceName
-	ct.Labels[labels.LabelKeyName] = ct.Name
-
 	if err := s.k8sClient.Create(ctx, ct); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			s.logger.Warn("Component type already exists", "namespace", namespaceName, "componentType", ct.Name)

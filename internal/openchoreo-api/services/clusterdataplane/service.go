@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -104,11 +103,6 @@ func (s *clusterDataPlaneService) CreateClusterDataPlane(ctx context.Context, cd
 		Kind:       "ClusterDataPlane",
 		APIVersion: "openchoreo.dev/v1alpha1",
 	}
-	if cdp.Labels == nil {
-		cdp.Labels = make(map[string]string)
-	}
-	cdp.Labels[labels.LabelKeyName] = cdp.Name
-
 	if err := s.k8sClient.Create(ctx, cdp); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			s.logger.Warn("Cluster data plane already exists", "clusterDataPlane", cdp.Name)
@@ -139,11 +133,6 @@ func (s *clusterDataPlaneService) UpdateClusterDataPlane(ctx context.Context, cd
 	}
 
 	cdp.ResourceVersion = existing.ResourceVersion
-	if cdp.Labels == nil {
-		cdp.Labels = make(map[string]string)
-	}
-	cdp.Labels[labels.LabelKeyName] = cdp.Name
-
 	if err := s.k8sClient.Update(ctx, cdp); err != nil {
 		s.logger.Error("Failed to update cluster data plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update cluster data plane: %w", err)

@@ -65,8 +65,6 @@ func (s *releaseBindingService) CreateReleaseBinding(ctx context.Context, namesp
 	if rb.Labels == nil {
 		rb.Labels = make(map[string]string)
 	}
-	rb.Labels[labels.LabelKeyNamespaceName] = namespaceName
-	rb.Labels[labels.LabelKeyName] = rb.Name
 	rb.Labels[labels.LabelKeyProjectName] = rb.Spec.Owner.ProjectName
 	rb.Labels[labels.LabelKeyComponentName] = rb.Spec.Owner.ComponentName
 

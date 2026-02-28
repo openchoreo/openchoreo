@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -57,12 +56,6 @@ func (s *secretReferenceService) CreateSecretReference(ctx context.Context, name
 		APIVersion: "openchoreo.dev/v1alpha1",
 	}
 	sr.Namespace = namespaceName
-	if sr.Labels == nil {
-		sr.Labels = make(map[string]string)
-	}
-	sr.Labels[labels.LabelKeyNamespaceName] = namespaceName
-	sr.Labels[labels.LabelKeyName] = sr.Name
-
 	if err := s.k8sClient.Create(ctx, sr); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			s.logger.Warn("Secret reference already exists", "namespace", namespaceName, "secretReference", sr.Name)

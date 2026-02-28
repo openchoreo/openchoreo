@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -94,11 +93,6 @@ func (s *clusterBuildPlaneService) CreateClusterBuildPlane(ctx context.Context, 
 		Kind:       "ClusterBuildPlane",
 		APIVersion: "openchoreo.dev/v1alpha1",
 	}
-	if cbp.Labels == nil {
-		cbp.Labels = make(map[string]string)
-	}
-	cbp.Labels[labels.LabelKeyName] = cbp.Name
-
 	if err := s.k8sClient.Create(ctx, cbp); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil, ErrClusterBuildPlaneAlreadyExists
@@ -129,11 +123,6 @@ func (s *clusterBuildPlaneService) UpdateClusterBuildPlane(ctx context.Context, 
 	}
 
 	cbp.ResourceVersion = existing.ResourceVersion
-	if cbp.Labels == nil {
-		cbp.Labels = make(map[string]string)
-	}
-	cbp.Labels[labels.LabelKeyName] = cbp.Name
-
 	if err := s.k8sClient.Update(ctx, cbp); err != nil {
 		s.logger.Error("Failed to update cluster build plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update cluster build plane: %w", err)

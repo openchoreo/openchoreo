@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -57,12 +56,6 @@ func (s *deploymentPipelineService) CreateDeploymentPipeline(ctx context.Context
 		APIVersion: "openchoreo.dev/v1alpha1",
 	}
 	dp.Namespace = namespaceName
-	if dp.Labels == nil {
-		dp.Labels = make(map[string]string)
-	}
-	dp.Labels[labels.LabelKeyNamespaceName] = namespaceName
-	dp.Labels[labels.LabelKeyName] = dp.Name
-
 	if err := s.k8sClient.Create(ctx, dp); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			s.logger.Warn("Deployment pipeline already exists", "namespace", namespaceName, "deploymentPipeline", dp.Name)

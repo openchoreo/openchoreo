@@ -65,8 +65,6 @@ func (s *workloadService) CreateWorkload(ctx context.Context, namespaceName stri
 	if w.Labels == nil {
 		w.Labels = make(map[string]string)
 	}
-	w.Labels[labels.LabelKeyNamespaceName] = namespaceName
-	w.Labels[labels.LabelKeyName] = w.Name
 	w.Labels[labels.LabelKeyProjectName] = w.Spec.Owner.ProjectName
 	w.Labels[labels.LabelKeyComponentName] = w.Spec.Owner.ComponentName
 

@@ -75,8 +75,6 @@ func (s *componentService) CreateComponent(ctx context.Context, namespaceName st
 	if component.Labels == nil {
 		component.Labels = make(map[string]string)
 	}
-	component.Labels[labels.LabelKeyNamespaceName] = namespaceName
-	component.Labels[labels.LabelKeyName] = component.Name
 	component.Labels[labels.LabelKeyProjectName] = component.Spec.Owner.ProjectName
 
 	if err := s.k8sClient.Create(ctx, component); err != nil {

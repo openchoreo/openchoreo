@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -61,12 +60,6 @@ func (s *projectService) CreateProject(ctx context.Context, namespaceName string
 		APIVersion: "openchoreo.dev/v1alpha1",
 	}
 	project.Namespace = namespaceName
-	if project.Labels == nil {
-		project.Labels = make(map[string]string)
-	}
-	project.Labels[labels.LabelKeyNamespaceName] = namespaceName
-	project.Labels[labels.LabelKeyName] = project.Name
-
 	if project.Spec.DeploymentPipelineRef == "" {
 		project.Spec.DeploymentPipelineRef = defaultPipeline
 	}
