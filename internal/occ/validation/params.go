@@ -17,8 +17,6 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateProjectParams(cmdType, params)
 	case ResourceComponent:
 		return validateComponentParams(cmdType, params)
-	case ResourceBuild:
-		return validateBuildParams(cmdType, params)
 	case ResourceDeployment:
 		return validateDeploymentParams(cmdType, params)
 	case ResourceDeploymentTrack:
@@ -173,39 +171,6 @@ func validateDeployComponentParams(params interface{}) error {
 		}
 		if p.GetComponentName() == "" {
 			return fmt.Errorf("component name is required")
-		}
-	}
-	return nil
-}
-
-// validateBuildParams validates parameters for build operations
-func validateBuildParams(cmdType CommandType, params interface{}) error {
-	switch cmdType {
-	case CmdCreate:
-		if p, ok := params.(api.CreateBuildParams); ok {
-			// All required fields
-			requiredFields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-				"component": p.Component,
-				"name":      p.Name,
-			}
-
-			if !checkRequiredFields(requiredFields) {
-				return generateHelpError(cmdType, ResourceBuild, requiredFields)
-			}
-		}
-
-	case CmdGet:
-		if p, ok := params.(api.GetBuildParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-				"component": p.Component,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceBuild, fields)
-			}
 		}
 	}
 	return nil

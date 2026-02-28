@@ -88,34 +88,6 @@ type LogParams struct {
 	DeploymentTrack string
 }
 
-// CreateBuildParams contains parameters for build creation
-type CreateBuildParams struct {
-	// Basic metadata
-	Name            string
-	Namespace       string
-	Project         string
-	Component       string
-	DeploymentTrack string
-	// Build configuration
-	Docker    *openchoreov1alpha1.DockerConfiguration
-	Buildpack *openchoreov1alpha1.BuildpackConfiguration
-	// Build spec
-	Branch    string
-	Path      string
-	Revision  string
-	AutoBuild bool
-}
-
-// GetBuildParams defines parameters for listing builds
-type GetBuildParams struct {
-	Namespace       string
-	Project         string
-	Component       string
-	DeploymentTrack string
-	OutputFormat    string
-	Name            string
-}
-
 // CreateDeployableArtifactParams defines parameters for creating a deployable artifact
 type CreateDeployableArtifactParams struct {
 	Name            string

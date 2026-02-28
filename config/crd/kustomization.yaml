@@ -14,7 +14,7 @@ resources:
   - bases/openchoreo.dev_workloads.yaml
   - bases/openchoreo.dev_gitcommitrequests.yaml
   - bases/openchoreo.dev_releases.yaml
-  - bases/openchoreo.dev_builds.yaml
+
   - bases/openchoreo.dev_buildplanes.yaml
   - bases/openchoreo.dev_workflows.yaml
   - bases/openchoreo.dev_workflowruns.yaml

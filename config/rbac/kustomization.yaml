@@ -66,9 +66,7 @@ resources:
   - buildplane_admin_role.yaml
   - buildplane_editor_role.yaml
   - buildplane_viewer_role.yaml
-  - build_admin_role.yaml
-  - build_editor_role.yaml
-  - build_viewer_role.yaml
+
 # For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
 # default, aiding admins in cluster management. Those roles are
 # not used by the openchoreo itself. You can comment the following lines

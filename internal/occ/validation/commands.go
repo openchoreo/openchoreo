@@ -27,7 +27,7 @@ type ResourceType string
 const (
 	ResourceProject                                ResourceType = "project"
 	ResourceComponent                              ResourceType = "component"
-	ResourceBuild                                  ResourceType = "build"
+
 	ResourceDeployment                             ResourceType = "deployment"
 	ResourceDeploymentTrack                        ResourceType = "deploymenttrack"
 	ResourceEnvironment                            ResourceType = "environment"

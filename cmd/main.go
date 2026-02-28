@@ -26,7 +26,6 @@ import (
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterbuildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clustercomponenttype"
@@ -258,15 +257,6 @@ func setupControlPlaneControllers(
 		Scheme:       mgr.GetScheme(),
 		GatewayURL:   clusterGatewayURL,
 		Pipeline:     workflowpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&build.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}

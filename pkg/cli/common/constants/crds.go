@@ -16,7 +16,6 @@ const (
 	LabelNamespace       = "openchoreo.dev/namespace"
 	LabelProject         = "openchoreo.dev/project"
 	LabelComponent       = "openchoreo.dev/component"
-	LabelBuild           = "openchoreo.dev/build"
 	LabelName            = "openchoreo.dev/name"
 	LabelType            = "openchoreo.dev/type"
 	LabelVersion         = "openchoreo.dev/version"
@@ -71,11 +70,6 @@ var (
 		Group:   ChoreoGroup,
 		Version: V1Alpha1,
 		Kind:    WorkloadKind,
-	}
-	BuildV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    "Build",
 	}
 	DeployableArtifactV1Config = CRDConfig{
 		Group:   ChoreoGroup,

@@ -69,7 +69,6 @@ rules:
   - openchoreo.dev
   resources:
   - buildplanes
-  - builds
   - clusterbuildplanes
   - clustercomponenttypes
   - clusterdataplanes
@@ -105,7 +104,6 @@ rules:
   - openchoreo.dev
   resources:
   - buildplanes/finalizers
-  - builds/finalizers
   - clusterbuildplanes/finalizers
   - clustercomponenttypes/finalizers
   - clusterdataplanes/finalizers
@@ -136,7 +134,6 @@ rules:
   - openchoreo.dev
   resources:
   - buildplanes/status
-  - builds/status
   - clusterbuildplanes/status
   - clustercomponenttypes/status
   - clusterdataplanes/status

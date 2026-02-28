@@ -18,7 +18,6 @@ rules:
   - apiclasses
   - apis
   - buildplanes
-  - builds
   - clusterbuildplanes
   - clustercomponenttypes
   - clusterdataplanes
@@ -83,7 +82,6 @@ rules:
   - apiclasses/status
   - apis/status
   - buildplanes/status
-  - builds/status
   - clusterbuildplanes/status
   - clustercomponenttypes/status
   - clusterdataplanes/status

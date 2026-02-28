@@ -24,9 +24,6 @@ const (
 	// Deployment related errors
 	ErrCreateDeployment = "failed to create deployment: %w"
 
-	// Build related errors
-	ErrCreateBuild = "failed to create build: %w"
-
 	// Environment related errors
 	ErrCreateEnvironment = "failed to create environment: %w"
 
@@ -88,9 +85,6 @@ var (
 	// Component table headers
 	HeadersComponent = []string{HeaderName, HeaderType, HeaderStatus, HeaderAge, HeaderProject, HeaderNamespace}
 
-	// Build table headers
-	HeadersBuild = []string{HeaderName, HeaderStatus, HeaderRevision, HeaderDuration, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
-
 	// DeployableArtifact table headers
 	HeadersDeployableArtifact = []string{HeaderName, HeaderSource, HeaderStatus, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
 
@@ -145,15 +139,6 @@ const (
 	ConditionTypeAvailable   = "Available"
 )
 
-// Build specific condition types
-const (
-	ConditionTypeStepCloneSucceeded        = "StepCloneSucceeded"
-	ConditionTypeStepBuildSucceeded        = "StepBuildSucceeded"
-	ConditionTypeStepPushSucceeded         = "StepPushSucceeded"
-	ConditionTypeCompleted                 = "Completed"
-	ConditionTypeDeployableArtifactCreated = "DeployableArtifactCreated"
-	ConditionTypeDeploymentApplied         = "DeploymentApplied"
-)
 
 // Environment specific condition types
 const (
@@ -203,10 +188,6 @@ const (
 	// Deployment success messages
 	FmtDeploymentSuccess = "Deployment '%s' created successfully in environment '%s' for component '%s' of project '%s' in namespace '%s'\n"
 	FmtDeploySuccessMsg  = "Deployment '%s' created successfully in environment '%s' for component '%s' of project '%s' in namespace '%s'\n"
-
-	// Build success messages
-	FmtBuildSuccess       = "Build '%s' created successfully for component '%s' in project '%s' of namespace '%s'\n"
-	FmtBuildCreateSuccess = "Build '%s' created successfully for component '%s' in project '%s' of namespace '%s'\n"
 
 	// Environment success messages
 	FmtEnvironmentSuccess = "Environment '%s' created successfully in namespace '%s'\n"

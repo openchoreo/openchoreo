@@ -277,46 +277,6 @@ This command allows you to:
   `,
 	}
 
-	CreateBuild = Command{
-		Use:     "build",
-		Aliases: []string{"builds"},
-		Short:   "Build a component",
-		Long: `Build a component in the current project.
-
-This command creates a new build for a component. You can:
-- Create Docker builds
-- Create Buildpack builds
-- Specify build context and Dockerfile
-- Define custom build arguments`,
-		Example: `  # Create a build
-  occ create build --name product-catalog-build-01 --namespace acme-corp --project online-store \
-    --component product-catalog --docker-context ./src --dockerfile-path ./src/Dockerfile --deployment-track main
-
-  # Create a Buildpack build
-  occ create build --name product-catalog-build-01 --namespace acme-corp --project online-store \
-    --component product-catalog --buildpack-name java --buildpack-version  --deployment-track main
-
-  # Create a build with revision and branch
-  occ create build --name product-catalog-build-01 --namespace acme-corp --project online-store \
-    --component product-catalog --branch main --revision abc123 --auto-build true`,
-	}
-
-	ListBuild = Command{
-		Use:     "build",
-		Aliases: []string{"builds"},
-		Short:   "List builds",
-		Long: `List all builds in the current project or namespace.
-`,
-		Example: `  # List all builds
-  occ get build
-
-  # List builds for a specific component
-  occ get build  --namespace acme-corp --project online-store --component product-catalog
-
-  # List builds in yaml format
-  occ get build -o yaml
-`,
-	}
 	ListDeployableArtifact = Command{
 		Use:     "deployableartifact",
 		Aliases: []string{"deployableartifacts"},
