@@ -103,11 +103,19 @@ func (s *workloadService) UpdateWorkload(ctx context.Context, namespaceName stri
 		return nil, err
 	}
 
-	// Apply incoming spec directly from the request body, preserving server-managed fields
-	w.ResourceVersion = existing.ResourceVersion
-	w.Namespace = namespaceName
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = w.Spec
+	existing.Labels = w.Labels
+	existing.Annotations = w.Annotations
 
-	if err := s.k8sClient.Update(ctx, w); err != nil {
+	// Preserve special labels
+	if existing.Labels == nil {
+		existing.Labels = make(map[string]string)
+	}
+	existing.Labels[labels.LabelKeyProjectName] = existing.Spec.Owner.ProjectName
+	existing.Labels[labels.LabelKeyComponentName] = existing.Spec.Owner.ComponentName
+
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		if apierrors.IsInvalid(err) {
 			s.logger.Error("Workload update rejected by validation", "error", err)
 			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
@@ -117,7 +125,7 @@ func (s *workloadService) UpdateWorkload(ctx context.Context, namespaceName stri
 	}
 
 	s.logger.Debug("Workload updated successfully", "namespace", namespaceName, "workload", w.Name)
-	return w, nil
+	return existing, nil
 }
 
 func (s *workloadService) ListWorkloads(ctx context.Context, namespaceName, componentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Workload], error) {

@@ -121,14 +121,18 @@ func (s *clusterObservabilityPlaneService) UpdateClusterObservabilityPlane(ctx c
 		return nil, fmt.Errorf("failed to get cluster observability plane: %w", err)
 	}
 
-	cop.ResourceVersion = existing.ResourceVersion
-	if err := s.k8sClient.Update(ctx, cop); err != nil {
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = cop.Spec
+	existing.Labels = cop.Labels
+	existing.Annotations = cop.Annotations
+
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		s.logger.Error("Failed to update cluster observability plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update cluster observability plane: %w", err)
 	}
 
 	s.logger.Debug("Cluster observability plane updated successfully", "clusterObservabilityPlane", cop.Name)
-	return cop, nil
+	return existing, nil
 }
 
 // DeleteClusterObservabilityPlane removes a cluster observability plane by name.

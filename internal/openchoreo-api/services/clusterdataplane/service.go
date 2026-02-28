@@ -132,14 +132,18 @@ func (s *clusterDataPlaneService) UpdateClusterDataPlane(ctx context.Context, cd
 		return nil, fmt.Errorf("failed to get cluster data plane: %w", err)
 	}
 
-	cdp.ResourceVersion = existing.ResourceVersion
-	if err := s.k8sClient.Update(ctx, cdp); err != nil {
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = cdp.Spec
+	existing.Labels = cdp.Labels
+	existing.Annotations = cdp.Annotations
+
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		s.logger.Error("Failed to update cluster data plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update cluster data plane: %w", err)
 	}
 
 	s.logger.Debug("Cluster data plane updated successfully", "clusterDataPlane", cdp.Name)
-	return cdp, nil
+	return existing, nil
 }
 
 func (s *clusterDataPlaneService) DeleteClusterDataPlane(ctx context.Context, name string) error {

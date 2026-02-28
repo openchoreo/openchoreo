@@ -94,17 +94,18 @@ func (s *projectService) UpdateProject(ctx context.Context, namespaceName string
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 
-	// Apply incoming spec directly from the request body, preserving server-managed fields
-	project.ResourceVersion = existing.ResourceVersion
-	project.Namespace = namespaceName
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = project.Spec
+	existing.Labels = project.Labels
+	existing.Annotations = project.Annotations
 
-	if err := s.k8sClient.Update(ctx, project); err != nil {
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		s.logger.Error("Failed to update project CR", "error", err)
 		return nil, fmt.Errorf("failed to update project: %w", err)
 	}
 
 	s.logger.Debug("Project updated successfully", "namespace", namespaceName, "project", project.Name)
-	return project, nil
+	return existing, nil
 }
 
 func (s *projectService) ListProjects(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Project], error) {

@@ -165,13 +165,12 @@ func (s *workflowService) UpdateWorkflow(ctx context.Context, namespaceName stri
 		return nil, fmt.Errorf("failed to get workflow: %w", err)
 	}
 
-	// Preserve server-managed fields
-	wf.ResourceVersion = existing.ResourceVersion
-	wf.Namespace = namespaceName
-	wf.Finalizers = existing.Finalizers
-	wf.OwnerReferences = existing.OwnerReferences
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = wf.Spec
+	existing.Labels = wf.Labels
+	existing.Annotations = wf.Annotations
 
-	if err := s.k8sClient.Update(ctx, wf); err != nil {
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		if apierrors.IsInvalid(err) {
 			s.logger.Error("Workflow update rejected by validation", "error", err)
 			return nil, fmt.Errorf("workflow validation failed: %s", services.ExtractValidationMessage(err))
@@ -181,7 +180,7 @@ func (s *workflowService) UpdateWorkflow(ctx context.Context, namespaceName stri
 	}
 
 	s.logger.Debug("Workflow updated successfully", "namespace", namespaceName, "workflow", wf.Name)
-	return wf, nil
+	return existing, nil
 }
 
 func (s *workflowService) DeleteWorkflow(ctx context.Context, namespaceName, workflowName string) error {

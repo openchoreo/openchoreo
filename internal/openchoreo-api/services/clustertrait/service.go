@@ -79,16 +79,18 @@ func (s *clusterTraitService) UpdateClusterTrait(ctx context.Context, ct *opench
 		return nil, fmt.Errorf("failed to get cluster trait: %w", err)
 	}
 
-	// Apply incoming spec directly from the request body, preserving server-managed fields
-	ct.ResourceVersion = existing.ResourceVersion
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = ct.Spec
+	existing.Labels = ct.Labels
+	existing.Annotations = ct.Annotations
 
-	if err := s.k8sClient.Update(ctx, ct); err != nil {
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		s.logger.Error("Failed to update cluster trait CR", "error", err)
 		return nil, fmt.Errorf("failed to update cluster trait: %w", err)
 	}
 
 	s.logger.Debug("Cluster trait updated successfully", "clusterTrait", ct.Name)
-	return ct, nil
+	return existing, nil
 }
 
 func (s *clusterTraitService) ListClusterTraits(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterTrait], error) {

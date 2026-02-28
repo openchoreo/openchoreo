@@ -86,17 +86,18 @@ func (s *secretReferenceService) UpdateSecretReference(ctx context.Context, name
 		return nil, fmt.Errorf("failed to get secret reference: %w", err)
 	}
 
-	// Apply incoming spec directly from the request body, preserving server-managed fields
-	sr.ResourceVersion = existing.ResourceVersion
-	sr.Namespace = namespaceName
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = sr.Spec
+	existing.Labels = sr.Labels
+	existing.Annotations = sr.Annotations
 
-	if err := s.k8sClient.Update(ctx, sr); err != nil {
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		s.logger.Error("Failed to update secret reference CR", "error", err)
 		return nil, fmt.Errorf("failed to update secret reference: %w", err)
 	}
 
 	s.logger.Debug("Secret reference updated successfully", "namespace", namespaceName, "secretReference", sr.Name)
-	return sr, nil
+	return existing, nil
 }
 
 func (s *secretReferenceService) ListSecretReferences(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.SecretReference], error) {

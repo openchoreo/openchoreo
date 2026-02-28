@@ -126,15 +126,18 @@ func (s *observabilityPlaneService) UpdateObservabilityPlane(ctx context.Context
 		return nil, fmt.Errorf("failed to get observability plane: %w", err)
 	}
 
-	op.ResourceVersion = existing.ResourceVersion
-	op.Namespace = namespaceName
-	if err := s.k8sClient.Update(ctx, op); err != nil {
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = op.Spec
+	existing.Labels = op.Labels
+	existing.Annotations = op.Annotations
+
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		s.logger.Error("Failed to update observability plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update observability plane: %w", err)
 	}
 
 	s.logger.Debug("Observability plane updated successfully", "namespace", namespaceName, "observabilityPlane", op.Name)
-	return op, nil
+	return existing, nil
 }
 
 // DeleteObservabilityPlane removes an observability plane by name within a namespace.

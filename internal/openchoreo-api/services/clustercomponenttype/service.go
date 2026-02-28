@@ -79,16 +79,18 @@ func (s *clusterComponentTypeService) UpdateClusterComponentType(ctx context.Con
 		return nil, fmt.Errorf("failed to get cluster component type: %w", err)
 	}
 
-	// Apply incoming spec directly from the request body, preserving server-managed fields
-	cct.ResourceVersion = existing.ResourceVersion
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = cct.Spec
+	existing.Labels = cct.Labels
+	existing.Annotations = cct.Annotations
 
-	if err := s.k8sClient.Update(ctx, cct); err != nil {
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		s.logger.Error("Failed to update cluster component type CR", "error", err)
 		return nil, fmt.Errorf("failed to update cluster component type: %w", err)
 	}
 
 	s.logger.Debug("Cluster component type updated successfully", "clusterComponentType", cct.Name)
-	return cct, nil
+	return existing, nil
 }
 
 func (s *clusterComponentTypeService) ListClusterComponentTypes(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterComponentType], error) {

@@ -150,13 +150,12 @@ func (s *environmentService) UpdateEnvironment(ctx context.Context, namespaceNam
 		return nil, fmt.Errorf("failed to get environment: %w", err)
 	}
 
-	// Preserve server-managed fields
-	env.ResourceVersion = existing.ResourceVersion
-	env.Namespace = namespaceName
-	env.Finalizers = existing.Finalizers
-	env.OwnerReferences = existing.OwnerReferences
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = env.Spec
+	existing.Labels = env.Labels
+	existing.Annotations = env.Annotations
 
-	if err := s.k8sClient.Update(ctx, env); err != nil {
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		if apierrors.IsInvalid(err) {
 			s.logger.Error("Environment update rejected by validation", "error", err)
 			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
@@ -166,7 +165,7 @@ func (s *environmentService) UpdateEnvironment(ctx context.Context, namespaceNam
 	}
 
 	s.logger.Debug("Environment updated successfully", "namespace", namespaceName, "env", env.Name)
-	return env, nil
+	return existing, nil
 }
 
 // DeleteEnvironment removes an environment by name.

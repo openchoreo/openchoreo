@@ -138,16 +138,18 @@ func (s *dataPlaneService) UpdateDataPlane(ctx context.Context, namespaceName st
 		return nil, fmt.Errorf("failed to get data plane: %w", err)
 	}
 
-	// Preserve server-managed fields
-	dp.ResourceVersion = existing.ResourceVersion
-	dp.Namespace = namespaceName
-	if err := s.k8sClient.Update(ctx, dp); err != nil {
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = dp.Spec
+	existing.Labels = dp.Labels
+	existing.Annotations = dp.Annotations
+
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		s.logger.Error("Failed to update data plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update data plane: %w", err)
 	}
 
 	s.logger.Debug("Data plane updated successfully", "namespace", namespaceName, "dataPlane", dp.Name)
-	return dp, nil
+	return existing, nil
 }
 
 func (s *dataPlaneService) DeleteDataPlane(ctx context.Context, namespaceName, dpName string) error {

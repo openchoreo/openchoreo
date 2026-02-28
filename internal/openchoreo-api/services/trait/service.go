@@ -90,17 +90,18 @@ func (s *traitService) UpdateTrait(ctx context.Context, namespaceName string, t 
 		return nil, fmt.Errorf("failed to get trait: %w", err)
 	}
 
-	// Apply incoming spec directly from the request body, preserving server-managed fields
-	t.ResourceVersion = existing.ResourceVersion
-	t.Namespace = namespaceName
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = t.Spec
+	existing.Labels = t.Labels
+	existing.Annotations = t.Annotations
 
-	if err := s.k8sClient.Update(ctx, t); err != nil {
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		s.logger.Error("Failed to update trait CR", "error", err)
 		return nil, fmt.Errorf("failed to update trait: %w", err)
 	}
 
 	s.logger.Debug("Trait updated successfully", "namespace", namespaceName, "trait", t.Name)
-	return t, nil
+	return existing, nil
 }
 
 func (s *traitService) ListTraits(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Trait], error) {

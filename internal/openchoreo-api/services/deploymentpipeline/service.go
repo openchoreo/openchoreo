@@ -86,17 +86,18 @@ func (s *deploymentPipelineService) UpdateDeploymentPipeline(ctx context.Context
 		return nil, fmt.Errorf("failed to get deployment pipeline: %w", err)
 	}
 
-	// Apply incoming spec directly from the request body, preserving server-managed fields
-	dp.ResourceVersion = existing.ResourceVersion
-	dp.Namespace = namespaceName
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = dp.Spec
+	existing.Labels = dp.Labels
+	existing.Annotations = dp.Annotations
 
-	if err := s.k8sClient.Update(ctx, dp); err != nil {
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		s.logger.Error("Failed to update deployment pipeline CR", "error", err)
 		return nil, fmt.Errorf("failed to update deployment pipeline: %w", err)
 	}
 
 	s.logger.Debug("Deployment pipeline updated successfully", "namespace", namespaceName, "deploymentPipeline", dp.Name)
-	return dp, nil
+	return existing, nil
 }
 
 func (s *deploymentPipelineService) ListDeploymentPipelines(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.DeploymentPipeline], error) {

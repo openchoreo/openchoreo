@@ -86,17 +86,18 @@ func (s *observabilityAlertsNotificationChannelService) UpdateObservabilityAlert
 		return nil, fmt.Errorf("failed to get observability alerts notification channel: %w", err)
 	}
 
-	// Apply incoming spec directly from the request body, preserving server-managed fields
-	nc.ResourceVersion = existing.ResourceVersion
-	nc.Namespace = namespaceName
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = nc.Spec
+	existing.Labels = nc.Labels
+	existing.Annotations = nc.Annotations
 
-	if err := s.k8sClient.Update(ctx, nc); err != nil {
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		s.logger.Error("Failed to update observability alerts notification channel CR", "error", err)
 		return nil, fmt.Errorf("failed to update observability alerts notification channel: %w", err)
 	}
 
 	s.logger.Debug("Observability alerts notification channel updated successfully", "namespace", namespaceName, "channel", nc.Name)
-	return nc, nil
+	return existing, nil
 }
 
 func (s *observabilityAlertsNotificationChannelService) ListObservabilityAlertsNotificationChannels(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ObservabilityAlertsNotificationChannel], error) {

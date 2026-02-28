@@ -103,11 +103,19 @@ func (s *releaseBindingService) UpdateReleaseBinding(ctx context.Context, namesp
 		return nil, err
 	}
 
-	// Apply incoming spec directly from the request body, preserving server-managed fields
-	rb.ResourceVersion = existing.ResourceVersion
-	rb.Namespace = namespaceName
+	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	existing.Spec = rb.Spec
+	existing.Labels = rb.Labels
+	existing.Annotations = rb.Annotations
 
-	if err := s.k8sClient.Update(ctx, rb); err != nil {
+	// Preserve special labels
+	if existing.Labels == nil {
+		existing.Labels = make(map[string]string)
+	}
+	existing.Labels[labels.LabelKeyProjectName] = existing.Spec.Owner.ProjectName
+	existing.Labels[labels.LabelKeyComponentName] = existing.Spec.Owner.ComponentName
+
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
 		if apierrors.IsInvalid(err) {
 			s.logger.Error("Release binding update rejected by validation", "error", err)
 			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
@@ -117,7 +125,7 @@ func (s *releaseBindingService) UpdateReleaseBinding(ctx context.Context, namesp
 	}
 
 	s.logger.Debug("Release binding updated successfully", "namespace", namespaceName, "releaseBinding", rb.Name)
-	return rb, nil
+	return existing, nil
 }
 
 func (s *releaseBindingService) ListReleaseBindings(ctx context.Context, namespaceName, componentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ReleaseBinding], error) {
