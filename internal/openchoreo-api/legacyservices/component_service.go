@@ -2361,14 +2361,29 @@ func (s *ComponentService) GetComponentObserverURL(ctx context.Context, namespac
 func (s *ComponentService) GetBuildObserverURL(ctx context.Context, namespaceName, projectName, componentName string) (*ComponentObserverResponse, error) {
 	s.logger.Debug("Getting build observer URL", "namespace", namespaceName, "project", projectName, "component", componentName)
 
-	// 1. Verify component exists in project
+	// 1. Verify component exists and get its workflow reference
 	_, err := s.GetComponent(ctx, namespaceName, projectName, componentName, []string{})
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Get the build plane (supports both BuildPlane and ClusterBuildPlane)
-	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, s.k8sClient, namespaceName, nil)
+	// 2. Resolve the build plane using the component's workflow BuildPlaneRef
+	var buildPlaneRef *openchoreov1alpha1.BuildPlaneRef
+	component := &openchoreov1alpha1.Component{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      componentName,
+		Namespace: namespaceName,
+	}, component); err == nil && component.Spec.Workflow != nil && component.Spec.Workflow.Name != "" {
+		workflow := &openchoreov1alpha1.Workflow{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      component.Spec.Workflow.Name,
+			Namespace: namespaceName,
+		}, workflow); err == nil {
+			buildPlaneRef = workflow.Spec.BuildPlaneRef
+		}
+	}
+
+	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, s.k8sClient, namespaceName, buildPlaneRef)
 	if err != nil {
 		s.logger.Error("Failed to get build plane", "error", err, "namespace", namespaceName)
 		return nil, fmt.Errorf("failed to get build plane: %w", err)
