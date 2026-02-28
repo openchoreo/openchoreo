@@ -408,7 +408,7 @@ func (h *MCPHandler) CreateWorkflowRun(ctx context.Context, namespaceName, workf
 }
 
 func (h *MCPHandler) ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string, opts tools.ListOpts) (any, error) {
-	result, err := h.services.WorkflowRunService.ListWorkflowRuns(ctx, namespaceName, projectName, componentName, toServiceListOptions(opts))
+	result, err := h.services.WorkflowRunService.ListWorkflowRuns(ctx, namespaceName, projectName, componentName, "", toServiceListOptions(opts))
 	if err != nil {
 		return nil, err
 	}

@@ -220,9 +220,14 @@ func (h *Handler) ListWorkflowRuns(
 ) (gen.ListWorkflowRunsResponseObject, error) {
 	h.logger.Info("ListWorkflowRuns called", "namespaceName", request.NamespaceName)
 
+	workflowName := ""
+	if request.Params.Workflow != nil {
+		workflowName = *request.Params.Workflow
+	}
+
 	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
 
-	result, err := h.services.WorkflowRunService.ListWorkflowRuns(ctx, request.NamespaceName, "", "", opts)
+	result, err := h.services.WorkflowRunService.ListWorkflowRuns(ctx, request.NamespaceName, "", "", workflowName, opts)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.ListWorkflowRuns403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil

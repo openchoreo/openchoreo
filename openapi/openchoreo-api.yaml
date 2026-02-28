@@ -2336,6 +2336,7 @@ paths:
       tags: [Workflows]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkflowQueryParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -4722,6 +4723,15 @@ components:
       schema:
         type: string
         example: api-service
+
+    WorkflowQueryParam:
+      name: workflow
+      in: query
+      required: false
+      description: Filter workflow runs by workflow name
+      schema:
+        type: string
+        example: my-workflow
 
     EnvironmentQueryParam:
       name: environment

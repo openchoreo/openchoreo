@@ -49,10 +49,10 @@ func (s *workflowRunServiceWithAuthz) CreateWorkflowRun(ctx context.Context, nam
 	return s.internal.CreateWorkflowRun(ctx, namespaceName, wfRun)
 }
 
-func (s *workflowRunServiceWithAuthz) ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.WorkflowRun], error) {
+func (s *workflowRunServiceWithAuthz) ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName, workflowName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.WorkflowRun], error) {
 	return services.FilteredList(ctx, opts, s.authz,
 		func(ctx context.Context, pageOpts services.ListOptions) (*services.ListResult[openchoreov1alpha1.WorkflowRun], error) {
-			return s.internal.ListWorkflowRuns(ctx, namespaceName, projectName, componentName, pageOpts)
+			return s.internal.ListWorkflowRuns(ctx, namespaceName, projectName, componentName, workflowName, pageOpts)
 		},
 		func(wr openchoreov1alpha1.WorkflowRun) services.CheckRequest {
 			return services.CheckRequest{

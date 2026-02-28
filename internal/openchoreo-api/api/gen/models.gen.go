@@ -3464,6 +3464,9 @@ type TraitNameParam = string
 // WorkflowNameParam defines model for WorkflowNameParam.
 type WorkflowNameParam = string
 
+// WorkflowQueryParam defines model for WorkflowQueryParam.
+type WorkflowQueryParam = string
+
 // WorkflowRunNameParam defines model for WorkflowRunNameParam.
 type WorkflowRunNameParam = string
 
@@ -3814,6 +3817,9 @@ type ListTraitsParams struct {
 
 // ListWorkflowRunsParams defines parameters for ListWorkflowRuns.
 type ListWorkflowRunsParams struct {
+	// Workflow Filter workflow runs by workflow name
+	Workflow *WorkflowQueryParam `form:"workflow,omitempty" json:"workflow,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 

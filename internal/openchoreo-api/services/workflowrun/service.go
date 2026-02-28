@@ -69,8 +69,8 @@ func (s *workflowRunService) CreateWorkflowRun(ctx context.Context, namespaceNam
 	return wfRun, nil
 }
 
-func (s *workflowRunService) ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.WorkflowRun], error) {
-	s.logger.Debug("Listing workflow runs", "namespace", namespaceName, "project", projectName, "component", componentName, "limit", opts.Limit, "cursor", opts.Cursor)
+func (s *workflowRunService) ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName, workflowName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.WorkflowRun], error) {
+	s.logger.Debug("Listing workflow runs", "namespace", namespaceName, "project", projectName, "component", componentName, "workflow", workflowName, "limit", opts.Limit, "cursor", opts.Cursor)
 
 	listResource := s.listWorkflowRunsResource(namespaceName)
 
@@ -84,6 +84,11 @@ func (s *workflowRunService) ListWorkflowRuns(ctx context.Context, namespaceName
 	if componentName != "" {
 		filters = append(filters, func(wr openchoreov1alpha1.WorkflowRun) bool {
 			return wr.Labels[labels.LabelKeyComponentName] == componentName
+		})
+	}
+	if workflowName != "" {
+		filters = append(filters, func(wr openchoreov1alpha1.WorkflowRun) bool {
+			return wr.Spec.Workflow.Name == workflowName
 		})
 	}
 
