@@ -61,6 +61,7 @@ const (
 	BadRequest          ErrorResponseTitle = "badRequest"
 	Forbidden           ErrorResponseTitle = "forbidden"
 	InternalServerError ErrorResponseTitle = "internalServerError"
+	NotFound            ErrorResponseTitle = "notFound"
 	Unauthorized        ErrorResponseTitle = "unauthorized"
 )
 
