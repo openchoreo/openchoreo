@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	apihandler "github.com/openchoreo/openchoreo/internal/observer/api/handlers"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
@@ -110,6 +111,19 @@ func main() {
 		legacyLoggingService, logger, authzClient, cfg.Alerting.RCAServiceURL, cfg.Alerting.AIRCAEnabled,
 	)
 
+	// Initialize health service
+	healthService := service.NewHealthService(logger.With("component", "health-service"))
+	if err != nil {
+		logger.Error("Failed to initialize health service", "error", err)
+		os.Exit(1)
+	}
+
+	// Initialize new API handler
+	newAPIHandler := apihandler.NewHandler(
+		healthService,
+		logger.With("component", "api-handler"),
+		authzClient,
+	)
 	// ===== Initialize Middlewares =====
 
 	// Global middlewares - applies to all routes
@@ -121,8 +135,8 @@ func main() {
 
 	// ===== Public Routes (No Authentication Required) =====
 
-	// Health check endpoint
-	routes.HandleFunc("GET /health", legacyHandler.Health)
+	// Health check endpoint (new API)
+	routes.HandleFunc("GET /health", newAPIHandler.Health)
 
 	// OAuth Protected Resource Metadata endpoint
 	routes.HandleFunc("GET /.well-known/oauth-protected-resource", oauthProtectedResourceMetadata(logger))
