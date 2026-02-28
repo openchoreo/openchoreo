@@ -34,7 +34,6 @@ rules:
   - deploymenttracks
   - endpoints
   - environments
-  - gitcommitrequests
   - gitrepositorywebhooks
   - observabilityalertsnotificationchannels
   - observabilityplanes
@@ -98,7 +97,6 @@ rules:
   - deploymenttracks/status
   - endpoints/status
   - environments/status
-  - gitcommitrequests/status
   - gitrepositorywebhooks/status
   - observabilityalertsnotificationchannels/status
   - observabilityplanes/status

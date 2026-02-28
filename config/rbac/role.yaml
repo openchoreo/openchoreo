@@ -81,7 +81,6 @@ rules:
   - deploymentpipelines
   - deploymenttracks
   - environments
-  - gitcommitrequests
   - observabilityalertrules
   - observabilityalertsnotificationchannels
   - observabilityplanes
@@ -116,7 +115,6 @@ rules:
   - deploymentpipelines/finalizers
   - deploymenttracks/finalizers
   - environments/finalizers
-  - gitcommitrequests/finalizers
   - observabilityalertrules/finalizers
   - observabilityalertsnotificationchannels/finalizers
   - observabilityplanes/finalizers
@@ -146,7 +144,6 @@ rules:
   - deploymentpipelines/status
   - deploymenttracks/status
   - environments/status
-  - gitcommitrequests/status
   - observabilityalertrules/status
   - observabilityalertsnotificationchannels/status
   - observabilityplanes/status

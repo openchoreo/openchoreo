@@ -61,8 +61,7 @@ resources:
   - secretreference_viewer_role.yaml
   - release_editor_role.yaml
   - release_viewer_role.yaml
-  - gitcommitrequest_editor_role.yaml
-  - gitcommitrequest_viewer_role.yaml
+
   - buildplane_admin_role.yaml
   - buildplane_editor_role.yaml
   - buildplane_viewer_role.yaml
