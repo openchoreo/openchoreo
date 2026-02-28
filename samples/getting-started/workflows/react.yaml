@@ -5,6 +5,7 @@ metadata:
   namespace: default
   annotations:
     openchoreo.dev/description: "Build workflow for React web applications"
+    openchoreo.dev/workflow-scope: "component"
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch

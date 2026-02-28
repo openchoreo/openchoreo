@@ -5,6 +5,7 @@ metadata:
   namespace: default
   annotations:
     openchoreo.dev/description: "Google Cloud Buildpacks workflow for auto-detecting and building applications without Dockerfiles"
+    openchoreo.dev/workflow-scope: "component"
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch

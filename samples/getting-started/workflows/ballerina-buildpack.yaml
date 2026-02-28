@@ -5,6 +5,7 @@ metadata:
   namespace: default
   annotations:
     openchoreo.dev/description: "Ballerina build workflow for containerized builds using Ballerina Buildpack"
+    openchoreo.dev/workflow-scope: "component"
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch
