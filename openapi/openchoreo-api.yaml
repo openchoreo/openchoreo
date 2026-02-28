@@ -5910,12 +5910,6 @@ components:
           $ref: '#/components/schemas/ClusterAgentConfig'
         gateway:
           $ref: '#/components/schemas/GatewaySpec'
-        imagePullSecretRefs:
-          type: array
-          description: References to SecretReference resources for image pulling
-          items:
-            type: string
-          example: ["docker-registry-secret"]
         secretStoreRef:
           $ref: '#/components/schemas/SecretStoreRef'
         observabilityPlaneRef:
@@ -6294,12 +6288,6 @@ components:
           $ref: '#/components/schemas/ClusterAgentConfig'
         gateway:
           $ref: '#/components/schemas/GatewaySpec'
-        imagePullSecretRefs:
-          type: array
-          description: References to SecretReference resources for image pulling
-          items:
-            type: string
-          example: ["docker-registry-secret"]
         secretStoreRef:
           $ref: '#/components/schemas/SecretStoreRef'
         observabilityPlaneRef:

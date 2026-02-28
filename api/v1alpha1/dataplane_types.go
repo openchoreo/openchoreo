@@ -117,11 +117,6 @@ type DataPlaneSpec struct {
 	// +optional
 	Gateway GatewaySpec `json:"gateway,omitempty"`
 
-	// ImagePullSecretRefs contains references to SecretReference resources
-	// These will be converted to ExternalSecrets and added as imagePullSecrets to all deployments
-	// +optional
-	ImagePullSecretRefs []string `json:"imagePullSecretRefs,omitempty"`
-
 	// SecretStoreRef specifies the ESO ClusterSecretStore to use in the data plane
 	// +optional
 	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`

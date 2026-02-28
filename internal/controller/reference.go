@@ -68,7 +68,6 @@ func (r *DataPlaneResult) ToDataPlane() *openchoreov1alpha1.DataPlane {
 				PlaneID:               r.ClusterDataPlane.Spec.PlaneID,
 				ClusterAgent:          r.ClusterDataPlane.Spec.ClusterAgent,
 				Gateway:               r.ClusterDataPlane.Spec.Gateway,
-				ImagePullSecretRefs:   r.ClusterDataPlane.Spec.ImagePullSecretRefs,
 				SecretStoreRef:        r.ClusterDataPlane.Spec.SecretStoreRef,
 				ObservabilityPlaneRef: obsRef,
 			},

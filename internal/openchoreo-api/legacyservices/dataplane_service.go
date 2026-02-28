@@ -224,7 +224,6 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		Namespace:           dp.Namespace,
 		DisplayName:         displayName,
 		Description:         description,
-		ImagePullSecretRefs: dp.Spec.ImagePullSecretRefs,
 		SecretStoreRef:      secretStoreRef,
 		CreatedAt:           dp.CreationTimestamp.Time,
 		Status:              status,

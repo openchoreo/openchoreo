@@ -246,9 +246,6 @@ func dataplaneDetail(dp *openchoreov1alpha1.DataPlane) map[string]any {
 			"name": dp.Spec.ObservabilityPlaneRef.Name,
 		}
 	}
-	if len(dp.Spec.ImagePullSecretRefs) > 0 {
-		m["imagePullSecretRefs"] = dp.Spec.ImagePullSecretRefs
-	}
 	if dp.Spec.SecretStoreRef != nil {
 		m["secretStoreRef"] = dp.Spec.SecretStoreRef.Name
 	}
@@ -560,9 +557,6 @@ func clusterDataPlaneDetail(cdp *openchoreov1alpha1.ClusterDataPlane) map[string
 			"kind": string(cdp.Spec.ObservabilityPlaneRef.Kind),
 			"name": cdp.Spec.ObservabilityPlaneRef.Name,
 		}
-	}
-	if len(cdp.Spec.ImagePullSecretRefs) > 0 {
-		m["imagePullSecretRefs"] = cdp.Spec.ImagePullSecretRefs
 	}
 	if cdp.Spec.SecretStoreRef != nil {
 		m["secretStoreRef"] = cdp.Spec.SecretStoreRef.Name

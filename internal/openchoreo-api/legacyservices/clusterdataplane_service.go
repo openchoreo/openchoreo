@@ -238,7 +238,6 @@ func (s *ClusterDataPlaneService) toClusterDataPlaneResponse(cdp *openchoreov1al
 		PlaneID:             cdp.Spec.PlaneID,
 		DisplayName:         displayName,
 		Description:         description,
-		ImagePullSecretRefs: cdp.Spec.ImagePullSecretRefs,
 		SecretStoreRef:      secretStoreRef,
 		CreatedAt:           cdp.CreationTimestamp.Time,
 		Status:              status,

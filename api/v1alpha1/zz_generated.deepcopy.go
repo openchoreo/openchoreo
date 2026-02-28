@@ -984,11 +984,6 @@ func (in *ClusterDataPlaneSpec) DeepCopyInto(out *ClusterDataPlaneSpec) {
 	*out = *in
 	in.ClusterAgent.DeepCopyInto(&out.ClusterAgent)
 	in.Gateway.DeepCopyInto(&out.Gateway)
-	if in.ImagePullSecretRefs != nil {
-		in, out := &in.ImagePullSecretRefs, &out.ImagePullSecretRefs
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	if in.SecretStoreRef != nil {
 		in, out := &in.SecretStoreRef, &out.SecretStoreRef
 		*out = new(SecretStoreRef)
@@ -2158,11 +2153,6 @@ func (in *DataPlaneSpec) DeepCopyInto(out *DataPlaneSpec) {
 	*out = *in
 	in.ClusterAgent.DeepCopyInto(&out.ClusterAgent)
 	in.Gateway.DeepCopyInto(&out.Gateway)
-	if in.ImagePullSecretRefs != nil {
-		in, out := &in.ImagePullSecretRefs, &out.ImagePullSecretRefs
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	if in.SecretStoreRef != nil {
 		in, out := &in.SecretStoreRef, &out.SecretStoreRef
 		*out = new(SecretStoreRef)

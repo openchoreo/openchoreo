@@ -878,9 +878,6 @@ type ClusterDataPlaneSpec struct {
 	// Gateway Gateway configuration with ingress and egress network specs
 	Gateway *GatewaySpec `json:"gateway,omitempty"`
 
-	// ImagePullSecretRefs References to SecretReference resources for image pulling
-	ImagePullSecretRefs *[]string `json:"imagePullSecretRefs,omitempty"`
-
 	// ObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
 	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
 
@@ -1655,9 +1652,6 @@ type DataPlaneSpec struct {
 
 	// Gateway Gateway configuration with ingress and egress network specs
 	Gateway *GatewaySpec `json:"gateway,omitempty"`
-
-	// ImagePullSecretRefs References to SecretReference resources for image pulling
-	ImagePullSecretRefs *[]string `json:"imagePullSecretRefs,omitempty"`
 
 	// ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
 	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
