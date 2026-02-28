@@ -883,6 +883,132 @@ func TestEnvFromCanBeUsedWithCELOperations(t *testing.T) {
 	})
 }
 
+func TestConnectionsContextData(t *testing.T) {
+	t.Run("newConnectionsContextData merges env vars from items", func(t *testing.T) {
+		data := ConnectionsData{
+			Items: []ConnectionItem{
+				{
+					Namespace: "ns1", Project: "proj1", Component: "svc-a",
+					Endpoint: "http", Visibility: "project",
+					EnvVars: []ConnectionEnvVar{
+						{Name: "SVC_A_URL", Value: "http://svc-a:8080"},
+					},
+				},
+				{
+					Namespace: "ns1", Project: "proj1", Component: "svc-b",
+					Endpoint: "grpc", Visibility: "namespace",
+					EnvVars: []ConnectionEnvVar{
+						{Name: "SVC_B_URL", Value: "grpc://svc-b:9090"},
+						{Name: "SVC_B_HOST", Value: "svc-b"},
+					},
+				},
+			},
+		}
+
+		ctx := newConnectionsContextData(data)
+
+		wantEnvVars := []ConnectionEnvVar{
+			{Name: "SVC_A_URL", Value: "http://svc-a:8080"},
+			{Name: "SVC_B_URL", Value: "grpc://svc-b:9090"},
+			{Name: "SVC_B_HOST", Value: "svc-b"},
+		}
+		if diff := cmp.Diff(wantEnvVars, ctx.EnvVars); diff != "" {
+			t.Errorf("merged envVars mismatch (-want +got):\n%s", diff)
+		}
+		if diff := cmp.Diff(data.Items, ctx.Items); diff != "" {
+			t.Errorf("items should be preserved (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("newConnectionsContextData with no items returns empty slices", func(t *testing.T) {
+		ctx := newConnectionsContextData(ConnectionsData{})
+		if ctx.EnvVars == nil || len(ctx.EnvVars) != 0 {
+			t.Errorf("expected empty envVars, got %v", ctx.EnvVars)
+		}
+		if ctx.Items == nil || len(ctx.Items) != 0 {
+			t.Errorf("expected empty items, got %v", ctx.Items)
+		}
+	})
+
+	t.Run("nil item envVars normalized to empty slices", func(t *testing.T) {
+		data := ConnectionsData{
+			Items: []ConnectionItem{
+				{
+					Namespace: "ns1", Project: "proj1", Component: "svc-a",
+					Endpoint: "http", Visibility: "project",
+					EnvVars: nil,
+				},
+				{
+					Namespace: "ns1", Project: "proj1", Component: "svc-b",
+					Endpoint: "http", Visibility: "project",
+					EnvVars: []ConnectionEnvVar{
+						{Name: "SVC_B_URL", Value: "http://svc-b:8080"},
+					},
+				},
+			},
+		}
+
+		ctx := newConnectionsContextData(data)
+
+		// Merged top-level envVars should only contain svc-b's env var
+		wantEnvVars := []ConnectionEnvVar{
+			{Name: "SVC_B_URL", Value: "http://svc-b:8080"},
+		}
+		if diff := cmp.Diff(wantEnvVars, ctx.EnvVars); diff != "" {
+			t.Errorf("merged envVars mismatch (-want +got):\n%s", diff)
+		}
+
+		// nil EnvVars on source item must be normalized to empty slice
+		if ctx.Items[0].EnvVars == nil {
+			t.Error("expected items[0].EnvVars to be empty slice, got nil")
+		}
+		if len(ctx.Items[0].EnvVars) != 0 {
+			t.Errorf("expected items[0].EnvVars to be empty, got %v", ctx.Items[0].EnvVars)
+		}
+	})
+
+	t.Run("connections.toContainerEnv() macro rewrites to connections.envVars", func(t *testing.T) {
+		engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+		inputs := map[string]any{
+			"connections": map[string]any{
+				"items": []any{
+					map[string]any{
+						"namespace": "ns1", "project": "proj1", "component": "svc-a",
+						"endpoint": "http", "visibility": "project",
+						"envVars": []any{
+							map[string]any{"name": "SVC_A_URL", "value": "http://svc-a:8080"},
+						},
+					},
+					map[string]any{
+						"namespace": "ns1", "project": "proj1", "component": "svc-b",
+						"endpoint": "grpc", "visibility": "namespace",
+						"envVars": []any{
+							map[string]any{"name": "SVC_B_URL", "value": "grpc://svc-b:9090"},
+						},
+					},
+				},
+				"envVars": []any{
+					map[string]any{"name": "SVC_A_URL", "value": "http://svc-a:8080"},
+					map[string]any{"name": "SVC_B_URL", "value": "grpc://svc-b:9090"},
+				},
+			},
+		}
+
+		result, err := engine.Render(`${connections.toContainerEnv()}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		want := []any{
+			map[string]any{"name": "SVC_A_URL", "value": "http://svc-a:8080"},
+			map[string]any{"name": "SVC_B_URL", "value": "grpc://svc-b:9090"},
+		}
+		if diff := cmp.Diff(want, result); diff != "" {
+			t.Errorf("connections.toContainerEnv() mismatch (-want +got):\n%s", diff)
+		}
+	})
+}
+
 func TestContainerConfigVolumeMountsMacro(t *testing.T) {
 	tests := []struct {
 		name   string

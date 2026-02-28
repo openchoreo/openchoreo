@@ -69,6 +69,7 @@ func BuildTraitContext(input *TraitContextInput) (*TraitContext, error) {
 	ctx.Gateway = ctx.Environment.Gateway
 	ctx.Workload = input.WorkloadData
 	ctx.Configurations = input.Configurations
+	ctx.Connections = newConnectionsContextData(input.Connections)
 
 	return ctx, nil
 }

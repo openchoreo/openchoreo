@@ -47,9 +47,10 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 	ctx.Parameters = parameters
 	ctx.EnvOverrides = envOverrides
 
-	// WorkloadData and Configurations should be pre-computed by the caller
+	// WorkloadData, Configurations, and Connections should be pre-computed by the caller
 	ctx.Workload = input.WorkloadData
 	ctx.Configurations = input.Configurations
+	ctx.Connections = newConnectionsContextData(input.Connections)
 
 	// Ensure metadata maps are always initialized
 	ctx.Metadata = input.Metadata

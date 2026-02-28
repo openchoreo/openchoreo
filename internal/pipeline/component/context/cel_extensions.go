@@ -22,6 +22,7 @@ import (
 
 const (
 	configurationsIdentifier = "configurations"
+	connectionsIdentifier    = "connections"
 	protocolTCP              = "TCP"
 	protocolUDP              = "UDP"
 )
@@ -44,12 +45,13 @@ const (
 //   - Function: configurationsToSecretEnvsByContainer
 //   - Macro: workload.toServicePorts() -> workloadToServicePorts(workload)
 //   - Function: workloadToServicePorts
+//   - Macro: connections.toContainerEnv() -> connections.envVars (rewrite only, no function)
 //
 // Where prefix = metadata.componentName + "-" + metadata.environmentName (automatically injected by macros)
 func CELExtensions() []cel.EnvOption {
 	return []cel.EnvOption{
 		// Register the macros
-		cel.Macros(toConfigFileListMacro, toSecretFileListMacro, toContainerEnvFromMacro, toContainerVolumeMountsMacro, toVolumesMacro, toConfigEnvsByContainerMacro, toSecretEnvsByContainerMacro, toServicePortsMacro),
+		cel.Macros(toConfigFileListMacro, toSecretFileListMacro, toContainerEnvFromMacro, toContainerVolumeMountsMacro, toVolumesMacro, toConfigEnvsByContainerMacro, toSecretEnvsByContainerMacro, toServicePortsMacro, toContainerEnvMacro),
 		// Register the functions
 		cel.Function("configurationsToConfigFileList",
 			cel.Overload("configurationsToConfigFileList_dyn_string",
@@ -194,6 +196,15 @@ var toServicePortsMacro = cel.ReceiverMacro("toServicePorts", 0,
 		// Check if target is workload
 		if target.Kind() == ast.IdentKind && target.AsIdent() == "workload" {
 			return eh.NewCall("workloadToServicePorts", target), nil
+		}
+		return nil, nil
+	})
+
+// toContainerEnvMacro rewrites connections.toContainerEnv() to connections.envVars at compile time.
+var toContainerEnvMacro = cel.ReceiverMacro("toContainerEnv", 0,
+	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
+		if target.Kind() == ast.IdentKind && target.AsIdent() == connectionsIdentifier {
+			return eh.NewSelect(target, "envVars"), nil
 		}
 		return nil, nil
 	})

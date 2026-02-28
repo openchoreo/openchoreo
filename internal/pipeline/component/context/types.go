@@ -109,6 +109,10 @@ type ComponentContextInput struct {
 	// Required - controller must provide this.
 	Metadata MetadataContext `validate:"required"`
 
+	// Connections contains pre-computed connection environment variables.
+	// Optional - if not provided, connections context will be empty.
+	Connections ConnectionsData
+
 	// DefaultNotificationChannel is the default notification channel name for the environment.
 	// Optional - if not provided, the defaultNotificationChannel field in EnvironmentData will be empty.
 	DefaultNotificationChannel string
@@ -141,6 +145,10 @@ type TraitContextInput struct {
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
 	Metadata MetadataContext `validate:"required"`
+
+	// Connections contains pre-computed connection environment variables.
+	// Optional - if not provided, connections context will be empty.
+	Connections ConnectionsData
 
 	// SchemaCache is an optional cache for schema bundles, keyed by trait name with suffix.
 	// Used to avoid rebuilding schemas for the same trait used multiple times.
@@ -210,6 +218,10 @@ type ComponentContext struct {
 	// Contains configs and secrets for the single container.
 	// Accessed via ${configurations.configs.envs}, ${configurations.secrets.files}, etc.
 	Configurations ContainerConfigurations `json:"configurations"`
+
+	// Connections contains connection metadata and merged env vars for templates.
+	// Accessed via ${connections.items} and ${connections.envVars}.
+	Connections ConnectionsContextData `json:"connections"`
 }
 
 // DataPlaneData provides data plane configuration in templates.
@@ -324,6 +336,55 @@ type RemoteRefData struct {
 	Version  string `json:"version,omitempty"`
 }
 
+// ConnectionEnvVar is a pre-computed env var name/value pair for a resolved connection.
+type ConnectionEnvVar struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// ConnectionItem represents a single connection with its target metadata and resolved env vars.
+type ConnectionItem struct {
+	Namespace  string             `json:"namespace"`
+	Project    string             `json:"project"`
+	Component  string             `json:"component"`
+	Endpoint   string             `json:"endpoint"`
+	Visibility string             `json:"visibility"`
+	EnvVars    []ConnectionEnvVar `json:"envVars"`
+}
+
+// ConnectionsData contains the list of connections with their metadata and per-item env vars.
+// This is the input type used in RenderInput and context inputs.
+type ConnectionsData struct {
+	Items []ConnectionItem `json:"items"`
+}
+
+// ConnectionsContextData is the template context representation of connections.
+// It contains both the per-item details and a merged flat list of all env vars.
+// Accessed via ${connections.items} and ${connections.envVars}.
+type ConnectionsContextData struct {
+	Items   []ConnectionItem   `json:"items"`
+	EnvVars []ConnectionEnvVar `json:"envVars"`
+}
+
+// newConnectionsContextData creates a ConnectionsContextData from ConnectionsData,
+// merging all per-item env vars into the top-level EnvVars field.
+// Ensures no nil slices so CEL templates always see empty lists instead of null.
+func newConnectionsContextData(data ConnectionsData) ConnectionsContextData {
+	items := make([]ConnectionItem, len(data.Items))
+	merged := make([]ConnectionEnvVar, 0)
+	for i, item := range data.Items {
+		if item.EnvVars == nil {
+			item.EnvVars = []ConnectionEnvVar{}
+		}
+		items[i] = item
+		merged = append(merged, item.EnvVars...)
+	}
+	return ConnectionsContextData{
+		Items:   items,
+		EnvVars: merged,
+	}
+}
+
 // TraitContext represents the evaluated context for rendering trait resources.
 // This is the output of BuildTraitContext and is used by the template engine.
 type TraitContext struct {
@@ -365,6 +426,10 @@ type TraitContext struct {
 	// Contains configs and secrets for the single container.
 	// Accessed via ${configurations.configs.envs}, ${configurations.secrets.files}, etc.
 	Configurations ContainerConfigurations `json:"configurations"`
+
+	// Connections contains connection metadata and merged env vars for templates.
+	// Accessed via ${connections.items} and ${connections.envVars}.
+	Connections ConnectionsContextData `json:"connections"`
 }
 
 // TraitMetadata contains trait-specific metadata.
