@@ -276,7 +276,6 @@ type ErrorResponseTitle string
 
 // HttpMetricsTimeSeries defines model for HttpMetricsTimeSeries.
 type HttpMetricsTimeSeries struct {
-	AverageResponseTime      *[]MetricsTimeSeriesItem `json:"averageResponseTime,omitempty"`
 	LatencyP50               *[]MetricsTimeSeriesItem `json:"latencyP50,omitempty"`
 	LatencyP90               *[]MetricsTimeSeriesItem `json:"latencyP90,omitempty"`
 	LatencyP99               *[]MetricsTimeSeriesItem `json:"latencyP99,omitempty"`
@@ -345,7 +344,7 @@ type MetricsQueryRequest struct {
 
 	// Metric The type of query to execute
 	Metric      MetricsQueryRequestMetric `json:"metric"`
-	SearchScope *ComponentSearchScope     `json:"searchScope,omitempty"`
+	SearchScope ComponentSearchScope      `json:"searchScope"`
 
 	// StartTime The start time of the query
 	StartTime time.Time `json:"startTime"`

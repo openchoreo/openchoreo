@@ -154,6 +154,47 @@ func ValidateAndSetSortOrder(sortOrder *string) error {
 	return nil
 }
 
+// ValidateMetricsQueryRequest validates the MetricsQueryRequest
+func ValidateMetricsQueryRequest(req *types.MetricsQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request must not be nil")
+	}
+
+	// Validate metric type
+	if req.Metric == "" {
+		return fmt.Errorf("metric is required")
+	}
+	if req.Metric != types.MetricTypeResource && req.Metric != types.MetricTypeHTTP {
+		return fmt.Errorf("metric must be either %s or %s", types.MetricTypeResource, types.MetricTypeHTTP)
+	}
+
+	// Validate time range
+	if err := ValidateTimeRange(req.StartTime, req.EndTime); err != nil {
+		return err
+	}
+
+	// Validate searchScope (required for metrics)
+	if req.SearchScope.Namespace == "" {
+		return fmt.Errorf("searchScope.namespace is required")
+	}
+	if req.SearchScope.Component != "" && req.SearchScope.Project == "" {
+		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
+	}
+
+	// Validate step format if provided
+	if req.Step != nil && *req.Step != "" {
+		step, err := time.ParseDuration(*req.Step)
+		if err != nil {
+			return fmt.Errorf("step must be a valid duration (e.g. 1m, 5m, 15m, 30m, 1h): %w", err)
+		}
+		if step <= 0 {
+			return fmt.Errorf("step must be greater than 0")
+		}
+	}
+
+	return nil
+}
+
 // ValidateLogLevels validates the log levels array
 func ValidateLogLevels(logLevels []string) error {
 	validLevels := map[string]bool{

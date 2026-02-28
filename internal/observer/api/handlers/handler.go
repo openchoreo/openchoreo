@@ -15,24 +15,27 @@ import (
 
 // Handler contains the HTTP handlers for the new observer API (v1)
 type Handler struct {
-	healthService *service.HealthService
-	logsService   *service.LogsService
-	logger        *slog.Logger
-	authzPDP      authzcore.PDP
+	healthService  *service.HealthService
+	logsService    *service.LogsService
+	metricsService *service.MetricsService
+	logger         *slog.Logger
+	authzPDP       authzcore.PDP
 }
 
 // NewHandler creates a new handler instance for the new API
 func NewHandler(
 	healthService *service.HealthService,
 	logsService *service.LogsService,
+	metricsService *service.MetricsService,
 	logger *slog.Logger,
 	authzPDP authzcore.PDP,
 ) *Handler {
 	return &Handler{
-		healthService: healthService,
-		logsService:   logsService,
-		logger:        logger,
-		authzPDP:      authzPDP,
+		healthService:  healthService,
+		logsService:    logsService,
+		metricsService: metricsService,
+		logger:         logger,
+		authzPDP:       authzPDP,
 	}
 }
 

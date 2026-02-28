@@ -652,7 +652,7 @@ components:
           description: The step of the query to determine the number of points to return. E.g. 1m, 5m, 15m, 30m, 1h
         searchScope:
           $ref: "#/components/schemas/ComponentSearchScope"
-      required: [metric, startTime, endTime]
+      required: [metric, startTime, endTime, searchScope]
 
     # Response schemas for metrics
     MetricsTimeSeriesItem:
@@ -707,10 +707,6 @@ components:
           items:
             $ref: "#/components/schemas/MetricsTimeSeriesItem"
         unsuccessfulRequestCount:
-          type: array
-          items:
-            $ref: "#/components/schemas/MetricsTimeSeriesItem"
-        averageResponseTime:
           type: array
           items:
             $ref: "#/components/schemas/MetricsTimeSeriesItem"

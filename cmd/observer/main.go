@@ -73,8 +73,8 @@ func main() {
 		log.Fatalf("Failed to initialize Prometheus client: %v", err)
 	}
 
-	// Initialize metrics service
-	metricsService := prometheus.NewMetricsService(promClient, logger)
+	// Initialize prometheus metrics service for the legacy logging service
+	promService := prometheus.NewMetricsService(promClient, logger)
 
 	// Initialize logs backend (optional - based on experimental flag)
 	var logsBackend observability.LogsBackend
@@ -94,7 +94,7 @@ func main() {
 	}
 
 	// Initialize legacy logging service (for legacy API endpoints)
-	legacyLoggingService := legacyservice.NewLoggingService(osClient, metricsService, k8sClient, cfg, logger, logsBackend)
+	legacyLoggingService := legacyservice.NewLoggingService(osClient, promService, k8sClient, cfg, logger, logsBackend)
 
 	// Initialize authz client
 	authzClient, err := observerAuthz.NewClient(&cfg.Authz, logger.With("component", "authz-client"))
@@ -123,6 +123,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize metrics service
+	metricsService, metricsServiceErr := service.NewMetricsService(
+		promService, uidResolver, logger.With("component", "metrics-service"),
+	)
+	if metricsServiceErr != nil {
+		logger.Error("Failed to initialize metrics service", "error", metricsServiceErr)
+		os.Exit(1)
+	}
+
 	// Initialize health service
 	healthService, healthServiceErr := service.NewHealthService(logger.With("component", "health-service"))
 	if healthServiceErr != nil {
@@ -134,6 +143,7 @@ func main() {
 	newAPIHandler := apihandler.NewHandler(
 		healthService,
 		logsService,
+		metricsService,
 		logger.With("component", "api-handler"),
 		authzClient,
 	)
@@ -198,6 +208,7 @@ func main() {
 
 	// ===== New API Routes (v1) =====
 	api.HandleFunc("POST /api/v1/logs/query", newAPIHandler.QueryLogs)
+	api.HandleFunc("POST /api/v1/metrics/query", newAPIHandler.QueryMetrics)
 
 	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
 	mcpMiddleware := initMCPMiddleware(logger)
