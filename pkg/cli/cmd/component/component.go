@@ -32,6 +32,7 @@ func NewComponentCmd() *cobra.Command {
 		newDeployComponentCmd(),
 		newLogsComponentCmd(),
 		newComponentWorkflowCmd(),
+		newComponentWorkflowRunCmd(),
 	)
 
 	return componentCmd
@@ -286,6 +287,41 @@ func newStartComponentWorkflowCmd() *cobra.Command {
 	}
 
 	flags.AddFlags(cmd, flags.Namespace, flags.Set)
+
+	return cmd
+}
+
+func newComponentWorkflowRunCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "workflowrun",
+		Aliases: []string{"wfrun", "wr"},
+		Short:   "Manage component workflow runs",
+		Long:    `Manage workflow runs for a component.`,
+	}
+
+	cmd.AddCommand(newListComponentWorkflowRunCmd())
+
+	return cmd
+}
+
+func newListComponentWorkflowRunCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.ListComponentWorkflowRun.Use,
+		Short:   constants.ListComponentWorkflowRun.Short,
+		Long:    constants.ListComponentWorkflowRun.Long,
+		Example: constants.ListComponentWorkflowRun.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			return component.New().ListWorkflowRuns(component.ListWorkflowRunsParams{
+				Namespace:     namespace,
+				ComponentName: args[0],
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace)
 
 	return cmd
 }

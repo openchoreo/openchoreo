@@ -999,6 +999,14 @@ This command allows you to:
   occ component workflow run my-service --namespace acme-corp`,
 	}
 
+	ListComponentWorkflowRun = Command{
+		Use:   "list [COMPONENT_NAME]",
+		Short: "List workflow runs for a component",
+		Long:  `List all workflow runs associated with a specific component.`,
+		Example: `  # List workflow runs for a component
+  occ component workflowrun list my-service --namespace acme-corp`,
+	}
+
 	Environment = Command{
 		Use:     "environment",
 		Aliases: []string{"env", "environments", "envs"},

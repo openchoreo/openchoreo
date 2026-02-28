@@ -18,6 +18,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// componentLabel is the label key that identifies component-owned workflow runs.
+const componentLabel = "openchoreo.dev/component"
+
 // WorkflowRun implements workflow run operations
 type WorkflowRun struct{}
 
@@ -26,26 +29,38 @@ func New() *WorkflowRun {
 	return &WorkflowRun{}
 }
 
-// List lists all workflow runs in a namespace
+// List lists workflow runs in a namespace, excluding component workflow runs.
 func (w *WorkflowRun) List(params ListParams) error {
 	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkflowRun, params); err != nil {
 		return err
 	}
 
+	items, err := FetchAll(params.Namespace)
+	if err != nil {
+		return err
+	}
+
+	// Exclude workflow runs that belong to a component
+	filtered := ExcludeComponentRuns(items)
+	return PrintList(filtered)
+}
+
+// FetchAll fetches all workflow runs from a namespace.
+func FetchAll(namespace string) ([]gen.WorkflowRun, error) {
 	ctx := context.Background()
 
 	c, err := client.NewClient()
 	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
+		return nil, fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.WorkflowRun, string, error) {
+	return pagination.FetchAll(func(limit int, cursor string) ([]gen.WorkflowRun, string, error) {
 		p := &gen.ListWorkflowRunsParams{}
 		p.Limit = &limit
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := c.ListWorkflowRuns(ctx, params.Namespace, p)
+		result, err := c.ListWorkflowRuns(ctx, namespace, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -55,10 +70,36 @@ func (w *WorkflowRun) List(params ListParams) error {
 		}
 		return result.Items, next, nil
 	})
-	if err != nil {
-		return err
+}
+
+// ExcludeComponentRuns returns only workflow runs that do NOT have the component label.
+func ExcludeComponentRuns(items []gen.WorkflowRun) []gen.WorkflowRun {
+	var filtered []gen.WorkflowRun
+	for _, run := range items {
+		if getComponentLabel(run) == "" {
+			filtered = append(filtered, run)
+		}
 	}
-	return printList(items)
+	return filtered
+}
+
+// FilterByComponent returns only workflow runs whose component label matches the given name.
+func FilterByComponent(items []gen.WorkflowRun, componentName string) []gen.WorkflowRun {
+	var filtered []gen.WorkflowRun
+	for _, run := range items {
+		if getComponentLabel(run) == componentName {
+			filtered = append(filtered, run)
+		}
+	}
+	return filtered
+}
+
+// getComponentLabel returns the value of the component label, or empty string if not present.
+func getComponentLabel(run gen.WorkflowRun) string {
+	if run.Metadata.Labels == nil {
+		return ""
+	}
+	return (*run.Metadata.Labels)[componentLabel]
 }
 
 // Get retrieves a single workflow run and outputs it as YAML
@@ -87,7 +128,7 @@ func (w *WorkflowRun) Get(params GetParams) error {
 	return nil
 }
 
-func printList(items []gen.WorkflowRun) error {
+func PrintList(items []gen.WorkflowRun) error {
 	if len(items) == 0 {
 		fmt.Println("No workflow runs found")
 		return nil
