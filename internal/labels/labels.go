@@ -10,7 +10,6 @@ const (
 	LabelKeyNamespaceName       = "openchoreo.dev/namespace"
 	LabelKeyProjectName         = "openchoreo.dev/project"
 	LabelKeyComponentName       = "openchoreo.dev/component"
-	LabelKeyDeploymentTrackName = "openchoreo.dev/deployment-track"
 	LabelKeyEnvironmentName     = "openchoreo.dev/environment"
 	LabelKeyName                = "openchoreo.dev/name"
 	LabelKeyDataPlaneName       = "openchoreo.dev/dataplane"

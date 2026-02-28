@@ -336,31 +336,6 @@ This command allows you to:
     --component product-catalog --environment development --deployableartifact product-catalog-artifact`,
 	}
 
-	CreateDeploymentTrack = Command{
-		Use:     "deploymenttrack",
-		Aliases: []string{"deptrack", "deptracks"},
-		Short:   "Create a deployment track",
-		Long:    `Create a deployment track in the specified namespace, project and component.`,
-		Example: `  # Create a deployment track with specific parameters
-  occ create deploymenttrack --name main-track --namespace acme-corp --project online-store \
-    --component product-catalog --api-version v1 --auto-deploy true`,
-	}
-
-	ListDeploymentTrack = Command{
-		Use:     "deploymenttrack [name]",
-		Aliases: []string{"deptrack", "deptracks"},
-		Short:   "List deployment tracks",
-		Long:    `List deployment tracks in a namespace, project and component.`,
-		Example: `  # List all deployment tracks
-  occ get deploymenttrack --namespace acme-corp --project online-store --component product-catalog
-
-  # List specific deployment track
-  occ get deploymenttrack main-track --namespace acme-corp --project online-store --component product-catalog
-
-  # Output deployment tracks in YAML format
-  occ get deploymenttrack -o yaml`,
-	}
-
 	ListEnvironment = Command{
 		Use:   "list",
 		Short: "List environments",
@@ -1286,9 +1261,6 @@ Use --workflowrun to specify a particular run.`,
 
 	// FlagBuildDesc is used for the --build flag.
 	FlagBuildDesc = "Build identifier stored in this configuration context"
-
-	// FlagDeploymentTrackDesc is used for the --deploymenttrack flag.
-	FlagDeploymentTrackDesc = "Deployment track name stored in this configuration context"
 
 	// FlagEnvDesc is used for the --environment flag.
 	FlagEnvDesc = "Environment name stored in this configuration context"

@@ -22,7 +22,6 @@ const (
 	LabelArtifact        = "openchoreo.dev/deployment-artifact"
 	LabelDeployment      = "openchoreo.dev/deployment"
 	LabelEnvironment     = "openchoreo.dev/environment"
-	LabelDeploymentTrack = "openchoreo.dev/deployment-track"
 )
 const (
 	AnnotationDescription = "openchoreo.dev/description"
@@ -85,11 +84,6 @@ var (
 		Group:   ChoreoGroup,
 		Version: V1Alpha1,
 		Kind:    "DataPlane",
-	}
-	DeploymentTrackV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    "DeploymentTrack",
 	}
 	EndpointV1Config = CRDConfig{
 		Group:   ChoreoGroup,

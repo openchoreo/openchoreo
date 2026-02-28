@@ -11,8 +11,6 @@ const (
 	LabelKeyProjectID           = "project-id"
 	LabelKeyComponentName       = "component-name"
 	LabelKeyComponentID         = "component-id"
-	LabelKeyDeploymentTrackName = "deployment-track-name"
-	LabelKeyDeploymentTrackID   = "deployment-track-id"
 	LabelKeyBuildName           = "build-name"
 	LabelKeyWorkflowName        = "workflow-name"
 	LabelKeyDeploymentName      = "deployment-name"

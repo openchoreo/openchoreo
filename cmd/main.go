@@ -38,7 +38,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
-	"github.com/openchoreo/openchoreo/internal/controller/deploymenttrack"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
 
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertrule"
@@ -123,12 +122,6 @@ func setupControlPlaneControllers(
 			K8sClientMgr: k8sClientMgr,
 			Scheme:       mgr.GetScheme(),
 			GatewayURL:   clusterGatewayURL,
-		}).SetupWithManager(mgr); err != nil {
-			return err
-		}
-		if err := (&deploymenttrack.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
 			return err
 		}

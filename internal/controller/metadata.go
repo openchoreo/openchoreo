@@ -26,11 +26,6 @@ func GetComponentName(obj client.Object) string {
 	return getLabelValueOrEmpty(obj, labels.LabelKeyComponentName)
 }
 
-// GetDeploymentTrackName returns the deployment track name that the object belongs to.
-func GetDeploymentTrackName(obj client.Object) string {
-	return getLabelValueOrEmpty(obj, labels.LabelKeyDeploymentTrackName)
-}
-
 // GetEnvironmentName returns the environment name that the object belongs to.
 func GetEnvironmentName(obj client.Object) string {
 	return getLabelValueOrEmpty(obj, labels.LabelKeyEnvironmentName)

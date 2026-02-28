@@ -9,7 +9,7 @@ resources:
   - bases/openchoreo.dev_components.yaml
   - bases/openchoreo.dev_componenttypes.yaml
   - bases/openchoreo.dev_traits.yaml
-  - bases/openchoreo.dev_deploymenttracks.yaml
+
 
   - bases/openchoreo.dev_workloads.yaml
 

@@ -4,7 +4,6 @@
 package kinds
 
 import (
-	"context"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -129,7 +128,7 @@ func (c *ComponentResource) Print(format resources.OutputFormat, filter *resourc
 	}
 }
 
-// CreateComponent creates a new Component CR and its default deployment track.
+// CreateComponent creates a new Component CR.
 func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) error {
 	k8sName := resources.GenerateResourceName(params.Namespace, params.Project, params.Name)
 
@@ -158,50 +157,6 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 	// Create the component using the base create method
 	if err := c.Create(component); err != nil {
 		return fmt.Errorf(ErrCreateComponent, err)
-	}
-
-	// Create default deployment track
-	trackName := resources.GenerateResourceName(params.Namespace, params.Project, params.Name, DefaultTrackName)
-	deploymentTrack := &openchoreov1alpha1.DeploymentTrack{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      trackName,
-			Namespace: params.Namespace,
-			Labels: map[string]string{
-				constants.LabelName:      DefaultTrackName,
-				constants.LabelNamespace: params.Namespace,
-				constants.LabelProject:   params.Project,
-				constants.LabelComponent: params.Name,
-			},
-		},
-		Spec: openchoreov1alpha1.DeploymentTrackSpec{
-			BuildTemplateSpec: &openchoreov1alpha1.BuildTemplateSpec{
-				Branch: resources.DefaultIfEmpty(params.Branch, DefaultBranch),
-				Path:   resources.DefaultIfEmpty(params.Path, DefaultPath),
-			},
-		},
-	}
-
-	// Add build configuration to deployment track based on component's build type
-	if params.DockerFile != "" || params.DockerContext != "" {
-		deploymentTrack.Spec.BuildTemplateSpec.BuildConfiguration = &openchoreov1alpha1.BuildConfiguration{
-			Docker: &openchoreov1alpha1.DockerConfiguration{
-				Context:        resources.DefaultIfEmpty(params.DockerContext, DefaultContext),
-				DockerfilePath: resources.DefaultIfEmpty(params.DockerFile, DefaultDockerfile),
-			},
-		}
-	} else if params.BuildpackName != "" || params.BuildpackVersion != "" {
-		deploymentTrack.Spec.BuildTemplateSpec.BuildConfiguration = &openchoreov1alpha1.BuildConfiguration{
-			Buildpack: &openchoreov1alpha1.BuildpackConfiguration{
-				Name:    openchoreov1alpha1.BuildpackName(params.BuildpackName),
-				Version: params.BuildpackVersion,
-			},
-		}
-	}
-
-	// We need to access the client directly to create resources of a different type
-	ctx := context.Background()
-	if err := c.BaseResource.GetClient().Create(ctx, deploymentTrack); err != nil {
-		return fmt.Errorf(ErrCreateDepTrack, err)
 	}
 
 	fmt.Printf(FmtComponentSuccess,

@@ -157,33 +157,6 @@ func GetComponent(ctx context.Context, c client.Client, obj client.Object) (*ope
 	)
 }
 
-func GetDeploymentTrack(ctx context.Context, c client.Client, obj client.Object) (*openchoreov1alpha1.DeploymentTrack, error) {
-	deploymentTrackList := &openchoreov1alpha1.DeploymentTrackList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
-			labels.LabelKeyProjectName:   GetProjectName(obj),
-			labels.LabelKeyComponentName: GetComponentName(obj),
-			labels.LabelKeyName:          GetDeploymentTrackName(obj),
-		},
-	}
-
-	if err := c.List(ctx, deploymentTrackList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list deployment tracks: %w", err)
-	}
-
-	if len(deploymentTrackList.Items) > 0 {
-		return &deploymentTrackList.Items[0], nil
-	}
-
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.DeploymentTrack{}, GetDeploymentTrackName(obj)),
-		objWithName(&corev1.Namespace{}, obj.GetNamespace()),
-		objWithName(&openchoreov1alpha1.Project{}, GetProjectName(obj)),
-		objWithName(&openchoreov1alpha1.Component{}, GetComponentName(obj)),
-	)
-}
-
 func GetEnvironment(ctx context.Context, c client.Client, obj client.Object) (*openchoreov1alpha1.Environment, error) {
 	environmentList := &openchoreov1alpha1.EnvironmentList{}
 	listOpts := []client.ListOption{

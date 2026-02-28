@@ -19,8 +19,6 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateComponentParams(cmdType, params)
 	case ResourceDeployment:
 		return validateDeploymentParams(cmdType, params)
-	case ResourceDeploymentTrack:
-		return validateDeploymentTrackParams(cmdType, params)
 	case ResourceEnvironment:
 		return validateEnvironmentParams(cmdType, params)
 	case ResourceDeployableArtifact:
@@ -199,35 +197,6 @@ func validateDeploymentParams(cmdType CommandType, params interface{}) error {
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDeployment, fields)
-			}
-		}
-	}
-	return nil
-}
-
-// validateDeploymentTrackParams validates parameters for deployment track operations
-func validateDeploymentTrackParams(cmdType CommandType, params interface{}) error {
-	switch cmdType {
-	case CmdCreate:
-		if p, ok := params.(api.CreateDeploymentTrackParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-				"component": p.Component,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceDeploymentTrack, fields)
-			}
-		}
-	case CmdGet:
-		if p, ok := params.(api.GetDeploymentTrackParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-				"component": p.Component,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceDeploymentTrack, fields)
 			}
 		}
 	}

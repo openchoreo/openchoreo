@@ -19,8 +19,6 @@ const (
 	ErrCreateProject = "failed to create project: %w"
 	// Component related errors
 	ErrCreateComponent = "failed to create component: %w"
-	ErrCreateDepTrack  = "failed to create deployment track: %w"
-
 	// Deployment related errors
 	ErrCreateDeployment = "failed to create deployment: %w"
 
@@ -38,9 +36,6 @@ const (
 
 	// DeployableArtifact related errors
 	ErrCreateArtifact = "failed to create deployable artifact: %w"
-
-	// DeploymentTrack related errors
-	ErrCreateDeploymentTrack = "failed to create deployment track: %w"
 
 	// Workload related errors
 	ErrCreateWorkload = "failed to create workload: %w"
@@ -60,13 +55,10 @@ const (
 	HeaderNamespace       = "NAMESPACE"
 	HeaderComponent       = "COMPONENT"
 	HeaderEnvironment     = "ENVIRONMENT"
-	HeaderDeploymentTrack = "DEPLOYMENT TRACK"
 	HeaderRevision        = "REVISION"
 	HeaderDuration        = "DURATION"
 	HeaderSource          = "SOURCE"
 	HeaderArtifact        = "ARTIFACT"
-	HeaderAPIVersion      = "API VERSION"
-	HeaderAutoDeploy      = "AUTO DEPLOY"
 	HeaderDataPlane       = "DATA PLANE"
 	HeaderProduction      = "PRODUCTION"
 	HeaderDNSPrefix       = "DNS PREFIX"
@@ -90,9 +82,6 @@ var (
 
 	// Deployment table headers
 	HeadersDeployment = []string{HeaderName, HeaderArtifact, HeaderEnvironment, HeaderStatus, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
-
-	// DeploymentTrack table headers
-	HeadersDeploymentTrack = []string{HeaderName, HeaderAPIVersion, HeaderAutoDeploy, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
 
 	// Environment table headers
 	HeadersEnvironment = []string{HeaderName, HeaderDataPlane, HeaderProduction, HeaderAge, HeaderNamespace}
@@ -198,9 +187,6 @@ const (
 	// Namespace success messages
 	FmtNamespaceSuccess = "Namespace '%s' created\n"
 
-	// DeploymentTrack success messages
-	FmtDeploymentTrackSuccess = "Deployment track '%s' created successfully in component '%s' of project '%s' in namespace '%s'\n"
-
 	// DeployableArtifact success messages
 	FmtDeployableArtifactSuccess = "Deployable artifact '%s' created successfully in component '%s' of project '%s' in namespace '%s'\n"
 
@@ -223,19 +209,11 @@ const (
 	DefaultContext    = "/"
 	DefaultDockerfile = "Dockerfile"
 
-	// Track names
-	DefaultTrackName = "default"
 )
 
 //
 // ANNOTATIONS
 //
-
-// Annotations used across resources
-const (
-	// DeploymentTrack annotations
-	AutoDeployAnnotation = "openchoreo.dev/auto-deploy"
-)
 
 //
 // PLACEHOLDERS

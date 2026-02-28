@@ -29,7 +29,7 @@ const (
 	ResourceComponent                              ResourceType = "component"
 
 	ResourceDeployment                             ResourceType = "deployment"
-	ResourceDeploymentTrack                        ResourceType = "deploymenttrack"
+
 	ResourceEnvironment                            ResourceType = "environment"
 	ResourceDeployableArtifact                     ResourceType = "deployableartifact"
 	ResourceEndpoint                               ResourceType = "endpoint"

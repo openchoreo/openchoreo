@@ -79,7 +79,6 @@ rules:
   - componenttypes
   - dataplanes
   - deploymentpipelines
-  - deploymenttracks
   - environments
   - observabilityalertrules
   - observabilityalertsnotificationchannels
@@ -113,7 +112,6 @@ rules:
   - componenttypes/finalizers
   - dataplanes/finalizers
   - deploymentpipelines/finalizers
-  - deploymenttracks/finalizers
   - environments/finalizers
   - observabilityalertrules/finalizers
   - observabilityalertsnotificationchannels/finalizers
@@ -142,7 +140,6 @@ rules:
   - componenttypes/status
   - dataplanes/status
   - deploymentpipelines/status
-  - deploymenttracks/status
   - environments/status
   - observabilityalertrules/status
   - observabilityalertsnotificationchannels/status

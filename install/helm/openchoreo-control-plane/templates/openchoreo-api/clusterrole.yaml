@@ -31,7 +31,6 @@ rules:
   - deployableartifacts
   - deploymentpipelines
   - deployments
-  - deploymenttracks
   - endpoints
   - environments
   - gitrepositorywebhooks
@@ -94,7 +93,6 @@ rules:
   - deployableartifacts/status
   - deploymentpipelines/status
   - deployments/status
-  - deploymenttracks/status
   - endpoints/status
   - environments/status
   - gitrepositorywebhooks/status
