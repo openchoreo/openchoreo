@@ -40,6 +40,28 @@ spec:
           spec:
             description: spec defines the desired state of Workflow
             properties:
+              buildPlaneRef:
+                description: |-
+                  BuildPlaneRef references the BuildPlane or ClusterBuildPlane for this workflow's build operations.
+                  If not specified, the controller resolves the build plane in the following order:
+                  1. BuildPlane named "default" in the same namespace
+                  2. ClusterBuildPlane named "default" (cluster-scoped fallback)
+                properties:
+                  kind:
+                    description: Kind is the kind of build plane (BuildPlane or ClusterBuildPlane)
+                    enum:
+                    - BuildPlane
+                    - ClusterBuildPlane
+                    type: string
+                  name:
+                    description: Name is the name of the build plane resource
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
               resources:
                 description: |-
                   Resources are additional templates that generate Kubernetes resources dynamically

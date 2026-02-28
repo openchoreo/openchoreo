@@ -116,7 +116,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, r.Client, workflowRun)
+	// Fetch the Workflow to get its BuildPlaneRef for build plane resolution
+	workflow := &openchoreodevv1alpha1.Workflow{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      workflowRun.Spec.Workflow.Name,
+		Namespace: workflowRun.Namespace,
+	}, workflow); err != nil {
+		logger.Error(err, "failed to get Workflow",
+			"workflow", workflowRun.Spec.Workflow.Name)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, r.Client, workflowRun.Namespace, workflow.Spec.BuildPlaneRef)
 	if err != nil {
 		logger.Error(err, "failed to get build plane",
 			"workflowrun", workflowRun.Name,
@@ -125,7 +136,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 	if buildPlaneResult == nil {
-		logger.Info("No build plane found for project",
+		logger.Info("No build plane found for workflow",
 			"workflowrun", workflowRun.Name)
 		setBuildPlaneNotFoundCondition(workflowRun)
 		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
@@ -162,16 +173,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}
 		setWorkflowNotFoundCondition(workflowRun)
 		return ctrl.Result{}, nil
-	}
-
-	workflow := &openchoreodevv1alpha1.Workflow{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      workflowRun.Spec.Workflow.Name,
-		Namespace: workflowRun.Namespace,
-	}, workflow); err != nil {
-		logger.Error(err, "failed to get Workflow",
-			"workflow", workflowRun.Spec.Workflow.Name)
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Copy TTL from Workflow to WorkflowRun if not already set

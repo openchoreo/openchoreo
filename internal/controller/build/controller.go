@@ -72,21 +72,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
 
-	// Get project and resolve build plane (supports both BuildPlane and ClusterBuildPlane)
-	project, err := controller.FindProjectByName(ctx, r.Client, build.Namespace, build.Spec.Owner.ProjectName)
-	if err != nil {
-		logger.Error(err, "Cannot retrieve the project")
-		return r.updateStatusAndReturn(ctx, oldBuild, build)
-	}
-
-	buildPlaneResult, err := controller.GetBuildPlaneOrClusterBuildPlaneOfProject(ctx, r.Client, project)
+	// Resolve build plane (supports both BuildPlane and ClusterBuildPlane)
+	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, r.Client, build.Namespace, nil)
 	if err != nil {
 		logger.Error(err, "Cannot retrieve the build plane")
 		return r.updateStatusAndReturn(ctx, oldBuild, build)
 	}
 	if buildPlaneResult == nil {
 		logger.Info("No build plane found for project")
-		return r.updateStatusAndReturn(ctx, oldBuild, build)
+		return r.updateStatusAndRequeue(ctx, oldBuild, build)
 	}
 
 	// Get build plane client

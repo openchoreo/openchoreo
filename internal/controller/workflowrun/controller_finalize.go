@@ -48,11 +48,24 @@ func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.
 		return ctrl.Result{}, nil
 	}
 
+	// Fetch the Workflow to get its BuildPlaneRef for build plane resolution
+	workflow := &openchoreodevv1alpha1.Workflow{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      cwRun.Spec.Workflow.Name,
+		Namespace: cwRun.Namespace,
+	}, workflow); err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("Workflow not found, removing finalizer without cleanup", "workflow", cwRun.Spec.Workflow.Name)
+			return r.removeFinalizer(ctx, cwRun)
+		}
+		return ctrl.Result{Requeue: true}, err
+	}
+
 	// Get build plane client (supports both BuildPlane and ClusterBuildPlane)
-	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, r.Client, cwRun)
+	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, r.Client, cwRun.Namespace, workflow.Spec.BuildPlaneRef)
 	if err != nil {
 		// If build plane doesn't exist, we can't clean up - remove finalizer anyway
-		if controller.IgnoreHierarchyNotFoundError(err) == nil || errors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			logger.Info("BuildPlane not found, removing finalizer without cleanup", "error", err)
 			return r.removeFinalizer(ctx, cwRun)
 		}

@@ -2367,14 +2367,8 @@ func (s *ComponentService) GetBuildObserverURL(ctx context.Context, namespaceNam
 		return nil, err
 	}
 
-	// 2. Get the project's build plane (supports both BuildPlane and ClusterBuildPlane)
-	project, err := controller.FindProjectByName(ctx, s.k8sClient, namespaceName, projectName)
-	if err != nil {
-		s.logger.Error("Failed to find project", "error", err, "namespace", namespaceName, "project", projectName)
-		return nil, fmt.Errorf("failed to find project: %w", err)
-	}
-
-	buildPlaneResult, err := controller.GetBuildPlaneOrClusterBuildPlaneOfProject(ctx, s.k8sClient, project)
+	// 2. Get the build plane (supports both BuildPlane and ClusterBuildPlane)
+	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, s.k8sClient, namespaceName, nil)
 	if err != nil {
 		s.logger.Error("Failed to get build plane", "error", err, "namespace", namespaceName)
 		return nil, fmt.Errorf("failed to get build plane: %w", err)

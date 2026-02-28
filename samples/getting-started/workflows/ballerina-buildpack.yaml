@@ -14,6 +14,9 @@ metadata:
       projectName: parameters.scope.projectName
       componentName: parameters.scope.componentName
 spec:
+  buildPlaneRef:
+    kind: BuildPlane
+    name: default
   ttlAfterCompletion: "1d"
   schema:
     parameters:

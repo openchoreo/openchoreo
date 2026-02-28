@@ -12,19 +12,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
-// BuildPlaneRef represents a reference to a BuildPlane or ClusterBuildPlane
-type BuildPlaneRef struct {
-	Kind string `json:"kind"`
-	Name string `json:"name"`
-}
-
 // CreateProjectRequest represents the request to create a new project
 type CreateProjectRequest struct {
-	Name               string         `json:"name"`
-	DisplayName        string         `json:"displayName,omitempty"`
-	Description        string         `json:"description,omitempty"`
-	DeploymentPipeline string         `json:"deploymentPipeline,omitempty"`
-	BuildPlaneRef      *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
+	Name               string `json:"name"`
+	DisplayName        string `json:"displayName,omitempty"`
+	Description        string `json:"description,omitempty"`
+	DeploymentPipeline string `json:"deploymentPipeline,omitempty"`
 }
 
 // BuildConfig represents the build configuration for a component
@@ -151,16 +144,6 @@ type CreateDataPlaneRequest struct {
 
 // Validate validates the CreateProjectRequest
 func (req *CreateProjectRequest) Validate() error {
-	// Validate BuildPlaneRef.Kind if provided
-	if req.BuildPlaneRef != nil {
-		kind := req.BuildPlaneRef.Kind
-		if kind != "BuildPlane" && kind != "ClusterBuildPlane" {
-			return fmt.Errorf("buildPlaneRef.kind must be 'BuildPlane' or 'ClusterBuildPlane', got '%s'", kind)
-		}
-		if strings.TrimSpace(req.BuildPlaneRef.Name) == "" {
-			return errors.New("buildPlaneRef.name is required when buildPlaneRef is provided")
-		}
-	}
 	return nil
 }
 
@@ -220,10 +203,6 @@ func (req *CreateProjectRequest) Sanitize() {
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
 	req.Description = strings.TrimSpace(req.Description)
 	req.DeploymentPipeline = strings.TrimSpace(req.DeploymentPipeline)
-	if req.BuildPlaneRef != nil {
-		req.BuildPlaneRef.Kind = strings.TrimSpace(req.BuildPlaneRef.Kind)
-		req.BuildPlaneRef.Name = strings.TrimSpace(req.BuildPlaneRef.Name)
-	}
 }
 
 // Sanitize sanitizes the CreateComponentRequest by trimming whitespace

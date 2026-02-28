@@ -260,74 +260,18 @@ func (r *BuildPlaneResult) GetObservabilityPlane(ctx context.Context, c client.C
 	return nil, fmt.Errorf("no build plane set in result")
 }
 
-// ResolveBuildPlane resolves the BuildPlane or ClusterBuildPlane for any object.
-// It first tries to find the project via hierarchy labels (GetProject).
-// If the project is found, it uses the project's buildPlaneRef for resolution.
-// If the project is not found (e.g., object has no hierarchy labels), it falls back
-// to the default resolution chain (default BuildPlane → default ClusterBuildPlane → first in namespace).
-func ResolveBuildPlane(ctx context.Context, c client.Client, obj client.Object) (*BuildPlaneResult, error) {
-	project, err := GetProject(ctx, c, obj)
-	if err != nil {
-		// If project not found via labels, fall back to default resolution
-		if IgnoreHierarchyNotFoundError(err) == nil {
-			return resolveBuildPlaneDefaults(ctx, c, obj.GetNamespace())
-		}
-		return nil, fmt.Errorf("failed to get project: %w", err)
-	}
-	return GetBuildPlaneOrClusterBuildPlaneOfProject(ctx, c, project)
-}
-
-// resolveBuildPlaneDefaults runs the default resolution chain without a project ref.
-func resolveBuildPlaneDefaults(ctx context.Context, c client.Client, namespace string) (*BuildPlaneResult, error) {
-	// Use a synthetic project with just the namespace to trigger default resolution
-	syntheticProject := &openchoreov1alpha1.Project{}
-	syntheticProject.Namespace = namespace
-	return GetBuildPlaneOrClusterBuildPlaneOfProject(ctx, c, syntheticProject)
-}
-
-// FindProjectByName looks up a Project by name in the given namespace using label matching.
-// This is useful for objects (like WorkflowRun) that don't have hierarchy labels
-// but know their project name from spec.owner.projectName.
-func FindProjectByName(ctx context.Context, c client.Client, namespace, projectName string) (*openchoreov1alpha1.Project, error) {
-	projectList := &openchoreov1alpha1.ProjectList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(namespace),
-		client.MatchingLabels{
-			"openchoreo.dev/name": projectName,
-		},
-	}
-
-	if err := c.List(ctx, projectList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list projects: %w", err)
-	}
-
-	if len(projectList.Items) > 0 {
-		return &projectList.Items[0], nil
-	}
-
-	return nil, fmt.Errorf(
-		"project '%s' not found in namespace '%s': %w",
-		projectName,
-		namespace,
-		apierrors.NewNotFound(openchoreov1alpha1.GroupVersion.WithResource("projects").GroupResource(), projectName),
-	)
-}
-
-// GetBuildPlaneOrClusterBuildPlaneOfProject retrieves the BuildPlane or ClusterBuildPlane for the given Project.
-// Resolution order:
-// 1. If Project.Spec.BuildPlaneRef is set, use that by Kind and Name
-// 2. If not set, try BuildPlane named "default" in the same namespace
-// 3. If "default" BuildPlane not found, try ClusterBuildPlane named "default"
-// 4. If neither found, fall back to first available BuildPlane in namespace
-// Returns nil without error if no BuildPlane exists (BuildPlane is optional for Projects)
-func GetBuildPlaneOrClusterBuildPlaneOfProject(ctx context.Context, c client.Client, project *openchoreov1alpha1.Project) (*BuildPlaneResult, error) {
-	ref := project.Spec.BuildPlaneRef
-
+// ResolveBuildPlane resolves the BuildPlane or ClusterBuildPlane using the given BuildPlaneRef.
+// If ref is provided, it resolves directly by Kind and Name.
+// If ref is nil, it falls back to the default resolution chain:
+// 1. BuildPlane named "default" in the same namespace
+// 2. ClusterBuildPlane named "default" (cluster-scoped fallback)
+// Returns nil without error if no BuildPlane exists.
+func ResolveBuildPlane(ctx context.Context, c client.Client, namespace string, ref *openchoreov1alpha1.BuildPlaneRef) (*BuildPlaneResult, error) {
 	// If no ref specified, try resolution chain
 	if ref == nil {
 		// Step 1: Try "default" BuildPlane in namespace
 		buildPlane := &openchoreov1alpha1.BuildPlane{}
-		key := client.ObjectKey{Namespace: project.Namespace, Name: DefaultPlaneName}
+		key := client.ObjectKey{Namespace: namespace, Name: DefaultPlaneName}
 
 		if err := c.Get(ctx, key, buildPlane); err == nil {
 			return &BuildPlaneResult{BuildPlane: buildPlane}, nil
@@ -345,18 +289,17 @@ func GetBuildPlaneOrClusterBuildPlaneOfProject(ctx context.Context, c client.Cli
 			return nil, fmt.Errorf("failed to get default clusterBuildPlane: %w", err)
 		}
 
-		// Step 3: Fall back to first available BuildPlane in namespace
-		return getFirstBuildPlaneInNamespace(ctx, c, project.Namespace)
+		return nil, nil
 	}
 
 	switch ref.Kind {
 	case openchoreov1alpha1.BuildPlaneRefKindBuildPlane:
 		buildPlane := &openchoreov1alpha1.BuildPlane{}
-		key := client.ObjectKey{Namespace: project.Namespace, Name: ref.Name}
+		key := client.ObjectKey{Namespace: namespace, Name: ref.Name}
 
 		if err := c.Get(ctx, key, buildPlane); err != nil {
 			if apierrors.IsNotFound(err) {
-				return nil, fmt.Errorf("buildPlane '%s' not found in namespace '%s': %w", ref.Name, project.Namespace, err)
+				return nil, fmt.Errorf("buildPlane '%s' not found in namespace '%s': %w", ref.Name, namespace, err)
 			}
 			return nil, fmt.Errorf("failed to get buildPlane '%s': %w", ref.Name, err)
 		}
@@ -377,21 +320,6 @@ func GetBuildPlaneOrClusterBuildPlaneOfProject(ctx context.Context, c client.Cli
 	default:
 		return nil, fmt.Errorf("unsupported buildPlaneRef kind '%s'", ref.Kind)
 	}
-}
-
-// getFirstBuildPlaneInNamespace returns the first BuildPlane found in the namespace.
-// Returns nil without error if no BuildPlane exists.
-func getFirstBuildPlaneInNamespace(ctx context.Context, c client.Client, namespace string) (*BuildPlaneResult, error) {
-	buildPlaneList := &openchoreov1alpha1.BuildPlaneList{}
-	if err := c.List(ctx, buildPlaneList, client.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list build planes: %w", err)
-	}
-
-	if len(buildPlaneList.Items) == 0 {
-		return nil, nil // No BuildPlane available - this is OK for Projects
-	}
-
-	return &BuildPlaneResult{BuildPlane: &buildPlaneList.Items[0]}, nil
 }
 
 // GetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane retrieves either an ObservabilityPlane or

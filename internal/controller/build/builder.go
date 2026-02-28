@@ -204,17 +204,12 @@ func (s *Builder) determineBuildEngine(build *openchoreov1alpha1.Build) string {
 
 // getBuildPlaneClient gets the build plane and its client
 func (s *Builder) getBuildPlaneClient(ctx context.Context, build *openchoreov1alpha1.Build) (client.Client, error) {
-	project, err := controller.FindProjectByName(ctx, s.client, build.Namespace, build.Spec.Owner.ProjectName)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve the project for build plane lookup: %w", err)
-	}
-
-	buildPlaneResult, err := controller.GetBuildPlaneOrClusterBuildPlaneOfProject(ctx, s.client, project)
+	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, s.client, build.Namespace, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve the build plane: %w", err)
 	}
 	if buildPlaneResult == nil {
-		return nil, fmt.Errorf("no build plane found for project '%s'", project.Name)
+		return nil, fmt.Errorf("no build plane found in namespace '%s'", build.Namespace)
 	}
 
 	bpClient, err := buildPlaneResult.GetK8sClient(s.k8sClientMgr, s.gatewayURL)

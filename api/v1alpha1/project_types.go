@@ -12,14 +12,6 @@ type ProjectSpec struct {
 	// DeploymentPipelineRef references the DeploymentPipeline that defines the environments
 	// and deployment progression for components in this project.
 	DeploymentPipelineRef string `json:"deploymentPipelineRef"`
-
-	// BuildPlaneRef references the BuildPlane or ClusterBuildPlane for this project's build operations.
-	// If not specified, the controller resolves the build plane in the following order:
-	// 1. BuildPlane named "default" in the same namespace
-	// 2. ClusterBuildPlane named "default" (cluster-scoped fallback)
-	// 3. First available BuildPlane in the namespace
-	// +optional
-	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
 }
 
 // ProjectStatus defines the observed state of Project.

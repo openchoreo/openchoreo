@@ -16,6 +16,13 @@ import (
 // with developer-facing schemas and CEL-based resource rendering.
 // PE-controlled parameters should be hardcoded directly in the template.
 type WorkflowSpec struct {
+	// BuildPlaneRef references the BuildPlane or ClusterBuildPlane for this workflow's build operations.
+	// If not specified, the controller resolves the build plane in the following order:
+	// 1. BuildPlane named "default" in the same namespace
+	// 2. ClusterBuildPlane named "default" (cluster-scoped fallback)
+	// +optional
+	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
+
 	// Schema defines the developer-facing parameters that can be configured
 	// when creating a WorkflowRun instance. Uses the same shorthand schema syntax
 	// as ComponentType.
