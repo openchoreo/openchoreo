@@ -74,7 +74,7 @@ func (cp *Component) List(params ListParams) error {
 }
 
 // StartWorkflow gets the component, resolves its workflow name, and starts a workflow run.
-func (l *Component) StartWorkflow(params StartWorkflowParams) error {
+func (cp *Component) StartWorkflow(params StartWorkflowParams) error {
 	if params.Namespace == "" {
 		return fmt.Errorf("namespace is required")
 	}
@@ -118,7 +118,7 @@ func (l *Component) StartWorkflow(params StartWorkflowParams) error {
 }
 
 // ListWorkflowRuns lists workflow runs filtered by component name.
-func (l *Component) ListWorkflowRuns(params ListWorkflowRunsParams) error {
+func (cp *Component) ListWorkflowRuns(params ListWorkflowRunsParams) error {
 	if params.Namespace == "" {
 		return fmt.Errorf("namespace is required")
 	}

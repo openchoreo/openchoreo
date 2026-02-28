@@ -371,7 +371,7 @@ type ConnectionsContextData struct {
 // Ensures no nil slices so CEL templates always see empty lists instead of null.
 func newConnectionsContextData(data ConnectionsData) ConnectionsContextData {
 	items := make([]ConnectionItem, len(data.Items))
-	merged := make([]ConnectionEnvVar, 0)
+	merged := make([]ConnectionEnvVar, 0, len(data.Items))
 	for i, item := range data.Items {
 		if item.EnvVars == nil {
 			item.EnvVars = []ConnectionEnvVar{}

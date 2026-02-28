@@ -113,10 +113,6 @@ func main() {
 
 	// Initialize health service
 	healthService := service.NewHealthService(logger.With("component", "health-service"))
-	if err != nil {
-		logger.Error("Failed to initialize health service", "error", err)
-		os.Exit(1)
-	}
 
 	// Initialize new API handler
 	newAPIHandler := apihandler.NewHandler(
