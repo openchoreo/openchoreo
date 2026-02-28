@@ -277,16 +277,18 @@ func newStartComponentWorkflowCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			project, _ := cmd.Flags().GetString(flags.Project.Name)
 			set, _ := cmd.Flags().GetStringArray(flags.Set.Name)
 			return component.New().StartWorkflow(component.StartWorkflowParams{
 				Namespace:     namespace,
 				ComponentName: args[0],
+				Project:       project,
 				Set:           set,
 			})
 		},
 	}
 
-	flags.AddFlags(cmd, flags.Namespace, flags.Set)
+	flags.AddFlags(cmd, flags.Namespace, flags.Project, flags.Set)
 
 	return cmd
 }

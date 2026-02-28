@@ -110,6 +110,10 @@ func (l *Component) StartWorkflow(params StartWorkflowParams) error {
 		RunName:      fmt.Sprintf("%s-build-%d", params.ComponentName, time.Now().Unix()),
 		Parameters:   baseParams,
 		Set:          params.Set,
+		Labels: map[string]string{
+			"openchoreo.dev/component": params.ComponentName,
+			"openchoreo.dev/project":   params.Project,
+		},
 	})
 }
 

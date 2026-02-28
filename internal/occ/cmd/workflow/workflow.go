@@ -152,10 +152,15 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 	if len(params.Parameters) > 0 {
 		baseParams = &params.Parameters
 	}
+	var labels *map[string]string
+	if len(params.Labels) > 0 {
+		labels = &params.Labels
+	}
 	req := gen.WorkflowRun{
 		Metadata: gen.ObjectMeta{
 			Name:      runName,
 			Namespace: &ns,
+			Labels:    labels,
 		},
 		Spec: &gen.WorkflowRunSpec{
 			Workflow: gen.WorkflowRunConfig{

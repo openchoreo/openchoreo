@@ -25,4 +25,5 @@ type StartRunParams struct {
 	RunName      string                 // optional; auto-generated if empty
 	Parameters   map[string]interface{} // base parameters (e.g., from component workflow config)
 	Set          []string               // --set overrides applied on top of Parameters
+	Labels       map[string]string      // optional labels to attach to the workflow run
 }

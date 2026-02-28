@@ -60,6 +60,7 @@ func (p DeleteParams) GetComponentName() string { return p.ComponentName }
 type StartWorkflowParams struct {
 	Namespace     string
 	ComponentName string
+	Project       string
 	Set           []string
 }
 
