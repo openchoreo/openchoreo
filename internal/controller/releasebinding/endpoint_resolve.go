@@ -21,6 +21,7 @@ const (
 
 	// URL scheme constants for endpoint types.
 	schemeHTTP = "http"
+	schemeWS   = "ws"
 	schemeGRPC = "grpc"
 	schemeTCP  = "tcp"
 	schemeUDP  = "udp"
@@ -204,9 +205,10 @@ func schemeForEndpointType(epType openchoreov1alpha1.EndpointType) string {
 	switch epType {
 	case openchoreov1alpha1.EndpointTypeHTTP,
 		openchoreov1alpha1.EndpointTypeREST,
-		openchoreov1alpha1.EndpointTypeGraphQL,
-		openchoreov1alpha1.EndpointTypeWebsocket:
+		openchoreov1alpha1.EndpointTypeGraphQL:
 		return schemeHTTP
+	case openchoreov1alpha1.EndpointTypeWebsocket:
+		return schemeWS
 	case openchoreov1alpha1.EndpointTypeGRPC:
 		return schemeGRPC
 	case openchoreov1alpha1.EndpointTypeTCP:

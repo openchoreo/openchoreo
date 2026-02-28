@@ -286,6 +286,50 @@ spec:
                   - type
                   type: object
                 type: array
+              connectionTargets:
+                description: |-
+                  ConnectionTargets lists the connection targets derived from the workload connections.
+                  Used as an index source for finding consumer ReleaseBindings when a provider's endpoints change.
+                items:
+                  description: ConnectionTarget identifies a specific endpoint on
+                    a target component to resolve.
+                  properties:
+                    component:
+                      description: Component is the name of the target component.
+                      minLength: 1
+                      type: string
+                    endpoint:
+                      description: Endpoint is the name of the endpoint on the target
+                        component.
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: Namespace is the control plane namespace of the
+                        target component.
+                      minLength: 1
+                      type: string
+                    project:
+                      description: Project is the name of the project that owns the
+                        target component.
+                      minLength: 1
+                      type: string
+                    visibility:
+                      description: Visibility is the desired visibility level for
+                        resolving the endpoint URL.
+                      enum:
+                      - project
+                      - namespace
+                      - internal
+                      - external
+                      type: string
+                  required:
+                  - component
+                  - endpoint
+                  - namespace
+                  - project
+                  - visibility
+                  type: object
+                type: array
               endpoints:
                 description: |-
                   Endpoints contains the resolved invoke URLs for each named workload endpoint,
@@ -469,6 +513,116 @@ spec:
                   required:
                   - name
                   type: object
+                type: array
+              pendingConnections:
+                description: PendingConnections contains the connections that could
+                  not be resolved.
+                items:
+                  description: PendingConnection represents a connection that could
+                    not be resolved.
+                  properties:
+                    component:
+                      description: Component is the name of the target component.
+                      minLength: 1
+                      type: string
+                    endpoint:
+                      description: Endpoint is the name of the endpoint on the target
+                        component.
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: Namespace is the control plane namespace of the
+                        target component.
+                      minLength: 1
+                      type: string
+                    project:
+                      description: Project is the name of the project that owns the
+                        target component.
+                      minLength: 1
+                      type: string
+                    reason:
+                      description: Reason describes why the connection could not be
+                        resolved.
+                      type: string
+                  required:
+                  - component
+                  - endpoint
+                  - namespace
+                  - project
+                  - reason
+                  type: object
+                type: array
+              resolvedConnections:
+                description: ResolvedConnections contains the connections that have
+                  been successfully resolved.
+                items:
+                  description: ResolvedConnection holds the resolved URL for a single
+                    connection.
+                  properties:
+                    component:
+                      description: Component is the name of the target component.
+                      minLength: 1
+                      type: string
+                    endpoint:
+                      description: Endpoint is the name of the endpoint on the target
+                        component.
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: Namespace is the control plane namespace of the
+                        target component.
+                      minLength: 1
+                      type: string
+                    project:
+                      description: Project is the name of the project that owns the
+                        target component.
+                      minLength: 1
+                      type: string
+                    url:
+                      description: URL is the resolved endpoint URL.
+                      properties:
+                        host:
+                          description: Host is the hostname or IP address.
+                          minLength: 1
+                          type: string
+                        path:
+                          description: Path is the URL path.
+                          type: string
+                        port:
+                          description: Port is the port number.
+                          format: int32
+                          type: integer
+                        scheme:
+                          description: Scheme is the URL scheme (e.g., http, https,
+                            tcp, udp, ws, wss, tls).
+                          type: string
+                      required:
+                      - host
+                      type: object
+                    visibility:
+                      description: Visibility is the visibility level at which the
+                        endpoint was resolved.
+                      enum:
+                      - project
+                      - namespace
+                      - internal
+                      - external
+                      type: string
+                  required:
+                  - component
+                  - endpoint
+                  - namespace
+                  - project
+                  - url
+                  - visibility
+                  type: object
+                type: array
+              secretReferenceNames:
+                description: |-
+                  SecretReferenceNames lists the names of SecretReferences used by this ReleaseBinding's workload.
+                  Used as an index source for finding affected ReleaseBindings when a SecretReference changes.
+                items:
+                  type: string
                 type: array
             type: object
         type: object

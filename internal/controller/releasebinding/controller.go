@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -411,6 +412,23 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		return ctrl.Result{}, fmt.Errorf("failed to collect SecretReferences: %w", err)
 	}
 
+	// Populate status.secretReferenceNames for the field index (pure function of the object)
+	releaseBinding.Status.SecretReferenceNames = collectSecretReferenceNames(snapshotWorkload, releaseBinding)
+
+	// Resolve connections inline: build targets, resolve URLs from dependency RBs
+	connectionTargets := buildConnectionTargets(releaseBinding, snapshotWorkload.Spec.Connections)
+	releaseBinding.Status.ConnectionTargets = connectionTargets
+	resolvedConns, pendingConns, err := r.resolveConnections(ctx, releaseBinding, connectionTargets)
+	if err != nil {
+		logger.Error(err, "Failed to resolve connections")
+		return ctrl.Result{}, fmt.Errorf("failed to resolve connections: %w", err)
+	}
+	releaseBinding.Status.ResolvedConnections = resolvedConns
+	releaseBinding.Status.PendingConnections = pendingConns
+
+	// Pre-compute connection items with per-item env vars from resolved connections
+	connectionItems := buildConnectionItems(releaseBinding, snapshotWorkload.Spec.Connections)
+
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
 		ComponentType:              snapshotComponentType,
@@ -423,6 +441,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		SecretReferences:           secretReferences,
 		Metadata:                   metadataContext,
 		DefaultNotificationChannel: defaultNotificationChannel,
+		ConnectionItems:            connectionItems,
 	}
 
 	// Render resources using the shared pipeline instance
@@ -572,6 +591,20 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		componentRelease.Spec.Workload.Endpoints,
 		releaseBinding.Status.Endpoints,
 	)
+
+	// Connection stability guard: check after endpoint URL resolution so that
+	// this component's own endpoint URLs are always kept up to date (unblocking
+	// other components' connections), but requeue before marking ReleaseSynced
+	// when our own outbound connections are not yet resolved.
+	connectionsResolved := allConnectionsResolved(releaseBinding, snapshotWorkload.Spec.Connections)
+	setConnectionsCondition(releaseBinding, connectionsResolved)
+	if !connectionsResolved {
+		r.setReadyCondition(releaseBinding)
+		logger.Info("Connections not yet resolved, waiting for provider endpoint changes",
+			"pending", len(releaseBinding.Status.PendingConnections),
+			"resolved", len(releaseBinding.Status.ResolvedConnections))
+		return ctrl.Result{}, nil
+	}
 
 	// Set ReleaseSynced condition based on operation results.
 	r.setReleaseSyncedCondition(releaseBinding, dataPlaneRelease.Name, dpOp, len(dataPlaneReleaseResources), obsResult)
@@ -1243,9 +1276,14 @@ func (r *Reconciler) getDefaultNotificationChannelName(ctx context.Context, name
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctx := context.Background()
 
-	// Setup field index for SecretReferences
+	// Setup field index for SecretReferences (reads from status.secretReferenceNames)
 	if err := r.setupSecretReferencesIndex(ctx, mgr); err != nil {
 		return fmt.Errorf("failed to setup SecretReferences index: %w", err)
+	}
+
+	// Setup field index for connection targets (reads from status.connectionTargets)
+	if err := r.setupConnectionTargetsIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup connection targets index: %w", err)
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
@@ -1256,6 +1294,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&openchoreov1alpha1.SecretReference{},
 			handler.EnqueueRequestsFromMapFunc(r.listReleaseBindingsForSecretReference),
+		).
+		Watches(
+			&openchoreov1alpha1.ReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findConsumerReleaseBindings),
+			builder.WithPredicates(endpointStatusChangedPredicate()),
 		).
 		Named("releasebinding").
 		Complete(r)

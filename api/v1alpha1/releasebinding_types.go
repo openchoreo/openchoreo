@@ -8,6 +8,80 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// ConnectionTarget identifies a specific endpoint on a target component to resolve.
+type ConnectionTarget struct {
+	// Namespace is the control plane namespace of the target component.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Namespace string `json:"namespace"`
+
+	// Project is the name of the project that owns the target component.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Project string `json:"project"`
+
+	// Component is the name of the target component.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Component string `json:"component"`
+
+	// Endpoint is the name of the endpoint on the target component.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Endpoint string `json:"endpoint"`
+
+	// Visibility is the desired visibility level for resolving the endpoint URL.
+	// +kubebuilder:validation:Required
+	Visibility EndpointVisibility `json:"visibility"`
+}
+
+// ResolvedConnection holds the resolved URL for a single connection.
+type ResolvedConnection struct {
+	// Namespace is the control plane namespace of the target component.
+	// +kubebuilder:validation:MinLength=1
+	Namespace string `json:"namespace"`
+
+	// Project is the name of the project that owns the target component.
+	// +kubebuilder:validation:MinLength=1
+	Project string `json:"project"`
+
+	// Component is the name of the target component.
+	// +kubebuilder:validation:MinLength=1
+	Component string `json:"component"`
+
+	// Endpoint is the name of the endpoint on the target component.
+	// +kubebuilder:validation:MinLength=1
+	Endpoint string `json:"endpoint"`
+
+	// Visibility is the visibility level at which the endpoint was resolved.
+	Visibility EndpointVisibility `json:"visibility"`
+
+	// URL is the resolved endpoint URL.
+	URL EndpointURL `json:"url"`
+}
+
+// PendingConnection represents a connection that could not be resolved.
+type PendingConnection struct {
+	// Namespace is the control plane namespace of the target component.
+	// +kubebuilder:validation:MinLength=1
+	Namespace string `json:"namespace"`
+
+	// Project is the name of the project that owns the target component.
+	// +kubebuilder:validation:MinLength=1
+	Project string `json:"project"`
+
+	// Component is the name of the target component.
+	// +kubebuilder:validation:MinLength=1
+	Component string `json:"component"`
+
+	// Endpoint is the name of the endpoint on the target component.
+	// +kubebuilder:validation:MinLength=1
+	Endpoint string `json:"endpoint"`
+
+	// Reason describes why the connection could not be resolved.
+	Reason string `json:"reason"`
+}
+
 // ContainerOverride represents a single container in the workload.
 type ContainerOverride struct {
 	// Explicit environment variables.
@@ -156,6 +230,24 @@ type ReleaseBindingStatus struct {
 	// corresponding HTTPRoutes are available.
 	// +optional
 	Endpoints []EndpointURLStatus `json:"endpoints,omitempty"`
+
+	// ConnectionTargets lists the connection targets derived from the workload connections.
+	// Used as an index source for finding consumer ReleaseBindings when a provider's endpoints change.
+	// +optional
+	ConnectionTargets []ConnectionTarget `json:"connectionTargets,omitempty"`
+
+	// ResolvedConnections contains the connections that have been successfully resolved.
+	// +optional
+	ResolvedConnections []ResolvedConnection `json:"resolvedConnections,omitempty"`
+
+	// PendingConnections contains the connections that could not be resolved.
+	// +optional
+	PendingConnections []PendingConnection `json:"pendingConnections,omitempty"`
+
+	// SecretReferenceNames lists the names of SecretReferences used by this ReleaseBinding's workload.
+	// Used as an index source for finding affected ReleaseBindings when a SecretReference changes.
+	// +optional
+	SecretReferenceNames []string `json:"secretReferenceNames,omitempty"`
 }
 
 // +kubebuilder:object:root=true

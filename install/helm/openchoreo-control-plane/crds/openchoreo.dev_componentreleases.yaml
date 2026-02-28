@@ -553,53 +553,69 @@ spec:
                   This preserves the workload spec with the built image
                 properties:
                   connections:
-                    additionalProperties:
-                      description: WorkloadConnection represents an internal API connection
+                    description: Connections define how this workload consumes endpoints
+                      from other components.
+                    items:
+                      description: WorkloadConnection represents a connection to another
+                        component's endpoint.
                       properties:
-                        inject:
-                          description: Inject defines how connection details are injected
-                            into the workload
+                        component:
+                          description: Component is the target component name.
+                          minLength: 1
+                          type: string
+                        endpoint:
+                          description: Endpoint is the target endpoint name on the
+                            target component.
+                          minLength: 1
+                          type: string
+                        envBindings:
+                          description: EnvBindings maps semantic URL components to
+                            environment variable names.
                           properties:
-                            env:
-                              description: Environment variables to inject
-                              items:
-                                description: WorkloadConnectionEnvVar defines an environment
-                                  variable injection
-                                properties:
-                                  name:
-                                    description: Environment variable name
-                                    type: string
-                                  value:
-                                    description: Template value using connection properties
-                                      (e.g., "{{ .url }}")
-                                    type: string
-                                required:
-                                - name
-                                - value
-                                type: object
-                              type: array
-                          required:
-                          - env
+                            address:
+                              description: |-
+                                Address is the env var name for the protocol-appropriate connection string.
+                                For HTTP/HTTPS/WS/WSS: scheme://host:port/basePath
+                                For gRPC/TCP/UDP: host:port
+                              type: string
+                            basePath:
+                              description: BasePath is the optional env var name for
+                                just the base path.
+                              type: string
+                            host:
+                              description: Host is the optional env var name for just
+                                the hostname.
+                              type: string
+                            port:
+                              description: Port is the optional env var name for just
+                                the port number.
+                              type: string
                           type: object
-                        params:
-                          additionalProperties:
-                            type: string
-                          description: Parameters for connection configuration (dynamic
-                            key-value pairs)
-                          type: object
-                        type:
-                          description: Type of connection - only "api" for now
-                          enum:
-                          - api
+                        project:
+                          description: |-
+                            Project is the target component's project name.
+                            If empty, defaults to the same project as the consumer.
+                          type: string
+                        visibility:
+                          allOf:
+                          - enum:
+                            - project
+                            - namespace
+                            - internal
+                            - external
+                          - enum:
+                            - project
+                            - namespace
+                          description: Visibility is the visibility level at which
+                            this connection consumes the endpoint.
                           type: string
                       required:
-                      - inject
-                      - type
+                      - component
+                      - endpoint
+                      - envBindings
+                      - visibility
                       type: object
-                    description: |-
-                      Connections define how this workload consumes internal and external resources.
-                      The key is the connection name, and the value is the connection specification.
-                    type: object
+                    type: array
                   container:
                     description: Container defines the container specification for
                       this workload.

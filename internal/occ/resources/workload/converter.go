@@ -43,19 +43,23 @@ type WorkloadDescriptorEndpoint struct {
 }
 
 type WorkloadDescriptorConnection struct {
-	Name   string                             `yaml:"name"`
-	Type   string                             `yaml:"type"`
-	Params map[string]string                  `yaml:"params,omitempty"`
-	Inject WorkloadDescriptorConnectionInject `yaml:"inject"`
+	// Project is the target component's project name (optional, defaults to same project).
+	Project string `yaml:"project,omitempty"`
+	// Component is the target component name.
+	Component string `yaml:"component"`
+	// Endpoint is the target endpoint name.
+	Endpoint string `yaml:"endpoint"`
+	// Visibility is the visibility level for the connection.
+	Visibility string `yaml:"visibility"`
+	// EnvBindings maps connection address components to env var names.
+	EnvBindings WorkloadDescriptorConnectionEnvBindings `yaml:"envBindings"`
 }
 
-type WorkloadDescriptorConnectionInject struct {
-	Env []WorkloadDescriptorConnectionEnvVar `yaml:"env"`
-}
-
-type WorkloadDescriptorConnectionEnvVar struct {
-	Name  string `yaml:"name"`
-	Value string `yaml:"value"`
+type WorkloadDescriptorConnectionEnvBindings struct {
+	Address  string `yaml:"address,omitempty"`
+	Host     string `yaml:"host,omitempty"`
+	Port     string `yaml:"port,omitempty"`
+	BasePath string `yaml:"basePath,omitempty"`
 }
 
 // WorkloadDescriptorConfiguration represents the configurations section in workload.yaml
@@ -272,26 +276,21 @@ func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descrip
 		return
 	}
 
-	workload.Spec.Connections = make(map[string]openchoreov1alpha1.WorkloadConnection)
-	for _, descriptorConnection := range descriptor.Connections {
-		// Convert environment variables
-		envVars := make([]openchoreov1alpha1.WorkloadConnectionEnvVar, len(descriptorConnection.Inject.Env))
-		for i, envVar := range descriptorConnection.Inject.Env {
-			envVars[i] = openchoreov1alpha1.WorkloadConnectionEnvVar{
-				Name:  envVar.Name,
-				Value: envVar.Value,
-			}
-		}
-
+	workload.Spec.Connections = make([]openchoreov1alpha1.WorkloadConnection, 0, len(descriptor.Connections))
+	for _, dc := range descriptor.Connections {
 		connection := openchoreov1alpha1.WorkloadConnection{
-			Type:   descriptorConnection.Type,
-			Params: descriptorConnection.Params,
-			Inject: openchoreov1alpha1.WorkloadConnectionInject{
-				Env: envVars,
+			Project:    dc.Project,
+			Component:  dc.Component,
+			Endpoint:   dc.Endpoint,
+			Visibility: openchoreov1alpha1.EndpointVisibility(dc.Visibility),
+			EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
+				Address:  dc.EnvBindings.Address,
+				Host:     dc.EnvBindings.Host,
+				Port:     dc.EnvBindings.Port,
+				BasePath: dc.EnvBindings.BasePath,
 			},
 		}
-
-		workload.Spec.Connections[descriptorConnection.Name] = connection
+		workload.Spec.Connections = append(workload.Spec.Connections, connection)
 	}
 }
 
@@ -397,10 +396,10 @@ func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, err
 			Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 		} `json:"metadata" yaml:"metadata"`
 		Spec struct {
-			Owner       openchoreov1alpha1.WorkloadOwner                 `json:"owner" yaml:"owner"`
-			Container   openchoreov1alpha1.Container                     `json:"container" yaml:"container"`
-			Endpoints   map[string]openchoreov1alpha1.WorkloadEndpoint   `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
-			Connections map[string]openchoreov1alpha1.WorkloadConnection `json:"connections,omitempty" yaml:"connections,omitempty"`
+			Owner       openchoreov1alpha1.WorkloadOwner               `json:"owner" yaml:"owner"`
+			Container   openchoreov1alpha1.Container                   `json:"container" yaml:"container"`
+			Endpoints   map[string]openchoreov1alpha1.WorkloadEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
+			Connections []openchoreov1alpha1.WorkloadConnection        `json:"connections,omitempty" yaml:"connections,omitempty"`
 		} `json:"spec" yaml:"spec"`
 	}
 

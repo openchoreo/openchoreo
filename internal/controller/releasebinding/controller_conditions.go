@@ -24,6 +24,9 @@ const (
 	// This is the top-level condition that aggregates ReleaseSynced and ResourcesReady
 	ConditionReady controller.ConditionType = "Ready"
 
+	// ConditionConnectionsResolved indicates that all connection URLs have been resolved.
+	ConditionConnectionsResolved controller.ConditionType = "ConnectionsResolved"
+
 	// ConditionFinalizing indicates that the ReleaseBinding is being finalized (deleted).
 	ConditionFinalizing controller.ConditionType = "Finalizing"
 )
@@ -86,6 +89,15 @@ const (
 	ReasonResourcesDegraded controller.ConditionReason = "ResourcesDegraded"
 	// ReasonResourcesUnknown indicates resource status is unknown
 	ReasonResourcesUnknown controller.ConditionReason = "ResourcesUnknown"
+
+	// Connection condition reasons
+
+	// ReasonAllConnectionsResolved indicates all connection URLs are resolved
+	ReasonAllConnectionsResolved controller.ConditionReason = "AllConnectionsResolved"
+	// ReasonConnectionsPending indicates some connections are not yet resolved
+	ReasonConnectionsPending controller.ConditionReason = "ConnectionsPending"
+	// ReasonNoConnections indicates there are no connections to resolve
+	ReasonNoConnections controller.ConditionReason = "NoConnections"
 
 	// Ready condition reasons
 

@@ -143,15 +143,25 @@ func workloadDetail(w *openchoreov1alpha1.Workload) map[string]any {
 		m["endpoints"] = eps
 	}
 	if len(w.Spec.Connections) > 0 {
-		conns := make(map[string]any, len(w.Spec.Connections))
-		for name, conn := range w.Spec.Connections {
+		conns := make([]map[string]any, 0, len(w.Spec.Connections))
+		for _, conn := range w.Spec.Connections {
 			c := map[string]any{
-				"type": conn.Type,
+				"component":  conn.Component,
+				"endpoint":   conn.Endpoint,
+				"visibility": string(conn.Visibility),
 			}
-			if len(conn.Params) > 0 {
-				c["params"] = conn.Params
+			if conn.Project != "" {
+				c["project"] = conn.Project
 			}
-			conns[name] = c
+			envBindings := make(map[string]any)
+			setIfNotEmpty(envBindings, "address", conn.EnvBindings.Address)
+			setIfNotEmpty(envBindings, "host", conn.EnvBindings.Host)
+			setIfNotEmpty(envBindings, "port", conn.EnvBindings.Port)
+			setIfNotEmpty(envBindings, "basePath", conn.EnvBindings.BasePath)
+			if len(envBindings) > 0 {
+				c["envBindings"] = envBindings
+			}
+			conns = append(conns, c)
 		}
 		m["connections"] = conns
 	}

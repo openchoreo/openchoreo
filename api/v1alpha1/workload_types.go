@@ -179,38 +179,52 @@ type Schema struct {
 	Content string `json:"content,omitempty"`
 }
 
-// WorkloadConnection represents an internal API connection
+// WorkloadConnection represents a connection to another component's endpoint.
 type WorkloadConnection struct {
-	// Type of connection - only "api" for now
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=api
-	Type string `json:"type"`
-
-	// Parameters for connection configuration (dynamic key-value pairs)
+	// Project is the target component's project name.
+	// If empty, defaults to the same project as the consumer.
 	// +optional
-	Params map[string]string `json:"params,omitempty"`
+	Project string `json:"project,omitempty"`
 
-	// Inject defines how connection details are injected into the workload
+	// Component is the target component name.
 	// +kubebuilder:validation:Required
-	Inject WorkloadConnectionInject `json:"inject"`
+	// +kubebuilder:validation:MinLength=1
+	Component string `json:"component"`
+
+	// Endpoint is the target endpoint name on the target component.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Endpoint string `json:"endpoint"`
+
+	// Visibility is the visibility level at which this connection consumes the endpoint.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=project;namespace
+	Visibility EndpointVisibility `json:"visibility"`
+
+	// EnvBindings maps semantic URL components to environment variable names.
+	// +kubebuilder:validation:Required
+	EnvBindings ConnectionEnvBindings `json:"envBindings"`
 }
 
-// WorkloadConnectionInject defines how connection details are injected
-type WorkloadConnectionInject struct {
-	// Environment variables to inject
-	// +kubebuilder:validation:Required
-	Env []WorkloadConnectionEnvVar `json:"env"`
-}
+// ConnectionEnvBindings defines env var names for resolved connection address components.
+type ConnectionEnvBindings struct {
+	// Address is the env var name for the protocol-appropriate connection string.
+	// For HTTP/HTTPS/WS/WSS: scheme://host:port/basePath
+	// For gRPC/TCP/UDP: host:port
+	// +optional
+	Address string `json:"address,omitempty"`
 
-// WorkloadConnectionEnvVar defines an environment variable injection
-type WorkloadConnectionEnvVar struct {
-	// Environment variable name
-	// +kubebuilder:validation:Required
-	Name string `json:"name"`
+	// Host is the optional env var name for just the hostname.
+	// +optional
+	Host string `json:"host,omitempty"`
 
-	// Template value using connection properties (e.g., "{{ .url }}")
-	// +kubebuilder:validation:Required
-	Value string `json:"value"`
+	// Port is the optional env var name for just the port number.
+	// +optional
+	Port string `json:"port,omitempty"`
+
+	// BasePath is the optional env var name for just the base path.
+	// +optional
+	BasePath string `json:"basePath,omitempty"`
 }
 
 // WorkloadTemplateSpec defines the desired state of Workload.
@@ -224,10 +238,9 @@ type WorkloadTemplateSpec struct {
 	// +optional
 	Endpoints map[string]WorkloadEndpoint `json:"endpoints,omitempty"`
 
-	// Connections define how this workload consumes internal and external resources.
-	// The key is the connection name, and the value is the connection specification.
+	// Connections define how this workload consumes endpoints from other components.
 	// +optional
-	Connections map[string]WorkloadConnection `json:"connections,omitempty"`
+	Connections []WorkloadConnection `json:"connections,omitempty"`
 }
 
 type WorkloadOwner struct {
@@ -253,11 +266,6 @@ const (
 	WorkloadTypeManualTask     WorkloadType = "ManualTask"
 	WorkloadTypeScheduledTask  WorkloadType = "ScheduledTask"
 	WorkloadTypeWebApplication WorkloadType = "WebApplication"
-)
-
-// ConnectionTypeAPI represents an API connection type
-const (
-	ConnectionTypeAPI = "api"
 )
 
 // WorkloadStatus defines the observed state of Workload.

@@ -129,29 +129,28 @@ func (r *Reconciler) setResourcesReadyStatus(
 }
 
 // setReadyCondition sets the top-level Ready condition based on
-// ReleaseSynced and ResourcesReady conditions.
+// ReleaseSynced, ResourcesReady, and ConnectionsResolved conditions.
 func (r *Reconciler) setReadyCondition(releaseBinding *openchoreov1alpha1.ReleaseBinding) {
-	// Find ReleaseSynced condition
-	var releaseSynced *metav1.Condition
+	// Find all relevant conditions
+	var releaseSynced, resourcesReady, connectionsResolved *metav1.Condition
 	for i := range releaseBinding.Status.Conditions {
-		if releaseBinding.Status.Conditions[i].Type == string(ConditionReleaseSynced) {
+		switch releaseBinding.Status.Conditions[i].Type {
+		case string(ConditionReleaseSynced):
 			releaseSynced = &releaseBinding.Status.Conditions[i]
-			break
-		}
-	}
-
-	// Find ResourcesReady condition
-	var resourcesReady *metav1.Condition
-	for i := range releaseBinding.Status.Conditions {
-		if releaseBinding.Status.Conditions[i].Type == string(ConditionResourcesReady) {
+		case string(ConditionResourcesReady):
 			resourcesReady = &releaseBinding.Status.Conditions[i]
-			break
+		case string(ConditionConnectionsResolved):
+			connectionsResolved = &releaseBinding.Status.Conditions[i]
 		}
 	}
 
-	// Both must be True for Ready to be True
-	if releaseSynced != nil && releaseSynced.Status == metav1.ConditionTrue &&
-		resourcesReady != nil && resourcesReady.Status == metav1.ConditionTrue {
+	// All present conditions must be True for Ready to be True.
+	// ConnectionsResolved is optional - if absent, it doesn't block readiness.
+	allTrue := releaseSynced != nil && releaseSynced.Status == metav1.ConditionTrue &&
+		resourcesReady != nil && resourcesReady.Status == metav1.ConditionTrue &&
+		(connectionsResolved == nil || connectionsResolved.Status == metav1.ConditionTrue)
+
+	if allTrue {
 		controller.MarkTrueCondition(releaseBinding, ConditionReady,
 			ReasonReady, "ReleaseBinding is ready")
 		return
@@ -166,6 +165,13 @@ func (r *Reconciler) setReadyCondition(releaseBinding *openchoreov1alpha1.Releas
 			message = releaseSynced.Message
 		}
 		controller.MarkFalseCondition(releaseBinding, ConditionReady, reason, message)
+		return
+	}
+
+	// If ConnectionsResolved is False, use its reason
+	if connectionsResolved != nil && connectionsResolved.Status != metav1.ConditionTrue {
+		controller.MarkFalseCondition(releaseBinding, ConditionReady,
+			controller.ConditionReason(connectionsResolved.Reason), connectionsResolved.Message)
 		return
 	}
 

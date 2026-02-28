@@ -1658,3 +1658,312 @@ func findCondition(conditions []metav1.Condition, condType string) *metav1.Condi
 	}
 	return nil
 }
+
+func TestBuildConnectionTargets(t *testing.T) {
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			Owner:       openchoreov1alpha1.ReleaseBindingOwner{ProjectName: testProjectName, ComponentName: testComponentName},
+			Environment: testEnvStaging,
+		},
+	}
+
+	t.Run("no connections returns nil", func(t *testing.T) {
+		targets := buildConnectionTargets(rb, nil)
+		if targets != nil {
+			t.Errorf("expected nil, got %v", targets)
+		}
+	})
+
+	t.Run("builds targets with explicit project", func(t *testing.T) {
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{Project: "other-proj", Component: "svc-a", Endpoint: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+		}
+		targets := buildConnectionTargets(rb, conns)
+		if len(targets) != 1 {
+			t.Fatalf("expected 1 target, got %d", len(targets))
+		}
+		if targets[0].Project != "other-proj" {
+			t.Errorf("expected project other-proj, got %s", targets[0].Project)
+		}
+		if targets[0].Namespace != testNamespace {
+			t.Errorf("expected namespace %s, got %s", testNamespace, targets[0].Namespace)
+		}
+	})
+
+	t.Run("defaults project to owner", func(t *testing.T) {
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{Component: "svc-a", Endpoint: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+		}
+		targets := buildConnectionTargets(rb, conns)
+		if len(targets) != 1 {
+			t.Fatalf("expected 1 target, got %d", len(targets))
+		}
+		if targets[0].Project != testProjectName {
+			t.Errorf("expected project %s, got %s", testProjectName, targets[0].Project)
+		}
+	})
+}
+
+func TestAllConnectionsResolved(t *testing.T) {
+	makeRB := func(resolved []openchoreov1alpha1.ResolvedConnection) *openchoreov1alpha1.ReleaseBinding {
+		return &openchoreov1alpha1.ReleaseBinding{
+			Spec: openchoreov1alpha1.ReleaseBindingSpec{
+				Owner: openchoreov1alpha1.ReleaseBindingOwner{ProjectName: testProjectName},
+			},
+			Status: openchoreov1alpha1.ReleaseBindingStatus{
+				ResolvedConnections: resolved,
+			},
+		}
+	}
+
+	t.Run("no connections is resolved", func(t *testing.T) {
+		rb := makeRB(nil)
+		if !allConnectionsResolved(rb, nil) {
+			t.Error("expected true for no connections")
+		}
+	})
+
+	t.Run("all resolved", func(t *testing.T) {
+		rb := makeRB([]openchoreov1alpha1.ResolvedConnection{
+			{Project: testProjectName, Component: "svc-a", Endpoint: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+				URL: openchoreov1alpha1.EndpointURL{Host: "svc-a.default.svc.cluster.local", Port: 8080}},
+		})
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{Component: "svc-a", Endpoint: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+		}
+		if !allConnectionsResolved(rb, conns) {
+			t.Error("expected true when all resolved")
+		}
+	})
+
+	t.Run("missing resolution", func(t *testing.T) {
+		rb := makeRB(nil)
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{Component: "svc-a", Endpoint: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+		}
+		if allConnectionsResolved(rb, conns) {
+			t.Error("expected false when no resolutions")
+		}
+	})
+}
+
+func TestSetConnectionsCondition(t *testing.T) {
+	t.Run("no connections sets NoConnections", func(t *testing.T) {
+		rb := &openchoreov1alpha1.ReleaseBinding{}
+		setConnectionsCondition(rb, true)
+		cond := findCondition(rb.Status.Conditions, string(ConditionConnectionsResolved))
+		if cond == nil {
+			t.Fatal("expected ConnectionsResolved condition")
+		}
+		if cond.Reason != string(ReasonNoConnections) {
+			t.Errorf("expected reason NoConnections, got %s", cond.Reason)
+		}
+	})
+
+	t.Run("all resolved", func(t *testing.T) {
+		rb := &openchoreov1alpha1.ReleaseBinding{
+			Status: openchoreov1alpha1.ReleaseBindingStatus{
+				ConnectionTargets: []openchoreov1alpha1.ConnectionTarget{
+					{Project: testProjectName, Component: "svc-a", Endpoint: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+				},
+				ResolvedConnections: []openchoreov1alpha1.ResolvedConnection{
+					{Project: testProjectName, Component: "svc-a", Endpoint: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+				},
+			},
+		}
+		setConnectionsCondition(rb, true)
+		cond := findCondition(rb.Status.Conditions, string(ConditionConnectionsResolved))
+		if cond == nil {
+			t.Fatal("expected ConnectionsResolved condition")
+		}
+		if cond.Status != metav1.ConditionTrue {
+			t.Errorf("expected True, got %s", cond.Status)
+		}
+	})
+
+	t.Run("pending connections", func(t *testing.T) {
+		rb := &openchoreov1alpha1.ReleaseBinding{
+			Status: openchoreov1alpha1.ReleaseBindingStatus{
+				ConnectionTargets: []openchoreov1alpha1.ConnectionTarget{
+					{Project: testProjectName, Component: "svc-a", Endpoint: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+				},
+				PendingConnections: []openchoreov1alpha1.PendingConnection{
+					{Project: testProjectName, Component: "svc-a", Endpoint: "api", Reason: "not found"},
+				},
+			},
+		}
+		setConnectionsCondition(rb, false)
+		cond := findCondition(rb.Status.Conditions, string(ConditionConnectionsResolved))
+		if cond == nil {
+			t.Fatal("expected ConnectionsResolved condition")
+		}
+		if cond.Status != metav1.ConditionFalse {
+			t.Errorf("expected False, got %s", cond.Status)
+		}
+		if cond.Reason != string(ReasonConnectionsPending) {
+			t.Errorf("expected reason ConnectionsPending, got %s", cond.Reason)
+		}
+	})
+}
+
+func TestBuildConnectionItems(t *testing.T) {
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ReleaseBindingOwner{ProjectName: testProjectName},
+		},
+		Status: openchoreov1alpha1.ReleaseBindingStatus{
+			ResolvedConnections: []openchoreov1alpha1.ResolvedConnection{
+				{
+					Project: testProjectName, Component: "svc-a", Endpoint: "api",
+					Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+					URL:        openchoreov1alpha1.EndpointURL{Scheme: "http", Host: "svc-a.ns.svc.cluster.local", Port: 8080, Path: "/v1"},
+				},
+			},
+		},
+	}
+
+	t.Run("all env binding fields", func(t *testing.T) {
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{
+				Component:  "svc-a",
+				Endpoint:   "api",
+				Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+				EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
+					Address:  "SVC_A_ADDRESS",
+					Host:     "SVC_A_HOST",
+					Port:     "SVC_A_PORT",
+					BasePath: "SVC_A_PATH",
+				},
+			},
+		}
+
+		items := buildConnectionItems(rb, conns)
+		if len(items) != 1 {
+			t.Fatalf("expected 1 item, got %d", len(items))
+		}
+
+		expected := map[string]string{
+			"SVC_A_ADDRESS": "http://svc-a.ns.svc.cluster.local:8080/v1",
+			"SVC_A_HOST":    "svc-a.ns.svc.cluster.local",
+			"SVC_A_PORT":    "8080",
+			"SVC_A_PATH":    "/v1",
+		}
+		if len(items[0].EnvVars) != len(expected) {
+			t.Fatalf("expected %d env vars, got %d", len(expected), len(items[0].EnvVars))
+		}
+		for _, ev := range items[0].EnvVars {
+			want, ok := expected[ev.Name]
+			if !ok {
+				t.Errorf("unexpected env var %q", ev.Name)
+				continue
+			}
+			if ev.Value != want {
+				t.Errorf("env var %s: got %q, want %q", ev.Name, ev.Value, want)
+			}
+		}
+	})
+
+	t.Run("address only", func(t *testing.T) {
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{
+				Component:  "svc-a",
+				Endpoint:   "api",
+				Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+				EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
+					Address: "SVC_A_ADDRESS",
+				},
+			},
+		}
+
+		items := buildConnectionItems(rb, conns)
+		if len(items) != 1 {
+			t.Fatalf("expected 1 item, got %d", len(items))
+		}
+		if len(items[0].EnvVars) != 1 {
+			t.Fatalf("expected 1 env var, got %d", len(items[0].EnvVars))
+		}
+		if items[0].EnvVars[0].Name != "SVC_A_ADDRESS" {
+			t.Errorf("expected name SVC_A_ADDRESS, got %s", items[0].EnvVars[0].Name)
+		}
+	})
+
+	t.Run("address omitted", func(t *testing.T) {
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{
+				Component:  "svc-a",
+				Endpoint:   "api",
+				Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+				EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
+					Host: "SVC_A_HOST",
+					Port: "SVC_A_PORT",
+				},
+			},
+		}
+
+		items := buildConnectionItems(rb, conns)
+		if len(items) != 1 {
+			t.Fatalf("expected 1 item, got %d", len(items))
+		}
+		for _, ev := range items[0].EnvVars {
+			if ev.Name == "" {
+				t.Error("env var with empty name should not be emitted")
+			}
+		}
+		if len(items[0].EnvVars) != 2 {
+			t.Fatalf("expected 2 env vars (host, port), got %d", len(items[0].EnvVars))
+		}
+	})
+}
+
+func TestResolveURLForVisibility(t *testing.T) {
+	ep := openchoreov1alpha1.EndpointURLStatus{
+		Name: "api",
+		ServiceURL: &openchoreov1alpha1.EndpointURL{
+			Scheme: "http", Host: "svc.ns.svc.cluster.local", Port: 8080,
+		},
+		ExternalURLs: &openchoreov1alpha1.EndpointGatewayURLs{
+			HTTPS: &openchoreov1alpha1.EndpointURL{Scheme: "https", Host: "api.example.com", Port: 443},
+		},
+		InternalURLs: &openchoreov1alpha1.EndpointGatewayURLs{
+			HTTP: &openchoreov1alpha1.EndpointURL{Scheme: "http", Host: "api.internal", Port: 80},
+		},
+	}
+
+	t.Run("project visibility returns service URL", func(t *testing.T) {
+		url := resolveURLForVisibility(ep, openchoreov1alpha1.EndpointVisibilityProject)
+		if url == nil || url.Host != "svc.ns.svc.cluster.local" {
+			t.Errorf("expected service URL, got %v", url)
+		}
+	})
+
+	t.Run("namespace visibility returns service URL", func(t *testing.T) {
+		url := resolveURLForVisibility(ep, openchoreov1alpha1.EndpointVisibilityNamespace)
+		if url == nil || url.Host != "svc.ns.svc.cluster.local" {
+			t.Errorf("expected service URL, got %v", url)
+		}
+	})
+
+	t.Run("external visibility returns external HTTPS URL", func(t *testing.T) {
+		url := resolveURLForVisibility(ep, openchoreov1alpha1.EndpointVisibilityExternal)
+		if url == nil || url.Host != "api.example.com" {
+			t.Errorf("expected external URL, got %v", url)
+		}
+	})
+
+	t.Run("internal visibility returns internal HTTP URL", func(t *testing.T) {
+		url := resolveURLForVisibility(ep, openchoreov1alpha1.EndpointVisibilityInternal)
+		if url == nil || url.Host != "api.internal" {
+			t.Errorf("expected internal URL, got %v", url)
+		}
+	})
+
+	t.Run("no service URL returns nil for project", func(t *testing.T) {
+		noServiceEP := openchoreov1alpha1.EndpointURLStatus{Name: "api"}
+		url := resolveURLForVisibility(noServiceEP, openchoreov1alpha1.EndpointVisibilityProject)
+		if url != nil {
+			t.Errorf("expected nil, got %v", url)
+		}
+	})
+}

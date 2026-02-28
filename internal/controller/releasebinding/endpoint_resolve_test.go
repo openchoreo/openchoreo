@@ -1141,7 +1141,7 @@ var _ = Describe("schemeForEndpointType", func() {
 		Entry("HTTP", openchoreov1alpha1.EndpointTypeHTTP, "http"),
 		Entry("REST", openchoreov1alpha1.EndpointTypeREST, "http"),
 		Entry("GraphQL", openchoreov1alpha1.EndpointTypeGraphQL, "http"),
-		Entry("Websocket", openchoreov1alpha1.EndpointTypeWebsocket, "http"),
+		Entry("Websocket", openchoreov1alpha1.EndpointTypeWebsocket, "ws"),
 		Entry("gRPC", openchoreov1alpha1.EndpointTypeGRPC, "grpc"),
 		Entry("TCP", openchoreov1alpha1.EndpointTypeTCP, "tcp"),
 		Entry("UDP", openchoreov1alpha1.EndpointTypeUDP, "udp"),

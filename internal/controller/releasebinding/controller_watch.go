@@ -6,10 +6,13 @@ package releasebinding
 import (
 	"context"
 
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -18,73 +21,118 @@ import (
 )
 
 const (
-	// secretReferencesIndex is the field index name for SecretReference names used in ReleaseBinding
-	// This index tracks all SecretReferences from both ComponentRelease workload and ReleaseBinding workloadOverrides
-	secretReferencesIndex = "spec.secretReferences"
+	// secretReferencesIndex is the field index name for SecretReference names used in ReleaseBinding.
+	// This index reads from status.secretReferenceNames (a pure function of the indexed object).
+	secretReferencesIndex = "status.secretReferenceNames"
+
+	// connectionTargetsIndex indexes ReleaseBindings by their connection targets
+	// (namespace/project/component/environment) for efficient reverse lookup when a
+	// dependency ReleaseBinding's endpoints change.
+	connectionTargetsIndex = "status.connectionTargets"
 )
 
+// makeConnectionTargetKey creates an index key for a connection target.
+func makeConnectionTargetKey(namespace, project, component, environment string) string {
+	return namespace + "/" + project + "/" + component + "/" + environment
+}
+
 // setupSecretReferencesIndex sets up the field index for SecretReference names used by ReleaseBinding.
-// This index extracts all SecretReference names from the merged workload
-// (ComponentRelease.Spec.Workload merged with ReleaseBinding.Spec.WorkloadOverrides).
+// This index reads from status.secretReferenceNames which is populated during reconciliation,
+// making it a pure function of the indexed object with no external API calls.
 func (r *Reconciler) setupSecretReferencesIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
 		secretReferencesIndex, func(obj client.Object) []string {
 			releaseBinding := obj.(*openchoreov1alpha1.ReleaseBinding)
-			logger := log.FromContext(ctx)
-
-			// Fetch ComponentRelease to get the base workload
-			if releaseBinding.Spec.ReleaseName == "" {
-				return []string{}
-			}
-
-			componentRelease := &openchoreov1alpha1.ComponentRelease{}
-			if err := r.Get(ctx, types.NamespacedName{
-				Name:      releaseBinding.Spec.ReleaseName,
-				Namespace: releaseBinding.Namespace,
-			}, componentRelease); err != nil {
-				logger.Info("Failed to get ComponentRelease for index",
-					"releaseBinding", releaseBinding.Name,
-					"componentRelease", releaseBinding.Spec.ReleaseName,
-					"error", err)
-				return []string{}
-			}
-
-			// Build workload from ComponentRelease
-			baseWorkload := &openchoreov1alpha1.Workload{
-				Spec: openchoreov1alpha1.WorkloadSpec{
-					WorkloadTemplateSpec: componentRelease.Spec.Workload,
-				},
-			}
-
-			// Merge workload with overrides using the shared function
-			mergedWorkload := pipelinecontext.MergeWorkloadOverrides(baseWorkload, releaseBinding.Spec.WorkloadOverrides)
-			if mergedWorkload == nil {
-				return []string{}
-			}
-
-			// Extract SecretReferences from the merged workload
-			var secretRefNames []string
-			container := mergedWorkload.Spec.Container
-			// Extract from Env variables
-			for _, env := range container.Env {
-				if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil && env.ValueFrom.SecretRef.Name != "" {
-					secretRefNames = append(secretRefNames, env.ValueFrom.SecretRef.Name)
-				}
-			}
-
-			// Extract from Files
-			for _, file := range container.Files {
-				if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil && file.ValueFrom.SecretRef.Name != "" {
-					secretRefNames = append(secretRefNames, file.ValueFrom.SecretRef.Name)
-				}
-			}
-
-			return secretRefNames
+			return releaseBinding.Status.SecretReferenceNames
 		})
 }
 
+// setupConnectionTargetsIndex registers a field index that extracts unique
+// namespace/project/component/environment keys from each ReleaseBinding's status.connectionTargets.
+func (r *Reconciler) setupConnectionTargetsIndex(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
+		connectionTargetsIndex, func(obj client.Object) []string {
+			rb := obj.(*openchoreov1alpha1.ReleaseBinding)
+			if len(rb.Status.ConnectionTargets) == 0 {
+				return nil
+			}
+			seen := make(map[string]struct{})
+			var keys []string
+			for _, conn := range rb.Status.ConnectionTargets {
+				key := makeConnectionTargetKey(conn.Namespace, conn.Project, conn.Component, rb.Spec.Environment)
+				if _, ok := seen[key]; !ok {
+					seen[key] = struct{}{}
+					keys = append(keys, key)
+				}
+			}
+			return keys
+		})
+}
+
+// endpointStatusChangedPredicate returns a predicate that only passes when
+// status.endpoints changes on a ReleaseBinding, or when spec.state changes
+// (Active/Undeploy). This avoids enqueuing consumers for unrelated status changes
+// (e.g., resolvedConnections updates), preventing infinite loops.
+func endpointStatusChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(_ event.CreateEvent) bool {
+			return true
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldRB, ok := e.ObjectOld.(*openchoreov1alpha1.ReleaseBinding)
+			if !ok {
+				return false
+			}
+			newRB, ok := e.ObjectNew.(*openchoreov1alpha1.ReleaseBinding)
+			if !ok {
+				return false
+			}
+			if oldRB.Spec.State != newRB.Spec.State {
+				return true
+			}
+			return !apiequality.Semantic.DeepEqual(oldRB.Status.Endpoints, newRB.Status.Endpoints)
+		},
+		DeleteFunc: func(_ event.DeleteEvent) bool {
+			return true
+		},
+		GenericFunc: func(_ event.GenericEvent) bool {
+			return false
+		},
+	}
+}
+
+// findConsumerReleaseBindings returns reconcile requests for all ReleaseBindings
+// that depend on the changed ReleaseBinding (i.e., have it as a connection target).
+func (r *Reconciler) findConsumerReleaseBindings(ctx context.Context, obj client.Object) []reconcile.Request {
+	rb, ok := obj.(*openchoreov1alpha1.ReleaseBinding)
+	if !ok {
+		return nil
+	}
+
+	targetKey := makeConnectionTargetKey(rb.Namespace, rb.Spec.Owner.ProjectName, rb.Spec.Owner.ComponentName, rb.Spec.Environment)
+
+	var consumers openchoreov1alpha1.ReleaseBindingList
+	if err := r.List(ctx, &consumers,
+		client.InNamespace(rb.Namespace),
+		client.MatchingFields{connectionTargetsIndex: targetKey}); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list consumer ReleaseBindings", "releaseBinding", rb.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(consumers.Items))
+	for _, consumer := range consumers.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      consumer.Name,
+				Namespace: consumer.Namespace,
+			},
+		})
+	}
+	return requests
+}
+
 // listReleaseBindingsForSecretReference returns reconcile requests for all ReleaseBindings
-// that use the changed SecretReference (either in ComponentRelease's workload or ReleaseBinding's workloadOverrides)
+// that use the changed SecretReference (via status.secretReferenceNames index).
 func (r *Reconciler) listReleaseBindingsForSecretReference(ctx context.Context, obj client.Object) []reconcile.Request {
 	secretRef := obj.(*openchoreov1alpha1.SecretReference)
 	logger := log.FromContext(ctx)
@@ -93,7 +141,6 @@ func (r *Reconciler) listReleaseBindingsForSecretReference(ctx context.Context, 
 		"secretReference", secretRef.Name,
 		"namespace", secretRef.Namespace)
 
-	// Find all ReleaseBindings in the same namespace that use this SecretReference
 	var releaseBindings openchoreov1alpha1.ReleaseBindingList
 	if err := r.List(ctx, &releaseBindings,
 		client.InNamespace(secretRef.Namespace),
@@ -135,7 +182,6 @@ func (r *Reconciler) listReleaseBindingsForSecretReference(ctx context.Context, 
 func (r *Reconciler) findReleaseBindingsForComponent(ctx context.Context, obj client.Object) []ctrl.Request {
 	component := obj.(*openchoreov1alpha1.Component)
 
-	// List all ReleaseBindings that reference this Component
 	var bindings openchoreov1alpha1.ReleaseBindingList
 	if err := r.List(ctx, &bindings,
 		client.InNamespace(component.Namespace),
@@ -143,7 +189,6 @@ func (r *Reconciler) findReleaseBindingsForComponent(ctx context.Context, obj cl
 		return nil
 	}
 
-	// Create reconcile requests for each ReleaseBinding
 	requests := make([]ctrl.Request, len(bindings.Items))
 	for i, binding := range bindings.Items {
 		requests[i] = ctrl.Request{
@@ -154,4 +199,38 @@ func (r *Reconciler) findReleaseBindingsForComponent(ctx context.Context, obj cl
 		}
 	}
 	return requests
+}
+
+// collectSecretReferenceNames extracts SecretReference names from a merged workload.
+// This is used to populate status.secretReferenceNames for the field index.
+func collectSecretReferenceNames(workload *openchoreov1alpha1.Workload, releaseBinding *openchoreov1alpha1.ReleaseBinding) []string {
+	if workload == nil {
+		return nil
+	}
+
+	mergedWorkload := pipelinecontext.MergeWorkloadOverrides(workload, releaseBinding.Spec.WorkloadOverrides)
+	if mergedWorkload == nil {
+		return nil
+	}
+
+	seen := make(map[string]struct{})
+	var names []string
+	container := mergedWorkload.Spec.Container
+	for _, env := range container.Env {
+		if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil && env.ValueFrom.SecretRef.Name != "" {
+			if _, dup := seen[env.ValueFrom.SecretRef.Name]; !dup {
+				seen[env.ValueFrom.SecretRef.Name] = struct{}{}
+				names = append(names, env.ValueFrom.SecretRef.Name)
+			}
+		}
+	}
+	for _, file := range container.Files {
+		if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil && file.ValueFrom.SecretRef.Name != "" {
+			if _, dup := seen[file.ValueFrom.SecretRef.Name]; !dup {
+				seen[file.ValueFrom.SecretRef.Name] = struct{}{}
+				names = append(names, file.ValueFrom.SecretRef.Name)
+			}
+		}
+	}
+	return names
 }
