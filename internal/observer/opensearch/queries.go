@@ -163,9 +163,6 @@ func (qb *QueryBuilder) BuildBuildLogsQuery(params BuildQueryParams) map[string]
 func (qb *QueryBuilder) BuildWorkflowRunLogsQuery(params WorkflowRunQueryParams) map[string]interface{} {
 	sanitizedWorkflowRunID := sanitizeWildcardValue(params.WorkflowRunID)
 	podNamePattern := sanitizedWorkflowRunID + "*"
-	if params.StepName != "" {
-		podNamePattern = fmt.Sprintf("%s-%s-*", sanitizedWorkflowRunID, sanitizeWildcardValue(params.StepName))
-	}
 
 	mustConditions := []map[string]interface{}{
 		{
@@ -173,6 +170,18 @@ func (qb *QueryBuilder) BuildWorkflowRunLogsQuery(params WorkflowRunQueryParams)
 				labels.KubernetesPodName + ".keyword": podNamePattern,
 			},
 		},
+	}
+	if params.StepName != "" {
+		// NOTE: This stepName filter is specific to Argo Workflows. Workaround for legacy endpoints.
+		// TODO: Either remove stepName filter or generalize it to support other workflow engines.
+		const kubeAnnotationsPrefix = "kubernetes.annotations."
+		const argoNodeNameAnnotation = "workflows_argoproj_io/node-name"
+		stepNameFilter := map[string]interface{}{
+			"wildcard": map[string]interface{}{
+				kubeAnnotationsPrefix + argoNodeNameAnnotation + ".keyword": "*" + sanitizeWildcardValue(params.StepName) + "*",
+			},
+		}
+		mustConditions = append(mustConditions, stepNameFilter)
 	}
 	mustConditions = addTimeRangeFilter(mustConditions, params.QueryParams.StartTime, params.QueryParams.EndTime)
 
@@ -225,12 +234,8 @@ func (qb *QueryBuilder) BuildWorkflowRunLogsQuery(params WorkflowRunQueryParams)
 
 // BuildWorkflowRunPodLogsQuery builds a query for workflow run pod logs
 func (qb *QueryBuilder) BuildWorkflowRunPodLogsQuery(params WorkflowRunLogsQueryParams) map[string]interface{} {
-	// Construct pod name pattern for Argo Workflow: runName-stepName-* or runName-* if stepName is empty
-	suffix := ""
-	if params.StepName != "" {
-		suffix = "-" + params.StepName
-	}
-	podNamePattern := sanitizeWildcardValue(params.RunName) + sanitizeWildcardValue(suffix) + "-*"
+	sanitizedRunName := sanitizeWildcardValue(params.RunName)
+	podNamePattern := sanitizedRunName + "-*"
 
 	// Build query with wildcard search on pod name
 	mustConditions := []map[string]interface{}{
@@ -239,6 +244,18 @@ func (qb *QueryBuilder) BuildWorkflowRunPodLogsQuery(params WorkflowRunLogsQuery
 				labels.KubernetesPodName + ".keyword": podNamePattern,
 			},
 		},
+	}
+	if params.StepName != "" {
+		// NOTE: This stepName filter is specific to Argo Workflows. Workaround for legacy endpoints.
+		// TODO: Either remove stepName filter or generalize it to support other workflow engines.
+		const kubeAnnotationsPrefix = "kubernetes.annotations."
+		const argoNodeNameAnnotation = "workflows_argoproj_io/node-name"
+		stepNameFilter := map[string]interface{}{
+			"wildcard": map[string]interface{}{
+				kubeAnnotationsPrefix + argoNodeNameAnnotation + ".keyword": "*" + sanitizeWildcardValue(params.StepName) + "*",
+			},
+		}
+		mustConditions = append(mustConditions, stepNameFilter)
 	}
 
 	// Logs from init and wait containers are not relevant for Argo Workflows. Hence, excluded.

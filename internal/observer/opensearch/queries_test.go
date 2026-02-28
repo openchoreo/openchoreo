@@ -516,6 +516,27 @@ func verifyPodWildcardPattern(t *testing.T, mustConditions []map[string]interfac
 	}
 }
 
+// verifyStepNameWildcardPattern checks if the query contains the expected Argo step name wildcard pattern
+func verifyStepNameWildcardPattern(t *testing.T, mustConditions []map[string]interface{}, expectedPattern string) {
+	t.Helper()
+	const kubeAnnotationsPrefix = "kubernetes.annotations."
+	const argoNodeNameAnnotation = "workflows_argoproj_io/node-name"
+	field := kubeAnnotationsPrefix + argoNodeNameAnnotation + ".keyword"
+
+	foundWildcard := false
+	for _, condition := range mustConditions {
+		if wildcard, ok := condition["wildcard"].(map[string]interface{}); ok {
+			if value, exists := wildcard[field]; exists && value == expectedPattern {
+				foundWildcard = true
+				break
+			}
+		}
+	}
+	if !foundWildcard {
+		t.Errorf("Expected step name wildcard pattern %s not found", expectedPattern)
+	}
+}
+
 // verifyContainerExclusions checks if init and wait containers are excluded
 func verifyContainerExclusions(t *testing.T, mustNotConditions []map[string]interface{}) {
 	t.Helper()
@@ -628,8 +649,11 @@ func TestQueryBuilder_BuildWorkflowRunPodLogsQuery(t *testing.T) {
 		if !ok {
 			t.Fatal("Expected must conditions not found")
 		}
+		if len(mustConditions) != 2 {
+			t.Errorf("Expected 2 must conditions (pod wildcard and step annotation wildcard), got %d", len(mustConditions))
+		}
 
-		verifyPodWildcardPattern(t, mustConditions, "workflow-run-456-build-step-*")
+		verifyStepNameWildcardPattern(t, mustConditions, "*build-step*")
 		verifySortOrder(t, query)
 	})
 
