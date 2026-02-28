@@ -48,7 +48,7 @@ func (a *DefaultLogsAdaptor) GetComponentApplicationLogs(
 		"namespace", params.Namespace,
 		"startTime", params.StartTime,
 		"endTime", params.EndTime,
-		"searchPhrase", params.SearchPhrase,
+		"hasSearchPhrase", params.SearchPhrase != "",
 		"limit", params.Limit)
 
 	startTimeStr := params.StartTime.Format(time.RFC3339)

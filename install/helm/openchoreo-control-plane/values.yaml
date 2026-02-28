@@ -1182,7 +1182,7 @@ openchoreoApi:
                 value: openchoreo-rca-agent
               effect: allow
 
-            # Observer mapping - grants observer service account logs and resolver access
+            # Observer mapping - grants observer service account resource UID resolver access
             - name: observer-binding
               roleRef:
                 name: observer

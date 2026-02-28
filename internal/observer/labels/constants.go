@@ -36,7 +36,7 @@ const (
 	EnvironmentName = "openchoreo.dev/environment"
 
 	// ProjectName is the human-readable project name
-	ProjectName = "openchoreo.dev/project-name"
+	ProjectName = "openchoreo.dev/project"
 
 	// Version is the human-readable version string (e.g., "v1.2.3")
 	Version = "version"

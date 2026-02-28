@@ -79,6 +79,9 @@ type internalSearchScope struct {
 // If experimental.use.logs.backend is enabled, uses logs backend
 // Otherwise, falls back to the default adaptor
 func (s *LogsService) QueryLogs(ctx context.Context, req *types.LogsQueryRequest) (*types.LogsQueryResponse, error) {
+	if req == nil {
+		return nil, fmt.Errorf("request is required")
+	}
 	s.logger.Info("QueryLogs called",
 		"startTime", req.StartTime,
 		"endTime", req.EndTime,

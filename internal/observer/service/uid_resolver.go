@@ -39,6 +39,9 @@ type ResourceUIDResolver struct {
 
 // NewResourceUIDResolver creates a new ResourceUIDResolver instance
 func NewResourceUIDResolver(cfg *config.UIDResolverConfig, logger *slog.Logger) *ResourceUIDResolver {
+	if cfg == nil {
+		cfg = &config.UIDResolverConfig{}
+	}
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 30 * time.Second
 	}
