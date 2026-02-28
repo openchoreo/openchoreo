@@ -13,15 +13,15 @@ const (
 )
 
 const (
-	LabelNamespace       = "openchoreo.dev/namespace"
-	LabelProject         = "openchoreo.dev/project"
-	LabelComponent       = "openchoreo.dev/component"
-	LabelName            = "openchoreo.dev/name"
-	LabelType            = "openchoreo.dev/type"
-	LabelVersion         = "openchoreo.dev/version"
-	LabelArtifact        = "openchoreo.dev/deployment-artifact"
-	LabelDeployment      = "openchoreo.dev/deployment"
-	LabelEnvironment     = "openchoreo.dev/environment"
+	LabelNamespace   = "openchoreo.dev/namespace"
+	LabelProject     = "openchoreo.dev/project"
+	LabelComponent   = "openchoreo.dev/component"
+	LabelName        = "openchoreo.dev/name"
+	LabelType        = "openchoreo.dev/type"
+	LabelVersion     = "openchoreo.dev/version"
+	LabelArtifact    = "openchoreo.dev/deployment-artifact"
+	LabelDeployment  = "openchoreo.dev/deployment"
+	LabelEnvironment = "openchoreo.dev/environment"
 )
 const (
 	AnnotationDescription = "openchoreo.dev/description"

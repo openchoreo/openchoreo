@@ -47,23 +47,23 @@ const (
 
 // Common header values used across resource types
 const (
-	HeaderName            = "NAME"
-	HeaderStatus          = "STATUS"
-	HeaderAge             = "AGE"
-	HeaderType            = "TYPE"
-	HeaderProject         = "PROJECT"
-	HeaderNamespace       = "NAMESPACE"
-	HeaderComponent       = "COMPONENT"
-	HeaderEnvironment     = "ENVIRONMENT"
-	HeaderRevision        = "REVISION"
-	HeaderDuration        = "DURATION"
-	HeaderSource          = "SOURCE"
-	HeaderArtifact        = "ARTIFACT"
-	HeaderDataPlane       = "DATA PLANE"
-	HeaderProduction      = "PRODUCTION"
-	HeaderDNSPrefix       = "DNS PREFIX"
-	HeaderCluster         = "CLUSTER"
-	HeaderAddress         = "ADDRESS"
+	HeaderName        = "NAME"
+	HeaderStatus      = "STATUS"
+	HeaderAge         = "AGE"
+	HeaderType        = "TYPE"
+	HeaderProject     = "PROJECT"
+	HeaderNamespace   = "NAMESPACE"
+	HeaderComponent   = "COMPONENT"
+	HeaderEnvironment = "ENVIRONMENT"
+	HeaderRevision    = "REVISION"
+	HeaderDuration    = "DURATION"
+	HeaderSource      = "SOURCE"
+	HeaderArtifact    = "ARTIFACT"
+	HeaderDataPlane   = "DATA PLANE"
+	HeaderProduction  = "PRODUCTION"
+	HeaderDNSPrefix   = "DNS PREFIX"
+	HeaderCluster     = "CLUSTER"
+	HeaderAddress     = "ADDRESS"
 )
 
 // Resource-specific table headers defined as variables (not constants)
@@ -127,7 +127,6 @@ const (
 	ConditionTypeProgressing = "Progressing"
 	ConditionTypeAvailable   = "Available"
 )
-
 
 // Environment specific condition types
 const (
@@ -208,7 +207,6 @@ const (
 	DefaultPath       = "/"
 	DefaultContext    = "/"
 	DefaultDockerfile = "Dockerfile"
-
 )
 
 //

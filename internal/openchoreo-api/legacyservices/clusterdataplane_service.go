@@ -234,13 +234,13 @@ func (s *ClusterDataPlaneService) toClusterDataPlaneResponse(cdp *openchoreov1al
 	}
 
 	response := &models.ClusterDataPlaneResponse{
-		Name:                cdp.Name,
-		PlaneID:             cdp.Spec.PlaneID,
-		DisplayName:         displayName,
-		Description:         description,
-		SecretStoreRef:      secretStoreRef,
-		CreatedAt:           cdp.CreationTimestamp.Time,
-		Status:              status,
+		Name:           cdp.Name,
+		PlaneID:        cdp.Spec.PlaneID,
+		DisplayName:    displayName,
+		Description:    description,
+		SecretStoreRef: secretStoreRef,
+		CreatedAt:      cdp.CreationTimestamp.Time,
+		Status:         status,
 	}
 
 	if cdp.Spec.ObservabilityPlaneRef != nil {

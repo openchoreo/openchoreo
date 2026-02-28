@@ -169,17 +169,6 @@ spec:
                             Extract the environment variable value from another resource.
                             Mutually exclusive with value.
                           properties:
-                            configurationGroupRef:
-                              description: Reference to a configuration group.
-                              properties:
-                                key:
-                                  type: string
-                                name:
-                                  type: string
-                              required:
-                              - key
-                              - name
-                              type: object
                             secretRef:
                               description: Reference to a secret resource.
                               properties:
@@ -220,17 +209,6 @@ spec:
                             Extract the environment variable value from another resource.
                             Mutually exclusive with value.
                           properties:
-                            configurationGroupRef:
-                              description: Reference to a configuration group.
-                              properties:
-                                key:
-                                  type: string
-                                name:
-                                  type: string
-                              required:
-                              - key
-                              - name
-                              type: object
                             secretRef:
                               description: Reference to a secret resource.
                               properties:

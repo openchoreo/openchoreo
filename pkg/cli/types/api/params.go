@@ -94,8 +94,8 @@ type GetDeployableArtifactParams struct {
 	Component string
 
 	// Artifact-specific filters
-	Build           string
-	DockerImage     string
+	Build       string
+	DockerImage string
 
 	// Display options
 	OutputFormat string
