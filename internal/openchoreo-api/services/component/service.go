@@ -109,7 +109,7 @@ func (s *componentService) UpdateComponent(ctx context.Context, namespaceName st
 
 	// Prevent project reassignment: if the incoming component specifies a project,
 	// it must match the existing component's project
-	if component.Spec.Owner.ProjectName != "" && component.Spec.Owner.ProjectName != existing.Spec.Owner.ProjectName {
+	if component.Spec.Owner.ProjectName != existing.Spec.Owner.ProjectName {
 		return nil, &services.ValidationError{Msg: "spec.owner.projectName is immutable"}
 	}
 

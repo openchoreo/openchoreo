@@ -86,6 +86,11 @@ func (s *observabilityAlertsNotificationChannelService) UpdateObservabilityAlert
 		return nil, fmt.Errorf("failed to get observability alerts notification channel: %w", err)
 	}
 
+	// Reject attempts to change the immutable environment field
+	if nc.Spec.Environment != existing.Spec.Environment {
+		return nil, &services.ValidationError{Msg: "spec.environment is immutable"}
+	}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = nc.Spec
 	existing.Labels = nc.Labels
