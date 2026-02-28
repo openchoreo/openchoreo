@@ -37,8 +37,6 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateLogParams(cmdType, params)
 	case ResourceDeploymentPipeline:
 		return validateDeploymentPipelineParams(cmdType, params)
-	case ResourceConfigurationGroup:
-		return validateConfigurationGroupParams(cmdType, params)
 	case ResourceWorkload:
 		return validateWorkloadParams(cmdType, params)
 	case ResourceBuildPlane:
@@ -497,20 +495,6 @@ func validateDeleteDeploymentPipelineParams(params interface{}) error {
 		}
 		if !checkRequiredFields(fields) {
 			return generateHelpError(CmdDelete, ResourceDeploymentPipeline, fields)
-		}
-	}
-	return nil
-}
-
-func validateConfigurationGroupParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdGet {
-		if p, ok := params.(api.GetConfigurationGroupParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceConfigurationGroup, fields)
-			}
 		}
 	}
 	return nil

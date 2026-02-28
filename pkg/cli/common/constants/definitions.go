@@ -561,21 +561,6 @@ This command allows you to:
   %[1]s deploymentpipeline delete my-pipeline --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
-	ListConfigurationGroup = Command{
-		Use:     "configurationgroup [name]",
-		Aliases: []string{"cg", "configurationgroup"},
-		Short:   "List configuration groups",
-		Long:    `List all configuration groups or a specific configuration group in a namespace.`,
-		Example: `  # List all configuration groups
-  occ get configurationgroup --namespace acme-corp
-
-  # List a specific configuration group
-  occ get configurationgroup config-group-1 --namespace acme-corp
-
-  # Output configuration group details in YAML format
-  occ get configurationgroup --namespace acme-corp -o yaml`,
-	}
-
 	ListBuildPlane = Command{
 		Use:   "list",
 		Short: "List build planes",

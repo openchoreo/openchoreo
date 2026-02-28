@@ -54,12 +54,6 @@ func (w *Workload) GetContainer() map[string]interface{} {
 			}
 			if e.ValueFrom != nil {
 				valueFrom := make(map[string]interface{})
-				if e.ValueFrom.ConfigurationGroupRef != nil {
-					valueFrom["configurationGroupRef"] = map[string]interface{}{
-						"name": e.ValueFrom.ConfigurationGroupRef.Name,
-						"key":  e.ValueFrom.ConfigurationGroupRef.Key,
-					}
-				}
 				if e.ValueFrom.SecretRef != nil {
 					valueFrom["secretRef"] = map[string]interface{}{
 						"name": e.ValueFrom.SecretRef.Name,
@@ -86,12 +80,6 @@ func (w *Workload) GetContainer() map[string]interface{} {
 			}
 			if f.ValueFrom != nil {
 				valueFrom := make(map[string]interface{})
-				if f.ValueFrom.ConfigurationGroupRef != nil {
-					valueFrom["configurationGroupRef"] = map[string]interface{}{
-						"name": f.ValueFrom.ConfigurationGroupRef.Name,
-						"key":  f.ValueFrom.ConfigurationGroupRef.Key,
-					}
-				}
 				if f.ValueFrom.SecretRef != nil {
 					valueFrom["secretRef"] = map[string]interface{}{
 						"name": f.ValueFrom.SecretRef.Name,

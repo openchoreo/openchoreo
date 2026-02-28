@@ -268,12 +268,6 @@ type GetDeploymentPipelineParams struct {
 	OutputFormat string
 }
 
-type GetConfigurationGroupParams struct {
-	Name         string
-	Namespace    string
-	OutputFormat string
-}
-
 // CreateWorkloadParams defines parameters for creating a workload from a descriptor
 type CreateWorkloadParams struct {
 	FilePath      string

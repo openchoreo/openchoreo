@@ -112,9 +112,4 @@ var (
 		Version: V1Alpha1,
 		Kind:    "DeploymentPipeline",
 	}
-	ConfigurationGroupV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    "ConfigurationGroup",
-	}
 )

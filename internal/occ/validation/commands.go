@@ -44,7 +44,7 @@ const (
 	ResourceLogs                                   ResourceType = "logs"
 	ResourceApply                                  ResourceType = "apply"
 	ResourceDeploymentPipeline                     ResourceType = "deploymentpipeline"
-	ResourceConfigurationGroup                     ResourceType = "configurationgroup"
+
 	ResourceWorkload                               ResourceType = "workload"
 	ResourceComponentRelease                       ResourceType = "componentrelease"
 	ResourceReleaseBinding                         ResourceType = "releasebinding"
