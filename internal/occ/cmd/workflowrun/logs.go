@@ -84,7 +84,15 @@ func (w *WorkflowRun) followLiveLogs(ctx context.Context, apiClient *client.Clie
 	}
 	printLogEntries(entries)
 
-	// For subsequent polls, use a short sinceSeconds window
+	// Track the last-seen timestamp to avoid printing duplicates
+	var lastSeen time.Time
+	if len(entries) > 0 {
+		if ts := entries[len(entries)-1].Timestamp; ts != nil {
+			lastSeen = *ts
+		}
+	}
+
+	// Poll with a window large enough to not miss logs, deduplicate client-side
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
@@ -122,9 +130,33 @@ func (w *WorkflowRun) followLiveLogs(ctx context.Context, apiClient *client.Clie
 				fmt.Fprintf(os.Stderr, "Error fetching logs: %v\n", err)
 				continue
 			}
-			printLogEntries(entries)
+
+			// Filter out entries already printed
+			newEntries := filterNewEntries(entries, lastSeen)
+			printLogEntries(newEntries)
+
+			// Advance the cursor
+			if len(newEntries) > 0 {
+				if ts := newEntries[len(newEntries)-1].Timestamp; ts != nil {
+					lastSeen = *ts
+				}
+			}
 		}
 	}
+}
+
+// filterNewEntries returns only log entries whose timestamp is strictly after lastSeen.
+func filterNewEntries(entries []gen.WorkflowRunLogEntry, lastSeen time.Time) []gen.WorkflowRunLogEntry {
+	if lastSeen.IsZero() {
+		return entries
+	}
+	var filtered []gen.WorkflowRunLogEntry
+	for _, e := range entries {
+		if e.Timestamp != nil && e.Timestamp.After(lastSeen) {
+			filtered = append(filtered, e)
+		}
+	}
+	return filtered
 }
 
 // fetchArchivedLogs fetches logs from the observer (OpenSearch)
