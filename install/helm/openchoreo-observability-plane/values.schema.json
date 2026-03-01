@@ -1471,6 +1471,23 @@
           "title": "controlPlaneApiUrl",
           "type": "string"
         },
+        "cors": {
+          "additionalProperties": false,
+          "description": "CORS configuration for the Observer service",
+          "properties": {
+            "allowedOrigins": {
+              "description": "List of allowed origins for CORS requests. Empty list disables CORS.",
+              "items": {
+                "type": "string"
+              },
+              "title": "allowedOrigins",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "cors",
+          "type": "object"
+        },
         "experimental": {
           "additionalProperties": true,
           "default": true,
