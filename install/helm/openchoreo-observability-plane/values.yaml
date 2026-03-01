@@ -868,7 +868,6 @@ observer:
     #   type: string
     # @schema
     allowedOrigins:
-    - "http://localhost:3000"
     - "http://openchoreo.localhost:8080/"
 
   # @schema
@@ -2894,7 +2893,6 @@ rca:
     # @schema
     allowedOrigins:
     - "http://openchoreo.localhost:8080/"
-    - "http://localhost:3000"
 
   # @schema
   # type: object
