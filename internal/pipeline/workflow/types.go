@@ -64,6 +64,9 @@ type WorkflowContext struct {
 	// WorkflowRunName is the name of the workflow run CR.
 	WorkflowRunName string
 
+	// Labels contains the WorkflowRun labels, exposed to CEL as ${metadata.labels['key']}.
+	Labels map[string]string
+
 	// SecretRef contains resolved SecretReference data for template rendering.
 	// This is optional and populated only when workflow annotations map a secretRef parameter.
 	SecretRef *SecretRefInfo

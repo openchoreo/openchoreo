@@ -214,6 +214,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		Context: workflowpipeline.WorkflowContext{
 			NamespaceName:   workflowRun.Namespace,
 			WorkflowRunName: workflowRun.Name,
+			Labels:          workflowRun.Labels,
 			SecretRef:       secretRefInfo,
 		},
 	}

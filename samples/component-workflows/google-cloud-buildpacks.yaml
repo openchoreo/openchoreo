@@ -9,10 +9,9 @@ metadata:
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch
+      commit: parameters.repository.revision.commit
       appPath: parameters.repository.appPath
       secretRef: parameters.repository.secretRef
-      projectName: parameters.scope.projectName
-      componentName: parameters.scope.componentName
 spec:
   buildPlaneRef:
     kind: BuildPlane
@@ -22,7 +21,8 @@ spec:
   # ${metadata.workflowRunName}              - Generated name for this workflow run instance
   # ${metadata.namespaceName}                - Organization namespace where the component resides
   # ${metadata.namespace}                    - Full namespace path for resource deployment
-  # ${parameters.repository.*}              - Repository parameters (url, revision, appPath, secretRef)
+  # ${metadata.labels['key']}                - WorkflowRun labels (e.g., openchoreo.dev/project, openchoreo.dev/component)
+  # ${parameters.repository.*}               - Repository parameters (url, revision, appPath, secretRef)
   # ${parameters.*}                          - Custom developer parameters defined in schema (version, testMode, cache, etc.)
   # ${secretRef.*}                           - Secret reference details when parameters.repository.secretRef is provided
 
@@ -55,10 +55,6 @@ spec:
         memory: "string | default=256Mi"
 
     parameters:
-      # Scope parameters
-      scope:
-        projectName: string | description="Name of the project"
-        componentName: string | description="Name of the component"
       # Repository parameters - structured parameters for build automation
       repository:
         url: string | description="Git repository URL"
@@ -108,9 +104,9 @@ spec:
       arguments:
         parameters:
           - name: component-name
-            value: ${parameters.scope.componentName}
+            value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
-            value: ${parameters.scope.projectName}
+            value: ${metadata.labels['openchoreo.dev/project']}
           # Parameters from repository (developer-facing)
           - name: git-repo
             value: ${parameters.repository.url}
@@ -155,7 +151,7 @@ spec:
           - name: build-timeout
             value: "30m"
           - name: image-name
-            value: ${parameters.scope.projectName}-${parameters.scope.componentName}-image
+            value: ${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}-image
           - name: image-tag
             value: v${parameters.version}
           - name: git-secret

@@ -18,7 +18,7 @@ This directory contains reusable Workflow definitions that define how OpenChoreo
     - [Method 2: Manual WorkflowRun](#method-2-manual-workflowrun)
 5. [Deploying Workflows](#deploying-workflows)
 6. [Template Variables](#template-variables)
-7. [System Parameters vs Developer Parameters](#system-parameters-vs-developer-parameters)
+7. [Parameters and Labels](#parameters-and-labels)
 8. [Reusable Type Definitions](#reusable-type-definitions)
 9. [Working with Private Repositories](#working-with-private-repositories)
 10. [Using Secrets in Workflows](#using-secrets-in-workflows)
@@ -44,7 +44,7 @@ In OpenChoreo, a **Workflow** is a Custom Resource that:
 - **WorkflowRun CR**: Instance that triggers a build execution (created automatically or manually)
 - **System Parameters**: Required structured fields for repository information (url, branch, commit, appPath)
 - **Developer Parameters**: Flexible PE-defined schema for build configuration (resources, caching, testing, etc.)
-- **Template Variables**: Placeholders like `${metadata.componentName}`, `${systemParameters.repository.url}`, and `${parameters.version}`
+- **Template Variables**: Placeholders like `${metadata.labels['openchoreo.dev/component']}`, `${parameters.repository.url}`, and `${parameters.version}`
 - **Build Plane**: A Kubernetes cluster running Argo Workflows
 - **ClusterWorkflowTemplate**: Pre-defined Argo Workflow templates in the Build Plane that Workflows reference via `workflowTemplateRef`
 
@@ -65,9 +65,9 @@ spec:
       arguments:
         parameters:
           - name: git-repo
-            value: ${systemParameters.repository.url}
+            value: ${parameters.repository.url}
           - name: branch
-            value: ${systemParameters.repository.revision.branch}
+            value: ${parameters.repository.revision.branch}
 ```
 
 ## Available Workflows
@@ -78,11 +78,12 @@ Build applications using a Dockerfile.
 
 **Use Case**: Applications with custom Dockerfiles that define their own build process.
 
-**System Parameters** (required structure):
+**Repository Parameters** (required structure):
 ```yaml
-systemParameters:
+parameters:
   repository:
     url: string                    # Git repository URL
+    secretRef: string              # Secret reference for private repos
     revision:
       branch: string | default=main
       commit: string | default=""
@@ -109,13 +110,12 @@ spec:
     name: deployment/service
   workflow:
     name: docker
-    systemParameters:
+    parameters:
       repository:
         url: "https://github.com/myorg/myapp"
         revision:
           branch: "main"
         appPath: "/service"
-    parameters:
       docker:
         context: "/service"
         filePath: "/service/Dockerfile"
@@ -127,11 +127,12 @@ Build applications automatically using Google Cloud Buildpacks (no Dockerfile re
 
 **Use Case**: Applications where Buildpacks can automatically detect the language and build configuration (Go, Java, Node.js, Python, etc.).
 
-**System Parameters** (required structure):
+**Repository Parameters** (required structure):
 ```yaml
-systemParameters:
+parameters:
   repository:
     url: string | description="Git repository URL"
+    secretRef: string | description="Secret reference for private repos"
     revision:
       branch: string | default=main description="Git branch to checkout"
       commit: string | description="Specific commit SHA (optional)"
@@ -169,11 +170,12 @@ Specialized build workflow for React web applications.
 
 **Use Case**: React applications that need Node.js-based builds.
 
-**System Parameters** (required structure):
+**Repository Parameters** (required structure):
 ```yaml
-systemParameters:
+parameters:
   repository:
     url: string
+    secretRef: string
     revision:
       branch: string | default=main
       commit: string | default=""
@@ -208,16 +210,14 @@ spec:
   workflow:
     name: docker                    # Reference to Workflow
 
-    systemParameters:               # Required repository parameters
-      repository:
+    parameters:
+      repository:                   # Required repository parameters
         url: "https://github.com/myorg/myapp"
         revision:
           branch: "main"
           commit: ""                # Empty means latest
         appPath: "/"
-
-    parameters:                     # Developer-configurable parameters
-      docker:
+      docker:                       # Developer-configurable parameters
         context: "/"
         filePath: "/Dockerfile"
 ```
@@ -231,23 +231,20 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowRun
 metadata:
   name: my-app-build-01
+  labels:
+    openchoreo.dev/project: "my-project"
+    openchoreo.dev/component: "my-app"
 spec:
-  owner:
-    projectName: "my-project"
-    componentName: "my-app"
-
   workflow:
     name: docker
 
-    systemParameters:
+    parameters:
       repository:
         url: "https://github.com/myorg/myapp"
         revision:
           branch: "main"
           commit: "a1b2c3d4"        # Specific commit SHA
         appPath: "/"
-
-    parameters:
       docker:
         context: "/"
         filePath: "/Dockerfile"
@@ -282,11 +279,11 @@ Workflows support template variables for dynamic values in the `runTemplate`:
 | Variable | Description | Scope |
 |----------|-------------|-------|
 | `${metadata.workflowRunName}` | Name of the WorkflowRun CR | All workflows |
-| `${metadata.componentName}` | Component name | Component-level workflows only |
-| `${metadata.projectName}` | Project name | Component-level workflows only |
 | `${metadata.namespaceName}` | Namespace name | All workflows |
-| `${systemParameters.*}` | System parameter values (repository.url, etc.) | All workflows |
-| `${parameters.*}` | Developer-provided parameter values | All workflows |
+| `${metadata.namespace}` | CI namespace (e.g., `openchoreo-ci-default`) | All workflows |
+| `${metadata.labels['key']}` | WorkflowRun labels (any label set on the WorkflowRun) | All workflows |
+| `${parameters.*}` | Parameter values (repository, developer params) | All workflows |
+| `${secretRef.*}` | Resolved secret reference data | When secretRef is configured |
 
 **Example**:
 ```yaml
@@ -296,59 +293,75 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.namespaceName}
+      namespace: ${metadata.namespace}
     spec:
       arguments:
         parameters:
-          # Context variables
+          # Context from WorkflowRun labels
           - name: component-name
-            value: ${metadata.componentName}
+            value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
-            value: ${metadata.projectName}
-          # System parameters
+            value: ${metadata.labels['openchoreo.dev/project']}
+          # Repository parameters
           - name: git-repo
-            value: ${systemParameters.repository.url}
+            value: ${parameters.repository.url}
           - name: branch
-            value: ${systemParameters.repository.revision.branch}
+            value: ${parameters.repository.revision.branch}
           # Developer parameters
           - name: version
             value: ${parameters.version}
           # Hardcoded PE-controlled values
           - name: image-name
-            value: ${metadata.projectName}-${metadata.componentName}-image
+            value: ${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}-image
 ```
 
-## System Parameters vs Developer Parameters
+## Parameters and Labels
 
-### System Parameters (Required Structure)
+### WorkflowRun Labels
 
-All Workflows must define these structured fields for build automation:
+Context information like project and component names are passed via WorkflowRun labels rather than schema parameters. This makes them available to any workflow template through `${metadata.labels['key']}`:
 
 ```yaml
-systemParameters:
+apiVersion: openchoreo.dev/v1alpha1
+kind: WorkflowRun
+metadata:
+  name: my-build-01
+  labels:
+    openchoreo.dev/project: "my-project"
+    openchoreo.dev/component: "my-component"
+```
+
+When triggered via the API or webhooks, these labels are set automatically.
+
+### Repository Parameters (Required Structure)
+
+Workflows define repository parameters for build automation:
+
+```yaml
+parameters:
   repository:
     url: string                # Git repository URL
+    secretRef: string          # Secret reference for private repos
     revision:
       branch: string           # Git branch to build from
       commit: string           # Specific commit SHA (optional)
     appPath: string            # Path to application code in repository
 ```
 
-**Key Constraints:**
-- Field names and structure are fixed (url, revision.branch, revision.commit, appPath)
-- All fields must be type `string` for build automation compatibility
-- Platform Engineers can customize: defaults, enums, descriptions, validation rules
-- Platform Engineers cannot change: field names, nesting structure, or types
-
-**Why This Structure?**
-- Enables webhooks to map Git events to components
-- Powers UI actions like "build from latest commit"
-- Provides build traceability for compliance and debugging
-- Supports monorepo workflows
+The `component-workflow-parameters` annotation maps these fields for webhook and auto-build integration:
+```yaml
+annotations:
+  openchoreo.dev/component-workflow-parameters: |
+    repoUrl: parameters.repository.url
+    branch: parameters.repository.revision.branch
+    commit: parameters.repository.revision.commit
+    appPath: parameters.repository.appPath
+    secretRef: parameters.repository.secretRef
+```
 
 ### Developer Parameters (Complete Freedom)
 
-Platform Engineers define these custom parameters with full flexibility:
+Platform Engineers define custom parameters with full flexibility:
 
 ```yaml
 parameters:
@@ -451,15 +464,13 @@ spec:
         cpu: "string | default=100m"
         memory: "string | default=256Mi"
 
-    systemParameters:
+    parameters:
       repository:
         url: string
         revision:
           branch: string | default=main
           commit: string
         appPath: string | default=.
-
-    parameters:
       # Use custom types
       endpoints: '[]Endpoint | default=[] description="Service endpoints"'
       resources: "ResourceRequirements | default={}"
@@ -575,7 +586,7 @@ metadata:
 spec:
   workflow:
     name: google-cloud-buildpacks
-    systemParameters:
+    parameters:
       repository:
         url: "https://github.com/myorg/private-repo"  # Private repo URL
         secretRef: "github-token"  # Reference to the git secret
@@ -594,7 +605,7 @@ metadata:
 spec:
   workflow:
     name: google-cloud-buildpacks
-    systemParameters:
+    parameters:
       repository:
         url: "git@github.com:myorg/private-repo.git"  # SSH URL
         secretRef: "github-ssh-key"  # Reference to SSH key secret
@@ -640,7 +651,7 @@ metadata:
 spec:
   workflow:
     name: google-cloud-buildpacks
-    systemParameters:
+    parameters:
       repository:
         # HTTPS URL format
         url: "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/my-repo"
@@ -676,7 +687,7 @@ Use the `resources` section in Workflow to define ExternalSecret resources that 
 ```yaml
 resources:
   - id: git-secret
-    includeWhen: ${has(systemParameters.repository.secretRef)}
+    includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
     template:
       apiVersion: external-secrets.io/v1
       kind: ExternalSecret
@@ -747,7 +758,7 @@ Manually create Kubernetes secrets in the Build Plane's execution namespace and 
 ### Developers Configure:
 
 - ✅ Which Workflow to use for their Component
-- ✅ System parameters: repository URL, branch, commit, appPath
+- ✅ Repository parameters: URL, branch, commit, appPath
 - ✅ Developer parameters: build-specific settings
 - ✅ Version and build settings (within Platform Engineer constraints)
 
