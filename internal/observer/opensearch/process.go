@@ -67,6 +67,18 @@ func ParseSpanEntry(hit Hit) Span {
 		}
 	}
 
+	// Extract attributes
+	var attributes map[string]interface{}
+	if attrs, ok := source["attributes"].(map[string]interface{}); ok {
+		attributes = attrs
+	}
+
+	// Extract resource attributes
+	var resourceAttributes map[string]interface{}
+	if resource, ok := source["resource"].(map[string]interface{}); ok {
+		resourceAttributes = resource
+	}
+
 	entry := Span{
 		DurationNanoseconds:    durationNanoseconds,
 		EndTime:                endTime,
@@ -76,6 +88,8 @@ func ParseSpanEntry(hit Hit) Span {
 		ParentSpanID:           getString("parentSpanId"),
 		StartTime:              startTime,
 		SpanID:                 getString("spanId"),
+		Attributes:             attributes,
+		ResourceAttributes:     resourceAttributes,
 	}
 
 	return entry

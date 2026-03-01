@@ -93,6 +93,22 @@ func main() {
 		logger.Info("Using OpenSearch for component logs")
 	}
 
+	// Initialize traces backend (optional - based on experimental flag)
+	var tracesBackend observability.TracesBackend
+	if cfg.Experimental.UseTracesBackend {
+		logger.Info("Experimental feature active: Using traces backend",
+			"backend_url", cfg.Experimental.TracesBackendURL)
+
+		backendConfig := service.TracesBackendConfig{
+			BaseURL: cfg.Experimental.TracesBackendURL,
+			Timeout: cfg.Experimental.TracesBackendTimeout,
+		}
+		tracesBackend = service.NewTracesBackend(backendConfig)
+		logger.Info("Traces backend initialized")
+	} else {
+		logger.Info("Using OpenSearch for traces")
+	}
+
 	// Initialize legacy logging service (for legacy API endpoints)
 	legacyLoggingService := legacyservice.NewLoggingService(osClient, promService, k8sClient, cfg, logger, logsBackend)
 
@@ -132,6 +148,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize traces service
+	tracesService, tracesServiceErr := service.NewTracesService(
+		tracesBackend, uidResolver, cfg, logger.With("component", "traces-service"),
+	)
+	if tracesServiceErr != nil {
+		logger.Error("Failed to initialize traces service", "error", tracesServiceErr)
+		os.Exit(1)
+	}
+	logger.Info("Traces service initialized")
+
 	// Initialize health service
 	healthService, healthServiceErr := service.NewHealthService(logger.With("component", "health-service"))
 	if healthServiceErr != nil {
@@ -154,6 +180,7 @@ func main() {
 		logsService,
 		metricsService,
 		alertService,
+		tracesService,
 		logger.With("component", "api-handler"),
 		authzClient,
 	)
@@ -219,6 +246,11 @@ func main() {
 	// ===== New API Routes (v1) =====
 	api.HandleFunc("POST /api/v1/logs/query", newAPIHandler.QueryLogs)
 	api.HandleFunc("POST /api/v1/metrics/query", newAPIHandler.QueryMetrics)
+
+	// ===== New API Routes (v1alpha1) - Traces =====
+	api.HandleFunc("POST /api/v1alpha1/traces/query", newAPIHandler.QueryTraces)
+	api.HandleFunc("POST /api/v1alpha1/traces/{traceId}/spans/query", newAPIHandler.QuerySpansForTrace)
+	api.HandleFunc("GET /api/v1alpha1/traces/{traceId}/spans/{spanId}", newAPIHandler.GetSpanDetailsForTrace)
 
 	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
 	mcpMiddleware := initMCPMiddleware(logger)

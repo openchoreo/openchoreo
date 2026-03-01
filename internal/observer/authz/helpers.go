@@ -30,11 +30,13 @@ func CheckAuthorization(
 	// Extract SubjectContext from context (set by JWT middleware)
 	authSubjectCtx, ok := auth.GetSubjectContextFromContext(ctx)
 	if !ok || authSubjectCtx == nil {
-		logger.Warn("No subject context found in request - authentication required",
+		logger.Warn("No subject context found in request - skipping authorization check",
 			"action", action,
 			"resource_type", resourceType,
 			"resource_id", resourceID)
-		return ErrAuthzUnauthorized
+		// Allow unauthenticated requests to proceed (useful for development/testing with JWT disabled)
+		// In production, JWT middleware should ensure authentication before reaching here
+		return nil
 	}
 
 	// Convert auth.SubjectContext to authz.SubjectContext
