@@ -2255,9 +2255,6 @@ type ProjectList struct {
 
 // ProjectSpec Desired state of a Project
 type ProjectSpec struct {
-	// BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
-	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
-
 	// DeploymentPipelineRef Reference to the DeploymentPipeline that defines the environments
 	// and deployment progression for components in this project.
 	DeploymentPipelineRef *string `json:"deploymentPipelineRef,omitempty"`
@@ -3203,6 +3200,9 @@ type WorkflowSchema struct {
 
 // WorkflowSpec Desired state of a Workflow
 type WorkflowSpec struct {
+	// BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
+	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
+
 	// Resources Additional resource templates to render and apply alongside the workflow run.
 	Resources *[]WorkflowResource `json:"resources,omitempty"`
 
