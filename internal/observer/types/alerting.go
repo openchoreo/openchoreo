@@ -62,6 +62,7 @@ type AlertDetails struct {
 	AlertAIRootCauseAnalysisEnabled bool   `json:"alertAIRootCauseAnalysisEnabled"`
 
 	// Component information
+	Namespace     string `json:"namespace"`
 	Component     string `json:"component"`
 	Project       string `json:"project"`
 	Environment   string `json:"environment"`
