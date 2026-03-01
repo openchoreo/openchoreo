@@ -100,20 +100,20 @@ type ClientInterface interface {
 	QueryMetrics(ctx context.Context, body QueryMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateAlertRuleWithBody request with any body
-	CreateAlertRuleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateAlertRuleWithBody(ctx context.Context, sourceType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateAlertRule(ctx context.Context, body CreateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateAlertRule(ctx context.Context, sourceType string, body CreateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteAlertRule request
-	DeleteAlertRule(ctx context.Context, ruleName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteAlertRule(ctx context.Context, sourceType string, ruleName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAlertRule request
-	GetAlertRule(ctx context.Context, ruleName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetAlertRule(ctx context.Context, sourceType string, ruleName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateAlertRuleWithBody request with any body
-	UpdateAlertRuleWithBody(ctx context.Context, ruleName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateAlertRuleWithBody(ctx context.Context, sourceType string, ruleName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateAlertRule(ctx context.Context, ruleName string, body UpdateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateAlertRule(ctx context.Context, sourceType string, ruleName string, body UpdateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// HandleAlertWebhookWithBody request with any body
 	HandleAlertWebhookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -185,8 +185,8 @@ func (c *Client) QueryMetrics(ctx context.Context, body QueryMetricsJSONRequestB
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateAlertRuleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateAlertRuleRequestWithBody(c.Server, contentType, body)
+func (c *Client) CreateAlertRuleWithBody(ctx context.Context, sourceType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAlertRuleRequestWithBody(c.Server, sourceType, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -197,8 +197,8 @@ func (c *Client) CreateAlertRuleWithBody(ctx context.Context, contentType string
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateAlertRule(ctx context.Context, body CreateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateAlertRuleRequest(c.Server, body)
+func (c *Client) CreateAlertRule(ctx context.Context, sourceType string, body CreateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAlertRuleRequest(c.Server, sourceType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -209,8 +209,8 @@ func (c *Client) CreateAlertRule(ctx context.Context, body CreateAlertRuleJSONRe
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteAlertRule(ctx context.Context, ruleName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteAlertRuleRequest(c.Server, ruleName)
+func (c *Client) DeleteAlertRule(ctx context.Context, sourceType string, ruleName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteAlertRuleRequest(c.Server, sourceType, ruleName)
 	if err != nil {
 		return nil, err
 	}
@@ -221,8 +221,8 @@ func (c *Client) DeleteAlertRule(ctx context.Context, ruleName string, reqEditor
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetAlertRule(ctx context.Context, ruleName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetAlertRuleRequest(c.Server, ruleName)
+func (c *Client) GetAlertRule(ctx context.Context, sourceType string, ruleName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAlertRuleRequest(c.Server, sourceType, ruleName)
 	if err != nil {
 		return nil, err
 	}
@@ -233,8 +233,8 @@ func (c *Client) GetAlertRule(ctx context.Context, ruleName string, reqEditors .
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateAlertRuleWithBody(ctx context.Context, ruleName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateAlertRuleRequestWithBody(c.Server, ruleName, contentType, body)
+func (c *Client) UpdateAlertRuleWithBody(ctx context.Context, sourceType string, ruleName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAlertRuleRequestWithBody(c.Server, sourceType, ruleName, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -245,8 +245,8 @@ func (c *Client) UpdateAlertRuleWithBody(ctx context.Context, ruleName string, c
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateAlertRule(ctx context.Context, ruleName string, body UpdateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateAlertRuleRequest(c.Server, ruleName, body)
+func (c *Client) UpdateAlertRule(ctx context.Context, sourceType string, ruleName string, body UpdateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAlertRuleRequest(c.Server, sourceType, ruleName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -434,26 +434,33 @@ func NewQueryMetricsRequestWithBody(server string, contentType string, body io.R
 }
 
 // NewCreateAlertRuleRequest calls the generic CreateAlertRule builder with application/json body
-func NewCreateAlertRuleRequest(server string, body CreateAlertRuleJSONRequestBody) (*http.Request, error) {
+func NewCreateAlertRuleRequest(server string, sourceType string, body CreateAlertRuleJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateAlertRuleRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateAlertRuleRequestWithBody(server, sourceType, "application/json", bodyReader)
 }
 
 // NewCreateAlertRuleRequestWithBody generates requests for CreateAlertRule with any type of body
-func NewCreateAlertRuleRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateAlertRuleRequestWithBody(server string, sourceType string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sourceType", runtime.ParamLocationPath, sourceType)
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1alpha1/alerts/rules")
+	operationPath := fmt.Sprintf("/api/v1alpha1/alerts/sources/%s/rules", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -474,12 +481,19 @@ func NewCreateAlertRuleRequestWithBody(server string, contentType string, body i
 }
 
 // NewDeleteAlertRuleRequest generates requests for DeleteAlertRule
-func NewDeleteAlertRuleRequest(server string, ruleName string) (*http.Request, error) {
+func NewDeleteAlertRuleRequest(server string, sourceType string, ruleName string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "ruleName", runtime.ParamLocationPath, ruleName)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sourceType", runtime.ParamLocationPath, sourceType)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "ruleName", runtime.ParamLocationPath, ruleName)
 	if err != nil {
 		return nil, err
 	}
@@ -489,7 +503,7 @@ func NewDeleteAlertRuleRequest(server string, ruleName string) (*http.Request, e
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1alpha1/alerts/rules/%s", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1alpha1/alerts/sources/%s/rules/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -508,12 +522,19 @@ func NewDeleteAlertRuleRequest(server string, ruleName string) (*http.Request, e
 }
 
 // NewGetAlertRuleRequest generates requests for GetAlertRule
-func NewGetAlertRuleRequest(server string, ruleName string) (*http.Request, error) {
+func NewGetAlertRuleRequest(server string, sourceType string, ruleName string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "ruleName", runtime.ParamLocationPath, ruleName)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sourceType", runtime.ParamLocationPath, sourceType)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "ruleName", runtime.ParamLocationPath, ruleName)
 	if err != nil {
 		return nil, err
 	}
@@ -523,7 +544,7 @@ func NewGetAlertRuleRequest(server string, ruleName string) (*http.Request, erro
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1alpha1/alerts/rules/%s", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1alpha1/alerts/sources/%s/rules/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -542,23 +563,30 @@ func NewGetAlertRuleRequest(server string, ruleName string) (*http.Request, erro
 }
 
 // NewUpdateAlertRuleRequest calls the generic UpdateAlertRule builder with application/json body
-func NewUpdateAlertRuleRequest(server string, ruleName string, body UpdateAlertRuleJSONRequestBody) (*http.Request, error) {
+func NewUpdateAlertRuleRequest(server string, sourceType string, ruleName string, body UpdateAlertRuleJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateAlertRuleRequestWithBody(server, ruleName, "application/json", bodyReader)
+	return NewUpdateAlertRuleRequestWithBody(server, sourceType, ruleName, "application/json", bodyReader)
 }
 
 // NewUpdateAlertRuleRequestWithBody generates requests for UpdateAlertRule with any type of body
-func NewUpdateAlertRuleRequestWithBody(server string, ruleName string, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpdateAlertRuleRequestWithBody(server string, sourceType string, ruleName string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "ruleName", runtime.ParamLocationPath, ruleName)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sourceType", runtime.ParamLocationPath, sourceType)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "ruleName", runtime.ParamLocationPath, ruleName)
 	if err != nil {
 		return nil, err
 	}
@@ -568,7 +596,7 @@ func NewUpdateAlertRuleRequestWithBody(server string, ruleName string, contentTy
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1alpha1/alerts/rules/%s", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1alpha1/alerts/sources/%s/rules/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -837,20 +865,20 @@ type ClientWithResponsesInterface interface {
 	QueryMetricsWithResponse(ctx context.Context, body QueryMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryMetricsResp, error)
 
 	// CreateAlertRuleWithBodyWithResponse request with any body
-	CreateAlertRuleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAlertRuleResp, error)
+	CreateAlertRuleWithBodyWithResponse(ctx context.Context, sourceType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAlertRuleResp, error)
 
-	CreateAlertRuleWithResponse(ctx context.Context, body CreateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAlertRuleResp, error)
+	CreateAlertRuleWithResponse(ctx context.Context, sourceType string, body CreateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAlertRuleResp, error)
 
 	// DeleteAlertRuleWithResponse request
-	DeleteAlertRuleWithResponse(ctx context.Context, ruleName string, reqEditors ...RequestEditorFn) (*DeleteAlertRuleResp, error)
+	DeleteAlertRuleWithResponse(ctx context.Context, sourceType string, ruleName string, reqEditors ...RequestEditorFn) (*DeleteAlertRuleResp, error)
 
 	// GetAlertRuleWithResponse request
-	GetAlertRuleWithResponse(ctx context.Context, ruleName string, reqEditors ...RequestEditorFn) (*GetAlertRuleResp, error)
+	GetAlertRuleWithResponse(ctx context.Context, sourceType string, ruleName string, reqEditors ...RequestEditorFn) (*GetAlertRuleResp, error)
 
 	// UpdateAlertRuleWithBodyWithResponse request with any body
-	UpdateAlertRuleWithBodyWithResponse(ctx context.Context, ruleName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAlertRuleResp, error)
+	UpdateAlertRuleWithBodyWithResponse(ctx context.Context, sourceType string, ruleName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAlertRuleResp, error)
 
-	UpdateAlertRuleWithResponse(ctx context.Context, ruleName string, body UpdateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAlertRuleResp, error)
+	UpdateAlertRuleWithResponse(ctx context.Context, sourceType string, ruleName string, body UpdateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAlertRuleResp, error)
 
 	// HandleAlertWebhookWithBodyWithResponse request with any body
 	HandleAlertWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleAlertWebhookResp, error)
@@ -929,8 +957,9 @@ func (r QueryMetricsResp) StatusCode() int {
 type CreateAlertRuleResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AlertingRuleSyncResponse
+	JSON201      *AlertingRuleSyncResponse
 	JSON400      *ErrorResponse
+	JSON409      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -955,6 +984,7 @@ type DeleteAlertRuleResp struct {
 	HTTPResponse *http.Response
 	JSON200      *AlertingRuleSyncResponse
 	JSON400      *ErrorResponse
+	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -1188,16 +1218,16 @@ func (c *ClientWithResponses) QueryMetricsWithResponse(ctx context.Context, body
 }
 
 // CreateAlertRuleWithBodyWithResponse request with arbitrary body returning *CreateAlertRuleResp
-func (c *ClientWithResponses) CreateAlertRuleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAlertRuleResp, error) {
-	rsp, err := c.CreateAlertRuleWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateAlertRuleWithBodyWithResponse(ctx context.Context, sourceType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAlertRuleResp, error) {
+	rsp, err := c.CreateAlertRuleWithBody(ctx, sourceType, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateAlertRuleResp(rsp)
 }
 
-func (c *ClientWithResponses) CreateAlertRuleWithResponse(ctx context.Context, body CreateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAlertRuleResp, error) {
-	rsp, err := c.CreateAlertRule(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateAlertRuleWithResponse(ctx context.Context, sourceType string, body CreateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAlertRuleResp, error) {
+	rsp, err := c.CreateAlertRule(ctx, sourceType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1205,8 +1235,8 @@ func (c *ClientWithResponses) CreateAlertRuleWithResponse(ctx context.Context, b
 }
 
 // DeleteAlertRuleWithResponse request returning *DeleteAlertRuleResp
-func (c *ClientWithResponses) DeleteAlertRuleWithResponse(ctx context.Context, ruleName string, reqEditors ...RequestEditorFn) (*DeleteAlertRuleResp, error) {
-	rsp, err := c.DeleteAlertRule(ctx, ruleName, reqEditors...)
+func (c *ClientWithResponses) DeleteAlertRuleWithResponse(ctx context.Context, sourceType string, ruleName string, reqEditors ...RequestEditorFn) (*DeleteAlertRuleResp, error) {
+	rsp, err := c.DeleteAlertRule(ctx, sourceType, ruleName, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1214,8 +1244,8 @@ func (c *ClientWithResponses) DeleteAlertRuleWithResponse(ctx context.Context, r
 }
 
 // GetAlertRuleWithResponse request returning *GetAlertRuleResp
-func (c *ClientWithResponses) GetAlertRuleWithResponse(ctx context.Context, ruleName string, reqEditors ...RequestEditorFn) (*GetAlertRuleResp, error) {
-	rsp, err := c.GetAlertRule(ctx, ruleName, reqEditors...)
+func (c *ClientWithResponses) GetAlertRuleWithResponse(ctx context.Context, sourceType string, ruleName string, reqEditors ...RequestEditorFn) (*GetAlertRuleResp, error) {
+	rsp, err := c.GetAlertRule(ctx, sourceType, ruleName, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1223,16 +1253,16 @@ func (c *ClientWithResponses) GetAlertRuleWithResponse(ctx context.Context, rule
 }
 
 // UpdateAlertRuleWithBodyWithResponse request with arbitrary body returning *UpdateAlertRuleResp
-func (c *ClientWithResponses) UpdateAlertRuleWithBodyWithResponse(ctx context.Context, ruleName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAlertRuleResp, error) {
-	rsp, err := c.UpdateAlertRuleWithBody(ctx, ruleName, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpdateAlertRuleWithBodyWithResponse(ctx context.Context, sourceType string, ruleName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAlertRuleResp, error) {
+	rsp, err := c.UpdateAlertRuleWithBody(ctx, sourceType, ruleName, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpdateAlertRuleResp(rsp)
 }
 
-func (c *ClientWithResponses) UpdateAlertRuleWithResponse(ctx context.Context, ruleName string, body UpdateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAlertRuleResp, error) {
-	rsp, err := c.UpdateAlertRule(ctx, ruleName, body, reqEditors...)
+func (c *ClientWithResponses) UpdateAlertRuleWithResponse(ctx context.Context, sourceType string, ruleName string, body UpdateAlertRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAlertRuleResp, error) {
+	rsp, err := c.UpdateAlertRule(ctx, sourceType, ruleName, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1430,12 +1460,12 @@ func ParseCreateAlertRuleResp(rsp *http.Response) (*CreateAlertRuleResp, error) 
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest AlertingRuleSyncResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON200 = &dest
+		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest ErrorResponse
@@ -1443,6 +1473,13 @@ func ParseCreateAlertRuleResp(rsp *http.Response) (*CreateAlertRuleResp, error) 
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
@@ -1483,6 +1520,13 @@ func ParseDeleteAlertRuleResp(rsp *http.Response) (*DeleteAlertRuleResp, error) 
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

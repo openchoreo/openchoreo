@@ -318,7 +318,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/v1alpha1/alerts/rules:
+  /api/v1alpha1/alerts/sources/{sourceType}/rules:
+    parameters:
+      - name: sourceType
+        in: path
+        required: true
+        description: The source type of the alert rule (log or metric)
+        schema:
+          type: string
+          enum:
+            - log
+            - metric
     post:
       tags:
         - Alerts
@@ -332,7 +342,7 @@ paths:
             schema:
               $ref: "#/components/schemas/AlertRuleRequest"
       responses:
-        "200":
+        "201":
           description: Alert rule created successfully
           content:
             application/json:
@@ -344,6 +354,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Alert rule already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Internal Server Error
           content:
@@ -351,8 +367,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /api/v1alpha1/alerts/rules/{ruleName}:
+  /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}:
     parameters:
+      - name: sourceType
+        in: path
+        required: true
+        description: The source type of the alert rule (log or metric)
+        schema:
+          type: string
+          enum:
+            - log
+            - metric
       - name: ruleName
         in: path
         required: true
@@ -434,6 +459,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AlertingRuleSyncResponse"
+        "404":
+          description: Alert rule not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "400":
           description: Invalid request
           content:
@@ -968,6 +999,7 @@ components:
           enum:
             - created
             - updated
+            - unchanged
             - deleted
         lastSyncedAt:
           type: string
@@ -1029,6 +1061,7 @@ components:
             - unauthorized
             - forbidden
             - notFound
+            - conflict
             - internalServerError
         errorCode:
           type: string
