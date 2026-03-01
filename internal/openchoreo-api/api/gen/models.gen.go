@@ -3222,6 +3222,9 @@ type WorkflowSchema struct {
 
 // WorkflowSpec Desired state of a Workflow
 type WorkflowSpec struct {
+	// BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
+	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
+
 	// Resources Additional resource templates to render and apply alongside the workflow run.
 	Resources *[]WorkflowResource `json:"resources,omitempty"`
 

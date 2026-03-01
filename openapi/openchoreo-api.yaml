@@ -7126,6 +7126,8 @@ components:
       required:
         - runTemplate
       properties:
+        buildPlaneRef:
+          $ref: '#/components/schemas/BuildPlaneRef'
         schema:
           $ref: '#/components/schemas/WorkflowSchema'
         runTemplate:
