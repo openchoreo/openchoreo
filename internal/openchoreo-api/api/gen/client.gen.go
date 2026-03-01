@@ -652,9 +652,9 @@ type ClientInterface interface {
 	ListUserTypes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// HandleAutoBuildWithBody request with any body
-	HandleAutoBuildWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	HandleAutoBuildWithBody(ctx context.Context, params *HandleAutoBuildParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	HandleAutoBuild(ctx context.Context, body HandleAutoBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	HandleAutoBuild(ctx context.Context, params *HandleAutoBuildParams, body HandleAutoBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListGitSecrets request
 	ListGitSecrets(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3140,8 +3140,8 @@ func (c *Client) ListUserTypes(ctx context.Context, reqEditors ...RequestEditorF
 	return c.Client.Do(req)
 }
 
-func (c *Client) HandleAutoBuildWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHandleAutoBuildRequestWithBody(c.Server, contentType, body)
+func (c *Client) HandleAutoBuildWithBody(ctx context.Context, params *HandleAutoBuildParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHandleAutoBuildRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3152,8 +3152,8 @@ func (c *Client) HandleAutoBuildWithBody(ctx context.Context, contentType string
 	return c.Client.Do(req)
 }
 
-func (c *Client) HandleAutoBuild(ctx context.Context, body HandleAutoBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHandleAutoBuildRequest(c.Server, body)
+func (c *Client) HandleAutoBuild(ctx context.Context, params *HandleAutoBuildParams, body HandleAutoBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHandleAutoBuildRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -10964,18 +10964,18 @@ func NewListUserTypesRequest(server string) (*http.Request, error) {
 }
 
 // NewHandleAutoBuildRequest calls the generic HandleAutoBuild builder with application/json body
-func NewHandleAutoBuildRequest(server string, body HandleAutoBuildJSONRequestBody) (*http.Request, error) {
+func NewHandleAutoBuildRequest(server string, params *HandleAutoBuildParams, body HandleAutoBuildJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewHandleAutoBuildRequestWithBody(server, "application/json", bodyReader)
+	return NewHandleAutoBuildRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewHandleAutoBuildRequestWithBody generates requests for HandleAutoBuild with any type of body
-func NewHandleAutoBuildRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewHandleAutoBuildRequestWithBody(server string, params *HandleAutoBuildParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -10999,6 +10999,43 @@ func NewHandleAutoBuildRequestWithBody(server string, contentType string, body i
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XHubSignature256 != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Hub-Signature-256", runtime.ParamLocationHeader, *params.XHubSignature256)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Hub-Signature-256", headerParam0)
+		}
+
+		if params.XGitlabToken != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithLocation("simple", false, "X-Gitlab-Token", runtime.ParamLocationHeader, *params.XGitlabToken)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Gitlab-Token", headerParam1)
+		}
+
+		if params.XEventKey != nil {
+			var headerParam2 string
+
+			headerParam2, err = runtime.StyleParamWithLocation("simple", false, "X-Event-Key", runtime.ParamLocationHeader, *params.XEventKey)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Event-Key", headerParam2)
+		}
+
+	}
 
 	return req, nil
 }
@@ -11839,9 +11876,9 @@ type ClientWithResponsesInterface interface {
 	ListUserTypesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListUserTypesResp, error)
 
 	// HandleAutoBuildWithBodyWithResponse request with any body
-	HandleAutoBuildWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleAutoBuildResp, error)
+	HandleAutoBuildWithBodyWithResponse(ctx context.Context, params *HandleAutoBuildParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleAutoBuildResp, error)
 
-	HandleAutoBuildWithResponse(ctx context.Context, body HandleAutoBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleAutoBuildResp, error)
+	HandleAutoBuildWithResponse(ctx context.Context, params *HandleAutoBuildParams, body HandleAutoBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleAutoBuildResp, error)
 
 	// ListGitSecretsWithResponse request
 	ListGitSecretsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListGitSecretsResp, error)
@@ -17828,16 +17865,16 @@ func (c *ClientWithResponses) ListUserTypesWithResponse(ctx context.Context, req
 }
 
 // HandleAutoBuildWithBodyWithResponse request with arbitrary body returning *HandleAutoBuildResp
-func (c *ClientWithResponses) HandleAutoBuildWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleAutoBuildResp, error) {
-	rsp, err := c.HandleAutoBuildWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) HandleAutoBuildWithBodyWithResponse(ctx context.Context, params *HandleAutoBuildParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleAutoBuildResp, error) {
+	rsp, err := c.HandleAutoBuildWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseHandleAutoBuildResp(rsp)
 }
 
-func (c *ClientWithResponses) HandleAutoBuildWithResponse(ctx context.Context, body HandleAutoBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleAutoBuildResp, error) {
-	rsp, err := c.HandleAutoBuild(ctx, body, reqEditors...)
+func (c *ClientWithResponses) HandleAutoBuildWithResponse(ctx context.Context, params *HandleAutoBuildParams, body HandleAutoBuildJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleAutoBuildResp, error) {
+	rsp, err := c.HandleAutoBuild(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

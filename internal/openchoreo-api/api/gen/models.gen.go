@@ -3884,6 +3884,18 @@ type ListWorkloadsParams struct {
 // HandleAutoBuildJSONBody defines parameters for HandleAutoBuild.
 type HandleAutoBuildJSONBody map[string]interface{}
 
+// HandleAutoBuildParams defines parameters for HandleAutoBuild.
+type HandleAutoBuildParams struct {
+	// XHubSignature256 GitHub webhook signature header used to detect and validate GitHub events.
+	XHubSignature256 *string `json:"X-Hub-Signature-256,omitempty"`
+
+	// XGitlabToken GitLab webhook token header used to detect and validate GitLab events.
+	XGitlabToken *string `json:"X-Gitlab-Token,omitempty"`
+
+	// XEventKey Bitbucket webhook event-key header used to detect Bitbucket events.
+	XEventKey *string `json:"X-Event-Key,omitempty"`
+}
+
 // EvaluatesJSONRequestBody defines body for Evaluates for application/json ContentType.
 type EvaluatesJSONRequestBody = EvaluatesJSONBody
 

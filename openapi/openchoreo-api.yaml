@@ -3588,6 +3588,25 @@ paths:
         - Bitbucket: `X-Event-Key`
       tags: [AutoBuild]
       security: []
+      parameters:
+        - in: header
+          name: X-Hub-Signature-256
+          required: false
+          schema:
+            type: string
+          description: GitHub webhook signature header used to detect and validate GitHub events.
+        - in: header
+          name: X-Gitlab-Token
+          required: false
+          schema:
+            type: string
+          description: GitLab webhook token header used to detect and validate GitLab events.
+        - in: header
+          name: X-Event-Key
+          required: false
+          schema:
+            type: string
+          description: Bitbucket webhook event-key header used to detect Bitbucket events.
       requestBody:
         required: true
         content:

@@ -75,8 +75,10 @@ func (h *Handler) handleWebhook(w http.ResponseWriter, r *http.Request, provider
 		return
 	}
 
-	// Get webhook secret from Kubernetes Secret
-	webhookSecret, err := h.getWebhookSecret(r.Context(), secretKey)
+	// Get webhook secret from Kubernetes Secret.
+	// For providers that omit signature validation (signatureHeader == ""),
+	// an empty or absent stored secret is permitted.
+	webhookSecret, err := h.getWebhookSecret(r.Context(), secretKey, signatureHeader == "")
 	if err != nil {
 		h.logger.Error("Failed to get webhook secret", "error", err, "provider", providerType)
 		respondJSON(w, http.StatusInternalServerError, models.ErrorResponse("Webhook secret not configured", "SECRET_NOT_CONFIGURED"))
@@ -115,8 +117,10 @@ func (h *Handler) handleWebhook(w http.ResponseWriter, r *http.Request, provider
 	}))
 }
 
-// getWebhookSecret retrieves the webhook secret from Kubernetes Secret
-func (h *Handler) getWebhookSecret(ctx context.Context, secretKey string) (string, error) {
+// getWebhookSecret retrieves the webhook secret from Kubernetes Secret.
+// When allowEmpty is true (used for providers like Bitbucket that rely on
+// open/absent secrets for the MVP), a missing or empty key is not an error.
+func (h *Handler) getWebhookSecret(ctx context.Context, secretKey string, allowEmpty bool) (string, error) {
 	// Get the Secret
 	secret := &corev1.Secret{}
 	if err := h.services.GetKubernetesClient().Get(ctx, client.ObjectKey{
@@ -130,11 +134,17 @@ func (h *Handler) getWebhookSecret(ctx context.Context, secretKey string) (strin
 	// Extract the secret value
 	secretData, ok := secret.Data[secretKey]
 	if !ok {
+		if allowEmpty {
+			return "", nil
+		}
 		return "", fmt.Errorf("secret %s/%s does not contain '%s' key",
 			WebhookSecretNamespace, WebhookSecretName, secretKey)
 	}
 
 	if len(secretData) == 0 {
+		if allowEmpty {
+			return "", nil
+		}
 		return "", fmt.Errorf("secret %s/%s has empty '%s' value",
 			WebhookSecretNamespace, WebhookSecretName, secretKey)
 	}
