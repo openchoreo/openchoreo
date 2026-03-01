@@ -262,7 +262,10 @@ func newComponentWorkflowCmd() *cobra.Command {
 		Long:    `Manage component workflows for OpenChoreo.`,
 	}
 
-	cmd.AddCommand(newStartComponentWorkflowCmd())
+	cmd.AddCommand(
+		newStartComponentWorkflowCmd(),
+		newLogsComponentWorkflowCmd(),
+	)
 
 	return cmd
 }
@@ -290,6 +293,15 @@ func newStartComponentWorkflowCmd() *cobra.Command {
 
 	flags.AddFlags(cmd, flags.Namespace, flags.Project, flags.Set)
 
+	return cmd
+}
+
+func newLogsComponentWorkflowCmd() *cobra.Command {
+	cmd := newLogsComponentWorkflowRunCmd()
+	cmd.Use = constants.LogsComponentWorkflow.Use
+	cmd.Short = constants.LogsComponentWorkflow.Short
+	cmd.Long = constants.LogsComponentWorkflow.Long
+	cmd.Example = constants.LogsComponentWorkflow.Example
 	return cmd
 }
 
