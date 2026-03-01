@@ -3881,14 +3881,8 @@ type ListWorkloadsParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// HandleBitbucketWebhookJSONBody defines parameters for HandleBitbucketWebhook.
-type HandleBitbucketWebhookJSONBody map[string]interface{}
-
-// HandleGitHubWebhookJSONBody defines parameters for HandleGitHubWebhook.
-type HandleGitHubWebhookJSONBody map[string]interface{}
-
-// HandleGitLabWebhookJSONBody defines parameters for HandleGitLabWebhook.
-type HandleGitLabWebhookJSONBody map[string]interface{}
+// HandleAutoBuildJSONBody defines parameters for HandleAutoBuild.
+type HandleAutoBuildJSONBody map[string]interface{}
 
 // EvaluatesJSONRequestBody defines body for Evaluates for application/json ContentType.
 type EvaluatesJSONRequestBody = EvaluatesJSONBody
@@ -4049,14 +4043,8 @@ type CreateWorkloadJSONRequestBody = Workload
 // UpdateWorkloadJSONRequestBody defines body for UpdateWorkload for application/json ContentType.
 type UpdateWorkloadJSONRequestBody = Workload
 
-// HandleBitbucketWebhookJSONRequestBody defines body for HandleBitbucketWebhook for application/json ContentType.
-type HandleBitbucketWebhookJSONRequestBody HandleBitbucketWebhookJSONBody
-
-// HandleGitHubWebhookJSONRequestBody defines body for HandleGitHubWebhook for application/json ContentType.
-type HandleGitHubWebhookJSONRequestBody HandleGitHubWebhookJSONBody
-
-// HandleGitLabWebhookJSONRequestBody defines body for HandleGitLabWebhook for application/json ContentType.
-type HandleGitLabWebhookJSONRequestBody HandleGitLabWebhookJSONBody
+// HandleAutoBuildJSONRequestBody defines body for HandleAutoBuild for application/json ContentType.
+type HandleAutoBuildJSONRequestBody HandleAutoBuildJSONBody
 
 // CreateGitSecretJSONRequestBody defines body for CreateGitSecret for application/json ContentType.
 type CreateGitSecretJSONRequestBody = CreateGitSecretRequest
