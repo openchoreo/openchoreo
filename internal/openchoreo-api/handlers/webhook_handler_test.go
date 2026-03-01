@@ -19,35 +19,35 @@ import (
 // secret key, and boolean success flag match expectations.
 func TestDetectGitProvider(t *testing.T) {
 	tests := []struct {
-		name            string
-		headers         map[string]string
-		wantProvider    git.ProviderType
-		wantSigHeader   string
-		wantSecretKey   string
-		wantOK          bool
+		name          string
+		headers       map[string]string
+		wantProvider  git.ProviderType
+		wantSigHeader string
+		wantSecretKey string
+		wantOK        bool
 	}{
 		{
 			name:          "GitHub detected via X-Hub-Signature-256",
-			headers:       map[string]string{"X-Hub-Signature-256": "sha256=abc123"},
+			headers:       map[string]string{headerGitHubSignature: "sha256=abc123"},
 			wantProvider:  git.ProviderGitHub,
-			wantSigHeader: "X-Hub-Signature-256",
-			wantSecretKey: "github-secret",
+			wantSigHeader: headerGitHubSignature,
+			wantSecretKey: secretKeyGitHub,
 			wantOK:        true,
 		},
 		{
 			name:          "GitLab detected via X-Gitlab-Token",
-			headers:       map[string]string{"X-Gitlab-Token": "some-token"},
+			headers:       map[string]string{headerGitLabToken: "some-token"},
 			wantProvider:  git.ProviderGitLab,
-			wantSigHeader: "X-Gitlab-Token",
-			wantSecretKey: "gitlab-secret",
+			wantSigHeader: headerGitLabToken,
+			wantSecretKey: secretKeyGitLab,
 			wantOK:        true,
 		},
 		{
 			name:          "Bitbucket detected via X-Event-Key",
-			headers:       map[string]string{"X-Event-Key": "repo:push"},
+			headers:       map[string]string{headerBitbucketEventKey: "repo:push"},
 			wantProvider:  git.ProviderBitbucket,
 			wantSigHeader: "",
-			wantSecretKey: "bitbucket-secret",
+			wantSecretKey: secretKeyBitbucket,
 			wantOK:        true,
 		},
 		{
@@ -55,12 +55,12 @@ func TestDetectGitProvider(t *testing.T) {
 			// top-to-bottom so GitHub must win.
 			name: "ambiguous headers — GitHub header takes precedence over GitLab",
 			headers: map[string]string{
-				"X-Hub-Signature-256": "sha256=abc123",
-				"X-Gitlab-Token":      "some-token",
+				headerGitHubSignature: "sha256=abc123",
+				headerGitLabToken:     "some-token",
 			},
 			wantProvider:  git.ProviderGitHub,
-			wantSigHeader: "X-Hub-Signature-256",
-			wantSecretKey: "github-secret",
+			wantSigHeader: headerGitHubSignature,
+			wantSecretKey: secretKeyGitHub,
 			wantOK:        true,
 		},
 		{
@@ -74,7 +74,7 @@ func TestDetectGitProvider(t *testing.T) {
 		{
 			// Header present but with an empty value must not trigger detection.
 			name:          "empty header value — detection fails",
-			headers:       map[string]string{"X-Hub-Signature-256": ""},
+			headers:       map[string]string{headerGitHubSignature: ""},
 			wantProvider:  "",
 			wantSigHeader: "",
 			wantSecretKey: "",
@@ -108,7 +108,7 @@ func TestDetectGitProvider(t *testing.T) {
 }
 
 // TestHandleAutoBuild_UnknownProvider exercises the early-exit path in
-// HandleAutoBuild when no recognised provider header is present.  It must
+// HandleAutoBuild when no recognized provider header is present.  It must
 // respond with HTTP 400 and a body whose "code" field equals
 // "UNKNOWN_GIT_PROVIDER" — no Kubernetes or service calls are made.
 func TestHandleAutoBuild_UnknownProvider(t *testing.T) {

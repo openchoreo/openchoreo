@@ -177,12 +177,13 @@ const (
 
 // Defines values for ErrorResponseCode.
 const (
-	BADREQUEST    ErrorResponseCode = "BAD_REQUEST"
-	CONFLICT      ErrorResponseCode = "CONFLICT"
-	FORBIDDEN     ErrorResponseCode = "FORBIDDEN"
-	INTERNALERROR ErrorResponseCode = "INTERNAL_ERROR"
-	NOTFOUND      ErrorResponseCode = "NOT_FOUND"
-	UNAUTHORIZED  ErrorResponseCode = "UNAUTHORIZED"
+	BADREQUEST         ErrorResponseCode = "BAD_REQUEST"
+	CONFLICT           ErrorResponseCode = "CONFLICT"
+	FORBIDDEN          ErrorResponseCode = "FORBIDDEN"
+	INTERNALERROR      ErrorResponseCode = "INTERNAL_ERROR"
+	NOTFOUND           ErrorResponseCode = "NOT_FOUND"
+	UNAUTHORIZED       ErrorResponseCode = "UNAUTHORIZED"
+	UNKNOWNGITPROVIDER ErrorResponseCode = "UNKNOWN_GIT_PROVIDER"
 )
 
 // Defines values for NamespaceStatusPhase.

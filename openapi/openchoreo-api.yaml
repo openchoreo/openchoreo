@@ -5032,6 +5032,7 @@ components:
             - NOT_FOUND
             - CONFLICT
             - INTERNAL_ERROR
+            - UNKNOWN_GIT_PROVIDER
           example: NOT_FOUND
         details:
           type: array

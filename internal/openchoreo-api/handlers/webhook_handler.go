@@ -22,6 +22,17 @@ const (
 	WebhookSecretName = "git-webhook-secrets" // #nosec G101 -- This is a secret name, not a hardcoded credential
 	// WebhookSecretNamespace is the namespace where the webhook secret is stored
 	WebhookSecretNamespace = "openchoreo-control-plane" // #nosec G101 -- This is a namespace name, not a credential
+
+	// Provider detection headers — each git provider sends a unique header that
+	// identifies it as the event source.
+	headerGitHubSignature   = "X-Hub-Signature-256"
+	headerGitLabToken       = "X-Gitlab-Token"
+	headerBitbucketEventKey = "X-Event-Key"
+
+	// Secret key names inside WebhookSecretName for each provider.
+	secretKeyGitHub    = "github-secret"
+	secretKeyGitLab    = "gitlab-secret"
+	secretKeyBitbucket = "bitbucket-secret"
 )
 
 // HandleAutoBuild processes incoming webhook events from any supported git provider.
@@ -40,15 +51,15 @@ func (h *Handler) HandleAutoBuild(w http.ResponseWriter, r *http.Request) {
 // Returns the provider type, signature header name, secret key, and whether detection succeeded.
 func detectGitProvider(r *http.Request) (git.ProviderType, string, string, bool) {
 	switch {
-	case r.Header.Get("X-Hub-Signature-256") != "":
-		return git.ProviderGitHub, "X-Hub-Signature-256", "github-secret", true
-	case r.Header.Get("X-Gitlab-Token") != "":
-		return git.ProviderGitLab, "X-Gitlab-Token", "gitlab-secret", true
-	case r.Header.Get("X-Event-Key") != "":
+	case r.Header.Get(headerGitHubSignature) != "":
+		return git.ProviderGitHub, headerGitHubSignature, secretKeyGitHub, true
+	case r.Header.Get(headerGitLabToken) != "":
+		return git.ProviderGitLab, headerGitLabToken, secretKeyGitLab, true
+	case r.Header.Get(headerBitbucketEventKey) != "":
 		// Bitbucket does not send a standard secret token header (X-Hook-UUID is a
 		// webhook identity UUID, not a token). Validation relies on the stored secret
 		// being empty (open) for the MVP.
-		return git.ProviderBitbucket, "", "bitbucket-secret", true
+		return git.ProviderBitbucket, "", secretKeyBitbucket, true
 	default:
 		return "", "", "", false
 	}
