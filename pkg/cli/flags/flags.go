@@ -409,6 +409,11 @@ var (
 		Usage:     "Interactive mode for selecting release and overrides",
 		Type:      "bool",
 	}
+
+	WorkflowRun = Flag{
+		Name:  "workflowrun",
+		Usage: "Workflow run name (defaults to latest run)",
+	}
 )
 
 // AddFlags adds the specified flags to the given command.

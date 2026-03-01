@@ -761,6 +761,21 @@ This command allows you to:
   occ workflow run migration --namespace acme --set version=v2 --set dry_run=false`,
 	}
 
+	LogsWorkflow = Command{
+		Use:   "logs WORKFLOW_NAME",
+		Short: "Get logs for a workflow",
+		Long: `Get logs for a workflow by finding the latest workflow run.
+Use --run to specify a particular workflow run instead of the latest.`,
+		Example: fmt.Sprintf(`  # Get logs for the latest run of a workflow
+  %[1]s workflow logs my-workflow --namespace acme-corp
+
+  # Get logs for a specific run
+  %[1]s workflow logs my-workflow --namespace acme-corp --workflowrun my-run
+
+  # Follow logs
+  %[1]s workflow logs my-workflow --namespace acme-corp -f`, messages.DefaultCLIName),
+	}
+
 	ListSecretReference = Command{
 		Use:   "list",
 		Short: "List secret references",
