@@ -301,7 +301,10 @@ func newComponentWorkflowRunCmd() *cobra.Command {
 		Long:    `Manage workflow runs for a component.`,
 	}
 
-	cmd.AddCommand(newListComponentWorkflowRunCmd())
+	cmd.AddCommand(
+		newListComponentWorkflowRunCmd(),
+		newLogsComponentWorkflowRunCmd(),
+	)
 
 	return cmd
 }
@@ -324,6 +327,34 @@ func newListComponentWorkflowRunCmd() *cobra.Command {
 	}
 
 	flags.AddFlags(cmd, flags.Namespace)
+
+	return cmd
+}
+
+func newLogsComponentWorkflowRunCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.LogsComponentWorkflowRun.Use,
+		Short:   constants.LogsComponentWorkflowRun.Short,
+		Long:    constants.LogsComponentWorkflowRun.Long,
+		Example: constants.LogsComponentWorkflowRun.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			follow, _ := cmd.Flags().GetBool(flags.Follow.Name)
+			since, _ := cmd.Flags().GetString(flags.Since.Name)
+			run, _ := cmd.Flags().GetString(flags.WorkflowRun.Name)
+			return component.New().WorkflowRunLogs(component.WorkflowRunLogsParams{
+				Namespace:     namespace,
+				ComponentName: args[0],
+				RunName:       run,
+				Follow:        follow,
+				Since:         since,
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace, flags.Follow, flags.Since, flags.WorkflowRun)
 
 	return cmd
 }

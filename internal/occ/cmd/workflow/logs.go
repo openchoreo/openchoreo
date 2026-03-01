@@ -30,7 +30,7 @@ func (w *Workflow) Logs(params LogsParams) error {
 	runName := params.RunName
 	if runName == "" {
 		var err error
-		runName, err = resolveLatestRun(params.Namespace, params.WorkflowName)
+		runName, err = ResolveLatestRun(params.Namespace, params.WorkflowName, workflowrun.ExcludeComponentRuns)
 		if err != nil {
 			return err
 		}
@@ -44,9 +44,13 @@ func (w *Workflow) Logs(params LogsParams) error {
 	})
 }
 
-// resolveLatestRun finds the most recent workflow run for the given workflow,
-// excluding component-owned runs.
-func resolveLatestRun(namespace, workflowName string) (string, error) {
+// RunFilter transforms a slice of workflow runs (e.g. to exclude/include certain runs).
+type RunFilter func([]gen.WorkflowRun) []gen.WorkflowRun
+
+// ResolveLatestRun finds the most recent workflow run for the given workflow.
+// An optional filter can narrow the results (e.g. exclude or include component runs).
+// Pass nil for no filtering.
+func ResolveLatestRun(namespace, workflowName string, filter RunFilter) (string, error) {
 	ctx := context.Background()
 
 	c, err := client.NewClient()
@@ -76,15 +80,17 @@ func resolveLatestRun(namespace, workflowName string) (string, error) {
 		return "", fmt.Errorf("failed to list workflow runs: %w", err)
 	}
 
-	filtered := workflowrun.ExcludeComponentRuns(items)
-	if len(filtered) == 0 {
+	if filter != nil {
+		items = filter(items)
+	}
+	if len(items) == 0 {
 		return "", fmt.Errorf("no workflow runs found for workflow %q", workflowName)
 	}
 
 	// Sort by creation timestamp descending (newest first)
-	sort.Slice(filtered, func(i, j int) bool {
-		ti := filtered[i].Metadata.CreationTimestamp
-		tj := filtered[j].Metadata.CreationTimestamp
+	sort.Slice(items, func(i, j int) bool {
+		ti := items[i].Metadata.CreationTimestamp
+		tj := items[j].Metadata.CreationTimestamp
 		if ti == nil {
 			return false
 		}
@@ -94,5 +100,5 @@ func resolveLatestRun(namespace, workflowName string) (string, error) {
 		return ti.After(*tj)
 	})
 
-	return filtered[0].Metadata.Name, nil
+	return items[0].Metadata.Name, nil
 }
