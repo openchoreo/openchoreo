@@ -27,6 +27,7 @@ type Config struct {
 	Alerting     AlertingConfig     `koanf:"alerting"`
 	Experimental ExperimentalConfig `koanf:"experimental"`
 	UIDResolver  UIDResolverConfig  `koanf:"uid_resolver"`
+	CORS         CORSConfig         `koanf:"cors"`
 	LogLevel     string             `koanf:"loglevel"`
 }
 
@@ -43,6 +44,11 @@ type ServerConfig struct {
 	ReadTimeout     time.Duration `koanf:"read.timeout"`
 	WriteTimeout    time.Duration `koanf:"write.timeout"`
 	ShutdownTimeout time.Duration `koanf:"shutdown.timeout"`
+}
+
+// CORSConfig holds CORS configuration
+type CORSConfig struct {
+	AllowedOrigins []string `koanf:"allowed.origins"`
 }
 
 // OpenSearchConfig holds OpenSearch connection configuration
@@ -189,6 +195,7 @@ func Load() (*Config, error) {
 		"UID_RESOLVER_OAUTH_CLIENT_SECRET":      "uid_resolver.oauth.client.secret",
 		"UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY": "uid_resolver.tls.insecure.skip.verify",
 		"UID_RESOLVER_TIMEOUT":                  "uid_resolver.timeout",
+		"CORS_ALLOWED_ORIGINS":              	 "cors.allowed.origins",
 	}
 
 	// Check for environment variables and map them to nested structure
@@ -229,6 +236,14 @@ func Load() (*Config, error) {
 	var cfg Config
 	if err := k.Unmarshal("", &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// Parse CORS allowed origins from comma-separated env var
+	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {
+		cfg.CORS.AllowedOrigins = strings.Split(origins, ",")
+		for i := range cfg.CORS.AllowedOrigins {
+			cfg.CORS.AllowedOrigins[i] = strings.TrimSpace(cfg.CORS.AllowedOrigins[i])
+		}
 	}
 
 	// Assign user types from separately loaded auth config

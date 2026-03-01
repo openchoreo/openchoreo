@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # Authorization settings
     authz_timeout_seconds: int = 30
 
+    # CORS settings (comma-separated origins, empty = no CORS headers)
+    cors_allowed_origins: str = ""
+
     @property
     def authz_service_url(self) -> str:
         return self.control_plane_url.rstrip("/")

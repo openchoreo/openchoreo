@@ -110,6 +110,11 @@ spec:
         - name: REMED_AGENT
           value: {{ .Values.rca.remedAgent | quote }}
 
+        {{- if .Values.rca.cors.allowedOrigins }}
+        - name: CORS_ALLOWED_ORIGINS
+          value: {{ join "," .Values.rca.cors.allowedOrigins | quote }}
+        {{- end }}
+
         resources:
           {{- toYaml .Values.rca.resources | nindent 10 }}
 

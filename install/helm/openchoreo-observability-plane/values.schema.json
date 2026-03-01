@@ -3443,6 +3443,23 @@
           "title": "controlPlaneUrl",
           "type": "string"
         },
+        "cors": {
+          "additionalProperties": false,
+          "description": "CORS configuration for the RCA agent",
+          "properties": {
+            "allowedOrigins": {
+              "description": "List of allowed origins for CORS requests. Empty list disables CORS.",
+              "items": {
+                "type": "string"
+              },
+              "title": "allowedOrigins",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "cors",
+          "type": "object"
+        },
         "enabled": {
           "default": false,
           "description": "Enable RCA agent deployment",

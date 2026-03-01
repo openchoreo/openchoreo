@@ -216,10 +216,12 @@ func main() {
 	mcpRoutes.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: legacyLoggingService}))
 
 	// Create HTTP server
+	// CORS wraps the entire mux so it intercepts OPTIONS preflight requests
+	// before the mux's method-based routing returns 405.
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	server := &http.Server{
 		Addr:         addr,
-		Handler:      mux,
+		Handler:      observermiddleware.CORS(cfg.CORS.AllowedOrigins)(mux),
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}

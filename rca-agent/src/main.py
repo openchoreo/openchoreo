@@ -72,6 +72,21 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
+# Configure CORS if allowed origins are specified
+if settings.cors_allowed_origins:
+    from starlette.middleware.cors import CORSMiddleware
+
+    origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
+    if origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            allow_headers=["Content-Type", "Authorization"],
+            max_age=3600,
+        )
+        logger.info("CORS enabled for origins: %s", origins)
+
 
 @app.get("/health")
 async def health():

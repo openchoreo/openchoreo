@@ -83,6 +83,10 @@ spec:
         - name: AUTH_SERVER_BASE_URL
           value: {{ .Values.security.oidc.authServerBaseUrl | quote }}
         {{- end }}
+        {{- if .Values.observer.cors.allowedOrigins }}
+        - name: CORS_ALLOWED_ORIGINS
+          value: {{ join "," .Values.observer.cors.allowedOrigins | quote }}
+        {{- end }}
         {{- if .Values.observer.extraEnvs }}
         {{- toYaml .Values.observer.extraEnvs | nindent 8 }}
         {{- end }}
