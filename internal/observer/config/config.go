@@ -195,7 +195,7 @@ func Load() (*Config, error) {
 		"UID_RESOLVER_OAUTH_CLIENT_SECRET":      "uid_resolver.oauth.client.secret",
 		"UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY": "uid_resolver.tls.insecure.skip.verify",
 		"UID_RESOLVER_TIMEOUT":                  "uid_resolver.timeout",
-		"CORS_ALLOWED_ORIGINS":              	 "cors.allowed.origins",
+		"CORS_ALLOWED_ORIGINS":                  "cors.allowed.origins",
 	}
 
 	// Check for environment variables and map them to nested structure
