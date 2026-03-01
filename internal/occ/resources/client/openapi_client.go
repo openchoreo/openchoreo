@@ -605,6 +605,18 @@ func (c *Client) GetDataPlane(ctx context.Context, namespaceName, dpName string)
 	return resp.JSON200, nil
 }
 
+// GetClusterDataPlane retrieves a specific cluster data plane
+func (c *Client) GetClusterDataPlane(ctx context.Context, cdpName string) (*gen.ClusterDataPlane, error) {
+	resp, err := c.client.GetClusterDataPlaneWithResponse(ctx, cdpName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster data plane: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
 // DeleteDataPlane deletes a data plane
 func (c *Client) DeleteDataPlane(ctx context.Context, namespaceName, dpName string) error {
 	resp, err := c.client.DeleteDataPlaneWithResponse(ctx, namespaceName, dpName)
