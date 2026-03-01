@@ -10,6 +10,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 // WorkflowRunLogs fetches and displays logs for a component's workflow run.
@@ -30,7 +31,10 @@ func (cp *Component) WorkflowRunLogs(params WorkflowRunLogsParams) error {
 			return err
 		}
 
-		runName, err = workflow.ResolveLatestRun(params.Namespace, workflowName, nil)
+		componentName := params.ComponentName
+		runName, err = workflow.ResolveLatestRun(params.Namespace, workflowName, func(items []gen.WorkflowRun) []gen.WorkflowRun {
+			return workflowrun.FilterByComponent(items, componentName)
+		})
 		if err != nil {
 			return err
 		}

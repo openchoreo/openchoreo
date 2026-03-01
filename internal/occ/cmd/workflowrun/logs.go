@@ -25,6 +25,17 @@ func (w *WorkflowRun) Logs(params LogsParams) error {
 		return err
 	}
 
+	// Validate --since early so both live and archived paths get consistent error handling
+	if params.Since != "" {
+		d, err := time.ParseDuration(params.Since)
+		if err != nil {
+			return fmt.Errorf("invalid --since value %q: %w", params.Since, err)
+		}
+		if d <= 0 {
+			return fmt.Errorf("invalid --since value %q: duration must be positive", params.Since)
+		}
+	}
+
 	ctx := context.Background()
 
 	apiClient, err := client.NewClient()

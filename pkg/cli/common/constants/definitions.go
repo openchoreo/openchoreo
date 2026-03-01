@@ -765,7 +765,7 @@ This command allows you to:
 		Use:   "logs WORKFLOW_NAME",
 		Short: "Get logs for a workflow",
 		Long: `Get logs for a workflow by finding the latest workflow run.
-Use --run to specify a particular workflow run instead of the latest.`,
+Use --workflowrun to specify a particular workflow run instead of the latest.`,
 		Example: fmt.Sprintf(`  # Get logs for the latest run of a workflow
   %[1]s workflow logs my-workflow --namespace acme-corp
 
