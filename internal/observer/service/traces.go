@@ -15,6 +15,11 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
+// Re-export adaptor errors for use in handlers
+var (
+	ErrSpanNotFound = adaptor.ErrSpanNotFound
+)
+
 var (
 	ErrTracesResolveSearchScope = errors.New("traces search scope resolution failed")
 	ErrTracesRetrieval          = errors.New("traces retrieval failed")
@@ -114,6 +119,9 @@ func (s *TracesService) resolveSearchScope(ctx context.Context, scope *types.Com
 	}
 
 	if scope.Component != "" {
+		if scope.Project == "" {
+			return "", "", "", fmt.Errorf("%w: component specified without project", ErrTracesResolveSearchScope)
+		}
 		componentUID, err = s.resolver.GetComponentUID(ctx, scope.Namespace, scope.Project, scope.Component)
 		if err != nil {
 			return "", "", "", fmt.Errorf("failed to resolve component UID: %w", err)
@@ -200,6 +208,10 @@ func (s *TracesService) GetSpanDetails(ctx context.Context, traceID string, span
 	span, err := s.defaultAdaptor.GetSpanDetails(ctx, traceID, spanID)
 	if err != nil {
 		s.logger.Error("Failed to retrieve span details", "error", err)
+		// Pass through ErrSpanNotFound without wrapping so handlers can detect it
+		if errors.Is(err, ErrSpanNotFound) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("%w: %w", ErrTracesRetrieval, err)
 	}
 

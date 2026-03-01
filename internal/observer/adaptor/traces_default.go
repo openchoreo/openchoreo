@@ -5,6 +5,7 @@ package adaptor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -13,6 +14,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/pkg/observability"
+)
+
+var (
+	ErrSpanNotFound = errors.New("span not found")
 )
 
 type DefaultTracesAdaptor struct {
@@ -103,7 +108,7 @@ func (a *DefaultTracesAdaptor) GetSpanDetails(ctx context.Context, traceID strin
 
 	// Check if span was found
 	if len(response.Hits.Hits) == 0 {
-		return nil, fmt.Errorf("span not found")
+		return nil, ErrSpanNotFound
 	}
 
 	// Parse and return the span

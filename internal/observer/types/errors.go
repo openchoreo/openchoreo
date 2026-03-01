@@ -26,4 +26,5 @@ const (
 	ErrorCodeV1TracesResolverFailed  = "OBS-V1-T-04"
 	ErrorCodeV1TracesRetrievalFailed = "OBS-V1-T-05"
 	ErrorCodeV1TracesInvalidRequest  = "OBS-V1-T-06"
+	ErrorCodeV1TracesSpanNotFound    = "OBS-V1-T-07"
 )

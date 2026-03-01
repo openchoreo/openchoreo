@@ -329,6 +329,9 @@ func (h *Handler) GetSpanDetailsForTrace(w http.ResponseWriter, r *http.Request)
 		h.logger.Error("Failed to get span details", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
+		case errors.Is(err, service.ErrSpanNotFound):
+			h.writeErrorResponse(w, http.StatusNotFound, gen.NotFound, types.ErrorCodeV1TracesSpanNotFound, "Span not found")
+			return
 		case errors.Is(err, service.ErrTracesRetrieval):
 			errorCode = types.ErrorCodeV1TracesRetrievalFailed
 		case errors.Is(err, service.ErrTracesInvalidRequest):
