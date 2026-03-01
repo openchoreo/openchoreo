@@ -17,3 +17,13 @@ type GetParams struct {
 }
 
 func (p GetParams) GetNamespace() string { return p.Namespace }
+
+// LogsParams defines parameters for getting workflow run logs
+type LogsParams struct {
+	Namespace       string
+	WorkflowRunName string
+	Follow          bool
+	Since           string
+}
+
+func (p LogsParams) GetNamespace() string { return p.Namespace }

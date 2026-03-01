@@ -1394,6 +1394,19 @@ This command allows you to:
   %[1]s workflowrun get my-run --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
+	LogsWorkflowRun = Command{
+		Use:   "logs [WORKFLOW_RUN_NAME]",
+		Short: "Get logs for a workflow run",
+		Long: `Get logs for a workflow run.
+Fetches live logs from the build plane for active runs,
+or archived logs from the observer for completed runs.`,
+		Example: fmt.Sprintf(`  # Get logs for a workflow run
+  %[1]s workflowrun logs my-run --namespace acme-corp
+
+  # Follow logs for a running workflow
+  %[1]s workflowrun logs my-run --namespace acme-corp -f`, messages.DefaultCLIName),
+	}
+
 	WorkflowRun = Command{
 		Use:     "workflowrun",
 		Aliases: []string{"wr", "workflowruns"},

@@ -86,6 +86,42 @@ func (c *ObserverClient) FetchComponentLogs(ctx context.Context, componentID str
 	return &logResponse, nil
 }
 
+// WorkflowRunLogsRequest represents the request body for workflow run logs API
+type WorkflowRunLogsRequest struct {
+	NamespaceName string `json:"namespaceName"`
+	StartTime     string `json:"startTime"`
+	EndTime       string `json:"endTime"`
+	Limit         int    `json:"limit,omitempty"`
+	SortOrder     string `json:"sortOrder,omitempty"`
+}
+
+// FetchWorkflowRunLogs fetches archived logs for a workflow run from the observer API
+func (c *ObserverClient) FetchWorkflowRunLogs(ctx context.Context, runID string, req WorkflowRunLogsRequest) (*LogResponse, error) {
+	path := fmt.Sprintf("/api/v1/workflow-runs/%s/logs", runID)
+
+	resp, err := c.doRequest(ctx, "POST", path, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("observer API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var logResponse LogResponse
+	if err := json.Unmarshal(body, &logResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &logResponse, nil
+}
+
 // doRequest performs HTTP request with proper headers
 func (c *ObserverClient) doRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
 	// Reuse legacy_client.go's APIClient doRequest logic

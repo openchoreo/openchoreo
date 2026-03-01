@@ -929,6 +929,10 @@ func validateWorkflowRunParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(CmdGet, ResourceWorkflowRun, p.GetNamespace())
 		}
+	case CmdLogs:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdLogs, ResourceWorkflowRun, p.GetNamespace())
+		}
 	}
 	return nil
 }
