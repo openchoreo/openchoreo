@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
-	"time"
 
 	apihandler "github.com/openchoreo/openchoreo/internal/observer/api/handlers"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
@@ -139,11 +139,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize alert service for the internal v1alpha1 API
+	alertService := service.NewAlertService(
+		osClient,
+		opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
+		k8sClient,
+		cfg,
+		logger.With("component", "alert-service"),
+	)
+
 	// Initialize new API handler
 	newAPIHandler := apihandler.NewHandler(
 		healthService,
 		logsService,
 		metricsService,
+		alertService,
 		logger.With("component", "api-handler"),
 		authzClient,
 	)
@@ -224,11 +234,39 @@ func main() {
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}
 
-	// Start server
+	// ===== Internal Server (port 8081) — v1alpha1 alert CRUD =====
+	internalMux := http.NewServeMux()
+	internalRoutes := middleware.NewRouteBuilder(internalMux).With(loggerMiddleware, recoveryMiddleware)
+	internalRoutes.HandleFunc(
+		"POST /api/v1alpha1/alerts/sources/{sourceType}/rules", newAPIHandler.CreateAlertRule)
+	internalRoutes.HandleFunc(
+		"GET /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", newAPIHandler.GetAlertRule)
+	internalRoutes.HandleFunc(
+		"PUT /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", newAPIHandler.UpdateAlertRule)
+	internalRoutes.HandleFunc(
+		"DELETE /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", newAPIHandler.DeleteAlertRule)
+
+	internalAddr := fmt.Sprintf(":%d", cfg.Server.InternalPort)
+	internalServer := &http.Server{
+		Addr:         internalAddr,
+		Handler:      internalMux,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+	}
+
+	// Start main server
 	go func() {
 		logger.Info("Starting server", "address", addr)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	// Start internal server
+	go func() {
+		logger.Info("Starting internal server", "address", internalAddr)
+		if err := internalServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Failed to start internal server: %v", err)
 		}
 	}()
 
@@ -240,13 +278,27 @@ func main() {
 	<-ctx.Done()
 
 	logger.Info("Shutting down server...")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
 	defer cancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
-	}
+	var wg sync.WaitGroup
+	wg.Add(2)
 
+	go func() {
+		defer wg.Done()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("Main server forced to shutdown: %v", err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := internalServer.Shutdown(shutdownCtx); err != nil {
+			log.Printf("Internal server forced to shutdown: %v", err)
+		}
+	}()
+
+	wg.Wait()
 	logger.Info("Server shutdown complete")
 }
 

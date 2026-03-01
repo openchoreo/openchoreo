@@ -928,6 +928,20 @@ observer:
     port: 8080
 
   # @schema
+  # type: object
+  # description: Kubernetes service configuration for the Observer internal API (v1alpha1 alert CRUD)
+  # @schema
+  internalService:
+    # @schema
+    # type: integer
+    # description: Service port for the Observer internal API
+    # minimum: 1
+    # maximum: 65535
+    # default: 8081
+    # @schema
+    port: 8081
+
+  # @schema
   # description: Log level for the Observer service
   # enum: [debug, info, warn, error]
   # default: info

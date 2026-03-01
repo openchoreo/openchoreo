@@ -1553,6 +1553,23 @@
           "title": "image",
           "type": "object"
         },
+        "internalService": {
+          "additionalProperties": false,
+          "description": "Kubernetes service configuration for the Observer internal API (v1alpha1 alert CRUD)",
+          "properties": {
+            "port": {
+              "default": 8081,
+              "description": "Service port for the Observer internal API",
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "port",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "internalService",
+          "type": "object"
+        },
         "logLevel": {
           "default": "info",
           "description": "Log level for the Observer service",

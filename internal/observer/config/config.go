@@ -40,6 +40,7 @@ type ExperimentalConfig struct {
 // ServerConfig holds HTTP server configuration
 type ServerConfig struct {
 	Port            int           `koanf:"port"`
+	InternalPort    int           `koanf:"internal.port"`
 	ReadTimeout     time.Duration `koanf:"read.timeout"`
 	WriteTimeout    time.Duration `koanf:"write.timeout"`
 	ShutdownTimeout time.Duration `koanf:"shutdown.timeout"`
@@ -150,6 +151,7 @@ func Load() (*Config, error) {
 	// Define environment variable mappings
 	envMappings := map[string]string{
 		"SERVER_PORT":                           "server.port",
+		"SERVER_INTERNAL_PORT":                  "server.internal.port",
 		"SERVER_READ_TIMEOUT":                   "server.read.timeout",
 		"SERVER_WRITE_TIMEOUT":                  "server.write.timeout",
 		"SERVER_SHUTDOWN_TIMEOUT":               "server.shutdown.timeout",
@@ -177,6 +179,7 @@ func Load() (*Config, error) {
 		"OBSERVABILITY_NAMESPACE":               "alerting.observability.namespace",
 		"LOG_LEVEL":                             "loglevel",
 		"PORT":                                  "server.port",           // Common alias
+		"INTERNAL_PORT":                         "server.internal.port",  // Common alias
 		"JWT_SECRET":                            "auth.jwt.secret",       // Common alias
 		"ENABLE_AUTH":                           "auth.enable.auth",      // Common alias
 		"MAX_LOG_LIMIT":                         "logging.max.log.limit", // Common alias
@@ -255,6 +258,7 @@ func getDefaults() map[string]interface{} {
 	return map[string]interface{}{
 		"server": map[string]interface{}{
 			"port":             9097,
+			"internal.port":    8081,
 			"read.timeout":     "30s",
 			"write.timeout":    "30s",
 			"shutdown.timeout": "10s",
@@ -313,6 +317,14 @@ func getDefaults() map[string]interface{} {
 func (c *Config) validate() error {
 	if c.Server.Port <= 0 || c.Server.Port > 65535 {
 		return fmt.Errorf("invalid server port: %d", c.Server.Port)
+	}
+
+	if c.Server.InternalPort <= 0 || c.Server.InternalPort > 65535 {
+		return fmt.Errorf("invalid server internal port: %d", c.Server.InternalPort)
+	}
+
+	if c.Server.InternalPort == c.Server.Port {
+		return fmt.Errorf("server internal port must differ from server port: %d", c.Server.Port)
 	}
 
 	if c.OpenSearch.Address == "" {

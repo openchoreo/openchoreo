@@ -5,8 +5,11 @@ package handlers
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
+	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
@@ -15,6 +18,9 @@ const (
 	maxLimit          = 10000
 	defaultSortOrder  = "desc"
 	maxQueryTimeRange = 30 * 24 * time.Hour // 30 days
+
+	sourceTypeLog    = "log"
+	sourceTypeMetric = "metric"
 )
 
 // ValidateLogsQueryRequest validates the LogsQueryRequest
@@ -215,4 +221,103 @@ func ValidateLogLevels(logLevels []string) error {
 		seen[level] = struct{}{}
 	}
 	return nil
+}
+
+// validateAlertRuleRequest validates the new API AlertRuleRequest type.
+func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
+	// Metadata validations
+	if req.Metadata == nil {
+		return fmt.Errorf("metadata is required")
+	}
+	if req.Metadata.Name == nil || strings.TrimSpace(*req.Metadata.Name) == "" {
+		return fmt.Errorf("metadata.name is required")
+	}
+	if req.Metadata.ComponentUid == nil {
+		return fmt.Errorf("metadata.componentUid is required")
+	}
+	if req.Metadata.ProjectUid == nil {
+		return fmt.Errorf("metadata.projectUid is required")
+	}
+	if req.Metadata.EnvironmentUid == nil {
+		return fmt.Errorf("metadata.environmentUid is required")
+	}
+
+	// Source validations
+	if req.Source == nil {
+		return fmt.Errorf("source is required")
+	}
+	if req.Source.Type == nil {
+		return fmt.Errorf("source.type is required")
+	}
+	sourceType := string(*req.Source.Type)
+	if sourceType != sourceTypeLog && sourceType != sourceTypeMetric {
+		return fmt.Errorf("source.type must be 'log' or 'metric'")
+	}
+	if sourceType == sourceTypeLog {
+		if req.Source.Query == nil || strings.TrimSpace(*req.Source.Query) == "" {
+			return fmt.Errorf("source.query is required for log-based alert rules")
+		}
+	}
+	if sourceType == sourceTypeMetric {
+		if req.Source.Metric == nil {
+			return fmt.Errorf("source.metric is required for metric-based alert rules")
+		}
+		metric := string(*req.Source.Metric)
+		if metric != "cpu_usage" && metric != "memory_usage" {
+			return fmt.Errorf("source.metric must be 'cpu_usage' or 'memory_usage' for metric-based alert rules")
+		}
+	}
+
+	// Condition validations
+	if req.Condition == nil {
+		return fmt.Errorf("condition is required")
+	}
+	if req.Condition.Window == nil {
+		return fmt.Errorf("condition.window is required")
+	}
+	windowDuration, err := time.ParseDuration(*req.Condition.Window)
+	if err != nil {
+		return fmt.Errorf("condition.window must be a valid duration (e.g., 5m): %w", err)
+	}
+	if req.Condition.Interval == nil {
+		return fmt.Errorf("condition.interval is required")
+	}
+	intervalDuration, err := time.ParseDuration(*req.Condition.Interval)
+	if err != nil {
+		return fmt.Errorf("condition.interval must be a valid duration (e.g., 1m): %w", err)
+	}
+	if intervalDuration <= 0 {
+		return fmt.Errorf("condition.interval must be greater than zero")
+	}
+	if windowDuration <= 0 {
+		return fmt.Errorf("condition.window must be greater than zero")
+	}
+	if intervalDuration > windowDuration {
+		return fmt.Errorf("condition.interval must not exceed condition.window")
+	}
+
+	if req.Condition.Operator == nil {
+		return fmt.Errorf("condition.operator is required")
+	}
+	allowedOps := []string{"gt", "gte", "lt", "lte", "eq", "neq"}
+	if !slices.Contains(allowedOps, string(*req.Condition.Operator)) {
+		return fmt.Errorf("condition.operator must be one of %s", strings.Join(allowedOps, ", "))
+	}
+
+	if req.Condition.Threshold == nil || *req.Condition.Threshold <= 0 {
+		return fmt.Errorf("condition.threshold must be greater than zero")
+	}
+
+	return nil
+}
+
+// validateSourceType checks that the sourceType path parameter is a known value.
+// Returns an error with a descriptive message for use in a 400 Bad Request response.
+func validateSourceType(sourceType string) error {
+	switch sourceType {
+	case sourceTypeLog, sourceTypeMetric:
+		return nil
+	default:
+		return fmt.Errorf("sourceType %q is invalid: must be 'log' or 'metric'", sourceType)
+	}
 }
