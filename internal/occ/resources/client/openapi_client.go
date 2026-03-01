@@ -39,9 +39,6 @@ func NewClient() (*Client, error) {
 		controlPlane.URL,
 		gen.WithHTTPClient(httpClient),
 		gen.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
-			// Set X-Use-OpenAPI header to indicate OpenAPI client
-			req.Header.Set("X-Use-OpenAPI", "true")
-
 			// Token refresh logic
 			currentToken := token
 			if currentToken != "" && auth.IsTokenExpired(currentToken) {

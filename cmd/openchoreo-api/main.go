@@ -207,9 +207,9 @@ func main() {
 		Middlewares: []gen.MiddlewareFunc{loggerMiddleware, authMiddleware},
 	})
 
-	// Create migration router that routes based on X-Use-OpenAPI header
-	// - X-Use-OpenAPI: true → OpenAPI handlers (new spec-first implementation)
-	// - Header absent → Legacy handlers (existing implementation)
+	// Create migration router that routes based on X-Use-Legacy-Routes header
+	// - X-Use-Legacy-Routes: true → Legacy handlers (existing implementation)
+	// - Header absent → OpenAPI handlers (new spec-first implementation)
 	migrationRouter := router.OpenAPIMigrationRouter(openapiRoutes, legacyRoutes)
 
 	// Create server from configuration
