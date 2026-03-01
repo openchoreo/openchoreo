@@ -29,6 +29,9 @@ spec:
         - name: http
           containerPort: 8080
           protocol: TCP
+        - name: http-internal
+          containerPort: {{ if .Values.observer.internalService }}{{ .Values.observer.internalService.port | default 8081 }}{{ else }}8081{{ end }}
+          protocol: TCP
         env:
         {{- if .Values.security.oidc.issuer }}
         - name: JWT_ISSUER
@@ -48,6 +51,8 @@ spec:
           value: "{{ not .Values.security.enabled }}"
         - name: PORT
           value: "8080"
+        - name: INTERNAL_PORT
+          value: {{ if .Values.observer.internalService }}{{ .Values.observer.internalService.port | default 8081 | quote }}{{ else }}"8081"{{ end }}
         - name: LOG_LEVEL
           value: {{ if .Values.observer }}{{ .Values.observer.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
         - name: OPENSEARCH_USERNAME

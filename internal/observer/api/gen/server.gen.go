@@ -31,17 +31,17 @@ type ServerInterface interface {
 	// (POST /api/v1/metrics/query)
 	QueryMetrics(w http.ResponseWriter, r *http.Request)
 	// Create alert rule
-	// (POST /api/v1alpha1/alerts/rules)
-	CreateAlertRule(w http.ResponseWriter, r *http.Request)
+	// (POST /api/v1alpha1/alerts/sources/{sourceType}/rules)
+	CreateAlertRule(w http.ResponseWriter, r *http.Request, sourceType string)
 	// Delete alert rule
-	// (DELETE /api/v1alpha1/alerts/rules/{ruleName})
-	DeleteAlertRule(w http.ResponseWriter, r *http.Request, ruleName string)
+	// (DELETE /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName})
+	DeleteAlertRule(w http.ResponseWriter, r *http.Request, sourceType string, ruleName string)
 	// Get alert rule
-	// (GET /api/v1alpha1/alerts/rules/{ruleName})
-	GetAlertRule(w http.ResponseWriter, r *http.Request, ruleName string)
+	// (GET /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName})
+	GetAlertRule(w http.ResponseWriter, r *http.Request, sourceType string, ruleName string)
 	// Update alert rule
-	// (PUT /api/v1alpha1/alerts/rules/{ruleName})
-	UpdateAlertRule(w http.ResponseWriter, r *http.Request, ruleName string)
+	// (PUT /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName})
+	UpdateAlertRule(w http.ResponseWriter, r *http.Request, sourceType string, ruleName string)
 	// Handles triggered alerts from the alerting backend
 	// (POST /api/v1alpha1/alerts/webhook)
 	HandleAlertWebhook(w http.ResponseWriter, r *http.Request)
@@ -111,6 +111,17 @@ func (siw *ServerInterfaceWrapper) QueryMetrics(w http.ResponseWriter, r *http.R
 // CreateAlertRule operation middleware
 func (siw *ServerInterfaceWrapper) CreateAlertRule(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+
+	// ------------- Path parameter "sourceType" -------------
+	var sourceType string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sourceType", r.PathValue("sourceType"), &sourceType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sourceType", Err: err})
+		return
+	}
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
@@ -118,7 +129,7 @@ func (siw *ServerInterfaceWrapper) CreateAlertRule(w http.ResponseWriter, r *htt
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateAlertRule(w, r)
+		siw.Handler.CreateAlertRule(w, r, sourceType)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -133,6 +144,15 @@ func (siw *ServerInterfaceWrapper) DeleteAlertRule(w http.ResponseWriter, r *htt
 
 	var err error
 
+	// ------------- Path parameter "sourceType" -------------
+	var sourceType string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sourceType", r.PathValue("sourceType"), &sourceType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sourceType", Err: err})
+		return
+	}
+
 	// ------------- Path parameter "ruleName" -------------
 	var ruleName string
 
@@ -149,7 +169,7 @@ func (siw *ServerInterfaceWrapper) DeleteAlertRule(w http.ResponseWriter, r *htt
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteAlertRule(w, r, ruleName)
+		siw.Handler.DeleteAlertRule(w, r, sourceType, ruleName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -164,6 +184,15 @@ func (siw *ServerInterfaceWrapper) GetAlertRule(w http.ResponseWriter, r *http.R
 
 	var err error
 
+	// ------------- Path parameter "sourceType" -------------
+	var sourceType string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sourceType", r.PathValue("sourceType"), &sourceType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sourceType", Err: err})
+		return
+	}
+
 	// ------------- Path parameter "ruleName" -------------
 	var ruleName string
 
@@ -180,7 +209,7 @@ func (siw *ServerInterfaceWrapper) GetAlertRule(w http.ResponseWriter, r *http.R
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetAlertRule(w, r, ruleName)
+		siw.Handler.GetAlertRule(w, r, sourceType, ruleName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -195,6 +224,15 @@ func (siw *ServerInterfaceWrapper) UpdateAlertRule(w http.ResponseWriter, r *htt
 
 	var err error
 
+	// ------------- Path parameter "sourceType" -------------
+	var sourceType string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sourceType", r.PathValue("sourceType"), &sourceType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sourceType", Err: err})
+		return
+	}
+
 	// ------------- Path parameter "ruleName" -------------
 	var ruleName string
 
@@ -211,7 +249,7 @@ func (siw *ServerInterfaceWrapper) UpdateAlertRule(w http.ResponseWriter, r *htt
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateAlertRule(w, r, ruleName)
+		siw.Handler.UpdateAlertRule(w, r, sourceType, ruleName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -462,10 +500,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/logs/query", wrapper.QueryLogs)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/metrics/query", wrapper.QueryMetrics)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1alpha1/alerts/rules", wrapper.CreateAlertRule)
-	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1alpha1/alerts/rules/{ruleName}", wrapper.DeleteAlertRule)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1alpha1/alerts/rules/{ruleName}", wrapper.GetAlertRule)
-	m.HandleFunc("PUT "+options.BaseURL+"/api/v1alpha1/alerts/rules/{ruleName}", wrapper.UpdateAlertRule)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1alpha1/alerts/sources/{sourceType}/rules", wrapper.CreateAlertRule)
+	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", wrapper.DeleteAlertRule)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", wrapper.GetAlertRule)
+	m.HandleFunc("PUT "+options.BaseURL+"/api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", wrapper.UpdateAlertRule)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1alpha1/alerts/webhook", wrapper.HandleAlertWebhook)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1alpha1/traces/query", wrapper.QueryTraces)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1alpha1/traces/{traceId}/spans/query", wrapper.QuerySpansForTrace)
@@ -582,18 +620,19 @@ func (response QueryMetrics500JSONResponse) VisitQueryMetricsResponse(w http.Res
 }
 
 type CreateAlertRuleRequestObject struct {
-	Body *CreateAlertRuleJSONRequestBody
+	SourceType string `json:"sourceType"`
+	Body       *CreateAlertRuleJSONRequestBody
 }
 
 type CreateAlertRuleResponseObject interface {
 	VisitCreateAlertRuleResponse(w http.ResponseWriter) error
 }
 
-type CreateAlertRule200JSONResponse AlertingRuleSyncResponse
+type CreateAlertRule201JSONResponse AlertingRuleSyncResponse
 
-func (response CreateAlertRule200JSONResponse) VisitCreateAlertRuleResponse(w http.ResponseWriter) error {
+func (response CreateAlertRule201JSONResponse) VisitCreateAlertRuleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+	w.WriteHeader(201)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -603,6 +642,15 @@ type CreateAlertRule400JSONResponse ErrorResponse
 func (response CreateAlertRule400JSONResponse) VisitCreateAlertRuleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateAlertRule409JSONResponse ErrorResponse
+
+func (response CreateAlertRule409JSONResponse) VisitCreateAlertRuleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -617,7 +665,8 @@ func (response CreateAlertRule500JSONResponse) VisitCreateAlertRuleResponse(w ht
 }
 
 type DeleteAlertRuleRequestObject struct {
-	RuleName string `json:"ruleName"`
+	SourceType string `json:"sourceType"`
+	RuleName   string `json:"ruleName"`
 }
 
 type DeleteAlertRuleResponseObject interface {
@@ -642,6 +691,15 @@ func (response DeleteAlertRule400JSONResponse) VisitDeleteAlertRuleResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
+type DeleteAlertRule404JSONResponse ErrorResponse
+
+func (response DeleteAlertRule404JSONResponse) VisitDeleteAlertRuleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type DeleteAlertRule500JSONResponse ErrorResponse
 
 func (response DeleteAlertRule500JSONResponse) VisitDeleteAlertRuleResponse(w http.ResponseWriter) error {
@@ -652,7 +710,8 @@ func (response DeleteAlertRule500JSONResponse) VisitDeleteAlertRuleResponse(w ht
 }
 
 type GetAlertRuleRequestObject struct {
-	RuleName string `json:"ruleName"`
+	SourceType string `json:"sourceType"`
+	RuleName   string `json:"ruleName"`
 }
 
 type GetAlertRuleResponseObject interface {
@@ -696,8 +755,9 @@ func (response GetAlertRule500JSONResponse) VisitGetAlertRuleResponse(w http.Res
 }
 
 type UpdateAlertRuleRequestObject struct {
-	RuleName string `json:"ruleName"`
-	Body     *UpdateAlertRuleJSONRequestBody
+	SourceType string `json:"sourceType"`
+	RuleName   string `json:"ruleName"`
+	Body       *UpdateAlertRuleJSONRequestBody
 }
 
 type UpdateAlertRuleResponseObject interface {
@@ -966,16 +1026,16 @@ type StrictServerInterface interface {
 	// (POST /api/v1/metrics/query)
 	QueryMetrics(ctx context.Context, request QueryMetricsRequestObject) (QueryMetricsResponseObject, error)
 	// Create alert rule
-	// (POST /api/v1alpha1/alerts/rules)
+	// (POST /api/v1alpha1/alerts/sources/{sourceType}/rules)
 	CreateAlertRule(ctx context.Context, request CreateAlertRuleRequestObject) (CreateAlertRuleResponseObject, error)
 	// Delete alert rule
-	// (DELETE /api/v1alpha1/alerts/rules/{ruleName})
+	// (DELETE /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName})
 	DeleteAlertRule(ctx context.Context, request DeleteAlertRuleRequestObject) (DeleteAlertRuleResponseObject, error)
 	// Get alert rule
-	// (GET /api/v1alpha1/alerts/rules/{ruleName})
+	// (GET /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName})
 	GetAlertRule(ctx context.Context, request GetAlertRuleRequestObject) (GetAlertRuleResponseObject, error)
 	// Update alert rule
-	// (PUT /api/v1alpha1/alerts/rules/{ruleName})
+	// (PUT /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName})
 	UpdateAlertRule(ctx context.Context, request UpdateAlertRuleRequestObject) (UpdateAlertRuleResponseObject, error)
 	// Handles triggered alerts from the alerting backend
 	// (POST /api/v1alpha1/alerts/webhook)
@@ -1086,8 +1146,10 @@ func (sh *strictHandler) QueryMetrics(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateAlertRule operation middleware
-func (sh *strictHandler) CreateAlertRule(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) CreateAlertRule(w http.ResponseWriter, r *http.Request, sourceType string) {
 	var request CreateAlertRuleRequestObject
+
+	request.SourceType = sourceType
 
 	var body CreateAlertRuleJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -1117,9 +1179,10 @@ func (sh *strictHandler) CreateAlertRule(w http.ResponseWriter, r *http.Request)
 }
 
 // DeleteAlertRule operation middleware
-func (sh *strictHandler) DeleteAlertRule(w http.ResponseWriter, r *http.Request, ruleName string) {
+func (sh *strictHandler) DeleteAlertRule(w http.ResponseWriter, r *http.Request, sourceType string, ruleName string) {
 	var request DeleteAlertRuleRequestObject
 
+	request.SourceType = sourceType
 	request.RuleName = ruleName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -1143,9 +1206,10 @@ func (sh *strictHandler) DeleteAlertRule(w http.ResponseWriter, r *http.Request,
 }
 
 // GetAlertRule operation middleware
-func (sh *strictHandler) GetAlertRule(w http.ResponseWriter, r *http.Request, ruleName string) {
+func (sh *strictHandler) GetAlertRule(w http.ResponseWriter, r *http.Request, sourceType string, ruleName string) {
 	var request GetAlertRuleRequestObject
 
+	request.SourceType = sourceType
 	request.RuleName = ruleName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -1169,9 +1233,10 @@ func (sh *strictHandler) GetAlertRule(w http.ResponseWriter, r *http.Request, ru
 }
 
 // UpdateAlertRule operation middleware
-func (sh *strictHandler) UpdateAlertRule(w http.ResponseWriter, r *http.Request, ruleName string) {
+func (sh *strictHandler) UpdateAlertRule(w http.ResponseWriter, r *http.Request, sourceType string, ruleName string) {
 	var request UpdateAlertRuleRequestObject
 
+	request.SourceType = sourceType
 	request.RuleName = ruleName
 
 	var body UpdateAlertRuleJSONRequestBody
@@ -1350,62 +1415,63 @@ func (sh *strictHandler) Health(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"AAD//14sP3QjWQAA",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -45,9 +45,10 @@ const (
 
 // Defines values for AlertingRuleSyncResponseAction.
 const (
-	Created AlertingRuleSyncResponseAction = "created"
-	Deleted AlertingRuleSyncResponseAction = "deleted"
-	Updated AlertingRuleSyncResponseAction = "updated"
+	Created   AlertingRuleSyncResponseAction = "created"
+	Deleted   AlertingRuleSyncResponseAction = "deleted"
+	Unchanged AlertingRuleSyncResponseAction = "unchanged"
+	Updated   AlertingRuleSyncResponseAction = "updated"
 )
 
 // Defines values for AlertingRuleSyncResponseStatus.
@@ -59,6 +60,7 @@ const (
 // Defines values for ErrorResponseTitle.
 const (
 	BadRequest          ErrorResponseTitle = "badRequest"
+	Conflict            ErrorResponseTitle = "conflict"
 	Forbidden           ErrorResponseTitle = "forbidden"
 	InternalServerError ErrorResponseTitle = "internalServerError"
 	NotFound            ErrorResponseTitle = "notFound"

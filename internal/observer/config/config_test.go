@@ -189,7 +189,8 @@ func TestValidate(t *testing.T) {
 			name: "valid config",
 			config: Config{
 				Server: ServerConfig{
-					Port: 8080,
+					Port:         8080,
+					InternalPort: 8081,
 				},
 				OpenSearch: OpenSearchConfig{
 					Address: "http://localhost:9200",
@@ -260,7 +261,8 @@ func TestValidate(t *testing.T) {
 			name: "missing opensearch address",
 			config: Config{
 				Server: ServerConfig{
-					Port: 8080,
+					Port:         8080,
+					InternalPort: 8081,
 				},
 				OpenSearch: OpenSearchConfig{
 					Address: "",
@@ -280,7 +282,8 @@ func TestValidate(t *testing.T) {
 			name: "invalid opensearch timeout",
 			config: Config{
 				Server: ServerConfig{
-					Port: 8080,
+					Port:         8080,
+					InternalPort: 8081,
 				},
 				OpenSearch: OpenSearchConfig{
 					Address: "http://localhost:9200",
@@ -300,7 +303,8 @@ func TestValidate(t *testing.T) {
 			name: "invalid max log limit",
 			config: Config{
 				Server: ServerConfig{
-					Port: 8080,
+					Port:         8080,
+					InternalPort: 8081,
 				},
 				OpenSearch: OpenSearchConfig{
 					Address: "http://localhost:9200",
@@ -320,7 +324,8 @@ func TestValidate(t *testing.T) {
 			name: "missing prometheus address",
 			config: Config{
 				Server: ServerConfig{
-					Port: 8080,
+					Port:         8080,
+					InternalPort: 8081,
 				},
 				OpenSearch: OpenSearchConfig{
 					Address: "http://localhost:9200",
@@ -340,7 +345,8 @@ func TestValidate(t *testing.T) {
 			name: "invalid prometheus timeout",
 			config: Config{
 				Server: ServerConfig{
-					Port: 8080,
+					Port:         8080,
+					InternalPort: 8081,
 				},
 				OpenSearch: OpenSearchConfig{
 					Address: "http://localhost:9200",
@@ -360,7 +366,8 @@ func TestValidate(t *testing.T) {
 			name: "missing authz service URL",
 			config: Config{
 				Server: ServerConfig{
-					Port: 8080,
+					Port:         8080,
+					InternalPort: 8081,
 				},
 				OpenSearch: OpenSearchConfig{
 					Address: "http://localhost:9200",
@@ -384,7 +391,8 @@ func TestValidate(t *testing.T) {
 			name: "invalid authz timeout",
 			config: Config{
 				Server: ServerConfig{
-					Port: 8080,
+					Port:         8080,
+					InternalPort: 8081,
 				},
 				OpenSearch: OpenSearchConfig{
 					Address: "http://localhost:9200",

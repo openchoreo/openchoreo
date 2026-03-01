@@ -18,6 +18,7 @@ type Handler struct {
 	healthService  *service.HealthService
 	logsService    *service.LogsService
 	metricsService *service.MetricsService
+	alertService   *service.AlertService
 	logger         *slog.Logger
 	authzPDP       authzcore.PDP
 }
@@ -27,6 +28,7 @@ func NewHandler(
 	healthService *service.HealthService,
 	logsService *service.LogsService,
 	metricsService *service.MetricsService,
+	alertService *service.AlertService,
 	logger *slog.Logger,
 	authzPDP authzcore.PDP,
 ) *Handler {
@@ -34,6 +36,7 @@ func NewHandler(
 		healthService:  healthService,
 		logsService:    logsService,
 		metricsService: metricsService,
+		alertService:   alertService,
 		logger:         logger,
 		authzPDP:       authzPDP,
 	}

@@ -32,36 +32,43 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: "default",
 		}
 		observabilityalertrule := &openchoreov1alpha1.ObservabilityAlertRule{}
 
 		BeforeEach(func() {
-			// Save original OBSERVER_ENDPOINT if set
-			originalObserverEndpoint = os.Getenv("OBSERVER_ENDPOINT")
+			// Save original OBSERVER_INTERNAL_ENDPOINT if set
+			originalObserverEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
 
-			// Set up a test HTTP server to mock the observer API
+			// Set up a test HTTP server to mock the observer internal API
 			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/api/alerting/rule/") {
-					response := map[string]interface{}{
-						"status":     "synced",
-						"logicalId":  resourceName,
-						"backendId":  "test-backend-id-12345",
-						"action":     "created",
-						"lastSynced": time.Now().UTC().Format(time.RFC3339),
+				// GET /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}
+				if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, alertsV1alpha1BasePath+"/") {
+					// Simulate rule not found so POST path is exercised
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				// POST /api/v1alpha1/alerts/sources/{sourceType}/rules
+				if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/rules") {
+					response := alertRuleSyncResponse{
+						Status:        "synced",
+						Action:        "created",
+						RuleLogicalID: resourceName,
+						RuleBackendID: "test-backend-id-12345",
+						LastSyncedAt:  time.Now().UTC().Format(time.RFC3339),
 					}
 					w.Header().Set("Content-Type", "application/json")
-					w.WriteHeader(http.StatusOK)
+					w.WriteHeader(http.StatusCreated)
 					if err := json.NewEncoder(w).Encode(response); err != nil {
 						w.WriteHeader(http.StatusInternalServerError)
 					}
-				} else {
-					w.WriteHeader(http.StatusNotFound)
+					return
 				}
+				w.WriteHeader(http.StatusNotFound)
 			}))
 
-			// Set OBSERVER_ENDPOINT to point to our test server
-			os.Setenv("OBSERVER_ENDPOINT", testServer.URL)
+			// Point controller at test server
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
 
 			By("creating the custom resource for the Kind ObservabilityAlertRule")
 			err := k8sClient.Get(ctx, typeNamespacedName, observabilityalertrule)
@@ -104,11 +111,11 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 			}
 
-			// Restore original OBSERVER_ENDPOINT
+			// Restore original OBSERVER_INTERNAL_ENDPOINT
 			if originalObserverEndpoint != "" {
-				os.Setenv("OBSERVER_ENDPOINT", originalObserverEndpoint)
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", originalObserverEndpoint)
 			} else {
-				os.Unsetenv("OBSERVER_ENDPOINT")
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
 			}
 
 			// Close test server
@@ -116,6 +123,7 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 				testServer.Close()
 			}
 		})
+
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &Reconciler{
@@ -130,8 +138,6 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
 		})
 	})
 })
