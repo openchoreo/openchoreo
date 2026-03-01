@@ -3849,14 +3849,14 @@ type ListWorkflowRunsParams struct {
 
 // GetWorkflowRunEventsParams defines parameters for GetWorkflowRunEvents.
 type GetWorkflowRunEventsParams struct {
-	// Step Filter events by step name
-	Step *string `form:"step,omitempty" json:"step,omitempty"`
+	// Task Filter events by task name
+	Task *string `form:"task,omitempty" json:"task,omitempty"`
 }
 
 // GetWorkflowRunLogsParams defines parameters for GetWorkflowRunLogs.
 type GetWorkflowRunLogsParams struct {
-	// Step Filter logs by step name
-	Step *string `form:"step,omitempty" json:"step,omitempty"`
+	// Task Filter logs by task name
+	Task *string `form:"task,omitempty" json:"task,omitempty"`
 
 	// SinceSeconds Return logs newer than a relative duration in seconds
 	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`

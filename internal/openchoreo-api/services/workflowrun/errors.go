@@ -6,7 +6,8 @@ package workflowrun
 import "errors"
 
 var (
-	ErrWorkflowRunNotFound      = errors.New("workflow run not found")
-	ErrWorkflowRunAlreadyExists = errors.New("workflow run already exists")
-	ErrWorkflowNotFound         = errors.New("workflow not found")
+	ErrWorkflowRunNotFound          = errors.New("workflow run not found")
+	ErrWorkflowRunAlreadyExists     = errors.New("workflow run already exists")
+	ErrWorkflowNotFound             = errors.New("workflow not found")
+	ErrWorkflowRunReferenceNotFound = errors.New("workflow run reference not found")
 )

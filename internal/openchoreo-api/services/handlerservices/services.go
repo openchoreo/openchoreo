@@ -99,7 +99,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		SecretReferenceService:                        secretreferencesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "secretreference-service")),
 		TraitService:                                  traitsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "trait-service")),
 		WorkflowService:                               workflowsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workflow-service")),
-		WorkflowRunService:                            workflowrunsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workflowrun-service")),
+		WorkflowRunService:                            workflowrunsvc.NewServiceWithAuthz(k8sClient, bpClientMgr, gwClient, pdp, logger.With("component", "workflowrun-service")),
 		WorkloadService:                               workloadsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workload-service")),
 	}
 }

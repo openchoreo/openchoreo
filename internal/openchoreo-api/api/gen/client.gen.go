@@ -10222,9 +10222,9 @@ func NewGetWorkflowRunEventsRequest(server string, namespaceName NamespaceNamePa
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if params.Step != nil {
+		if params.Task != nil {
 
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "step", runtime.ParamLocationQuery, *params.Step); err != nil {
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "task", runtime.ParamLocationQuery, *params.Task); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -10285,9 +10285,9 @@ func NewGetWorkflowRunLogsRequest(server string, namespaceName NamespaceNamePara
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if params.Step != nil {
+		if params.Task != nil {
 
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "step", runtime.ParamLocationQuery, *params.Step); err != nil {
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "task", runtime.ParamLocationQuery, *params.Task); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err

@@ -11,6 +11,9 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
+	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -30,9 +33,9 @@ type workflowRunServiceWithAuthz struct {
 var _ Service = (*workflowRunServiceWithAuthz)(nil)
 
 // NewServiceWithAuthz creates a workflow run service with authorization checks.
-func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *slog.Logger) Service {
+func NewServiceWithAuthz(k8sClient client.Client, bpClientMgr *kubernetesClient.KubeMultiClientManager, gwClient *gatewayClient.Client, authzPDP authz.PDP, logger *slog.Logger) Service {
 	return &workflowRunServiceWithAuthz{
-		internal: NewService(k8sClient, logger),
+		internal: NewService(k8sClient, bpClientMgr, gwClient, logger),
 		authz:    services.NewAuthzChecker(authzPDP, logger),
 	}
 }
@@ -75,4 +78,28 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRun(ctx context.Context, namesp
 		return nil, err
 	}
 	return s.internal.GetWorkflowRun(ctx, namespaceName, runName)
+}
+
+func (s *workflowRunServiceWithAuthz) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, taskName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionViewWorkflowRun,
+		ResourceType: resourceTypeWorkflowRun,
+		ResourceID:   runName,
+		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.GetWorkflowRunLogs(ctx, namespaceName, runName, taskName, gatewayURL, sinceSeconds)
+}
+
+func (s *workflowRunServiceWithAuthz) GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, taskName, gatewayURL string) ([]models.WorkflowRunEventEntry, error) {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionViewWorkflowRun,
+		ResourceType: resourceTypeWorkflowRun,
+		ResourceID:   runName,
+		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.GetWorkflowRunEvents(ctx, namespaceName, runName, taskName, gatewayURL)
 }

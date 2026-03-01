@@ -2441,10 +2441,10 @@ paths:
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/WorkflowRunNameParam'
-        - name: step
+        - name: task
           in: query
           required: false
-          description: Filter logs by step name
+          description: Filter logs by task name
           schema:
             type: string
         - name: sinceSeconds
@@ -2482,10 +2482,10 @@ paths:
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/WorkflowRunNameParam'
-        - name: step
+        - name: task
           in: query
           required: false
-          description: Filter events by step name
+          description: Filter events by task name
           schema:
             type: string
       responses:
