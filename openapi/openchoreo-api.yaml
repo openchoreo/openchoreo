@@ -9149,9 +9149,9 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/WorkloadEndpoint'
         connections:
-          type: object
-          description: Named connection specifications
-          additionalProperties:
+          type: array
+          description: Connection specifications for endpoints consumed by this workload
+          items:
             $ref: '#/components/schemas/WorkloadConnection'
 
     WorkloadStatus:
@@ -9233,41 +9233,50 @@ components:
 
     WorkloadConnection:
       type: object
-      description: Internal API connection specification
+      description: A connection to another component's endpoint
       required:
-        - type
-        - inject
+        - component
+        - endpoint
+        - visibility
+        - envBindings
       properties:
-        type:
+        project:
           type: string
-          description: Connection type
-          enum: [api]
-        params:
-          type: object
-          description: Connection configuration parameters
-          additionalProperties:
-            type: string
-        inject:
-          type: object
-          description: How connection details are injected into the workload
-          required:
-            - env
-          properties:
-            env:
-              type: array
-              description: Environment variables to inject
-              items:
-                type: object
-                required:
-                  - name
-                  - value
-                properties:
-                  name:
-                    type: string
-                    description: Environment variable name
-                  value:
-                    type: string
-                    description: Template value using connection properties
+          description: Target component's project name. If empty, defaults to the same project as the consumer.
+        component:
+          type: string
+          description: Target component name
+          minLength: 1
+        endpoint:
+          type: string
+          description: Target endpoint name on the target component
+          minLength: 1
+        visibility:
+          type: string
+          description: Visibility level at which this connection consumes the endpoint
+          enum: [project, namespace]
+        envBindings:
+          $ref: '#/components/schemas/ConnectionEnvBindings'
+
+    ConnectionEnvBindings:
+      type: object
+      description: Maps resolved connection address components to environment variable names
+      properties:
+        address:
+          type: string
+          description: |
+            Env var name for the protocol-appropriate connection string.
+            For HTTP/HTTPS/WS/WSS: scheme://host:port/basePath
+            For gRPC/TCP/UDP: host:port
+        host:
+          type: string
+          description: Env var name for just the hostname
+        port:
+          type: string
+          description: Env var name for just the port number
+        basePath:
+          type: string
+          description: Env var name for just the base path
 
     # -------------------------------------------------------------------------
     # Deployment Pipeline Schemas

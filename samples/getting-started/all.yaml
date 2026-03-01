@@ -167,6 +167,7 @@ spec:
                     limits:
                       cpu: ${envOverrides.resources.limits.cpu}
                       memory: ${envOverrides.resources.limits.memory}
+                  env: ${connections.toContainerEnv()}
                   envFrom: ${configurations.toContainerEnvFrom()}
                   volumeMounts: ${configurations.toContainerVolumeMounts()}
               volumes: ${configurations.toVolumes()}
@@ -315,6 +316,7 @@ spec:
                     limits:
                       cpu: ${envOverrides.resources.limits.cpu}
                       memory: ${envOverrides.resources.limits.memory}
+                  env: ${connections.toContainerEnv()}
                   envFrom: ${configurations.toContainerEnvFrom()}
                   volumeMounts: ${configurations.toContainerVolumeMounts()}
               volumes: ${configurations.toVolumes()}
@@ -539,6 +541,7 @@ spec:
                     limits:
                       cpu: ${envOverrides.resources.limits.cpu}
                       memory: ${envOverrides.resources.limits.memory}
+                  env: ${connections.toContainerEnv()}
                   envFrom: ${configurations.toContainerEnvFrom()}
                   volumeMounts: ${configurations.toContainerVolumeMounts()}
               volumes: ${configurations.toVolumes()}
@@ -752,6 +755,7 @@ spec:
                         limits:
                           cpu: ${envOverrides.resources.limits.cpu}
                           memory: ${envOverrides.resources.limits.memory}
+                      env: ${connections.toContainerEnv()}
                       envFrom: ${configurations.toContainerEnvFrom()}
                       volumeMounts: ${configurations.toContainerVolumeMounts()}
                   volumes: ${configurations.toVolumes()}

@@ -28,66 +28,42 @@ spec:
       type: gRPC
       port: 5050
   connections:
-    productcatalog:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: productcatalog
-        endpoint: grpc
-      inject:
-        env:
-          - name: PRODUCT_CATALOG_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    shipping:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: shipping
-        endpoint: grpc
-      inject:
-        env:
-          - name: SHIPPING_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    payment:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: payment
-        endpoint: grpc
-      inject:
-        env:
-          - name: PAYMENT_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    email:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: email
-        endpoint: grpc
-      inject:
-        env:
-          - name: EMAIL_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    currency:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: currency
-        endpoint: grpc
-      inject:
-        env:
-          - name: CURRENCY_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    cart:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: cart
-        endpoint: grpc
-      inject:
-        env:
-          - name: CART_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
+    - project: gcp-microservice-demo
+      component: productcatalog
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: PRODUCT_CATALOG_SERVICE_ADDR
+    - project: gcp-microservice-demo
+      component: shipping
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: SHIPPING_SERVICE_ADDR
+    - project: gcp-microservice-demo
+      component: payment
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: PAYMENT_SERVICE_ADDR
+    - project: gcp-microservice-demo
+      component: email
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: EMAIL_SERVICE_ADDR
+    - project: gcp-microservice-demo
+      component: currency
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: CURRENCY_SERVICE_ADDR
+    - project: gcp-microservice-demo
+      component: cart
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: CART_SERVICE_ADDR
   container:
     image: us-central1-docker.pkg.dev/google-samples/microservices-demo/checkoutservice:v0.10.3
     env:
@@ -95,15 +71,3 @@ spec:
         value: "1"
       - key: PORT
         value: "5050"
-      - key: PRODUCT_CATALOG_SERVICE_ADDR
-        value: "productcatalog:3550"
-      - key: SHIPPING_SERVICE_ADDR
-        value: "shipping:50055"
-      - key: PAYMENT_SERVICE_ADDR
-        value: "payment:50051"
-      - key: EMAIL_SERVICE_ADDR
-        value: "email:5000"
-      - key: CURRENCY_SERVICE_ADDR
-        value: "currency:7000"
-      - key: CART_SERVICE_ADDR
-        value: "cart:7070"

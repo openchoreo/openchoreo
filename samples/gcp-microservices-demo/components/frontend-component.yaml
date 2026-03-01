@@ -29,86 +29,54 @@ spec:
       port: 8080
       visibility: [external]
   connections:
-    ad:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: ad
-        endpoint: grpc
-      inject:
-        env:
-          - name: AD_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    cart:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: cart
-        endpoint: grpc
-      inject:
-        env:
-          - name: CART_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    checkout:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: checkout
-        endpoint: grpc
-      inject:
-        env:
-          - name: CHECKOUT_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    currency:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: currency
-        endpoint: grpc
-      inject:
-        env:
-          - name: CURRENCY_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    payment:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: payment
-        endpoint: grpc
-      inject:
-        env:
-          - name: PAYMENT_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    recommendation:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: recommendation
-        endpoint: grpc
-      inject:
-        env:
-          - name: RECOMMENDATION_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    shipping:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: shipping
-        endpoint: grpc
-      inject:
-        env:
-          - name: SHIPPING_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
-    productcatalog:
-      type: api
-      params:
-        projectName: gcp-microservice-demo
-        componentName: productcatalog
-        endpoint: grpc
-      inject:
-        env:
-          - name: PRODUCT_CATALOG_SERVICE_ADDR
-            value: "{{ .host }}:{{ .port }}"
+    - project: gcp-microservice-demo
+      component: ad
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: AD_SERVICE_ADDR
+    - project: gcp-microservice-demo
+      component: cart
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: CART_SERVICE_ADDR
+    - project: gcp-microservice-demo
+      component: checkout
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: CHECKOUT_SERVICE_ADDR
+    - project: gcp-microservice-demo
+      component: currency
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: CURRENCY_SERVICE_ADDR
+    - project: gcp-microservice-demo
+      component: payment
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: PAYMENT_SERVICE_ADDR
+    - project: gcp-microservice-demo
+      component: recommendation
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: RECOMMENDATION_SERVICE_ADDR
+    - project: gcp-microservice-demo
+      component: shipping
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: SHIPPING_SERVICE_ADDR
+    - project: gcp-microservice-demo
+      component: productcatalog
+      endpoint: grpc
+      visibility: project
+      envBindings:
+        address: PRODUCT_CATALOG_SERVICE_ADDR
   container:
     image: us-central1-docker.pkg.dev/google-samples/microservices-demo/frontend:v0.10.3
     env:
@@ -124,19 +92,3 @@ spec:
         value: "Welcome to the Microservices Demo!"
       - key: ENABLE_ASSISTANT
         value: "false"
-      - key: AD_SERVICE_ADDR
-        value: "ad:9555"
-      - key: CART_SERVICE_ADDR
-        value: "cart:7070"
-      - key: CHECKOUT_SERVICE_ADDR
-        value: "checkout:5050"
-      - key: CURRENCY_SERVICE_ADDR
-        value: "currency:7000"
-      - key: PAYMENT_SERVICE_ADDR
-        value: "payment:50051"
-      - key: RECOMMENDATION_SERVICE_ADDR
-        value: "recommendation:8080"
-      - key: SHIPPING_SERVICE_ADDR
-        value: "shipping:50055"
-      - key: PRODUCT_CATALOG_SERVICE_ADDR
-        value: "productcatalog:3550"

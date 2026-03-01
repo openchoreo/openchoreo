@@ -309,9 +309,10 @@ const (
 	WorkflowStepStatusPhaseSucceeded WorkflowStepStatusPhase = "Succeeded"
 )
 
-// Defines values for WorkloadConnectionType.
+// Defines values for WorkloadConnectionVisibility.
 const (
-	Api WorkloadConnectionType = "api"
+	WorkloadConnectionVisibilityNamespace WorkloadConnectionVisibility = "namespace"
+	WorkloadConnectionVisibilityProject   WorkloadConnectionVisibility = "project"
 )
 
 // Defines values for WorkloadEndpointType.
@@ -1357,6 +1358,23 @@ type Condition struct {
 
 // ConditionStatus Status of the condition
 type ConditionStatus string
+
+// ConnectionEnvBindings Maps resolved connection address components to environment variable names
+type ConnectionEnvBindings struct {
+	// Address Env var name for the protocol-appropriate connection string.
+	// For HTTP/HTTPS/WS/WSS: scheme://host:port/basePath
+	// For gRPC/TCP/UDP: host:port
+	Address *string `json:"address,omitempty"`
+
+	// BasePath Env var name for just the base path
+	BasePath *string `json:"basePath,omitempty"`
+
+	// Host Env var name for just the hostname
+	Host *string `json:"host,omitempty"`
+
+	// Port Env var name for just the port number
+	Port *string `json:"port,omitempty"`
+}
 
 // ContainerOverride Container-level overrides
 type ContainerOverride struct {
@@ -3263,29 +3281,26 @@ type Workload struct {
 	Status *WorkloadStatus `json:"status,omitempty"`
 }
 
-// WorkloadConnection Internal API connection specification
+// WorkloadConnection A connection to another component's endpoint
 type WorkloadConnection struct {
-	// Inject How connection details are injected into the workload
-	Inject struct {
-		// Env Environment variables to inject
-		Env []struct {
-			// Name Environment variable name
-			Name string `json:"name"`
+	// Component Target component name
+	Component string `json:"component"`
 
-			// Value Template value using connection properties
-			Value string `json:"value"`
-		} `json:"env"`
-	} `json:"inject"`
+	// Endpoint Target endpoint name on the target component
+	Endpoint string `json:"endpoint"`
 
-	// Params Connection configuration parameters
-	Params *map[string]string `json:"params,omitempty"`
+	// EnvBindings Maps resolved connection address components to environment variable names
+	EnvBindings ConnectionEnvBindings `json:"envBindings"`
 
-	// Type Connection type
-	Type WorkloadConnectionType `json:"type"`
+	// Project Target component's project name. If empty, defaults to the same project as the consumer.
+	Project *string `json:"project,omitempty"`
+
+	// Visibility Visibility level at which this connection consumes the endpoint
+	Visibility WorkloadConnectionVisibility `json:"visibility"`
 }
 
-// WorkloadConnectionType Connection type
-type WorkloadConnectionType string
+// WorkloadConnectionVisibility Visibility level at which this connection consumes the endpoint
+type WorkloadConnectionVisibility string
 
 // WorkloadContainer Container specification
 type WorkloadContainer struct {
@@ -3355,8 +3370,8 @@ type WorkloadOverrides struct {
 
 // WorkloadSpec Desired state of a Workload
 type WorkloadSpec struct {
-	// Connections Named connection specifications
-	Connections *map[string]WorkloadConnection `json:"connections,omitempty"`
+	// Connections Connection specifications for endpoints consumed by this workload
+	Connections *[]WorkloadConnection `json:"connections,omitempty"`
 
 	// Container Container specification
 	Container *WorkloadContainer `json:"container,omitempty"`
