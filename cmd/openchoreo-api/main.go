@@ -161,14 +161,14 @@ func main() {
 		k8sClient, planeK8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL, gwClient,
 	)
 
-	// Initialize legacy HTTP handlers with unified config
-	legacyHandler := handlers.New(legacySvc, &cfg, logger.With("component", "legacy-handlers"))
-	legacyRoutes := legacyHandler.Routes()
-
 	// Initialize all handler services
 	services := handlerservices.NewServices(
-		k8sClient, runtime.pap, runtime.pdp, planeK8sClientMgr, gatewayURL, logger, gwClient,
+		k8sClient, runtime.pap, runtime.pdp, planeK8sClientMgr, gatewayURL, logger, gwClient, legacySvc.WebhookService,
 	)
+
+	// Initialize legacy HTTP handlers with unified config
+	legacyHandler := handlers.New(legacySvc, &cfg, logger.With("component", "legacy-handlers"), services.AutoBuildService)
+	legacyRoutes := legacyHandler.Routes()
 
 	// Initialize OpenAPI handlers
 	openapiHandler := openapihandlers.New(legacySvc, services, logger.With("component", "openapi-handlers"), &cfg)

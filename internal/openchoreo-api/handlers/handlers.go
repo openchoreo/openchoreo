@@ -13,6 +13,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacymcphandlers"
 	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
@@ -25,17 +26,19 @@ import (
 
 // Handler holds the services and provides HTTP handlers
 type Handler struct {
-	services *services.Services
-	config   *config.Config
-	logger   *slog.Logger
+	services         *services.Services
+	autoBuildService autobuildsvc.Service
+	config           *config.Config
+	logger           *slog.Logger
 }
 
 // New creates a new Handler instance
-func New(services *services.Services, cfg *config.Config, logger *slog.Logger) *Handler {
+func New(services *services.Services, cfg *config.Config, logger *slog.Logger, autoBuildService autobuildsvc.Service) *Handler {
 	return &Handler{
-		services: services,
-		config:   cfg,
-		logger:   logger,
+		services:         services,
+		autoBuildService: autoBuildService,
+		config:           cfg,
+		logger:           logger,
 	}
 }
 

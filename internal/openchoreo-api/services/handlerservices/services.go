@@ -12,6 +12,7 @@ import (
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
+	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
 	buildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/buildplane"
 	clusterbuildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterbuildplane"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
@@ -41,6 +42,7 @@ import (
 
 // Services aggregates all K8s-native API service interfaces.
 type Services struct {
+	AutoBuildService                              autobuildsvc.Service
 	AuthzService                                  authzsvc.Service
 	ProjectService                                projectsvc.Service
 	BuildPlaneService                             buildplanesvc.Service
@@ -70,8 +72,9 @@ type Services struct {
 }
 
 // NewServices creates all K8s-native API services with authorization wrappers.
-func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, bpClientMgr *kubernetesClient.KubeMultiClientManager, gatewayURL string, logger *slog.Logger, gwClient *gatewayClient.Client) *Services {
+func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, bpClientMgr *kubernetesClient.KubeMultiClientManager, gatewayURL string, logger *slog.Logger, gwClient *gatewayClient.Client, webhookProcessor autobuildsvc.WebhookProcessor) *Services {
 	return &Services{
+		AutoBuildService:                              autobuildsvc.NewService(k8sClient, webhookProcessor, logger.With("component", "autobuild-service")),
 		AuthzService:                                  authzsvc.NewServiceWithAuthz(pap, pdp, k8sClient, logger.With("component", "authz-service")),
 		ProjectService:                                projectsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "project-service")),
 		BuildPlaneService:                             buildplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "buildplane-service")),

@@ -4,32 +4,24 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices/git"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
 )
 
 const (
-	// WebhookSecretName is the name of the Kubernetes Secret containing webhook secrets
-	WebhookSecretName = "git-webhook-secrets" // #nosec G101 -- This is a secret name, not a hardcoded credential
-	// WebhookSecretNamespace is the namespace where the webhook secret is stored
-	WebhookSecretNamespace = "openchoreo-control-plane" // #nosec G101 -- This is a namespace name, not a credential
-
 	// Provider detection headers — each git provider sends a unique header that
 	// identifies it as the event source.
 	headerGitHubSignature   = "X-Hub-Signature-256"
 	headerGitLabToken       = "X-Gitlab-Token"
 	headerBitbucketEventKey = "X-Event-Key"
 
-	// Secret key names inside WebhookSecretName for each provider.
+	// Secret key names inside the webhook Kubernetes Secret for each provider.
 	secretKeyGitHub    = "github-secret"
 	secretKeyGitLab    = "gitlab-secret"
 	secretKeyBitbucket = "bitbucket-secret"
@@ -44,7 +36,42 @@ func (h *Handler) HandleAutoBuild(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusBadRequest, models.ErrorResponse("Unable to detect git provider from request headers", "UNKNOWN_GIT_PROVIDER"))
 		return
 	}
-	h.handleWebhook(w, r, providerType, signatureHeader, secretKey)
+
+	payload, err := io.ReadAll(r.Body)
+	if err != nil {
+		h.logger.Error("Failed to read webhook payload", "error", err, "provider", providerType)
+		respondJSON(w, http.StatusBadRequest, models.ErrorResponse("Failed to read payload", "WEBHOOK_READ_ERROR"))
+		return
+	}
+
+	result, err := h.autoBuildService.ProcessWebhook(r.Context(), &autobuildsvc.ProcessWebhookParams{
+		ProviderType:    providerType,
+		SignatureHeader: signatureHeader,
+		Signature:       r.Header.Get(signatureHeader),
+		SecretKey:       secretKey,
+		Payload:         payload,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, autobuildsvc.ErrInvalidSignature):
+			h.logger.Error("Invalid webhook signature", "provider", providerType)
+			respondJSON(w, http.StatusUnauthorized, models.ErrorResponse("Invalid webhook signature", "INVALID_SIGNATURE"))
+		case errors.Is(err, autobuildsvc.ErrSecretNotConfigured):
+			h.logger.Error("Webhook secret not configured", "provider", providerType, "error", err)
+			respondJSON(w, http.StatusInternalServerError, models.ErrorResponse("Webhook secret not configured", "SECRET_NOT_CONFIGURED"))
+		default:
+			h.logger.Error("Failed to process webhook", "provider", providerType, "error", err)
+			respondJSON(w, http.StatusInternalServerError, models.ErrorResponse(err.Error(), "WEBHOOK_PROCESS_ERROR"))
+		}
+		return
+	}
+
+	respondJSON(w, http.StatusOK, models.SuccessResponse(models.WebhookEventResponse{
+		Success:            true,
+		Message:            "Webhook processed successfully",
+		AffectedComponents: result.AffectedComponents,
+		TriggeredBuilds:    len(result.AffectedComponents),
+	}))
 }
 
 // detectGitProvider identifies the git provider from the request headers.
@@ -63,104 +90,6 @@ func detectGitProvider(r *http.Request) (git.ProviderType, string, string, bool)
 	default:
 		return "", "", "", false
 	}
-}
-
-// handleWebhook is the common handler for all git provider webhooks
-func (h *Handler) handleWebhook(w http.ResponseWriter, r *http.Request, providerType git.ProviderType, signatureHeader, secretKey string) {
-	// Read the payload
-	payload, err := io.ReadAll(r.Body)
-	if err != nil {
-		h.logger.Error("Failed to read webhook payload", "error", err, "provider", providerType)
-		respondJSON(w, http.StatusBadRequest, models.ErrorResponse("Failed to read payload", "WEBHOOK_READ_ERROR"))
-		return
-	}
-
-	// Get signature/token from header
-	signature := r.Header.Get(signatureHeader)
-
-	// Get the git provider
-	provider, err := git.GetProvider(providerType)
-	if err != nil {
-		h.logger.Error("Failed to get git provider", "error", err, "provider", providerType)
-		respondJSON(w, http.StatusInternalServerError, models.ErrorResponse("Provider not supported", "PROVIDER_ERROR"))
-		return
-	}
-
-	// Get webhook secret from Kubernetes Secret.
-	// For providers that omit signature validation (signatureHeader == ""),
-	// an empty or absent stored secret is permitted.
-	webhookSecret, err := h.getWebhookSecret(r.Context(), secretKey, signatureHeader == "")
-	if err != nil {
-		h.logger.Error("Failed to get webhook secret", "error", err, "provider", providerType)
-		respondJSON(w, http.StatusInternalServerError, models.ErrorResponse("Webhook secret not configured", "SECRET_NOT_CONFIGURED"))
-		return
-	}
-
-	// Validate signature
-	if err := provider.ValidateWebhookPayload(payload, signature, webhookSecret); err != nil {
-		h.logger.Error("Invalid webhook signature", "error", err, "provider", providerType)
-		respondJSON(w, http.StatusUnauthorized, models.ErrorResponse("Invalid webhook signature", "INVALID_SIGNATURE"))
-		return
-	}
-
-	// Process webhook through service
-	affectedComponents, err := h.services.WebhookService.ProcessWebhook(
-		r.Context(),
-		provider,
-		payload,
-	)
-	if err != nil {
-		h.logger.Error("Failed to process webhook", "error", err, "provider", providerType)
-		respondJSON(w, http.StatusInternalServerError, models.ErrorResponse(err.Error(), "WEBHOOK_PROCESS_ERROR"))
-		return
-	}
-
-	h.logger.Info("Webhook processed successfully",
-		"provider", providerType,
-		"affectedComponents", len(affectedComponents),
-	)
-
-	respondJSON(w, http.StatusOK, models.SuccessResponse(models.WebhookEventResponse{
-		Success:            true,
-		Message:            "Webhook processed successfully",
-		AffectedComponents: affectedComponents,
-		TriggeredBuilds:    len(affectedComponents),
-	}))
-}
-
-// getWebhookSecret retrieves the webhook secret from Kubernetes Secret.
-// When allowEmpty is true (used for providers like Bitbucket that rely on
-// open/absent secrets for the MVP), a missing or empty key is not an error.
-func (h *Handler) getWebhookSecret(ctx context.Context, secretKey string, allowEmpty bool) (string, error) {
-	// Get the Secret
-	secret := &corev1.Secret{}
-	if err := h.services.GetKubernetesClient().Get(ctx, client.ObjectKey{
-		Name:      WebhookSecretName,
-		Namespace: WebhookSecretNamespace,
-	}, secret); err != nil {
-		return "", fmt.Errorf("failed to get webhook secret %s/%s: %w",
-			WebhookSecretNamespace, WebhookSecretName, err)
-	}
-
-	// Extract the secret value
-	secretData, ok := secret.Data[secretKey]
-	if !ok {
-		if allowEmpty {
-			return "", nil
-		}
-		return "", fmt.Errorf("secret %s/%s does not contain '%s' key",
-			WebhookSecretNamespace, WebhookSecretName, secretKey)
-	}
-
-	if len(secretData) == 0 {
-		if allowEmpty {
-			return "", nil
-		}
-		return "", fmt.Errorf("secret %s/%s has empty '%s' value",
-			WebhookSecretNamespace, WebhookSecretName, secretKey)
-	}
-
-	return string(secretData), nil
 }
 
 // respondJSON is a helper function to write JSON responses

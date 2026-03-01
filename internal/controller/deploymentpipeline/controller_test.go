@@ -374,6 +374,19 @@ var _ = Describe("DeploymentPipeline Controller - Finalizer with referencing Pro
 			}, project)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(k8sClient.Delete(ctx, project)).To(Succeed())
+			// The project has no finalizers in the test (the project controller is not
+			// running), so the API server removes it immediately.  k8sClient reads
+			// Projects through the informer cache, which is updated asynchronously.
+			// Wait until the cache reflects the deletion before reconciling; otherwise
+			// hasReferencingProjects would see the stale cache entry and keep the
+			// finalizer in place.
+			Eventually(func() bool {
+				p := &openchoreov1alpha1.Project{}
+				return errors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{
+					Namespace: namespaceName,
+					Name:      "test-project",
+				}, p))
+			}, time.Second*5, time.Millisecond*100).Should(BeTrue())
 		})
 
 		By("Reconciling again - should remove finalizer now", func() {
