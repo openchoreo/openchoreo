@@ -41,13 +41,26 @@ type TracesQueryResult struct {
 
 // Trace represents a distributed trace
 type Trace struct {
-	TraceID      string    `json:"traceId"`
-	TraceName    string    `json:"traceName"`
-	SpanCount    int       `json:"spanCount"`
-	RootSpanID   string    `json:"rootSpanId"`
-	RootSpanName string    `json:"rootSpanName"`
-	RootSpanKind string    `json:"rootSpanKind"`
-	StartTime    time.Time `json:"startTime"`
-	EndTime      time.Time `json:"endTime"`
-	DurationNs   int64     `json:"durationNs"`
+	TraceID      string      `json:"traceId"`
+	TraceName    string      `json:"traceName"`
+	SpanCount    int         `json:"spanCount"`
+	RootSpanID   string      `json:"rootSpanId"`
+	RootSpanName string      `json:"rootSpanName"`
+	RootSpanKind string      `json:"rootSpanKind"`
+	StartTime    time.Time   `json:"startTime"`
+	EndTime      time.Time   `json:"endTime"`
+	DurationNs   int64       `json:"durationNs"`
+	Spans        []TraceSpan `json:"spans,omitempty"`
+}
+
+// TraceSpan represents a span within a trace with all details
+type TraceSpan struct {
+	SpanID             string                 `json:"spanId"`
+	Name               string                 `json:"name"`
+	ParentSpanID       string                 `json:"parentSpanId,omitempty"`
+	StartTime          time.Time              `json:"startTime"`
+	EndTime            time.Time              `json:"endTime"`
+	DurationNs         int64                  `json:"durationNs"`
+	Attributes         map[string]interface{} `json:"attributes,omitempty"`
+	ResourceAttributes map[string]interface{} `json:"resourceAttributes,omitempty"`
 }

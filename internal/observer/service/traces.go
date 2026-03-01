@@ -22,11 +22,11 @@ var (
 )
 
 type TracesService struct {
-	tracesBackend    observability.TracesBackend
-	defaultAdaptor   *adaptor.DefaultTracesAdaptor
-	config           *config.Config
-	resolver         *ResourceUIDResolver
-	logger           *slog.Logger
+	tracesBackend  observability.TracesBackend
+	defaultAdaptor *adaptor.DefaultTracesAdaptor
+	config         *config.Config
+	resolver       *ResourceUIDResolver
+	logger         *slog.Logger
 }
 
 func NewTracesService(
@@ -90,6 +90,9 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 		s.logger.Debug("Using traces backend for query")
 		result, err = s.tracesBackend.GetTraces(ctx, params)
 	} else {
+		if s.defaultAdaptor == nil {
+			return nil, fmt.Errorf("%w: default traces adaptor not initialized", ErrTracesRetrieval)
+		}
 		s.logger.Debug("Using default adaptor (OpenSearch) for query")
 		result, err = s.defaultAdaptor.GetTraces(ctx, params)
 	}
@@ -142,16 +145,31 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 		"startTime", req.StartTime,
 		"endTime", req.EndTime)
 
-	// Build query params for spans with the specific trace ID
+	// Resolve search scope to UIDs to enforce access control
+	projectUID, componentUID, environmentUID, err := s.resolveSearchScope(ctx, &req.SearchScope)
+	if err != nil {
+		s.logger.Error("Failed to resolve search scope", "error", err)
+		return nil, fmt.Errorf("%w: %w", ErrTracesResolveSearchScope, err)
+	}
+
+	// Build query params for spans with the specific trace ID and scope
 	params := observability.TracesQueryParams{
-		StartTime: req.StartTime,
-		EndTime:   req.EndTime,
-		TraceID:   traceID,
-		Limit:     req.Limit,
-		SortOrder: req.Sort,
+		StartTime:     req.StartTime,
+		EndTime:       req.EndTime,
+		Namespace:     req.SearchScope.Namespace,
+		ProjectID:     projectUID,
+		ComponentID:   componentUID,
+		EnvironmentID: environmentUID,
+		TraceID:       traceID,
+		Limit:         req.Limit,
+		SortOrder:     req.Sort,
 	}
 
 	// Query spans using the default adaptor (for now, external backend not supported for span queries)
+	if s.defaultAdaptor == nil {
+		return nil, fmt.Errorf("%w: default traces adaptor not initialized", ErrTracesRetrieval)
+	}
+
 	result, err := s.defaultAdaptor.GetTraces(ctx, params)
 	if err != nil {
 		s.logger.Error("Failed to retrieve spans", "error", err)
@@ -175,6 +193,10 @@ func (s *TracesService) GetSpanDetails(ctx context.Context, traceID string, span
 		"spanId", spanID)
 
 	// Query using the default adaptor
+	if s.defaultAdaptor == nil {
+		return nil, fmt.Errorf("%w: default traces adaptor not initialized", ErrTracesRetrieval)
+	}
+
 	span, err := s.defaultAdaptor.GetSpanDetails(ctx, traceID, spanID)
 	if err != nil {
 		s.logger.Error("Failed to retrieve span details", "error", err)
@@ -187,7 +209,7 @@ func (s *TracesService) GetSpanDetails(ctx context.Context, traceID string, span
 		ParentSpanID:       span.ParentSpanID,
 		StartTime:          &span.StartTime,
 		EndTime:            &span.EndTime,
-		DurationNs:         float64(span.DurationNanoseconds),
+		DurationNs:         span.DurationNanoseconds,
 		Attributes:         span.Attributes,
 		ResourceAttributes: span.ResourceAttributes,
 	}, nil
@@ -205,7 +227,7 @@ func (s *TracesService) convertToResponse(result *observability.TracesQueryResul
 			RootSpanKind: trace.RootSpanKind,
 			StartTime:    &trace.StartTime,
 			EndTime:      &trace.EndTime,
-			DurationNs:   float64(trace.DurationNs),
+			DurationNs:   trace.DurationNs,
 		}
 	}
 
@@ -217,14 +239,27 @@ func (s *TracesService) convertToResponse(result *observability.TracesQueryResul
 }
 
 func (s *TracesService) convertSpansToResponse(result *observability.TracesQueryResult) *types.SpansQueryResponse {
-	spans := make([]types.SpanInfo, len(result.Traces))
-	for i, trace := range result.Traces {
-		spans[i] = types.SpanInfo{
-			SpanID:       trace.RootSpanID,
-			SpanName:     trace.RootSpanName,
-			StartTime:    &trace.StartTime,
-			EndTime:      &trace.EndTime,
-			DurationNs:   float64(trace.DurationNs),
+	var spans []types.SpanInfo
+	// Calculate total spans to preallocate
+	totalSpans := 0
+	for _, trace := range result.Traces {
+		totalSpans += len(trace.Spans)
+	}
+	spans = make([]types.SpanInfo, 0, totalSpans)
+
+	// Flatten spans from all traces
+	for _, trace := range result.Traces {
+		for _, traceSpan := range trace.Spans {
+			spans = append(spans, types.SpanInfo{
+				SpanID:             traceSpan.SpanID,
+				SpanName:           traceSpan.Name,
+				ParentSpanID:       traceSpan.ParentSpanID,
+				StartTime:          &traceSpan.StartTime,
+				EndTime:            &traceSpan.EndTime,
+				DurationNs:         traceSpan.DurationNs,
+				Attributes:         traceSpan.Attributes,
+				ResourceAttributes: traceSpan.ResourceAttributes,
+			})
 		}
 	}
 

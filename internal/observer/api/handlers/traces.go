@@ -27,7 +27,7 @@ func (h *Handler) QueryTraces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert from generated type to internal type
-	sort := "desc"
+	sort := defaultSortOrder
 	if genReq.Sort != nil {
 		sort = string(*genReq.Sort)
 	}
@@ -39,9 +39,9 @@ func (h *Handler) QueryTraces(w http.ResponseWriter, r *http.Request) {
 		Sort:      sort,
 		SearchScope: types.ComponentSearchScope{
 			Namespace:   genReq.SearchScope.Namespace,
-			Project:     derefString(genReq.SearchScope.Project, ""),
-			Component:   derefString(genReq.SearchScope.Component, ""),
-			Environment: derefString(genReq.SearchScope.Environment, ""),
+			Project:     derefString(genReq.SearchScope.Project),
+			Component:   derefString(genReq.SearchScope.Component),
+			Environment: derefString(genReq.SearchScope.Environment),
 		},
 	}
 
@@ -135,6 +135,7 @@ func (h *Handler) QueryTraces(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrTracesRetrieval):
 			errorCode = types.ErrorCodeV1TracesRetrievalFailed
 		case errors.Is(err, service.ErrTracesInvalidRequest):
+			errorCode = types.ErrorCodeV1TracesInvalidRequest
 			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, errorCode, "Invalid request")
 			return
 		}
@@ -166,7 +167,7 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert from generated type to internal type
-	sort := "desc"
+	sort := defaultSortOrder
 	if genReq.Sort != nil {
 		sort = string(*genReq.Sort)
 	}
@@ -178,9 +179,9 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 		Sort:      sort,
 		SearchScope: types.ComponentSearchScope{
 			Namespace:   genReq.SearchScope.Namespace,
-			Project:     derefString(genReq.SearchScope.Project, ""),
-			Component:   derefString(genReq.SearchScope.Component, ""),
-			Environment: derefString(genReq.SearchScope.Environment, ""),
+			Project:     derefString(genReq.SearchScope.Project),
+			Component:   derefString(genReq.SearchScope.Component),
+			Environment: derefString(genReq.SearchScope.Environment),
 		},
 	}
 
@@ -272,6 +273,7 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, service.ErrTracesRetrieval):
 			errorCode = types.ErrorCodeV1TracesRetrievalFailed
 		case errors.Is(err, service.ErrTracesInvalidRequest):
+			errorCode = types.ErrorCodeV1TracesInvalidRequest
 			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, errorCode, "Invalid request")
 			return
 		}
@@ -330,6 +332,7 @@ func (h *Handler) GetSpanDetailsForTrace(w http.ResponseWriter, r *http.Request)
 		case errors.Is(err, service.ErrTracesRetrieval):
 			errorCode = types.ErrorCodeV1TracesRetrievalFailed
 		case errors.Is(err, service.ErrTracesInvalidRequest):
+			errorCode = types.ErrorCodeV1TracesInvalidRequest
 			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, errorCode, "Invalid request")
 			return
 		}
@@ -357,9 +360,9 @@ func derefInt(ptr *int, defaultVal int) int {
 	return *ptr
 }
 
-func derefString(ptr *string, defaultVal string) string {
+func derefString(ptr *string) string {
 	if ptr == nil {
-		return defaultVal
+		return ""
 	}
 	return *ptr
 }
@@ -395,7 +398,9 @@ func convertTracesResponseToGen(resp *types.TracesQueryResponse) *gen.TracesQuer
 
 	jsonData, _ := json.Marshal(mapResp)
 	var genResp gen.TracesQueryResponse
-	json.Unmarshal(jsonData, &genResp)
+	if err := json.Unmarshal(jsonData, &genResp); err != nil {
+		return nil
+	}
 	return &genResp
 }
 
@@ -429,7 +434,9 @@ func convertSpansResponseToGen(resp *types.SpansQueryResponse) *gen.TraceSpansQu
 
 	jsonData, _ := json.Marshal(mapResp)
 	var genResp gen.TraceSpansQueryResponse
-	json.Unmarshal(jsonData, &genResp)
+	if err := json.Unmarshal(jsonData, &genResp); err != nil {
+		return nil
+	}
 	return &genResp
 }
 

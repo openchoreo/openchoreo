@@ -129,12 +129,28 @@ func convertToObservabilityTrace(traceID string, spans []opensearch.Span) observ
 		}
 	}
 
+	// Convert opensearch spans to observability spans
+	traceSpans := make([]observability.TraceSpan, len(spans))
+	for i, span := range spans {
+		traceSpans[i] = observability.TraceSpan{
+			SpanID:             span.SpanID,
+			Name:               span.Name,
+			ParentSpanID:       span.ParentSpanID,
+			StartTime:          span.StartTime,
+			EndTime:            span.EndTime,
+			DurationNs:         span.DurationNanoseconds,
+			Attributes:         span.Attributes,
+			ResourceAttributes: span.ResourceAttributes,
+		}
+	}
+
 	trace := observability.Trace{
-		TraceID:   traceID,
-		SpanCount: len(spans),
-		StartTime: minStartTime,
-		EndTime:   maxEndTime,
+		TraceID:    traceID,
+		SpanCount:  len(spans),
+		StartTime:  minStartTime,
+		EndTime:    maxEndTime,
 		DurationNs: maxEndTime.Sub(minStartTime).Nanoseconds(),
+		Spans:      traceSpans,
 	}
 
 	if rootSpan != nil {

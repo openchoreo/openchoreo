@@ -31,7 +31,7 @@ type TraceInfo struct {
 	RootSpanKind string     `json:"rootSpanKind"`
 	StartTime    *time.Time `json:"startTime,omitempty"`
 	EndTime      *time.Time `json:"endTime,omitempty"`
-	DurationNs   float64    `json:"durationNs,omitempty"`
+	DurationNs   int64      `json:"durationNs,omitempty"`
 }
 
 // SpansQueryResponse represents the internal response for span queries
@@ -48,7 +48,7 @@ type SpanInfo struct {
 	ParentSpanID       string                 `json:"parentSpanId,omitempty"`
 	StartTime          *time.Time             `json:"startTime,omitempty"`
 	EndTime            *time.Time             `json:"endTime,omitempty"`
-	DurationNs         float64                `json:"durationNs,omitempty"`
+	DurationNs         int64                  `json:"durationNs,omitempty"`
 	Attributes         map[string]interface{} `json:"attributes,omitempty"`
 	ResourceAttributes map[string]interface{} `json:"resourceAttributes,omitempty"`
 }

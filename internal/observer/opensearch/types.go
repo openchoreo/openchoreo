@@ -104,7 +104,7 @@ type Span struct {
 	SpanID                 string                 `json:"spanId"`
 	StartTime              time.Time              `json:"startTime"`
 	Attributes             map[string]interface{} `json:"attributes,omitempty"`
-	ResourceAttributes    map[string]interface{} `json:"resourceAttributes,omitempty"`
+	ResourceAttributes     map[string]interface{} `json:"resourceAttributes,omitempty"`
 }
 
 // QueryParams holds common query parameters

@@ -329,6 +329,12 @@ func ValidateTracesQueryRequest(req *gen.TracesQueryRequest) error {
 	}
 
 	// Validate time range (generated types use time.Time directly)
+	if req.StartTime.IsZero() {
+		return fmt.Errorf("startTime is required")
+	}
+	if req.EndTime.IsZero() {
+		return fmt.Errorf("endTime is required")
+	}
 	startStr := req.StartTime.Format(time.RFC3339)
 	endStr := req.EndTime.Format(time.RFC3339)
 	if err := ValidateTimeRange(startStr, endStr); err != nil {
@@ -354,8 +360,8 @@ func ValidateTracesQueryRequest(req *gen.TracesQueryRequest) error {
 
 	// Validate and set defaults for limit
 	if req.Limit != nil {
-		if *req.Limit < 0 {
-			return fmt.Errorf("limit must be a positive integer")
+		if *req.Limit <= 0 {
+			return fmt.Errorf("limit must be a positive integer greater than zero")
 		}
 		if *req.Limit > maxLimit {
 			return fmt.Errorf("limit cannot exceed %d", maxLimit)
