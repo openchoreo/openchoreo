@@ -41,7 +41,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentreleases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflows,verbs=get;list;watch
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=list;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=gitcommitrequests,verbs=get;list;watch;create;update;patch;delete
@@ -957,10 +957,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup component release owner index: %w", err)
 	}
 
-	if err := r.setupWorkflowRunOwnerIndex(ctx, mgr); err != nil {
-		return fmt.Errorf("failed to setup workflow run owner index: %w", err)
-	}
-
 	// Note: The following shared indexes are set up in controller.SetupSharedIndexes (called from main.go):
 	// - ReleaseBinding owner index (used by Component and ReleaseBinding controllers)
 	// - Component owner project index (used by Project and Component controllers)
@@ -972,8 +968,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.findComponentsForComponentRelease)).
 		Watches(&openchoreov1alpha1.ReleaseBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.findComponentsForReleaseBinding)).
-		Watches(&openchoreov1alpha1.WorkflowRun{},
-			handler.EnqueueRequestsFromMapFunc(r.findComponentsForWorkflowRun)).
 		Watches(&openchoreov1alpha1.ComponentType{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForComponentType)).
 		Watches(&openchoreov1alpha1.ClusterComponentType{},

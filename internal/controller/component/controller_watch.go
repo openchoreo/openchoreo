@@ -14,7 +14,6 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
@@ -26,8 +25,6 @@ const (
 	workflowIndex = "spec.workflow.name"
 	// workloadOwnerIndex is the field index name for workload owner references
 	workloadOwnerIndex = "spec.owner"
-	// workflowRunOwnerIndex is the field index name for WorkflowRun owner references
-	workflowRunOwnerIndex = "metadata.labels.openchoreo.dev/component"
 )
 
 // setupComponentTypeRefIndex sets up the field index for componentType references.
@@ -93,20 +90,6 @@ func (r *Reconciler) setupComponentReleaseOwnerIndex(ctx context.Context, mgr ct
 				return nil
 			}
 			return []string{release.Spec.Owner.ComponentName}
-		})
-}
-
-// setupWorkflowRunOwnerIndex registers an index for WorkflowRun by owner component label.
-// This enables efficient lookup of WorkflowRuns created for a specific Component.
-func (r *Reconciler) setupWorkflowRunOwnerIndex(ctx context.Context, mgr ctrl.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.WorkflowRun{},
-		workflowRunOwnerIndex, func(obj client.Object) []string {
-			workflowRun := obj.(*openchoreov1alpha1.WorkflowRun)
-			componentName := workflowRun.Labels[ocLabels.LabelKeyComponentName]
-			if componentName == "" {
-				return nil
-			}
-			return []string{componentName}
 		})
 }
 
@@ -279,21 +262,6 @@ func (r *Reconciler) findComponentsForReleaseBinding(ctx context.Context, obj cl
 		NamespacedName: types.NamespacedName{
 			Name:      binding.Spec.Owner.ComponentName,
 			Namespace: binding.Namespace,
-		},
-	}}
-}
-
-// findComponentsForWorkflowRun maps a WorkflowRun to its owner Component.
-func (r *Reconciler) findComponentsForWorkflowRun(ctx context.Context, obj client.Object) []ctrl.Request {
-	workflowRun := obj.(*openchoreov1alpha1.WorkflowRun)
-	componentName := workflowRun.Labels[ocLabels.LabelKeyComponentName]
-	if componentName == "" {
-		return nil
-	}
-	return []ctrl.Request{{
-		NamespacedName: types.NamespacedName{
-			Name:      componentName,
-			Namespace: workflowRun.Namespace,
 		},
 	}}
 }

@@ -16,6 +16,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
@@ -192,11 +193,14 @@ func (r *Reconciler) hasOwnedWorkloads(ctx context.Context, comp *openchoreov1al
 func (r *Reconciler) hasOwnedWorkflowRuns(ctx context.Context, comp *openchoreov1alpha1.Component) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("component", comp.Name)
 
-	// List WorkflowRuns owned by this Component using field index.
+	// List WorkflowRuns owned by this Component using project and component labels.
 	workflowRunList := &openchoreov1alpha1.WorkflowRunList{}
 	if err := r.List(ctx, workflowRunList,
 		client.InNamespace(comp.Namespace),
-		client.MatchingFields{workflowRunOwnerIndex: comp.Name}); err != nil {
+		client.MatchingLabels{
+			ocLabels.LabelKeyProjectName:   comp.Spec.Owner.ProjectName,
+			ocLabels.LabelKeyComponentName: comp.Name,
+		}); err != nil {
 		return false, fmt.Errorf("failed to list workflow runs: %w", err)
 	}
 

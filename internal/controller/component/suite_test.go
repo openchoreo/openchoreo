@@ -24,7 +24,6 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -129,18 +128,6 @@ var _ = BeforeSuite(func() {
 				workload.Spec.Owner.ProjectName,
 				workload.Spec.Owner.ComponentName)
 			return []string{ownerKey}
-		})
-	Expect(err).NotTo(HaveOccurred())
-
-	// Register field index for WorkflowRun by owner component label.
-	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.WorkflowRun{},
-		workflowRunOwnerIndex, func(obj client.Object) []string {
-			workflowRun := obj.(*openchoreov1alpha1.WorkflowRun)
-			componentName := workflowRun.Labels[ocLabels.LabelKeyComponentName]
-			if componentName == "" {
-				return nil
-			}
-			return []string{componentName}
 		})
 	Expect(err).NotTo(HaveOccurred())
 
