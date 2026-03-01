@@ -857,6 +857,7 @@ observer:
   # default: openchoreo-observer-secret
   # @schema
   oauthClientSecret: "openchoreo-observer-secret"
+  # @schema
   # type: object
   # description: CORS configuration for the Observer service
   # @schema
@@ -868,7 +869,7 @@ observer:
     #   type: string
     # @schema
     allowedOrigins:
-    - "http://openchoreo.localhost:8080/"
+    - "http://openchoreo.localhost:8080"
 
   # @schema
   # type: array
@@ -2892,7 +2893,7 @@ rca:
     #   type: string
     # @schema
     allowedOrigins:
-    - "http://openchoreo.localhost:8080/"
+    - "http://openchoreo.localhost:8080"
 
   # @schema
   # type: object

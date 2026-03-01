@@ -111,6 +111,74 @@ func TestLoad_WithEnvironmentVariables(t *testing.T) {
 	}
 }
 
+func TestLoad_CORSAllowedOrigins(t *testing.T) {
+	tests := []struct {
+		name     string
+		envValue string
+		expected []string
+	}{
+		{
+			name:     "simple comma-separated origins",
+			envValue: "http://localhost:3000,http://example.com",
+			expected: []string{"http://localhost:3000", "http://example.com"},
+		},
+		{
+			name:     "whitespace is trimmed",
+			envValue: " http://a.com , http://b.com ",
+			expected: []string{"http://a.com", "http://b.com"},
+		},
+		{
+			name:     "trailing comma produces no empty items",
+			envValue: "http://a.com,http://b.com,",
+			expected: []string{"http://a.com", "http://b.com"},
+		},
+		{
+			name:     "multiple trailing commas",
+			envValue: "http://a.com,,http://b.com,,",
+			expected: []string{"http://a.com", "http://b.com"},
+		},
+		{
+			name:     "whitespace-only entries are filtered",
+			envValue: "http://a.com, , ,http://b.com",
+			expected: []string{"http://a.com", "http://b.com"},
+		},
+		{
+			name:     "single origin",
+			envValue: "http://localhost:3000",
+			expected: []string{"http://localhost:3000"},
+		},
+		{
+			name:     "unset env var leaves empty slice",
+			envValue: "",
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envValue != "" {
+				t.Setenv("CORS_ALLOWED_ORIGINS", tt.envValue)
+			} else {
+				os.Unsetenv("CORS_ALLOWED_ORIGINS")
+			}
+
+			cfg, err := Load()
+			if err != nil {
+				t.Fatalf("Failed to load config: %v", err)
+			}
+
+			if len(cfg.CORS.AllowedOrigins) != len(tt.expected) {
+				t.Fatalf("Expected %d origins, got %d: %v", len(tt.expected), len(cfg.CORS.AllowedOrigins), cfg.CORS.AllowedOrigins)
+			}
+			for i, want := range tt.expected {
+				if cfg.CORS.AllowedOrigins[i] != want {
+					t.Errorf("Origin[%d]: expected %q, got %q", i, want, cfg.CORS.AllowedOrigins[i])
+				}
+			}
+		})
+	}
+}
+
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name      string

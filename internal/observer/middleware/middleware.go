@@ -85,8 +85,10 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 				w.Header().Set("Vary", "Origin")
 			}
 
-			// Handle preflight requests
-			if r.Method == http.MethodOptions {
+			// Handle CORS preflight requests only when both Origin and
+			// Access-Control-Request-Method headers are present.
+			if r.Method == http.MethodOptions &&
+				origin != "" && r.Header.Get("Access-Control-Request-Method") != "" {
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}

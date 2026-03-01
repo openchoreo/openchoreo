@@ -195,7 +195,6 @@ func Load() (*Config, error) {
 		"UID_RESOLVER_OAUTH_CLIENT_SECRET":      "uid_resolver.oauth.client.secret",
 		"UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY": "uid_resolver.tls.insecure.skip.verify",
 		"UID_RESOLVER_TIMEOUT":                  "uid_resolver.timeout",
-		"CORS_ALLOWED_ORIGINS":                  "cors.allowed.origins",
 	}
 
 	// Check for environment variables and map them to nested structure
@@ -240,9 +239,11 @@ func Load() (*Config, error) {
 
 	// Parse CORS allowed origins from comma-separated env var
 	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {
-		cfg.CORS.AllowedOrigins = strings.Split(origins, ",")
-		for i := range cfg.CORS.AllowedOrigins {
-			cfg.CORS.AllowedOrigins[i] = strings.TrimSpace(cfg.CORS.AllowedOrigins[i])
+		for _, o := range strings.Split(origins, ",") {
+			o = strings.TrimSpace(o)
+			if o != "" {
+				cfg.CORS.AllowedOrigins = append(cfg.CORS.AllowedOrigins, o)
+			}
 		}
 	}
 
