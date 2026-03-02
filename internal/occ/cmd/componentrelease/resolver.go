@@ -4,7 +4,6 @@
 package componentrelease
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
@@ -17,8 +16,7 @@ import (
 //
 // Resolution priority:
 //  1. If existing releases exist for the component in the index, use the same directory.
-//  2. If no existing releases, use a "releases/" directory alongside the component file.
-//  3. If "releases/" already exists at that location, use "releases-<componentName>/" to avoid conflicts.
+//  2. Otherwise, use a "releases/" directory alongside the component file.
 func buildOutputDirResolver(ocIndex *fsmode.Index, namespace string) output.OutputDirResolverFunc {
 	return func(projectName, componentName string) string {
 		// Priority 1: Use directory of existing releases
@@ -27,21 +25,12 @@ func buildOutputDirResolver(ocIndex *fsmode.Index, namespace string) output.Outp
 			return filepath.Dir(releases[0].FilePath)
 		}
 
-		// Look up the component to find its file path
+		// Priority 2: Use "releases/" next to the component file
 		compEntry, ok := ocIndex.GetComponent(namespace, componentName)
 		if !ok {
 			return "" // fall through to hardcoded default
 		}
 
-		componentDir := filepath.Dir(compEntry.FilePath)
-		releasesDir := filepath.Join(componentDir, "releases")
-
-		// Priority 2: Use "releases/" next to the component file (if it doesn't already exist)
-		if _, err := os.Stat(releasesDir); os.IsNotExist(err) {
-			return releasesDir
-		}
-
-		// Priority 3: Use "releases-<componentName>/" to avoid conflicts
-		return filepath.Join(componentDir, "releases-"+componentName)
+		return filepath.Join(filepath.Dir(compEntry.FilePath), "releases")
 	}
 }
