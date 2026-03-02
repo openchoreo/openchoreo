@@ -234,14 +234,15 @@ func (pi *PersistentIndex) computeDirectoryState() (string, map[string]FileState
 			return nil // Skip errors
 		}
 
-		// Skip cache directory
-		if d.IsDir() && d.Name() == DirName {
-			return filepath.SkipDir
-		}
-
-		// Skip hidden directories
-		if d.IsDir() && strings.HasPrefix(d.Name(), ".") {
-			return filepath.SkipDir
+		if d.IsDir() && path != pi.repoPath {
+			// Skip cache directory
+			if d.Name() == DirName {
+				return filepath.SkipDir
+			}
+			// Skip hidden directories
+			if strings.HasPrefix(d.Name(), ".") {
+				return filepath.SkipDir
+			}
 		}
 
 		if !d.IsDir() && isYAMLFile(path) {
@@ -300,7 +301,7 @@ func (pi *PersistentIndex) computeCurrentDirectoryHash() (string, error) {
 		if err != nil {
 			return nil
 		}
-		if d.IsDir() && (d.Name() == DirName || strings.HasPrefix(d.Name(), ".")) {
+		if d.IsDir() && path != pi.repoPath && (d.Name() == DirName || strings.HasPrefix(d.Name(), ".")) {
 			return filepath.SkipDir
 		}
 		if !d.IsDir() && isYAMLFile(path) {
@@ -377,7 +378,7 @@ func (pi *PersistentIndex) getChangedFiles() ([]string, error) {
 		if err != nil {
 			return nil
 		}
-		if d.IsDir() && (d.Name() == DirName || strings.HasPrefix(d.Name(), ".")) {
+		if d.IsDir() && path != pi.repoPath && (d.Name() == DirName || strings.HasPrefix(d.Name(), ".")) {
 			return filepath.SkipDir
 		}
 		if d.IsDir() || !isYAMLFile(path) {
