@@ -155,6 +155,7 @@ func (a *DefaultLogsAdaptor) GetWorkflowLogs(
 			NamespaceName: params.Namespace,
 		},
 		WorkflowRunID: params.WorkflowRunName,
+		StepName:      params.TaskName,
 	}
 
 	// Set default limit if not specified

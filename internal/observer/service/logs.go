@@ -70,6 +70,7 @@ type internalSearchScope struct {
 
 	// For workflow scope
 	WorkflowRunName string
+	TaskName        string
 
 	// Scope type indicator
 	IsWorkflowScope bool
@@ -176,6 +177,7 @@ func (s *LogsService) queryWorkflowLogs(
 	params := observability.WorkflowLogsParams{
 		Namespace:       scope.NamespaceName,
 		WorkflowRunName: scope.WorkflowRunName,
+		TaskName:        scope.TaskName,
 		StartTime:       startTime,
 		EndTime:         endTime,
 		SearchPhrase:    req.SearchPhrase,
@@ -365,6 +367,7 @@ func (s *LogsService) resolveSearchScope(ctx context.Context, searchScope *types
 		return &internalSearchScope{
 			NamespaceName:   scope.Namespace,
 			WorkflowRunName: scope.WorkflowRunName,
+			TaskName:        scope.TaskName,
 			IsWorkflowScope: true,
 		}, nil
 	}

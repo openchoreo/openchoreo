@@ -535,6 +535,8 @@ components:
           type: string
         workflowRunName:
           type: string
+        taskName:
+          type: string
       required: [namespace]
 
     LogsQueryRequest:
