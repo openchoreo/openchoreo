@@ -511,6 +511,7 @@ type WorkflowLogEntry struct {
 // WorkflowSearchScope defines model for WorkflowSearchScope.
 type WorkflowSearchScope struct {
 	Namespace       string  `json:"namespace"`
+	TaskName        *string `json:"taskName,omitempty"`
 	WorkflowRunName *string `json:"workflowRunName,omitempty"`
 }
 

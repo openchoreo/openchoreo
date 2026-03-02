@@ -22,6 +22,7 @@ type ComponentSearchScope struct {
 type WorkflowSearchScope struct {
 	Namespace       string `json:"namespace" validate:"required"`
 	WorkflowRunName string `json:"workflowRunName,omitempty"`
+	TaskName        string `json:"taskName,omitempty"`
 }
 
 // LogsQueryRequest represents the request body for POST /api/v1/logs/query
