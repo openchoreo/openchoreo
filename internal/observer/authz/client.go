@@ -54,6 +54,10 @@ func NewClient(cfg *config.AuthzConfig, logger *slog.Logger) (*Client, error) {
 
 // Evaluate evaluates a single authorization request via the unified evaluates endpoint.
 func (c *Client) Evaluate(ctx context.Context, request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
+	if request == nil {
+		return nil, fmt.Errorf("evaluate request must not be nil")
+	}
+
 	decisions, err := c.evaluate(ctx, []authzcore.EvaluateRequest{*request})
 	if err != nil {
 		return nil, err
@@ -78,9 +82,18 @@ func (c *Client) Evaluate(ctx context.Context, request *authzcore.EvaluateReques
 
 // BatchEvaluate evaluates multiple authorization requests via the unified evaluates endpoint.
 func (c *Client) BatchEvaluate(ctx context.Context, request *authzcore.BatchEvaluateRequest) (*authzcore.BatchEvaluateResponse, error) {
+	if request == nil {
+		return nil, fmt.Errorf("batch evaluate request must not be nil")
+	}
+
 	decisions, err := c.evaluate(ctx, request.Requests)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(decisions) != len(request.Requests) {
+		c.logger.Error("Decisions count mismatch", "expected", len(request.Requests), "got", len(decisions))
+		return nil, ErrAuthzInvalidResponse
 	}
 
 	c.logger.Debug("Batch authorization evaluated", "request_count", len(request.Requests))
