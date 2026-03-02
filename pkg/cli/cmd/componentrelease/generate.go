@@ -56,7 +56,6 @@ func newGenerateCmd() *cobra.Command {
 			projectSet := isFlagInArgs("--project")
 			componentSet := isFlagInArgs("--component")
 			nameSet := isFlagInArgs("--name")
-			outputPathSet := isFlagInArgs("--output-path")
 
 			// Validation logic:
 			// 1. If --all is set, reject --project, --component, or --name
@@ -73,12 +72,8 @@ func newGenerateCmd() *cobra.Command {
 				if !projectSet {
 					return fmt.Errorf("--component requires --project to be specified")
 				}
-				// 3. If --component is set, --output-path MUST also be set
-				if !outputPathSet {
-					return fmt.Errorf("--output-path is required when specifying --component")
-				}
-				// --component with --project and --output-path is valid
-				// --name is optional when --component is specified
+				// --component with --project is valid
+				// --output-path and --name are optional when --component is specified
 			} else if projectSet {
 				// 4. --project alone is valid (processes all components in that project)
 				// But cannot use --name with --project alone

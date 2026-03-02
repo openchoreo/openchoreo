@@ -62,10 +62,10 @@ func TestBuildOutputDirResolver(t *testing.T) {
 		}
 	})
 
-	t.Run("priority 3: releases dir already exists, use releases-<name>", func(t *testing.T) {
+	t.Run("releases dir already exists (empty): still uses releases/", func(t *testing.T) {
 		idx := index.New("/repo")
 
-		// Use a temp directory and create the releases/ dir to simulate conflict
+		// Use a temp directory and create an empty releases/ dir
 		tmpDir := t.TempDir()
 		compDir := filepath.Join(tmpDir, "projects", "my-proj", "components", "my-comp")
 		releasesDir := filepath.Join(compDir, "releases")
@@ -83,7 +83,7 @@ func TestBuildOutputDirResolver(t *testing.T) {
 		resolver := buildOutputDirResolver(ocIndex, namespace)
 
 		got := resolver("my-proj", "my-comp")
-		want := filepath.Join(compDir, "releases-my-comp")
+		want := filepath.Join(compDir, "releases")
 		if got != want {
 			t.Errorf("got %q, want %q", got, want)
 		}

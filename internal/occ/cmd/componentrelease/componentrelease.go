@@ -168,7 +168,7 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 		if params.ProjectName == "" {
 			return fmt.Errorf("project name is required when specifying --component")
 		}
-		return cr.generateForComponent(gen, params.ComponentName, params.ProjectName, namespace, baseDir, customOutputPath, params.ReleaseName, params.DryRun, releaseConfig)
+		return cr.generateForComponent(gen, params.ComponentName, params.ProjectName, namespace, baseDir, customOutputPath, params.ReleaseName, params.DryRun, releaseConfig, resolver)
 	}
 
 	// Project-only scope (all components in project)
@@ -252,7 +252,7 @@ func (cr *ComponentRelease) generateForProject(gen *generator.ReleaseGenerator, 
 	return cr.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
 }
 
-func (cr *ComponentRelease) generateForComponent(gen *generator.ReleaseGenerator, component, project, namespace, baseDir, customOutputPath, customReleaseName string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
+func (cr *ComponentRelease) generateForComponent(gen *generator.ReleaseGenerator, component, project, namespace, baseDir, customOutputPath, customReleaseName string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	release, err := gen.GenerateRelease(generator.ReleaseOptions{
 		ComponentName: component,
 		ProjectName:   project,
@@ -270,14 +270,24 @@ func (cr *ComponentRelease) generateForComponent(gen *generator.ReleaseGenerator
 	// Write to file
 	writer := output.NewWriter(baseDir)
 
-	// Determine output directory using config if available
+	// Determine output directory: config → --output-path → resolver → default
 	var componentOutputDir string
 	if releaseConfig != nil {
 		componentOutputDir = releaseConfig.GetReleaseOutputDir(project, component)
 	}
-	// If user provided --output-path, use it; otherwise use config or default
 	if componentOutputDir == "" && customOutputPath != "" {
 		componentOutputDir = customOutputPath
+	}
+	if componentOutputDir == "" && resolver != nil {
+		componentOutputDir = resolver(project, component)
+	}
+
+	// Check for existing release with the same name (only for user-provided names)
+	if customReleaseName != "" && componentOutputDir != "" {
+		candidatePath := filepath.Join(componentOutputDir, customReleaseName+".yaml")
+		if _, err := os.Stat(candidatePath); err == nil {
+			return fmt.Errorf("a component release with name %q already exists at %s", customReleaseName, candidatePath)
+		}
 	}
 
 	writeOpts := output.WriteOptions{

@@ -4,7 +4,6 @@
 package releasebinding
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
@@ -17,8 +16,7 @@ import (
 //
 // Resolution priority:
 //  1. If existing bindings exist for the component in the index, use the same directory.
-//  2. If no existing bindings, use a "release-bindings/" directory alongside the component file.
-//  3. If "release-bindings/" already exists at that location, use "release-bindings-<componentName>/" to avoid conflicts.
+//  2. Otherwise, use a "release-bindings/" directory alongside the component file.
 func buildBindingOutputDirResolver(ocIndex *fsmode.Index, namespace string) output.OutputDirResolverFunc {
 	return func(projectName, componentName string) string {
 		// Priority 1: Use directory of existing bindings
@@ -30,21 +28,12 @@ func buildBindingOutputDirResolver(ocIndex *fsmode.Index, namespace string) outp
 			}
 		}
 
-		// Look up the component to find its file path
+		// Priority 2: Use "release-bindings/" next to the component file
 		compEntry, ok := ocIndex.GetComponent(namespace, componentName)
 		if !ok {
 			return "" // fall through to hardcoded default
 		}
 
-		componentDir := filepath.Dir(compEntry.FilePath)
-		bindingsDir := filepath.Join(componentDir, "release-bindings")
-
-		// Priority 2: Use "release-bindings/" next to the component file (if it doesn't already exist)
-		if _, err := os.Stat(bindingsDir); os.IsNotExist(err) {
-			return bindingsDir
-		}
-
-		// Priority 3: Use "release-bindings-<componentName>/" to avoid conflicts
-		return filepath.Join(componentDir, "release-bindings-"+componentName)
+		return filepath.Join(filepath.Dir(compEntry.FilePath), "release-bindings")
 	}
 }
