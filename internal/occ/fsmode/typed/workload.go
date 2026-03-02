@@ -108,6 +108,97 @@ func (w *Workload) GetContainer() map[string]interface{} {
 	return containerMap
 }
 
+// GetEndpoints returns the endpoints definition as a map for template processing.
+// The returned map is keyed by endpoint name, matching the WorkloadTemplateSpec.Endpoints structure.
+func (w *Workload) GetEndpoints() map[string]interface{} {
+	if len(w.Spec.Endpoints) == 0 {
+		return nil
+	}
+
+	endpointsMap := make(map[string]interface{}, len(w.Spec.Endpoints))
+	for name, ep := range w.Spec.Endpoints {
+		epMap := map[string]interface{}{
+			"type": string(ep.Type),
+			"port": int64(ep.Port),
+		}
+		if ep.TargetPort != 0 {
+			epMap["targetPort"] = int64(ep.TargetPort)
+		}
+		if ep.DisplayName != "" {
+			epMap["displayName"] = ep.DisplayName
+		}
+		if ep.BasePath != "" {
+			epMap["basePath"] = ep.BasePath
+		}
+		if len(ep.Visibility) > 0 {
+			vis := make([]interface{}, len(ep.Visibility))
+			for i, v := range ep.Visibility {
+				vis[i] = string(v)
+			}
+			epMap["visibility"] = vis
+		}
+		if ep.Schema != nil {
+			schemaMap := make(map[string]interface{})
+			if ep.Schema.Type != "" {
+				schemaMap["type"] = ep.Schema.Type
+			}
+			if ep.Schema.Content != "" {
+				schemaMap["content"] = ep.Schema.Content
+			}
+			epMap["schema"] = schemaMap
+		}
+		endpointsMap[name] = epMap
+	}
+	return endpointsMap
+}
+
+// GetConnections returns the connections definition as a slice for template processing.
+func (w *Workload) GetConnections() []interface{} {
+	if len(w.Spec.Connections) == 0 {
+		return nil
+	}
+
+	connections := make([]interface{}, len(w.Spec.Connections))
+	for i, conn := range w.Spec.Connections {
+		connMap := map[string]interface{}{
+			"component":  conn.Component,
+			"endpoint":   conn.Endpoint,
+			"visibility": string(conn.Visibility),
+		}
+		if conn.Namespace != "" {
+			connMap["namespace"] = conn.Namespace
+		}
+		if conn.Project != "" {
+			connMap["project"] = conn.Project
+		}
+		if len(conn.EnvironmentMapping) > 0 {
+			envMapping := make(map[string]interface{}, len(conn.EnvironmentMapping))
+			for k, v := range conn.EnvironmentMapping {
+				envMapping[k] = v
+			}
+			connMap["environmentMapping"] = envMapping
+		}
+
+		envBindings := map[string]interface{}{}
+		if conn.EnvBindings.Address != "" {
+			envBindings["address"] = conn.EnvBindings.Address
+		}
+		if conn.EnvBindings.Host != "" {
+			envBindings["host"] = conn.EnvBindings.Host
+		}
+		if conn.EnvBindings.Port != "" {
+			envBindings["port"] = conn.EnvBindings.Port
+		}
+		if conn.EnvBindings.BasePath != "" {
+			envBindings["basePath"] = conn.EnvBindings.BasePath
+		}
+		connMap["envBindings"] = envBindings
+
+		connections[i] = connMap
+	}
+	return connections
+}
+
 // stringsToInterfaceSlice converts []string to []interface{} for JSON compatibility
 // This is needed because DeepCopyJSONValue cannot handle []string directly
 func stringsToInterfaceSlice(strs []string) []interface{} {
