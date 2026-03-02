@@ -68,5 +68,5 @@ func (h *Handler) GetReady(
 	ctx context.Context,
 	request gen.GetReadyRequestObject,
 ) (gen.GetReadyResponseObject, error) {
-	return nil, errNotImplemented
+	return gen.GetReady200TextResponse("Ready"), nil
 }
