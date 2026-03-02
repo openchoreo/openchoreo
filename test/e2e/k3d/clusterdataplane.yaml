@@ -1,10 +1,10 @@
-# DataPlane CR for e2e testing
-# The clusterAgent.clientCA.value is replaced at apply time by the Makefile
+# ClusterDataPlane CR for e2e testing
+# Cluster-scoped DataPlane that can be referenced from any control plane namespace.
+# The clusterAgent.clientCA.value is replaced at apply time by the Makefile.
 apiVersion: openchoreo.dev/v1alpha1
-kind: DataPlane
+kind: ClusterDataPlane
 metadata:
-  name: default
-  namespace: default
+  name: e2e-shared
 spec:
   planeID: default
   clusterAgent:

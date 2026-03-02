@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	dataPlane          = "e2e-np-shared"
+	clusterDataPlane   = "e2e-shared"
 	openChoreoAPIVer   = "openchoreo.dev/v1alpha1"
 	kubernetesAPIVerV1 = "v1"
 )
@@ -52,26 +52,6 @@ func mustYAMLDocs(objects ...any) string {
 		docs = append(docs, strings.TrimSpace(string(data)))
 	}
 	return strings.Join(docs, "\n---\n")
-}
-
-// dataPlaneYAML creates a namespaced DataPlane that test environments can reference.
-// The clientCA value is injected at runtime after reading from the existing DataPlane.
-func dataPlaneYAML(namespace, clientCAValue string) string {
-	dp := &openchoreov1alpha1.DataPlane{
-		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "DataPlane"},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      dataPlane,
-			Namespace: namespace,
-		},
-		Spec: openchoreov1alpha1.DataPlaneSpec{
-			PlaneID: "default",
-			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
-				ClientCA: openchoreov1alpha1.ValueFrom{Value: clientCAValue},
-			},
-			SecretStoreRef: &openchoreov1alpha1.SecretStoreRef{Name: "default"},
-		},
-	}
-	return mustYAMLDocs(dp)
 }
 
 // cpNamespacesYAML defines control plane namespaces for the test.
@@ -224,8 +204,8 @@ func platformResourcesYAML(cpNamespace string, environments, projects []string) 
 			},
 			Spec: openchoreov1alpha1.EnvironmentSpec{
 				DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
-					Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
-					Name: dataPlane,
+					Kind: openchoreov1alpha1.DataPlaneRefKindClusterDataPlane,
+					Name: clusterDataPlane,
 				},
 				IsProduction: false,
 			},
