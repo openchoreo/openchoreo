@@ -32,6 +32,7 @@ type ComponentApplicationLogsParams struct {
 type WorkflowLogsParams struct {
 	Namespace       string    `json:"namespace"`
 	WorkflowRunName string    `json:"workflowRunName"`
+	TaskName        string    `json:"taskName"`
 	StartTime       time.Time `json:"startTime"`
 	EndTime         time.Time `json:"endTime"`
 	SearchPhrase    string    `json:"searchPhrase"`
