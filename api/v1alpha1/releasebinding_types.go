@@ -33,6 +33,12 @@ type ConnectionTarget struct {
 	// Visibility is the desired visibility level for resolving the endpoint URL.
 	// +kubebuilder:validation:Required
 	Visibility EndpointVisibility `json:"visibility"`
+
+	// Environment is the resolved target environment name for this connection.
+	// For project/namespace visibility, this matches the consumer's environment.
+	// For internal visibility, this may differ based on environmentMapping.
+	// +optional
+	Environment string `json:"environment,omitempty"`
 }
 
 // ResolvedConnection holds the resolved URL for a single connection.

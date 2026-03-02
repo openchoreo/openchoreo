@@ -418,7 +418,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Resolve connections inline: build targets, resolve URLs from dependency RBs
 	connectionTargets := buildConnectionTargets(releaseBinding, snapshotWorkload.Spec.Connections)
 	releaseBinding.Status.ConnectionTargets = connectionTargets
-	resolvedConns, pendingConns, err := r.resolveConnections(ctx, releaseBinding, connectionTargets)
+	resolvedConns, pendingConns, err := r.resolveConnections(ctx, connectionTargets)
 	if err != nil {
 		logger.Error(err, "Failed to resolve connections")
 		return ctrl.Result{}, fmt.Errorf("failed to resolve connections: %w", err)

@@ -27,26 +27,49 @@ func buildConnectionTargets(
 	}
 	targets := make([]openchoreov1alpha1.ConnectionTarget, 0, len(connections))
 	for _, conn := range connections {
+		namespace := conn.Namespace
+		if namespace == "" {
+			namespace = releaseBinding.Namespace
+		}
 		project := conn.Project
 		if project == "" {
 			project = releaseBinding.Spec.Owner.ProjectName
 		}
+		targetEnv := resolveTargetEnvironment(releaseBinding.Spec.Environment, conn)
 		targets = append(targets, openchoreov1alpha1.ConnectionTarget{
-			Namespace:  releaseBinding.Namespace,
-			Project:    project,
-			Component:  conn.Component,
-			Endpoint:   conn.Endpoint,
-			Visibility: conn.Visibility,
+			Namespace:   namespace,
+			Project:     project,
+			Component:   conn.Component,
+			Endpoint:    conn.Endpoint,
+			Visibility:  conn.Visibility,
+			Environment: targetEnv,
 		})
 	}
 	return targets
+}
+
+// resolveTargetEnvironment determines the target environment for a connection.
+// For project and namespace visibility, the target environment always matches the source
+// since these visibilities operate within the same environment boundary.
+// For internal visibility, it checks the environmentMapping for an override.
+func resolveTargetEnvironment(sourceEnv string, conn openchoreov1alpha1.WorkloadConnection) string {
+	switch conn.Visibility {
+	case openchoreov1alpha1.EndpointVisibilityProject, openchoreov1alpha1.EndpointVisibilityNamespace:
+		return sourceEnv
+	case openchoreov1alpha1.EndpointVisibilityInternal:
+		if targetEnv, ok := conn.EnvironmentMapping[sourceEnv]; ok {
+			return targetEnv
+		}
+		return sourceEnv
+	default:
+		return sourceEnv
+	}
 }
 
 // resolveConnections resolves all connection targets by looking up dependency
 // ReleaseBindings and extracting endpoint URLs from their status.
 func (r *Reconciler) resolveConnections(
 	ctx context.Context,
-	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	targets []openchoreov1alpha1.ConnectionTarget,
 ) ([]openchoreov1alpha1.ResolvedConnection, []openchoreov1alpha1.PendingConnection, error) {
 	if len(targets) == 0 {
@@ -57,7 +80,7 @@ func (r *Reconciler) resolveConnections(
 	var pending []openchoreov1alpha1.PendingConnection
 
 	for _, target := range targets {
-		resolvedConn, pendingConn, err := r.resolveConnection(ctx, releaseBinding, target)
+		resolvedConn, pendingConn, err := r.resolveConnection(ctx, target)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -76,10 +99,9 @@ func (r *Reconciler) resolveConnections(
 // It returns a non-nil error only for transient API failures that should trigger a requeue.
 func (r *Reconciler) resolveConnection(
 	ctx context.Context,
-	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	conn openchoreov1alpha1.ConnectionTarget,
 ) (*openchoreov1alpha1.ResolvedConnection, *openchoreov1alpha1.PendingConnection, error) {
-	indexKey := controller.MakeReleaseBindingOwnerEnvKey(conn.Project, conn.Component, releaseBinding.Spec.Environment)
+	indexKey := controller.MakeReleaseBindingOwnerEnvKey(conn.Project, conn.Component, conn.Environment)
 
 	var rbList openchoreov1alpha1.ReleaseBindingList
 	if err := r.List(ctx, &rbList,
@@ -104,7 +126,7 @@ func (r *Reconciler) resolveConnection(
 			Project:   conn.Project,
 			Component: conn.Component,
 			Endpoint:  conn.Endpoint,
-			Reason:    fmt.Sprintf("multiple ReleaseBindings found for component %s/%s in environment %s", conn.Project, conn.Component, releaseBinding.Spec.Environment),
+			Reason:    fmt.Sprintf("multiple ReleaseBindings found for component %s/%s in environment %s", conn.Project, conn.Component, conn.Environment),
 		}, nil
 	}
 
@@ -203,28 +225,32 @@ func buildConnectionItems(
 		return nil
 	}
 
-	// Build lookup: "project/component/endpoint/visibility" → ResolvedConnection
+	// Build lookup: "namespace/project/component/endpoint/visibility" → ResolvedConnection
 	resolved := make(map[string]openchoreov1alpha1.ResolvedConnection, len(releaseBinding.Status.ResolvedConnections))
 	for _, rc := range releaseBinding.Status.ResolvedConnections {
-		resolved[connectionKey(rc.Project, rc.Component, rc.Endpoint, string(rc.Visibility))] = rc
+		resolved[connectionKey(rc.Namespace, rc.Project, rc.Component, rc.Endpoint, string(rc.Visibility))] = rc
 	}
 
 	items := make([]pipelinecontext.ConnectionItem, 0, len(connections))
 	for _, conn := range connections {
+		namespace := conn.Namespace
+		if namespace == "" {
+			namespace = releaseBinding.Namespace
+		}
 		project := conn.Project
 		if project == "" {
 			project = releaseBinding.Spec.Owner.ProjectName
 		}
 
 		item := pipelinecontext.ConnectionItem{
-			Namespace:  releaseBinding.Namespace,
+			Namespace:  namespace,
 			Project:    project,
 			Component:  conn.Component,
 			Endpoint:   conn.Endpoint,
 			Visibility: string(conn.Visibility),
 		}
 
-		key := connectionKey(project, conn.Component, conn.Endpoint, string(conn.Visibility))
+		key := connectionKey(namespace, project, conn.Component, conn.Endpoint, string(conn.Visibility))
 		if rc, ok := resolved[key]; ok {
 			item.EnvVars = buildEnvVarsForConnection(conn, rc)
 		}
@@ -325,14 +351,18 @@ func allConnectionsResolved(
 	}
 	resolved := make(map[string]struct{}, len(releaseBinding.Status.ResolvedConnections))
 	for _, rc := range releaseBinding.Status.ResolvedConnections {
-		resolved[connectionKey(rc.Project, rc.Component, rc.Endpoint, string(rc.Visibility))] = struct{}{}
+		resolved[connectionKey(rc.Namespace, rc.Project, rc.Component, rc.Endpoint, string(rc.Visibility))] = struct{}{}
 	}
 	for _, conn := range connections {
+		namespace := conn.Namespace
+		if namespace == "" {
+			namespace = releaseBinding.Namespace
+		}
 		project := conn.Project
 		if project == "" {
 			project = releaseBinding.Spec.Owner.ProjectName
 		}
-		if _, ok := resolved[connectionKey(project, conn.Component, conn.Endpoint, string(conn.Visibility))]; !ok {
+		if _, ok := resolved[connectionKey(namespace, project, conn.Component, conn.Endpoint, string(conn.Visibility))]; !ok {
 			return false
 		}
 	}
@@ -340,8 +370,8 @@ func allConnectionsResolved(
 }
 
 // connectionKey builds a lookup key for a connection target.
-func connectionKey(project, component, endpoint, visibility string) string {
-	return project + "/" + component + "/" + endpoint + "/" + visibility
+func connectionKey(namespace, project, component, endpoint, visibility string) string {
+	return namespace + "/" + project + "/" + component + "/" + endpoint + "/" + visibility
 }
 
 // setConnectionsCondition sets the ConnectionsResolved condition on the ReleaseBinding.

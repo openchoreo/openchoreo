@@ -59,7 +59,7 @@ func (r *Reconciler) setupConnectionTargetsIndex(ctx context.Context, mgr ctrl.M
 			seen := make(map[string]struct{})
 			var keys []string
 			for _, conn := range rb.Status.ConnectionTargets {
-				key := makeConnectionTargetKey(conn.Namespace, conn.Project, conn.Component, rb.Spec.Environment)
+				key := makeConnectionTargetKey(conn.Namespace, conn.Project, conn.Component, conn.Environment)
 				if _, ok := seen[key]; !ok {
 					seen[key] = struct{}{}
 					keys = append(keys, key)
@@ -113,7 +113,6 @@ func (r *Reconciler) findConsumerReleaseBindings(ctx context.Context, obj client
 
 	var consumers openchoreov1alpha1.ReleaseBindingList
 	if err := r.List(ctx, &consumers,
-		client.InNamespace(rb.Namespace),
 		client.MatchingFields{connectionTargetsIndex: targetKey}); err != nil {
 		log.FromContext(ctx).Error(err, "Failed to list consumer ReleaseBindings", "releaseBinding", rb.Name)
 		return nil

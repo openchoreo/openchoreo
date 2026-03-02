@@ -1689,6 +1689,9 @@ func TestBuildConnectionTargets(t *testing.T) {
 		if targets[0].Namespace != testNamespace {
 			t.Errorf("expected namespace %s, got %s", testNamespace, targets[0].Namespace)
 		}
+		if targets[0].Environment != testEnvStaging {
+			t.Errorf("expected environment %s, got %s", testEnvStaging, targets[0].Environment)
+		}
 	})
 
 	t.Run("defaults project to owner", func(t *testing.T) {
@@ -1701,6 +1704,50 @@ func TestBuildConnectionTargets(t *testing.T) {
 		}
 		if targets[0].Project != testProjectName {
 			t.Errorf("expected project %s, got %s", testProjectName, targets[0].Project)
+		}
+	})
+
+	t.Run("internal visibility with explicit namespace", func(t *testing.T) {
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{
+				Namespace:  "other-ns",
+				Project:    "other-proj",
+				Component:  "svc-b",
+				Endpoint:   "api",
+				Visibility: openchoreov1alpha1.EndpointVisibilityInternal,
+			},
+		}
+		targets := buildConnectionTargets(rb, conns)
+		if len(targets) != 1 {
+			t.Fatalf("expected 1 target, got %d", len(targets))
+		}
+		if targets[0].Namespace != "other-ns" {
+			t.Errorf("expected namespace other-ns, got %s", targets[0].Namespace)
+		}
+		if targets[0].Environment != testEnvStaging {
+			t.Errorf("expected environment %s (same as source), got %s", testEnvStaging, targets[0].Environment)
+		}
+	})
+
+	t.Run("internal visibility with environment mapping", func(t *testing.T) {
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{
+				Namespace:  "other-ns",
+				Project:    "other-proj",
+				Component:  "svc-b",
+				Endpoint:   "api",
+				Visibility: openchoreov1alpha1.EndpointVisibilityInternal,
+				EnvironmentMapping: openchoreov1alpha1.EnvironmentMapping{
+					testEnvStaging: "production",
+				},
+			},
+		}
+		targets := buildConnectionTargets(rb, conns)
+		if len(targets) != 1 {
+			t.Fatalf("expected 1 target, got %d", len(targets))
+		}
+		if targets[0].Environment != "production" {
+			t.Errorf("expected environment production, got %s", targets[0].Environment)
 		}
 	})
 }
@@ -1816,7 +1863,7 @@ func TestBuildConnectionItems(t *testing.T) {
 		Status: openchoreov1alpha1.ReleaseBindingStatus{
 			ResolvedConnections: []openchoreov1alpha1.ResolvedConnection{
 				{
-					Project: testProjectName, Component: "svc-a", Endpoint: "api",
+					Namespace: testNamespace, Project: testProjectName, Component: "svc-a", Endpoint: "api",
 					Visibility: openchoreov1alpha1.EndpointVisibilityProject,
 					URL:        openchoreov1alpha1.EndpointURL{Scheme: "http", Host: "svc-a.ns.svc.cluster.local", Port: 8080, Path: "/v1"},
 				},
@@ -1913,6 +1960,54 @@ func TestBuildConnectionItems(t *testing.T) {
 		}
 		if len(items[0].EnvVars) != 2 {
 			t.Fatalf("expected 2 env vars (host, port), got %d", len(items[0].EnvVars))
+		}
+	})
+}
+
+func TestResolveTargetEnvironment(t *testing.T) {
+	t.Run("non-internal returns source env", func(t *testing.T) {
+		conn := openchoreov1alpha1.WorkloadConnection{
+			Visibility:         openchoreov1alpha1.EndpointVisibilityProject,
+			EnvironmentMapping: openchoreov1alpha1.EnvironmentMapping{"dev": "production"},
+		}
+		result := resolveTargetEnvironment("dev", conn)
+		if result != "dev" {
+			t.Errorf("expected dev, got %s", result)
+		}
+	})
+
+	t.Run("internal with matching mapping", func(t *testing.T) {
+		conn := openchoreov1alpha1.WorkloadConnection{
+			Visibility: openchoreov1alpha1.EndpointVisibilityInternal,
+			EnvironmentMapping: openchoreov1alpha1.EnvironmentMapping{
+				"dev":     "development",
+				"staging": "production",
+			},
+		}
+		result := resolveTargetEnvironment("staging", conn)
+		if result != "production" {
+			t.Errorf("expected production, got %s", result)
+		}
+	})
+
+	t.Run("internal with no matching mapping defaults to source", func(t *testing.T) {
+		conn := openchoreov1alpha1.WorkloadConnection{
+			Visibility:         openchoreov1alpha1.EndpointVisibilityInternal,
+			EnvironmentMapping: openchoreov1alpha1.EnvironmentMapping{"dev": "development"},
+		}
+		result := resolveTargetEnvironment("staging", conn)
+		if result != "staging" {
+			t.Errorf("expected staging, got %s", result)
+		}
+	})
+
+	t.Run("internal with no mappings defaults to source", func(t *testing.T) {
+		conn := openchoreov1alpha1.WorkloadConnection{
+			Visibility: openchoreov1alpha1.EndpointVisibilityInternal,
+		}
+		result := resolveTargetEnvironment("staging", conn)
+		if result != "staging" {
+			t.Errorf("expected staging, got %s", result)
 		}
 	})
 }

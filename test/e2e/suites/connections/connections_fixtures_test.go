@@ -240,13 +240,15 @@ type endpointDef struct {
 }
 
 type connectionDef struct {
-	project    string
-	component  string
-	endpoint   string
-	visibility string
-	envURL     string
-	envHost    string
-	envPort    string
+	namespace          string
+	project            string
+	component          string
+	endpoint           string
+	visibility         string
+	environmentMapping map[string]string
+	envURL             string
+	envHost            string
+	envPort            string
 }
 
 // populateEndpoints sets workload endpoints from the given endpoint definitions.
@@ -276,6 +278,7 @@ func populateConnections(workload *openchoreov1alpha1.Workload, connections []co
 	workload.Spec.Connections = make([]openchoreov1alpha1.WorkloadConnection, 0, len(connections))
 	for _, conn := range connections {
 		wc := openchoreov1alpha1.WorkloadConnection{
+			Namespace:  conn.namespace,
 			Project:    conn.project,
 			Component:  conn.component,
 			Endpoint:   conn.endpoint,
@@ -285,6 +288,9 @@ func populateConnections(workload *openchoreov1alpha1.Workload, connections []co
 				Host:    conn.envHost,
 				Port:    conn.envPort,
 			},
+		}
+		if len(conn.environmentMapping) > 0 {
+			wc.EnvironmentMapping = openchoreov1alpha1.EnvironmentMapping(conn.environmentMapping)
 		}
 		workload.Spec.Connections = append(workload.Spec.Connections, wc)
 	}

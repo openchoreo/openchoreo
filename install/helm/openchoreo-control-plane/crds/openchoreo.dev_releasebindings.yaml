@@ -303,6 +303,12 @@ spec:
                         component.
                       minLength: 1
                       type: string
+                    environment:
+                      description: |-
+                        Environment is the resolved target environment name for this connection.
+                        For project/namespace visibility, this matches the consumer's environment.
+                        For internal visibility, this may differ based on environmentMapping.
+                      type: string
                     namespace:
                       description: Namespace is the control plane namespace of the
                         target component.
