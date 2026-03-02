@@ -18,22 +18,13 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 )
 
+// authz evaluate endpoint
+const evaluatesEndpoint = "/api/v1/authz/evaluates"
+
 type Client struct {
 	httpClient *http.Client
 	baseURL    string
 	logger     *slog.Logger
-}
-
-// AuthzResponse represents the wrapped response from the authz service
-type AuthzResponse struct {
-	Success bool               `json:"success"`
-	Data    authzcore.Decision `json:"data"`
-}
-
-// BatchAuthzResponse represents the wrapped response from the authz service for batch evaluate
-type BatchAuthzResponse struct {
-	Success bool                            `json:"success"`
-	Data    authzcore.BatchEvaluateResponse `json:"data"`
 }
 
 // NewClient creates a new authz HTTP client
@@ -61,20 +52,74 @@ func NewClient(cfg *config.AuthzConfig, logger *slog.Logger) (*Client, error) {
 	}, nil
 }
 
-// Evaluate evaluates a single authorization request
+// Evaluate evaluates a single authorization request via the unified evaluates endpoint.
 func (c *Client) Evaluate(ctx context.Context, request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
-	body, err := json.Marshal(request)
+	if request == nil {
+		return nil, fmt.Errorf("evaluate request must not be nil")
+	}
+
+	decisions, err := c.evaluate(ctx, []authzcore.EvaluateRequest{*request})
 	if err != nil {
-		c.logger.Error("failed to marshal evaluate request", "error", err)
+		return nil, err
+	}
+
+	if len(decisions) == 0 {
+		c.logger.Error("Authz service returned empty decisions array")
+		return nil, ErrAuthzInvalidResponse
+	}
+
+	decision := decisions[0]
+
+	c.logger.Debug("Authorization evaluated",
+		"action", request.Action,
+		"resource_type", request.Resource.Type,
+		"resource_id", request.Resource.ID,
+		"decision", decision.Decision,
+		"reason", decision.Context)
+
+	return &decision, nil
+}
+
+// BatchEvaluate evaluates multiple authorization requests via the unified evaluates endpoint.
+func (c *Client) BatchEvaluate(ctx context.Context, request *authzcore.BatchEvaluateRequest) (*authzcore.BatchEvaluateResponse, error) {
+	if request == nil {
+		return nil, fmt.Errorf("batch evaluate request must not be nil")
+	}
+
+	decisions, err := c.evaluate(ctx, request.Requests)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(decisions) != len(request.Requests) {
+		c.logger.Error("Decisions count mismatch", "expected", len(request.Requests), "got", len(decisions))
+		return nil, ErrAuthzInvalidResponse
+	}
+
+	c.logger.Debug("Batch authorization evaluated", "request_count", len(request.Requests))
+
+	return &authzcore.BatchEvaluateResponse{Decisions: decisions}, nil
+}
+
+// GetSubjectProfile is not implemented for observer API
+func (c *Client) GetSubjectProfile(ctx context.Context, request *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
+	return nil, errors.New("GetSubjectProfile is not supported in observer API")
+}
+
+// evaluate sends the authorization requests to the authz service and returns the decisions
+func (c *Client) evaluate(ctx context.Context, requests []authzcore.EvaluateRequest) ([]authzcore.Decision, error) {
+	body, err := json.Marshal(requests)
+	if err != nil {
+		c.logger.Error("Failed to marshal evaluate request", "error", err)
 		return nil, fmt.Errorf("failed to marshal evaluate request: %w", err)
 	}
 
 	c.logger.Debug("Authz Request Body", "json", string(body))
 
-	url := c.baseURL + "/api/v1/authz/evaluate"
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	url := c.baseURL + evaluatesEndpoint
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		c.logger.Error("failed to create HTTP request", "error", err)
+		c.logger.Error("Failed to create HTTP request", "error", err)
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -91,100 +136,33 @@ func (c *Client) Evaluate(ctx context.Context, request *authzcore.EvaluateReques
 	}
 	defer resp.Body.Close()
 
+	bodyBytes, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		c.logger.Error("Failed to read authz response body", "error", err)
+		return nil, ErrAuthzInvalidResponse
+	}
+
 	if resp.StatusCode == http.StatusUnauthorized {
 		c.logger.Warn("Authz service returned unauthorized", "status", resp.StatusCode)
 		return nil, ErrAuthzUnauthorized
 	}
 
 	if resp.StatusCode == http.StatusForbidden {
-		c.logger.Debug(ErrAuthzForbidden.Error())
-		return &authzcore.Decision{Decision: false}, nil
+		c.logger.Debug("Authz service returned forbidden", "status", resp.StatusCode, "response_body", string(bodyBytes))
+		return nil, ErrAuthzForbidden
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
 		c.logger.Error("Authz service returned error", "status", resp.StatusCode, "response_body", string(bodyBytes))
 		return nil, fmt.Errorf("authz service returned %d", resp.StatusCode)
 	}
 
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		c.logger.Error("Failed to read authz response body", "error", err)
-		return nil, ErrAuthzInvalidResponse
-	}
-	var response AuthzResponse
-	if err := json.Unmarshal(bodyBytes, &response); err != nil {
+	var decisions []authzcore.Decision
+	if err := json.Unmarshal(bodyBytes, &decisions); err != nil {
 		c.logger.Error("Failed to decode authz response", "error", err, "body", string(bodyBytes))
 		return nil, ErrAuthzInvalidResponse
 	}
 
-	c.logger.Debug("Authorization evaluated",
-		"action", request.Action,
-		"resource_type", request.Resource.Type,
-		"resource_id", request.Resource.ID,
-		"decision", response.Data.Decision,
-		"reason", response.Data.Context)
-
-	return &response.Data, nil
-}
-
-// BatchEvaluate evaluates multiple authorization requests
-func (c *Client) BatchEvaluate(ctx context.Context, request *authzcore.BatchEvaluateRequest) (*authzcore.BatchEvaluateResponse, error) {
-	body, err := json.Marshal(request)
-	if err != nil {
-		c.logger.Error("Failed to marshal batch evaluate request", "error", err)
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	url := c.baseURL + "/api/v1/authz/batch-evaluate"
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
-	if err != nil {
-		c.logger.Error("Failed to create HTTP request", "error", err)
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	// Extract and forward the authentication token from the incoming request context
-	if token := jwt.GetTokenFromContext(ctx); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		c.logger.Error("Authz service batch request failed", "error", err, "url", url)
-		return nil, ErrAuthzServiceUnavailable
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusUnauthorized {
-		c.logger.Warn("Authz service returned unauthorized", "status", resp.StatusCode)
-		return nil, ErrAuthzUnauthorized
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		c.logger.Error("Authz service returned error", "status", resp.StatusCode, "response_body", string(bodyBytes))
-		return nil, fmt.Errorf("authz service returned %d", resp.StatusCode)
-	}
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		c.logger.Error("Failed to read batch authz response body", "error", err)
-		return nil, ErrAuthzInvalidResponse
-	}
-
-	var response BatchAuthzResponse
-	if err := json.Unmarshal(bodyBytes, &response); err != nil {
-		c.logger.Error("Failed to decode batch authz response", "error", err, "body", string(bodyBytes))
-		return nil, ErrAuthzInvalidResponse
-	}
-
-	c.logger.Debug("Batch authorization evaluated", "request_count", len(request.Requests))
-
-	return &response.Data, nil
-}
-
-// GetSubjectProfile is not implemented for observer API
-func (c *Client) GetSubjectProfile(ctx context.Context, request *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
-	return nil, errors.New("GetSubjectProfile is not supported in observer API")
+	return decisions, nil
 }
