@@ -667,14 +667,14 @@ func (qb *QueryBuilder) BuildTracesQuery(params TracesRequestParams) map[string]
 		{
 			"range": map[string]interface{}{
 				"startTime": map[string]interface{}{
-					"gte": params.StartTime,
+					"lte": params.EndTime,
 				},
 			},
 		},
 		{
 			"range": map[string]interface{}{
 				"endTime": map[string]interface{}{
-					"lte": params.EndTime,
+					"gte": params.StartTime,
 				},
 			},
 		},
@@ -735,6 +735,33 @@ func (qb *QueryBuilder) BuildTracesQuery(params TracesRequestParams) map[string]
 				"startTime": map[string]interface{}{
 					"order": params.SortOrder,
 				},
+			},
+		},
+	}
+
+	return query
+}
+
+// BuildSpanDetailsQuery builds a query for retrieving a specific span by traceId and spanId
+func (qb *QueryBuilder) BuildSpanDetailsQuery(traceID string, spanID string) map[string]interface{} {
+	filterConditions := []map[string]interface{}{
+		{
+			"term": map[string]interface{}{
+				"traceId": traceID,
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				"spanId": spanID,
+			},
+		},
+	}
+
+	query := map[string]interface{}{
+		"size": 1,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"filter": filterConditions,
 			},
 		},
 	}

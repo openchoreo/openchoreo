@@ -321,3 +321,60 @@ func validateSourceType(sourceType string) error {
 		return fmt.Errorf("sourceType %q is invalid: must be 'log' or 'metric'", sourceType)
 	}
 }
+
+// ValidateTracesQueryRequest validates a traces query request
+func ValidateTracesQueryRequest(req *gen.TracesQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+
+	// Validate time range (generated types use time.Time directly)
+	if req.StartTime.IsZero() {
+		return fmt.Errorf("startTime is required")
+	}
+	if req.EndTime.IsZero() {
+		return fmt.Errorf("endTime is required")
+	}
+	startStr := req.StartTime.Format(time.RFC3339)
+	endStr := req.EndTime.Format(time.RFC3339)
+	if err := ValidateTimeRange(startStr, endStr); err != nil {
+		return err
+	}
+
+	// Validate search scope (required for traces)
+	if req.SearchScope.Namespace == "" {
+		return fmt.Errorf("searchScope.namespace is required")
+	}
+	// Handle pointer fields in SearchScope
+	componentVal := ""
+	if req.SearchScope.Component != nil {
+		componentVal = *req.SearchScope.Component
+	}
+	projectVal := ""
+	if req.SearchScope.Project != nil {
+		projectVal = *req.SearchScope.Project
+	}
+	if componentVal != "" && projectVal == "" {
+		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
+	}
+
+	// Validate and set defaults for limit
+	if req.Limit != nil {
+		if *req.Limit <= 0 {
+			return fmt.Errorf("limit must be a positive integer greater than zero")
+		}
+		if *req.Limit > maxLimit {
+			return fmt.Errorf("limit cannot exceed %d", maxLimit)
+		}
+	}
+
+	// Validate and set defaults for sort order
+	if req.Sort != nil {
+		validSort := string(*req.Sort)
+		if validSort != "asc" && validSort != "desc" {
+			return fmt.Errorf("sort must be either 'asc' or 'desc'")
+		}
+	}
+
+	return nil
+}

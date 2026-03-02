@@ -18,4 +18,13 @@ const (
 	ErrorCodeV1MetricsServiceNotReady = "OBS-V1-M-03"
 	ErrorCodeV1MetricsResolverFailed  = "OBS-V1-M-04"
 	ErrorCodeV1MetricsRetrievalFailed = "OBS-V1-M-05"
+
+	// Traces API (v1alpha1) internal server error codes.
+	ErrorCodeV1TracesInternalGeneric = "OBS-V1-T-01"
+	ErrorCodeV1TracesAuthzInternal   = "OBS-V1-T-02"
+	ErrorCodeV1TracesServiceNotReady = "OBS-V1-T-03"
+	ErrorCodeV1TracesResolverFailed  = "OBS-V1-T-04"
+	ErrorCodeV1TracesRetrievalFailed = "OBS-V1-T-05"
+	ErrorCodeV1TracesInvalidRequest  = "OBS-V1-T-06"
+	ErrorCodeV1TracesSpanNotFound    = "OBS-V1-T-07"
 )

@@ -95,14 +95,16 @@ type Trace struct {
 
 // Span represents a parsed span entry from OpenSearch
 type Span struct {
-	DurationNanoseconds    int64     `json:"durationNanoseconds"`
-	EndTime                time.Time `json:"endTime"`
-	Name                   string    `json:"name"`
-	OpenChoreoComponentUID string    `json:"openChoreoComponentUid"`
-	OpenChoreoProjectUID   string    `json:"openChoreoProjectUid"`
-	ParentSpanID           string    `json:"parentSpanId"`
-	SpanID                 string    `json:"spanId"`
-	StartTime              time.Time `json:"startTime"`
+	DurationNanoseconds    int64                  `json:"durationNanoseconds"`
+	EndTime                time.Time              `json:"endTime"`
+	Name                   string                 `json:"name"`
+	OpenChoreoComponentUID string                 `json:"openChoreoComponentUid"`
+	OpenChoreoProjectUID   string                 `json:"openChoreoProjectUid"`
+	ParentSpanID           string                 `json:"parentSpanId"`
+	SpanID                 string                 `json:"spanId"`
+	StartTime              time.Time              `json:"startTime"`
+	Attributes             map[string]interface{} `json:"attributes,omitempty"`
+	ResourceAttributes     map[string]interface{} `json:"resourceAttributes,omitempty"`
 }
 
 // QueryParams holds common query parameters

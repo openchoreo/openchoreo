@@ -36,6 +36,10 @@ type ExperimentalConfig struct {
 	UseLogsBackend     bool          `koanf:"use.logs.backend"`
 	LogsBackendURL     string        `koanf:"logs.backend.url"`
 	LogsBackendTimeout time.Duration `koanf:"logs.backend.timeout"`
+
+	UseTracesBackend     bool          `koanf:"use.traces.backend"`
+	TracesBackendURL     string        `koanf:"traces.backend.url"`
+	TracesBackendTimeout time.Duration `koanf:"traces.backend.timeout"`
 }
 
 // ServerConfig holds HTTP server configuration
@@ -192,6 +196,9 @@ func Load() (*Config, error) {
 		"EXPERIMENTAL_USE_LOGS_BACKEND":         "experimental.use.logs.backend",
 		"EXPERIMENTAL_LOGS_BACKEND_URL":         "experimental.logs.backend.url",
 		"EXPERIMENTAL_LOGS_BACKEND_TIMEOUT":     "experimental.logs.backend.timeout",
+		"EXPERIMENTAL_USE_TRACES_BACKEND":       "experimental.use.traces.backend",
+		"EXPERIMENTAL_TRACES_BACKEND_URL":       "experimental.traces.backend.url",
+		"EXPERIMENTAL_TRACES_BACKEND_TIMEOUT":   "experimental.traces.backend.timeout",
 		"UID_RESOLVER_OPENCHOREO_API_URL":       "uid_resolver.openchoreo.api.url",
 		"UID_RESOLVER_OAUTH_TOKEN_URL":          "uid_resolver.oauth.token.url",
 		"UID_RESOLVER_OAUTH_CLIENT_ID":          "uid_resolver.oauth.client.id",
@@ -314,9 +321,12 @@ func getDefaults() map[string]interface{} {
 			"observability.namespace": "openchoreo-observability-plane",
 		},
 		"experimental": map[string]interface{}{
-			"use.logs.backend":     false,
-			"logs.backend.url":     "",
-			"logs.backend.timeout": "30s",
+			"use.logs.backend":       false,
+			"logs.backend.url":       "",
+			"logs.backend.timeout":   "30s",
+			"use.traces.backend":     false,
+			"traces.backend.url":     "",
+			"traces.backend.timeout": "30s",
 		},
 		"uid_resolver": map[string]interface{}{
 			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",
