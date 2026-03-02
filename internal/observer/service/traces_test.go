@@ -4,6 +4,7 @@
 package service
 
 import (
+	"io"
 	"log/slog"
 	"testing"
 	"time"
@@ -11,6 +12,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
+
+func newTestTracesService() *TracesService {
+	cfg := &config.Config{}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	return &TracesService{
+		config: cfg,
+		logger: logger,
+	}
+}
 
 func TestNewTracesBackend_ConfigValidation(t *testing.T) {
 	// Test with default timeout
@@ -54,13 +64,7 @@ func TestTracesService_ConvertToResponse(t *testing.T) {
 		Took:       10,
 	}
 
-	cfg := &config.Config{}
-	logger := slog.New(slog.NewTextHandler(nil, nil))
-
-	service := &TracesService{
-		config: cfg,
-		logger: logger,
-	}
+	service := newTestTracesService()
 
 	resp := service.convertToResponse(result)
 	if resp == nil {
@@ -113,13 +117,7 @@ func TestTracesService_ConvertToResponse_MultipleTraces(t *testing.T) {
 		Took:       15,
 	}
 
-	cfg := &config.Config{}
-	logger := slog.New(slog.NewTextHandler(nil, nil))
-
-	service := &TracesService{
-		config: cfg,
-		logger: logger,
-	}
+	service := newTestTracesService()
 
 	resp := service.convertToResponse(result)
 	if resp == nil {
@@ -142,13 +140,7 @@ func TestTracesService_ConvertToResponse_EmptyTraces(t *testing.T) {
 		Took:       5,
 	}
 
-	cfg := &config.Config{}
-	logger := slog.New(slog.NewTextHandler(nil, nil))
-
-	service := &TracesService{
-		config: cfg,
-		logger: logger,
-	}
+	service := newTestTracesService()
 
 	resp := service.convertToResponse(result)
 	if resp == nil {
@@ -192,13 +184,7 @@ func TestTracesService_ConvertSpansToResponse(t *testing.T) {
 		Took:       5,
 	}
 
-	cfg := &config.Config{}
-	logger := slog.New(slog.NewTextHandler(nil, nil))
-
-	service := &TracesService{
-		config: cfg,
-		logger: logger,
-	}
+	service := newTestTracesService()
 
 	resp := service.convertSpansToResponse(result)
 	if resp == nil {
@@ -252,13 +238,7 @@ func TestTracesService_ConvertSpansToResponse_MultipleTraces(t *testing.T) {
 		Took:       10,
 	}
 
-	cfg := &config.Config{}
-	logger := slog.New(slog.NewTextHandler(nil, nil))
-
-	service := &TracesService{
-		config: cfg,
-		logger: logger,
-	}
+	service := newTestTracesService()
 
 	resp := service.convertSpansToResponse(result)
 	if resp == nil {
@@ -281,13 +261,7 @@ func TestTracesService_ConvertSpansToResponse_EmptyTraces(t *testing.T) {
 		Took:       5,
 	}
 
-	cfg := &config.Config{}
-	logger := slog.New(slog.NewTextHandler(nil, nil))
-
-	service := &TracesService{
-		config: cfg,
-		logger: logger,
-	}
+	service := newTestTracesService()
 
 	resp := service.convertSpansToResponse(result)
 	if resp == nil {
@@ -323,13 +297,7 @@ func TestTraceInfo_DataIntegrity(t *testing.T) {
 		Took:       20,
 	}
 
-	cfg := &config.Config{}
-	logger := slog.New(slog.NewTextHandler(nil, nil))
-
-	service := &TracesService{
-		config: cfg,
-		logger: logger,
-	}
+	service := newTestTracesService()
 
 	resp := service.convertToResponse(result)
 	trace := resp.Traces[0]

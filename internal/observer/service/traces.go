@@ -111,6 +111,11 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 }
 
 func (s *TracesService) resolveSearchScope(ctx context.Context, scope *types.ComponentSearchScope) (projectUID, componentUID, environmentUID string, err error) {
+	// Guard against nil resolver when scope fields are provided
+	if s.resolver == nil && (scope.Project != "" || scope.Component != "" || scope.Environment != "") {
+		return "", "", "", fmt.Errorf("%w: resolver not initialized", ErrTracesResolveSearchScope)
+	}
+
 	if scope.Project != "" {
 		projectUID, err = s.resolver.GetProjectUID(ctx, scope.Namespace, scope.Project)
 		if err != nil {
