@@ -130,6 +130,21 @@ func (g *ReleaseGenerator) buildTraitsData(traitRefs []typed2.TraitRef) (
 	return traitsMap, profileTraits, nil
 }
 
+// buildWorkloadData constructs the workload section for the ComponentRelease spec,
+// including container, endpoints, and connections from the Workload resource.
+func (g *ReleaseGenerator) buildWorkloadData(wl *typed2.Workload) map[string]interface{} {
+	workloadMap := map[string]interface{}{
+		"container": wl.GetContainer(),
+	}
+	if endpoints := wl.GetEndpoints(); len(endpoints) > 0 {
+		workloadMap["endpoints"] = endpoints
+	}
+	if connections := wl.GetConnections(); len(connections) > 0 {
+		workloadMap["connections"] = connections
+	}
+	return workloadMap
+}
+
 // buildRelease constructs the ComponentRelease unstructured object
 func (g *ReleaseGenerator) buildRelease(
 	releaseName, namespace string,
@@ -149,9 +164,7 @@ func (g *ReleaseGenerator) buildRelease(
 			"schema":       ct.GetSchema(),
 			"resources":    ct.GetResources(),
 		},
-		"workload": map[string]interface{}{
-			"container": wl.GetContainer(),
-		},
+		"workload": g.buildWorkloadData(wl),
 	}
 
 	// Build componentProfile only if there's content to add
