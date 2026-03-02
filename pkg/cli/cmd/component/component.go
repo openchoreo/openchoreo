@@ -262,7 +262,10 @@ func newComponentWorkflowCmd() *cobra.Command {
 		Long:    `Manage component workflows for OpenChoreo.`,
 	}
 
-	cmd.AddCommand(newStartComponentWorkflowCmd())
+	cmd.AddCommand(
+		newStartComponentWorkflowCmd(),
+		newLogsComponentWorkflowCmd(),
+	)
 
 	return cmd
 }
@@ -293,6 +296,15 @@ func newStartComponentWorkflowCmd() *cobra.Command {
 	return cmd
 }
 
+func newLogsComponentWorkflowCmd() *cobra.Command {
+	cmd := newLogsComponentWorkflowRunCmd()
+	cmd.Use = constants.LogsComponentWorkflow.Use
+	cmd.Short = constants.LogsComponentWorkflow.Short
+	cmd.Long = constants.LogsComponentWorkflow.Long
+	cmd.Example = constants.LogsComponentWorkflow.Example
+	return cmd
+}
+
 func newComponentWorkflowRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "workflowrun",
@@ -301,7 +313,10 @@ func newComponentWorkflowRunCmd() *cobra.Command {
 		Long:    `Manage workflow runs for a component.`,
 	}
 
-	cmd.AddCommand(newListComponentWorkflowRunCmd())
+	cmd.AddCommand(
+		newListComponentWorkflowRunCmd(),
+		newLogsComponentWorkflowRunCmd(),
+	)
 
 	return cmd
 }
@@ -324,6 +339,34 @@ func newListComponentWorkflowRunCmd() *cobra.Command {
 	}
 
 	flags.AddFlags(cmd, flags.Namespace)
+
+	return cmd
+}
+
+func newLogsComponentWorkflowRunCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.LogsComponentWorkflowRun.Use,
+		Short:   constants.LogsComponentWorkflowRun.Short,
+		Long:    constants.LogsComponentWorkflowRun.Long,
+		Example: constants.LogsComponentWorkflowRun.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			follow, _ := cmd.Flags().GetBool(flags.Follow.Name)
+			since, _ := cmd.Flags().GetString(flags.Since.Name)
+			run, _ := cmd.Flags().GetString(flags.WorkflowRun.Name)
+			return component.New().WorkflowRunLogs(component.WorkflowRunLogsParams{
+				Namespace:     namespace,
+				ComponentName: args[0],
+				RunName:       run,
+				Follow:        follow,
+				Since:         since,
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace, flags.Follow, flags.Since, flags.WorkflowRun)
 
 	return cmd
 }

@@ -605,6 +605,18 @@ func (c *Client) GetDataPlane(ctx context.Context, namespaceName, dpName string)
 	return resp.JSON200, nil
 }
 
+// GetClusterDataPlane retrieves a specific cluster data plane
+func (c *Client) GetClusterDataPlane(ctx context.Context, cdpName string) (*gen.ClusterDataPlane, error) {
+	resp, err := c.client.GetClusterDataPlaneWithResponse(ctx, cdpName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster data plane: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
 // DeleteDataPlane deletes a data plane
 func (c *Client) DeleteDataPlane(ctx context.Context, namespaceName, dpName string) error {
 	resp, err := c.client.DeleteDataPlaneWithResponse(ctx, namespaceName, dpName)
@@ -1056,6 +1068,57 @@ func (c *Client) DeleteNamespaceRoleBinding(ctx context.Context, namespaceName, 
 		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
 	}
 	return nil
+}
+
+// GetWorkflowRunLogs retrieves live logs for a workflow run from the build plane
+func (c *Client) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName string, params *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error) {
+	if params == nil {
+		params = &gen.GetWorkflowRunLogsParams{}
+	}
+	resp, err := c.client.GetWorkflowRunLogsWithResponse(ctx, namespaceName, runName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow run logs: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return *resp.JSON200, nil
+}
+
+// GetWorkflowRunStatus retrieves the status of a workflow run including live observability info
+func (c *Client) GetWorkflowRunStatus(ctx context.Context, namespaceName, runName string) (*gen.WorkflowRunStatusResponse, error) {
+	resp, err := c.client.GetWorkflowRunStatusWithResponse(ctx, namespaceName, runName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow run status: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// GetClusterBuildPlane retrieves a specific cluster build plane
+func (c *Client) GetClusterBuildPlane(ctx context.Context, clusterBuildPlaneName string) (*gen.ClusterBuildPlane, error) {
+	resp, err := c.client.GetClusterBuildPlaneWithResponse(ctx, clusterBuildPlaneName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster build plane: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// GetClusterObservabilityPlane retrieves a specific cluster observability plane
+func (c *Client) GetClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) (*gen.ClusterObservabilityPlane, error) {
+	resp, err := c.client.GetClusterObservabilityPlaneWithResponse(ctx, clusterObservabilityPlaneName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster observability plane: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
 }
 
 // GetEnvironmentObserverURL retrieves the observer URL for an environment

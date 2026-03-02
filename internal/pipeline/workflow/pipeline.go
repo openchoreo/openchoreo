@@ -198,10 +198,17 @@ func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 	// Enforced namespace
 	ciNamespace := fmt.Sprintf("openchoreo-ci-%s", input.Context.NamespaceName)
 
+	// Expose WorkflowRun labels to CEL context; default to empty map for safe access
+	labels := input.Context.Labels
+	if labels == nil {
+		labels = map[string]string{}
+	}
+
 	metadata := map[string]any{
 		"namespaceName":   input.Context.NamespaceName,
 		"workflowRunName": input.Context.WorkflowRunName,
 		"namespace":       ciNamespace, // Enforced CI namespace
+		"labels":          labels,
 	}
 
 	// Build developer parameters with defaults applied from schema

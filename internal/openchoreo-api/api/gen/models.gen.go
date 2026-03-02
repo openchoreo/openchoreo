@@ -3222,6 +3222,9 @@ type WorkflowSchema struct {
 
 // WorkflowSpec Desired state of a Workflow
 type WorkflowSpec struct {
+	// BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
+	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
+
 	// Resources Additional resource templates to render and apply alongside the workflow run.
 	Resources *[]WorkflowResource `json:"resources,omitempty"`
 
@@ -3846,14 +3849,14 @@ type ListWorkflowRunsParams struct {
 
 // GetWorkflowRunEventsParams defines parameters for GetWorkflowRunEvents.
 type GetWorkflowRunEventsParams struct {
-	// Step Filter events by step name
-	Step *string `form:"step,omitempty" json:"step,omitempty"`
+	// Task Filter events by task name
+	Task *string `form:"task,omitempty" json:"task,omitempty"`
 }
 
 // GetWorkflowRunLogsParams defines parameters for GetWorkflowRunLogs.
 type GetWorkflowRunLogsParams struct {
-	// Step Filter logs by step name
-	Step *string `form:"step,omitempty" json:"step,omitempty"`
+	// Task Filter logs by task name
+	Task *string `form:"task,omitempty" json:"task,omitempty"`
 
 	// SinceSeconds Return logs newer than a relative duration in seconds
 	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`

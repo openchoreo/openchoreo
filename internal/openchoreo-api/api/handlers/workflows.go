@@ -366,21 +366,21 @@ func (h *Handler) GetWorkflowRunLogs(
 		"namespace", request.NamespaceName,
 		"runName", request.RunName)
 
-	step := ""
-	if request.Params.Step != nil {
-		step = *request.Params.Step
+	taskName := ""
+	if request.Params.Task != nil {
+		taskName = *request.Params.Task
 	}
 
-	logs, err := h.legacyServices.WorkflowRunService.GetWorkflowRunLogs(ctx, request.NamespaceName, request.RunName,
-		step, h.Config.ClusterGateway.URL, request.Params.SinceSeconds)
+	logs, err := h.services.WorkflowRunService.GetWorkflowRunLogs(ctx, request.NamespaceName, request.RunName,
+		taskName, h.Config.ClusterGateway.URL, request.Params.SinceSeconds)
 	if err != nil {
-		if errors.Is(err, legacyservices.ErrWorkflowRunNotFound) {
+		if errors.Is(err, workflowrunsvc.ErrWorkflowRunNotFound) {
 			return gen.GetWorkflowRunLogs404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
 		}
-		if errors.Is(err, legacyservices.ErrForbidden) {
+		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.GetWorkflowRunLogs403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, legacyservices.ErrWorkflowRunReferenceNotFound) {
+		if errors.Is(err, workflowrunsvc.ErrWorkflowRunReferenceNotFound) {
 			return gen.GetWorkflowRunLogs404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
 		}
 		h.logger.Error("Failed to get workflow run logs", "error", err)
@@ -411,21 +411,21 @@ func (h *Handler) GetWorkflowRunEvents(
 		"namespace", request.NamespaceName,
 		"runName", request.RunName)
 
-	step := ""
-	if request.Params.Step != nil {
-		step = *request.Params.Step
+	taskName := ""
+	if request.Params.Task != nil {
+		taskName = *request.Params.Task
 	}
 
-	events, err := h.legacyServices.WorkflowRunService.GetWorkflowRunEvents(ctx, request.NamespaceName, request.RunName,
-		step, h.Config.ClusterGateway.URL)
+	events, err := h.services.WorkflowRunService.GetWorkflowRunEvents(ctx, request.NamespaceName, request.RunName,
+		taskName, h.Config.ClusterGateway.URL)
 	if err != nil {
-		if errors.Is(err, legacyservices.ErrWorkflowRunNotFound) {
+		if errors.Is(err, workflowrunsvc.ErrWorkflowRunNotFound) {
 			return gen.GetWorkflowRunEvents404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
 		}
-		if errors.Is(err, legacyservices.ErrForbidden) {
+		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.GetWorkflowRunEvents403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, legacyservices.ErrWorkflowRunReferenceNotFound) {
+		if errors.Is(err, workflowrunsvc.ErrWorkflowRunReferenceNotFound) {
 			return gen.GetWorkflowRunEvents404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRunReference")}, nil
 		}
 		h.logger.Error("Failed to get workflow run events", "error", err)

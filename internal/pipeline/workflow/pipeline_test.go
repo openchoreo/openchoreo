@@ -1187,6 +1187,114 @@ func TestPipeline_Render_SecretRefContextVariables(t *testing.T) {
 		}
 	})
 
+	t.Run("labels context variables rendered correctly", func(t *testing.T) {
+		input := &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-run",
+					Namespace: "default",
+					Labels: map[string]string{
+						"openchoreo.dev/project":   "my-project",
+						"openchoreo.dev/component": "my-component",
+						"custom-label":             "custom-value",
+					},
+				},
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name: "test-workflow",
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				Spec: v1alpha1.WorkflowSpec{
+					RunTemplate: mustRawExtension(t, map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "ConfigMap",
+						"metadata": map[string]interface{}{
+							"name": "labels-test",
+						},
+						"data": map[string]interface{}{
+							"project":    "${metadata.labels['openchoreo.dev/project']}",
+							"component":  "${metadata.labels['openchoreo.dev/component']}",
+							"custom":     "${metadata.labels['custom-label']}",
+							"image-name": "${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}",
+						},
+					}),
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "test-namespace",
+				WorkflowRunName: "test-run",
+				Labels: map[string]string{
+					"openchoreo.dev/project":   "my-project",
+					"openchoreo.dev/component": "my-component",
+					"custom-label":             "custom-value",
+				},
+			},
+		}
+
+		output, err := NewPipeline().Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		data := output.Resource["data"].(map[string]interface{})
+		if data["project"] != "my-project" {
+			t.Errorf("expected project 'my-project', got %v", data["project"])
+		}
+		if data["component"] != "my-component" {
+			t.Errorf("expected component 'my-component', got %v", data["component"])
+		}
+		if data["custom"] != "custom-value" {
+			t.Errorf("expected custom 'custom-value', got %v", data["custom"])
+		}
+		if data["image-name"] != "my-project-my-component" {
+			t.Errorf("expected image-name 'my-project-my-component', got %v", data["image-name"])
+		}
+	})
+
+	t.Run("labels default to empty map when nil", func(t *testing.T) {
+		input := &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name: "test-workflow",
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				Spec: v1alpha1.WorkflowSpec{
+					RunTemplate: mustRawExtension(t, map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "ConfigMap",
+						"metadata": map[string]interface{}{
+							"name": "labels-empty-test",
+						},
+						"data": map[string]interface{}{
+							"label-count": "${size(metadata.labels)}",
+						},
+					}),
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "test-namespace",
+				WorkflowRunName: "test-run",
+				// Labels is nil
+			},
+		}
+
+		output, err := NewPipeline().Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		data := output.Resource["data"].(map[string]interface{})
+		// size() returns int64 from CEL
+		if data["label-count"] != int64(0) {
+			t.Errorf("expected label-count 0, got %v (type %T)", data["label-count"], data["label-count"])
+		}
+	})
+
 	t.Run("secretRef context defaults to empty values when absent", func(t *testing.T) {
 		input := &RenderInput{
 			WorkflowRun: &v1alpha1.WorkflowRun{

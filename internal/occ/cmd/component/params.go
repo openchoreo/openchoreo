@@ -76,6 +76,18 @@ type ListWorkflowRunsParams struct {
 func (p ListWorkflowRunsParams) GetNamespace() string     { return p.Namespace }
 func (p ListWorkflowRunsParams) GetComponentName() string { return p.ComponentName }
 
+// WorkflowRunLogsParams defines parameters for fetching component workflow run logs
+type WorkflowRunLogsParams struct {
+	Namespace     string
+	ComponentName string
+	RunName       string // optional --workflowrun flag; defaults to latest
+	Follow        bool
+	Since         string
+}
+
+func (p WorkflowRunLogsParams) GetNamespace() string     { return p.Namespace }
+func (p WorkflowRunLogsParams) GetComponentName() string { return p.ComponentName }
+
 // LogsParams defines parameters for fetching component logs
 type LogsParams struct {
 	Namespace   string

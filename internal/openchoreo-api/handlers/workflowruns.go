@@ -226,7 +226,10 @@ func (h *Handler) GetWorkflowRunLogs(w http.ResponseWriter, r *http.Request) {
 
 	namespaceName := r.PathValue("namespaceName")
 	runName := r.PathValue("runName")
-	stepName := r.URL.Query().Get("step")
+	stepName := r.URL.Query().Get("task")
+	if stepName == "" {
+		stepName = r.URL.Query().Get("step")
+	}
 
 	var sinceSeconds *int64
 	if sinceSecondsStr := r.URL.Query().Get("sinceSeconds"); sinceSecondsStr != "" {
@@ -289,7 +292,10 @@ func (h *Handler) GetWorkflowRunEvents(w http.ResponseWriter, r *http.Request) {
 
 	namespaceName := r.PathValue("namespaceName")
 	runName := r.PathValue("runName")
-	stepName := r.URL.Query().Get("step")
+	stepName := r.URL.Query().Get("task")
+	if stepName == "" {
+		stepName = r.URL.Query().Get("step")
+	}
 
 	if namespaceName == "" {
 		log.Error("Namespace name is required")

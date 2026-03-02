@@ -25,6 +25,7 @@ func NewWorkflowRunCmd() *cobra.Command {
 	workflowRunCmd.AddCommand(
 		newListWorkflowRunCmd(),
 		newGetWorkflowRunCmd(),
+		newLogsWorkflowRunCmd(),
 	)
 
 	return workflowRunCmd
@@ -62,5 +63,29 @@ func newGetWorkflowRunCmd() *cobra.Command {
 		},
 	}
 	flags.AddFlags(cmd, flags.Namespace)
+	return cmd
+}
+
+func newLogsWorkflowRunCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.LogsWorkflowRun.Use,
+		Short:   constants.LogsWorkflowRun.Short,
+		Long:    constants.LogsWorkflowRun.Long,
+		Example: constants.LogsWorkflowRun.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			follow, _ := cmd.Flags().GetBool(flags.Follow.Name)
+			since, _ := cmd.Flags().GetString(flags.Since.Name)
+			return workflowrun.New().Logs(workflowrun.LogsParams{
+				Namespace:       namespace,
+				WorkflowRunName: args[0],
+				Follow:          follow,
+				Since:           since,
+			})
+		},
+	}
+	flags.AddFlags(cmd, flags.Namespace, flags.Follow, flags.Since)
 	return cmd
 }

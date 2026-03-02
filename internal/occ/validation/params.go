@@ -793,9 +793,14 @@ func validateDeleteTraitParams(params interface{}) error {
 
 // validateWorkflowParams validates parameters for workflow operations
 func validateWorkflowParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdList {
+	switch cmdType {
+	case CmdList:
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(CmdList, ResourceWorkflow, p.GetNamespace())
+		}
+	case CmdLogs:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdLogs, ResourceWorkflow, p.GetNamespace())
 		}
 	}
 	return nil
@@ -928,6 +933,10 @@ func validateWorkflowRunParams(cmdType CommandType, params interface{}) error {
 	case CmdGet:
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(CmdGet, ResourceWorkflowRun, p.GetNamespace())
+		}
+	case CmdLogs:
+		if p, ok := params.(namespaceParams); ok {
+			return validateNamespace(CmdLogs, ResourceWorkflowRun, p.GetNamespace())
 		}
 	}
 	return nil

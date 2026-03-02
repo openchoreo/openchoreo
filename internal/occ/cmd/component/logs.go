@@ -16,6 +16,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+const defaultPlaneName = "default"
+
 // Logs fetches and displays logs for a component
 func (cp *Component) Logs(params LogsParams) error {
 	ctx := context.Background()
@@ -49,10 +51,10 @@ func (cp *Component) Logs(params LogsParams) error {
 		envName = rootEnv
 	}
 
-	// Get observer URL for the environment
-	observerURL, err := apiClient.GetEnvironmentObserverURL(ctx, params.Namespace, envName)
+	// Resolve observer URL by traversing Environment → DataPlane → ObservabilityPlane
+	observerURL, err := resolveObserverURL(ctx, apiClient, params.Namespace, envName)
 	if err != nil {
-		return fmt.Errorf("failed to get observer URL: %w", err)
+		return fmt.Errorf("failed to resolve observer URL: %w", err)
 	}
 
 	// Get environment to resolve UID
@@ -271,4 +273,97 @@ func findRootEnvironment(pipeline *gen.DeploymentPipeline) (string, error) {
 	}
 
 	return rootEnv, nil
+}
+
+// resolveObserverURL resolves the observer URL by traversing:
+// Environment → DataPlane/ClusterDataPlane → ObservabilityPlane/ClusterObservabilityPlane → observerURL
+// This mirrors the server-side GetEnvironmentObserverURL implementation.
+func resolveObserverURL(ctx context.Context, apiClient *client.Client, namespace, envName string) (string, error) {
+	env, err := apiClient.GetEnvironment(ctx, namespace, envName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get environment %s: %w", envName, err)
+	}
+
+	if env.Spec == nil || env.Spec.DataPlaneRef == nil {
+		return "", fmt.Errorf("environment %s has no data plane reference", envName)
+	}
+
+	ref := env.Spec.DataPlaneRef
+
+	switch ref.Kind {
+	case gen.EnvironmentSpecDataPlaneRefKindClusterDataPlane:
+		return resolveObserverURLFromClusterDataPlane(ctx, apiClient, ref.Name)
+
+	case gen.EnvironmentSpecDataPlaneRefKindDataPlane:
+		return resolveObserverURLFromDataPlane(ctx, apiClient, namespace, ref.Name)
+
+	default:
+		return "", fmt.Errorf("unsupported dataPlaneRef kind %q for environment %s", ref.Kind, envName)
+	}
+}
+
+// resolveObserverURLFromDataPlane resolves the observer URL from a namespaced DataPlane.
+// If the DataPlane has an observabilityPlaneRef, it follows it (supports both ObservabilityPlane
+// and ClusterObservabilityPlane kinds). If nil, defaults to ObservabilityPlane named "default".
+func resolveObserverURLFromDataPlane(ctx context.Context, apiClient *client.Client, namespace, dpName string) (string, error) {
+	dp, err := apiClient.GetDataPlane(ctx, namespace, dpName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get data plane %s: %w", dpName, err)
+	}
+
+	// If no observabilityPlaneRef, default to ObservabilityPlane named "default"
+	if dp.Spec == nil || dp.Spec.ObservabilityPlaneRef == nil {
+		return getObserverURLFromObservabilityPlane(ctx, apiClient, namespace, defaultPlaneName)
+	}
+
+	obsRef := dp.Spec.ObservabilityPlaneRef
+	switch obsRef.Kind {
+	case gen.ObservabilityPlaneRefKindObservabilityPlane:
+		return getObserverURLFromObservabilityPlane(ctx, apiClient, namespace, obsRef.Name)
+	case gen.ObservabilityPlaneRefKindClusterObservabilityPlane:
+		return getObserverURLFromClusterObservabilityPlane(ctx, apiClient, obsRef.Name)
+	default:
+		return "", fmt.Errorf("unsupported observabilityPlaneRef kind %q", obsRef.Kind)
+	}
+}
+
+// resolveObserverURLFromClusterDataPlane resolves the observer URL from a ClusterDataPlane.
+// If the ClusterDataPlane has an observabilityPlaneRef, it follows it.
+// If nil, defaults to ClusterObservabilityPlane named "default".
+func resolveObserverURLFromClusterDataPlane(ctx context.Context, apiClient *client.Client, cdpName string) (string, error) {
+	cdp, err := apiClient.GetClusterDataPlane(ctx, cdpName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get cluster data plane %s: %w", cdpName, err)
+	}
+
+	planeName := defaultPlaneName
+	if cdp.Spec != nil && cdp.Spec.ObservabilityPlaneRef != nil {
+		planeName = cdp.Spec.ObservabilityPlaneRef.Name
+	}
+
+	return getObserverURLFromClusterObservabilityPlane(ctx, apiClient, planeName)
+}
+
+// getObserverURLFromObservabilityPlane fetches a namespaced ObservabilityPlane and returns its observer URL.
+func getObserverURLFromObservabilityPlane(ctx context.Context, apiClient *client.Client, namespace, name string) (string, error) {
+	op, err := apiClient.GetObservabilityPlane(ctx, namespace, name)
+	if err != nil {
+		return "", fmt.Errorf("failed to get observability plane %s: %w", name, err)
+	}
+	if op.Spec == nil || op.Spec.ObserverURL == nil || *op.Spec.ObserverURL == "" {
+		return "", fmt.Errorf("observer URL not configured in observability plane %s", name)
+	}
+	return *op.Spec.ObserverURL, nil
+}
+
+// getObserverURLFromClusterObservabilityPlane fetches a ClusterObservabilityPlane and returns its observer URL.
+func getObserverURLFromClusterObservabilityPlane(ctx context.Context, apiClient *client.Client, name string) (string, error) {
+	cop, err := apiClient.GetClusterObservabilityPlane(ctx, name)
+	if err != nil {
+		return "", fmt.Errorf("failed to get cluster observability plane %s: %w", name, err)
+	}
+	if cop.Spec == nil || cop.Spec.ObserverURL == nil || *cop.Spec.ObserverURL == "" {
+		return "", fmt.Errorf("observer URL not configured in cluster observability plane %s", name)
+	}
+	return *cop.Spec.ObserverURL, nil
 }

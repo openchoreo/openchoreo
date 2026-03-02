@@ -761,6 +761,21 @@ This command allows you to:
   occ workflow run migration --namespace acme --set version=v2 --set dry_run=false`,
 	}
 
+	LogsWorkflow = Command{
+		Use:   "logs WORKFLOW_NAME",
+		Short: "Get logs for a workflow",
+		Long: `Get logs for a workflow by finding the latest workflow run.
+Use --workflowrun to specify a particular workflow run instead of the latest.`,
+		Example: fmt.Sprintf(`  # Get logs for the latest run of a workflow
+  %[1]s workflow logs my-workflow --namespace acme-corp
+
+  # Get logs for a specific run
+  %[1]s workflow logs my-workflow --namespace acme-corp --workflowrun my-run
+
+  # Follow logs
+  %[1]s workflow logs my-workflow --namespace acme-corp -f`, messages.DefaultCLIName),
+	}
+
 	ListSecretReference = Command{
 		Use:   "list",
 		Short: "List secret references",
@@ -999,12 +1014,44 @@ This command allows you to:
   occ component workflow run my-service --namespace acme-corp`,
 	}
 
+	LogsComponentWorkflow = Command{
+		Use:   "logs [COMPONENT_NAME]",
+		Short: "Get logs for a component's workflow run",
+		Long: `Get logs for a component's workflow run.
+Finds the latest workflow run for the component by default.
+Use --workflowrun to specify a particular run.`,
+		Example: fmt.Sprintf(`  # Get logs for the latest workflow run of a component
+  %[1]s component workflow logs my-service --namespace acme-corp
+
+  # Get logs for a specific workflow run
+  %[1]s component workflow logs my-service --namespace acme-corp --workflowrun my-run
+
+  # Follow logs
+  %[1]s component workflow logs my-service --namespace acme-corp -f`, messages.DefaultCLIName),
+	}
+
 	ListComponentWorkflowRun = Command{
 		Use:   "list [COMPONENT_NAME]",
 		Short: "List workflow runs for a component",
 		Long:  `List all workflow runs associated with a specific component.`,
 		Example: `  # List workflow runs for a component
   occ component workflowrun list my-service --namespace acme-corp`,
+	}
+
+	LogsComponentWorkflowRun = Command{
+		Use:   "logs [COMPONENT_NAME]",
+		Short: "Get logs for a component's workflow run",
+		Long: `Get logs for a component's workflow run.
+Finds the latest workflow run for the component by default.
+Use --workflowrun to specify a particular run.`,
+		Example: fmt.Sprintf(`  # Get logs for the latest workflow run of a component
+  %[1]s component workflowrun logs my-service --namespace acme-corp
+
+  # Get logs for a specific workflow run
+  %[1]s component workflowrun logs my-service --namespace acme-corp --workflowrun my-run
+
+  # Follow logs
+  %[1]s component workflowrun logs my-service --namespace acme-corp -f`, messages.DefaultCLIName),
 	}
 
 	Environment = Command{
@@ -1392,6 +1439,19 @@ This command allows you to:
 		Long:  `Get a workflow run and display its details in YAML format.`,
 		Example: fmt.Sprintf(`  # Get a workflow run
   %[1]s workflowrun get my-run --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
+	LogsWorkflowRun = Command{
+		Use:   "logs [WORKFLOW_RUN_NAME]",
+		Short: "Get logs for a workflow run",
+		Long: `Get logs for a workflow run.
+Fetches live logs from the build plane for active runs,
+or archived logs from the observer for completed runs.`,
+		Example: fmt.Sprintf(`  # Get logs for a workflow run
+  %[1]s workflowrun logs my-run --namespace acme-corp
+
+  # Follow logs for a running workflow
+  %[1]s workflowrun logs my-run --namespace acme-corp -f`, messages.DefaultCLIName),
 	}
 
 	WorkflowRun = Command{

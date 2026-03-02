@@ -844,10 +844,9 @@ metadata:
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch
+      commit: parameters.repository.revision.commit
       appPath: parameters.repository.appPath
       secretRef: parameters.repository.secretRef
-      projectName: parameters.scope.projectName
-      componentName: parameters.scope.componentName
 spec:
   buildPlaneRef:
     kind: BuildPlane
@@ -855,9 +854,6 @@ spec:
   ttlAfterCompletion: "1d"
   schema:
     parameters:
-      scope:
-        projectName: string | description="Name of the project"
-        componentName: string | description="Name of the component"
       repository:
         url: string | description="Git repository URL"
         secretRef: string | default="" description="Secret reference name for Git credentials"
@@ -878,9 +874,9 @@ spec:
       arguments:
         parameters:
           - name: component-name
-            value: ${parameters.scope.componentName}
+            value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
-            value: ${parameters.scope.projectName}
+            value: ${metadata.labels['openchoreo.dev/project']}
           - name: git-repo
             value: ${parameters.repository.url}
           - name: branch
@@ -894,7 +890,7 @@ spec:
           - name: dockerfile-path
             value: ${parameters.docker.filePath}
           - name: image-name
-            value: ${metadata.namespaceName}-${parameters.scope.projectName}-${parameters.scope.componentName}
+            value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
             value: v1
           - name: git-secret
@@ -1010,10 +1006,9 @@ metadata:
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch
+      commit: parameters.repository.revision.commit
       appPath: parameters.repository.appPath
       secretRef: parameters.repository.secretRef
-      projectName: parameters.scope.projectName
-      componentName: parameters.scope.componentName
 spec:
   buildPlaneRef:
     kind: BuildPlane
@@ -1021,9 +1016,6 @@ spec:
   ttlAfterCompletion: "1d"
   schema:
     parameters:
-      scope:
-        projectName: string | description="Name of the project"
-        componentName: string | description="Name of the component"
       repository:
         url: string | description="Git repository URL"
         secretRef: string | default="" description="Secret reference name for Git credentials"
@@ -1043,9 +1035,9 @@ spec:
       arguments:
         parameters:
           - name: component-name
-            value: ${parameters.scope.componentName}
+            value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
-            value: ${parameters.scope.projectName}
+            value: ${metadata.labels['openchoreo.dev/project']}
           - name: git-repo
             value: ${parameters.repository.url}
           - name: branch
@@ -1057,7 +1049,7 @@ spec:
           - name: node-version
             value: ${parameters.nodeVersion}
           - name: image-name
-            value: ${metadata.namespaceName}-${parameters.scope.projectName}-${parameters.scope.componentName}
+            value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
             value: v1
           - name: git-secret
@@ -1173,10 +1165,9 @@ metadata:
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch
+      commit: parameters.repository.revision.commit
       appPath: parameters.repository.appPath
       secretRef: parameters.repository.secretRef
-      projectName: parameters.scope.projectName
-      componentName: parameters.scope.componentName
 spec:
   buildPlaneRef:
     kind: BuildPlane
@@ -1184,9 +1175,6 @@ spec:
   ttlAfterCompletion: "1d"
   schema:
     parameters:
-      scope:
-        projectName: string | description="Name of the project"
-        componentName: string | description="Name of the component"
       repository:
         url: string | description="Git repository URL"
         secretRef: string | default="" description="Secret reference name for Git credentials"
@@ -1205,9 +1193,9 @@ spec:
       arguments:
         parameters:
           - name: component-name
-            value: ${parameters.scope.componentName}
+            value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
-            value: ${parameters.scope.projectName}
+            value: ${metadata.labels['openchoreo.dev/project']}
           - name: git-repo
             value: ${parameters.repository.url}
           - name: branch
@@ -1217,7 +1205,7 @@ spec:
           - name: app-path
             value: ${parameters.repository.appPath}
           - name: image-name
-            value: ${metadata.namespaceName}-${parameters.scope.projectName}-${parameters.scope.componentName}
+            value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
             value: v1
           - name: git-secret
@@ -1333,10 +1321,9 @@ metadata:
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch
+      commit: parameters.repository.revision.commit
       appPath: parameters.repository.appPath
       secretRef: parameters.repository.secretRef
-      projectName: parameters.scope.projectName
-      componentName: parameters.scope.componentName
 spec:
   buildPlaneRef:
     kind: BuildPlane
@@ -1344,9 +1331,6 @@ spec:
   ttlAfterCompletion: "1d"
   schema:
     parameters:
-      scope:
-        projectName: string | description="Name of the project"
-        componentName: string | description="Name of the component"
       repository:
         url: string | description="Git repository URL"
         secretRef: string | default="" description="Secret reference name for Git credentials"
@@ -1365,9 +1349,9 @@ spec:
       arguments:
         parameters:
           - name: component-name
-            value: ${parameters.scope.componentName}
+            value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
-            value: ${parameters.scope.projectName}
+            value: ${metadata.labels['openchoreo.dev/project']}
           - name: git-repo
             value: ${parameters.repository.url}
           - name: branch
@@ -1377,7 +1361,7 @@ spec:
           - name: app-path
             value: ${parameters.repository.appPath}
           - name: image-name
-            value: ${metadata.namespaceName}-${parameters.scope.projectName}-${parameters.scope.componentName}
+            value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
             value: v1
           - name: git-secret
