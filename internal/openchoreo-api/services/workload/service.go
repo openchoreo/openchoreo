@@ -375,45 +375,45 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 
 	connectionSchema := extv1.JSONSchemaProps{
 		Type:        objectType,
-		Description: "Connection to an internal or external resource.",
-		Required:    []string{"type", "inject"},
+		Description: "Connection to another component's endpoint.",
+		Required:    []string{"component", "endpoint", "visibility"},
 		Properties: map[string]extv1.JSONSchemaProps{
-			"type": {
+			"component": {
 				Type:        stringType,
-				Description: "Type of connection.",
-				Enum:        []extv1.JSON{{Raw: []byte(`"api"`)}},
+				Description: "Target component name.",
 			},
-			"params": {
-				Type:        objectType,
-				Description: "Connection configuration parameters (key-value pairs).",
-				AdditionalProperties: &extv1.JSONSchemaPropsOrBool{
-					Schema: &extv1.JSONSchemaProps{Type: stringType},
-				},
+			"endpoint": {
+				Type:        stringType,
+				Description: "Target endpoint name on the target component.",
 			},
-			"inject": {
+			"visibility": {
+				Type:        stringType,
+				Description: "Visibility level at which this connection consumes the endpoint.",
+				Enum:        []extv1.JSON{{Raw: []byte(`"namespace"`)}, {Raw: []byte(`"project"`)}},
+			},
+			"project": {
+				Type:        stringType,
+				Description: "Target component's project name. If empty, defaults to the same project as the consumer.",
+			},
+			"envBindings": {
 				Type:        objectType,
-				Description: "How connection details are injected into the workload.",
-				Required:    []string{"env"},
+				Description: "Maps resolved connection address components to environment variable names.",
 				Properties: map[string]extv1.JSONSchemaProps{
-					"env": {
-						Type:        arrayType,
-						Description: "Environment variables to inject.",
-						Items: &extv1.JSONSchemaPropsOrArray{
-							Schema: &extv1.JSONSchemaProps{
-								Type:     objectType,
-								Required: []string{"name", "value"},
-								Properties: map[string]extv1.JSONSchemaProps{
-									"name": {
-										Type:        stringType,
-										Description: "Environment variable name.",
-									},
-									"value": {
-										Type:        stringType,
-										Description: "Template value using connection properties (e.g., \"{{ .url }}\").",
-									},
-								},
-							},
-						},
+					"address": {
+						Type:        stringType,
+						Description: "Env var name for the protocol-appropriate connection string.",
+					},
+					"basePath": {
+						Type:        stringType,
+						Description: "Env var name for just the base path.",
+					},
+					"host": {
+						Type:        stringType,
+						Description: "Env var name for just the hostname.",
+					},
+					"port": {
+						Type:        stringType,
+						Description: "Env var name for just the port number.",
 					},
 				},
 			},

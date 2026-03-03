@@ -362,9 +362,13 @@ func parseWorkloadOverrides(overrides map[string]interface{}) (*gen.WorkloadOver
 			return nil, fmt.Errorf("unknown field %q in workload_overrides, allowed fields: [container]", k)
 		}
 	}
-	container, ok := overrides["container"].(map[string]interface{})
-	if !ok {
+	containerRaw, exists := overrides["container"]
+	if !exists {
 		return nil, nil
+	}
+	container, ok := containerRaw.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("workload_overrides.container must be an object")
 	}
 	for k := range container {
 		if k != "env" && k != "files" {
@@ -393,9 +397,13 @@ func parseWorkloadOverrides(overrides map[string]interface{}) (*gen.WorkloadOver
 }
 
 func parseEnvVars(container map[string]interface{}) ([]gen.EnvVar, error) {
-	envs, ok := container["env"].([]interface{})
-	if !ok {
+	envRaw, exists := container["env"]
+	if !exists {
 		return nil, nil
+	}
+	envs, ok := envRaw.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("workload_overrides.container.env must be an array")
 	}
 	envVars := make([]gen.EnvVar, 0, len(envs))
 	for i, ev := range envs {
@@ -409,7 +417,8 @@ func parseEnvVars(container map[string]interface{}) ([]gen.EnvVar, error) {
 			case "valueFrom":
 				return nil, fmt.Errorf("workload_overrides.container.env[%d]: valueFrom is not supported via MCP", i)
 			default:
-				return nil, fmt.Errorf("unknown field %q in workload_overrides.container.env[%d], allowed fields: [key, value]", k, i)
+				return nil, fmt.Errorf(
+					"unknown field %q in workload_overrides.container.env[%d], allowed fields: [key, value]", k, i)
 			}
 		}
 		key, _ := evMap["key"].(string)
@@ -423,9 +432,13 @@ func parseEnvVars(container map[string]interface{}) ([]gen.EnvVar, error) {
 }
 
 func parseFileVars(container map[string]interface{}) ([]gen.FileVar, error) {
-	files, ok := container["files"].([]interface{})
-	if !ok {
+	filesRaw, exists := container["files"]
+	if !exists {
 		return nil, nil
+	}
+	files, ok := filesRaw.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("workload_overrides.container.files must be an array")
 	}
 	fileVars := make([]gen.FileVar, 0, len(files))
 	for i, f := range files {
@@ -439,7 +452,9 @@ func parseFileVars(container map[string]interface{}) ([]gen.FileVar, error) {
 			case "valueFrom":
 				return nil, fmt.Errorf("workload_overrides.container.files[%d]: valueFrom is not supported via MCP", i)
 			default:
-				return nil, fmt.Errorf("unknown field %q in workload_overrides.container.files[%d], allowed fields: [key, mountPath, value]", k, i)
+				return nil, fmt.Errorf(
+					"unknown field %q in workload_overrides.container.files[%d],"+
+						"allowed fields: [key, mountPath, value]", k, i)
 			}
 		}
 		key, _ := fMap["key"].(string)

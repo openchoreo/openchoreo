@@ -29,12 +29,13 @@ func (h *MCPHandler) CreateNamespace(ctx context.Context, req *gen.CreateNamespa
 		annotations = *req.Metadata.Annotations
 	}
 
-	resourceLabels := map[string]string{labels.LabelKeyControlPlaneNamespace: labels.LabelValueTrue}
+	resourceLabels := map[string]string{}
 	if req.Metadata.Labels != nil {
 		for key, value := range *req.Metadata.Labels {
 			resourceLabels[key] = value
 		}
 	}
+	resourceLabels[labels.LabelKeyControlPlaneNamespace] = labels.LabelValueTrue
 
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
