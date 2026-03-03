@@ -44,13 +44,6 @@ func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, re
 		},
 	}
 
-	if req.Spec != nil && req.Spec.BuildPlaneRef != nil {
-		project.Spec.BuildPlaneRef = &openchoreov1alpha1.BuildPlaneRef{
-			Kind: openchoreov1alpha1.BuildPlaneRefKind(req.Spec.BuildPlaneRef.Kind),
-			Name: req.Spec.BuildPlaneRef.Name,
-		}
-	}
-
 	if displayName, ok := project.Annotations[controller.AnnotationKeyDisplayName]; ok && displayName == "" {
 		delete(project.Annotations, controller.AnnotationKeyDisplayName)
 	}

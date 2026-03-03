@@ -5383,23 +5383,6 @@ components:
     # -------------------------------------------------------------------------
     # Projects
     # -------------------------------------------------------------------------
-    BuildPlaneRef:
-      type: object
-      description: Reference to a BuildPlane or ClusterBuildPlane
-      required:
-        - kind
-        - name
-      properties:
-        kind:
-          type: string
-          description: Kind of build plane
-          enum: [BuildPlane, ClusterBuildPlane]
-          example: BuildPlane
-        name:
-          type: string
-          description: Name of the build plane resource
-          example: default
-
     ProjectSpec:
       type: object
       description: Desired state of a Project
@@ -5410,8 +5393,6 @@ components:
             Reference to the DeploymentPipeline that defines the environments
             and deployment progression for components in this project.
           example: default
-        buildPlaneRef:
-          $ref: '#/components/schemas/BuildPlaneRef'
 
     ProjectStatus:
       type: object
@@ -7182,6 +7163,23 @@ components:
         ttlAfterCompletion:
           type: string
           description: Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
+
+    BuildPlaneRef:
+      type: object
+      description: Reference to a BuildPlane or ClusterBuildPlane
+      required:
+        - kind
+        - name
+      properties:
+        kind:
+          type: string
+          description: Kind of build plane
+          enum: [BuildPlane, ClusterBuildPlane]
+          example: BuildPlane
+        name:
+          type: string
+          description: Name of the build plane resource
+          example: default
 
     WorkflowSchema:
       type: object
