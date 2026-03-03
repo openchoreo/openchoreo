@@ -1,0 +1,16 @@
+# Internal Gateway for e2e testing
+# Provides an internal ingress gateway for internal-visibility endpoints.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-internal
+  namespace: openchoreo-data-plane
+spec:
+  gatewayClassName: kgateway
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 18080
+      allowedRoutes:
+        namespaces:
+          from: All

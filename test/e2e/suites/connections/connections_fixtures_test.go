@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	dataPlane          = "e2e-conn-shared"
+	clusterDataPlane   = "e2e-shared"
 	openChoreoAPIVer   = "openchoreo.dev/v1alpha1"
 	kubernetesAPIVerV1 = "v1"
 )
@@ -26,6 +26,7 @@ const (
 var connRunID = fmt.Sprintf("%d", time.Now().UnixNano())
 
 var cpNs = fmt.Sprintf("e2e-conn-%s", connRunID)
+var cpNs2 = fmt.Sprintf("e2e-conn2-%s", connRunID)
 
 func mustRawExtension(value any) *runtime.RawExtension {
 	data, err := json.Marshal(value)
@@ -45,24 +46,6 @@ func mustYAMLDocs(objects ...any) string {
 		docs = append(docs, strings.TrimSpace(string(data)))
 	}
 	return strings.Join(docs, "\n---\n")
-}
-
-func dataPlaneYAML(namespace, clientCAValue string) string {
-	dp := &openchoreov1alpha1.DataPlane{
-		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "DataPlane"},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      dataPlane,
-			Namespace: namespace,
-		},
-		Spec: openchoreov1alpha1.DataPlaneSpec{
-			PlaneID: "default",
-			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
-				ClientCA: openchoreov1alpha1.ValueFrom{Value: clientCAValue},
-			},
-			SecretStoreRef: &openchoreov1alpha1.SecretStoreRef{Name: "default"},
-		},
-	}
-	return mustYAMLDocs(dp)
 }
 
 func cpNamespaceYAML() string {
@@ -135,8 +118,8 @@ func platformResourcesYAML(cpNamespace string, environments, projects []string) 
 			},
 			Spec: openchoreov1alpha1.EnvironmentSpec{
 				DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
-					Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
-					Name: dataPlane,
+					Kind: openchoreov1alpha1.DataPlaneRefKindClusterDataPlane,
+					Name: clusterDataPlane,
 				},
 				IsProduction: false,
 			},
@@ -160,7 +143,7 @@ func platformResourcesYAML(cpNamespace string, environments, projects []string) 
 	return mustYAMLDocs(docs...)
 }
 
-// componentTypeYAML returns a ComponentType that renders Deployment + Service
+// componentTypeYAML returns a ComponentType that renders Deployment + Service + HTTPRoute (internal)
 // and supports connection env var injection via connections.toContainerEnv().
 func componentTypeYAML(cpNamespace string) string {
 	deploymentTemplate := map[string]any{
@@ -207,6 +190,46 @@ func componentTypeYAML(cpNamespace string) string {
 		},
 	}
 
+	// HTTPRoute for internal visibility endpoints.
+	// Uses forEach to generate one HTTPRoute per endpoint that declares internal visibility.
+	httpRouteInternalTemplate := map[string]any{
+		"apiVersion": "gateway.networking.k8s.io/v1",
+		"kind":       "HTTPRoute",
+		"metadata": map[string]any{
+			"name":      `${oc_generate_name(metadata.componentName, endpoint, "internal")}`,
+			"namespace": "${metadata.namespace}",
+			"labels":    `${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint, "openchoreo.dev/endpoint-visibility": "internal"})}`,
+		},
+		"spec": map[string]any{
+			"parentRefs": []any{map[string]any{
+				"name":      "${gateway.ingress.internal.name}",
+				"namespace": "${gateway.ingress.internal.namespace}",
+			}},
+			"hostnames": `${[gateway.ingress.internal.?http, gateway.ingress.internal.?https].filter(g, g.hasValue()).map(g, g.value().host).distinct().map(h, metadata.environmentName + "-" + metadata.componentNamespace + "." + h)}`,
+			"rules": []any{map[string]any{
+				"matches": []any{map[string]any{
+					"path": map[string]any{
+						"type":  "PathPrefix",
+						"value": "/${metadata.componentName}-${endpoint}",
+					},
+				}},
+				"filters": []any{map[string]any{
+					"type": "URLRewrite",
+					"urlRewrite": map[string]any{
+						"path": map[string]any{
+							"type":               "ReplacePrefixMatch",
+							"replacePrefixMatch": "/",
+						},
+					},
+				}},
+				"backendRefs": []any{map[string]any{
+					"name": "${metadata.componentName}",
+					"port": "${workload.endpoints[endpoint].port}",
+				}},
+			}},
+		},
+	}
+
 	ct := &openchoreov1alpha1.ComponentType{
 		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "ComponentType"},
 		ObjectMeta: metav1.ObjectMeta{
@@ -226,6 +249,12 @@ func componentTypeYAML(cpNamespace string) string {
 			Resources: []openchoreov1alpha1.ResourceTemplate{
 				{ID: "deployment", Template: mustRawExtension(deploymentTemplate)},
 				{ID: "service", IncludeWhen: "${size(workload.endpoints) > 0}", Template: mustRawExtension(serviceTemplate)},
+				{
+					ID:        "httproute-internal",
+					ForEach:   `${workload.endpoints.transformList(name, ep, ("internal" in ep.visibility && ep.type in ["HTTP", "REST", "GraphQL", "Websocket"]) ? [name] : []).flatten()}`,
+					Var:       "endpoint",
+					Template:  mustRawExtension(httpRouteInternalTemplate),
+				},
 			},
 		},
 	}

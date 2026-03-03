@@ -37,3 +37,24 @@ go.work
 
 # Log files
 *.log
+test/e2e/_diagnostics/events-default.txt
+test/e2e/_diagnostics/events-openchoreo-build-plane.txt
+test/e2e/_diagnostics/events-openchoreo-control-plane.txt
+test/e2e/_diagnostics/events-openchoreo-data-plane.txt
+test/e2e/_diagnostics/events-openchoreo-observability-plane.txt
+test/e2e/_diagnostics/logs-openchoreo-control-plane-cluster-gateway-7f754548c6-6kfv6.txt
+test/e2e/_diagnostics/logs-openchoreo-control-plane-controller-manager-7fb4c4cd66-p24fj.txt
+test/e2e/_diagnostics/logs-openchoreo-control-plane-gateway-default-7c6c4f94bb-cm9gw.txt
+test/e2e/_diagnostics/logs-openchoreo-control-plane-kgateway-647f5c4b6d-s447v.txt
+test/e2e/_diagnostics/logs-openchoreo-control-plane-openchoreo-api-7c6bb67c5d-xcrhj.txt
+test/e2e/_diagnostics/logs-openchoreo-control-plane-thunder-deployment-5d6cf6d646-s298b.txt
+test/e2e/_diagnostics/logs-openchoreo-data-plane-cluster-agent-dataplane-9fcc779d7-jhfts.txt
+test/e2e/_diagnostics/logs-openchoreo-data-plane-gateway-default-6c85bc46fb-dhvgq.txt
+test/e2e/_diagnostics/logs-openchoreo-data-plane-gateway-internal-7659b5b848-4sqkc.txt
+test/e2e/_diagnostics/plane-resources.yaml
+test/e2e/_diagnostics/pods-default.txt
+test/e2e/_diagnostics/pods-openchoreo-build-plane.txt
+test/e2e/_diagnostics/pods-openchoreo-control-plane.txt
+test/e2e/_diagnostics/pods-openchoreo-data-plane.txt
+test/e2e/_diagnostics/pods-openchoreo-observability-plane.txt
+test/e2e/_diagnostics/release-chain.yaml

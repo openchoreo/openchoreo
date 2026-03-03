@@ -52,29 +52,18 @@ E2E_KUBECTL := kubectl --context $(E2E_KUBECONTEXT)
 E2E_HELM    := helm --kube-context $(E2E_KUBECONTEXT)
 
 # ---------------------------------------------------------------------------
-# Helper: copy cluster-gateway certs from CP namespace to a target namespace.
-# The CP chart creates a CA cert (via cert-manager) and a Job that extracts it
-# into a ConfigMap. Both the ConfigMap and Secret must be copied to each plane
-# namespace for the cluster-agent mTLS handshake to work.
+# Helper: copy cluster-gateway server CA from CP namespace to a target namespace.
+# The agent needs the server CA to verify the gateway's TLS certificate.
+# The CA is extracted from the cert-manager-issued secret during _e2e.install-cp
+# and stored in the cluster-gateway-ca ConfigMap.
 # Usage: $(call e2e_copy_gateway_certs,<target-namespace>)
 # ---------------------------------------------------------------------------
 define e2e_copy_gateway_certs
-	@$(call log_info, Copying cluster-gateway certs to $(1))
+	@$(call log_info, Copying cluster-gateway CA to $(1))
 	@$(E2E_KUBECTL) create namespace $(1) --dry-run=client -o yaml | $(E2E_KUBECTL) apply -f -
 	@CA_CRT=$$($(E2E_KUBECTL) get configmap cluster-gateway-ca \
 		-n $(E2E_CP_NS) -o jsonpath='{.data.ca\.crt}') && \
 	$(E2E_KUBECTL) create configmap cluster-gateway-ca \
-		--from-literal=ca.crt="$$CA_CRT" \
-		-n $(1) --dry-run=client -o yaml | $(E2E_KUBECTL) apply -f -
-	@TLS_CRT=$$($(E2E_KUBECTL) get secret cluster-gateway-ca \
-		-n $(E2E_CP_NS) -o jsonpath='{.data.tls\.crt}' | base64 -d) && \
-	TLS_KEY=$$($(E2E_KUBECTL) get secret cluster-gateway-ca \
-		-n $(E2E_CP_NS) -o jsonpath='{.data.tls\.key}' | base64 -d) && \
-	CA_CRT=$$($(E2E_KUBECTL) get configmap cluster-gateway-ca \
-		-n $(E2E_CP_NS) -o jsonpath='{.data.ca\.crt}') && \
-	$(E2E_KUBECTL) create secret generic cluster-gateway-ca \
-		--from-literal=tls.crt="$$TLS_CRT" \
-		--from-literal=tls.key="$$TLS_KEY" \
 		--from-literal=ca.crt="$$CA_CRT" \
 		-n $(1) --dry-run=client -o yaml | $(E2E_KUBECTL) apply -f -
 endef
@@ -228,13 +217,17 @@ _e2e.install-cp:
 	$(call e2e_patch_gateway,$(E2E_CP_NS))
 	$(E2E_KUBECTL) wait -n $(E2E_CP_NS) \
 		--for=condition=available --timeout=$(E2E_SETUP_TIMEOUT) deployment --all
-	@# Wait for the CA extractor job to create the cluster-gateway-ca configmap
+	@# Wait for cert-manager to issue the cluster-gateway CA certificate, then
+	@# extract the public CA cert into the ConfigMap that cluster-agents use.
 	@$(call log_info, Waiting for cluster-gateway CA)
-	@for i in $$(seq 1 60); do \
-		$(E2E_KUBECTL) get configmap cluster-gateway-ca -n $(E2E_CP_NS) >/dev/null 2>&1 && break; \
-		if [ $$i -eq 60 ]; then echo "Timed out waiting for cluster-gateway-ca configmap"; exit 1; fi; \
-		sleep 2; \
-	done
+	$(E2E_KUBECTL) wait -n $(E2E_CP_NS) \
+		--for=condition=Ready certificate/cluster-gateway-ca --timeout=$(E2E_SETUP_TIMEOUT)
+	@$(E2E_KUBECTL) get secret cluster-gateway-ca -n $(E2E_CP_NS) \
+		-o jsonpath='{.data.ca\.crt}' | base64 -d | \
+	$(E2E_KUBECTL) create configmap cluster-gateway-ca \
+		--from-file=ca.crt=/dev/stdin \
+		-n $(E2E_CP_NS) \
+		--dry-run=client -o yaml | $(E2E_KUBECTL) apply -f -
 
 .PHONY: _e2e.install-dp
 _e2e.install-dp:
@@ -304,6 +297,10 @@ _e2e.install-op:
 _e2e.configure-dp:
 	@$(call log_info, Registering DataPlane)
 	$(call e2e_register_plane,$(E2E_DP_NS),$(E2E_K3D_DIR)/dataplane.yaml)
+	@$(call log_info, Registering ClusterDataPlane)
+	$(call e2e_register_plane,$(E2E_DP_NS),$(E2E_K3D_DIR)/clusterdataplane.yaml)
+	@$(call log_info, Creating internal gateway)
+	$(E2E_KUBECTL) apply -f $(E2E_K3D_DIR)/internal-gateway.yaml
 
 .PHONY: _e2e.configure-bp
 _e2e.configure-bp:

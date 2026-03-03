@@ -208,26 +208,9 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 	}
 
 	BeforeAll(func() {
-		By("reading clientCA from existing DataPlane 'default'")
-		clientCA, err := framework.KubectlGetJsonpath(
-			kubeContext,
-			"default",
-			"dataplane",
-			"default",
-			"{.spec.clusterAgent.clientCA.value}",
-		)
-		Expect(err).NotTo(HaveOccurred(), "failed to read DataPlane default")
-		Expect(clientCA).NotTo(BeEmpty(), "DataPlane default clientCA is empty")
-
 		By("creating control plane namespaces")
 		output, err := framework.KubectlApplyLiteral(kubeContext, cpNamespacesYAML())
 		Expect(err).NotTo(HaveOccurred(), "failed to create CP namespaces: %s", output)
-
-		By("creating DataPlanes for control plane namespaces")
-		output, err = framework.KubectlApplyLiteral(kubeContext, dataPlaneYAML(cpNsAcme, clientCA))
-		Expect(err).NotTo(HaveOccurred(), "failed to create DataPlane in %s: %s", cpNsAcme, output)
-		output, err = framework.KubectlApplyLiteral(kubeContext, dataPlaneYAML(cpNsBeta, clientCA))
-		Expect(err).NotTo(HaveOccurred(), "failed to create DataPlane in %s: %s", cpNsBeta, output)
 
 		By("applying platform resources for acme")
 		output, err = framework.KubectlApplyLiteral(kubeContext, platformResourcesYAML(cpNsAcme, []string{"development", "staging"}, []string{"proj1", "proj2"}))
@@ -475,7 +458,6 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 
 		By("cleaning up control plane namespaces")
 		for _, ns := range []string{cpNsAcme, cpNsBeta} {
-			_, _ = framework.Kubectl(kubeContext, "delete", "dataplane", dataPlane, "-n", ns, "--ignore-not-found")
 			_, _ = framework.Kubectl(kubeContext, "delete", "namespace", ns, "--ignore-not-found", "--wait=false")
 		}
 	})
