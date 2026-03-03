@@ -19,7 +19,7 @@ kubectl apply -f samples/getting-started/all.yaml
 ## Verify Installation
 
 ```bash
-kubectl get project,environment,deploymentpipeline,componenttype,componentworkflow,trait -n default
+kubectl get project,environment,deploymentpipeline,componenttype,workflow,trait -n default
 ```
 
 Expected output:
@@ -43,10 +43,10 @@ componenttype.openchoreo.dev/web-application   10s
 componenttype.openchoreo.dev/worker            10s
 
 NAME                                                   AGE
-componentworkflow.openchoreo.dev/ballerina-buildpack   10s
-componentworkflow.openchoreo.dev/docker                10s
-componentworkflow.openchoreo.dev/google-cloud-buildpacks   10s
-componentworkflow.openchoreo.dev/react                 10s
+workflow.openchoreo.dev/ballerina-buildpack             10s
+workflow.openchoreo.dev/docker                          10s
+workflow.openchoreo.dev/google-cloud-buildpacks         10s
+workflow.openchoreo.dev/react                           10s
 
 NAME                                        AGE
 trait.openchoreo.dev/api-configuration      10s
@@ -75,7 +75,7 @@ trait.openchoreo.dev/api-configuration      10s
 | web-application | Deployment | react, docker | HTTP/REST endpoint required |
 | scheduled-task | CronJob | docker, google-cloud-buildpacks | - |
 
-### Component Workflows
+### Workflows
 
 | Name | Description |
 |------|-------------|

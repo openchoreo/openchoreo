@@ -11,7 +11,6 @@ metadata:
       branch: parameters.repository.revision.branch
       commit: parameters.repository.revision.commit
       appPath: parameters.repository.appPath
-      secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
     kind: BuildPlane
@@ -24,7 +23,7 @@ spec:
   # ${metadata.labels['key']}                - WorkflowRun labels (e.g., openchoreo.dev/project, openchoreo.dev/component)
   # ${parameters.repository.*}               - Repository parameters (url, revision, appPath, secretRef)
   # ${parameters.*}                          - Custom developer parameters defined in schema (version, testMode, cache, etc.)
-  # ${secretRef.*}                           - Secret reference details when parameters.repository.secretRef is provided
+  # ${contextRefs['id'].spec.*}              - Resolved external CR spec from contextRefs declarations
 
   # Time-to-live for completed workflow runs - Automatically cleans up workflow resources after the specified duration
   # Format is a duration string without spaces (e.g., "1d" for 1 day, "12h" for 12 hours, "10d12h30m" for 10 days, 12 hours, and 30 minutes)
@@ -165,6 +164,12 @@ spec:
 
   # Additional Kubernetes resources created alongside the workflow
   # These resources are deployed to the build plane namespace before the workflow executes
+  contextRefs:
+    - id: git-secret-reference
+      apiVersion: openchoreo.dev/v1alpha1
+      kind: SecretReference
+      name: ${parameters.repository.secretRef}
+
   resources:
     # Git credentials secret - Only created when secretRef is provided (for private repositories)
     # Uses External Secrets Operator to fetch credentials from the secret store (OpenBao)
@@ -185,11 +190,11 @@ spec:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
             template:
-              type: ${secretRef.type}
-          # CEL expression that dynamically maps secretRef.data array in Secret Reference CR
+              type: ${contextRefs['git-secret-reference'].spec.template.type}
+          # CEL expression that dynamically maps data array from the resolved SecretReference CR
           # Uses oc_omit() to exclude empty property fields from the final manifest
           data: |
-            ${secretRef.data.map(secret, {
+            ${contextRefs['git-secret-reference'].spec.data.map(secret, {
               "secretKey": secret.secretKey,
               "remoteRef": {
                 "key": secret.remoteRef.key,

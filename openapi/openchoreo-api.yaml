@@ -7174,6 +7174,11 @@ components:
           description: Additional resource templates to render and apply alongside the workflow run.
           items:
             $ref: '#/components/schemas/WorkflowResource'
+        contextRefs:
+          type: array
+          description: External CR references resolved and injected into the CEL context under their id.
+          items:
+            $ref: '#/components/schemas/ContextRef'
         ttlAfterCompletion:
           type: string
           description: Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
@@ -7208,6 +7213,32 @@ components:
           type: object
           description: Kubernetes resource template with CEL expressions.
           additionalProperties: true
+
+    ContextRef:
+      type: object
+      description: Reference to an external CR whose spec is resolved and injected into the CEL context under the given id.
+      required:
+        - id
+        - apiVersion
+        - kind
+        - name
+      properties:
+        id:
+          type: string
+          description: Unique identifier; becomes the CEL context variable name.
+          pattern: '^[a-z][a-z0-9-]*[a-z0-9]$'
+          minLength: 2
+          maxLength: 63
+        apiVersion:
+          type: string
+          description: API version of the referenced resource.
+        kind:
+          type: string
+          description: Kind of the referenced resource.
+          enum: [SecretReference]
+        name:
+          type: string
+          description: Name of the referenced resource (supports CEL expressions).
 
     WorkflowStatus:
       type: object

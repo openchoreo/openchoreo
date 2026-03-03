@@ -855,7 +855,6 @@ metadata:
       branch: parameters.repository.revision.branch
       commit: parameters.repository.revision.commit
       appPath: parameters.repository.appPath
-      secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
     kind: BuildPlane
@@ -952,6 +951,11 @@ spec:
             resources:
               requests:
                 storage: 2Gi
+  contextRefs:
+    - id: git-secret-reference
+      apiVersion: openchoreo.dev/v1alpha1
+      kind: SecretReference
+      name: ${parameters.repository.secretRef}
   resources:
     - id: git-secret
       includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
@@ -970,9 +974,9 @@ spec:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
             template:
-              type: ${secretRef.type}
+              type: ${contextRefs['git-secret-reference'].spec.template.type}
           data: |
-            ${secretRef.data.map(secret, {
+            ${contextRefs['git-secret-reference'].spec.data.map(secret, {
               "secretKey": secret.secretKey,
               "remoteRef": {
                 "key": secret.remoteRef.key,
@@ -1017,7 +1021,6 @@ metadata:
       branch: parameters.repository.revision.branch
       commit: parameters.repository.revision.commit
       appPath: parameters.repository.appPath
-      secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
     kind: BuildPlane
@@ -1111,6 +1114,11 @@ spec:
             resources:
               requests:
                 storage: 2Gi
+  contextRefs:
+    - id: git-secret-reference
+      apiVersion: openchoreo.dev/v1alpha1
+      kind: SecretReference
+      name: ${parameters.repository.secretRef}
   resources:
     - id: git-secret
       includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
@@ -1129,9 +1137,9 @@ spec:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
             template:
-              type: ${secretRef.type}
+              type: ${contextRefs['git-secret-reference'].spec.template.type}
           data: |
-            ${secretRef.data.map(secret, {
+            ${contextRefs['git-secret-reference'].spec.data.map(secret, {
               "secretKey": secret.secretKey,
               "remoteRef": {
                 "key": secret.remoteRef.key,
@@ -1176,7 +1184,6 @@ metadata:
       branch: parameters.repository.revision.branch
       commit: parameters.repository.revision.commit
       appPath: parameters.repository.appPath
-      secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
     kind: BuildPlane
@@ -1267,6 +1274,11 @@ spec:
             resources:
               requests:
                 storage: 2Gi
+  contextRefs:
+    - id: git-secret-reference
+      apiVersion: openchoreo.dev/v1alpha1
+      kind: SecretReference
+      name: ${parameters.repository.secretRef}
   resources:
     - id: git-secret
       includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
@@ -1285,9 +1297,9 @@ spec:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
             template:
-              type: ${secretRef.type}
+              type: ${contextRefs['git-secret-reference'].spec.template.type}
           data: |
-            ${secretRef.data.map(secret, {
+            ${contextRefs['git-secret-reference'].spec.data.map(secret, {
               "secretKey": secret.secretKey,
               "remoteRef": {
                 "key": secret.remoteRef.key,
@@ -1332,7 +1344,6 @@ metadata:
       branch: parameters.repository.revision.branch
       commit: parameters.repository.revision.commit
       appPath: parameters.repository.appPath
-      secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
     kind: BuildPlane
@@ -1423,6 +1434,11 @@ spec:
             resources:
               requests:
                 storage: 2Gi
+  contextRefs:
+    - id: git-secret-reference
+      apiVersion: openchoreo.dev/v1alpha1
+      kind: SecretReference
+      name: ${parameters.repository.secretRef}
   resources:
     - id: git-secret
       includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
@@ -1441,9 +1457,9 @@ spec:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
             template:
-              type: ${secretRef.type}
+              type: ${contextRefs['git-secret-reference'].spec.template.type}
           data: |
-            ${secretRef.data.map(secret, {
+            ${contextRefs['git-secret-reference'].spec.data.map(secret, {
               "secretKey": secret.secretKey,
               "remoteRef": {
                 "key": secret.remoteRef.key,
