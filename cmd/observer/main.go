@@ -20,7 +20,7 @@ import (
 	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	legacyhandlers "github.com/openchoreo/openchoreo/internal/observer/handlers/legacy"
-	"github.com/openchoreo/openchoreo/internal/observer/mcp"
+	"github.com/openchoreo/openchoreo/internal/observer/legacymcp"
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
@@ -257,7 +257,7 @@ func main() {
 	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
 	mcpMiddleware := initMCPMiddleware(logger)
 	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
-	mcpRoutes.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: legacyLoggingService}))
+	mcpRoutes.Handle("/mcp", legacymcp.NewHTTPServer(&legacymcp.MCPHandler{Service: legacyLoggingService}))
 
 	// Create HTTP server
 	// CORS wraps the entire mux so it intercepts OPTIONS preflight requests
