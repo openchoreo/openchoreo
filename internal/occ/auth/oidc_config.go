@@ -106,6 +106,10 @@ func fetchProtectedResource(apiURL string) (*protectedResourceResponse, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("oauth-protected-resource request failed with status %d: %s\n\nThe control plane URL (%s) may be incorrect. Please verify and update it:\n  occ config controlplane update <controlplane-name> --url <control-plane-url>\n\nExample:\n  occ config controlplane update default --url http://api.openchoreo.localhost:8080",
+				resp.StatusCode, string(body), apiURL)
+		}
 		return nil, fmt.Errorf("oauth-protected-resource request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
