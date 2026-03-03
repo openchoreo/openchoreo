@@ -44,11 +44,12 @@ spec:
     # Step 2: Extract and reshape the fields we care about
     - name: transform-step
       container:
-        image: ghcr.io/jqlang/jq:1.7.1
+        image: alpine:3
         command: [sh, -c]
         args:
           - |
             set -e
+            apk add --no-cache jq -q
             echo "Transforming raw data ..."
             jq '{
               name:        .full_name,
@@ -74,11 +75,12 @@ spec:
         parameters:
           - name: output-format
       container:
-        image: ghcr.io/jqlang/jq:1.7.1
+        image: alpine:3
         command: [sh, -c]
         args:
           - |
             set -e
+            apk add --no-cache jq -q
             FORMAT="{{inputs.parameters.output-format}}"
 
             if [ "$FORMAT" = "json" ]; then
