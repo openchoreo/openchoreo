@@ -76,41 +76,41 @@ func main() {
 	// Initialize prometheus metrics service for the legacy logging service
 	promService := prometheus.NewMetricsService(promClient, logger)
 
-	// Initialize logs backend (optional - based on experimental flag)
-	var logsBackend observability.LogsBackend
-	if cfg.Experimental.UseLogsBackend {
-		logger.Info("Experimental feature active: Using logs backend",
-			"backend_url", cfg.Experimental.LogsBackendURL)
+	// Initialize logs adapter (optional - based on experimental flag)
+	var logsAdapter observability.LogsAdapter
+	if cfg.Experimental.UseLogsAdapter {
+		logger.Info("Experimental feature active: Using logs adapter",
+			"adapter_url", cfg.Experimental.LogsAdapterURL)
 
-		// Initialize HTTP-based backend (e.g., OpenObserve)
-		backendConfig := service.LogsBackendConfig{
-			BaseURL: cfg.Experimental.LogsBackendURL,
-			Timeout: cfg.Experimental.LogsBackendTimeout,
+		// Initialize HTTP-based adapter (e.g., OpenObserve)
+		adapterConfig := service.LogsAdapterConfig{
+			BaseURL: cfg.Experimental.LogsAdapterURL,
+			Timeout: cfg.Experimental.LogsAdapterTimeout,
 		}
-		logsBackend = service.NewLogsBackend(backendConfig)
-		logger.Info("Logs backend initialized")
+		logsAdapter = service.NewLogsAdapter(adapterConfig)
+		logger.Info("Logs adapter initialized")
 	} else {
 		logger.Info("Using OpenSearch for component logs")
 	}
 
-	// Initialize traces backend (optional - based on experimental flag)
-	var tracesBackend observability.TracesBackend
-	if cfg.Experimental.UseTracesBackend {
-		logger.Info("Experimental feature active: Using traces backend",
-			"backend_url", cfg.Experimental.TracesBackendURL)
+	// Initialize tracing adapter (optional - based on experimental flag)
+	var tracingAdapter observability.TracingAdapter
+	if cfg.Experimental.UseTracingAdapter {
+		logger.Info("Experimental feature active: Using tracing adapter",
+			"adapter_url", cfg.Experimental.TracingAdapterURL)
 
-		backendConfig := service.TracesBackendConfig{
-			BaseURL: cfg.Experimental.TracesBackendURL,
-			Timeout: cfg.Experimental.TracesBackendTimeout,
+		adapterConfig := service.TracingAdapterConfig{
+			BaseURL: cfg.Experimental.TracingAdapterURL,
+			Timeout: cfg.Experimental.TracingAdapterTimeout,
 		}
-		tracesBackend = service.NewTracesBackend(backendConfig)
-		logger.Info("Traces backend initialized")
+		tracingAdapter = service.NewTracingAdapter(adapterConfig)
+		logger.Info("Tracing adapter initialized")
 	} else {
 		logger.Info("Using OpenSearch for traces")
 	}
 
 	// Initialize legacy logging service (for legacy API endpoints)
-	legacyLoggingService := legacyservice.NewLoggingService(osClient, promService, k8sClient, cfg, logger, logsBackend)
+	legacyLoggingService := legacyservice.NewLoggingService(osClient, promService, k8sClient, cfg, logger, logsAdapter)
 
 	// Initialize authz client
 	authzClient, err := observerAuthz.NewClient(&cfg.Authz, logger.With("component", "authz-client"))
@@ -132,7 +132,7 @@ func main() {
 
 	// Initialize logs service
 	logsService, logsServiceErr := service.NewLogsService(
-		logsBackend, uidResolver, cfg, logger.With("component", "logs-service"),
+		logsAdapter, uidResolver, cfg, logger.With("component", "logs-service"),
 	)
 	if logsServiceErr != nil {
 		logger.Error("Failed to initialize logs service", "error", logsServiceErr)
@@ -150,7 +150,7 @@ func main() {
 
 	// Initialize traces service
 	tracesService, tracesServiceErr := service.NewTracesService(
-		tracesBackend, uidResolver, cfg, logger.With("component", "traces-service"),
+		tracingAdapter, uidResolver, cfg, logger.With("component", "traces-service"),
 	)
 	if tracesServiceErr != nil {
 		logger.Error("Failed to initialize traces service", "error", tracesServiceErr)

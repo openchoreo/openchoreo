@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// TracesBackend defines the interface for retrieving traces from an external backend
-type TracesBackend interface {
+// TracingAdapter defines the interface for retrieving traces from an external adapter
+type TracingAdapter interface {
 	// GetTraces retrieves traces based on query parameters
 	GetTraces(ctx context.Context, params TracesQueryParams) (*TracesQueryResult, error)
 }

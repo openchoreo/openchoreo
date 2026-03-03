@@ -15,22 +15,22 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
-type TracesBackend struct {
+type TracingAdapter struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
-type TracesBackendConfig struct {
+type TracingAdapterConfig struct {
 	BaseURL string
 	Timeout time.Duration
 }
 
-func NewTracesBackend(config TracesBackendConfig) *TracesBackend {
+func NewTracingAdapter(config TracingAdapterConfig) *TracingAdapter {
 	if config.Timeout == 0 {
 		config.Timeout = 30 * time.Second
 	}
 
-	return &TracesBackend{
+	return &TracingAdapter{
 		baseURL: config.BaseURL,
 		httpClient: &http.Client{
 			Timeout: config.Timeout,
@@ -38,8 +38,8 @@ func NewTracesBackend(config TracesBackendConfig) *TracesBackend {
 	}
 }
 
-// GetTraces implements observability.TracesBackend interface
-func (t *TracesBackend) GetTraces(ctx context.Context, params observability.TracesQueryParams) (*observability.TracesQueryResult, error) {
+// GetTraces implements observability.TracingAdapter interface
+func (t *TracingAdapter) GetTraces(ctx context.Context, params observability.TracesQueryParams) (*observability.TracesQueryResult, error) {
 	url := fmt.Sprintf("%s/api/v1/traces", t.baseURL)
 
 	requestBody, err := json.Marshal(params)
@@ -49,7 +49,7 @@ func (t *TracesBackend) GetTraces(ctx context.Context, params observability.Trac
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(requestBody))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request for traces to backend: %w", err)
+		return nil, fmt.Errorf("failed to create HTTP request for traces to adapter: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")

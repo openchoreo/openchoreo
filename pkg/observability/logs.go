@@ -3,7 +3,7 @@
 
 // Package observability provides public interfaces for component observability.
 // External Go modules can implement these interfaces to provide custom
-// logging backends while the Observer handles authentication, authorization,
+// logging adapters while the Observer handles authentication, authorization,
 // and HTTP request handling.
 package observability
 
@@ -90,8 +90,8 @@ type WorkflowLogsResult struct {
 	Took       int                `json:"took"`
 }
 
-// LogsBackend defines the interface for logs backend implementations
-type LogsBackend interface {
+// LogsAdapter defines the interface for logs adapter implementations
+type LogsAdapter interface {
 	// GetComponentApplicationLogs retrieves component application logs
 	GetComponentApplicationLogs(ctx context.Context,
 		params ComponentApplicationLogsParams) (*ComponentApplicationLogsResult, error)

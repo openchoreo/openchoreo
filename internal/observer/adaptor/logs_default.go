@@ -14,7 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
-// DefaultLogsAdaptor queries logs from OpenSearch when the external logs backend is not enabled.
+// DefaultLogsAdaptor queries logs from OpenSearch when the external logs adapter is not enabled.
 // It creates and manages its own OpenSearch client internally.
 type DefaultLogsAdaptor struct {
 	osClient     *opensearch.Client
