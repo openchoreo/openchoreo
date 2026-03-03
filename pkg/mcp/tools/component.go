@@ -327,139 +327,133 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 		TraitOverrides            map[string]interface{} `json:"trait_overrides"`
 		WorkloadOverrides         map[string]interface{} `json:"workload_overrides"`
 	}) (*mcp.CallToolResult, any, error) {
-		// Convert trait overrides to the correct type
-		// gen.ReleaseBindingSpec.TraitOverrides is *map[string]interface{}
-		var traitOverrides map[string]interface{}
-		if args.TraitOverrides != nil {
-			traitOverrides = make(map[string]interface{})
-			for k, v := range args.TraitOverrides {
-				// v is already map[string]interface{} from the JSON unmarshaling
-				traitOverrides[k] = v
-			}
-		}
-
 		patchReq := &gen.ReleaseBindingSpec{
 			Environment: args.Environment,
 		}
-
 		if args.ReleaseName != "" {
 			patchReq.ReleaseName = &args.ReleaseName
 		}
 		if args.ComponentTypeEnvOverrides != nil {
 			patchReq.ComponentTypeEnvOverrides = &args.ComponentTypeEnvOverrides
 		}
-		if traitOverrides != nil {
+		if args.TraitOverrides != nil {
+			traitOverrides := make(map[string]interface{}, len(args.TraitOverrides))
+			for k, v := range args.TraitOverrides {
+				traitOverrides[k] = v
+			}
 			patchReq.TraitOverrides = &traitOverrides
 		}
 		if args.WorkloadOverrides != nil {
-			// Validate no unknown top-level fields
-			for k := range args.WorkloadOverrides {
-				if k != "container" {
-					return nil, nil, fmt.Errorf("unknown field %q in workload_overrides, allowed fields: [container]", k)
-				}
+			workloadOverrides, err := parseWorkloadOverrides(args.WorkloadOverrides)
+			if err != nil {
+				return nil, nil, err
 			}
-
-			var envVars []gen.EnvVar
-			var fileVars []gen.FileVar
-			if container, ok := args.WorkloadOverrides["container"].(map[string]interface{}); ok {
-				// Validate no unknown fields in container
-				for k := range container {
-					if k != "env" && k != "files" {
-						return nil, nil, fmt.Errorf("unknown field %q in workload_overrides.container, allowed fields: [env, files]", k)
-					}
-				}
-
-				if envs, ok := container["env"].([]interface{}); ok {
-					for i, ev := range envs {
-						evMap, ok := ev.(map[string]interface{})
-						if !ok {
-							return nil, nil, fmt.Errorf(
-								"workload_overrides.container.env[%d] must be an object", i)
-						}
-						for k := range evMap {
-							switch k {
-							case "key", "value":
-							case "valueFrom":
-								return nil, nil, fmt.Errorf(
-									"workload_overrides.container.env[%d]:"+
-										" valueFrom is not supported via MCP", i)
-							default:
-								return nil, nil, fmt.Errorf("unknown field %q in"+
-									" workload_overrides.container.env[%d],"+
-									" allowed fields: [key, value]", k, i)
-							}
-						}
-						key, _ := evMap["key"].(string)
-						if key == "" {
-							return nil, nil, fmt.Errorf(
-								"workload_overrides.container.env[%d]:"+
-									" \"key\" is required and must be non-empty", i)
-						}
-						value, _ := evMap["value"].(string)
-						envVars = append(envVars, gen.EnvVar{
-							Key:   key,
-							Value: &value,
-						})
-					}
-				}
-				if files, ok := container["files"].([]interface{}); ok {
-					for i, f := range files {
-						fMap, ok := f.(map[string]interface{})
-						if !ok {
-							return nil, nil, fmt.Errorf(
-								"workload_overrides.container.files[%d] must be an object", i)
-						}
-						for k := range fMap {
-							switch k {
-							case "key", "mountPath", "value":
-							case "valueFrom":
-								return nil, nil, fmt.Errorf(
-									"workload_overrides.container.files[%d]:"+
-										" valueFrom is not supported via MCP", i)
-							default:
-								return nil, nil, fmt.Errorf("unknown field %q in"+
-									" workload_overrides.container.files[%d],"+
-									" allowed fields: [key, mountPath, value]", k, i)
-							}
-						}
-						key, _ := fMap["key"].(string)
-						if key == "" {
-							return nil, nil, fmt.Errorf(
-								"workload_overrides.container.files[%d]:"+
-									" \"key\" is required and must be non-empty", i)
-						}
-						mountPath, _ := fMap["mountPath"].(string)
-						if mountPath == "" {
-							return nil, nil, fmt.Errorf(
-								"workload_overrides.container.files[%d]:"+
-									" \"mountPath\" is required and must be non-empty", i)
-						}
-						value, _ := fMap["value"].(string)
-						fileVars = append(fileVars, gen.FileVar{
-							Key:       key,
-							MountPath: mountPath,
-							Value:     &value,
-						})
-					}
-				}
-			}
-			if len(envVars) > 0 || len(fileVars) > 0 {
-				containerOverride := &gen.ContainerOverride{}
-				if len(envVars) > 0 {
-					containerOverride.Env = &envVars
-				}
-				if len(fileVars) > 0 {
-					containerOverride.Files = &fileVars
-				}
-				patchReq.WorkloadOverrides = &gen.WorkloadOverrides{
-					Container: containerOverride,
-				}
-			}
+			patchReq.WorkloadOverrides = workloadOverrides
 		}
 		result, err := t.ComponentToolset.PatchReleaseBinding(
 			ctx, args.NamespaceName, args.BindingName, patchReq)
 		return handleToolResult(result, err)
 	})
+}
+
+func parseWorkloadOverrides(overrides map[string]interface{}) (*gen.WorkloadOverrides, error) {
+	for k := range overrides {
+		if k != "container" {
+			return nil, fmt.Errorf("unknown field %q in workload_overrides, allowed fields: [container]", k)
+		}
+	}
+	container, ok := overrides["container"].(map[string]interface{})
+	if !ok {
+		return nil, nil
+	}
+	for k := range container {
+		if k != "env" && k != "files" {
+			return nil, fmt.Errorf("unknown field %q in workload_overrides.container, allowed fields: [env, files]", k)
+		}
+	}
+	envVars, err := parseEnvVars(container)
+	if err != nil {
+		return nil, err
+	}
+	fileVars, err := parseFileVars(container)
+	if err != nil {
+		return nil, err
+	}
+	if len(envVars) == 0 && len(fileVars) == 0 {
+		return nil, nil
+	}
+	containerOverride := &gen.ContainerOverride{}
+	if len(envVars) > 0 {
+		containerOverride.Env = &envVars
+	}
+	if len(fileVars) > 0 {
+		containerOverride.Files = &fileVars
+	}
+	return &gen.WorkloadOverrides{Container: containerOverride}, nil
+}
+
+func parseEnvVars(container map[string]interface{}) ([]gen.EnvVar, error) {
+	envs, ok := container["env"].([]interface{})
+	if !ok {
+		return nil, nil
+	}
+	envVars := make([]gen.EnvVar, 0, len(envs))
+	for i, ev := range envs {
+		evMap, ok := ev.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("workload_overrides.container.env[%d] must be an object", i)
+		}
+		for k := range evMap {
+			switch k {
+			case "key", "value":
+			case "valueFrom":
+				return nil, fmt.Errorf("workload_overrides.container.env[%d]: valueFrom is not supported via MCP", i)
+			default:
+				return nil, fmt.Errorf("unknown field %q in workload_overrides.container.env[%d], allowed fields: [key, value]", k, i)
+			}
+		}
+		key, _ := evMap["key"].(string)
+		if key == "" {
+			return nil, fmt.Errorf("workload_overrides.container.env[%d]: \"key\" is required and must be non-empty", i)
+		}
+		value, _ := evMap["value"].(string)
+		envVars = append(envVars, gen.EnvVar{Key: key, Value: &value})
+	}
+	return envVars, nil
+}
+
+func parseFileVars(container map[string]interface{}) ([]gen.FileVar, error) {
+	files, ok := container["files"].([]interface{})
+	if !ok {
+		return nil, nil
+	}
+	fileVars := make([]gen.FileVar, 0, len(files))
+	for i, f := range files {
+		fMap, ok := f.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("workload_overrides.container.files[%d] must be an object", i)
+		}
+		for k := range fMap {
+			switch k {
+			case "key", "mountPath", "value":
+			case "valueFrom":
+				return nil, fmt.Errorf("workload_overrides.container.files[%d]: valueFrom is not supported via MCP", i)
+			default:
+				return nil, fmt.Errorf("unknown field %q in workload_overrides.container.files[%d], allowed fields: [key, mountPath, value]", k, i)
+			}
+		}
+		key, _ := fMap["key"].(string)
+		if key == "" {
+			return nil, fmt.Errorf("workload_overrides.container.files[%d]: \"key\" is required and must be non-empty", i)
+		}
+		mountPath, _ := fMap["mountPath"].(string)
+		if mountPath == "" {
+			return nil, fmt.Errorf("workload_overrides.container.files[%d]: \"mountPath\" is required and must be non-empty", i)
+		}
+		value, _ := fMap["value"].(string)
+		fileVars = append(fileVars, gen.FileVar{Key: key, MountPath: mountPath, Value: &value})
+	}
+	return fileVars, nil
 }
 
 func (t *Toolsets) RegisterDeployRelease(s *mcp.Server) {
