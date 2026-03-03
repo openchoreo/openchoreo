@@ -5937,6 +5937,9 @@ components:
     GatewayEndpointSpec:
       type: object
       description: Gateway resource endpoint configuration
+      required:
+        - name
+        - namespace
       properties:
         name:
           type: string

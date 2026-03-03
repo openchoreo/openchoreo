@@ -1822,10 +1822,10 @@ type GatewayEndpointSpec struct {
 	Https *GatewayListenerSpec `json:"https,omitempty"`
 
 	// Name Name of the Gateway resource
-	Name *string `json:"name,omitempty"`
+	Name string `json:"name"`
 
 	// Namespace Namespace of the Gateway resource
-	Namespace *string `json:"namespace,omitempty"`
+	Namespace string `json:"namespace"`
 
 	// Tls Gateway listener configuration
 	Tls *GatewayListenerSpec `json:"tls,omitempty"`
