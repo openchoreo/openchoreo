@@ -32,10 +32,10 @@ func New() *Workflow {
 	return &Workflow{}
 }
 
-// componentWorkflowAnnotation is the annotation key that identifies component workflows.
-const componentWorkflowAnnotation = "openchoreo.dev/component-workflow-parameters"
+// workflowScopeAnnotation is the annotation key that identifies workflow scope (component or generic).
+const workflowScopeAnnotation = "openchoreo.dev/workflow-scope"
 
-// List lists all workflows in a namespace, excluding component workflows.
+// List lists all workflows in a namespace.
 func (w *Workflow) List(params ListParams) error {
 	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkflow, params); err != nil {
 		return err
@@ -46,9 +46,8 @@ func (w *Workflow) List(params ListParams) error {
 		return err
 	}
 
-	// Exclude component workflows (those with the component-workflow-parameters annotation)
-	filtered := filterWorkflows(items, false)
-	return printList(filtered)
+	// Show all workflows (no filtering)
+	return printList(items)
 }
 
 // fetchWorkflows fetches all workflows from a namespace.
@@ -76,29 +75,6 @@ func fetchWorkflows(namespace string) ([]gen.Workflow, error) {
 		}
 		return result.Items, next, nil
 	})
-}
-
-// filterWorkflows filters workflows based on the component-workflow-parameters annotation.
-// If componentOnly is true, returns only workflows with the annotation.
-// If componentOnly is false, returns only workflows without the annotation.
-func filterWorkflows(items []gen.Workflow, componentOnly bool) []gen.Workflow {
-	var filtered []gen.Workflow
-	for _, wf := range items {
-		hasAnnotation := hasComponentWorkflowAnnotation(wf)
-		if hasAnnotation == componentOnly {
-			filtered = append(filtered, wf)
-		}
-	}
-	return filtered
-}
-
-// hasComponentWorkflowAnnotation checks if a workflow has the component-workflow-parameters annotation.
-func hasComponentWorkflowAnnotation(wf gen.Workflow) bool {
-	if wf.Metadata.Annotations == nil {
-		return false
-	}
-	_, ok := (*wf.Metadata.Annotations)[componentWorkflowAnnotation]
-	return ok
 }
 
 // Get retrieves a single workflow and outputs it as YAML
@@ -262,18 +238,35 @@ func printList(items []gen.Workflow) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tAGE")
+	fmt.Fprintln(w, "NAME\tTYPE\tAGE")
 
 	for _, wf := range items {
 		age := "<unknown>"
 		if wf.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*wf.Metadata.CreationTimestamp)
 		}
-		fmt.Fprintf(w, "%s\t%s\n",
+		workflowType := "generic"
+		if isComponentWorkflow(wf) {
+			workflowType = "ci"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\n",
 			wf.Metadata.Name,
+			workflowType,
 			age,
 		)
 	}
 
 	return w.Flush()
+}
+
+// isComponentWorkflow checks if a workflow is a component workflow by checking the workflow-scope annotation.
+func isComponentWorkflow(wf gen.Workflow) bool {
+	if wf.Metadata.Annotations == nil {
+		return false
+	}
+	scope, ok := (*wf.Metadata.Annotations)[workflowScopeAnnotation]
+	if !ok {
+		return false
+	}
+	return scope == "component"
 }
