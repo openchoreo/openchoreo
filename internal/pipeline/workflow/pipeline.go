@@ -193,7 +193,7 @@ func shouldSkipResource(resource map[string]any) bool {
 	return false
 }
 
-// BuildCELContext builds the CEL evaluation context with metadata.*, parameters.*, and contextRefs variables.
+// BuildCELContext builds the CEL evaluation context with metadata.*, parameters.*, and externalRefs variables.
 func (p *Pipeline) BuildCELContext(input *RenderInput) (map[string]any, error) {
 	// Enforced namespace
 	ciNamespace := fmt.Sprintf("openchoreo-ci-%s", input.Context.NamespaceName)
@@ -222,9 +222,9 @@ func (p *Pipeline) BuildCELContext(input *RenderInput) (map[string]any, error) {
 		"parameters": parameters,
 	}
 
-	// Inject resolved contextRefs as a container map accessible via contextRefs['id']
-	if len(input.Context.ContextRefs) > 0 {
-		celContext["contextRefs"] = input.Context.ContextRefs
+	// Inject resolved externalRefs as a container map accessible via externalRefs['id']
+	if len(input.Context.ExternalRefs) > 0 {
+		celContext["externalRefs"] = input.Context.ExternalRefs
 	}
 
 	return celContext, nil

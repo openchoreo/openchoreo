@@ -150,11 +150,6 @@ const (
 	ConditionStatusUnknown ConditionStatus = "Unknown"
 )
 
-// Defines values for ContextRefKind.
-const (
-	ContextRefKindSecretReference ContextRefKind = "SecretReference"
-)
-
 // Defines values for CreateClusterRoleBindingRequestEffect.
 const (
 	CreateClusterRoleBindingRequestEffectAllow CreateClusterRoleBindingRequestEffect = "allow"
@@ -199,6 +194,11 @@ const (
 	NOTFOUND           ErrorResponseCode = "NOT_FOUND"
 	UNAUTHORIZED       ErrorResponseCode = "UNAUTHORIZED"
 	UNKNOWNGITPROVIDER ErrorResponseCode = "UNKNOWN_GIT_PROVIDER"
+)
+
+// Defines values for ExternalRefKind.
+const (
+	ExternalRefKindSecretReference ExternalRefKind = "SecretReference"
 )
 
 // Defines values for NamespaceStatusPhase.
@@ -1416,24 +1416,6 @@ type ContainerOverride struct {
 	Files *[]FileVar `json:"files,omitempty"`
 }
 
-// ContextRef Reference to an external CR whose spec is resolved and injected into the CEL context under the given id.
-type ContextRef struct {
-	// ApiVersion API version of the referenced resource.
-	ApiVersion string `json:"apiVersion"`
-
-	// Id Unique identifier; becomes the CEL context variable name.
-	Id string `json:"id"`
-
-	// Kind Kind of the referenced resource.
-	Kind ContextRefKind `json:"kind"`
-
-	// Name Name of the referenced resource (supports CEL expressions).
-	Name string `json:"name"`
-}
-
-// ContextRefKind Kind of the referenced resource.
-type ContextRefKind string
-
 // CreateClusterRoleBindingRequest Request to create a cluster-scoped role binding (legacy)
 type CreateClusterRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
@@ -1848,6 +1830,24 @@ type EvaluateRequest struct {
 	// SubjectContext Authenticated subject context
 	SubjectContext SubjectContext `json:"subject_context"`
 }
+
+// ExternalRef Reference to an external CR whose spec is resolved and injected into the CEL context under the given id.
+type ExternalRef struct {
+	// ApiVersion API version of the referenced resource.
+	ApiVersion string `json:"apiVersion"`
+
+	// Id Unique identifier; becomes the CEL context variable name.
+	Id string `json:"id"`
+
+	// Kind Kind of the referenced resource.
+	Kind ExternalRefKind `json:"kind"`
+
+	// Name Name of the referenced resource (supports CEL expressions).
+	Name string `json:"name"`
+}
+
+// ExternalRefKind Kind of the referenced resource.
+type ExternalRefKind string
 
 // FileVar File mount variable
 type FileVar struct {
@@ -3273,8 +3273,8 @@ type WorkflowSpec struct {
 	// BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
 	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
 
-	// ContextRefs External CR references resolved and injected into the CEL context under their id.
-	ContextRefs *[]ContextRef `json:"contextRefs,omitempty"`
+	// ExternalRefs External CR references resolved and injected into the CEL context under their id.
+	ExternalRefs *[]ExternalRef `json:"externalRefs,omitempty"`
 
 	// Resources Additional resource templates to render and apply alongside the workflow run.
 	Resources *[]WorkflowResource `json:"resources,omitempty"`

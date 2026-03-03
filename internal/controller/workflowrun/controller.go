@@ -194,26 +194,26 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		},
 	}
 
-	// Resolve contextRefs if declared in the Workflow spec.
-	if len(workflow.Spec.ContextRefs) > 0 {
+	// Resolve externalRefs if declared in the Workflow spec.
+	if len(workflow.Spec.ExternalRefs) > 0 {
 		// Build a preliminary CEL context with metadata and parameters for evaluating ref names.
 		preliminaryContext, err := r.Pipeline.BuildCELContext(renderInput)
 		if err != nil {
-			logger.Error(err, "failed to build preliminary CEL context for contextRefs",
+			logger.Error(err, "failed to build preliminary CEL context for externalRefs",
 				"workflow", workflow.Name,
 				"workflowRun", workflowRun.Name)
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		contextRefs, err := r.resolveContextRefs(ctx, workflow.Spec.ContextRefs, preliminaryContext, workflowRun.Namespace)
+		externalRefs, err := r.resolveExternalRefs(ctx, workflow.Spec.ExternalRefs, preliminaryContext, workflowRun.Namespace)
 		if err != nil {
-			logger.Error(err, "failed to resolve contextRefs",
+			logger.Error(err, "failed to resolve externalRefs",
 				"workflow", workflow.Name,
 				"workflowRun", workflowRun.Name)
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		renderInput.Context.ContextRefs = contextRefs
+		renderInput.Context.ExternalRefs = externalRefs
 	}
 
 	output, err := r.Pipeline.Render(renderInput)

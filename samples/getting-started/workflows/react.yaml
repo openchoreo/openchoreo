@@ -104,7 +104,7 @@ spec:
             resources:
               requests:
                 storage: 2Gi
-  contextRefs:
+  externalRefs:
     - id: git-secret-reference
       apiVersion: openchoreo.dev/v1alpha1
       kind: SecretReference
@@ -127,9 +127,9 @@ spec:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
             template:
-              type: ${contextRefs['git-secret-reference'].spec.template.type}
+              type: ${externalRefs['git-secret-reference'].spec.template.type}
           data: |
-            ${contextRefs['git-secret-reference'].spec.data.map(secret, {
+            ${externalRefs['git-secret-reference'].spec.data.map(secret, {
               "secretKey": secret.secretKey,
               "remoteRef": {
                 "key": secret.remoteRef.key,

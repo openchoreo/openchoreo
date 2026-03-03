@@ -63,14 +63,14 @@ spec:
                 - kind
                 - name
                 type: object
-              contextRefs:
+              externalRefs:
                 description: |-
-                  ContextRefs declares references to external CRs that are resolved at runtime
+                  ExternalRefs declares references to external CRs that are resolved at runtime
                   and injected into the CEL context under their id.
                   If a reference's name evaluates to empty, it is silently skipped.
                 items:
                   description: |-
-                    ContextRef declares a reference to an external CR whose spec is resolved
+                    ExternalRef declares a reference to an external CR whose spec is resolved
                     and injected into the CEL context under the given id.
                   properties:
                     apiVersion:
@@ -80,7 +80,7 @@ spec:
                       type: string
                     id:
                       description: |-
-                        ID uniquely identifies this context reference within the workflow.
+                        ID uniquely identifies this external reference within the workflow.
                         The resolved CR's spec is injected into the CEL context under this name.
                       maxLength: 63
                       minLength: 2

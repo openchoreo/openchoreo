@@ -285,7 +285,7 @@ Workflows support template variables for dynamic values in the `runTemplate`:
 | `${metadata.namespace}` | CI namespace (e.g., `openchoreo-ci-default`) | All workflows |
 | `${metadata.labels['key']}` | WorkflowRun labels (any label set on the WorkflowRun) | All workflows |
 | `${parameters.*}` | Parameter values (repository, developer params) | All workflows |
-| `${contextRefs['id'].spec.*}` | Resolved external CR spec from `contextRefs` declarations | When contextRefs are declared |
+| `${externalRefs['id'].spec.*}` | Resolved external CR spec from `externalRefs` declarations | When externalRefs are declared |
 
 **Example**:
 ```yaml
@@ -616,24 +616,24 @@ Workflows support two approaches for managing secrets in the Build Plane:
 
 ### Approach 1: External Secrets with Dynamic Secret Names (Recommended)
 
-Use the `contextRefs` and `resources` sections in Workflow to resolve external CRs and define ExternalSecret resources that point to secrets in your secret backend. This approach:
-- Declares external CR references via `contextRefs` — the controller resolves them and injects their spec into the CEL context
+Use the `externalRefs` and `resources` sections in Workflow to resolve external CRs and define ExternalSecret resources that point to secrets in your secret backend. This approach:
+- Declares external CR references via `externalRefs` — the controller resolves them and injects their spec into the CEL context
 - Automatically creates and syncs secrets in the Build Plane's execution namespace
 - Generates unique secret names per workflow run (e.g., `${metadata.workflowRunName}-git-secret`)
 - Passes the secret name as a parameter to the workflow, allowing the workflow to reference it during execution
 - Ideal for GitOps workflows where all configuration is version-controlled
 
-**Step 1: Declare contextRefs to resolve SecretReference CRs:**
+**Step 1: Declare externalRefs to resolve SecretReference CRs:**
 
 ```yaml
-contextRefs:
+externalRefs:
   - id: git-secret-reference
     apiVersion: openchoreo.dev/v1alpha1
     kind: SecretReference
     name: ${parameters.repository.secretRef}
 ```
 
-The controller evaluates the `name` (which can contain CEL expressions), fetches the referenced `SecretReference` CR, and injects its entire spec into the CEL context under `contextRefs['git-secret-reference']`.
+The controller evaluates the `name` (which can contain CEL expressions), fetches the referenced `SecretReference` CR, and injects its entire spec into the CEL context under `externalRefs['git-secret-reference']`.
 
 **Step 2: Use the resolved spec in resource templates:**
 
@@ -656,10 +656,10 @@ resources:
           name: ${metadata.workflowRunName}-git-secret
           creationPolicy: Owner
           template:
-            type: ${contextRefs['git-secret-reference'].spec.template.type}
+            type: ${externalRefs['git-secret-reference'].spec.template.type}
         # Use resolved SecretReference data array to support multiple fields (e.g., username + password)
         data: |
-          ${contextRefs['git-secret-reference'].spec.data.map(secret, {
+          ${externalRefs['git-secret-reference'].spec.data.map(secret, {
             "secretKey": secret.secretKey,
             "remoteRef": {
               "key": secret.remoteRef.key,
@@ -668,12 +668,12 @@ resources:
           })}
 ```
 
-**How contextRefs Work:**
+**How externalRefs Work:**
 
-The `contextRefs` field declares references to external CRs (currently limited to `SecretReference`). For each entry:
+The `externalRefs` field declares references to external CRs (currently limited to `SecretReference`). For each entry:
 1. The `name` field is evaluated (supports CEL expressions like `${parameters.repository.secretRef}`)
 2. The referenced CR is fetched from the cluster
-3. The CR's entire spec is injected into the CEL context as `contextRefs['<id>'].spec`
+3. The CR's entire spec is injected into the CEL context as `externalRefs['<id>'].spec`
 
 For SecretReference CRs, the resolved spec provides:
 - `spec.template.type` — the secret type (e.g., `kubernetes.io/basic-auth`, `kubernetes.io/ssh-auth`)
@@ -682,7 +682,7 @@ For SecretReference CRs, the resolved spec provides:
 The CEL `map` expression iterates over all data fields and generates ExternalSecret data entries dynamically.
 
 **Benefits:**
-- Generic mechanism — `contextRefs` can resolve any supported CR type (currently `SecretReference`)
+- Generic mechanism — `externalRefs` can resolve any supported CR type (currently `SecretReference`)
 - Full spec access — templates can use any field from the resolved CR
 - Supports multiple credential fields (username + password)
 - Works with both basic-auth and SSH key authentication

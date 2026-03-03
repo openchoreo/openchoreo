@@ -67,13 +67,13 @@ type WorkflowSpec struct {
 	// +optional
 	Resources []WorkflowResource `json:"resources,omitempty"`
 
-	// ContextRefs declares references to external CRs that are resolved at runtime
+	// ExternalRefs declares references to external CRs that are resolved at runtime
 	// and injected into the CEL context under their id.
 	// If a reference's name evaluates to empty, it is silently skipped.
 	// +optional
 	// +listType=map
 	// +listMapKey=id
-	ContextRefs []ContextRef `json:"contextRefs,omitempty"`
+	ExternalRefs []ExternalRef `json:"externalRefs,omitempty"`
 
 	// TTLAfterCompletion defines the time-to-live for WorkflowRun instances after completion.
 	// Once a WorkflowRun completes, it will be automatically deleted after this duration.
@@ -142,10 +142,10 @@ type WorkflowResource struct {
 	Template *runtime.RawExtension `json:"template"`
 }
 
-// ContextRef declares a reference to an external CR whose spec is resolved
+// ExternalRef declares a reference to an external CR whose spec is resolved
 // and injected into the CEL context under the given id.
-type ContextRef struct {
-	// ID uniquely identifies this context reference within the workflow.
+type ExternalRef struct {
+	// ID uniquely identifies this external reference within the workflow.
 	// The resolved CR's spec is injected into the CEL context under this name.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=2
