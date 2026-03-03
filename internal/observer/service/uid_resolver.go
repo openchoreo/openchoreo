@@ -110,10 +110,9 @@ func (r *ResourceUIDResolver) GetComponentUID(
 		return "", nil
 	}
 
-	// Call API: GET /api/v1/namespaces/{ns}/projects/{proj}/components/{componentName}
-	path := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s",
+	// Call API: GET /api/v1/namespaces/{ns}/components/{componentName}
+	path := fmt.Sprintf("/api/v1/namespaces/%s/components/%s",
 		url.PathEscape(namespaceName),
-		url.PathEscape(projectName),
 		url.PathEscape(componentName))
 	uid, err := r.fetchResourceUID(ctx, path)
 	if err != nil {
@@ -193,25 +192,32 @@ func (r *ResourceUIDResolver) fetchResourceUID(ctx context.Context, path string)
 	}
 
 	// Parse response to extract data.uid
-	var response struct {
-		Data struct {
-			UID string `json:"uid"`
-		} `json:"data"`
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	r.logger.Debug("Raw UID resolver response", "path", path, "status", resp.StatusCode, "body", string(body))
+
+	var response struct {
+		Metadata struct {
+			UID string `json:"uid"`
+		} `json:"metadata"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	if response.Data.UID == "" {
+	if response.Metadata.UID == "" {
 		return "", fmt.Errorf("uid not found in response")
 	}
 
 	r.logger.Debug("Resolved resource UID",
 		"path", path,
-		"uid", response.Data.UID)
+		"uid", response.Metadata.UID)
 
-	return response.Data.UID, nil
+	return response.Metadata.UID, nil
 }
 
 // getAccessToken returns a valid OAuth2 access token, fetching a new one if needed
