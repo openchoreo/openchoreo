@@ -35,7 +35,7 @@ func (w *WorkflowRun) List(params ListParams) error {
 		return err
 	}
 
-	items, err := FetchAll(params.Namespace)
+	items, err := FetchAll(params.Namespace, params.Workflow)
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,8 @@ func (w *WorkflowRun) List(params ListParams) error {
 }
 
 // FetchAll fetches all workflow runs from a namespace.
-func FetchAll(namespace string) ([]gen.WorkflowRun, error) {
+// If workflow is non-empty, results are filtered by that workflow name.
+func FetchAll(namespace, workflow string) ([]gen.WorkflowRun, error) {
 	ctx := context.Background()
 
 	c, err := client.NewClient()
@@ -57,6 +58,9 @@ func FetchAll(namespace string) ([]gen.WorkflowRun, error) {
 		p.Limit = &limit
 		if cursor != "" {
 			p.Cursor = &cursor
+		}
+		if workflow != "" {
+			p.Workflow = &workflow
 		}
 		result, err := c.ListWorkflowRuns(ctx, namespace, p)
 		if err != nil {

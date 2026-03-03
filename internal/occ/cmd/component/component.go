@@ -126,7 +126,7 @@ func (cp *Component) ListWorkflowRuns(params ListWorkflowRunsParams) error {
 		return fmt.Errorf("component name is required")
 	}
 
-	items, err := workflowrun.FetchAll(params.Namespace)
+	items, err := workflowrun.FetchAll(params.Namespace, "")
 	if err != nil {
 		return err
 	}

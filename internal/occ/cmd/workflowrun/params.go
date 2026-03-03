@@ -6,6 +6,7 @@ package workflowrun
 // ListParams defines parameters for listing workflow runs
 type ListParams struct {
 	Namespace string
+	Workflow  string
 }
 
 func (p ListParams) GetNamespace() string { return p.Namespace }
