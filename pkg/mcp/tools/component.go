@@ -327,8 +327,9 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 		TraitOverrides            map[string]interface{} `json:"trait_overrides"`
 		WorkloadOverrides         map[string]interface{} `json:"workload_overrides"`
 	}) (*mcp.CallToolResult, any, error) {
-		patchReq := &gen.ReleaseBindingSpec{
-			Environment: args.Environment,
+		patchReq := &gen.ReleaseBindingSpec{}
+		if args.Environment != "" {
+			patchReq.Environment = args.Environment
 		}
 		if args.ReleaseName != "" {
 			patchReq.ReleaseName = &args.ReleaseName
@@ -641,11 +642,11 @@ func (t *Toolsets) RegisterUpdateReleaseBindingState(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "update_release_binding_state",
 		Description: "Update the state of a release binding. Use this to activate, suspend, or undeploy a " +
-			"component in a specific environment. Valid states: Active, Suspend, Undeploy.",
+			"component in a specific environment. Valid states: Active, Undeploy.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"binding_name":   stringProperty("Use list_release_bindings to discover valid names"),
-			"release_state":  stringProperty("Target state: 'Active', 'Suspend', or 'Undeploy'"),
+			"release_state":  stringProperty("Target state: 'Active' or 'Undeploy'"),
 		}, []string{"namespace_name", "binding_name", "release_state"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
@@ -653,9 +654,12 @@ func (t *Toolsets) RegisterUpdateReleaseBindingState(s *mcp.Server) {
 		ReleaseState  string `json:"release_state"`
 	}) (*mcp.CallToolResult, any, error) {
 		// Validate releaseState
-		validStates := map[string]bool{"Active": true, "Suspend": true, "Undeploy": true}
+		validStates := map[string]bool{
+			string(gen.ReleaseBindingSpecStateActive):   true,
+			string(gen.ReleaseBindingSpecStateUndeploy): true,
+		}
 		if !validStates[args.ReleaseState] {
-			return nil, nil, fmt.Errorf("releaseState must be one of: Active, Suspend, Undeploy")
+			return nil, nil, fmt.Errorf("releaseState must be one of: Active, Undeploy")
 		}
 		state := gen.ReleaseBindingSpecState(args.ReleaseState)
 		result, err := t.ComponentToolset.UpdateReleaseBindingState(

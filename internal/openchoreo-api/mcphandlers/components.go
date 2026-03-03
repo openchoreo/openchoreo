@@ -186,8 +186,8 @@ func (h *MCPHandler) PatchReleaseBinding(
 	if req.ReleaseName != nil && *req.ReleaseName != "" {
 		rb.Spec.ReleaseName = *req.ReleaseName
 	}
-	if req.Environment != "" {
-		rb.Spec.Environment = req.Environment
+	if req.Environment != "" && req.Environment != rb.Spec.Environment {
+		return nil, fmt.Errorf("release binding environment is immutable")
 	}
 	if req.ComponentTypeEnvOverrides != nil {
 		overrideBytes, err := json.Marshal(*req.ComponentTypeEnvOverrides)

@@ -5,6 +5,7 @@ package mcphandlers
 
 import (
 	"context"
+	"maps"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -33,7 +34,7 @@ func (h *MCPHandler) GetEnvironment(ctx context.Context, namespaceName, envName 
 func (h *MCPHandler) CreateEnvironment(ctx context.Context, namespaceName string, req *gen.CreateEnvironmentJSONRequestBody) (any, error) {
 	annotations := map[string]string{}
 	if req.Metadata.Annotations != nil {
-		annotations = *req.Metadata.Annotations
+		maps.Copy(annotations, *req.Metadata.Annotations)
 	}
 
 	env := &openchoreov1alpha1.Environment{

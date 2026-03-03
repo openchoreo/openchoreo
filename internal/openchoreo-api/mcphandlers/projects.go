@@ -25,7 +25,9 @@ func (h *MCPHandler) ListProjects(ctx context.Context, namespaceName string, opt
 func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody) (any, error) {
 	annotations := map[string]string{}
 	if req.Metadata.Annotations != nil {
-		annotations = *req.Metadata.Annotations
+		for key, value := range *req.Metadata.Annotations {
+			annotations[key] = value
+		}
 	}
 
 	deploymentPipelineRef := ""
