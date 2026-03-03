@@ -6,6 +6,8 @@ package workload
 import (
 	"context"
 
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -20,4 +22,5 @@ type Service interface {
 	ListWorkloads(ctx context.Context, namespaceName, componentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Workload], error)
 	GetWorkload(ctx context.Context, namespaceName, workloadName string) (*openchoreov1alpha1.Workload, error)
 	DeleteWorkload(ctx context.Context, namespaceName, workloadName string) error
+	GetWorkloadSchema(ctx context.Context) (*extv1.JSONSchemaProps, error)
 }

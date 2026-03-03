@@ -51,12 +51,11 @@ func (t *Toolsets) RegisterGetComponent(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetComponentWorkloads(s *mcp.Server) {
+func (t *Toolsets) RegisterListWorkloads(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_workloads",
-		Description: "Get real-time workload information for a component across all environments. Shows " +
-			"running pods, their status, resource usage, and container details. For Kubernetes users: Similar " +
-			"to 'kubectl get pods'.",
+		Name: "list_workloads",
+		Description: "List workloads for a component. Shows workload names, images, and endpoint names. " +
+			"For Kubernetes users: Similar to 'kubectl get pods'.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"component_name": defaultStringProperty(),
@@ -65,25 +64,25 @@ func (t *Toolsets) RegisterGetComponentWorkloads(s *mcp.Server) {
 		NamespaceName string `json:"namespace_name"`
 		ComponentName string `json:"component_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetComponentWorkloads(ctx, args.NamespaceName, args.ComponentName)
+		result, err := t.ComponentToolset.ListWorkloads(ctx, args.NamespaceName, args.ComponentName)
 		return handleToolResult(result, err)
 	})
 }
 
-func (t *Toolsets) RegisterGetComponentWorkload(s *mcp.Server) {
+func (t *Toolsets) RegisterGetWorkload(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_workload",
-		Description: "Get detailed information about a specific workload of a component including container " +
+		Name: "get_workload",
+		Description: "Get detailed information about a specific workload including container " +
 			"configuration, endpoints, and connections.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"workload_name":  stringProperty("Use get_component_workloads to discover valid names"),
+			"workload_name":  stringProperty("Use list_workloads to discover valid names"),
 		}, []string{"namespace_name", "workload_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
 		WorkloadName  string `json:"workload_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetComponentWorkload(ctx, args.NamespaceName, args.WorkloadName)
+		result, err := t.ComponentToolset.GetWorkload(ctx, args.NamespaceName, args.WorkloadName)
 		return handleToolResult(result, err)
 	})
 }
@@ -110,7 +109,11 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_component",
 		Description: "Create a new component in a project. Components are deployable units (services, jobs, etc.) " +
-			"with independent build and deployment lifecycles. ",
+			"with independent build and deployment lifecycles. For components using the from-image approach " +
+			"(no workflow to build from source), use create_workload after creating the component to define " +
+			"the runtime specification. For components that use workflows to build from source, the workload " +
+			"is generated automatically; use update_workload to modify it if the source repository does not " +
+			"contain a workload descriptor (workload.yaml).",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
@@ -233,7 +236,9 @@ func (t *Toolsets) RegisterCreateComponentRelease(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_component_release",
 		Description: "Create a new release from the latest build of a component. Releases are immutable " +
-			"snapshots that can be deployed to environments. The component must have at least one successful build.",
+			"snapshots that can be deployed to environments. The component must have at least one successful build. " +
+			"If the source repository does not contain a workload descriptor (workload.yaml), use update_workload " +
+			"to configure the workload before creating a release.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"component_name": defaultStringProperty(),
@@ -461,7 +466,9 @@ func (t *Toolsets) RegisterDeployRelease(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "deploy_release",
 		Description: "Deploy a component release to the lowest environment in the deployment pipeline. " +
-			"This creates or updates a release binding in the first environment of the pipeline.",
+			"This creates or updates a release binding in the first environment of the pipeline. " +
+			"If the source repository does not contain a workload descriptor (workload.yaml), use update_workload " +
+			"to configure the workload before deploying.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"component_name": defaultStringProperty(),
@@ -512,8 +519,13 @@ func (t *Toolsets) RegisterPromoteComponent(s *mcp.Server) {
 func (t *Toolsets) RegisterCreateWorkload(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_workload",
-		Description: "Create or update a workload for a component. Workloads define the runtime specification " +
-			"including container images, resource limits, and environment variables.",
+		Description: "Create a new workload for a component. Workloads define the runtime specification " +
+			"including container images, resource limits, and environment variables. " +
+			"Use this for components that follow the from-image approach (i.e., they do not use workflows to " +
+			"build images from source). For components that use workflows to build from source, the workload " +
+			"is generated automatically; use update_workload to modify it if the source repository does not " +
+			"contain a workload descriptor (workload.yaml). " +
+			"Use get_workload_schema to see the full workload_spec structure before calling this tool.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"component_name": defaultStringProperty(),
@@ -529,6 +541,50 @@ func (t *Toolsets) RegisterCreateWorkload(s *mcp.Server) {
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.ComponentToolset.CreateWorkload(
 			ctx, args.NamespaceName, args.ComponentName, args.WorkloadSpec)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterUpdateWorkload(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_workload",
+		Description: "Update an existing workload's specification for a component. Use this for components " +
+			"that use workflows to build images from source, when the source repository does not contain a " +
+			"workload descriptor (workload.yaml) and you need to modify the workload generated from the build " +
+			"workflow. Allows updating container configuration, environment variables, file mounts, port " +
+			"mappings, resource limits, and other runtime settings. For components that follow the from-image " +
+			"approach, use create_workload instead. " +
+			"Use get_workload_schema to see the full workload_spec structure, and " +
+			"get_workload to retrieve the current workload name and spec before updating.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"workload_name":  stringProperty("Use get_component_workloads to discover valid names"),
+			"workload_spec": map[string]any{
+				"type":        "object",
+				"description": "Updated workload specification (containers, resources, env vars, port mappings, file mounts, etc.)",
+			},
+		}, []string{"namespace_name", "workload_name", "workload_spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string                 `json:"namespace_name"`
+		WorkloadName  string                 `json:"workload_name"`
+		WorkloadSpec  map[string]interface{} `json:"workload_spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.UpdateWorkload(
+			ctx, args.NamespaceName, args.WorkloadName, args.WorkloadSpec)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetWorkloadSchema(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_workload_schema",
+		Description: "Get the JSON schema for the workload specification. Returns the full schema showing " +
+			"all available fields (container, endpoints, connections), their types, required fields, and " +
+			"valid values. Use this before calling create_workload or update_workload to understand the " +
+			"expected workload_spec structure.",
+		InputSchema: createSchema(map[string]any{}, nil),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.GetWorkloadSchema(ctx)
 		return handleToolResult(result, err)
 	})
 }

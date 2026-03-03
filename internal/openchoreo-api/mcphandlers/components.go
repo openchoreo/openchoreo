@@ -102,7 +102,7 @@ func (h *MCPHandler) GetComponent(
 	return componentDetail(component), nil
 }
 
-func (h *MCPHandler) GetComponentWorkloads(
+func (h *MCPHandler) ListWorkloads(
 	ctx context.Context, namespaceName, componentName string,
 ) (any, error) {
 	result, err := h.services.WorkloadService.ListWorkloads(ctx, namespaceName, componentName, services.ListOptions{})
@@ -112,7 +112,7 @@ func (h *MCPHandler) GetComponentWorkloads(
 	return wrapTransformedList("workloads", result.Items, result.NextCursor, workloadSummary), nil
 }
 
-func (h *MCPHandler) GetComponentWorkload(
+func (h *MCPHandler) GetWorkload(
 	ctx context.Context, namespaceName, workloadName string,
 ) (any, error) {
 	w, err := h.services.WorkloadService.GetWorkload(ctx, namespaceName, workloadName)
@@ -281,6 +281,38 @@ func (h *MCPHandler) CreateWorkload(
 		return nil, err
 	}
 	return mutationResult(created, "created"), nil
+}
+
+func (h *MCPHandler) UpdateWorkload(
+	ctx context.Context, namespaceName, workloadName string, workloadSpec any,
+) (any, error) {
+	// Get the existing workload to preserve metadata
+	existing, err := h.services.WorkloadService.GetWorkload(ctx, namespaceName, workloadName)
+	if err != nil {
+		return nil, err
+	}
+
+	specBytes, err := json.Marshal(workloadSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	var spec openchoreov1alpha1.WorkloadSpec
+	if err := json.Unmarshal(specBytes, &spec); err != nil {
+		return nil, err
+	}
+
+	existing.Spec = spec
+
+	updated, err := h.services.WorkloadService.UpdateWorkload(ctx, namespaceName, existing)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(updated, "updated"), nil
+}
+
+func (h *MCPHandler) GetWorkloadSchema(ctx context.Context) (any, error) {
+	return h.services.WorkloadService.GetWorkloadSchema(ctx)
 }
 
 func (h *MCPHandler) GetComponentSchema(

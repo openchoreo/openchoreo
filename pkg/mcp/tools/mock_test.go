@@ -85,17 +85,17 @@ func (m *MockCoreToolsetHandler) GetComponent(
 	return `{"name":"component1"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) GetComponentWorkloads(
+func (m *MockCoreToolsetHandler) ListWorkloads(
 	ctx context.Context, namespaceName, componentName string,
 ) (any, error) {
-	m.recordCall("GetComponentWorkloads", namespaceName, componentName)
+	m.recordCall("ListWorkloads", namespaceName, componentName)
 	return `[{"name":"workload1"}]`, nil
 }
 
-func (m *MockCoreToolsetHandler) GetComponentWorkload(
+func (m *MockCoreToolsetHandler) GetWorkload(
 	ctx context.Context, namespaceName, workloadName string,
 ) (any, error) {
-	m.recordCall("GetComponentWorkload", namespaceName, workloadName)
+	m.recordCall("GetWorkload", namespaceName, workloadName)
 	return `{"name":"workload1"}`, nil
 }
 
@@ -161,6 +161,20 @@ func (m *MockCoreToolsetHandler) CreateWorkload(
 ) (any, error) {
 	m.recordCall("CreateWorkload", namespaceName, componentName, workloadSpec)
 	return `{"name":"workload-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateWorkload(
+	ctx context.Context, namespaceName, workloadName string, workloadSpec interface{},
+) (any, error) {
+	m.recordCall("UpdateWorkload", namespaceName, workloadName, workloadSpec)
+	return `{"name":"workload-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetWorkloadSchema(
+	ctx context.Context,
+) (any, error) {
+	m.recordCall("GetWorkloadSchema")
+	return emptyObjectSchema, nil
 }
 
 func (m *MockCoreToolsetHandler) GetComponentSchema(

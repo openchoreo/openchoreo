@@ -98,8 +98,8 @@ type ComponentToolsetHandler interface {
 	) (any, error)
 	ListComponents(ctx context.Context, namespaceName, projectName string, opts ListOpts) (any, error)
 	GetComponent(ctx context.Context, namespaceName, componentName string) (any, error)
-	GetComponentWorkloads(ctx context.Context, namespaceName, componentName string) (any, error)
-	GetComponentWorkload(ctx context.Context, namespaceName, workloadName string) (any, error)
+	ListWorkloads(ctx context.Context, namespaceName, componentName string) (any, error)
+	GetWorkload(ctx context.Context, namespaceName, workloadName string) (any, error)
 	// Component release operations
 	ListComponentReleases(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
 	CreateComponentRelease(ctx context.Context, namespaceName, componentName, releaseName string) (any, error)
@@ -122,6 +122,10 @@ type ComponentToolsetHandler interface {
 	CreateWorkload(
 		ctx context.Context, namespaceName, componentName string, workloadSpec interface{},
 	) (any, error)
+	UpdateWorkload(
+		ctx context.Context, namespaceName, workloadName string, workloadSpec interface{},
+	) (any, error)
+	GetWorkloadSchema(ctx context.Context) (any, error)
 	// Schema operations
 	GetComponentSchema(ctx context.Context, namespaceName, componentName string) (any, error)
 	// Release operations

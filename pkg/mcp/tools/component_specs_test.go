@@ -70,16 +70,16 @@ func componentBasicSpecs() []toolTestSpec {
 			},
 		},
 		{
-			name:                "get_component_workloads",
+			name:                "list_workloads",
 			toolset:             "component",
-			descriptionKeywords: []string{"workload", "component"},
+			descriptionKeywords: []string{"workload"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "component_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"component_name": testComponentName,
 			},
-			expectedMethod: "GetComponentWorkloads",
+			expectedMethod: "ListWorkloads",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName || args[1] != testComponentName {
 					t.Errorf("Expected (%s, %s), got (%v, %v)",
@@ -88,16 +88,16 @@ func componentBasicSpecs() []toolTestSpec {
 			},
 		},
 		{
-			name:                "get_component_workload",
+			name:                "get_workload",
 			toolset:             "component",
-			descriptionKeywords: []string{"workload", "component"},
+			descriptionKeywords: []string{"workload"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "workload_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"workload_name":  "workload1",
 			},
-			expectedMethod: "GetComponentWorkload",
+			expectedMethod: "GetWorkload",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName || args[1] != "workload1" {
 					t.Errorf("Expected (%s, workload1), got (%v, %v)",
@@ -332,12 +332,42 @@ func componentBindingSpecs() []toolTestSpec {
 				}
 			},
 		},
+		{
+			name:                "update_workload",
+			toolset:             "component",
+			descriptionKeywords: []string{"update", "workload"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "workload_name", "workload_spec"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"workload_name":  "workload-1",
+				"workload_spec":  map[string]interface{}{"container": map[string]interface{}{"image": "example.com/test:v2"}},
+			},
+			expectedMethod: "UpdateWorkload",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != "workload-1" {
+					t.Errorf("Expected (%s, workload-1), got (%v, %v)",
+						testNamespaceName, args[0], args[1])
+				}
+			},
+		},
 	}
 }
 
 // componentSchemaSpecs returns component schema operation specs
 func componentSchemaSpecs() []toolTestSpec {
 	return []toolTestSpec{
+		{
+			name:                "get_workload_schema",
+			toolset:             "component",
+			descriptionKeywords: []string{"workload", "schema"},
+			descriptionMinLen:   10,
+			testArgs:            map[string]any{},
+			expectedMethod:      "GetWorkloadSchema",
+			validateCall: func(t *testing.T, args []interface{}) {
+				// No arguments expected
+			},
+		},
 		{
 			name:                "get_component_schema",
 			toolset:             "component",
