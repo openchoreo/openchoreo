@@ -9,22 +9,10 @@ import (
 	"net/http"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
-
-	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 )
 
-type Handler interface {
-	GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (any, error)
-	GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (any, error)
-	GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (any, error)
-	GetNamespaceLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error)
-	GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (any, error)
-	GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error)
-	GetComponentHTTPMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error)
-}
-
 // NewHTTPServer creates a new MCP HTTP server for the observer API
-func NewHTTPServer(handler Handler) http.Handler {
+func NewHTTPServer(handler *MCPHandler) http.Handler {
 	server := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    "openchoreo-observer",
 		Version: "1.0.0",
@@ -67,314 +55,221 @@ func setDefaults(limit int, sortOrder string, logLevels []string) (int, string, 
 	return limit, sortOrder, logLevels
 }
 
-func registerTools(s *mcpsdk.Server, handler Handler) {
-	// Get Component Logs
+func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
+	// Tool 1: query_component_logs
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
-		Name:        "get_component_logs",
-		Description: "Retrieve logs from a specific component (deployable unit like a web service, API, worker, or scheduled task) in an OpenChoreo environment. Supports filtering by time range, log levels, search phrases, versions, and log type (application or build logs).",
+		Name:        "query_component_logs",
+		Description: "Query runtime application logs for components (services, APIs, workers, scheduled tasks) deployed in OpenChoreo. Supports filtering by project, component, environment, time range, log levels, and search phrases.",
 		InputSchema: createSchema(map[string]any{
-			"component_id":   defaultStringProperty(),
-			"environment_id": defaultStringProperty(),
-			"start_time":     stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":       stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"namespace":      stringProperty("Optional: Kubernetes namespace where the component is deployed"),
-			"search_phrase":  stringProperty("Optional: Text to search within log messages"),
-			"log_levels":     arrayProperty("Optional: Array of log levels to filter (e.g., ['ERROR', 'WARN']). Common values: ERROR, WARN, INFO, DEBUG, TRACE. Default: []"),
-			"versions":       arrayProperty("Optional: Array of component version strings to filter (e.g., ['1.0.0', '1.0.1'])"),
-			"version_ids":    arrayProperty("Optional: Array of internal version identifiers to filter"),
-			"limit":          limitLogsProperty(),
-			"sort_order":     sortOrderProperty(),
-			"log_type":       stringProperty("Optional: Type of logs - 'application' for runtime logs or 'build' for build process logs. Default: 'application'"),
-			"build_id":       stringProperty("Optional: Build identifier for retrieving build logs"),
-			"build_uuid":     stringProperty("Optional: Build UUID for retrieving build logs"),
-		}, []string{"component_id", "environment_id", "start_time", "end_time"}),
+			"namespace":     stringProperty("Organization namespace (required)"),
+			"project":       stringProperty("Project name to filter logs"),
+			"component":     stringProperty("Component name to filter logs"),
+			"environment":   stringProperty("Environment name to filter logs (e.g., 'development', 'production')"),
+			"start_time":    stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":      stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"search_phrase": stringProperty("Text to search within log messages"),
+			"log_levels":    arrayProperty("Log levels to filter (e.g., ['ERROR', 'WARN', 'INFO', 'DEBUG']). Default: all levels"),
+			"limit":         limitLogsProperty(),
+			"sort_order":    sortOrderProperty(),
+		}, []string{"namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		ComponentID   string   `json:"component_id"`
-		EnvironmentID string   `json:"environment_id"`
-		Namespace     string   `json:"namespace"`
-		StartTime     string   `json:"start_time"`
-		EndTime       string   `json:"end_time"`
-		SearchPhrase  string   `json:"search_phrase"`
-		LogLevels     []string `json:"log_levels"`
-		Versions      []string `json:"versions"`
-		VersionIDs    []string `json:"version_ids"`
-		Limit         int      `json:"limit"`
-		SortOrder     string   `json:"sort_order"`
-		LogType       string   `json:"log_type"`
-		BuildID       string   `json:"build_id"`
-		BuildUUID     string   `json:"build_uuid"`
+		Namespace    string   `json:"namespace"`
+		Project      string   `json:"project"`
+		Component    string   `json:"component"`
+		Environment  string   `json:"environment"`
+		StartTime    string   `json:"start_time"`
+		EndTime      string   `json:"end_time"`
+		SearchPhrase string   `json:"search_phrase"`
+		LogLevels    []string `json:"log_levels"`
+		Limit        int      `json:"limit"`
+		SortOrder    string   `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		limit, sortOrder, logLevels := setDefaults(args.Limit, args.SortOrder, args.LogLevels)
+		result, err := handler.QueryComponentLogs(ctx,
+			args.Namespace, args.Project, args.Component, args.Environment,
+			args.StartTime, args.EndTime, args.SearchPhrase,
+			args.LogLevels, args.Limit, args.SortOrder,
+		)
+		return handleToolResult(result, err)
+	})
 
-		params := opensearch.ComponentQueryParams{
-			QueryParams: opensearch.QueryParams{
-				StartTime:     args.StartTime,
-				EndTime:       args.EndTime,
-				EnvironmentID: args.EnvironmentID,
-				ComponentID:   args.ComponentID,
-				Namespace:     args.Namespace,
-				SearchPhrase:  args.SearchPhrase,
-				LogLevels:     logLevels,
-				Versions:      args.Versions,
-				VersionIDs:    args.VersionIDs,
-				Limit:         limit,
-				SortOrder:     sortOrder,
-				LogType:       args.LogType,
-			},
-			BuildID:   args.BuildID,
-			BuildUUID: args.BuildUUID,
+	// Tool 2: query_workflow_logs
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name:        "query_workflow_logs",
+		Description: "Query CI/CD workflow run logs in OpenChoreo. Captures build, test, and deployment pipeline execution details. Supports filtering by workflow run name and task name.",
+		InputSchema: createSchema(map[string]any{
+			"namespace":         stringProperty("Organization namespace (required)"),
+			"workflow_run_name": stringProperty("Workflow run name to filter logs for a specific CI/CD run"),
+			"task_name":         stringProperty("Task name within a workflow run to filter logs for a specific step"),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"search_phrase":     stringProperty("Text to search within log messages"),
+			"log_levels":        arrayProperty("Log levels to filter (e.g., ['ERROR', 'WARN', 'INFO', 'DEBUG']). Default: all levels"),
+			"limit":             limitLogsProperty(),
+			"sort_order":        sortOrderProperty(),
+		}, []string{"namespace", "start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
+		Namespace       string   `json:"namespace"`
+		WorkflowRunName string   `json:"workflow_run_name"`
+		TaskName        string   `json:"task_name"`
+		StartTime       string   `json:"start_time"`
+		EndTime         string   `json:"end_time"`
+		SearchPhrase    string   `json:"search_phrase"`
+		LogLevels       []string `json:"log_levels"`
+		Limit           int      `json:"limit"`
+		SortOrder       string   `json:"sort_order"`
+	}) (*mcpsdk.CallToolResult, any, error) {
+		result, err := handler.QueryWorkflowLogs(ctx,
+			args.Namespace, args.WorkflowRunName, args.TaskName,
+			args.StartTime, args.EndTime, args.SearchPhrase,
+			args.LogLevels, args.Limit, args.SortOrder,
+		)
+		return handleToolResult(result, err)
+	})
+
+	// Tool 3: query_resource_metrics
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name:        "query_resource_metrics",
+		Description: "Query CPU and memory resource usage metrics for components in OpenChoreo. Returns time-series data for CPU usage/requests/limits and memory usage/requests/limits. Useful for capacity planning, identifying resource constraints, and detecting memory leaks.",
+		InputSchema: createSchema(map[string]any{
+			"namespace":   stringProperty("Organization namespace (required)"),
+			"project":     stringProperty("Project name to filter metrics"),
+			"component":   stringProperty("Component name to filter metrics"),
+			"environment": stringProperty("Environment name to filter metrics"),
+			"start_time":  stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":    stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"step":        stringProperty("Query resolution step (e.g., '1m', '5m', '15m', '30m', '1h'). Controls data point density"),
+		}, []string{"namespace", "start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
+		Namespace   string `json:"namespace"`
+		Project     string `json:"project"`
+		Component   string `json:"component"`
+		Environment string `json:"environment"`
+		StartTime   string `json:"start_time"`
+		EndTime     string `json:"end_time"`
+		Step        string `json:"step"`
+	}) (*mcpsdk.CallToolResult, any, error) {
+		var step *string
+		if args.Step != "" {
+			step = &args.Step
 		}
-
-		result, err := handler.GetComponentLogs(ctx, params)
+		result, err := handler.QueryResourceMetrics(ctx,
+			args.Namespace, args.Project, args.Component, args.Environment,
+			args.StartTime, args.EndTime, step,
+		)
 		return handleToolResult(result, err)
 	})
 
-	// Get Project Logs
+	// Tool 4: query_http_metrics
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
-		Name:        "get_project_logs",
-		Description: "Retrieve aggregated logs across all components within an OpenChoreo project. A project is a cloud-native application composed of multiple components (microservices). Useful for investigating issues that span multiple services or getting a holistic view of application behavior.",
+		Name:        "query_http_metrics",
+		Description: "Query HTTP request and latency metrics for components in OpenChoreo. Returns time-series data for request counts (total, successful, unsuccessful), mean latency, and percentile latencies (p50, p90, p99). Useful for monitoring API performance and debugging HTTP errors.",
 		InputSchema: createSchema(map[string]any{
-			"project_id":     defaultStringProperty(),
-			"environment_id": defaultStringProperty(),
-			"start_time":     stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":       stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"namespace":      stringProperty("Optional: Kubernetes namespace where the project is deployed"),
-			"component_ids":  arrayProperty("Optional: Array of specific component IDs to filter. If omitted, retrieves logs from all components in the project"),
-			"search_phrase":  stringProperty("Optional: Text to search within log messages across all components"),
-			"log_levels":     arrayProperty("Optional: Array of log levels to filter (e.g., ['ERROR', 'WARN']). Common values: ERROR, WARN, INFO, DEBUG, TRACE. Default: []"),
-			"versions":       arrayProperty("Optional: Array of component version strings to filter"),
-			"version_ids":    arrayProperty("Optional: Array of internal version identifiers to filter"),
-			"limit":          limitLogsProperty(),
-			"sort_order":     sortOrderProperty(),
-			"log_type":       stringProperty("Optional: Type of logs - 'application' for runtime logs or 'build' for build process logs. Default: 'application'"),
-			"build_id":       stringProperty("Optional: Build identifier for retrieving build logs"),
-			"build_uuid":     stringProperty("Optional: Build UUID for retrieving build logs"),
-		}, []string{"project_id", "environment_id", "start_time", "end_time"}),
+			"namespace":   stringProperty("Organization namespace (required)"),
+			"project":     stringProperty("Project name to filter metrics"),
+			"component":   stringProperty("Component name to filter metrics"),
+			"environment": stringProperty("Environment name to filter metrics"),
+			"start_time":  stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":    stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"step":        stringProperty("Query resolution step (e.g., '1m', '5m', '15m', '30m', '1h'). Controls data point density"),
+		}, []string{"namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		ProjectID     string   `json:"project_id"`
-		EnvironmentID string   `json:"environment_id"`
-		StartTime     string   `json:"start_time"`
-		EndTime       string   `json:"end_time"`
-		Namespace     string   `json:"namespace"`
-		ComponentIDs  []string `json:"component_ids"`
-		SearchPhrase  string   `json:"search_phrase"`
-		LogLevels     []string `json:"log_levels"`
-		Versions      []string `json:"versions"`
-		VersionIDs    []string `json:"version_ids"`
-		Limit         int      `json:"limit"`
-		SortOrder     string   `json:"sort_order"`
-		LogType       string   `json:"log_type"`
-		BuildID       string   `json:"build_id"`
-		BuildUUID     string   `json:"build_uuid"`
+		Namespace   string `json:"namespace"`
+		Project     string `json:"project"`
+		Component   string `json:"component"`
+		Environment string `json:"environment"`
+		StartTime   string `json:"start_time"`
+		EndTime     string `json:"end_time"`
+		Step        string `json:"step"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		limit, sortOrder, logLevels := setDefaults(args.Limit, args.SortOrder, args.LogLevels)
-
-		params := opensearch.QueryParams{
-			StartTime:     args.StartTime,
-			EndTime:       args.EndTime,
-			EnvironmentID: args.EnvironmentID,
-			ProjectID:     args.ProjectID,
-			Namespace:     args.Namespace,
-			SearchPhrase:  args.SearchPhrase,
-			LogLevels:     logLevels,
-			Versions:      args.Versions,
-			VersionIDs:    args.VersionIDs,
-			Limit:         limit,
-			SortOrder:     sortOrder,
-			LogType:       args.LogType,
+		var step *string
+		if args.Step != "" {
+			step = &args.Step
 		}
-
-		result, err := handler.GetProjectLogs(ctx, params, args.ComponentIDs)
+		result, err := handler.QueryHTTPMetrics(ctx,
+			args.Namespace, args.Project, args.Component, args.Environment,
+			args.StartTime, args.EndTime, step,
+		)
 		return handleToolResult(result, err)
 	})
 
-	// Get Gateway Logs
+	// Tool 5: query_traces
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
-		Name:        "get_gateway_logs",
-		Description: "Retrieve logs from OpenChoreo's API gateways (Envoy-based ingress/egress) for a namespace. Gateway logs capture HTTP traffic, routing decisions, rate limiting, and authentication events. Useful for investigating API performance, routing issues, or traffic patterns. These are infrastructure-layer logs, distinct from application logs.",
+		Name:        "query_traces",
+		Description: "Query distributed traces for components in OpenChoreo. Returns a list of traces with summary information including trace ID, name, span count, root span details, and duration. Useful for understanding request flows across services and identifying performance bottlenecks.",
 		InputSchema: createSchema(map[string]any{
-			"namespace_name":        defaultStringProperty(),
-			"start_time":            stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":              stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"search_phrase":         stringProperty("Optional: Text to search within gateway logs (URLs, IPs, status codes, etc.)"),
-			"api_id_to_version_map": objectProperty("Optional: Map of API IDs to version strings (e.g., {'api-123': 'v1.0'}). Filter logs for specific API versions"),
-			"gateway_vhosts":        arrayProperty("Optional: Array of virtual host names (e.g., ['api.example.com']). Filter logs by hostname"),
-			"limit":                 limitLogsProperty(),
-			"sort_order":            sortOrderProperty(),
-			"log_type":              stringProperty("Optional: Type of gateway logs"),
-		}, []string{"namespace_name", "start_time", "end_time"}),
+			"namespace":   stringProperty("Organization namespace (required)"),
+			"project":     stringProperty("Project name to filter traces"),
+			"component":   stringProperty("Component name to filter traces"),
+			"environment": stringProperty("Environment name to filter traces"),
+			"start_time":  stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":    stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":       limitTraceSpansProperty(),
+			"sort_order":  sortOrderProperty(),
+		}, []string{"namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		NamespaceName     string            `json:"namespace_name"`
-		StartTime         string            `json:"start_time"`
-		EndTime           string            `json:"end_time"`
-		SearchPhrase      string            `json:"search_phrase"`
-		APIIDToVersionMap map[string]string `json:"api_id_to_version_map"`
-		GatewayVHosts     []string          `json:"gateway_vhosts"`
-		Limit             int               `json:"limit"`
-		SortOrder         string            `json:"sort_order"`
-		LogType           string            `json:"log_type"`
+		Namespace   string `json:"namespace"`
+		Project     string `json:"project"`
+		Component   string `json:"component"`
+		Environment string `json:"environment"`
+		StartTime   string `json:"start_time"`
+		EndTime     string `json:"end_time"`
+		Limit       int    `json:"limit"`
+		SortOrder   string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		limit, sortOrder, _ := setDefaults(args.Limit, args.SortOrder, nil)
-
-		params := opensearch.GatewayQueryParams{
-			QueryParams: opensearch.QueryParams{
-				StartTime:     args.StartTime,
-				EndTime:       args.EndTime,
-				SearchPhrase:  args.SearchPhrase,
-				Limit:         limit,
-				SortOrder:     sortOrder,
-				LogType:       args.LogType,
-				NamespaceName: args.NamespaceName,
-			},
-			APIIDToVersionMap: args.APIIDToVersionMap,
-			GatewayVHosts:     args.GatewayVHosts,
-		}
-
-		result, err := handler.GetGatewayLogs(ctx, params)
+		result, err := handler.QueryTraces(ctx,
+			args.Namespace, args.Project, args.Component, args.Environment,
+			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
+		)
 		return handleToolResult(result, err)
 	})
 
-	// Get Namespace Logs
+	// Tool 6: query_trace_spans
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
-		Name:        "get_namespace_logs",
-		Description: "Retrieve logs across an entire OpenChoreo namespace with Kubernetes pod label filtering. This advanced tool enables cross-project log analysis and infrastructure-level debugging using custom pod label selectors.",
+		Name:        "query_trace_spans",
+		Description: "Query all spans within a specific distributed trace in OpenChoreo. Returns span details including span ID, name, parent span, start/end times, and duration. Use the trace ID from query_traces results to drill into individual traces.",
 		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"environment_id": defaultStringProperty(),
-			"start_time":     stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":       stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"namespace":      stringProperty("Optional: Kubernetes namespace to filter"),
-			"pod_labels":     objectProperty("Optional: Map of Kubernetes pod labels to filter (e.g., {'app': 'backend', 'tier': 'database'}). Enables targeting specific workloads"),
-			"search_phrase":  stringProperty("Optional: Text to search within log messages"),
-			"log_levels":     arrayProperty("Optional: Array of log levels to filter (e.g., ['ERROR', 'WARN']). Common values: ERROR, WARN, INFO, DEBUG, TRACE. Default: []"),
-			"versions":       arrayProperty("Optional: Array of component version strings to filter"),
-			"version_ids":    arrayProperty("Optional: Array of internal version identifiers to filter"),
-			"limit":          limitLogsProperty(),
-			"sort_order":     sortOrderProperty(),
-			"log_type":       stringProperty("Optional: Type of logs - 'application' for runtime logs or 'build' for build process logs. Default: 'application'"),
-			"build_id":       stringProperty("Optional: Build identifier for retrieving build logs"),
-			"build_uuid":     stringProperty("Optional: Build UUID for retrieving build logs"),
-		}, []string{"namespace_name", "environment_id", "start_time", "end_time"}),
+			"trace_id":    stringProperty("Trace ID to retrieve spans for (required). Obtained from query_traces results"),
+			"namespace":   stringProperty("Organization namespace (required)"),
+			"project":     stringProperty("Project name"),
+			"component":   stringProperty("Component name"),
+			"environment": stringProperty("Environment name"),
+			"start_time":  stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":    stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":       limitTraceSpansProperty(),
+			"sort_order":  sortOrderProperty(),
+		}, []string{"trace_id", "namespace", "start_time", "end_time"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		NamespaceName string            `json:"namespace_name"`
-		EnvironmentID string            `json:"environment_id"`
-		StartTime     string            `json:"start_time"`
-		EndTime       string            `json:"end_time"`
-		Namespace     string            `json:"namespace"`
-		PodLabels     map[string]string `json:"pod_labels"`
-		SearchPhrase  string            `json:"search_phrase"`
-		LogLevels     []string          `json:"log_levels"`
-		Versions      []string          `json:"versions"`
-		VersionIDs    []string          `json:"version_ids"`
-		Limit         int               `json:"limit"`
-		SortOrder     string            `json:"sort_order"`
-		LogType       string            `json:"log_type"`
-		BuildID       string            `json:"build_id"`
-		BuildUUID     string            `json:"build_uuid"`
+		TraceID     string `json:"trace_id"`
+		Namespace   string `json:"namespace"`
+		Project     string `json:"project"`
+		Component   string `json:"component"`
+		Environment string `json:"environment"`
+		StartTime   string `json:"start_time"`
+		EndTime     string `json:"end_time"`
+		Limit       int    `json:"limit"`
+		SortOrder   string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		limit, sortOrder, logLevels := setDefaults(args.Limit, args.SortOrder, args.LogLevels)
-
-		params := opensearch.QueryParams{
-			StartTime:     args.StartTime,
-			EndTime:       args.EndTime,
-			EnvironmentID: args.EnvironmentID,
-			NamespaceName: args.NamespaceName,
-			Namespace:     args.Namespace,
-			SearchPhrase:  args.SearchPhrase,
-			LogLevels:     logLevels,
-			Versions:      args.Versions,
-			VersionIDs:    args.VersionIDs,
-			Limit:         limit,
-			SortOrder:     sortOrder,
-			LogType:       args.LogType,
-		}
-
-		result, err := handler.GetNamespaceLogs(ctx, params, args.PodLabels)
+		result, err := handler.QueryTraceSpans(ctx,
+			args.TraceID,
+			args.Namespace, args.Project, args.Component, args.Environment,
+			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
+		)
 		return handleToolResult(result, err)
 	})
 
-	// Get Traces
+	// Tool 7: get_span_details
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
-		Name:        "get_traces",
-		Description: "Retrieve distributed tracing spans for a specific trace ID or spans associated with specific components in OpenChoreo. Traces capture the flow of requests across services, providing visibility into service interactions, latencies, and dependencies. Useful for investigating performance bottlenecks, debugging cross-service issues, and understanding request flows. Returns OpenTelemetry span data including trace IDs, span IDs, durations, and timestamps.",
+		Name:        "get_span_details",
+		Description: "Get full details for a specific span within a trace in OpenChoreo. Returns complete span information including attributes, resource attributes, parent span ID, and timing details. Use trace_id and span_id from query_trace_spans results.",
 		InputSchema: createSchema(map[string]any{
-			"project_uid":     stringProperty("Required: Project UID to retrieve traces for"),
-			"component_uids":  arrayProperty("Optional: Array of component UIDs to filter traces (e.g., ['8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b', '3f7b9e1a-4c6d-4e8f-a2b5-7d1c3e8f4a9b'])"),
-			"environment_uid": stringProperty("Optional: Environment UID to filter traces (e.g. '2f5a8c1e-7d9b-4e3f-6a4c-8e1f2d7a9b5c', '6c8f1e4a-9d3b-4e7f-2a5c-8e4b1d3f9a7c')"),
-			"trace_id":        stringProperty("Optional: Specific trace ID to retrieve (e.g. 'a372188b620ba2d5e159a35fc529ae12')"),
-			"start_time":      stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":        stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"limit":           limitTraceSpansProperty(),
-			"sort_order":      sortOrderProperty(),
-		}, []string{"project_uid", "start_time", "end_time"}),
+			"trace_id": stringProperty("Trace ID containing the span (required)"),
+			"span_id":  stringProperty("Span ID to retrieve details for (required)"),
+		}, []string{"trace_id", "span_id"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		ProjectUID     string   `json:"project_uid"`
-		ComponentUIDs  []string `json:"component_uids"`
-		EnvironmentUID string   `json:"environment_uid"`
-		TraceID        string   `json:"trace_id"`
-		StartTime      string   `json:"start_time"`
-		EndTime        string   `json:"end_time"`
-		Limit          int      `json:"limit"`
-		SortOrder      string   `json:"sort_order"`
+		TraceID string `json:"trace_id"`
+		SpanID  string `json:"span_id"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		limit, sortOrder, _ := setDefaults(args.Limit, args.SortOrder, nil)
-
-		params := opensearch.TracesRequestParams{
-			ProjectUID:     args.ProjectUID,
-			ComponentUIDs:  args.ComponentUIDs,
-			EnvironmentUID: args.EnvironmentUID,
-			TraceID:        args.TraceID,
-			StartTime:      args.StartTime,
-			EndTime:        args.EndTime,
-			Limit:          limit,
-			SortOrder:      sortOrder,
-		}
-
-		result, err := handler.GetTraces(ctx, params)
-		return handleToolResult(result, err)
-	})
-
-	// Get Component Resource Metrics
-	mcpsdk.AddTool(s, &mcpsdk.Tool{
-		Name:        "get_component_resource_metrics",
-		Description: "Retrieve time-series resource usage metrics (CPU and memory) for a component in OpenChoreo. Returns historical data points showing resource consumption, requests, and limits over time. Useful for capacity planning, identifying resource constraints, detecting memory leaks, and optimizing resource allocations. Metrics are sampled at 5-minute intervals and include both usage and configured limits/requests.",
-		InputSchema: createSchema(map[string]any{
-			"component_id":   stringProperty("Optional: Specific component ID to filter. If omitted, returns metrics for all components in the project"),
-			"project_id":     defaultStringProperty(),
-			"environment_id": defaultStringProperty(),
-			"start_time":     stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":       stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-		}, []string{"project_id", "environment_id", "start_time", "end_time"}),
-	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		ComponentID   string `json:"component_id"`
-		ProjectID     string `json:"project_id"`
-		EnvironmentID string `json:"environment_id"`
-		StartTime     string `json:"start_time"`
-		EndTime       string `json:"end_time"`
-	}) (*mcpsdk.CallToolResult, any, error) {
-		result, err := handler.GetComponentResourceMetrics(ctx, args.ComponentID, args.EnvironmentID, args.ProjectID, args.StartTime, args.EndTime)
-		return handleToolResult(result, err)
-	})
-
-	// Get Component HTTP Metrics
-	mcpsdk.AddTool(s, &mcpsdk.Tool{
-		Name:        "get_component_http_metrics",
-		Description: "Retrieve time-series HTTP metrics for a component in OpenChoreo. Returns historical data points showing request counts (total, successful, unsuccessful), latency metrics (mean, p50, p95, p99), and throughput over time. Useful for monitoring API performance, identifying bottlenecks, debugging HTTP errors, and understanding traffic patterns. Metrics are sampled at 5-minute intervals.",
-		InputSchema: createSchema(map[string]any{
-			"component_id":   stringProperty("Optional: Specific component ID to filter. If omitted, returns metrics for all components in the project"),
-			"project_id":     defaultStringProperty(),
-			"environment_id": defaultStringProperty(),
-			"start_time":     stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":       stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-		}, []string{"project_id", "environment_id", "start_time", "end_time"}),
-	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		ComponentID   string `json:"component_id"`
-		ProjectID     string `json:"project_id"`
-		EnvironmentID string `json:"environment_id"`
-		StartTime     string `json:"start_time"`
-		EndTime       string `json:"end_time"`
-	}) (*mcpsdk.CallToolResult, any, error) {
-		result, err := handler.GetComponentHTTPMetrics(ctx, args.ComponentID, args.EnvironmentID, args.ProjectID, args.StartTime, args.EndTime)
+		result, err := handler.GetSpanDetails(ctx, args.TraceID, args.SpanID)
 		return handleToolResult(result, err)
 	})
 }
@@ -384,12 +279,6 @@ func stringProperty(description string) map[string]any {
 	return map[string]any{
 		"type":        "string",
 		"description": description,
-	}
-}
-
-func defaultStringProperty() map[string]any {
-	return map[string]any{
-		"type": "string",
 	}
 }
 
@@ -411,7 +300,7 @@ func limitLogsProperty() map[string]any {
 func limitTraceSpansProperty() map[string]any {
 	return map[string]any{
 		"type":        "number",
-		"description": "Maximum number of span entries to return. Default: 100",
+		"description": "Maximum number of entries to return. Default: 100",
 	}
 }
 
@@ -422,13 +311,6 @@ func arrayProperty(description string) map[string]any {
 		"items": map[string]any{
 			"type": "string",
 		},
-	}
-}
-
-func objectProperty(description string) map[string]any {
-	return map[string]any{
-		"type":        "object",
-		"description": description,
 	}
 }
 

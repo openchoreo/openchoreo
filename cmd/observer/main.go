@@ -21,6 +21,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	legacyhandlers "github.com/openchoreo/openchoreo/internal/observer/handlers/legacy"
 	"github.com/openchoreo/openchoreo/internal/observer/legacymcp"
+	observermcp "github.com/openchoreo/openchoreo/internal/observer/mcp"
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
@@ -254,10 +255,29 @@ func main() {
 	api.HandleFunc("POST /api/v1alpha1/traces/{traceId}/spans/query", newAPIHandler.QuerySpansForTrace)
 	api.HandleFunc("GET /api/v1alpha1/traces/{traceId}/spans/{spanId}", newAPIHandler.GetSpanDetailsForTrace)
 
+	// Initialize new MCP handler backed by the new service layer
+	newMCPHandler := observermcp.NewMCPHandler(
+		healthService,
+		logsService,
+		metricsService,
+		alertService,
+		tracesService,
+		logger.With("component", "mcp-handler"),
+	)
+	newMCPServer := observermcp.NewHTTPServer(newMCPHandler)
+	legacyMCPServer := legacymcp.NewHTTPServer(&legacymcp.MCPHandler{Service: legacyLoggingService})
+
 	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
+	// Routes X-Legacy-MCP: true to the legacy handler; all other requests use the new handler.
 	mcpMiddleware := initMCPMiddleware(logger)
 	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
-	mcpRoutes.Handle("/mcp", legacymcp.NewHTTPServer(&legacymcp.MCPHandler{Service: legacyLoggingService}))
+	mcpRoutes.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Legacy-MCP") == "true" {
+			legacyMCPServer.ServeHTTP(w, r)
+		} else {
+			newMCPServer.ServeHTTP(w, r)
+		}
+	}))
 
 	// Create HTTP server
 	// CORS wraps the entire mux so it intercepts OPTIONS preflight requests
