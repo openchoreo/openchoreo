@@ -28,9 +28,8 @@ func (cp *Component) Logs(params LogsParams) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	// Get component to resolve UID
-	component, err := apiClient.GetComponent(ctx, params.Namespace, params.Component)
-	if err != nil {
+	// Verify the component exists
+	if _, err := apiClient.GetComponent(ctx, params.Namespace, params.Component); err != nil {
 		return fmt.Errorf("failed to get component: %w", err)
 	}
 
@@ -88,21 +87,16 @@ func (cp *Component) Logs(params LogsParams) error {
 		return fmt.Errorf("no current credential available")
 	}
 
-	componentUID := ""
-	if component.Metadata.Uid != nil {
-		componentUID = *component.Metadata.Uid
-	}
-
 	environmentUID := ""
 	if environment.Metadata.Uid != nil {
 		environmentUID = *environment.Metadata.Uid
 	}
 
 	if params.Follow {
-		return cp.followLogs(ctx, observerURL, credential.Token, componentUID, environmentUID, params, startTime, endTime)
+		return cp.followLogs(ctx, observerURL, credential.Token, environmentUID, params, startTime, endTime)
 	}
 
-	return cp.fetchAndPrintLogs(ctx, observerURL, credential.Token, componentUID, environmentUID, params, startTime, endTime)
+	return cp.fetchAndPrintLogs(ctx, observerURL, credential.Token, environmentUID, params, startTime, endTime)
 }
 
 // fetchAndPrintLogs fetches logs for a given time range and prints them
@@ -110,13 +104,12 @@ func (cp *Component) fetchAndPrintLogs(
 	ctx context.Context,
 	observerURL string,
 	token string,
-	componentID string,
 	environmentID string,
 	params LogsParams,
 	startTime time.Time,
 	endTime time.Time,
 ) error {
-	logs, err := cp.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
+	logs, err := cp.fetchLogs(ctx, observerURL, token, environmentID, params, startTime, endTime)
 	if err != nil {
 		return err
 	}
@@ -133,7 +126,6 @@ func (cp *Component) followLogs(
 	ctx context.Context,
 	observerURL string,
 	token string,
-	componentID string,
 	environmentID string,
 	params LogsParams,
 	startTime time.Time,
@@ -144,7 +136,7 @@ func (cp *Component) followLogs(
 	defer stop()
 
 	// Initial fetch
-	logs, err := cp.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
+	logs, err := cp.fetchLogs(ctx, observerURL, token, environmentID, params, startTime, endTime)
 	if err != nil {
 		return err
 	}
@@ -175,7 +167,7 @@ func (cp *Component) followLogs(
 		case <-ticker.C:
 			endTime = time.Now()
 
-			logs, err := cp.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
+			logs, err := cp.fetchLogs(ctx, observerURL, token, environmentID, params, startTime, endTime)
 			if err != nil {
 				// Check if context was cancelled
 				if ctx.Err() != nil {
@@ -211,7 +203,6 @@ func (cp *Component) fetchLogs(
 	ctx context.Context,
 	observerURL string,
 	token string,
-	componentID string,
 	environmentID string,
 	params LogsParams,
 	startTime time.Time,
@@ -231,10 +222,10 @@ func (cp *Component) fetchLogs(
 
 	// Create observer client and fetch logs
 	obsClient := client.NewObserverClient(observerURL, token)
-	logResponse, err := obsClient.FetchComponentLogs(ctx, componentID, reqBody)
+	logResponse, err := obsClient.FetchComponentLogs(ctx, reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch logs for component %s/%s/%s in environment %s from observer %s: %w",
-			params.Namespace, params.Project, params.Component, params.Environment, observerURL, err)
+		return nil, fmt.Errorf("observer query failed for component %s project=%s, namespace=%s in environment %s at %s: %w",
+			params.Component, params.Project, params.Namespace, params.Environment, observerURL, err)
 	}
 
 	return logResponse.Logs, nil

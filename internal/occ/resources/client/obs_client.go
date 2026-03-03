@@ -60,10 +60,23 @@ func NewObserverClient(observerURL, token string) *ObserverClient {
 }
 
 // FetchComponentLogs fetches logs for a component from the observer API
-func (c *ObserverClient) FetchComponentLogs(ctx context.Context, componentID string, req ComponentLogsRequest) (*LogResponse, error) {
-	path := fmt.Sprintf("/api/logs/component/%s", componentID)
+func (c *ObserverClient) FetchComponentLogs(ctx context.Context, req ComponentLogsRequest) (*LogResponse, error) {
+	// Build LogsQueryRequest payload according to observer-api.yaml
+	payload := map[string]interface{}{
+		"startTime": req.StartTime,
+		"endTime":   req.EndTime,
+		"limit":     req.Limit,
+		"sortOrder": req.SortOrder,
+		"searchScope": map[string]interface{}{
+			"namespace":   req.NamespaceName,
+			"project":     req.ProjectName,
+			"component":   req.ComponentName,
+			"environment": req.EnvironmentName,
+		},
+	}
 
-	resp, err := c.doRequest(ctx, "POST", path, req)
+	path := "/api/v1/logs/query"
+	resp, err := c.doRequest(ctx, "POST", path, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +88,7 @@ func (c *ObserverClient) FetchComponentLogs(ctx context.Context, componentID str
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("observer API returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("observer API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var logResponse LogResponse
@@ -96,10 +109,21 @@ type WorkflowRunLogsRequest struct {
 }
 
 // FetchWorkflowRunLogs fetches archived logs for a workflow run from the observer API
-func (c *ObserverClient) FetchWorkflowRunLogs(ctx context.Context, runID string, req WorkflowRunLogsRequest) (*LogResponse, error) {
-	path := fmt.Sprintf("/api/v1/workflow-runs/%s/logs", runID)
+func (c *ObserverClient) FetchWorkflowRunLogs(ctx context.Context, runName string, req WorkflowRunLogsRequest) (*LogResponse, error) {
+	// Build LogsQueryRequest payload for workflow search scope
+	payload := map[string]interface{}{
+		"startTime": req.StartTime,
+		"endTime":   req.EndTime,
+		"limit":     req.Limit,
+		"sortOrder": req.SortOrder,
+		"searchScope": map[string]interface{}{
+			"namespace":       req.NamespaceName,
+			"workflowRunName": runName,
+		},
+	}
 
-	resp, err := c.doRequest(ctx, "POST", path, req)
+	path := "/api/v1/logs/query"
+	resp, err := c.doRequest(ctx, "POST", path, payload)
 	if err != nil {
 		return nil, err
 	}

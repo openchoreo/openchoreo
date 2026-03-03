@@ -214,14 +214,8 @@ func (w *WorkflowRun) fetchArchivedLogs(ctx context.Context, apiClient *client.C
 	startTime := time.Now().Add(-duration)
 	endTime := time.Now()
 
-	// Use the workflow run name as the run ID for the observer query
-	runID := params.WorkflowRunName
-	if workflowRun.Metadata.Uid != nil && *workflowRun.Metadata.Uid != "" {
-		runID = *workflowRun.Metadata.Uid
-	}
-
 	obsClient := client.NewObserverClient(observerURL, credential.Token)
-	logResponse, err := obsClient.FetchWorkflowRunLogs(ctx, runID, client.WorkflowRunLogsRequest{
+	logResponse, err := obsClient.FetchWorkflowRunLogs(ctx, params.WorkflowRunName, client.WorkflowRunLogsRequest{
 		NamespaceName: params.Namespace,
 		StartTime:     startTime.Format(time.RFC3339),
 		EndTime:       endTime.Format(time.RFC3339),
