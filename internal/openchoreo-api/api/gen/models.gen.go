@@ -44,6 +44,11 @@ const (
 	ClusterComponentTypeSpecAllowedTraitsKindClusterTrait ClusterComponentTypeSpecAllowedTraitsKind = "ClusterTrait"
 )
 
+// Defines values for ClusterComponentTypeSpecAllowedWorkflowsKind.
+const (
+	ClusterComponentTypeSpecAllowedWorkflowsKindWorkflow ClusterComponentTypeSpecAllowedWorkflowsKind = "Workflow"
+)
+
 // Defines values for ClusterComponentTypeSpecResourcesTargetPlane.
 const (
 	ClusterComponentTypeSpecResourcesTargetPlaneDataplane          ClusterComponentTypeSpecResourcesTargetPlane = "dataplane"
@@ -110,6 +115,11 @@ const (
 const (
 	ComponentTypeSpecAllowedTraitsKindClusterTrait ComponentTypeSpecAllowedTraitsKind = "ClusterTrait"
 	ComponentTypeSpecAllowedTraitsKindTrait        ComponentTypeSpecAllowedTraitsKind = "Trait"
+)
+
+// Defines values for ComponentTypeSpecAllowedWorkflowsKind.
+const (
+	ComponentTypeSpecAllowedWorkflowsKindWorkflow ComponentTypeSpecAllowedWorkflowsKind = "Workflow"
 )
 
 // Defines values for ComponentTypeSpecResourcesTargetPlane.
@@ -695,8 +705,14 @@ type ClusterComponentTypeSpec struct {
 		Name string `json:"name"`
 	} `json:"allowedTraits,omitempty"`
 
-	// AllowedWorkflows List of allowed ComponentWorkflow names for this component type
-	AllowedWorkflows *[]string `json:"allowedWorkflows,omitempty"`
+	// AllowedWorkflows List of allowed Workflow references for this component type
+	AllowedWorkflows *[]struct {
+		// Kind Kind of the workflow reference. Currently only "Workflow" is supported.
+		Kind *ClusterComponentTypeSpecAllowedWorkflowsKind `json:"kind,omitempty"`
+
+		// Name Name of the workflow resource
+		Name string `json:"name"`
+	} `json:"allowedWorkflows,omitempty"`
 
 	// Resources Templates that generate Kubernetes resources dynamically
 	Resources []struct {
@@ -764,6 +780,9 @@ type ClusterComponentTypeSpec struct {
 
 // ClusterComponentTypeSpecAllowedTraitsKind Kind of trait reference (must be ClusterTrait)
 type ClusterComponentTypeSpecAllowedTraitsKind string
+
+// ClusterComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference. Currently only "Workflow" is supported.
+type ClusterComponentTypeSpecAllowedWorkflowsKind string
 
 // ClusterComponentTypeSpecResourcesTargetPlane Target plane for deployment
 type ClusterComponentTypeSpecResourcesTargetPlane string
@@ -1200,8 +1219,14 @@ type ComponentTypeSpec struct {
 		Name string `json:"name"`
 	} `json:"allowedTraits,omitempty"`
 
-	// AllowedWorkflows List of allowed ComponentWorkflow names for this component type
-	AllowedWorkflows *[]string `json:"allowedWorkflows,omitempty"`
+	// AllowedWorkflows List of allowed Workflow references for this component type
+	AllowedWorkflows *[]struct {
+		// Kind Kind of the workflow reference. Currently only "Workflow" is supported.
+		Kind *ComponentTypeSpecAllowedWorkflowsKind `json:"kind,omitempty"`
+
+		// Name Name of the workflow resource
+		Name string `json:"name"`
+	} `json:"allowedWorkflows,omitempty"`
 
 	// Resources Templates that generate Kubernetes resources dynamically
 	Resources []struct {
@@ -1269,6 +1294,9 @@ type ComponentTypeSpec struct {
 
 // ComponentTypeSpecAllowedTraitsKind Kind of trait reference
 type ComponentTypeSpecAllowedTraitsKind string
+
+// ComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference. Currently only "Workflow" is supported.
+type ComponentTypeSpecAllowedWorkflowsKind string
 
 // ComponentTypeSpecResourcesTargetPlane Target plane for deployment
 type ComponentTypeSpecResourcesTargetPlane string

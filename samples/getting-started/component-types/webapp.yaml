@@ -9,8 +9,10 @@ spec:
   workloadType: deployment
 
   allowedWorkflows:
-    - react
-    - docker
+    - kind: Workflow
+      name: react
+    - kind: Workflow
+      name: docker
 
   allowedTraits:
     - name: api-configuration
