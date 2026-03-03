@@ -60,7 +60,7 @@ func NewObserverClient(observerURL, token string) *ObserverClient {
 }
 
 // FetchComponentLogs fetches logs for a component from the observer API
-func (c *ObserverClient) FetchComponentLogs(ctx context.Context, componentID string, req ComponentLogsRequest) (*LogResponse, error) {
+func (c *ObserverClient) FetchComponentLogs(ctx context.Context, req ComponentLogsRequest) (*LogResponse, error) {
 	// Build LogsQueryRequest payload according to observer-api.yaml
 	payload := map[string]interface{}{
 		"startTime": req.StartTime,
