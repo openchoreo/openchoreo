@@ -177,15 +177,21 @@ func main() {
 		cfg.Alerting.AIRCAEnabled,
 	)
 
+	// Wrap services with authorization checks.
+	// Both the API handler and MCP handler share the same authz-wrapped instances
+	// so authorization logic is enforced once, in the service layer.
+	authzLogsService := service.NewLogsServiceWithAuthz(logsService, authzClient, logger.With("component", "authz-logs"))
+	authzMetricsService := service.NewMetricsServiceWithAuthz(metricsService, authzClient, logger.With("component", "authz-metrics"))
+	authzTracesService := service.NewTracesServiceWithAuthz(tracesService, authzClient, logger.With("component", "authz-traces"))
+
 	// Initialize new API handler
 	newAPIHandler := apihandler.NewHandler(
 		healthService,
-		logsService,
-		metricsService,
+		authzLogsService,
+		authzMetricsService,
 		alertService,
-		tracesService,
+		authzTracesService,
 		logger.With("component", "api-handler"),
-		authzClient,
 	)
 
 	// ===== Initialize Middlewares =====
@@ -255,13 +261,13 @@ func main() {
 	api.HandleFunc("POST /api/v1alpha1/traces/{traceId}/spans/query", newAPIHandler.QuerySpansForTrace)
 	api.HandleFunc("GET /api/v1alpha1/traces/{traceId}/spans/{spanId}", newAPIHandler.GetSpanDetailsForTrace)
 
-	// Initialize new MCP handler backed by the new service layer
+	// Initialize new MCP handler backed by the authz-wrapped service layer
 	newMCPHandler := observermcp.NewMCPHandler(
 		healthService,
-		logsService,
-		metricsService,
+		authzLogsService,
+		authzMetricsService,
 		alertService,
-		tracesService,
+		authzTracesService,
 		logger.With("component", "mcp-handler"),
 	)
 	newMCPServer := observermcp.NewHTTPServer(newMCPHandler)

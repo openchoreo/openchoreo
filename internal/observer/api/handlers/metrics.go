@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net/http"
 
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/httputil"
@@ -31,66 +30,8 @@ func (h *Handler) QueryMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine authorization context from search scope
-	scope := req.SearchScope
-	var resourceType observerAuthz.ResourceType
-	var resourceName string
-	var hierarchy authzcore.ResourceHierarchy
-
-	if scope.Component != "" {
-		resourceType = observerAuthz.ResourceTypeComponent
-		resourceName = scope.Component
-		hierarchy = authzcore.ResourceHierarchy{
-			Namespace: scope.Namespace,
-			Project:   scope.Project,
-			Component: scope.Component,
-		}
-	} else if scope.Project != "" {
-		resourceType = observerAuthz.ResourceTypeProject
-		resourceName = scope.Project
-		hierarchy = authzcore.ResourceHierarchy{
-			Namespace: scope.Namespace,
-			Project:   scope.Project,
-		}
-	} else {
-		resourceType = observerAuthz.ResourceTypeNamespace
-		resourceName = scope.Namespace
-		hierarchy = authzcore.ResourceHierarchy{
-			Namespace: scope.Namespace,
-		}
-	}
-
-	// AUTHORIZATION CHECK
-	if err := observerAuthz.CheckAuthorization(
-		r.Context(),
-		h.logger,
-		h.authzPDP,
-		observerAuthz.ActionViewMetrics,
-		resourceType,
-		resourceName,
-		hierarchy,
-	); err != nil {
-		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
-			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
-			return
-		}
-		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
-			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
-			return
-		}
-		h.logger.Error("Authorization check failed", "error", err)
-		h.writeErrorResponse(
-			w,
-			http.StatusInternalServerError,
-			gen.InternalServerError,
-			types.ErrorCodeV1MetricsAuthzInternal,
-			"Authorization check failed",
-		)
-		return
-	}
-
 	ctx := r.Context()
-	// Guard against misconfigured deployments after authz.
+	// Guard against misconfigured deployments.
 	if h.metricsService == nil {
 		h.logger.Error("Metrics service is not initialized")
 		h.writeErrorResponse(
@@ -104,6 +45,14 @@ func (h *Handler) QueryMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.metricsService.QueryMetrics(ctx, &req)
 	if err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
+			return
+		}
 		errorCode := types.ErrorCodeV1MetricsInternalGeneric
 		switch {
 		case errors.Is(err, service.ErrMetricsInvalidRequest):

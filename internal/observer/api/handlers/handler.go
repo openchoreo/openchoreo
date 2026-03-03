@@ -7,32 +7,31 @@ import (
 	"log/slog"
 	"net/http"
 
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/httputil"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 )
 
-// Handler contains the HTTP handlers for the new observer API (v1)
+// Handler contains the HTTP handlers for the new observer API (v1).
+// Authorization is enforced by the service layer — pass authz-wrapped services
+// (e.g. service.NewLogsServiceWithAuthz) rather than bare service instances.
 type Handler struct {
 	healthService  *service.HealthService
-	logsService    *service.LogsService
-	metricsService *service.MetricsService
+	logsService    service.LogsQuerier
+	metricsService service.MetricsQuerier
 	alertService   *service.AlertService
-	tracesService  *service.TracesService
+	tracesService  service.TracesQuerier
 	logger         *slog.Logger
-	authzPDP       authzcore.PDP
 }
 
-// NewHandler creates a new handler instance for the new API
+// NewHandler creates a new handler instance for the new API.
 func NewHandler(
 	healthService *service.HealthService,
-	logsService *service.LogsService,
-	metricsService *service.MetricsService,
+	logsService service.LogsQuerier,
+	metricsService service.MetricsQuerier,
 	alertService *service.AlertService,
-	tracesService *service.TracesService,
+	tracesService service.TracesQuerier,
 	logger *slog.Logger,
-	authzPDP authzcore.PDP,
 ) *Handler {
 	return &Handler{
 		healthService:  healthService,
@@ -41,7 +40,6 @@ func NewHandler(
 		alertService:   alertService,
 		tracesService:  tracesService,
 		logger:         logger,
-		authzPDP:       authzPDP,
 	}
 }
 

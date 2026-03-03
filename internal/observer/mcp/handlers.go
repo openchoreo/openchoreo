@@ -9,27 +9,25 @@ import (
 	"log/slog"
 	"time"
 
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 type MCPHandler struct {
 	healthService  *service.HealthService
-	logsService    *service.LogsService
-	metricsService *service.MetricsService
+	logsService    service.LogsQuerier
+	metricsService service.MetricsQuerier
 	alertService   *service.AlertService
-	tracesService  *service.TracesService
+	tracesService  service.TracesQuerier
 	logger         *slog.Logger
-	authzPDP       authzcore.PDP
 }
 
 func NewMCPHandler(
 	healthService *service.HealthService,
-	logsService *service.LogsService,
-	metricsService *service.MetricsService,
+	logsService service.LogsQuerier,
+	metricsService service.MetricsQuerier,
 	alertService *service.AlertService,
-	tracesService *service.TracesService,
+	tracesService service.TracesQuerier,
 	logger *slog.Logger,
 ) *MCPHandler {
 	return &MCPHandler{
