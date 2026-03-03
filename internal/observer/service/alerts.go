@@ -351,9 +351,10 @@ func (s *AlertService) triggerRCAAnalysis(alertID string, alertDetails *legacyty
 	}
 
 	rcaPayload := map[string]interface{}{
-		"componentUid":   alertDetails.ComponentID,
-		"projectUid":     alertDetails.ProjectID,
-		"environmentUid": alertDetails.EnvironmentID,
+		"namespace":   alertDetails.Namespace,
+		"project":     alertDetails.Project,
+		"component":   alertDetails.Component,
+		"environment": alertDetails.Environment,
 		"alert": map[string]interface{}{
 			"id":        alertID,
 			"value":     alertDetails.AlertValue,

@@ -32,6 +32,7 @@ class MCPClient:
             "url": settings.observer_mcp_url,
             "httpx_client_factory": _httpx_client_factory,
             "auth": auth,
+            "headers": {"X-Legacy-MCP": "true"},
         }
         oc_connection: StreamableHttpConnection = {
             "transport": "streamable_http",

@@ -89,8 +89,6 @@ class LoggingMiddleware(AgentMiddleware):
             elapsed,
             content_len,
         )
-        if isinstance(result, ToolMessage):
-            logger.debug("Tool '%s' result content: %s", tool_name, result.content)
         logger.debug("Tool '%s' args: %s", tool_name, tool_args)
 
         return result

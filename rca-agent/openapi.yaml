@@ -2,9 +2,8 @@ openapi: 3.1.0
 info:
   title: OpenChoreo RCA Agent API
   description: |
-    The OpenChoreo RCA Agent API provides conversational chat capabilities for
-    Root Cause Analysis reports. Users can ask follow-up questions about RCA reports
-    and optionally amend reports with new insights discovered during conversation.
+    The OpenChoreo RCA Agent API provides endpoints to trigger RCA, retrieve RCA reports created by the RCA agent and 
+    provides conversational chat capabilities for RCA reports. Users can ask follow-up questions about RCA reports.
   version: 1.0.0
   contact:
     name: OpenChoreo Team
@@ -230,6 +229,56 @@ paths:
                 $ref: '#/components/schemas/RCAReportDetailed'
         '401':
           description: Unauthorized - invalid or missing authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - RCA Reports
+      summary: Update report state (mark actions as applied)
+      description: |
+        Marks the specified remediation actions as `applied` in the stored report.
+        Called by the frontend after successfully applying fixes client-side.
+      operationId: updateReport
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportUpdateRequest'
+      responses:
+        '200':
+          description: Report updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+        '401':
+          description: Unauthorized
           content:
             application/json:
               schema:
@@ -809,7 +858,7 @@ components:
           properties:
             status:
               type: string
-              enum: [suggested, unchanged, revised]
+              enum: [suggested, revised, applied]
               default: suggested
             changes:
               type: array
@@ -819,14 +868,43 @@ components:
 
     ResourceChange:
       type: object
-      required: [resource, field_path, value]
+      required: [release_binding, fields]
       properties:
-        resource:
+        release_binding:
           type: string
-        field_path:
+          description: Name of the ReleaseBinding to modify
+        fields:
+          type: array
+          minItems: 1
+          description: Field-level changes to apply to this ReleaseBinding
+          items:
+            $ref: '#/components/schemas/FieldChange'
+
+    FieldChange:
+      type: object
+      required: [json_pointer, value]
+      properties:
+        json_pointer:
           type: string
+          description: "RFC 6901 JSON Pointer starting with /spec/ and override category. Example: /spec/workloadOverrides/container/env/0/value"
         value:
-          type: string
+          description: Value to set at the JSON Pointer location
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: object
+            - type: array
+
+    ReportUpdateRequest:
+      type: object
+      required: [appliedIndices]
+      properties:
+        appliedIndices:
+          type: array
+          items:
+            type: integer
+          description: Indices of the recommended actions to mark as applied
 
   securitySchemes:
     bearerAuth:

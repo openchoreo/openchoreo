@@ -1372,9 +1372,13 @@ func (s *LoggingService) StoreAlertEntry(ctx context.Context, alertDetails *obse
 		"alert_rule_name": alertDetails.AlertName,
 		"alert_value":     alertDetails.AlertValue,
 		"labels": map[string]interface{}{
-			observerlabels.ComponentID:   alertDetails.ComponentID,
-			observerlabels.EnvironmentID: alertDetails.EnvironmentID,
-			observerlabels.ProjectID:     alertDetails.ProjectID,
+			observerlabels.ComponentID:     alertDetails.ComponentID,
+			observerlabels.EnvironmentID:   alertDetails.EnvironmentID,
+			observerlabels.ProjectID:       alertDetails.ProjectID,
+			observerlabels.NamespaceName:   alertDetails.Namespace,
+			observerlabels.ProjectName:     alertDetails.Project,
+			observerlabels.ComponentName:   alertDetails.Component,
+			observerlabels.EnvironmentName: alertDetails.Environment,
 		},
 		"enable_ai_rca": alertDetails.AlertAIRootCauseAnalysisEnabled,
 	}
@@ -1440,9 +1444,10 @@ func (s *LoggingService) TriggerRCAAnalysis(rcaServiceURL string, alertID string
 
 	// Build the RCA service request payload
 	rcaPayload := map[string]interface{}{
-		"componentUid":   alertDetails.ComponentID,
-		"projectUid":     alertDetails.ProjectID,
-		"environmentUid": alertDetails.EnvironmentID,
+		"namespace":   alertDetails.Namespace,
+		"project":     alertDetails.Project,
+		"component":   alertDetails.Component,
+		"environment": alertDetails.Environment,
 		"alert": map[string]interface{}{
 			"id":        alertID,
 			"value":     alertDetails.AlertValue,
@@ -1552,6 +1557,7 @@ func (s *LoggingService) EnrichAlertDetails(alertRule *choreoapis.ObservabilityA
 		EnvironmentID:                   alertRule.Labels["openchoreo.dev/environment-uid"],
 		ProjectID:                       alertRule.Labels["openchoreo.dev/project-uid"],
 		Component:                       alertRule.Labels["openchoreo.dev/component"],
+		Namespace:                       alertRule.Labels["openchoreo.dev/namespace"],
 		Project:                         alertRule.Labels["openchoreo.dev/project"],
 		Environment:                     alertRule.Labels["openchoreo.dev/environment"],
 		NotificationChannel:             alertRule.Spec.NotificationChannel,

@@ -5,7 +5,7 @@ import asyncio
 import json
 import logging
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 import httpx
@@ -14,6 +14,7 @@ from langchain.agents.middleware import SummarizationMiddleware, TodoListMiddlew
 from langchain.agents.structured_output import ProviderStrategy, StructuredOutputValidationError
 from langchain_core.callbacks import BaseCallbackHandler, UsageMetadataCallbackHandler
 from langchain_core.runnables import Runnable, RunnableConfig
+from langchain_core.tools import BaseTool
 from pydantic import BaseModel
 
 from src.agent.middleware import (
@@ -22,7 +23,13 @@ from src.agent.middleware import (
     ToolErrorHandlerMiddleware,
 )
 from src.agent.stream_parser import ChatResponseParser
-from src.agent.tool_registry import OBSERVABILITY_TOOLS, OPENCHOREO_TOOLS, TOOL_ACTIVE_FORMS, TOOLS
+from src.agent.tool_registry import (
+    ALL_TOOL_FACTORIES,
+    OBSERVABILITY_TOOLS,
+    OPENCHOREO_TOOLS,
+    TOOL_ACTIVE_FORMS,
+    TOOLS,
+)
 from src.auth.bearer import BearerTokenAuth
 from src.auth.oauth_client import get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
@@ -47,6 +54,7 @@ class Agent:
         response_format: type[BaseModel],
         recursion_limit: int,
         use_summarization: bool = False,
+        tool_factories: list[Callable[[httpx.Auth], BaseTool]] | None = None,
     ):
         self.template = template
         self.tools = tools
@@ -55,6 +63,7 @@ class Agent:
         self.model = get_model()
         self._middleware_classes = middleware
         self._use_summarization = use_summarization
+        self._tool_factories = tool_factories or []
 
     async def create(
         self,
@@ -62,10 +71,18 @@ class Agent:
         usage_callback: BaseCallbackHandler | None = None,
         context: dict[str, Any] | None = None,
     ) -> Runnable:
-        mcp_client = MCPClient(auth=auth)
-        all_tools = await mcp_client.get_tools()
-        tools = [t for t in all_tools if t.name in self.tools]
-        logger.debug("Filtered to %d tools: %s", len(tools), [t.name for t in tools])
+        tools: list[BaseTool] = []
+
+        if self.tools:
+            mcp_client = MCPClient(auth=auth)
+            all_tools = await mcp_client.get_tools()
+            tools = [t for t in all_tools if t.name in self.tools]
+            logger.debug("Filtered to %d MCP tools: %s", len(tools), [t.name for t in tools])
+
+        for factory in self._tool_factories:
+            tools.append(factory(auth))
+
+        logger.debug("Total tools: %d — %s", len(tools), [t.name for t in tools])
 
         template_context = {
             "tools": tools,
@@ -118,13 +135,8 @@ RCA_AGENT = Agent(
 
 REMED_AGENT = Agent(
     template="prompts/remed_agent_prompt.j2",
-    tools={
-        TOOLS.LIST_COMPONENTS,
-        TOOLS.LIST_RELEASE_BINDINGS,
-        TOOLS.GET_COMPONENT_RELEASE_SCHEMA,
-        TOOLS.GET_COMPONENT_WORKLOADS,
-        TOOLS.LIST_COMPONENT_TRAITS,
-    },
+    tools=set(),
+    tool_factories=ALL_TOOL_FACTORIES,
     middleware=[
         LoggingMiddleware,
         ToolErrorHandlerMiddleware,

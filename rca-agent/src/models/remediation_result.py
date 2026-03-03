@@ -2,34 +2,49 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from enum import StrEnum
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ActionStatus(StrEnum):
-    UNCHANGED = "unchanged"
+    SUGGESTED = "suggested"
     REVISED = "revised"
+    APPLIED = "applied"
+
+
+class FieldChange(BaseModel):
+    """A single field-level change within a ReleaseBinding, identified by JSON Pointer"""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    json_pointer: str = Field(
+        ...,
+        alias="jsonPointer",
+        description=(
+            "RFC 6901 JSON Pointer starting with /spec/ followed by override category. "
+            "Use numeric indices for arrays, or '-' to append. "
+            "Example: '/spec/workloadOverrides/container/env/0/value'"
+        ),
+    )
+    value: Any = Field(..., description="Value to set at the JSON Pointer location")
 
 
 class ResourceChange(BaseModel):
-    """A specific change to make on an OpenChoreo resource"""
+    """A set of field changes to apply to a specific ReleaseBinding"""
 
-    resource: str = Field(
+    release_binding: str = Field(
         ...,
-        description="Resource kind and name (e.g. 'ReleaseBinding api-service-development')",
+        description="Name of the ReleaseBinding to modify (e.g. 'api-service-development')",
     )
-    field_path: str = Field(
+    fields: list[FieldChange] = Field(
         ...,
-        description=(
-            "Field path to update"
-            " (e.g. 'spec.workloadOverrides.container.env[name=POSTGRES_DSN].value')"
-        ),
+        description="Field-level changes to apply to this ReleaseBinding",
     )
-    value: str = Field(..., description="Recommended value to set")
 
 
 class RemediationAction(BaseModel):
-    """A recommended action translated into how to do it in OpenChoreo"""
+    """A recommended action — either kept as suggested or revised with concrete OpenChoreo changes"""
 
     description: str = Field(..., description="Description of the remediation action")
     rationale: str | None = Field(
@@ -38,16 +53,16 @@ class RemediationAction(BaseModel):
     )
     status: ActionStatus = Field(
         ...,
-        description="'unchanged' if kept as-is, 'revised' if translated into how to do it in OpenChoreo",
+        description="'suggested' if kept as-is, 'revised' if translated into concrete OpenChoreo guidance",
     )
     changes: list[ResourceChange] = Field(
         default_factory=list,
-        description="Specific resource changes to make. Empty when status is 'unchanged'",
+        description="Specific field changes to make. Empty when status is 'suggested'",
     )
 
 
 class RemediationResult(BaseModel):
-    """Revised recommended actions from the remediation agent"""
+    """Structured output from the remediation agent"""
 
     recommended_actions: list[RemediationAction] = Field(
         ...,

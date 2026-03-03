@@ -110,3 +110,53 @@ async def get_rca_report(
         status=result["status"],
         report=result.get("report"),
     )
+
+
+class ReportUpdateRequest(BaseModel):
+    applied_indices: list[int] = Field(alias="appliedIndices")
+    model_config = ConfigDict(populate_by_name=True)
+
+
+@router.put("/{report_id}")
+async def update_report(
+    report_id: str,
+    body: ReportUpdateRequest,
+    _auth: Annotated[SubjectContext, Depends(require_authn)],
+    _authz: Annotated[SubjectContext, Depends(require_reports_authz)],
+):
+    logger.info(
+        "Updating report %s: marking actions %s as applied", report_id, body.applied_indices
+    )
+    await _mark_actions_applied(report_id, set(body.applied_indices))
+    return {"status": "ok"}
+
+
+async def _mark_actions_applied(report_id: str, applied_indices: set[int]) -> None:
+    report_backend = get_report_backend()
+    stored = await report_backend.get_rca_report(report_id)
+    if not stored:
+        logger.warning("Cannot update action statuses: report %s not found", report_id)
+        return
+
+    actions = (
+        stored.get("report", {})
+        .get("result", {})
+        .get("recommendations", {})
+        .get("recommended_actions", [])
+    )
+
+    changed = False
+    for i, action in enumerate(actions):
+        if i in applied_indices and action.get("status") == "revised":
+            action["status"] = "applied"
+            changed = True
+
+    if changed:
+        await report_backend.upsert_rca_report(
+            report_id=stored["reportId"],
+            alert_id=stored["alertId"],
+            status=stored["status"],
+            report=stored["report"],
+            environment_uid=stored.get("resource", {}).get("openchoreo.dev/environment-uid"),
+            project_uid=stored.get("resource", {}).get("openchoreo.dev/project-uid"),
+        )
