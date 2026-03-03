@@ -184,30 +184,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Resolve SecretReference for CEL context when annotation provides a secretRef mapping.
-	var secretRefInfo *workflowpipeline.SecretRefInfo
-	paramMap := controller.ParseWorkflowParameterAnnotation(workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters])
-	if secretRefPath, ok := paramMap["secretRef"]; ok {
-		secretRefName, found, err := getNestedStringFromRawExtension(workflowRun.Spec.Workflow.Parameters, secretRefPath)
-		if err != nil {
-			logger.Error(err, "failed to resolve secretRef from workflow run parameters",
-				"workflow", workflow.Name,
-				"workflowRun", workflowRun.Name,
-				"secretRefPath", secretRefPath)
-			return ctrl.Result{Requeue: true}, nil
-		}
-		if found && secretRefName != "" {
-			secretRefInfo, err = r.resolveSecretRefInfo(ctx, workflowRun.Namespace, secretRefName)
-			if err != nil {
-				logger.Error(err, "failed to resolve SecretReference for workflow context",
-					"workflow", workflow.Name,
-					"workflowRun", workflowRun.Name,
-					"secretRef", secretRefName)
-				return ctrl.Result{Requeue: true}, nil
-			}
-		}
-	}
-
 	renderInput := &workflowpipeline.RenderInput{
 		WorkflowRun: workflowRun,
 		Workflow:    workflow,
@@ -215,13 +191,34 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			NamespaceName:   workflowRun.Namespace,
 			WorkflowRunName: workflowRun.Name,
 			Labels:          workflowRun.Labels,
-			SecretRef:       secretRefInfo,
 		},
+	}
+
+	// Resolve contextRefs if declared in the Workflow spec.
+	if len(workflow.Spec.ContextRefs) > 0 {
+		// Build a preliminary CEL context with metadata and parameters for evaluating ref names.
+		preliminaryContext, err := r.Pipeline.BuildCELContext(renderInput)
+		if err != nil {
+			logger.Error(err, "failed to build preliminary CEL context for contextRefs",
+				"workflow", workflow.Name,
+				"workflowRun", workflowRun.Name)
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		contextRefs, err := r.resolveContextRefs(ctx, workflow.Spec.ContextRefs, preliminaryContext, workflowRun.Namespace)
+		if err != nil {
+			logger.Error(err, "failed to resolve contextRefs",
+				"workflow", workflow.Name,
+				"workflowRun", workflowRun.Name)
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		renderInput.Context.ContextRefs = contextRefs
 	}
 
 	output, err := r.Pipeline.Render(renderInput)
 	if err != nil {
-		logger.Error(err, "failed to render component workflow")
+		logger.Error(err, "failed to render workflow")
 		return ctrl.Result{Requeue: true}, nil
 	}
 

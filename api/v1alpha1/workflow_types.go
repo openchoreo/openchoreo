@@ -67,6 +67,14 @@ type WorkflowSpec struct {
 	// +optional
 	Resources []WorkflowResource `json:"resources,omitempty"`
 
+	// ContextRefs declares references to external CRs that are resolved at runtime
+	// and injected into the CEL context under their id.
+	// If a reference's name evaluates to empty, it is silently skipped.
+	// +optional
+	// +listType=map
+	// +listMapKey=id
+	ContextRefs []ContextRef `json:"contextRefs,omitempty"`
+
 	// TTLAfterCompletion defines the time-to-live for WorkflowRun instances after completion.
 	// Once a WorkflowRun completes, it will be automatically deleted after this duration.
 	// Format: duration string supporting days, hours, minutes, seconds without spaces (e.g., "90d", "10d1h30m", "1h30m")
@@ -132,6 +140,36 @@ type WorkflowResource struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
 	Template *runtime.RawExtension `json:"template"`
+}
+
+// ContextRef declares a reference to an external CR whose spec is resolved
+// and injected into the CEL context under the given id.
+type ContextRef struct {
+	// ID uniquely identifies this context reference within the workflow.
+	// The resolved CR's spec is injected into the CEL context under this name.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=2
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z][a-z0-9-]*[a-z0-9]$`
+	ID string `json:"id"`
+
+	// APIVersion is the API version of the referenced resource.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	APIVersion string `json:"apiVersion"`
+
+	// Kind is the kind of the referenced resource.
+	// Currently only SecretReference is supported.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=SecretReference
+	Kind string `json:"kind"`
+
+	// Name is the name of the referenced resource.
+	// Supports CEL expressions (e.g., ${parameters.repository.secretRef}).
+	// If the name evaluates to empty, the reference is silently skipped.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 // WorkflowStatus defines the observed state of Workflow.

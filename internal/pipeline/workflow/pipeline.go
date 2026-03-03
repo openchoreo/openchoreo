@@ -37,7 +37,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Warnings: []string{},
 	}
 
-	celContext, err := p.buildCELContext(input)
+	celContext, err := p.BuildCELContext(input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build CEL context: %w", err)
 	}
@@ -193,8 +193,8 @@ func shouldSkipResource(resource map[string]any) bool {
 	return false
 }
 
-// buildCELContext builds the CEL evaluation context with metadata.* and parameters.* variables.
-func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
+// BuildCELContext builds the CEL evaluation context with metadata.*, parameters.*, and contextRefs variables.
+func (p *Pipeline) BuildCELContext(input *RenderInput) (map[string]any, error) {
 	// Enforced namespace
 	ciNamespace := fmt.Sprintf("openchoreo-ci-%s", input.Context.NamespaceName)
 
@@ -217,40 +217,17 @@ func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 		return nil, fmt.Errorf("failed to build parameters: %w", err)
 	}
 
-	return map[string]any{
+	celContext := map[string]any{
 		"metadata":   metadata,
 		"parameters": parameters,
-		"secretRef":  buildSecretRefCELContext(input.Context.SecretRef),
-	}, nil
-}
-
-// buildSecretRefCELContext converts optional resolved secret reference data into CEL context shape.
-// If no valid secret reference is provided, empty defaults are returned to keep template access safe.
-func buildSecretRefCELContext(secretRef *SecretRefInfo) map[string]any {
-	if secretRef == nil || secretRef.Name == "" || len(secretRef.Data) == 0 {
-		return map[string]any{
-			"name": "",
-			"type": "",
-			"data": []map[string]any{},
-		}
 	}
 
-	dataArray := make([]map[string]any, len(secretRef.Data))
-	for i, d := range secretRef.Data {
-		dataArray[i] = map[string]any{
-			"secretKey": d.SecretKey,
-			"remoteRef": map[string]any{
-				"key":      d.RemoteRef.Key,
-				"property": d.RemoteRef.Property,
-			},
-		}
+	// Inject resolved contextRefs as a container map accessible via contextRefs['id']
+	if len(input.Context.ContextRefs) > 0 {
+		celContext["contextRefs"] = input.Context.ContextRefs
 	}
 
-	return map[string]any{
-		"name": secretRef.Name,
-		"type": secretRef.Type,
-		"data": dataArray,
-	}
+	return celContext, nil
 }
 
 // buildParameters builds the developer parameters with defaults applied from the Workflow schema.

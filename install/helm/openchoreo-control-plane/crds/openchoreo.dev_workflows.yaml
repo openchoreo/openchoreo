@@ -62,6 +62,53 @@ spec:
                 - kind
                 - name
                 type: object
+              contextRefs:
+                description: |-
+                  ContextRefs declares references to external CRs that are resolved at runtime
+                  and injected into the CEL context under their id.
+                  If a reference's name evaluates to empty, it is silently skipped.
+                items:
+                  description: |-
+                    ContextRef declares a reference to an external CR whose spec is resolved
+                    and injected into the CEL context under the given id.
+                  properties:
+                    apiVersion:
+                      description: APIVersion is the API version of the referenced
+                        resource.
+                      minLength: 1
+                      type: string
+                    id:
+                      description: |-
+                        ID uniquely identifies this context reference within the workflow.
+                        The resolved CR's spec is injected into the CEL context under this name.
+                      maxLength: 63
+                      minLength: 2
+                      pattern: ^[a-z][a-z0-9-]*[a-z0-9]$
+                      type: string
+                    kind:
+                      description: |-
+                        Kind is the kind of the referenced resource.
+                        Currently only SecretReference is supported.
+                      enum:
+                      - SecretReference
+                      type: string
+                    name:
+                      description: |-
+                        Name is the name of the referenced resource.
+                        Supports CEL expressions (e.g., ${parameters.repository.secretRef}).
+                        If the name evaluates to empty, the reference is silently skipped.
+                      minLength: 1
+                      type: string
+                  required:
+                  - apiVersion
+                  - id
+                  - kind
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
               resources:
                 description: |-
                   Resources are additional templates that generate Kubernetes resources dynamically

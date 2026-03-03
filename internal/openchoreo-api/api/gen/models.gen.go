@@ -150,6 +150,11 @@ const (
 	ConditionStatusUnknown ConditionStatus = "Unknown"
 )
 
+// Defines values for ContextRefKind.
+const (
+	ContextRefKindSecretReference ContextRefKind = "SecretReference"
+)
+
 // Defines values for CreateClusterRoleBindingRequestEffect.
 const (
 	CreateClusterRoleBindingRequestEffectAllow CreateClusterRoleBindingRequestEffect = "allow"
@@ -1410,6 +1415,24 @@ type ContainerOverride struct {
 	Env   *[]EnvVar  `json:"env,omitempty"`
 	Files *[]FileVar `json:"files,omitempty"`
 }
+
+// ContextRef Reference to an external CR whose spec is resolved and injected into the CEL context under the given id.
+type ContextRef struct {
+	// ApiVersion API version of the referenced resource.
+	ApiVersion string `json:"apiVersion"`
+
+	// Id Unique identifier; becomes the CEL context variable name.
+	Id string `json:"id"`
+
+	// Kind Kind of the referenced resource.
+	Kind ContextRefKind `json:"kind"`
+
+	// Name Name of the referenced resource (supports CEL expressions).
+	Name string `json:"name"`
+}
+
+// ContextRefKind Kind of the referenced resource.
+type ContextRefKind string
 
 // CreateClusterRoleBindingRequest Request to create a cluster-scoped role binding (legacy)
 type CreateClusterRoleBindingRequest struct {
@@ -3252,6 +3275,9 @@ type WorkflowSchema struct {
 type WorkflowSpec struct {
 	// BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
 	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
+
+	// ContextRefs External CR references resolved and injected into the CEL context under their id.
+	ContextRefs *[]ContextRef `json:"contextRefs,omitempty"`
 
 	// Resources Additional resource templates to render and apply alongside the workflow run.
 	Resources *[]WorkflowResource `json:"resources,omitempty"`
