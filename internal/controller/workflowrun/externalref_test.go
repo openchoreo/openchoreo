@@ -13,7 +13,7 @@ import (
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-func TestResolveContextRefs(t *testing.T) {
+func TestResolveExternalRefs(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := openchoreodevv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add scheme: %v", err)
@@ -75,12 +75,12 @@ func TestResolveContextRefs(t *testing.T) {
 		},
 	}
 
-	t.Run("resolves single SecretReference contextRef", func(t *testing.T) {
+	t.Run("resolves single SecretReference externalRef", func(t *testing.T) {
 		reconciler := &Reconciler{
 			Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(secretRef).Build(),
 		}
 
-		refs := []openchoreodevv1alpha1.ContextRef{
+		refs := []openchoreodevv1alpha1.ExternalRef{
 			{
 				ID:         "git-secret-reference",
 				APIVersion: "openchoreo.dev/v1alpha1",
@@ -89,7 +89,7 @@ func TestResolveContextRefs(t *testing.T) {
 			},
 		}
 
-		result, err := reconciler.resolveContextRefs(t.Context(), refs, celContext, "default")
+		result, err := reconciler.resolveExternalRefs(t.Context(), refs, celContext, "default")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -118,12 +118,12 @@ func TestResolveContextRefs(t *testing.T) {
 		}
 	})
 
-	t.Run("resolves multiple contextRefs", func(t *testing.T) {
+	t.Run("resolves multiple externalRefs", func(t *testing.T) {
 		reconciler := &Reconciler{
 			Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(secretRef, pushSecretRef).Build(),
 		}
 
-		refs := []openchoreodevv1alpha1.ContextRef{
+		refs := []openchoreodevv1alpha1.ExternalRef{
 			{
 				ID:         "git-secret-reference",
 				APIVersion: "openchoreo.dev/v1alpha1",
@@ -138,7 +138,7 @@ func TestResolveContextRefs(t *testing.T) {
 			},
 		}
 
-		result, err := reconciler.resolveContextRefs(t.Context(), refs, celContext, "default")
+		result, err := reconciler.resolveExternalRefs(t.Context(), refs, celContext, "default")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -155,7 +155,7 @@ func TestResolveContextRefs(t *testing.T) {
 		}
 	})
 
-	t.Run("skips contextRef when name evaluates to empty", func(t *testing.T) {
+	t.Run("skips externalRef when name evaluates to empty", func(t *testing.T) {
 		reconciler := &Reconciler{
 			Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
 		}
@@ -169,7 +169,7 @@ func TestResolveContextRefs(t *testing.T) {
 			},
 		}
 
-		refs := []openchoreodevv1alpha1.ContextRef{
+		refs := []openchoreodevv1alpha1.ExternalRef{
 			{
 				ID:         "git-secret-reference",
 				APIVersion: "openchoreo.dev/v1alpha1",
@@ -178,7 +178,7 @@ func TestResolveContextRefs(t *testing.T) {
 			},
 		}
 
-		result, err := reconciler.resolveContextRefs(t.Context(), refs, emptyContext, "default")
+		result, err := reconciler.resolveExternalRefs(t.Context(), refs, emptyContext, "default")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -193,7 +193,7 @@ func TestResolveContextRefs(t *testing.T) {
 			Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
 		}
 
-		refs := []openchoreodevv1alpha1.ContextRef{
+		refs := []openchoreodevv1alpha1.ExternalRef{
 			{
 				ID:         "git-secret-reference",
 				APIVersion: "openchoreo.dev/v1alpha1",
@@ -202,7 +202,7 @@ func TestResolveContextRefs(t *testing.T) {
 			},
 		}
 
-		_, err := reconciler.resolveContextRefs(t.Context(), refs, celContext, "default")
+		_, err := reconciler.resolveExternalRefs(t.Context(), refs, celContext, "default")
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -216,7 +216,7 @@ func TestResolveContextRefs(t *testing.T) {
 			Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
 		}
 
-		refs := []openchoreodevv1alpha1.ContextRef{
+		refs := []openchoreodevv1alpha1.ExternalRef{
 			{
 				ID:         "some-ref",
 				APIVersion: "v1",
@@ -231,26 +231,26 @@ func TestResolveContextRefs(t *testing.T) {
 			"parameters": map[string]any{},
 		}
 
-		_, err := reconciler.resolveContextRefs(t.Context(), refs, literalContext, "default")
+		_, err := reconciler.resolveExternalRefs(t.Context(), refs, literalContext, "default")
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !contains(err.Error(), "unsupported contextRef kind") {
+		if !contains(err.Error(), "unsupported externalRef kind") {
 			t.Fatalf("expected unsupported kind error, got %v", err)
 		}
 	})
 
-	t.Run("returns nil for empty contextRefs", func(t *testing.T) {
+	t.Run("returns nil for empty externalRefs", func(t *testing.T) {
 		reconciler := &Reconciler{
 			Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
 		}
 
-		result, err := reconciler.resolveContextRefs(t.Context(), nil, celContext, "default")
+		result, err := reconciler.resolveExternalRefs(t.Context(), nil, celContext, "default")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if result != nil {
-			t.Fatalf("expected nil result for empty contextRefs, got %v", result)
+			t.Fatalf("expected nil result for empty externalRefs, got %v", result)
 		}
 	})
 
@@ -259,7 +259,7 @@ func TestResolveContextRefs(t *testing.T) {
 			Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(secretRef).Build(),
 		}
 
-		refs := []openchoreodevv1alpha1.ContextRef{
+		refs := []openchoreodevv1alpha1.ExternalRef{
 			{
 				ID:         "git-secret-reference",
 				APIVersion: "openchoreo.dev/v1alpha1",
@@ -268,7 +268,7 @@ func TestResolveContextRefs(t *testing.T) {
 			},
 		}
 
-		result, err := reconciler.resolveContextRefs(t.Context(), refs, celContext, "default")
+		result, err := reconciler.resolveExternalRefs(t.Context(), refs, celContext, "default")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

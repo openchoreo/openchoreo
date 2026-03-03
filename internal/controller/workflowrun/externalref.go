@@ -14,28 +14,28 @@ import (
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
-// resolveContextRefs resolves each contextRef declared in the Workflow spec.
+// resolveExternalRefs resolves each externalRef declared in the Workflow spec.
 // For each ref whose name evaluates to a non-empty string, it fetches the
 // referenced CR from the cluster and returns its spec keyed by the ref's id.
 // Refs whose name evaluates to empty are silently skipped.
-func (r *Reconciler) resolveContextRefs(
+func (r *Reconciler) resolveExternalRefs(
 	ctx context.Context,
-	contextRefs []openchoreodevv1alpha1.ContextRef,
+	externalRefs []openchoreodevv1alpha1.ExternalRef,
 	celContext map[string]any,
 	namespace string,
 ) (map[string]any, error) {
-	if len(contextRefs) == 0 {
+	if len(externalRefs) == 0 {
 		return nil, nil
 	}
 
 	engine := template.NewEngine()
-	resolved := make(map[string]any, len(contextRefs))
+	resolved := make(map[string]any, len(externalRefs))
 
-	for _, ref := range contextRefs {
+	for _, ref := range externalRefs {
 		// Evaluate the name field which may contain CEL expressions
-		name, err := evaluateContextRefName(engine, ref.Name, celContext)
+		name, err := evaluateExternalRefName(engine, ref.Name, celContext)
 		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate name for contextRef %q: %w", ref.ID, err)
+			return nil, fmt.Errorf("failed to evaluate name for externalRef %q: %w", ref.ID, err)
 		}
 
 		// Skip refs with empty names
@@ -43,9 +43,9 @@ func (r *Reconciler) resolveContextRefs(
 			continue
 		}
 
-		specData, err := r.fetchContextRefSpec(ctx, ref, name, namespace)
+		specData, err := r.fetchExternalRefSpec(ctx, ref, name, namespace)
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve contextRef %q: %w", ref.ID, err)
+			return nil, fmt.Errorf("failed to resolve externalRef %q: %w", ref.ID, err)
 		}
 
 		resolved[ref.ID] = map[string]any{
@@ -56,10 +56,10 @@ func (r *Reconciler) resolveContextRefs(
 	return resolved, nil
 }
 
-// evaluateContextRefName renders a contextRef name string through the template engine.
+// evaluateExternalRefName renders an externalRef name string through the template engine.
 // The name may contain CEL expressions like ${parameters.repository.secretRef}.
 // Returns the evaluated string, or empty string if the expression evaluates to empty.
-func evaluateContextRefName(engine *template.Engine, name string, celContext map[string]any) (string, error) {
+func evaluateExternalRefName(engine *template.Engine, name string, celContext map[string]any) (string, error) {
 	result, err := engine.Render(name, celContext)
 	if err != nil {
 		return "", err
@@ -73,10 +73,10 @@ func evaluateContextRefName(engine *template.Engine, name string, celContext map
 	return str, nil
 }
 
-// fetchContextRefSpec fetches the referenced CR and returns its spec as a map.
-func (r *Reconciler) fetchContextRefSpec(
+// fetchExternalRefSpec fetches the referenced CR and returns its spec as a map.
+func (r *Reconciler) fetchExternalRefSpec(
 	ctx context.Context,
-	ref openchoreodevv1alpha1.ContextRef,
+	ref openchoreodevv1alpha1.ExternalRef,
 	name string,
 	namespace string,
 ) (map[string]any, error) {
@@ -84,7 +84,7 @@ func (r *Reconciler) fetchContextRefSpec(
 	case "SecretReference":
 		return r.fetchSecretReferenceSpec(ctx, name, namespace)
 	default:
-		return nil, fmt.Errorf("unsupported contextRef kind %q, only SecretReference is supported", ref.Kind)
+		return nil, fmt.Errorf("unsupported externalRef kind %q, only SecretReference is supported", ref.Kind)
 	}
 }
 

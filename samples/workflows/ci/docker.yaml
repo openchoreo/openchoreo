@@ -23,7 +23,7 @@ spec:
   # ${metadata.labels['key']}                - WorkflowRun labels (e.g., openchoreo.dev/project, openchoreo.dev/component)
   # ${parameters.repository.*}               - Repository parameters (url, revision, appPath, secretRef)
   # ${parameters.*}                          - Custom developer parameters defined in schema
-  # ${contextRefs['id'].spec.*}              - Resolved external CR spec from contextRefs declarations
+  # ${externalRefs['id'].spec.*}              - Resolved external CR spec from externalRefs declarations
 
   # Time-to-live for completed workflow runs - Automatically cleans up workflow resources after the specified duration
   # Format is a duration string without spaces (e.g., "1d" for 1 day, "12h" for 12 hours, "10d12h30m" for 10 days, 12 hours, and 30 minutes)
@@ -97,7 +97,7 @@ spec:
 
   # Additional Kubernetes resources created alongside the workflow
   # These resources are deployed to the build plane namespace before the workflow executes
-  contextRefs:
+  externalRefs:
     - id: git-secret-reference
       apiVersion: openchoreo.dev/v1alpha1
       kind: SecretReference
@@ -123,11 +123,11 @@ spec:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
             template:
-              type: ${contextRefs['git-secret-reference'].spec.template.type}
+              type: ${externalRefs['git-secret-reference'].spec.template.type}
           # CEL expression that dynamically maps data array from the resolved SecretReference CR
           # Uses oc_omit() to exclude empty property fields from the final manifest
           data: |
-            ${contextRefs['git-secret-reference'].spec.data.map(secret, {
+            ${externalRefs['git-secret-reference'].spec.data.map(secret, {
               "secretKey": secret.secretKey,
               "remoteRef": {
                 "key": secret.remoteRef.key,

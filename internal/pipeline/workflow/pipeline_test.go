@@ -1117,8 +1117,8 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 	}
 }
 
-func TestPipeline_Render_ContextRefVariables(t *testing.T) {
-	t.Run("contextRef variables rendered correctly via container map", func(t *testing.T) {
+func TestPipeline_Render_ExternalRefVariables(t *testing.T) {
+	t.Run("externalRef variables rendered correctly via container map", func(t *testing.T) {
 		input := &RenderInput{
 			WorkflowRun: &v1alpha1.WorkflowRun{
 				Spec: v1alpha1.WorkflowRunSpec{
@@ -1136,10 +1136,10 @@ func TestPipeline_Render_ContextRefVariables(t *testing.T) {
 							"name": "context-ref-test",
 						},
 						"data": map[string]interface{}{
-							"secret_type":       "${contextRefs['git-secret-reference'].spec.template.type}",
-							"first_secret_key":  "${contextRefs['git-secret-reference'].spec.data[0].secretKey}",
-							"first_remote_key":  "${contextRefs['git-secret-reference'].spec.data[0].remoteRef.key}",
-							"first_remote_prop": "${contextRefs['git-secret-reference'].spec.data[0].remoteRef.property}",
+							"secret_type":       "${externalRefs['git-secret-reference'].spec.template.type}",
+							"first_secret_key":  "${externalRefs['git-secret-reference'].spec.data[0].secretKey}",
+							"first_remote_key":  "${externalRefs['git-secret-reference'].spec.data[0].remoteRef.key}",
+							"first_remote_prop": "${externalRefs['git-secret-reference'].spec.data[0].remoteRef.property}",
 						},
 					}),
 				},
@@ -1147,7 +1147,7 @@ func TestPipeline_Render_ContextRefVariables(t *testing.T) {
 			Context: WorkflowContext{
 				NamespaceName:   "test-namespace",
 				WorkflowRunName: "test-run",
-				ContextRefs: map[string]any{
+				ExternalRefs: map[string]any{
 					"git-secret-reference": map[string]any{
 						"spec": map[string]any{
 							"template": map[string]any{
@@ -1296,7 +1296,7 @@ func TestPipeline_Render_ContextRefVariables(t *testing.T) {
 		}
 	})
 
-	t.Run("rendering works without contextRefs", func(t *testing.T) {
+	t.Run("rendering works without externalRefs", func(t *testing.T) {
 		input := &RenderInput{
 			WorkflowRun: &v1alpha1.WorkflowRun{
 				Spec: v1alpha1.WorkflowRunSpec{
