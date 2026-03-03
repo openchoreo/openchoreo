@@ -1,12 +1,12 @@
-# Workflow Samples
+# CI Workflow Samples
 
-This directory contains reusable Workflow definitions that define how OpenChoreo builds applications from source code. Workflows are specialized templates for component builds that integrate with the Build Plane (Argo Workflows) to automate the containerization of your applications.
+This directory contains reusable Workflow definitions that define how OpenChoreo builds applications from source code. CI Workflows are specialized templates for component builds that integrate with the Build Plane (Argo Workflows) to automate the containerization of your applications.
 
 ---
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [How Workflows Work](#how-workflows-work)
+2. [How CI Workflows Work](#how-ci-workflows-work)
     - [Key Concepts](#key-concepts)
     - [Referencing Build Plane Templates](#referencing-build-plane-templates)
 3. [Available Workflows](#available-workflows)
@@ -28,7 +28,7 @@ This directory contains reusable Workflow definitions that define how OpenChoreo
 ---
 ## Overview
 
-In OpenChoreo, a **Workflow** is a Custom Resource that:
+In OpenChoreo, a CI **Workflow** is a Custom Resource that:
 
 1. **Defines a build strategy** - Specifies how to build and containerize your application (Docker, Buildpacks, etc.)
 2. **Provides structured system parameters** - Required repository configuration for build automation features (webhooks, auto-build, UI actions)
@@ -36,7 +36,9 @@ In OpenChoreo, a **Workflow** is a Custom Resource that:
 4. **Templates Argo Workflows** - Generates the actual Argo Workflow resources that execute in the Build Plane
 5. **Enforces governance** - Platform Engineers control hardcoded parameters (registry URLs, timeouts, security settings)
 
-## How Workflows Work
+CI Workflows carry the annotation `openchoreo.dev/workflow-scope: component` and the `openchoreo.dev/component-workflow-parameters` annotation that maps repository fields for webhook and auto-build integration.
+
+## How CI Workflows Work
 
 ### Key Concepts
 
@@ -255,11 +257,11 @@ spec:
 Deploy a workflow to your control plane:
 
 ```bash
-# Deploy all workflows
-kubectl apply -f samples/component-workflows/
+# Deploy all CI workflows
+kubectl apply -f samples/workflows/ci/
 
 # Deploy a specific workflow
-kubectl apply -f samples/component-workflows/docker.yaml
+kubectl apply -f samples/workflows/ci/docker.yaml
 ```
 
 Verify the workflow is available:
@@ -335,7 +337,7 @@ When triggered via the API or webhooks, these labels are set automatically.
 
 ### Repository Parameters (Required Structure)
 
-Workflows define repository parameters for build automation:
+CI Workflows define repository parameters for build automation:
 
 ```yaml
 parameters:
@@ -440,71 +442,9 @@ schema:
 - **Built-in arrays**: `[]string`, `[]integer`, `[]boolean`
 - **Nested types**: Types can reference other types (e.g., `ResourceRequirements` references `ResourceQuantity`)
 
-### Example: Complete Schema with Types
-
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
-metadata:
-  name: example-workflow
-spec:
-  schema:
-    # Define reusable types
-    types:
-      Endpoint:
-        name: "string"
-        port: "integer"
-        type: "string | enum=REST,HTTP,TCP,UDP"
-
-      ResourceRequirements:
-        requests: "ResourceQuantity"
-        limits: "ResourceQuantity"
-
-      ResourceQuantity:
-        cpu: "string | default=100m"
-        memory: "string | default=256Mi"
-
-    parameters:
-      repository:
-        url: string
-        revision:
-          branch: string | default=main
-          commit: string
-        appPath: string | default=.
-      # Use custom types
-      endpoints: '[]Endpoint | default=[] description="Service endpoints"'
-      resources: "ResourceRequirements | default={}"
-
-      # Regular parameters
-      version: integer | default=1
-      buildArgs: '[]string | default=[]'
-```
-
-### Accessing Typed Parameters in Templates
-
-Typed parameters can be accessed in the `runTemplate` just like any other parameter:
-
-```yaml
-spec:
-  runTemplate:
-    apiVersion: argoproj.io/v1alpha1
-    kind: Workflow
-    spec:
-      arguments:
-        parameters:
-          # Access array of custom type
-          - name: endpoints
-            value: ${parameters.endpoints}
-
-          - name: resources
-            value: ${parameters.resources}
-```
-
-**Note**: Complex types (arrays and objects) are automatically converted to JSON strings when passed to Argo Workflow parameters, as Argo expects scalar string values.
-
 ## Working with Private Repositories
 
-All default Workflows support cloning from private Git repositories that require authentication. Private repository support is built-in and works seamlessly with GitHub, GitLab, Bitbucket, and AWS CodeCommit.
+All default CI Workflows support cloning from private Git repositories that require authentication. Private repository support is built-in and works seamlessly with GitHub, GitLab, Bitbucket, and AWS CodeCommit.
 
 ### How It Works
 
@@ -537,7 +477,7 @@ Use the OpenChoreo API to create git secrets that will be automatically synced t
 For most git providers (GitHub, GitLab, Bitbucket):
 
 ```bash
-# Create secret with token only 
+# Create secret with token only
 curl -X POST http://openchoreo-api/api/v1/namespaces/default/git-secrets \
   -H "Content-Type: application/json" \
   -d '{
@@ -782,6 +722,6 @@ This ensures developers can only use approved build workflows for each component
 
 ## See Also
 
-- **[Build from Source Samples](../from-source/)** - Complete examples using these workflows
-- **[Component Samples](../component-types/)** - Low-level component examples
-- **[Workflow Discussion](../../discussions/component-workflows/)** - Design rationale and architecture details
+- **[Build from Source Samples](../../from-source/)** - Complete examples using these workflows
+- **[Component Samples](../../component-types/)** - Low-level component examples
+- **[Generic Workflow Samples](../generic/)** - Standalone automation workflows

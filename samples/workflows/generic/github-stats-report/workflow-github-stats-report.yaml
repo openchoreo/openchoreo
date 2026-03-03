@@ -1,0 +1,43 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workflow
+metadata:
+  name: github-stats-report
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Fetch GitHub repository statistics, transform the data, and generate a formatted report"
+spec:
+  # Template Variable Reference (processed by controller):
+  # ${metadata.workflowRunName}  - WorkflowRun CR name
+  # ${metadata.namespaceName}    - Namespace name
+  # ${parameters.*}              - Values from the schema below
+
+  # Time-to-live for completed workflow runs
+  ttlAfterCompletion: "1d"
+
+  schema:
+    parameters:
+      source:
+        org: string | default="openchoreo" description="GitHub organization name"
+        repo: string | default="openchoreo" description="GitHub repository name"
+      output:
+        format: string | default="table" enum=table,json description="Report output format"
+
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.namespaceName}
+    spec:
+      arguments:
+        parameters:
+          - name: org
+            value: ${parameters.source.org}
+          - name: repo
+            value: ${parameters.source.repo}
+          - name: output-format
+            value: ${parameters.output.format}
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: github-stats-report

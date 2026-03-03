@@ -1,0 +1,116 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: github-stats-report
+spec:
+  entrypoint: pipeline
+  templates:
+    - name: pipeline
+      steps:
+        - - name: fetch
+            template: fetch-step
+        - - name: transform
+            template: transform-step
+        - - name: report
+            template: report-step
+            arguments:
+              parameters:
+                - name: output-format
+                  value: "{{workflow.parameters.output-format}}"
+
+    # Step 1: Fetch raw repository data from the GitHub API
+    - name: fetch-step
+      container:
+        image: curlimages/curl:8.8.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            ORG="{{workflow.parameters.org}}"
+            REPO="{{workflow.parameters.repo}}"
+
+            echo "Fetching stats for ${ORG}/${REPO} ..."
+            curl -sf \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${ORG}/${REPO}" \
+              -o /mnt/data/raw.json
+
+            echo "Fetch complete. Response size: $(wc -c < /mnt/data/raw.json) bytes"
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+    # Step 2: Extract and reshape the fields we care about
+    - name: transform-step
+      container:
+        image: ghcr.io/jqlang/jq:1.7.1
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            echo "Transforming raw data ..."
+            jq '{
+              name:        .full_name,
+              description: (.description // "N/A"),
+              language:    (.language // "N/A"),
+              stars:       .stargazers_count,
+              forks:       .forks_count,
+              open_issues: .open_issues_count,
+              license:     (.license.name // "None"),
+              topics:      (.topics // []),
+              created_at:  .created_at,
+              updated_at:  .updated_at
+            }' /mnt/data/raw.json > /mnt/data/stats.json
+
+            echo "Transform complete."
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+    # Step 3: Format and print the final report
+    - name: report-step
+      inputs:
+        parameters:
+          - name: output-format
+      container:
+        image: ghcr.io/jqlang/jq:1.7.1
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            FORMAT="{{inputs.parameters.output-format}}"
+
+            if [ "$FORMAT" = "json" ]; then
+              cat /mnt/data/stats.json
+            else
+              jq -r '
+                "=============================",
+                "  GitHub Repository Report   ",
+                "=============================",
+                "Name:         \(.name)",
+                "Description:  \(.description)",
+                "Language:     \(.language)",
+                "Stars:        \(.stars)",
+                "Forks:        \(.forks)",
+                "Open Issues:  \(.open_issues)",
+                "License:      \(.license)",
+                "Topics:       \(.topics | join(", "))",
+                "Created:      \(.created_at)",
+                "Updated:      \(.updated_at)",
+                "============================="
+              ' /mnt/data/stats.json
+            fi
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100Mi
