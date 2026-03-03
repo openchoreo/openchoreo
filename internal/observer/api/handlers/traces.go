@@ -8,7 +8,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/httputil"
@@ -52,65 +51,7 @@ func (h *Handler) QueryTraces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. DETERMINE AUTHORIZATION CONTEXT
-	scope := req.SearchScope
-	var resourceType observerAuthz.ResourceType
-	var resourceName string
-	var hierarchy core.ResourceHierarchy
-
-	if scope.Component != "" {
-		resourceType = observerAuthz.ResourceTypeComponent
-		resourceName = scope.Component
-		hierarchy = core.ResourceHierarchy{
-			Namespace: scope.Namespace,
-			Project:   scope.Project,
-			Component: scope.Component,
-		}
-	} else if scope.Project != "" {
-		resourceType = observerAuthz.ResourceTypeProject
-		resourceName = scope.Project
-		hierarchy = core.ResourceHierarchy{
-			Namespace: scope.Namespace,
-			Project:   scope.Project,
-		}
-	} else {
-		resourceType = observerAuthz.ResourceTypeNamespace
-		resourceName = scope.Namespace
-		hierarchy = core.ResourceHierarchy{
-			Namespace: scope.Namespace,
-		}
-	}
-
-	// 4. AUTHORIZATION CHECK
-	if err := observerAuthz.CheckAuthorization(
-		r.Context(),
-		h.logger,
-		h.authzPDP,
-		observerAuthz.ActionViewTraces,
-		resourceType,
-		resourceName,
-		hierarchy,
-	); err != nil {
-		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
-			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
-			return
-		}
-		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
-			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
-			return
-		}
-		h.logger.Error("Authorization check failed", "error", err)
-		h.writeErrorResponse(
-			w,
-			http.StatusInternalServerError,
-			gen.InternalServerError,
-			types.ErrorCodeV1TracesAuthzInternal,
-			"Authorization check failed",
-		)
-		return
-	}
-
-	// 5. CHECK SERVICE INITIALIZATION
+	// 3. CHECK SERVICE INITIALIZATION
 	ctx := r.Context()
 	if h.tracesService == nil {
 		h.logger.Error("Traces service is not initialized")
@@ -124,9 +65,17 @@ func (h *Handler) QueryTraces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 6. CALL SERVICE
+	// 4. CALL SERVICE (authorization is enforced by the service layer)
 	result, err := h.tracesService.QueryTraces(ctx, req)
 	if err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
+			return
+		}
 		h.logger.Error("Failed to query traces", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
@@ -149,7 +98,7 @@ func (h *Handler) QueryTraces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 7. CONVERT TO GENERATED TYPE AND RETURN
+	// 5. CONVERT TO GENERATED TYPE AND RETURN
 	genResp := convertTracesResponseToGen(result)
 	h.writeJSON(w, http.StatusOK, genResp)
 }
@@ -192,65 +141,7 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. DETERMINE AUTHORIZATION CONTEXT
-	scope := req.SearchScope
-	var resourceType observerAuthz.ResourceType
-	var resourceName string
-	var hierarchy core.ResourceHierarchy
-
-	if scope.Component != "" {
-		resourceType = observerAuthz.ResourceTypeComponent
-		resourceName = scope.Component
-		hierarchy = core.ResourceHierarchy{
-			Namespace: scope.Namespace,
-			Project:   scope.Project,
-			Component: scope.Component,
-		}
-	} else if scope.Project != "" {
-		resourceType = observerAuthz.ResourceTypeProject
-		resourceName = scope.Project
-		hierarchy = core.ResourceHierarchy{
-			Namespace: scope.Namespace,
-			Project:   scope.Project,
-		}
-	} else {
-		resourceType = observerAuthz.ResourceTypeNamespace
-		resourceName = scope.Namespace
-		hierarchy = core.ResourceHierarchy{
-			Namespace: scope.Namespace,
-		}
-	}
-
-	// 4. AUTHORIZATION CHECK
-	if err := observerAuthz.CheckAuthorization(
-		r.Context(),
-		h.logger,
-		h.authzPDP,
-		observerAuthz.ActionViewTraces,
-		resourceType,
-		resourceName,
-		hierarchy,
-	); err != nil {
-		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
-			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
-			return
-		}
-		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
-			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
-			return
-		}
-		h.logger.Error("Authorization check failed", "error", err)
-		h.writeErrorResponse(
-			w,
-			http.StatusInternalServerError,
-			gen.InternalServerError,
-			types.ErrorCodeV1TracesAuthzInternal,
-			"Authorization check failed",
-		)
-		return
-	}
-
-	// 5. CHECK SERVICE INITIALIZATION
+	// 3. CHECK SERVICE INITIALIZATION
 	ctx := r.Context()
 	if h.tracesService == nil {
 		h.logger.Error("Traces service is not initialized")
@@ -264,9 +155,17 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 6. CALL SERVICE
+	// 4. CALL SERVICE (authorization is enforced by the service layer)
 	result, err := h.tracesService.QuerySpans(ctx, traceID, req)
 	if err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
+			return
+		}
 		h.logger.Error("Failed to query spans", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
@@ -287,7 +186,7 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 7. CONVERT TO GENERATED TYPE AND RETURN
+	// 5. CONVERT TO GENERATED TYPE AND RETURN
 	genResp := convertSpansResponseToGen(result)
 	h.writeJSON(w, http.StatusOK, genResp)
 }

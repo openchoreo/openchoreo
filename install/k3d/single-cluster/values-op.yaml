@@ -26,7 +26,7 @@ security:
   oidc:
     jwksUrl: "http://thunder-service.thunder.svc.cluster.local:8090/oauth2/jwks"
     tokenUrl: "http://thunder-service.thunder.svc.cluster.local:8090/oauth2/token"
-    authServerBaseUrl: "http://thunder-service.thunder.svc.cluster.local:8090"
+    authServerBaseUrl: "http://thunder.openchoreo.localhost:8080"
 
 gateway:
   httpPort: 11080

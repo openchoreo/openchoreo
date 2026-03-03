@@ -20,7 +20,8 @@ import (
 	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	legacyhandlers "github.com/openchoreo/openchoreo/internal/observer/handlers/legacy"
-	"github.com/openchoreo/openchoreo/internal/observer/mcp"
+	"github.com/openchoreo/openchoreo/internal/observer/legacymcp"
+	observermcp "github.com/openchoreo/openchoreo/internal/observer/mcp"
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
@@ -33,6 +34,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/oauth"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
+
+const legacyMCPHeaderValue = "true"
 
 func main() {
 	// Create bootstrap logger for early initialization
@@ -176,15 +179,23 @@ func main() {
 		cfg.Alerting.AIRCAEnabled,
 	)
 
+	// Wrap services with authorization checks.
+	// Both the API handler and MCP handler share the same authz-wrapped instances
+	// so authorization logic is enforced once, in the service layer.
+	authzLogsService := service.NewLogsServiceWithAuthz(logsService, authzClient, logger.With("component", "authz-logs"))
+	authzMetricsService := service.NewMetricsServiceWithAuthz(
+		metricsService, authzClient, logger.With("component", "authz-metrics"))
+	authzTracesService := service.NewTracesServiceWithAuthz(
+		tracesService, authzClient, logger.With("component", "authz-traces"))
+
 	// Initialize new API handler
 	newAPIHandler := apihandler.NewHandler(
 		healthService,
-		logsService,
-		metricsService,
+		authzLogsService,
+		authzMetricsService,
 		alertService,
-		tracesService,
+		authzTracesService,
 		logger.With("component", "api-handler"),
-		authzClient,
 	)
 
 	// ===== Initialize Middlewares =====
@@ -254,10 +265,32 @@ func main() {
 	api.HandleFunc("POST /api/v1alpha1/traces/{traceId}/spans/query", newAPIHandler.QuerySpansForTrace)
 	api.HandleFunc("GET /api/v1alpha1/traces/{traceId}/spans/{spanId}", newAPIHandler.GetSpanDetailsForTrace)
 
+	// Initialize new MCP handler backed by the authz-wrapped service layer
+	newMCPHandler, err := observermcp.NewMCPHandler(
+		healthService,
+		authzLogsService,
+		authzMetricsService,
+		alertService,
+		authzTracesService,
+		logger.With("component", "mcp-handler"),
+	)
+	if err != nil {
+		log.Fatalf("Failed to create MCP handler: %v", err)
+	}
+	newMCPServer := observermcp.NewHTTPServer(newMCPHandler)
+	legacyMCPServer := legacymcp.NewHTTPServer(&legacymcp.MCPHandler{Service: legacyLoggingService})
+
 	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
+	// Routes X-Legacy-MCP: true to the legacy handler; all other requests use the new handler.
 	mcpMiddleware := initMCPMiddleware(logger)
 	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
-	mcpRoutes.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: legacyLoggingService}))
+	mcpRoutes.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Legacy-MCP") == legacyMCPHeaderValue {
+			legacyMCPServer.ServeHTTP(w, r)
+		} else {
+			newMCPServer.ServeHTTP(w, r)
+		}
+	}))
 
 	// Create HTTP server
 	// CORS wraps the entire mux so it intercepts OPTIONS preflight requests

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net/http"
 
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/httputil"
@@ -31,85 +30,6 @@ func (h *Handler) QueryLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine authorization context based on search scope
-	var resourceType observerAuthz.ResourceType
-	var resourceName string
-	var hierarchy authzcore.ResourceHierarchy
-
-	if req.SearchScope.Component != nil {
-		scope := req.SearchScope.Component
-		if scope.Component != "" {
-			resourceType = observerAuthz.ResourceTypeComponent
-			resourceName = scope.Component
-			hierarchy = authzcore.ResourceHierarchy{
-				Namespace: scope.Namespace,
-				Project:   scope.Project,
-				Component: scope.Component,
-			}
-		} else if scope.Project != "" {
-			resourceType = observerAuthz.ResourceTypeProject
-			resourceName = scope.Project
-			hierarchy = authzcore.ResourceHierarchy{
-				Namespace: scope.Namespace,
-				Project:   scope.Project,
-			}
-		} else {
-			resourceType = observerAuthz.ResourceTypeNamespace
-			resourceName = scope.Namespace
-			hierarchy = authzcore.ResourceHierarchy{
-				Namespace: scope.Namespace,
-			}
-		}
-	} else if req.SearchScope.Workflow != nil {
-		scope := req.SearchScope.Workflow
-		if scope.WorkflowRunName != "" {
-			resourceType = observerAuthz.ResourceTypeWorkflowRun
-			resourceName = scope.WorkflowRunName
-			hierarchy = authzcore.ResourceHierarchy{
-				Namespace: scope.Namespace,
-			}
-		} else {
-			resourceType = observerAuthz.ResourceTypeNamespace
-			resourceName = scope.Namespace
-			hierarchy = authzcore.ResourceHierarchy{
-				Namespace: scope.Namespace,
-			}
-		}
-	} else {
-		h.logger.Error("Invalid search scope", "searchScope", req.SearchScope)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", "Invalid search scope")
-		return
-	}
-
-	// AUTHORIZATION CHECK
-	if err := observerAuthz.CheckAuthorization(
-		r.Context(),
-		h.logger,
-		h.authzPDP,
-		observerAuthz.ActionViewLogs,
-		resourceType,
-		resourceName,
-		hierarchy,
-	); err != nil {
-		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
-			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
-			return
-		}
-		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
-			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
-			return
-		}
-		h.logger.Error("Authorization check failed", "error", err)
-		h.writeErrorResponse(
-			w,
-			http.StatusInternalServerError,
-			gen.InternalServerError,
-			types.ErrorCodeV1LogsAuthzInternal,
-			"Authorization check failed",
-		)
-		return
-	}
-
 	ctx := r.Context()
 	if h.logsService == nil {
 		h.logger.Error("Logs service is not initialized")
@@ -124,6 +44,14 @@ func (h *Handler) QueryLogs(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.logsService.QueryLogs(ctx, &req)
 	if err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
+			return
+		}
 		h.logger.Error("Failed to query logs", "error", err)
 		errorCode := types.ErrorCodeV1LogsInternalGeneric
 		switch {

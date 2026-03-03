@@ -7,164 +7,239 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
+	"github.com/openchoreo/openchoreo/internal/observer/service"
+	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 const (
-	testComponentID     = "comp-123"
-	testEnvironmentID   = "env-dev"
-	testProjectID       = "proj-456"
-	testNamespaceName   = "namespace-789"
-	testNamespace       = "default"
-	testServiceName     = "test-service"
-	testStartTime       = "2025-01-01T00:00:00Z"
-	testEndTime         = "2025-01-01T23:59:59Z"
-	testLogsResponse    = `{"logs":[{"message":"test log"}],"total":1}`
-	testGatewayResponse = `{"logs":[{"message":"gateway log"}],"total":1}`
-	testTracesResponse  = `{"spans":[{"traceId":"trace-123","spanId":"span-456"}],"totalCount":1}`
-	testMetricsResponse = `{"cpuUsage":[{"timestamp":"2025-01-01T00:00:00Z","value":0.5}],"memory":[]}`
-	sortOrderDesc       = "desc"
+	testNamespace   = "test-org"
+	testProject     = "test-project"
+	testComponent   = "test-component"
+	testEnvironment = "development"
+	testStartTime   = "2025-01-01T00:00:00Z"
+	testEndTime     = "2025-01-01T23:59:59Z"
+	testTraceID     = "trace-abc123"
+	testSpanID      = "span-def456"
+	sortOrderDesc   = "desc"
 )
 
-// MockHandler implements Handler interface for testing
-type MockHandler struct {
-	// Track which methods were called and with what parameters
-	calls map[string][]interface{}
+// ---- Mock service implementations ----
 
-	// Error injection for testing error propagation
-	componentLogsError            error
-	projectLogsError              error
-	gatewayLogsError              error
-	namespaceLogsError            error
-	tracesError                   error
-	componentResourceMetricsError error
+type MockLogsQuerier struct {
+	requests []*types.LogsQueryRequest
+	response *types.LogsQueryResponse
+	err      error
 }
 
-func NewMockHandler() *MockHandler {
-	return &MockHandler{
-		calls: make(map[string][]interface{}),
+func NewMockLogsQuerier() *MockLogsQuerier {
+	return &MockLogsQuerier{
+		response: &types.LogsQueryResponse{
+			Logs:   []types.LogEntry{{Timestamp: "2025-01-01T00:00:00Z", Log: "test log", Level: "INFO"}},
+			Total:  1,
+			TookMs: 10,
+		},
 	}
 }
 
-func (m *MockHandler) recordCall(method string, args ...interface{}) {
-	if m.calls == nil {
-		m.calls = make(map[string][]interface{})
+func (m *MockLogsQuerier) QueryLogs(_ context.Context, req *types.LogsQueryRequest) (*types.LogsQueryResponse, error) {
+	m.requests = append(m.requests, req)
+	if m.err != nil {
+		return nil, m.err
 	}
-	m.calls[method] = append(m.calls[method], args)
+	return m.response, nil
 }
 
-func (m *MockHandler) GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (any, error) {
-	m.recordCall("GetComponentLogs", params)
-	if m.componentLogsError != nil {
-		return nil, m.componentLogsError
+func (m *MockLogsQuerier) lastRequest() *types.LogsQueryRequest {
+	if len(m.requests) == 0 {
+		return nil
 	}
-	// Parse the test response JSON to match the expected structure
-	var logsData map[string]interface{}
-	if err := json.Unmarshal([]byte(testLogsResponse), &logsData); err != nil {
+	return m.requests[len(m.requests)-1]
+}
+
+func (m *MockLogsQuerier) reset() { m.requests = nil }
+
+type MockMetricsQuerier struct {
+	requests []*types.MetricsQueryRequest
+	response any
+	err      error
+}
+
+func NewMockMetricsQuerier() *MockMetricsQuerier {
+	ts := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	return &MockMetricsQuerier{
+		response: &types.ResourceMetricsQueryResponse{
+			CPUUsage: []types.MetricsTimeSeriesItem{{Timestamp: ts, Value: 0.5}},
+		},
+	}
+}
+
+func (m *MockMetricsQuerier) QueryMetrics(_ context.Context, req *types.MetricsQueryRequest) (any, error) {
+	m.requests = append(m.requests, req)
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.response, nil
+}
+
+func (m *MockMetricsQuerier) lastRequest() *types.MetricsQueryRequest {
+	if len(m.requests) == 0 {
+		return nil
+	}
+	return m.requests[len(m.requests)-1]
+}
+
+func (m *MockMetricsQuerier) reset() { m.requests = nil }
+
+type MockTracesQuerier struct {
+	tracesRequests      []*types.TracesQueryRequest
+	spansRequests       []*types.TracesQueryRequest
+	spanDetailsTraceIDs []string
+	spanDetailsSpanIDs  []string
+	tracesResponse      *types.TracesQueryResponse
+	spansResponse       *types.SpansQueryResponse
+	spanInfo            *types.SpanInfo
+	queryTracesErr      error
+	querySpansErr       error
+	spanDetailsErr      error
+}
+
+func NewMockTracesQuerier() *MockTracesQuerier {
+	now := time.Now()
+	return &MockTracesQuerier{
+		tracesResponse: &types.TracesQueryResponse{
+			Traces: []types.TraceInfo{
+				{TraceID: testTraceID, TraceName: "test-trace", SpanCount: 3},
+			},
+			Total:  1,
+			TookMs: 15,
+		},
+		spansResponse: &types.SpansQueryResponse{
+			Spans: []types.SpanInfo{
+				{SpanID: testSpanID, SpanName: "test-span", StartTime: &now},
+			},
+			Total:  1,
+			TookMs: 5,
+		},
+		spanInfo: &types.SpanInfo{
+			SpanID:     testSpanID,
+			SpanName:   "test-span",
+			Attributes: map[string]any{"http.method": "GET"},
+		},
+	}
+}
+
+func (m *MockTracesQuerier) QueryTraces(_ context.Context, req *types.TracesQueryRequest) (*types.TracesQueryResponse, error) {
+	m.tracesRequests = append(m.tracesRequests, req)
+	if m.queryTracesErr != nil {
+		return nil, m.queryTracesErr
+	}
+	return m.tracesResponse, nil
+}
+
+func (m *MockTracesQuerier) QuerySpans(_ context.Context, traceID string, req *types.TracesQueryRequest) (*types.SpansQueryResponse, error) {
+	m.spansRequests = append(m.spansRequests, req)
+	m.spanDetailsTraceIDs = append(m.spanDetailsTraceIDs, traceID)
+	if m.querySpansErr != nil {
+		return nil, m.querySpansErr
+	}
+	return m.spansResponse, nil
+}
+
+func (m *MockTracesQuerier) GetSpanDetails(_ context.Context, traceID string, spanID string) (*types.SpanInfo, error) {
+	m.spanDetailsTraceIDs = append(m.spanDetailsTraceIDs, traceID)
+	m.spanDetailsSpanIDs = append(m.spanDetailsSpanIDs, spanID)
+	if m.spanDetailsErr != nil {
+		return nil, m.spanDetailsErr
+	}
+	return m.spanInfo, nil
+}
+
+func (m *MockTracesQuerier) lastTracesRequest() *types.TracesQueryRequest {
+	if len(m.tracesRequests) == 0 {
+		return nil
+	}
+	return m.tracesRequests[len(m.tracesRequests)-1]
+}
+
+func (m *MockTracesQuerier) lastSpansRequest() *types.TracesQueryRequest {
+	if len(m.spansRequests) == 0 {
+		return nil
+	}
+	return m.spansRequests[len(m.spansRequests)-1]
+}
+
+func (m *MockTracesQuerier) reset() {
+	m.tracesRequests = nil
+	m.spansRequests = nil
+	m.spanDetailsTraceIDs = nil
+	m.spanDetailsSpanIDs = nil
+}
+
+// ---- Test harness ----
+
+type testServices struct {
+	logs    *MockLogsQuerier
+	metrics *MockMetricsQuerier
+	traces  *MockTracesQuerier
+}
+
+func newTestServices() *testServices {
+	return &testServices{
+		logs:    NewMockLogsQuerier(),
+		metrics: NewMockMetricsQuerier(),
+		traces:  NewMockTracesQuerier(),
+	}
+}
+
+func (s *testServices) resetAll() {
+	s.logs.reset()
+	s.metrics.reset()
+	s.traces.reset()
+}
+
+func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
+	logger := slog.Default()
+	healthSvc, err := service.NewHealthService(logger)
+	if err != nil {
 		return nil, err
 	}
-	return logsData, nil
+	alertSvc := service.NewAlertService(nil, nil, nil, nil, logger, "", false)
+	return NewMCPHandler(healthSvc, svcs.logs, svcs.metrics, alertSvc, svcs.traces, logger)
 }
 
-func (m *MockHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (any, error) {
-	m.recordCall("GetProjectLogs", params, componentIDs)
-	if m.projectLogsError != nil {
-		return nil, m.projectLogsError
-	}
-	var logsData map[string]interface{}
-	if err := json.Unmarshal([]byte(testLogsResponse), &logsData); err != nil {
-		return nil, err
-	}
-	return logsData, nil
-}
-
-func (m *MockHandler) GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (any, error) {
-	m.recordCall("GetGatewayLogs", params)
-	if m.gatewayLogsError != nil {
-		return nil, m.gatewayLogsError
-	}
-	var logsData map[string]interface{}
-	if err := json.Unmarshal([]byte(testGatewayResponse), &logsData); err != nil {
-		return nil, err
-	}
-	return logsData, nil
-}
-
-func (m *MockHandler) GetNamespaceLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error) {
-	m.recordCall("GetNamespaceLogs", params, podLabels)
-	if m.namespaceLogsError != nil {
-		return nil, m.namespaceLogsError
-	}
-	var logsData map[string]interface{}
-	if err := json.Unmarshal([]byte(testLogsResponse), &logsData); err != nil {
-		return nil, err
-	}
-	return logsData, nil
-}
-
-func (m *MockHandler) GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (any, error) {
-	m.recordCall("GetTraces", params)
-	if m.tracesError != nil {
-		return nil, m.tracesError
-	}
-	var tracesData map[string]interface{}
-	if err := json.Unmarshal([]byte(testTracesResponse), &tracesData); err != nil {
-		return nil, err
-	}
-	return tracesData, nil
-}
-
-func (m *MockHandler) GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error) {
-	m.recordCall("GetComponentResourceMetrics", componentID, environmentID, projectID, startTime, endTime)
-	if m.componentResourceMetricsError != nil {
-		return nil, m.componentResourceMetricsError
-	}
-	var metricsData map[string]interface{}
-	if err := json.Unmarshal([]byte(testMetricsResponse), &metricsData); err != nil {
-		return nil, err
-	}
-	return metricsData, nil
-}
-
-func (m *MockHandler) GetComponentHTTPMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error) {
-	m.recordCall("GetComponentHTTPMetrics", componentID, environmentID, projectID, startTime, endTime)
-	var metricsData map[string]interface{}
-	if err := json.Unmarshal([]byte(testMetricsResponse), &metricsData); err != nil {
-		return nil, err
-	}
-	return metricsData, nil
-}
-
-// setupTestServer creates a test MCP server with mock handler
-func setupTestServer(t *testing.T) (*mcp.ClientSession, *MockHandler) {
+func setupTestServer(t *testing.T) (*mcpsdk.ClientSession, *testServices) {
 	t.Helper()
 
-	mockHandler := NewMockHandler()
+	svcs := newTestServices()
+	handler, err := buildMCPHandler(svcs)
+	if err != nil {
+		t.Fatalf("Failed to build MCPHandler: %v", err)
+	}
 
-	server := mcp.NewServer(&mcp.Implementation{
+	server := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    "test-openchoreo-observer",
 		Version: "1.0.0",
 	}, nil)
 
-	registerTools(server, mockHandler)
+	registerTools(server, handler)
 
-	// Create client connection
 	ctx := context.Background()
-	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
 
-	_, err := server.Connect(ctx, serverTransport, nil)
-	if err != nil {
+	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
 		t.Fatalf("Failed to connect server: %v", err)
 	}
 
-	client := mcp.NewClient(&mcp.Implementation{
+	client := mcpsdk.NewClient(&mcpsdk.Implementation{
 		Name:    "test-client",
 		Version: "1.0.0",
 	}, nil)
@@ -174,10 +249,11 @@ func setupTestServer(t *testing.T) (*mcp.ClientSession, *MockHandler) {
 		t.Fatalf("Failed to connect client: %v", err)
 	}
 
-	return clientSession, mockHandler
+	return clientSession, svcs
 }
 
-// toolTestSpec defines the complete test specification for a single MCP tool
+// ---- Tool test specifications ----
+
 type toolTestSpec struct {
 	name string
 
@@ -190,443 +266,356 @@ type toolTestSpec struct {
 	optionalParams []string
 
 	// Parameter wiring test
-	testArgs       map[string]any
-	expectedMethod string
-	validateCall   func(t *testing.T, args []interface{})
+	testArgs     map[string]any
+	validateCall func(t *testing.T, svcs *testServices)
 }
 
-// allToolSpecs defines the complete test specification for all observer MCP tools
 var allToolSpecs = []toolTestSpec{
 	{
-		name:                "get_component_logs",
+		name:                "query_component_logs",
 		descriptionKeywords: []string{"component", "logs"},
 		descriptionMinLen:   20,
-		requiredParams:      []string{"component_id", "environment_id", "start_time", "end_time"},
-		optionalParams:      []string{"namespace", "search_phrase", "log_levels", "versions", "version_ids", "limit", "sort_order", "log_type", "build_id", "build_uuid"},
+		requiredParams:      []string{"namespace", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component", "environment", "search_phrase", "log_levels", "limit", "sort_order"},
 		testArgs: map[string]any{
-			"component_id":   testComponentID,
-			"environment_id": testEnvironmentID,
-			"namespace":      testNamespace,
-			"start_time":     testStartTime,
-			"end_time":       testEndTime,
-			"search_phrase":  "error",
-			"log_levels":     []interface{}{"ERROR", "WARN"},
-			"versions":       []interface{}{"v1.0.0"},
-			"version_ids":    []interface{}{"vid-123"},
-			"limit":          100,
-			"sort_order":     sortOrderDesc,
-			"log_type":       "application",
-			"build_id":       "build-123",
-			"build_uuid":     "uuid-456",
+			"namespace":     testNamespace,
+			"project":       testProject,
+			"component":     testComponent,
+			"environment":   testEnvironment,
+			"start_time":    testStartTime,
+			"end_time":      testEndTime,
+			"search_phrase": "error",
+			"log_levels":    []any{"ERROR", "WARN"},
+			"limit":         50,
+			"sort_order":    "asc",
 		},
-		expectedMethod: "GetComponentLogs",
-		validateCall: func(t *testing.T, args []interface{}) {
-			if len(args) == 0 {
-				t.Fatal("Expected at least one argument")
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.logs.lastRequest()
+			if req == nil {
+				t.Fatal("Expected QueryLogs to be called")
 			}
-			params, ok := args[0].(opensearch.ComponentQueryParams)
-			if !ok {
-				t.Fatalf("Expected ComponentQueryParams, got %T", args[0])
+			if req.SearchScope == nil || req.SearchScope.Component == nil {
+				t.Fatal("Expected ComponentSearchScope")
 			}
-			if params.ComponentID != testComponentID {
-				t.Errorf("Expected component_id %q, got %q", testComponentID, params.ComponentID)
+			scope := req.SearchScope.Component
+			if scope.Namespace != testNamespace {
+				t.Errorf("Expected namespace %q, got %q", testNamespace, scope.Namespace)
 			}
-			if params.EnvironmentID != testEnvironmentID {
-				t.Errorf("Expected environment_id %q, got %q", testEnvironmentID, params.EnvironmentID)
+			if scope.Project != testProject {
+				t.Errorf("Expected project %q, got %q", testProject, scope.Project)
 			}
-			if params.Namespace != testNamespace {
-				t.Errorf("Expected namespace %q, got %q", testNamespace, params.Namespace)
+			if scope.Component != testComponent {
+				t.Errorf("Expected component %q, got %q", testComponent, scope.Component)
 			}
-			if params.StartTime != testStartTime {
-				t.Errorf("Expected start_time %q, got %q", testStartTime, params.StartTime)
+			if scope.Environment != testEnvironment {
+				t.Errorf("Expected environment %q, got %q", testEnvironment, scope.Environment)
 			}
-			if params.EndTime != testEndTime {
-				t.Errorf("Expected end_time %q, got %q", testEndTime, params.EndTime)
+			if req.StartTime != testStartTime {
+				t.Errorf("Expected start_time %q, got %q", testStartTime, req.StartTime)
 			}
-			if params.SearchPhrase != "error" {
-				t.Errorf("Expected search_phrase 'error', got %q", params.SearchPhrase)
+			if req.EndTime != testEndTime {
+				t.Errorf("Expected end_time %q, got %q", testEndTime, req.EndTime)
 			}
-			expectedLevels := []string{"ERROR", "WARN"}
-			if diff := cmp.Diff(expectedLevels, params.LogLevels); diff != "" {
+			if req.SearchPhrase != "error" {
+				t.Errorf("Expected search_phrase 'error', got %q", req.SearchPhrase)
+			}
+			if diff := cmp.Diff([]string{"ERROR", "WARN"}, req.LogLevels); diff != "" {
 				t.Errorf("log_levels mismatch (-want +got):\n%s", diff)
 			}
-			expectedVersions := []string{"v1.0.0"}
-			if diff := cmp.Diff(expectedVersions, params.Versions); diff != "" {
-				t.Errorf("versions mismatch (-want +got):\n%s", diff)
+			if req.Limit != 50 {
+				t.Errorf("Expected limit 50, got %d", req.Limit)
 			}
-			expectedVersionIDs := []string{"vid-123"}
-			if diff := cmp.Diff(expectedVersionIDs, params.VersionIDs); diff != "" {
-				t.Errorf("version_ids mismatch (-want +got):\n%s", diff)
-			}
-			if params.Limit != 100 {
-				t.Errorf("Expected limit 100, got %d", params.Limit)
-			}
-			if params.SortOrder != sortOrderDesc {
-				t.Errorf("Expected sort_order %q, got %q", sortOrderDesc, params.SortOrder)
-			}
-			if params.LogType != "application" {
-				t.Errorf("Expected log_type 'application', got %q", params.LogType)
-			}
-			if params.BuildID != "build-123" {
-				t.Errorf("Expected build_id 'build-123', got %q", params.BuildID)
-			}
-			if params.BuildUUID != "uuid-456" {
-				t.Errorf("Expected build_uuid 'uuid-456', got %q", params.BuildUUID)
+			if req.SortOrder != "asc" {
+				t.Errorf("Expected sort_order 'asc', got %q", req.SortOrder)
 			}
 		},
 	},
 	{
-		name:                "get_project_logs",
-		descriptionKeywords: []string{"project", "logs"},
+		name:                "query_workflow_logs",
+		descriptionKeywords: []string{"workflow", "logs"},
 		descriptionMinLen:   20,
-		requiredParams:      []string{"project_id", "environment_id", "start_time", "end_time"},
-		optionalParams:      []string{"component_ids", "search_phrase", "log_levels", "limit", "sort_order"},
+		requiredParams:      []string{"namespace", "start_time", "end_time"},
+		optionalParams:      []string{"workflow_run_name", "task_name", "search_phrase", "log_levels", "limit", "sort_order"},
 		testArgs: map[string]any{
-			"project_id":     testProjectID,
-			"environment_id": testEnvironmentID,
-			"start_time":     testStartTime,
-			"end_time":       testEndTime,
-			"component_ids":  []interface{}{"comp-1", "comp-2"},
-			"search_phrase":  "warning",
-			"log_levels":     []interface{}{"WARN"},
-			"limit":          50,
-			"sort_order":     "asc",
+			"namespace":         testNamespace,
+			"workflow_run_name": "my-workflow-run",
+			"task_name":         "build-step",
+			"start_time":        testStartTime,
+			"end_time":          testEndTime,
+			"search_phrase":     "failed",
+			"log_levels":        []any{"ERROR"},
+			"limit":             75,
+			"sort_order":        sortOrderDesc,
 		},
-		expectedMethod: "GetProjectLogs",
-		validateCall: func(t *testing.T, args []interface{}) {
-			if len(args) < 2 {
-				t.Fatal("Expected at least two arguments")
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.logs.lastRequest()
+			if req == nil {
+				t.Fatal("Expected QueryLogs to be called")
 			}
-			params, ok := args[0].(opensearch.QueryParams)
-			if !ok {
-				t.Fatalf("Expected QueryParams, got %T", args[0])
+			if req.SearchScope == nil || req.SearchScope.Workflow == nil {
+				t.Fatal("Expected WorkflowSearchScope")
 			}
-			componentIDs, ok := args[1].([]string)
-			if !ok {
-				t.Fatalf("Expected []string for component_ids, got %T", args[1])
+			scope := req.SearchScope.Workflow
+			if scope.Namespace != testNamespace {
+				t.Errorf("Expected namespace %q, got %q", testNamespace, scope.Namespace)
 			}
-			if params.ProjectID != testProjectID {
-				t.Errorf("Expected project_id %q, got %q", testProjectID, params.ProjectID)
+			if scope.WorkflowRunName != "my-workflow-run" {
+				t.Errorf("Expected workflow_run_name 'my-workflow-run', got %q", scope.WorkflowRunName)
 			}
-			if params.EnvironmentID != testEnvironmentID {
-				t.Errorf("Expected environment_id %q, got %q", testEnvironmentID, params.EnvironmentID)
+			if scope.TaskName != "build-step" {
+				t.Errorf("Expected task_name 'build-step', got %q", scope.TaskName)
 			}
-			if params.StartTime != testStartTime {
-				t.Errorf("Expected start_time %q, got %q", testStartTime, params.StartTime)
+			if req.SearchPhrase != "failed" {
+				t.Errorf("Expected search_phrase 'failed', got %q", req.SearchPhrase)
 			}
-			if params.EndTime != testEndTime {
-				t.Errorf("Expected end_time %q, got %q", testEndTime, params.EndTime)
-			}
-			if params.SearchPhrase != "warning" {
-				t.Errorf("Expected search_phrase 'warning', got %q", params.SearchPhrase)
-			}
-			expectedLevels := []string{"WARN"}
-			if diff := cmp.Diff(expectedLevels, params.LogLevels); diff != "" {
+			if diff := cmp.Diff([]string{"ERROR"}, req.LogLevels); diff != "" {
 				t.Errorf("log_levels mismatch (-want +got):\n%s", diff)
 			}
-			if params.Limit != 50 {
-				t.Errorf("Expected limit 50, got %d", params.Limit)
+			if req.Limit != 75 {
+				t.Errorf("Expected limit 75, got %d", req.Limit)
 			}
-			if params.SortOrder != "asc" {
-				t.Errorf("Expected sort_order 'asc', got %q", params.SortOrder)
-			}
-			expectedComponentIDs := []string{"comp-1", "comp-2"}
-			if diff := cmp.Diff(expectedComponentIDs, componentIDs); diff != "" {
-				t.Errorf("component_ids mismatch (-want +got):\n%s", diff)
+			if req.SortOrder != sortOrderDesc {
+				t.Errorf("Expected sort_order %q, got %q", sortOrderDesc, req.SortOrder)
 			}
 		},
 	},
 	{
-		name:                "get_gateway_logs",
-		descriptionKeywords: []string{"gateway", "logs"},
+		name:                "query_resource_metrics",
+		descriptionKeywords: []string{"resource", "metrics"},
 		descriptionMinLen:   20,
-		requiredParams:      []string{"namespace_name", "start_time", "end_time"},
-		optionalParams:      []string{"search_phrase", "api_id_to_version_map", "gateway_vhosts", "limit", "sort_order", "log_type"},
+		requiredParams:      []string{"namespace", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component", "environment", "step"},
 		testArgs: map[string]any{
-			"namespace_name": testNamespaceName,
-			"start_time":     testStartTime,
-			"end_time":       testEndTime,
-			"search_phrase":  "api",
-			"api_id_to_version_map": map[string]interface{}{
-				"api-1": "v1",
-				"api-2": "v2",
-			},
-			"gateway_vhosts": []interface{}{"vhost1.example.com", "vhost2.example.com"},
-			"limit":          200,
-			"sort_order":     sortOrderDesc,
-			"log_type":       "gateway",
+			"namespace":   testNamespace,
+			"project":     testProject,
+			"component":   testComponent,
+			"environment": testEnvironment,
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+			"step":        "5m",
 		},
-		expectedMethod: "GetGatewayLogs",
-		validateCall: func(t *testing.T, args []interface{}) {
-			if len(args) == 0 {
-				t.Fatal("Expected at least one argument")
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.metrics.lastRequest()
+			if req == nil {
+				t.Fatal("Expected QueryMetrics to be called")
 			}
-			params, ok := args[0].(opensearch.GatewayQueryParams)
-			if !ok {
-				t.Fatalf("Expected GatewayQueryParams, got %T", args[0])
+			if req.Metric != types.MetricTypeResource {
+				t.Errorf("Expected metric type %q, got %q", types.MetricTypeResource, req.Metric)
 			}
-			// The server sets NamespaceName in QueryParams.NamespaceName, not at the struct level
-			if params.QueryParams.NamespaceName != testNamespaceName {
-				t.Errorf("Expected namespace_name %q, got %q", testNamespaceName, params.QueryParams.NamespaceName)
+			if req.SearchScope.Namespace != testNamespace {
+				t.Errorf("Expected namespace %q, got %q", testNamespace, req.SearchScope.Namespace)
 			}
-			if params.QueryParams.StartTime != testStartTime {
-				t.Errorf("Expected start_time %q, got %q", testStartTime, params.QueryParams.StartTime)
+			if req.SearchScope.Project != testProject {
+				t.Errorf("Expected project %q, got %q", testProject, req.SearchScope.Project)
 			}
-			if params.QueryParams.EndTime != testEndTime {
-				t.Errorf("Expected end_time %q, got %q", testEndTime, params.QueryParams.EndTime)
+			if req.SearchScope.Component != testComponent {
+				t.Errorf("Expected component %q, got %q", testComponent, req.SearchScope.Component)
 			}
-			if params.QueryParams.SearchPhrase != "api" {
-				t.Errorf("Expected search_phrase 'api', got %q", params.QueryParams.SearchPhrase)
+			if req.SearchScope.Environment != testEnvironment {
+				t.Errorf("Expected environment %q, got %q", testEnvironment, req.SearchScope.Environment)
 			}
-			expectedAPIMap := map[string]string{
-				"api-1": "v1",
-				"api-2": "v2",
+			if req.StartTime != testStartTime {
+				t.Errorf("Expected start_time %q, got %q", testStartTime, req.StartTime)
 			}
-			if diff := cmp.Diff(expectedAPIMap, params.APIIDToVersionMap); diff != "" {
-				t.Errorf("api_id_to_version_map mismatch (-want +got):\n%s", diff)
+			if req.EndTime != testEndTime {
+				t.Errorf("Expected end_time %q, got %q", testEndTime, req.EndTime)
 			}
-			expectedVHosts := []string{"vhost1.example.com", "vhost2.example.com"}
-			if diff := cmp.Diff(expectedVHosts, params.GatewayVHosts); diff != "" {
-				t.Errorf("gateway_vhosts mismatch (-want +got):\n%s", diff)
-			}
-			if params.QueryParams.Limit != 200 {
-				t.Errorf("Expected limit 200, got %d", params.QueryParams.Limit)
-			}
-			if params.QueryParams.SortOrder != sortOrderDesc {
-				t.Errorf("Expected sort_order %q, got %q", sortOrderDesc, params.QueryParams.SortOrder)
-			}
-			if params.QueryParams.LogType != "gateway" {
-				t.Errorf("Expected log_type 'gateway', got %q", params.QueryParams.LogType)
+			if req.Step == nil || *req.Step != "5m" {
+				t.Errorf("Expected step '5m', got %v", req.Step)
 			}
 		},
 	},
 	{
-		name:                "get_namespace_logs",
-		descriptionKeywords: []string{"namespace", "logs"},
+		name:                "query_http_metrics",
+		descriptionKeywords: []string{"http", "metrics"},
 		descriptionMinLen:   20,
-		requiredParams:      []string{"namespace_name", "environment_id", "start_time", "end_time"},
-		optionalParams:      []string{"pod_labels", "search_phrase", "log_levels", "limit", "sort_order"},
+		requiredParams:      []string{"namespace", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component", "environment", "step"},
 		testArgs: map[string]any{
-			"namespace_name": testNamespaceName,
-			"environment_id": testEnvironmentID,
-			"start_time":     testStartTime,
-			"end_time":       testEndTime,
-			"pod_labels": map[string]interface{}{
-				"app":     "myapp",
-				"version": "v1.0",
-			},
-			"search_phrase": "critical",
-			"log_levels":    []interface{}{"ERROR", "FATAL"},
-			"limit":         150,
-			"sort_order":    sortOrderDesc,
+			"namespace":   testNamespace,
+			"project":     testProject,
+			"component":   testComponent,
+			"environment": testEnvironment,
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+			"step":        "1h",
 		},
-		expectedMethod: "GetNamespaceLogs",
-		validateCall: func(t *testing.T, args []interface{}) {
-			if len(args) < 2 {
-				t.Fatal("Expected at least two arguments")
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.metrics.lastRequest()
+			if req == nil {
+				t.Fatal("Expected QueryMetrics to be called")
 			}
-			params, ok := args[0].(opensearch.QueryParams)
-			if !ok {
-				t.Fatalf("Expected QueryParams, got %T", args[0])
+			if req.Metric != types.MetricTypeHTTP {
+				t.Errorf("Expected metric type %q, got %q", types.MetricTypeHTTP, req.Metric)
 			}
-			podLabels, ok := args[1].(map[string]string)
-			if !ok {
-				t.Fatalf("Expected map[string]string for pod_labels, got %T", args[1])
+			if req.SearchScope.Namespace != testNamespace {
+				t.Errorf("Expected namespace %q, got %q", testNamespace, req.SearchScope.Namespace)
 			}
-			if params.NamespaceName != testNamespaceName {
-				t.Errorf("Expected namespace_name %q, got %q", testNamespaceName, params.NamespaceName)
-			}
-			if params.EnvironmentID != testEnvironmentID {
-				t.Errorf("Expected environment_id %q, got %q", testEnvironmentID, params.EnvironmentID)
-			}
-			if params.StartTime != testStartTime {
-				t.Errorf("Expected start_time %q, got %q", testStartTime, params.StartTime)
-			}
-			if params.EndTime != testEndTime {
-				t.Errorf("Expected end_time %q, got %q", testEndTime, params.EndTime)
-			}
-			if params.SearchPhrase != "critical" {
-				t.Errorf("Expected search_phrase 'critical', got %q", params.SearchPhrase)
-			}
-			expectedLevels := []string{"ERROR", "FATAL"}
-			if diff := cmp.Diff(expectedLevels, params.LogLevels); diff != "" {
-				t.Errorf("log_levels mismatch (-want +got):\n%s", diff)
-			}
-			if params.Limit != 150 {
-				t.Errorf("Expected limit 150, got %d", params.Limit)
-			}
-			if params.SortOrder != sortOrderDesc {
-				t.Errorf("Expected sort_order %q, got %q", sortOrderDesc, params.SortOrder)
-			}
-			expectedPodLabels := map[string]string{
-				"app":     "myapp",
-				"version": "v1.0",
-			}
-			if diff := cmp.Diff(expectedPodLabels, podLabels); diff != "" {
-				t.Errorf("pod_labels mismatch (-want +got):\n%s", diff)
+			if req.Step == nil || *req.Step != "1h" {
+				t.Errorf("Expected step '1h', got %v", req.Step)
 			}
 		},
 	},
 	{
-		name:                "get_traces",
-		descriptionKeywords: []string{"traces", "component"},
+		name:                "query_traces",
+		descriptionKeywords: []string{"traces"},
 		descriptionMinLen:   20,
-		requiredParams:      []string{"project_uid", "start_time", "end_time"},
-		optionalParams:      []string{"component_uids", "environment_uid", "trace_id", "limit", "sort_order"},
+		requiredParams:      []string{"namespace", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component", "environment", "limit", "sort_order"},
 		testArgs: map[string]any{
-			"project_uid":     testProjectID,
-			"component_uids":  []string{testComponentID},
-			"environment_uid": testEnvironmentID,
-			"start_time":      testStartTime,
-			"end_time":        testEndTime,
-			"limit":           50,
-			"sort_order":      "asc",
+			"namespace":   testNamespace,
+			"project":     testProject,
+			"component":   testComponent,
+			"environment": testEnvironment,
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+			"limit":       25,
+			"sort_order":  "asc",
 		},
-		expectedMethod: "GetTraces",
-		validateCall: func(t *testing.T, args []interface{}) {
-			if len(args) == 0 {
-				t.Fatal("Expected at least one argument")
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.traces.lastTracesRequest()
+			if req == nil {
+				t.Fatal("Expected QueryTraces to be called")
 			}
-			params, ok := args[0].(opensearch.TracesRequestParams)
-			if !ok {
-				t.Fatalf("Expected TracesRequestParams, got %T", args[0])
+			if req.SearchScope.Namespace != testNamespace {
+				t.Errorf("Expected namespace %q, got %q", testNamespace, req.SearchScope.Namespace)
 			}
-			if params.ProjectUID != testProjectID {
-				t.Errorf("Expected project_uid %q, got %q", testProjectID, params.ProjectUID)
+			if req.SearchScope.Project != testProject {
+				t.Errorf("Expected project %q, got %q", testProject, req.SearchScope.Project)
 			}
-			if len(params.ComponentUIDs) != 1 || params.ComponentUIDs[0] != testComponentID {
-				t.Errorf("Expected component_uids [%q], got %v", testComponentID, params.ComponentUIDs)
+			if req.SearchScope.Component != testComponent {
+				t.Errorf("Expected component %q, got %q", testComponent, req.SearchScope.Component)
 			}
-			if params.EnvironmentUID != testEnvironmentID {
-				t.Errorf("Expected environment_uid %q, got %q", testEnvironmentID, params.EnvironmentUID)
+			if req.SearchScope.Environment != testEnvironment {
+				t.Errorf("Expected environment %q, got %q", testEnvironment, req.SearchScope.Environment)
 			}
-			if params.StartTime != testStartTime {
-				t.Errorf("Expected start_time %q, got %q", testStartTime, params.StartTime)
+			expectedStart, _ := time.Parse(time.RFC3339, testStartTime)
+			if !req.StartTime.Equal(expectedStart) {
+				t.Errorf("Expected start_time %v, got %v", expectedStart, req.StartTime)
 			}
-			if params.EndTime != testEndTime {
-				t.Errorf("Expected end_time %q, got %q", testEndTime, params.EndTime)
+			expectedEnd, _ := time.Parse(time.RFC3339, testEndTime)
+			if !req.EndTime.Equal(expectedEnd) {
+				t.Errorf("Expected end_time %v, got %v", expectedEnd, req.EndTime)
 			}
-			if params.Limit != 50 {
-				t.Errorf("Expected limit 50, got %d", params.Limit)
+			if req.Limit != 25 {
+				t.Errorf("Expected limit 25, got %d", req.Limit)
 			}
-			if params.SortOrder != "asc" {
-				t.Errorf("Expected sort_order 'asc', got %q", params.SortOrder)
+			if req.Sort != "asc" {
+				t.Errorf("Expected sort 'asc', got %q", req.Sort)
 			}
 		},
 	},
 	{
-		name:                "get_component_resource_metrics",
-		descriptionKeywords: []string{"metrics", "resource"},
+		name:                "query_trace_spans",
+		descriptionKeywords: []string{"span", "trace"},
 		descriptionMinLen:   20,
-		requiredParams:      []string{"project_id", "environment_id", "start_time", "end_time"},
-		optionalParams:      []string{"component_id"},
+		requiredParams:      []string{"trace_id", "namespace", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component", "environment", "limit", "sort_order"},
 		testArgs: map[string]any{
-			"component_id":   testComponentID,
-			"project_id":     testProjectID,
-			"environment_id": testEnvironmentID,
-			"start_time":     testStartTime,
-			"end_time":       testEndTime,
+			"trace_id":    testTraceID,
+			"namespace":   testNamespace,
+			"project":     testProject,
+			"component":   testComponent,
+			"environment": testEnvironment,
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+			"limit":       200,
+			"sort_order":  sortOrderDesc,
 		},
-		expectedMethod: "GetComponentResourceMetrics",
-		validateCall: func(t *testing.T, args []interface{}) {
-			if len(args) < 5 {
-				t.Fatalf("Expected at least 5 arguments, got %d", len(args))
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.traces.lastSpansRequest()
+			if req == nil {
+				t.Fatal("Expected QuerySpans to be called")
 			}
-			componentID, ok := args[0].(string)
-			if !ok {
-				t.Fatalf("Expected string for component_id, got %T", args[0])
+			if len(svcs.traces.spanDetailsTraceIDs) == 0 {
+				t.Fatal("Expected trace ID to be recorded")
 			}
-			environmentID, ok := args[1].(string)
-			if !ok {
-				t.Fatalf("Expected string for environment_id, got %T", args[1])
+			lastTraceID := svcs.traces.spanDetailsTraceIDs[len(svcs.traces.spanDetailsTraceIDs)-1]
+			if lastTraceID != testTraceID {
+				t.Errorf("Expected trace_id %q, got %q", testTraceID, lastTraceID)
 			}
-			projectID, ok := args[2].(string)
-			if !ok {
-				t.Fatalf("Expected string for project_id, got %T", args[2])
+			if req.SearchScope.Namespace != testNamespace {
+				t.Errorf("Expected namespace %q, got %q", testNamespace, req.SearchScope.Namespace)
 			}
-			startTime, ok := args[3].(string)
-			if !ok {
-				t.Fatalf("Expected string for start_time, got %T", args[3])
+			if req.Limit != 200 {
+				t.Errorf("Expected limit 200, got %d", req.Limit)
 			}
-			endTime, ok := args[4].(string)
-			if !ok {
-				t.Fatalf("Expected string for end_time, got %T", args[4])
-			}
-			if componentID != testComponentID {
-				t.Errorf("Expected component_id %q, got %q", testComponentID, componentID)
-			}
-			if environmentID != testEnvironmentID {
-				t.Errorf("Expected environment_id %q, got %q", testEnvironmentID, environmentID)
-			}
-			if projectID != testProjectID {
-				t.Errorf("Expected project_id %q, got %q", testProjectID, projectID)
-			}
-			if startTime != testStartTime {
-				t.Errorf("Expected start_time %q, got %q", testStartTime, startTime)
-			}
-			if endTime != testEndTime {
-				t.Errorf("Expected end_time %q, got %q", testEndTime, endTime)
+			if req.Sort != sortOrderDesc {
+				t.Errorf("Expected sort %q, got %q", sortOrderDesc, req.Sort)
 			}
 		},
 	},
 	{
-		name:                "get_component_http_metrics",
-		descriptionKeywords: []string{"metrics", "HTTP"},
+		name:                "get_span_details",
+		descriptionKeywords: []string{"span"},
 		descriptionMinLen:   20,
-		requiredParams:      []string{"project_id", "environment_id", "start_time", "end_time"},
-		optionalParams:      []string{"component_id"},
+		requiredParams:      []string{"trace_id", "span_id"},
+		optionalParams:      []string{},
 		testArgs: map[string]any{
-			"component_id":   testComponentID,
-			"project_id":     testProjectID,
-			"environment_id": testEnvironmentID,
-			"start_time":     testStartTime,
-			"end_time":       testEndTime,
+			"trace_id": testTraceID,
+			"span_id":  testSpanID,
 		},
-		expectedMethod: "GetComponentHTTPMetrics",
-		validateCall: func(t *testing.T, args []interface{}) {
-			if len(args) < 5 {
-				t.Fatalf("Expected at least 5 arguments, got %d", len(args))
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			if len(svcs.traces.spanDetailsTraceIDs) == 0 || len(svcs.traces.spanDetailsSpanIDs) == 0 {
+				t.Fatal("Expected GetSpanDetails to be called")
 			}
-			componentID, ok := args[0].(string)
-			if !ok {
-				t.Fatalf("Expected string for component_id, got %T", args[0])
+			lastIdx := len(svcs.traces.spanDetailsSpanIDs) - 1
+			if svcs.traces.spanDetailsTraceIDs[lastIdx] != testTraceID {
+				t.Errorf("Expected trace_id %q, got %q", testTraceID, svcs.traces.spanDetailsTraceIDs[lastIdx])
 			}
-			environmentID, ok := args[1].(string)
-			if !ok {
-				t.Fatalf("Expected string for environment_id, got %T", args[1])
-			}
-			projectID, ok := args[2].(string)
-			if !ok {
-				t.Fatalf("Expected string for project_id, got %T", args[2])
-			}
-			startTime, ok := args[3].(string)
-			if !ok {
-				t.Fatalf("Expected string for start_time, got %T", args[3])
-			}
-			endTime, ok := args[4].(string)
-			if !ok {
-				t.Fatalf("Expected string for end_time, got %T", args[4])
-			}
-			if componentID != testComponentID {
-				t.Errorf("Expected component_id %q, got %q", testComponentID, componentID)
-			}
-			if environmentID != testEnvironmentID {
-				t.Errorf("Expected environment_id %q, got %q", testEnvironmentID, environmentID)
-			}
-			if projectID != testProjectID {
-				t.Errorf("Expected project_id %q, got %q", testProjectID, projectID)
-			}
-			if startTime != testStartTime {
-				t.Errorf("Expected start_time %q, got %q", testStartTime, startTime)
-			}
-			if endTime != testEndTime {
-				t.Errorf("Expected end_time %q, got %q", testEndTime, endTime)
+			if svcs.traces.spanDetailsSpanIDs[lastIdx] != testSpanID {
+				t.Errorf("Expected span_id %q, got %q", testSpanID, svcs.traces.spanDetailsSpanIDs[lastIdx])
 			}
 		},
 	},
 }
 
-// TestToolRegistration verifies that all expected tools are registered
+// ---- Tests ----
+
+// TestNewMCPHandlerValidation verifies that nil services are rejected.
+func TestNewMCPHandlerValidation(t *testing.T) {
+	logger := slog.Default()
+	healthSvc, _ := service.NewHealthService(logger)
+	alertSvc := service.NewAlertService(nil, nil, nil, nil, logger, "", false)
+	logs := NewMockLogsQuerier()
+	metrics := NewMockMetricsQuerier()
+	traces := NewMockTracesQuerier()
+
+	tests := []struct {
+		name    string
+		health  *service.HealthService
+		logs    service.LogsQuerier
+		metrics service.MetricsQuerier
+		alerts  *service.AlertService
+		traces  service.TracesQuerier
+		log     *slog.Logger
+	}{
+		{"nil healthService", nil, logs, metrics, alertSvc, traces, logger},
+		{"nil logsService", healthSvc, nil, metrics, alertSvc, traces, logger},
+		{"nil metricsService", healthSvc, logs, nil, alertSvc, traces, logger},
+		{"nil alertService", healthSvc, logs, metrics, nil, traces, logger},
+		{"nil tracesService", healthSvc, logs, metrics, alertSvc, nil, logger},
+		{"nil logger", healthSvc, logs, metrics, alertSvc, traces, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewMCPHandler(tt.health, tt.logs, tt.metrics, tt.alerts, tt.traces, tt.log)
+			if err == nil {
+				t.Errorf("Expected error for %s, got nil", tt.name)
+			}
+		})
+	}
+}
+
+// TestToolRegistration verifies that all expected tools are registered.
 func TestToolRegistration(t *testing.T) {
 	clientSession, _ := setupTestServer(t)
 	defer clientSession.Close()
@@ -637,13 +626,11 @@ func TestToolRegistration(t *testing.T) {
 		t.Fatalf("Failed to list tools: %v", err)
 	}
 
-	// Build expected tool names from allToolSpecs
 	expectedTools := make(map[string]bool)
 	for _, spec := range allToolSpecs {
 		expectedTools[spec.name] = true
 	}
 
-	// Check all expected tools are present
 	registeredTools := make(map[string]bool)
 	for _, tool := range toolsResult.Tools {
 		registeredTools[tool.Name] = true
@@ -652,7 +639,6 @@ func TestToolRegistration(t *testing.T) {
 		}
 	}
 
-	// Check no tools are missing
 	for expected := range expectedTools {
 		if !registeredTools[expected] {
 			t.Errorf("Expected tool %q not found in registered tools", expected)
@@ -664,7 +650,7 @@ func TestToolRegistration(t *testing.T) {
 	}
 }
 
-// TestToolDescriptions verifies that tool descriptions are meaningful and distinguishable
+// TestToolDescriptions verifies that tool descriptions are meaningful and distinguishable.
 func TestToolDescriptions(t *testing.T) {
 	clientSession, _ := setupTestServer(t)
 	defer clientSession.Close()
@@ -675,12 +661,11 @@ func TestToolDescriptions(t *testing.T) {
 		t.Fatalf("Failed to list tools: %v", err)
 	}
 
-	toolsByName := make(map[string]*mcp.Tool)
+	toolsByName := make(map[string]*mcpsdk.Tool)
 	for _, tool := range toolsResult.Tools {
 		toolsByName[tool.Name] = tool
 	}
 
-	// Test each tool's description using specs from allToolSpecs
 	for _, spec := range allToolSpecs {
 		t.Run(spec.name, func(t *testing.T) {
 			tool, exists := toolsByName[spec.name]
@@ -690,12 +675,10 @@ func TestToolDescriptions(t *testing.T) {
 
 			desc := strings.ToLower(tool.Description)
 
-			// Check minimum length
 			if len(desc) < spec.descriptionMinLen {
 				t.Errorf("Description too short: got %d chars, want at least %d", len(desc), spec.descriptionMinLen)
 			}
 
-			// Check for required keywords
 			for _, word := range spec.descriptionKeywords {
 				if !strings.Contains(desc, strings.ToLower(word)) {
 					t.Errorf("Description missing required keyword %q: %s", word, tool.Description)
@@ -715,7 +698,7 @@ func TestToolDescriptions(t *testing.T) {
 	}
 }
 
-// TestToolSchemas verifies that tool input schemas have required properties defined
+// TestToolSchemas verifies that tool input schemas have correct parameters defined.
 func TestToolSchemas(t *testing.T) {
 	clientSession, _ := setupTestServer(t)
 	defer clientSession.Close()
@@ -726,12 +709,11 @@ func TestToolSchemas(t *testing.T) {
 		t.Fatalf("Failed to list tools: %v", err)
 	}
 
-	toolsByName := make(map[string]*mcp.Tool)
+	toolsByName := make(map[string]*mcpsdk.Tool)
 	for _, tool := range toolsResult.Tools {
 		toolsByName[tool.Name] = tool
 	}
 
-	// Test each tool's schema using specs from allToolSpecs
 	for _, spec := range allToolSpecs {
 		t.Run(spec.name, func(t *testing.T) {
 			tool, exists := toolsByName[spec.name]
@@ -743,29 +725,26 @@ func TestToolSchemas(t *testing.T) {
 				t.Fatal("InputSchema is nil")
 			}
 
-			// Convert InputSchema to map for inspection
 			schemaMap, ok := tool.InputSchema.(map[string]any)
 			if !ok {
 				t.Fatalf("Expected InputSchema to be map[string]any, got %T", tool.InputSchema)
 			}
 
-			// Verify schema type is object
 			schemaType, ok := schemaMap["type"].(string)
 			if !ok || schemaType != "object" {
 				t.Errorf("Expected schema type 'object', got %v", schemaMap["type"])
 			}
 
-			// Check required parameters
+			// Check required parameters appear in schema.required
 			if len(spec.requiredParams) > 0 {
 				requiredInSchema := make(map[string]bool)
-				if requiredList, ok := schemaMap["required"].([]interface{}); ok {
+				if requiredList, ok := schemaMap["required"].([]any); ok {
 					for _, req := range requiredList {
 						if reqStr, ok := req.(string); ok {
 							requiredInSchema[reqStr] = true
 						}
 					}
 				}
-
 				for _, param := range spec.requiredParams {
 					if !requiredInSchema[param] {
 						t.Errorf("Required parameter %q not found in schema.required", param)
@@ -773,10 +752,8 @@ func TestToolSchemas(t *testing.T) {
 				}
 			}
 
-			// Check that all parameters (required and optional) are in properties
-			allParams := make([]string, 0, len(spec.requiredParams)+len(spec.optionalParams))
-			allParams = append(allParams, spec.requiredParams...)
-			allParams = append(allParams, spec.optionalParams...)
+			// Check all parameters exist in schema.properties
+			allParams := append(append([]string{}, spec.requiredParams...), spec.optionalParams...)
 			if len(allParams) > 0 {
 				properties, ok := schemaMap["properties"].(map[string]any)
 				if !ok {
@@ -792,20 +769,18 @@ func TestToolSchemas(t *testing.T) {
 	}
 }
 
-// TestToolParameterWiring verifies that parameters are correctly passed to handlers
+// TestToolParameterWiring verifies that parameters are correctly passed to service methods.
 func TestToolParameterWiring(t *testing.T) {
-	clientSession, mockHandler := setupTestServer(t)
+	clientSession, svcs := setupTestServer(t)
 	defer clientSession.Close()
 
 	ctx := context.Background()
 
-	// Test each tool's parameter wiring using specs from allToolSpecs
 	for _, spec := range allToolSpecs {
 		t.Run(spec.name, func(t *testing.T) {
-			// Clear previous calls
-			mockHandler.calls = make(map[string][]interface{})
+			svcs.resetAll()
 
-			result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+			result, err := clientSession.CallTool(ctx, &mcpsdk.CallToolParams{
 				Name:      spec.name,
 				Arguments: spec.testArgs,
 			})
@@ -813,76 +788,57 @@ func TestToolParameterWiring(t *testing.T) {
 				t.Fatalf("Failed to call tool: %v", err)
 			}
 
-			// Verify result is not empty
 			if len(result.Content) == 0 {
 				t.Fatal("Expected non-empty result content")
 			}
 
-			// Verify the correct handler method was called
-			calls, ok := mockHandler.calls[spec.expectedMethod]
-			if !ok {
-				t.Fatalf("Expected method %q was not called. Available calls: %v",
-					spec.expectedMethod, mockHandler.calls)
-			}
-
-			if len(calls) != 1 {
-				t.Fatalf("Expected 1 call to %q, got %d", spec.expectedMethod, len(calls))
-			}
-
-			// Validate the call parameters using the spec's custom validator
-			args := calls[0].([]interface{})
-			spec.validateCall(t, args)
+			spec.validateCall(t, svcs)
 		})
 	}
 }
 
-// TestToolResponseFormat verifies that tool responses are valid JSON
+// TestToolResponseFormat verifies that tool responses are valid JSON.
 func TestToolResponseFormat(t *testing.T) {
 	clientSession, _ := setupTestServer(t)
 	defer clientSession.Close()
 
 	ctx := context.Background()
 
-	// Test with a single tool - response format is consistent across all tools
-	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name: "get_component_logs",
-		Arguments: map[string]any{
-			"component_id":   testComponentID,
-			"environment_id": testEnvironmentID,
-			"namespace":      testNamespace,
-			"start_time":     testStartTime,
-			"end_time":       testEndTime,
-		},
-	})
-	if err != nil {
-		t.Fatalf("Failed to call tool: %v", err)
-	}
+	// Test response format for each tool
+	for _, spec := range allToolSpecs {
+		t.Run(spec.name, func(t *testing.T) {
+			result, err := clientSession.CallTool(ctx, &mcpsdk.CallToolParams{
+				Name:      spec.name,
+				Arguments: spec.testArgs,
+			})
+			if err != nil {
+				t.Fatalf("Failed to call tool: %v", err)
+			}
 
-	if len(result.Content) == 0 {
-		t.Fatal("Expected non-empty result content")
-	}
+			if len(result.Content) == 0 {
+				t.Fatal("Expected non-empty result content")
+			}
 
-	// Get the text content
-	textContent, ok := result.Content[0].(*mcp.TextContent)
-	if !ok {
-		t.Fatal("Expected TextContent")
-	}
+			textContent, ok := result.Content[0].(*mcpsdk.TextContent)
+			if !ok {
+				t.Fatal("Expected TextContent")
+			}
 
-	// Verify the response is valid JSON
-	var data interface{}
-	if err := json.Unmarshal([]byte(textContent.Text), &data); err != nil {
-		t.Errorf("Response is not valid JSON: %v\nResponse: %s", err, textContent.Text)
+			var data any
+			if err := json.Unmarshal([]byte(textContent.Text), &data); err != nil {
+				t.Errorf("Response is not valid JSON: %v\nResponse: %s", err, textContent.Text)
+			}
+		})
 	}
 }
 
-// TestToolErrorHandling verifies that the MCP SDK validates required parameters
+// TestToolErrorHandling verifies that the MCP SDK validates required parameters.
 func TestToolErrorHandling(t *testing.T) {
 	clientSession, mockHandler := setupTestServer(t)
 	defer clientSession.Close()
 
 	ctx := context.Background()
 
-	// Find a tool with required parameters from allToolSpecs
 	var testSpec toolTestSpec
 	for _, spec := range allToolSpecs {
 		if len(spec.requiredParams) > 0 {
@@ -895,29 +851,21 @@ func TestToolErrorHandling(t *testing.T) {
 		t.Fatal("No tool with required parameters found in allToolSpecs")
 	}
 
-	// Clear mock handler calls
-	mockHandler.calls = make(map[string][]interface{})
+	mockHandler.resetAll()
 
-	// Try calling the tool with missing required parameter
-	_, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+	_, err := clientSession.CallTool(ctx, &mcpsdk.CallToolParams{
 		Name:      testSpec.name,
-		Arguments: map[string]any{}, // Empty arguments - missing required params
+		Arguments: map[string]any{}, // Empty - missing required params
 	})
 
-	// We expect an error for missing required parameters
 	if err == nil {
 		t.Errorf("Expected error for tool %q with missing required parameters, got nil", testSpec.name)
 	}
-
-	// Verify the handler was NOT called (validation should fail before reaching handler)
-	if len(mockHandler.calls) > 0 {
-		t.Errorf("Handler should not be called when parameters are invalid, but got calls: %v", mockHandler.calls)
-	}
 }
 
-// TestMinimalParameterSets verifies that tools work with only required parameters
+// TestMinimalParameterSets verifies that tools work with only required parameters.
 func TestMinimalParameterSets(t *testing.T) {
-	clientSession, mockHandler := setupTestServer(t)
+	clientSession, svcs := setupTestServer(t)
 	defer clientSession.Close()
 
 	ctx := context.Background()
@@ -928,72 +876,75 @@ func TestMinimalParameterSets(t *testing.T) {
 		args     map[string]any
 	}{
 		{
-			name:     "get_component_logs_minimal",
-			toolName: "get_component_logs",
+			name:     "query_component_logs_minimal",
+			toolName: "query_component_logs",
 			args: map[string]any{
-				"component_id":   testComponentID,
-				"environment_id": testEnvironmentID,
-				"namespace":      testNamespace,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
 		},
 		{
-			name:     "get_project_logs_minimal",
-			toolName: "get_project_logs",
+			name:     "query_workflow_logs_minimal",
+			toolName: "query_workflow_logs",
 			args: map[string]any{
-				"project_id":     testProjectID,
-				"environment_id": testEnvironmentID,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
 		},
 		{
-			name:     "get_gateway_logs_minimal",
-			toolName: "get_gateway_logs",
+			name:     "query_resource_metrics_minimal",
+			toolName: "query_resource_metrics",
 			args: map[string]any{
-				"namespace_name": testNamespaceName,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
 		},
 		{
-			name:     "get_namespace_logs_minimal",
-			toolName: "get_namespace_logs",
+			name:     "query_http_metrics_minimal",
+			toolName: "query_http_metrics",
 			args: map[string]any{
-				"namespace_name": testNamespaceName,
-				"environment_id": testEnvironmentID,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
 		},
 		{
-			name:     "get_traces_minimal",
-			toolName: "get_traces",
+			name:     "query_traces_minimal",
+			toolName: "query_traces",
 			args: map[string]any{
-				"project_uid": testProjectID,
-				"start_time":  testStartTime,
-				"end_time":    testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
 		},
 		{
-			name:     "get_component_resource_metrics_minimal",
-			toolName: "get_component_resource_metrics",
+			name:     "query_trace_spans_minimal",
+			toolName: "query_trace_spans",
 			args: map[string]any{
-				"project_id":     testProjectID,
-				"environment_id": testEnvironmentID,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"trace_id":   testTraceID,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
+			},
+		},
+		{
+			name:     "get_span_details_minimal",
+			toolName: "get_span_details",
+			args: map[string]any{
+				"trace_id": testTraceID,
+				"span_id":  testSpanID,
 			},
 		},
 	}
 
 	for _, tt := range minimalTests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear previous calls
-			mockHandler.calls = make(map[string][]interface{})
+			svcs.resetAll()
 
-			result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+			result, err := clientSession.CallTool(ctx, &mcpsdk.CallToolParams{
 				Name:      tt.toolName,
 				Arguments: tt.args,
 			})
@@ -1001,186 +952,198 @@ func TestMinimalParameterSets(t *testing.T) {
 				t.Fatalf("Failed to call tool with minimal parameters: %v", err)
 			}
 
-			// Verify result is not empty
 			if len(result.Content) == 0 {
 				t.Fatal("Expected non-empty result content")
 			}
 
-			// Verify the response is valid JSON
-			textContent, ok := result.Content[0].(*mcp.TextContent)
+			textContent, ok := result.Content[0].(*mcpsdk.TextContent)
 			if !ok {
 				t.Fatal("Expected TextContent")
 			}
 
-			var data interface{}
+			var data any
 			if err := json.Unmarshal([]byte(textContent.Text), &data); err != nil {
 				t.Errorf("Response is not valid JSON: %v", err)
-			}
-
-			// Verify handler was called
-			if len(mockHandler.calls) == 0 {
-				t.Error("Expected handler to be called")
 			}
 		})
 	}
 }
 
-// TestHandlerErrorPropagation verifies that errors from handlers are properly propagated
+// TestHandlerErrorPropagation verifies that service errors are propagated as MCP errors.
 func TestHandlerErrorPropagation(t *testing.T) {
 	ctx := context.Background()
+
+	newServerWithError := func(t *testing.T, setupErr func(*testServices)) *mcpsdk.ClientSession {
+		t.Helper()
+		svcs := newTestServices()
+		setupErr(svcs)
+
+		handler, err := buildMCPHandler(svcs)
+		if err != nil {
+			t.Fatalf("Failed to build MCPHandler: %v", err)
+		}
+
+		server := mcpsdk.NewServer(&mcpsdk.Implementation{
+			Name:    "test-openchoreo-observer",
+			Version: "1.0.0",
+		}, nil)
+		registerTools(server, handler)
+
+		clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
+		if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
+			t.Fatalf("Failed to connect server: %v", err)
+		}
+
+		client := mcpsdk.NewClient(&mcpsdk.Implementation{
+			Name:    "test-client",
+			Version: "1.0.0",
+		}, nil)
+
+		session, err := client.Connect(ctx, clientTransport, nil)
+		if err != nil {
+			t.Fatalf("Failed to connect client: %v", err)
+		}
+		return session
+	}
 
 	errorTests := []struct {
 		name     string
 		toolName string
 		args     map[string]any
-		setupErr func(*MockHandler)
+		setupErr func(*testServices)
 	}{
 		{
-			name:     "get_component_logs_error",
-			toolName: "get_component_logs",
+			name:     "logs_service_error",
+			toolName: "query_component_logs",
 			args: map[string]any{
-				"component_id":   testComponentID,
-				"environment_id": testEnvironmentID,
-				"namespace":      testNamespace,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
-			setupErr: func(h *MockHandler) {
-				h.componentLogsError = errors.New("connection failed")
-			},
+			setupErr: func(s *testServices) { s.logs.err = errors.New("opensearch unavailable") },
 		},
 		{
-			name:     "get_project_logs_error",
-			toolName: "get_project_logs",
+			name:     "workflow_logs_service_error",
+			toolName: "query_workflow_logs",
 			args: map[string]any{
-				"project_id":     testProjectID,
-				"environment_id": testEnvironmentID,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
-			setupErr: func(h *MockHandler) {
-				h.projectLogsError = errors.New("query failed")
-			},
+			setupErr: func(s *testServices) { s.logs.err = errors.New("connection refused") },
 		},
 		{
-			name:     "get_gateway_logs_error",
-			toolName: "get_gateway_logs",
+			name:     "resource_metrics_service_error",
+			toolName: "query_resource_metrics",
 			args: map[string]any{
-				"namespace_name": testNamespaceName,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
-			setupErr: func(h *MockHandler) {
-				h.gatewayLogsError = errors.New("invalid time range")
-			},
+			setupErr: func(s *testServices) { s.metrics.err = errors.New("prometheus unavailable") },
 		},
 		{
-			name:     "get_namespace_logs_error",
-			toolName: "get_namespace_logs",
+			name:     "http_metrics_service_error",
+			toolName: "query_http_metrics",
 			args: map[string]any{
-				"namespace_name": testNamespaceName,
-				"environment_id": testEnvironmentID,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
-			setupErr: func(h *MockHandler) {
-				h.namespaceLogsError = errors.New("unauthorized")
-			},
+			setupErr: func(s *testServices) { s.metrics.err = errors.New("query timeout") },
 		},
 		{
-			name:     "get_traces_error",
-			toolName: "get_traces",
+			name:     "traces_service_error",
+			toolName: "query_traces",
 			args: map[string]any{
-				"project_uid": testProjectID,
-				"start_time":  testStartTime,
-				"end_time":    testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
-			setupErr: func(h *MockHandler) {
-				h.tracesError = errors.New("trace service unavailable")
-			},
+			setupErr: func(s *testServices) { s.traces.queryTracesErr = errors.New("trace service down") },
 		},
 		{
-			name:     "get_component_resource_metrics_error",
-			toolName: "get_component_resource_metrics",
+			name:     "trace_spans_service_error",
+			toolName: "query_trace_spans",
 			args: map[string]any{
-				"project_id":     testProjectID,
-				"environment_id": testEnvironmentID,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"trace_id":   testTraceID,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
-			setupErr: func(h *MockHandler) {
-				h.componentResourceMetricsError = errors.New("prometheus unavailable")
+			setupErr: func(s *testServices) { s.traces.querySpansErr = errors.New("span query failed") },
+		},
+		{
+			name:     "span_details_service_error",
+			toolName: "get_span_details",
+			args: map[string]any{
+				"trace_id": testTraceID,
+				"span_id":  testSpanID,
 			},
+			setupErr: func(s *testServices) { s.traces.spanDetailsErr = errors.New("span not found") },
+		},
+		{
+			name:     "traces_invalid_start_time",
+			toolName: "query_traces",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": "not-a-time",
+				"end_time":   testEndTime,
+			},
+			setupErr: func(s *testServices) {}, // error comes from time parsing, not service
+		},
+		{
+			name:     "trace_spans_invalid_end_time",
+			toolName: "query_trace_spans",
+			args: map[string]any{
+				"trace_id":   testTraceID,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   "bad-time-format",
+			},
+			setupErr: func(s *testServices) {}, // error comes from time parsing, not service
 		},
 	}
 
 	for _, tt := range errorTests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a fresh mock handler for this test
-			mockHandler := NewMockHandler()
-			tt.setupErr(mockHandler)
+			session := newServerWithError(t, tt.setupErr)
+			defer session.Close()
 
-			server := mcp.NewServer(&mcp.Implementation{
-				Name:    "test-openchoreo-observer",
-				Version: "1.0.0",
-			}, nil)
-
-			registerTools(server, mockHandler)
-
-			// Create client connection
-			clientTransport, serverTransport := mcp.NewInMemoryTransports()
-
-			_, err := server.Connect(ctx, serverTransport, nil)
-			if err != nil {
-				t.Fatalf("Failed to connect server: %v", err)
-			}
-
-			client := mcp.NewClient(&mcp.Implementation{
-				Name:    "test-client",
-				Version: "1.0.0",
-			}, nil)
-
-			clientSession, err := client.Connect(ctx, clientTransport, nil)
-			if err != nil {
-				t.Fatalf("Failed to connect client: %v", err)
-			}
-			defer clientSession.Close()
-
-			result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+			result, err := session.CallTool(ctx, &mcpsdk.CallToolParams{
 				Name:      tt.toolName,
 				Arguments: tt.args,
 			})
 
-			// We expect an error to be returned
-			// Note: MCP SDK wraps errors in the result, not as Go errors
+			// MCP SDK wraps errors in result.IsError rather than returning Go errors
 			if err == nil && (result == nil || !result.IsError) {
-				t.Errorf("Expected error from handler, got err=%v, result.IsError=%v", err, result != nil && result.IsError)
-			}
-
-			// Verify the handler was called
-			if len(mockHandler.calls) == 0 {
-				t.Error("Handler was not called")
+				t.Errorf("Expected error from handler, got err=%v, result.IsError=%v",
+					err, result != nil && result.IsError)
 			}
 		})
 	}
 }
 
-// TestNewHTTPServer verifies that the HTTP server is created correctly
+// TestNewHTTPServer verifies that the HTTP server is created correctly.
 func TestNewHTTPServer(t *testing.T) {
-	mockHandler := NewMockHandler()
-	handler := NewHTTPServer(mockHandler)
+	svcs := newTestServices()
+	handler, err := buildMCPHandler(svcs)
+	if err != nil {
+		t.Fatalf("Failed to build MCPHandler: %v", err)
+	}
 
-	if handler == nil {
+	httpHandler := NewHTTPServer(handler)
+
+	if httpHandler == nil {
 		t.Fatal("Expected non-nil HTTP handler")
 	}
 
-	// Verify it's actually an http.Handler
-	var _ http.Handler = handler
+	var _ http.Handler = httpHandler
 }
 
-// TestOptionalParametersDefaults verifies that optional parameters have sensible defaults
+// TestOptionalParametersDefaults verifies that optional parameters have sensible defaults.
 func TestOptionalParametersDefaults(t *testing.T) {
-	clientSession, mockHandler := setupTestServer(t)
+	clientSession, svcs := setupTestServer(t)
 	defer clientSession.Close()
 
 	ctx := context.Background()
@@ -1189,82 +1152,89 @@ func TestOptionalParametersDefaults(t *testing.T) {
 		name         string
 		toolName     string
 		args         map[string]any
-		validateCall func(t *testing.T, args []interface{})
+		validateCall func(t *testing.T, svcs *testServices)
 	}{
 		{
-			name:     "component_logs_without_optional_params",
-			toolName: "get_component_logs",
+			name:     "component_logs_default_limit_and_sort",
+			toolName: "query_component_logs",
 			args: map[string]any{
-				"component_id":   testComponentID,
-				"environment_id": testEnvironmentID,
-				"namespace":      testNamespace,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
-			validateCall: func(t *testing.T, args []interface{}) {
-				params := args[0].(opensearch.ComponentQueryParams)
-				// Verify optional params have default values
-				if params.SearchPhrase != "" {
-					t.Errorf("Expected empty search_phrase, got %q", params.SearchPhrase)
+			validateCall: func(t *testing.T, svcs *testServices) {
+				req := svcs.logs.lastRequest()
+				if req == nil {
+					t.Fatal("Expected QueryLogs to be called")
 				}
-				if len(params.LogLevels) != 0 {
-					t.Errorf("Expected empty log_levels, got %v", params.LogLevels)
+				if req.Limit != 100 {
+					t.Errorf("Expected default limit 100, got %d", req.Limit)
 				}
-				if params.Limit != 100 {
-					t.Errorf("Expected default limit of 100, got %d", params.Limit)
+				if req.SortOrder != sortOrderDesc {
+					t.Errorf("Expected default sort_order %q, got %q", sortOrderDesc, req.SortOrder)
+				}
+				if len(req.LogLevels) != 0 {
+					t.Errorf("Expected empty log_levels by default, got %v", req.LogLevels)
 				}
 			},
 		},
 		{
-			name:     "project_logs_without_component_ids",
-			toolName: "get_project_logs",
+			name:     "workflow_logs_default_limit_and_sort",
+			toolName: "query_workflow_logs",
 			args: map[string]any{
-				"project_id":     testProjectID,
-				"environment_id": testEnvironmentID,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
-			validateCall: func(t *testing.T, args []interface{}) {
-				componentIDs := args[1].([]string)
-				// Verify component_ids is nil/empty when not provided
-				if len(componentIDs) != 0 {
-					t.Errorf("Expected nil or empty component_ids, got %v", componentIDs)
+			validateCall: func(t *testing.T, svcs *testServices) {
+				req := svcs.logs.lastRequest()
+				if req == nil {
+					t.Fatal("Expected QueryLogs to be called")
+				}
+				if req.Limit != 100 {
+					t.Errorf("Expected default limit 100, got %d", req.Limit)
+				}
+				if req.SortOrder != sortOrderDesc {
+					t.Errorf("Expected default sort_order %q, got %q", sortOrderDesc, req.SortOrder)
 				}
 			},
 		},
 		{
-			name:     "gateway_logs_without_optional_filters",
-			toolName: "get_gateway_logs",
+			name:     "resource_metrics_no_step",
+			toolName: "query_resource_metrics",
 			args: map[string]any{
-				"namespace_name": testNamespaceName,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
-			validateCall: func(t *testing.T, args []interface{}) {
-				params := args[0].(opensearch.GatewayQueryParams)
-				// Verify optional params are nil/empty
-				if len(params.APIIDToVersionMap) != 0 {
-					t.Errorf("Expected nil or empty api_id_to_version_map, got %v", params.APIIDToVersionMap)
+			validateCall: func(t *testing.T, svcs *testServices) {
+				req := svcs.metrics.lastRequest()
+				if req == nil {
+					t.Fatal("Expected QueryMetrics to be called")
 				}
-				if len(params.GatewayVHosts) != 0 {
-					t.Errorf("Expected empty gateway_vhosts, got %v", params.GatewayVHosts)
+				if req.Step != nil {
+					t.Errorf("Expected nil step when not provided, got %v", req.Step)
 				}
 			},
 		},
 		{
-			name:     "namespace_logs_without_pod_labels",
-			toolName: "get_namespace_logs",
+			name:     "traces_default_limit_and_sort",
+			toolName: "query_traces",
 			args: map[string]any{
-				"namespace_name": testNamespaceName,
-				"environment_id": testEnvironmentID,
-				"start_time":     testStartTime,
-				"end_time":       testEndTime,
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
-			validateCall: func(t *testing.T, args []interface{}) {
-				podLabels := args[1].(map[string]string)
-				// Verify pod_labels is nil/empty when not provided
-				if len(podLabels) != 0 {
-					t.Errorf("Expected nil or empty pod_labels, got %v", podLabels)
+			validateCall: func(t *testing.T, svcs *testServices) {
+				req := svcs.traces.lastTracesRequest()
+				if req == nil {
+					t.Fatal("Expected QueryTraces to be called")
+				}
+				if req.Limit != 100 {
+					t.Errorf("Expected default limit 100, got %d", req.Limit)
+				}
+				if req.Sort != sortOrderDesc {
+					t.Errorf("Expected default sort %q, got %q", sortOrderDesc, req.Sort)
 				}
 			},
 		},
@@ -1272,9 +1242,9 @@ func TestOptionalParametersDefaults(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockHandler.calls = make(map[string][]interface{})
+			svcs.resetAll()
 
-			_, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+			_, err := clientSession.CallTool(ctx, &mcpsdk.CallToolParams{
 				Name:      tt.toolName,
 				Arguments: tt.args,
 			})
@@ -1282,79 +1252,65 @@ func TestOptionalParametersDefaults(t *testing.T) {
 				t.Fatalf("Failed to call tool: %v", err)
 			}
 
-			// Find the first (and should be only) method call
-			var callArgs []interface{}
-			for _, calls := range mockHandler.calls {
-				if len(calls) > 0 {
-					callArgs = calls[0].([]interface{})
-					break
-				}
-			}
-
-			if callArgs == nil {
-				t.Fatal("No handler method was called")
-			}
-
-			tt.validateCall(t, callArgs)
+			tt.validateCall(t, svcs)
 		})
 	}
 }
 
-// TestParameterMappingRegression demonstrates that validateCall catches real implementation bugs
-// This test intentionally shows what would fail if someone broke the parameter mapping
+// TestParameterMappingRegression demonstrates that validateCall catches real parameter mapping bugs.
 func TestParameterMappingRegression(t *testing.T) {
-	clientSession, mockHandler := setupTestServer(t)
+	clientSession, svcs := setupTestServer(t)
 	defer clientSession.Close()
 
 	ctx := context.Background()
 
-	// Call the tool with specific arguments
-	_, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name: "get_component_logs",
+	_, err := clientSession.CallTool(ctx, &mcpsdk.CallToolParams{
+		Name: "query_component_logs",
 		Arguments: map[string]any{
-			"component_id":   "test-comp-id",
-			"environment_id": "test-env-id",
-			"namespace":      "test-namespace",
-			"start_time":     "2025-01-01T00:00:00Z",
-			"end_time":       "2025-01-01T23:59:59Z",
-			"search_phrase":  "my-search-term",
-			"limit":          999,
+			"namespace":     "my-org",
+			"project":       "my-project",
+			"component":     "my-service",
+			"environment":   "production",
+			"start_time":    testStartTime,
+			"end_time":      testEndTime,
+			"search_phrase": "my-search",
+			"limit":         42,
 		},
 	})
 	if err != nil {
 		t.Fatalf("Failed to call tool: %v", err)
 	}
 
-	// Verify the handler received the EXACT values we sent
-	// This proves we're testing the real parameter mapping code in server.go
-	calls := mockHandler.calls["GetComponentLogs"]
-	if len(calls) != 1 {
-		t.Fatalf("Expected 1 call, got %d", len(calls))
+	req := svcs.logs.lastRequest()
+	if req == nil {
+		t.Fatal("Expected QueryLogs to be called")
+	}
+	if req.SearchScope == nil || req.SearchScope.Component == nil {
+		t.Fatal("Expected ComponentSearchScope")
 	}
 
-	args := calls[0].([]interface{})
-	params := args[0].(opensearch.ComponentQueryParams)
-
-	// If someone changed the mapping in server.go (e.g., swapped component_id with environment_id),
-	// these assertions would fail, proving validateCall catches real bugs
-	if params.ComponentID != "test-comp-id" {
-		t.Errorf("Component mapping broken: expected 'test-comp-id', got %q", params.ComponentID)
+	scope := req.SearchScope.Component
+	if scope.Namespace != "my-org" {
+		t.Errorf("Namespace mapping broken: expected 'my-org', got %q", scope.Namespace)
 	}
-	if params.EnvironmentID != "test-env-id" {
-		t.Errorf("Environment mapping broken: expected 'test-env-id', got %q", params.EnvironmentID)
+	if scope.Project != "my-project" {
+		t.Errorf("Project mapping broken: expected 'my-project', got %q", scope.Project)
 	}
-	if params.Namespace != "test-namespace" {
-		t.Errorf("Namespace mapping broken: expected 'test-namespace', got %q", params.Namespace)
+	if scope.Component != "my-service" {
+		t.Errorf("Component mapping broken: expected 'my-service', got %q", scope.Component)
 	}
-	if params.SearchPhrase != "my-search-term" {
-		t.Errorf("SearchPhrase mapping broken: expected 'my-search-term', got %q", params.SearchPhrase)
+	if scope.Environment != "production" {
+		t.Errorf("Environment mapping broken: expected 'production', got %q", scope.Environment)
 	}
-	if params.Limit != 999 {
-		t.Errorf("Limit mapping broken: expected 999, got %d", params.Limit)
+	if req.SearchPhrase != "my-search" {
+		t.Errorf("SearchPhrase mapping broken: expected 'my-search', got %q", req.SearchPhrase)
+	}
+	if req.Limit != 42 {
+		t.Errorf("Limit mapping broken: expected 42, got %d", req.Limit)
 	}
 }
 
-// TestSchemaPropertyTypes verifies that schema properties have correct types
+// TestSchemaPropertyTypes verifies that schema properties have the correct JSON types.
 func TestSchemaPropertyTypes(t *testing.T) {
 	clientSession, _ := setupTestServer(t)
 	defer clientSession.Close()
@@ -1366,71 +1322,71 @@ func TestSchemaPropertyTypes(t *testing.T) {
 	}
 
 	expectedTypes := map[string]map[string]string{
-		"get_component_logs": {
-			"component_id":   "string",
-			"environment_id": "string",
-			"namespace":      "string",
-			"start_time":     "string",
-			"end_time":       "string",
-			"search_phrase":  "string",
-			"log_levels":     "array",
-			"versions":       "array",
-			"version_ids":    "array",
-			"limit":          "number",
-			"sort_order":     "string",
-			"log_type":       "string",
-			"build_id":       "string",
-			"build_uuid":     "string",
+		"query_component_logs": {
+			"namespace":     "string",
+			"project":       "string",
+			"component":     "string",
+			"environment":   "string",
+			"start_time":    "string",
+			"end_time":      "string",
+			"search_phrase": "string",
+			"log_levels":    "array",
+			"limit":         "number",
+			"sort_order":    "string",
 		},
-		"get_project_logs": {
-			"project_id":     "string",
-			"environment_id": "string",
-			"start_time":     "string",
-			"end_time":       "string",
-			"component_ids":  "array",
-			"search_phrase":  "string",
-			"log_levels":     "array",
-			"limit":          "number",
-			"sort_order":     "string",
+		"query_workflow_logs": {
+			"namespace":         "string",
+			"workflow_run_name": "string",
+			"task_name":         "string",
+			"start_time":        "string",
+			"end_time":          "string",
+			"search_phrase":     "string",
+			"log_levels":        "array",
+			"limit":             "number",
+			"sort_order":        "string",
 		},
-		"get_gateway_logs": {
-			"namespace_name":        "string",
-			"start_time":            "string",
-			"end_time":              "string",
-			"search_phrase":         "string",
-			"api_id_to_version_map": "object",
-			"gateway_vhosts":        "array",
-			"limit":                 "number",
-			"sort_order":            "string",
-			"log_type":              "string",
+		"query_resource_metrics": {
+			"namespace":   "string",
+			"project":     "string",
+			"component":   "string",
+			"environment": "string",
+			"start_time":  "string",
+			"end_time":    "string",
+			"step":        "string",
 		},
-		"get_namespace_logs": {
-			"namespace_name": "string",
-			"environment_id": "string",
-			"start_time":     "string",
-			"end_time":       "string",
-			"pod_labels":     "object",
-			"search_phrase":  "string",
-			"log_levels":     "array",
-			"limit":          "number",
-			"sort_order":     "string",
+		"query_http_metrics": {
+			"namespace":   "string",
+			"project":     "string",
+			"component":   "string",
+			"environment": "string",
+			"start_time":  "string",
+			"end_time":    "string",
+			"step":        "string",
 		},
-		"get_traces": {
-			"project_uid":     "string",
-			"component_uids":  "array",
-			"environment_uid": "string",
-			"trace_id":        "string",
-			"start_time":      "string",
-			"end_time":        "string",
-			"limit":           "number",
-			"sort_order":      "string",
+		"query_traces": {
+			"namespace":   "string",
+			"project":     "string",
+			"component":   "string",
+			"environment": "string",
+			"start_time":  "string",
+			"end_time":    "string",
+			"limit":       "number",
+			"sort_order":  "string",
 		},
-		"get_component_resource_metrics": {
-			"component_id":   "string",
-			"project_id":     "string",
-			"environment_id": "string",
-			"start_time":     "string",
-			"end_time":       "string",
+		"query_trace_spans": {
+			"trace_id":    "string",
+			"namespace":   "string",
+			"project":     "string",
+			"component":   "string",
+			"environment": "string",
+			"start_time":  "string",
+			"end_time":    "string",
+			"limit":       "number",
+			"sort_order":  "string",
+		},
+		"get_span_details": {
+			"trace_id": "string",
+			"span_id":  "string",
 		},
 	}
 

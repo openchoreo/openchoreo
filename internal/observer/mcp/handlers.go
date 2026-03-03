@@ -6,71 +6,189 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
-	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
-	legacyservice "github.com/openchoreo/openchoreo/internal/observer/service/legacy"
+	"github.com/openchoreo/openchoreo/internal/observer/service"
+	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 type MCPHandler struct {
-	Service *legacyservice.LoggingService
+	healthService  *service.HealthService
+	logsService    service.LogsQuerier
+	metricsService service.MetricsQuerier
+	alertService   *service.AlertService
+	tracesService  service.TracesQuerier
+	logger         *slog.Logger
 }
 
-// GetComponentLogs retrieves logs for a specific component
-func (h *MCPHandler) GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (any, error) {
-	return h.Service.GetComponentLogs(ctx, params)
-}
-
-// GetProjectLogs retrieves logs for a specific project
-func (h *MCPHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (any, error) {
-	return h.Service.GetProjectLogs(ctx, params, componentIDs)
-}
-
-// GetGatewayLogs retrieves gateway logs
-func (h *MCPHandler) GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (any, error) {
-	return h.Service.GetGatewayLogs(ctx, params)
-}
-
-// GetNamespaceLogs retrieves logs for an entire namespace
-func (h *MCPHandler) GetNamespaceLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error) {
-	return h.Service.GetNamespaceLogs(ctx, params, podLabels)
-}
-
-// GetTraces retrieves distributed tracing spans for a specific traceID or traces of requests which call specific components
-func (h *MCPHandler) GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (any, error) {
-	return h.Service.GetTraces(ctx, params)
-}
-
-// GetComponentResourceMetrics retrieves resource usage metrics for a component
-func (h *MCPHandler) GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error) {
-	// Parse time strings to time.Time
-	startTimeObj, err := parseRFC3339Time(startTime)
-	if err != nil {
-		return nil, err
+func NewMCPHandler(
+	healthService *service.HealthService,
+	logsService service.LogsQuerier,
+	metricsService service.MetricsQuerier,
+	alertService *service.AlertService,
+	tracesService service.TracesQuerier,
+	logger *slog.Logger,
+) (*MCPHandler, error) {
+	if healthService == nil {
+		return nil, fmt.Errorf("missing healthService")
 	}
-
-	endTimeObj, err := parseRFC3339Time(endTime)
-	if err != nil {
-		return nil, err
+	if logsService == nil {
+		return nil, fmt.Errorf("missing logsService")
 	}
-
-	return h.Service.GetComponentResourceMetrics(ctx, componentID, environmentID, projectID, startTimeObj, endTimeObj)
+	if metricsService == nil {
+		return nil, fmt.Errorf("missing metricsService")
+	}
+	if alertService == nil {
+		return nil, fmt.Errorf("missing alertService")
+	}
+	if tracesService == nil {
+		return nil, fmt.Errorf("missing tracesService")
+	}
+	if logger == nil {
+		return nil, fmt.Errorf("missing logger")
+	}
+	return &MCPHandler{
+		healthService:  healthService,
+		logsService:    logsService,
+		metricsService: metricsService,
+		alertService:   alertService,
+		tracesService:  tracesService,
+		logger:         logger,
+	}, nil
 }
 
-// GetComponentHTTPMetrics retrieves HTTP metrics for a component
-func (h *MCPHandler) GetComponentHTTPMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error) {
-	// Parse time strings to time.Time
-	startTimeObj, err := parseRFC3339Time(startTime)
-	if err != nil {
-		return nil, err
+func (h *MCPHandler) QueryComponentLogs(ctx context.Context, namespace, project, component, environment,
+	startTime, endTime, searchPhrase string, logLevels []string, limit int, sortOrder string) (any, error) {
+	limit, sortOrder, logLevels = setDefaults(limit, sortOrder, logLevels)
+	req := &types.LogsQueryRequest{
+		SearchScope: &types.SearchScope{
+			Component: &types.ComponentSearchScope{
+				Namespace:   namespace,
+				Project:     project,
+				Component:   component,
+				Environment: environment,
+			},
+		},
+		StartTime:    startTime,
+		EndTime:      endTime,
+		SearchPhrase: searchPhrase,
+		LogLevels:    logLevels,
+		Limit:        limit,
+		SortOrder:    sortOrder,
 	}
+	return h.logsService.QueryLogs(ctx, req)
+}
 
-	endTimeObj, err := parseRFC3339Time(endTime)
-	if err != nil {
-		return nil, err
+func (h *MCPHandler) QueryWorkflowLogs(ctx context.Context, namespace, workflowRunName, taskName,
+	startTime, endTime, searchPhrase string, logLevels []string, limit int, sortOrder string) (any, error) {
+	limit, sortOrder, logLevels = setDefaults(limit, sortOrder, logLevels)
+	req := &types.LogsQueryRequest{
+		SearchScope: &types.SearchScope{
+			Workflow: &types.WorkflowSearchScope{
+				Namespace:       namespace,
+				WorkflowRunName: workflowRunName,
+				TaskName:        taskName,
+			},
+		},
+		StartTime:    startTime,
+		EndTime:      endTime,
+		SearchPhrase: searchPhrase,
+		LogLevels:    logLevels,
+		Limit:        limit,
+		SortOrder:    sortOrder,
 	}
+	return h.logsService.QueryLogs(ctx, req)
+}
 
-	return h.Service.GetComponentHTTPMetrics(ctx, componentID, environmentID, projectID, startTimeObj, endTimeObj)
+func (h *MCPHandler) QueryResourceMetrics(ctx context.Context, namespace, project, component, environment,
+	startTime, endTime string, step *string) (any, error) {
+	req := &types.MetricsQueryRequest{
+		Metric:    types.MetricTypeResource,
+		StartTime: startTime,
+		EndTime:   endTime,
+		Step:      step,
+		SearchScope: types.ComponentSearchScope{
+			Namespace:   namespace,
+			Project:     project,
+			Component:   component,
+			Environment: environment,
+		},
+	}
+	return h.metricsService.QueryMetrics(ctx, req)
+}
+
+func (h *MCPHandler) QueryHTTPMetrics(ctx context.Context, namespace, project, component, environment,
+	startTime, endTime string, step *string) (any, error) {
+	req := &types.MetricsQueryRequest{
+		Metric:    types.MetricTypeHTTP,
+		StartTime: startTime,
+		EndTime:   endTime,
+		Step:      step,
+		SearchScope: types.ComponentSearchScope{
+			Namespace:   namespace,
+			Project:     project,
+			Component:   component,
+			Environment: environment,
+		},
+	}
+	return h.metricsService.QueryMetrics(ctx, req)
+}
+
+func (h *MCPHandler) QueryTraces(ctx context.Context, namespace, project, component, environment,
+	startTime, endTime string, limit int, sortOrder string) (any, error) {
+	limit, sortOrder, _ = setDefaults(limit, sortOrder, nil)
+	start, err := parseRFC3339Time(startTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid start_time: %w", err)
+	}
+	end, err := parseRFC3339Time(endTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid end_time: %w", err)
+	}
+	req := &types.TracesQueryRequest{
+		StartTime: start,
+		EndTime:   end,
+		Limit:     limit,
+		Sort:      sortOrder,
+		SearchScope: types.ComponentSearchScope{
+			Namespace:   namespace,
+			Project:     project,
+			Component:   component,
+			Environment: environment,
+		},
+	}
+	return h.tracesService.QueryTraces(ctx, req)
+}
+
+func (h *MCPHandler) QueryTraceSpans(ctx context.Context, traceID, namespace, project, component, environment,
+	startTime, endTime string, limit int, sortOrder string) (any, error) {
+	limit, sortOrder, _ = setDefaults(limit, sortOrder, nil)
+	start, err := parseRFC3339Time(startTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid start_time: %w", err)
+	}
+	end, err := parseRFC3339Time(endTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid end_time: %w", err)
+	}
+	req := &types.TracesQueryRequest{
+		StartTime: start,
+		EndTime:   end,
+		Limit:     limit,
+		Sort:      sortOrder,
+		SearchScope: types.ComponentSearchScope{
+			Namespace:   namespace,
+			Project:     project,
+			Component:   component,
+			Environment: environment,
+		},
+	}
+	return h.tracesService.QuerySpans(ctx, traceID, req)
+}
+
+func (h *MCPHandler) GetSpanDetails(ctx context.Context, traceID, spanID string) (any, error) {
+	return h.tracesService.GetSpanDetails(ctx, traceID, spanID)
 }
 
 func parseRFC3339Time(timeStr string) (time.Time, error) {

@@ -14,6 +14,7 @@ const (
 type ResourceType string
 
 const (
+	ResourceTypeUnknown     ResourceType = "unknown"
 	ResourceTypeComponent   ResourceType = "component"
 	ResourceTypeProject     ResourceType = "project"
 	ResourceTypeNamespace   ResourceType = "namespace"
