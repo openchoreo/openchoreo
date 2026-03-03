@@ -164,3 +164,30 @@ func (h *Handler) DeleteAlertRule(w http.ResponseWriter, r *http.Request) {
 
 	h.writeJSON(w, http.StatusOK, resp)
 }
+
+// HandleAlertWebhook handles POST /api/v1alpha1/alerts/webhook
+func (h *Handler) HandleAlertWebhook(w http.ResponseWriter, r *http.Request) {
+	var req gen.AlertWebhookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "INVALID_REQUEST_BODY", "invalid request body: "+err.Error())
+		return
+	}
+
+	if req.RuleName == nil || *req.RuleName == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "MISSING_RULE_NAME", "ruleName is required")
+		return
+	}
+	if req.RuleNamespace == nil || *req.RuleNamespace == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "MISSING_RULE_NAMESPACE", "ruleNamespace is required")
+		return
+	}
+
+	resp, err := h.alertService.HandleAlertWebhook(r.Context(), req)
+	if err != nil {
+		h.logger.Error("Failed to handle alert webhook", "error", err)
+		h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "WEBHOOK_FAILED", "failed to handle alert webhook: "+err.Error())
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, resp)
+}

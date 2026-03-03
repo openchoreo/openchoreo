@@ -172,6 +172,8 @@ func main() {
 		k8sClient,
 		cfg,
 		logger.With("component", "alert-service"),
+		cfg.Alerting.RCAServiceURL,
+		cfg.Alerting.AIRCAEnabled,
 	)
 
 	// Initialize new API handler
@@ -279,6 +281,9 @@ func main() {
 		"PUT /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", newAPIHandler.UpdateAlertRule)
 	internalRoutes.HandleFunc(
 		"DELETE /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", newAPIHandler.DeleteAlertRule)
+
+	// ===== v1alpha1 Alert Webhook Endpoint  =====
+	internalRoutes.HandleFunc("POST /api/v1alpha1/alerts/webhook", newAPIHandler.HandleAlertWebhook)
 
 	internalAddr := fmt.Sprintf(":%d", cfg.Server.InternalPort)
 	internalServer := &http.Server{
