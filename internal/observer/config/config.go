@@ -33,13 +33,13 @@ type Config struct {
 
 // ExperimentalConfig holds experimental feature flags
 type ExperimentalConfig struct {
-	UseLogsBackend     bool          `koanf:"use.logs.backend"`
-	LogsBackendURL     string        `koanf:"logs.backend.url"`
-	LogsBackendTimeout time.Duration `koanf:"logs.backend.timeout"`
+	UseLogsAdapter     bool          `koanf:"use.logs.adapter"`
+	LogsAdapterURL     string        `koanf:"logs.adapter.url"`
+	LogsAdapterTimeout time.Duration `koanf:"logs.adapter.timeout"`
 
-	UseTracesBackend     bool          `koanf:"use.traces.backend"`
-	TracesBackendURL     string        `koanf:"traces.backend.url"`
-	TracesBackendTimeout time.Duration `koanf:"traces.backend.timeout"`
+	UseTracingAdapter     bool          `koanf:"use.tracing.adapter"`
+	TracingAdapterURL     string        `koanf:"tracing.adapter.url"`
+	TracingAdapterTimeout time.Duration `koanf:"tracing.adapter.timeout"`
 }
 
 // ServerConfig holds HTTP server configuration
@@ -193,12 +193,12 @@ func Load() (*Config, error) {
 		"JWT_SECRET":                            "auth.jwt.secret",       // Common alias
 		"ENABLE_AUTH":                           "auth.enable.auth",      // Common alias
 		"MAX_LOG_LIMIT":                         "logging.max.log.limit", // Common alias
-		"EXPERIMENTAL_USE_LOGS_BACKEND":         "experimental.use.logs.backend",
-		"EXPERIMENTAL_LOGS_BACKEND_URL":         "experimental.logs.backend.url",
-		"EXPERIMENTAL_LOGS_BACKEND_TIMEOUT":     "experimental.logs.backend.timeout",
-		"EXPERIMENTAL_USE_TRACES_BACKEND":       "experimental.use.traces.backend",
-		"EXPERIMENTAL_TRACES_BACKEND_URL":       "experimental.traces.backend.url",
-		"EXPERIMENTAL_TRACES_BACKEND_TIMEOUT":   "experimental.traces.backend.timeout",
+		"EXPERIMENTAL_USE_LOGS_ADAPTER":         "experimental.use.logs.adapter",
+		"EXPERIMENTAL_LOGS_ADAPTER_URL":         "experimental.logs.adapter.url",
+		"EXPERIMENTAL_LOGS_ADAPTER_TIMEOUT":     "experimental.logs.adapter.timeout",
+		"EXPERIMENTAL_USE_TRACING_ADAPTER":      "experimental.use.tracing.adapter",
+		"EXPERIMENTAL_TRACING_ADAPTER_URL":      "experimental.tracing.adapter.url",
+		"EXPERIMENTAL_TRACING_ADAPTER_TIMEOUT":  "experimental.tracing.adapter.timeout",
 		"UID_RESOLVER_OPENCHOREO_API_URL":       "uid_resolver.openchoreo.api.url",
 		"UID_RESOLVER_OAUTH_TOKEN_URL":          "uid_resolver.oauth.token.url",
 		"UID_RESOLVER_OAUTH_CLIENT_ID":          "uid_resolver.oauth.client.id",
@@ -321,12 +321,12 @@ func getDefaults() map[string]interface{} {
 			"observability.namespace": "openchoreo-observability-plane",
 		},
 		"experimental": map[string]interface{}{
-			"use.logs.backend":       false,
-			"logs.backend.url":       "",
-			"logs.backend.timeout":   "30s",
-			"use.traces.backend":     false,
-			"traces.backend.url":     "",
-			"traces.backend.timeout": "30s",
+			"use.logs.adapter":        false,
+			"logs.adapter.url":        "http://logs-adapter:9098",
+			"logs.adapter.timeout":    "30s",
+			"use.tracing.adapter":     false,
+			"tracing.adapter.url":     "http://tracing-adapter:9100",
+			"tracing.adapter.timeout": "30s",
 		},
 		"uid_resolver": map[string]interface{}{
 			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",

@@ -60,7 +60,7 @@ type LoggingService struct {
 	k8sClient      client.Client
 	config         *config.Config
 	logger         *slog.Logger
-	logsBackend    observability.LogsBackend // Optional: Logs backend for fetching logs
+	logsAdapter    observability.LogsAdapter // Optional: Logs adapter for fetching logs
 }
 
 // LogResponse represents the response structure for log queries
@@ -83,8 +83,8 @@ type HTTPMetricsTimeSeries struct {
 }
 
 // NewLoggingService creates a new logging service instance
-// logsBackend is optional - if nil, OpenSearch will be used for component logs
-func NewLoggingService(osClient OpenSearchClient, metricsService *prometheus.MetricsService, k8sClient client.Client, cfg *config.Config, logger *slog.Logger, logsBackend observability.LogsBackend) *LoggingService {
+// logsAdapter is optional - if nil, OpenSearch will be used for component logs
+func NewLoggingService(osClient OpenSearchClient, metricsService *prometheus.MetricsService, k8sClient client.Client, cfg *config.Config, logger *slog.Logger, logsAdapter observability.LogsAdapter) *LoggingService {
 	return &LoggingService{
 		osClient:       osClient,
 		queryBuilder:   opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
@@ -92,7 +92,7 @@ func NewLoggingService(osClient OpenSearchClient, metricsService *prometheus.Met
 		k8sClient:      k8sClient,
 		config:         cfg,
 		logger:         logger,
-		logsBackend:    logsBackend,
+		logsAdapter:    logsAdapter,
 	}
 }
 
@@ -242,18 +242,18 @@ func (s *LoggingService) GetWorkflowRunLogs(ctx context.Context, params opensear
 }
 
 // GetComponentLogs retrieves logs for a specific component
-// If experimental.use.logs.backend is enabled, uses logs backend
+// If experimental.use.logs.adapter is enabled, uses logs adapter
 // Otherwise, falls back to OpenSearch
 func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (*observability.ComponentApplicationLogsResult, error) {
 	s.logger.Info("Getting component logs",
 		"component_id", params.ComponentID,
 		"environment_id", params.EnvironmentID,
 		"search_phrase", params.SearchPhrase,
-		"use_backend", s.config.Experimental.UseLogsBackend)
+		"use_adapter", s.config.Experimental.UseLogsAdapter)
 
-	// Check if backend is enabled and available
-	if s.config.Experimental.UseLogsBackend && s.logsBackend != nil {
-		// Parse time parameters for backend
+	// Check if adapter is enabled and available
+	if s.config.Experimental.UseLogsAdapter && s.logsAdapter != nil {
+		// Parse time parameters for adapter
 		startTime, err := time.Parse(time.RFC3339, params.StartTime)
 		if err != nil {
 			s.logger.Error("Failed to parse start time", "error", err)
@@ -265,8 +265,8 @@ func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch
 			return nil, fmt.Errorf("failed to parse end time: %w", err)
 		}
 
-		// Convert to observability package params for backend
-		backendParams := observability.ComponentApplicationLogsParams{
+		// Convert to observability package params for adapter
+		adapterParams := observability.ComponentApplicationLogsParams{
 			ComponentID:   params.ComponentID,
 			EnvironmentID: params.EnvironmentID,
 			ProjectID:     params.ProjectID,
@@ -281,24 +281,29 @@ func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch
 			SortOrder:     params.SortOrder,
 		}
 
-		return s.getComponentApplicationLogsFromBackend(ctx, backendParams)
+		return s.getComponentApplicationLogsFromAdapter(ctx, adapterParams)
 	}
 
 	// Fallback: Use OpenSearch in Observer
 	return s.getComponentLogsFromOpenSearch(ctx, params)
 }
 
-// getComponentLogsFromBackend fetches logs from the configured logs backend (e.g., OpenObserve)
-// Backend implements observability.LogsBackend interface and returns observability.ComponentLogsResult directly
-func (s *LoggingService) getComponentApplicationLogsFromBackend(ctx context.Context, params observability.ComponentApplicationLogsParams) (*observability.ComponentApplicationLogsResult, error) {
-	// Call the logs backend directly - it implements observability.LogsBackend interface
-	result, err := s.logsBackend.GetComponentApplicationLogs(ctx, params)
+// getComponentApplicationLogsFromAdapter fetches logs from the configured logs adapter (e.g., OpenObserve)
+// Adapter implements observability.LogsAdapter interface and returns observability.ComponentLogsResult directly
+func (s *LoggingService) getComponentApplicationLogsFromAdapter(ctx context.Context, params observability.ComponentApplicationLogsParams) (*observability.ComponentApplicationLogsResult, error) {
+	// Call the logs adapter directly - it implements observability.LogsAdapter interface
+	result, err := s.logsAdapter.GetComponentApplicationLogs(ctx, params)
 	if err != nil {
-		s.logger.Error("Failed to get component logs from backend", "error", err)
-		return nil, fmt.Errorf("failed to get component logs from backend: %w", err)
+		s.logger.Error("Failed to get component logs from adapter", "error", err)
+		return nil, fmt.Errorf("failed to get component logs from adapter: %w", err)
 	}
 
-	s.logger.Debug("Component logs retrieved from backend",
+	if result == nil {
+		s.logger.Debug("Component logs retrieved from adapter", "count", 0, "total", 0)
+		return &observability.ComponentApplicationLogsResult{}, nil
+	}
+
+	s.logger.Debug("Component logs retrieved from adapter",
 		"count", len(result.Logs),
 		"total", result.TotalCount)
 

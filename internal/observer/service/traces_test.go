@@ -22,25 +22,25 @@ func newTestTracesService() *TracesService {
 	}
 }
 
-func TestNewTracesBackend_ConfigValidation(t *testing.T) {
+func TestNewTracingAdapter_ConfigValidation(t *testing.T) {
 	// Test with default timeout
-	cfg1 := TracesBackendConfig{
+	cfg1 := TracingAdapterConfig{
 		BaseURL: "http://localhost:8080",
 		Timeout: 0,
 	}
-	backend1 := NewTracesBackend(cfg1)
-	if backend1.httpClient.Timeout != 30*time.Second {
-		t.Errorf("Expected default timeout 30s, got %v", backend1.httpClient.Timeout)
+	adapter1 := NewTracingAdapter(cfg1)
+	if adapter1.httpClient.Timeout != 30*time.Second {
+		t.Errorf("Expected default timeout 30s, got %v", adapter1.httpClient.Timeout)
 	}
 
 	// Test with custom timeout
-	cfg2 := TracesBackendConfig{
+	cfg2 := TracingAdapterConfig{
 		BaseURL: "http://localhost:8080",
 		Timeout: 60 * time.Second,
 	}
-	backend2 := NewTracesBackend(cfg2)
-	if backend2.httpClient.Timeout != 60*time.Second {
-		t.Errorf("Expected custom timeout 60s, got %v", backend2.httpClient.Timeout)
+	adapter2 := NewTracingAdapter(cfg2)
+	if adapter2.httpClient.Timeout != 60*time.Second {
+		t.Errorf("Expected custom timeout 60s, got %v", adapter2.httpClient.Timeout)
 	}
 }
 

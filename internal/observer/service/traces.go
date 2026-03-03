@@ -27,7 +27,7 @@ var (
 )
 
 type TracesService struct {
-	tracesBackend  observability.TracesBackend
+	tracingAdapter observability.TracingAdapter
 	defaultAdaptor *adaptor.DefaultTracesAdaptor
 	config         *config.Config
 	resolver       *ResourceUIDResolver
@@ -35,24 +35,20 @@ type TracesService struct {
 }
 
 func NewTracesService(
-	tracesBackend observability.TracesBackend,
+	tracingAdapter observability.TracingAdapter,
 	resolver *ResourceUIDResolver,
 	cfg *config.Config,
 	logger *slog.Logger,
 ) (*TracesService, error) {
-	var defaultAdaptor *adaptor.DefaultTracesAdaptor
-
-	// Initialize default traces adaptor (queries OpenSearch when backend is not enabled)
-	if !cfg.Experimental.UseTracesBackend || tracesBackend == nil {
-		var err error
-		defaultAdaptor, err = adaptor.NewDefaultTracesAdaptor(&cfg.OpenSearch, logger)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize default traces adaptor: %w", err)
-		}
+	// Always initialize default traces adaptor since QuerySpans and GetSpanDetails depend on it
+	// even when the tracing adapter is enabled for QueryTraces.
+	defaultAdaptor, err := adaptor.NewDefaultTracesAdaptor(&cfg.OpenSearch, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize default traces adaptor: %w", err)
 	}
 
 	return &TracesService{
-		tracesBackend:  tracesBackend,
+		tracingAdapter: tracingAdapter,
 		defaultAdaptor: defaultAdaptor,
 		config:         cfg,
 		resolver:       resolver,
@@ -68,7 +64,7 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 	s.logger.Info("QueryTraces called",
 		"startTime", req.StartTime,
 		"endTime", req.EndTime,
-		"useTracesBackend", s.config.Experimental.UseTracesBackend)
+		"useTracingAdapter", s.config.Experimental.UseTracingAdapter)
 
 	// Resolve search scope to UIDs
 	projectUID, componentUID, environmentUID, err := s.resolveSearchScope(ctx, &req.SearchScope)
@@ -89,11 +85,11 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 		SortOrder:     req.Sort,
 	}
 
-	// Route to backend or OpenSearch
+	// Route to tracing adapter or OpenSearch
 	var result *observability.TracesQueryResult
-	if s.config.Experimental.UseTracesBackend && s.tracesBackend != nil {
-		s.logger.Debug("Using traces backend for query")
-		result, err = s.tracesBackend.GetTraces(ctx, params)
+	if s.config.Experimental.UseTracingAdapter && s.tracingAdapter != nil {
+		s.logger.Debug("Using tracing adapter for query")
+		result, err = s.tracingAdapter.GetTraces(ctx, params)
 	} else {
 		if s.defaultAdaptor == nil {
 			return nil, fmt.Errorf("%w: default traces adaptor not initialized", ErrTracesRetrieval)
@@ -178,7 +174,7 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 		SortOrder:     req.Sort,
 	}
 
-	// Query spans using the default adaptor (for now, external backend not supported for span queries)
+	// Query spans using the default adaptor (for now, external adapter not supported for span queries)
 	if s.defaultAdaptor == nil {
 		return nil, fmt.Errorf("%w: default traces adaptor not initialized", ErrTracesRetrieval)
 	}
