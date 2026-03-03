@@ -36,10 +36,12 @@ func newListWorkflowRunCmd() *cobra.Command {
 		Command: constants.ListWorkflowRun,
 		Flags: []flags.Flag{
 			flags.Namespace,
+			flags.Workflow,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
 			return workflowrun.New().List(workflowrun.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
+				Workflow:  fg.GetString(flags.Workflow),
 			})
 		},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
