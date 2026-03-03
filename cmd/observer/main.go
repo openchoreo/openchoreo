@@ -35,6 +35,8 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
+const legacyMCPHeaderValue = "true"
+
 func main() {
 	// Create bootstrap logger for early initialization
 	bootstrapLogger := createBootstrapLogger()
@@ -181,8 +183,10 @@ func main() {
 	// Both the API handler and MCP handler share the same authz-wrapped instances
 	// so authorization logic is enforced once, in the service layer.
 	authzLogsService := service.NewLogsServiceWithAuthz(logsService, authzClient, logger.With("component", "authz-logs"))
-	authzMetricsService := service.NewMetricsServiceWithAuthz(metricsService, authzClient, logger.With("component", "authz-metrics"))
-	authzTracesService := service.NewTracesServiceWithAuthz(tracesService, authzClient, logger.With("component", "authz-traces"))
+	authzMetricsService := service.NewMetricsServiceWithAuthz(
+		metricsService, authzClient, logger.With("component", "authz-metrics"))
+	authzTracesService := service.NewTracesServiceWithAuthz(
+		tracesService, authzClient, logger.With("component", "authz-traces"))
 
 	// Initialize new API handler
 	newAPIHandler := apihandler.NewHandler(
@@ -278,7 +282,7 @@ func main() {
 	mcpMiddleware := initMCPMiddleware(logger)
 	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
 	mcpRoutes.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-Legacy-MCP") == "true" {
+		if r.Header.Get("X-Legacy-MCP") == legacyMCPHeaderValue {
 			legacyMCPServer.ServeHTTP(w, r)
 		} else {
 			newMCPServer.ServeHTTP(w, r)
