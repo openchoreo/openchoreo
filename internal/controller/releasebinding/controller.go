@@ -93,6 +93,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
+	// Track spec changes
+	if releaseBinding.Generation != releaseBinding.Status.ObservedGeneration {
+		now := metav1.Now()
+		releaseBinding.Status.LastSpecUpdateTime = &now
+	}
+	releaseBinding.Status.ObservedGeneration = releaseBinding.Generation
+
 	// Deferred status update
 	defer func() {
 		// Skip update if nothing changed

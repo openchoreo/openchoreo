@@ -227,6 +227,15 @@ type EndpointURLStatus struct {
 
 // ReleaseBindingStatus defines the observed state of ReleaseBinding.
 type ReleaseBindingStatus struct {
+	// ObservedGeneration is the most recent generation observed by the controller.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// LastSpecUpdateTime is the timestamp of the last spec change observed by the controller.
+	// Updated when the controller detects a new generation (i.e., spec was modified).
+	// +optional
+	LastSpecUpdateTime *metav1.Time `json:"lastSpecUpdateTime,omitempty"`
+
 	// Conditions represent the latest available observations of the ReleaseBinding's current state.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`

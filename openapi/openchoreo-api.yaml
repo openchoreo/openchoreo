@@ -7690,6 +7690,14 @@ components:
       type: object
       description: Observed state of a ReleaseBinding
       properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Most recent generation observed by the controller
+        lastSpecUpdateTime:
+          type: string
+          format: date-time
+          description: Timestamp of the last spec change observed by the controller
         conditions:
           type: array
           description: Latest available observations of the ReleaseBinding's current state

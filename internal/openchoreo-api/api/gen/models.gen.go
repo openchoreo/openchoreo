@@ -2439,6 +2439,12 @@ type ReleaseBindingStatus struct {
 
 	// Endpoints Resolved invoke URLs for each named workload endpoint
 	Endpoints *[]EndpointURLStatus `json:"endpoints,omitempty"`
+
+	// LastSpecUpdateTime Timestamp of the last spec change observed by the controller
+	LastSpecUpdateTime *time.Time `json:"lastSpecUpdateTime,omitempty"`
+
+	// ObservedGeneration Most recent generation observed by the controller
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // ReleaseList Paginated list of releases

@@ -520,6 +520,17 @@ spec:
                   - name
                   type: object
                 type: array
+              lastSpecUpdateTime:
+                description: |-
+                  LastSpecUpdateTime is the timestamp of the last spec change observed by the controller.
+                  Updated when the controller detects a new generation (i.e., spec was modified).
+                format: date-time
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the most recent generation observed
+                  by the controller.
+                format: int64
+                type: integer
               pendingConnections:
                 description: PendingConnections contains the connections that could
                   not be resolved.
