@@ -105,7 +105,7 @@ getting-started/
 │   ├── service.yaml
 │   ├── webapp.yaml
 │   └── scheduled-task.yaml
-├── component-workflows/
+├── workflows/
 │   ├── docker.yaml
 │   ├── react.yaml
 │   ├── ballerina-buildpack.yaml

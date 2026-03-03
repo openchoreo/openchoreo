@@ -42,13 +42,16 @@ Low-level examples demonstrating how to define and use custom component types wi
 - **[Component with Configs](./component-types/component-with-configs/)** - Demonstrate configuration management
 - **[Component with Traits](./component-types/component-with-traits/)** - Demonstrate trait composition
 
-### [Component Workflows](./component-workflows)
-Reusable component workflow definitions for building applications from source code. These Workflow CRDs are used by the build system to define how different types of applications should be built.
+### [Workflows](./workflows)
+Reusable Workflow definitions organized by purpose. Workflows use the same `Workflow` CRD but serve two distinct roles.
 
-**Available Component Workflows:**
-- **[Docker Workflow](./component-workflows/docker.yaml)** - Build workflow for applications with Dockerfiles
-- **[Google Cloud Buildpacks](./component-workflows/google-cloud-buildpacks.yaml)** - Build workflow using Google Cloud Buildpacks
-- **[React Workflow](./component-workflows/react.yaml)** - Specialized build workflow for React applications
+**CI Workflows** (`workflows/ci/`) — define how applications are built and containerized as part of the Component lifecycle:
+- **[Docker Workflow](./workflows/ci/docker.yaml)** - Build workflow for applications with Dockerfiles
+- **[Google Cloud Buildpacks](./workflows/ci/google-cloud-buildpacks.yaml)** - Build workflow using Google Cloud Buildpacks
+- **[React Workflow](./workflows/ci/react.yaml)** - Specialized build workflow for React applications
+
+**Generic Workflows** (`workflows/generic/`) — standalone automation workflows independent of any Component:
+- **[GitHub Stats Report](./workflows/generic/github-stats-report/)** - Fetch GitHub repository statistics, transform the data, and generate a formatted report
 
 ### [GCP Microservices Demo](./gcp-microservices-demo)
 A complete microservices application based on Google's popular [microservices-demo](https://github.com/GoogleCloudPlatform/microservices-demo). This sample showcases how to deploy a full e-commerce application with multiple interconnected services using OpenChoreo.

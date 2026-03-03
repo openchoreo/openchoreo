@@ -1,0 +1,14 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: WorkflowRun
+metadata:
+  name: github-stats-report-run-01
+spec:
+  workflow:
+    name: github-stats-report
+    parameters:
+      source:
+        org: "openchoreo"
+        repo: "openchoreo"
+      output:
+        format: "table"
+

@@ -1,43 +1,44 @@
-# Generic Workflows
+# Workflow Samples
 
-This directory contains Generic Workflow definitions that can be used independently of Components. Unlike ComponentWorkflows (which are tied to Component builds), Generic Workflows provide a flexible way to run any type of workflow directly.
+This directory contains Workflow definitions for OpenChoreo. Workflows use the same `Workflow` CRD but serve two distinct purposes, organized into separate subdirectories.
 
-## Use Cases
+---
 
-Generic Workflows are useful for:
-- **Infrastructure Provisioning** - Terraform, Pulumi, or cloud resource automation
-- **Data Processing (ETL)** - Extract, transform, and load pipelines
-- **End-to-End Testing** - Integration and acceptance test suites
-- **Package Publishing** - Publishing libraries to npm, PyPI, Maven, etc.
-- **Docker Builds** - Container image builds not tied to a Component
+## Subdirectories
 
-## Sample Files
+| Directory | Purpose | Triggered by |
+|-----------|---------|--------------|
+| [`ci/`](./ci/) | Component CI/build workflows — define how source code is built and containerized | Component builds, webhooks, auto-build |
+| [`generic/`](./generic/) | General-purpose workflows — run any automation independently of a Component | Manual `WorkflowRun`, scheduled jobs, event-driven pipelines |
 
-This directory includes a Docker build workflow as an example:
+---
 
-| File | Kind | Description |
-|------|------|-------------|
-| `cluster-workflow-template-docker-build.yaml` | ClusterWorkflowTemplate | Argo Workflows template with the actual execution steps (clone, build, push) |
-| `workflow-docker-build.yaml` | Workflow | OpenChoreo CR that defines the parameter schema and references the template |
-| `workflow-run-docker-build.yaml` | WorkflowRun | Triggers an execution with specific parameter values |
+## CI Workflows (`ci/`)
 
-## About This Sample
+CI workflows are tied to the Component lifecycle. They define build strategies (Docker, Buildpacks, etc.) and integrate with the Build Plane for automated container image creation.
 
-This sample implements a Docker build pipeline that clones a Git repository, builds a container image using Podman, and pushes it to an internal registry. The workflow accepts parameters for the repository URL, branch, commit, Dockerfile path, and build context - allowing you to build images from any repository without modifying the workflow definition.
+**Use these when:** you need to build and containerize a Component from source code.
 
-The Workflow CR (`workflow-docker-build.yaml`) defines the parameter schema and acts as a reusable template. Each time you need to build an image, you create a WorkflowRun with specific parameter values (repository, branch, etc.). The controller then generates an Argo Workflow in the Build Plane that executes the actual steps defined in the ClusterWorkflowTemplate.
+See [`ci/README.md`](./ci/README.md) for details.
 
-## How to Run
+---
 
-Deploy the resources in order:
+## Generic Workflows (`generic/`)
 
-```bash
-# 1. Deploy the ClusterWorkflowTemplate to the Build Plane
-kubectl apply -f cluster-workflow-template-docker-build.yaml
+Generic workflows run independently of any Component. They can perform any kind of automation: data processing, ETL pipelines, report generation, scheduled maintenance, integration testing, and more.
 
-# 2. Deploy the Workflow CR to the Control Plane
-kubectl apply -f workflow-docker-build.yaml
+**Use these when:** you need to automate tasks that are not about building a Component image.
 
-# 3. Trigger an execution by creating a WorkflowRun
-kubectl apply -f workflow-run-docker-build.yaml
-```
+See [`generic/README.md`](./generic/README.md) for details.
+
+---
+
+## Key Differences
+
+| | CI Workflows | Generic Workflows |
+|--|---|---|
+| **Linked to Component?** | Yes | No |
+| **Parameters** | Includes `repository` (url, branch, appPath) | Domain-specific (no git-clone structure) |
+| **Triggered by** | Webhooks, API, `WorkflowRun` | `WorkflowRun` (manual or event-driven) |
+| **Typical steps** | Clone → Build → Push image | Fetch data → Transform → Report / any pipeline |
+| **Annotation** | `openchoreo.dev/workflow-scope: component` | No scope annotation |
