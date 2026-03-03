@@ -68,6 +68,7 @@ type WorkflowContext struct {
 	Labels map[string]string
 
 	// ContextRefs contains resolved external CR specs keyed by their id.
-	// Each entry is injected into the CEL context as a top-level variable.
+	// Entries are injected into the CEL context under the "contextRefs" map
+	// and accessed as ${contextRefs['<id>'].spec.*}, e.g. ${contextRefs['git-secret-reference'].spec.template.type}.
 	ContextRefs map[string]any
 }

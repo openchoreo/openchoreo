@@ -71,6 +71,8 @@ type WorkflowSpec struct {
 	// and injected into the CEL context under their id.
 	// If a reference's name evaluates to empty, it is silently skipped.
 	// +optional
+	// +listType=map
+	// +listMapKey=id
 	ContextRefs []ContextRef `json:"contextRefs,omitempty"`
 
 	// TTLAfterCompletion defines the time-to-live for WorkflowRun instances after completion.

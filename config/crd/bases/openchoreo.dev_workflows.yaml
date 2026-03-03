@@ -107,6 +107,9 @@ spec:
                   - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
               resources:
                 description: |-
                   Resources are additional templates that generate Kubernetes resources dynamically
