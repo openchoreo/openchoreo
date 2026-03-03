@@ -497,7 +497,11 @@ func componentTypeSummary(ct openchoreov1alpha1.ComponentType) map[string]any {
 	m := extractCommonMeta(&ct)
 	m["workloadType"] = ct.Spec.WorkloadType
 	if len(ct.Spec.AllowedWorkflows) > 0 {
-		m["allowedWorkflows"] = ct.Spec.AllowedWorkflows
+		wfs := make([]map[string]string, len(ct.Spec.AllowedWorkflows))
+		for i, ref := range ct.Spec.AllowedWorkflows {
+			wfs[i] = map[string]string{"kind": string(ref.Kind), "name": ref.Name}
+		}
+		m["allowedWorkflows"] = wfs
 	}
 	return m
 }
@@ -623,7 +627,11 @@ func clusterComponentTypeSummary(cct openchoreov1alpha1.ClusterComponentType) ma
 	m := extractCommonMeta(&cct)
 	m["workloadType"] = cct.Spec.WorkloadType
 	if len(cct.Spec.AllowedWorkflows) > 0 {
-		m["allowedWorkflows"] = cct.Spec.AllowedWorkflows
+		wfs := make([]map[string]string, len(cct.Spec.AllowedWorkflows))
+		for i, ref := range cct.Spec.AllowedWorkflows {
+			wfs[i] = map[string]string{"kind": string(ref.Kind), "name": ref.Name}
+		}
+		m["allowedWorkflows"] = wfs
 	}
 	return m
 }
@@ -632,7 +640,11 @@ func clusterComponentTypeDetail(cct *openchoreov1alpha1.ClusterComponentType) ma
 	m := extractCommonMeta(cct)
 	m["workloadType"] = cct.Spec.WorkloadType
 	if len(cct.Spec.AllowedWorkflows) > 0 {
-		m["allowedWorkflows"] = cct.Spec.AllowedWorkflows
+		wfs := make([]map[string]string, len(cct.Spec.AllowedWorkflows))
+		for i, ref := range cct.Spec.AllowedWorkflows {
+			wfs[i] = map[string]string{"kind": string(ref.Kind), "name": ref.Name}
+		}
+		m["allowedWorkflows"] = wfs
 	}
 	return m
 }

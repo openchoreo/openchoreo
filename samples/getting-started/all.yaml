@@ -109,8 +109,10 @@ spec:
   workloadType: deployment
 
   allowedWorkflows:
-    - google-cloud-buildpacks
-    - docker
+    - kind: Workflow
+      name: google-cloud-buildpacks
+    - kind: Workflow
+      name: docker
 
   allowedTraits:
     - name: observability-alert-rule
@@ -256,9 +258,12 @@ spec:
   workloadType: deployment
 
   allowedWorkflows:
-    - google-cloud-buildpacks
-    - ballerina-buildpack
-    - docker
+    - kind: Workflow
+      name: google-cloud-buildpacks
+    - kind: Workflow
+      name: ballerina-buildpack
+    - kind: Workflow
+      name: docker
 
   allowedTraits:
     - name: api-configuration
@@ -482,8 +487,10 @@ spec:
   workloadType: deployment
 
   allowedWorkflows:
-    - react
-    - docker
+    - kind: Workflow
+      name: react
+    - kind: Workflow
+      name: docker
 
   allowedTraits:
     - name: api-configuration
@@ -688,8 +695,10 @@ spec:
   workloadType: cronjob
 
   allowedWorkflows:
-    - google-cloud-buildpacks
-    - docker
+    - kind: Workflow
+      name: google-cloud-buildpacks
+    - kind: Workflow
+      name: docker
 
   allowedTraits: []
 

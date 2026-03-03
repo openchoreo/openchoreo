@@ -262,6 +262,29 @@ type ClusterTraitRef struct {
 	Name string `json:"name"`
 }
 
+// WorkflowRefKind defines the kind for workflow references.
+// Currently only "Workflow" is supported.
+// +kubebuilder:validation:Enum=Workflow
+type WorkflowRefKind string
+
+const (
+	// WorkflowRefKindWorkflow references a namespace-scoped Workflow
+	WorkflowRefKindWorkflow WorkflowRefKind = "Workflow"
+)
+
+// WorkflowRef represents a reference to a Workflow resource.
+type WorkflowRef struct {
+	// Kind is the kind of workflow. Currently only "Workflow" is supported.
+	// +optional
+	// +kubebuilder:default=Workflow
+	Kind WorkflowRefKind `json:"kind,omitempty"`
+
+	// Name is the name of the workflow resource
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+}
+
 // ComponentTypeRefKind defines the kind of component type referenced by a ComponentTypeRef
 // +kubebuilder:validation:Enum=ComponentType;ClusterComponentType
 type ComponentTypeRefKind string

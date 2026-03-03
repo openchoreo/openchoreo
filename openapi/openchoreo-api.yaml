@@ -6479,10 +6479,26 @@ components:
           example: deployment
         allowedWorkflows:
           type: array
-          description: List of allowed ComponentWorkflow names for this component type
+          description: List of allowed Workflow references for this component type
           items:
-            type: string
-          example: ["docker-build", "buildpack-build"]
+            type: object
+            required:
+              - name
+            properties:
+              kind:
+                type: string
+                description: Kind of the workflow reference. Currently only "Workflow" is supported.
+                enum: [Workflow]
+                default: Workflow
+              name:
+                type: string
+                description: Name of the workflow resource
+                minLength: 1
+          example:
+            - kind: Workflow
+              name: docker-build
+            - kind: Workflow
+              name: buildpack-build
         schema:
           type: object
           description: Developer-configurable schema definition
@@ -6779,10 +6795,26 @@ components:
           example: deployment
         allowedWorkflows:
           type: array
-          description: List of allowed ComponentWorkflow names for this component type
+          description: List of allowed Workflow references for this component type
           items:
-            type: string
-          example: ["docker-build", "buildpack-build"]
+            type: object
+            required:
+              - name
+            properties:
+              kind:
+                type: string
+                description: Kind of the workflow reference. Currently only "Workflow" is supported.
+                enum: [Workflow]
+                default: Workflow
+              name:
+                type: string
+                description: Name of the workflow resource
+                minLength: 1
+          example:
+            - kind: Workflow
+              name: docker-build
+            - kind: Workflow
+              name: buildpack-build
         schema:
           type: object
           description: Developer-configurable schema definition

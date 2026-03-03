@@ -120,6 +120,10 @@ func validateClusterComponentType(cct *openchoreodevv1alpha1.ClusterComponentTyp
 	allowedTraitErrs := validateAllowedTraits(cct)
 	allErrs = append(allErrs, allowedTraitErrs...)
 
+	// Validate allowedWorkflows
+	allowedWorkflowErrs := validateAllowedWorkflows(cct)
+	allErrs = append(allErrs, allowedWorkflowErrs...)
+
 	return allErrs
 }
 
@@ -201,6 +205,31 @@ func validateAllowedTraits(cct *openchoreodevv1alpha1.ClusterComponentType) fiel
 				"trait is already embedded in spec.traits and cannot also be in allowedTraits",
 			))
 		}
+	}
+
+	return allErrs
+}
+
+// validateAllowedWorkflows validates the allowedWorkflows list in a ClusterComponentType.
+func validateAllowedWorkflows(cct *openchoreodevv1alpha1.ClusterComponentType) field.ErrorList {
+	allErrs := field.ErrorList{}
+	allowedPath := field.NewPath("spec", "allowedWorkflows")
+
+	seen := make(map[string]bool)
+	for i, ref := range cct.Spec.AllowedWorkflows {
+		entryPath := allowedPath.Index(i)
+
+		// Validate non-empty name
+		if ref.Name == "" {
+			allErrs = append(allErrs, field.Required(entryPath.Child("name"), "allowed workflow name must not be empty"))
+			continue
+		}
+
+		// Check for duplicates by name
+		if seen[ref.Name] {
+			allErrs = append(allErrs, field.Duplicate(entryPath, ref.Name))
+		}
+		seen[ref.Name] = true
 	}
 
 	return allErrs

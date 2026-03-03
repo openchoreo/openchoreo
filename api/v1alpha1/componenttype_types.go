@@ -45,7 +45,7 @@ type ComponentTypeSpec struct {
 	// for building components of this type. If empty, no Workflows are allowed.
 	// References must point to Workflow resources.
 	// +optional
-	AllowedWorkflows []string `json:"allowedWorkflows,omitempty"`
+	AllowedWorkflows []WorkflowRef `json:"allowedWorkflows,omitempty"`
 
 	// Schema defines what developers can configure when creating components of this type
 	// +optional

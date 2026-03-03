@@ -423,8 +423,8 @@ func (r *Reconciler) validateWorkflow(
 	// This avoids fetching the Workflow if it's not allowed.
 	if len(ct.Spec.AllowedWorkflows) > 0 {
 		allowedSet := make(map[string]bool, len(ct.Spec.AllowedWorkflows))
-		for _, name := range ct.Spec.AllowedWorkflows {
-			allowedSet[name] = true
+		for _, ref := range ct.Spec.AllowedWorkflows {
+			allowedSet[ref.Name] = true
 		}
 
 		if !allowedSet[workflowName] {
