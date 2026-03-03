@@ -17,6 +17,9 @@ import (
 // from a component search scope (namespace/project/component). The most specific
 // non-empty field determines the resource type.
 func ComponentScopeAuthz(namespace, project, component string) (ResourceType, string, authzcore.ResourceHierarchy) {
+	if namespace == "" && project == "" && component == "" {
+		return ResourceTypeUnknown, "", authzcore.ResourceHierarchy{}
+	}
 	if component != "" {
 		return ResourceTypeComponent, component, authzcore.ResourceHierarchy{
 			Namespace: namespace,
@@ -38,6 +41,9 @@ func ComponentScopeAuthz(namespace, project, component string) (ResourceType, st
 // LogsScopeAuthz determines the authorization resource type, name, and hierarchy
 // from a logs query request's search scope.
 func LogsScopeAuthz(req *types.LogsQueryRequest) (ResourceType, string, authzcore.ResourceHierarchy, error) {
+	if req == nil {
+		return "", "", authzcore.ResourceHierarchy{}, fmt.Errorf("request is required")
+	}
 	if req.SearchScope == nil {
 		return "", "", authzcore.ResourceHierarchy{}, fmt.Errorf("search scope is required")
 	}

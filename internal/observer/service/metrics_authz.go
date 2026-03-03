@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -29,6 +30,9 @@ func NewMetricsServiceWithAuthz(s MetricsQuerier, pdp authzcore.PDP, logger *slo
 }
 
 func (s *metricsServiceWithAuthz) QueryMetrics(ctx context.Context, req *types.MetricsQueryRequest) (any, error) {
+	if req == nil {
+		return nil, fmt.Errorf("metrics query request is required")
+	}
 	scope := req.SearchScope
 	resourceType, resourceName, hierarchy := observerAuthz.ComponentScopeAuthz(scope.Namespace, scope.Project, scope.Component)
 	if err := observerAuthz.CheckAuthorization(

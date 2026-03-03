@@ -29,7 +29,25 @@ func NewMCPHandler(
 	alertService *service.AlertService,
 	tracesService service.TracesQuerier,
 	logger *slog.Logger,
-) *MCPHandler {
+) (*MCPHandler, error) {
+	if healthService == nil {
+		return nil, fmt.Errorf("missing healthService")
+	}
+	if logsService == nil {
+		return nil, fmt.Errorf("missing logsService")
+	}
+	if metricsService == nil {
+		return nil, fmt.Errorf("missing metricsService")
+	}
+	if alertService == nil {
+		return nil, fmt.Errorf("missing alertService")
+	}
+	if tracesService == nil {
+		return nil, fmt.Errorf("missing tracesService")
+	}
+	if logger == nil {
+		return nil, fmt.Errorf("missing logger")
+	}
 	return &MCPHandler{
 		healthService:  healthService,
 		logsService:    logsService,
@@ -37,7 +55,7 @@ func NewMCPHandler(
 		alertService:   alertService,
 		tracesService:  tracesService,
 		logger:         logger,
-	}
+	}, nil
 }
 
 func (h *MCPHandler) QueryComponentLogs(ctx context.Context, namespace, project, component, environment,

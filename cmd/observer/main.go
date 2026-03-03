@@ -266,7 +266,7 @@ func main() {
 	api.HandleFunc("GET /api/v1alpha1/traces/{traceId}/spans/{spanId}", newAPIHandler.GetSpanDetailsForTrace)
 
 	// Initialize new MCP handler backed by the authz-wrapped service layer
-	newMCPHandler := observermcp.NewMCPHandler(
+	newMCPHandler, err := observermcp.NewMCPHandler(
 		healthService,
 		authzLogsService,
 		authzMetricsService,
@@ -274,6 +274,9 @@ func main() {
 		authzTracesService,
 		logger.With("component", "mcp-handler"),
 	)
+	if err != nil {
+		log.Fatalf("Failed to create MCP handler: %v", err)
+	}
 	newMCPServer := observermcp.NewHTTPServer(newMCPHandler)
 	legacyMCPServer := legacymcp.NewHTTPServer(&legacymcp.MCPHandler{Service: legacyLoggingService})
 
