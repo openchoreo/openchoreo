@@ -886,7 +886,7 @@ observer:
   # @schema
   extraEnvs:
   - name: OBSERVER_BASE_URL
-    value: "http://localhost:11080"
+    value: "http://observer.openchoreo.localhost:11080"
   - name: OPENSEARCH_ADDRESS
     value: "https://opensearch:9200"
   - name: PROMETHEUS_ADDRESS
