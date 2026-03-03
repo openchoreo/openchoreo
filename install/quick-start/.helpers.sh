@@ -581,7 +581,7 @@ install_thunder() {
         thunder_values="/home/openchoreo/install/k3d/common/values-thunder.yaml"
     fi
 
-    install_helm_chart "thunder" "oci://ghcr.io/asgardeo/helm-charts/thunder" "$CONTROL_PLANE_NS" "true" "false" "true" "600" \
+    install_helm_chart "thunder" "oci://ghcr.io/asgardeo/helm-charts/thunder" "$THUNDER_NS" "true" "false" "true" "600" \
         "--version" "$THUNDER_VERSION" \
         "--values" "$thunder_values"
 

@@ -30,7 +30,7 @@ GATEWAY_API_VERSION    ?= v1.4.1
 CERT_MANAGER_VERSION   ?= v1.19.2
 ESO_VERSION            ?= 1.3.2
 KGATEWAY_VERSION       ?= v2.1.1
-THUNDER_VERSION        ?= 0.23.0
+THUNDER_VERSION        ?= 0.24.0
 
 # Helm chart references: local chart dirs or OCI registry
 ifeq ($(E2E_HELM_SOURCE),oci)
@@ -200,7 +200,7 @@ _e2e.install-thunder:
 		"cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 	@$(call log_info, Installing Thunder $(THUNDER_VERSION))
 	$(E2E_HELM) upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
-		--namespace $(E2E_CP_NS) --create-namespace \
+		--namespace thunder --create-namespace \
 		--version $(THUNDER_VERSION) \
 		--values $(PROJECT_DIR)/install/k3d/common/values-thunder.yaml \
 		--values $(E2E_K3D_DIR)/values-thunder.yaml \
