@@ -5,6 +5,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -1131,4 +1132,58 @@ func (c *Client) GetEnvironmentObserverURL(ctx context.Context, namespaceName, e
 		return "", fmt.Errorf("observer URL not configured for environment")
 	}
 	return *resp.JSON200.ObserverUrl, nil
+}
+
+// GetComponentTypeSchema retrieves the parameter schema for a component type
+func (c *Client) GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetComponentTypeSchemaWithResponse(ctx, namespaceName, ctName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get component type schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("component type %q not found", ctName)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
+// GetTraitSchema retrieves the parameter schema for a trait
+func (c *Client) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetTraitSchemaWithResponse(ctx, namespaceName, traitName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get trait schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("trait %q not found", traitName)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
+// GetWorkflowSchema retrieves the parameter schema for a workflow
+func (c *Client) GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetWorkflowSchemaWithResponse(ctx, namespaceName, workflowName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("workflow %q not found", workflowName)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
+func schemaResponseToRaw(schema *gen.SchemaResponse) (*json.RawMessage, error) {
+	data, err := json.Marshal(schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal schema: %w", err)
+	}
+	raw := json.RawMessage(data)
+	return &raw, nil
 }

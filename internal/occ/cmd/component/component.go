@@ -336,7 +336,7 @@ func (cp *Component) applyOverrides(ctx context.Context, c *client.Client, param
 func scaffoldComponent(params ScaffoldParams) error {
 	// Validate required parameters
 	if params.ComponentName == "" {
-		return fmt.Errorf("component name is required (--name)")
+		return fmt.Errorf("component name is required")
 	}
 	if params.ComponentType == "" {
 		return fmt.Errorf("component type is required (--type)")
@@ -355,7 +355,7 @@ func scaffoldComponent(params ScaffoldParams) error {
 	}
 
 	// Create API client
-	apiClient, err := client.NewAPIClient()
+	apiClient, err := client.NewClient()
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}

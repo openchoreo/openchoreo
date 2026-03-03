@@ -102,25 +102,16 @@ func newDeleteComponentCmd() *cobra.Command {
 }
 
 func newScaffoldComponentCmd() *cobra.Command {
-	componentFlags := []flags.Flag{
-		flags.Name,
-		flags.ScaffoldType,
-		flags.Traits,
-		flags.Workflow,
-		flags.Project,
-		flags.Namespace,
-		flags.OutputFile,
-		flags.SkipComments,
-		flags.SkipOptional,
-	}
-
-	return (&builder.CommandBuilder{
-		Command: constants.ScaffoldComponent,
-		Flags:   componentFlags,
+	cmd := &cobra.Command{
+		Use:     constants.ScaffoldComponent.Use,
+		Short:   constants.ScaffoldComponent.Short,
+		Long:    constants.ScaffoldComponent.Long,
+		Example: constants.ScaffoldComponent.Example,
+		Args:    cobra.ExactArgs(1),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
-		RunE: func(fg *builder.FlagGetter) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			// Parse traits from comma-separated string
-			traitsStr := fg.GetString(flags.Traits)
+			traitsStr, _ := cmd.Flags().GetString(flags.Traits.Name)
 			var traits []string
 			if traitsStr != "" {
 				parts := strings.Split(traitsStr, ",")
@@ -132,20 +123,41 @@ func newScaffoldComponentCmd() *cobra.Command {
 				}
 			}
 
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			project, _ := cmd.Flags().GetString(flags.Project.Name)
+			componentType, _ := cmd.Flags().GetString(flags.ScaffoldType.Name)
+			workflow, _ := cmd.Flags().GetString(flags.Workflow.Name)
+			outputFile, _ := cmd.Flags().GetString(flags.OutputFile.Name)
+			skipComments, _ := cmd.Flags().GetBool(flags.SkipComments.Name)
+			skipOptional, _ := cmd.Flags().GetBool(flags.SkipOptional.Name)
+
 			compImpl := component.New()
 			return compImpl.Scaffold(component.ScaffoldParams{
-				ComponentName: fg.GetString(flags.Name),
-				ComponentType: fg.GetString(flags.ScaffoldType),
+				ComponentName: args[0],
+				ComponentType: componentType,
 				Traits:        traits,
-				WorkflowName:  fg.GetString(flags.Workflow),
-				Namespace:     fg.GetString(flags.Namespace),
-				ProjectName:   fg.GetString(flags.Project),
-				OutputPath:    fg.GetString(flags.OutputFile),
-				SkipComments:  fg.GetBool(flags.SkipComments),
-				SkipOptional:  fg.GetBool(flags.SkipOptional),
+				WorkflowName:  workflow,
+				Namespace:     namespace,
+				ProjectName:   project,
+				OutputPath:    outputFile,
+				SkipComments:  skipComments,
+				SkipOptional:  skipOptional,
 			})
 		},
-	}).Build()
+	}
+
+	flags.AddFlags(cmd,
+		flags.ScaffoldType,
+		flags.Traits,
+		flags.Workflow,
+		flags.Project,
+		flags.Namespace,
+		flags.OutputFile,
+		flags.SkipComments,
+		flags.SkipOptional,
+	)
+
+	return cmd
 }
 
 func newDeployComponentCmd() *cobra.Command {

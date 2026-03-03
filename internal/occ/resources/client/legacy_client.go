@@ -252,63 +252,6 @@ func (c *APIClient) ListComponents(ctx context.Context, namespaceName, projectNa
 	return listResp.Data.Items, nil
 }
 
-// GetComponentTypeSchema fetches ComponentType schema from the API
-func (c *APIClient) GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (*json.RawMessage, error) {
-	path := fmt.Sprintf("/api/v1/namespaces/%s/component-types/%s/schema", namespaceName, ctName)
-	return c.getSchema(ctx, path)
-}
-
-// GetTraitSchema fetches Trait schema from the API
-func (c *APIClient) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (*json.RawMessage, error) {
-	path := fmt.Sprintf("/api/v1/namespaces/%s/traits/%s/schema", namespaceName, traitName)
-	return c.getSchema(ctx, path)
-}
-
-// GetWorkflowSchema fetches Workflow schema from the API
-func (c *APIClient) GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (*json.RawMessage, error) {
-	path := fmt.Sprintf("/api/v1/namespaces/%s/workflows/%s/schema", namespaceName, workflowName)
-	return c.getSchema(ctx, path)
-}
-
-// getSchema is a helper to fetch schema from the API
-func (c *APIClient) getSchema(ctx context.Context, path string) (*json.RawMessage, error) {
-	resp, err := c.get(ctx, path)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	// Handle non-OK status codes
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Parse wrapped API response
-	var apiResponse struct {
-		Success bool             `json:"success"`
-		Data    *json.RawMessage `json:"data"`
-		Error   string           `json:"error,omitempty"`
-		Code    string           `json:"code,omitempty"`
-	}
-	if err := json.Unmarshal(body, &apiResponse); err != nil {
-		return nil, fmt.Errorf("invalid API response format: %w", err)
-	}
-
-	if !apiResponse.Success {
-		if apiResponse.Code != "" {
-			return nil, fmt.Errorf("%s (error code: %s)", apiResponse.Error, apiResponse.Code)
-		}
-		return nil, fmt.Errorf("%s", apiResponse.Error)
-	}
-
-	return apiResponse.Data, nil
-}
-
 // Get performs a GET request to the API
 func (c *APIClient) Get(ctx context.Context, path string) (*http.Response, error) {
 	return c.doRequest(ctx, "GET", path, nil)
