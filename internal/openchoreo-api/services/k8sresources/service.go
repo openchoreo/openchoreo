@@ -210,7 +210,9 @@ func (s *k8sResourcesService) resolveReleaseContexts(ctx context.Context, namesp
 	}
 
 	if len(ownedReleases) == 0 {
-		return nil, ErrReleaseNotFound
+		// ReleaseBinding exists but has no owned releases yet (e.g. not reconciled).
+		// Return an empty list so the caller can return an empty tree.
+		return nil, nil
 	}
 
 	// 3. Resolve environment and plane info
@@ -243,10 +245,6 @@ func (s *k8sResourcesService) resolveReleaseContexts(ctx context.Context, namesp
 			plane:     pi,
 			namespace: ns,
 		})
-	}
-
-	if len(contexts) == 0 {
-		return nil, ErrReleaseNotFound
 	}
 
 	return contexts, nil
