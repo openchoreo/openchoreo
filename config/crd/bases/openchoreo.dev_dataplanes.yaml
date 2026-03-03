@@ -156,6 +156,9 @@ spec:
                             - host
                             - port
                             type: object
+                        required:
+                        - name
+                        - namespace
                         type: object
                       internal:
                         description: Internal defines the internally accessible gateway
@@ -228,6 +231,9 @@ spec:
                             - host
                             - port
                             type: object
+                        required:
+                        - name
+                        - namespace
                         type: object
                     type: object
                   ingress:
@@ -304,6 +310,9 @@ spec:
                             - host
                             - port
                             type: object
+                        required:
+                        - name
+                        - namespace
                         type: object
                       internal:
                         description: Internal defines the internally accessible gateway
@@ -376,6 +385,9 @@ spec:
                             - host
                             - port
                             type: object
+                        required:
+                        - name
+                        - namespace
                         type: object
                     type: object
                 type: object

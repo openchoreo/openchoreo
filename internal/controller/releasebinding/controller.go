@@ -1051,6 +1051,7 @@ func resolveEndpointURLStatuses(
 		switch ep.Type {
 		case openchoreov1alpha1.EndpointTypeHTTP,
 			openchoreov1alpha1.EndpointTypeGraphQL,
+			openchoreov1alpha1.EndpointTypeREST,
 			openchoreov1alpha1.EndpointTypeWebsocket:
 			httpEndpoints[name] = endpointMeta{
 				endpointType: ep.Type,

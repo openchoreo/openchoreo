@@ -52,11 +52,9 @@ type GatewayListenerSpec struct {
 // GatewayEndpointSpec defines the configuration for a gateway endpoint (name, namespace, and listeners).
 type GatewayEndpointSpec struct {
 	// Name is the name of the Gateway resource.
-	// +optional
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 	// Namespace is the namespace of the Gateway resource.
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
+	Namespace string `json:"namespace"`
 	// HTTP defines the HTTP listener configuration.
 	// +optional
 	HTTP *GatewayListenerSpec `json:"http,omitempty"`
