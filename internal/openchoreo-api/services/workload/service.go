@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -457,14 +457,14 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 				},
 			},
 			"endpoints": {
-				Type:                   objectType,
-				Description:            "Network endpoints for port exposure. Keys are endpoint names.",
-				AdditionalProperties:   &extv1.JSONSchemaPropsOrBool{Schema: &endpointSchema},
+				Type:                 objectType,
+				Description:          "Network endpoints for port exposure. Keys are endpoint names.",
+				AdditionalProperties: &extv1.JSONSchemaPropsOrBool{Schema: &endpointSchema},
 			},
 			"connections": {
-				Type:                   objectType,
-				Description:            "Connections to internal and external resources. Keys are connection names.",
-				AdditionalProperties:   &extv1.JSONSchemaPropsOrBool{Schema: &connectionSchema},
+				Type:                 objectType,
+				Description:          "Connections to internal and external resources. Keys are connection names.",
+				AdditionalProperties: &extv1.JSONSchemaPropsOrBool{Schema: &connectionSchema},
 			},
 		},
 	}
