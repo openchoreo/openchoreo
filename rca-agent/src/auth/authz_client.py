@@ -6,7 +6,7 @@ import logging
 import httpx
 from fastapi import HTTPException
 
-from src.auth.authz_models import AuthzResponse, Decision, EvaluateRequest
+from src.auth.authz_models import Decision, EvaluateRequest
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +37,13 @@ class AuthzClient:
             self._client = None
 
     async def evaluate(self, request: EvaluateRequest, auth_token: str | None = None) -> Decision:
-        url = f"{self.base_url}/api/v1/authz/evaluate"
+        url = f"{self.base_url}/api/v1/authz/evaluates"
         headers = {"Content-Type": "application/json"}
 
         if auth_token:
             headers["Authorization"] = f"Bearer {auth_token}"
 
-        body = request.model_dump()
+        body = [request.model_dump()]
 
         logger.debug("Authz request", extra={"url": url, "body": body})
 
@@ -70,7 +70,10 @@ class AuthzClient:
 
         if response.status_code == 403:
             logger.debug("Authz service returned forbidden")
-            return Decision(decision=False)
+            raise HTTPException(
+                status_code=403,
+                detail={"error": "FORBIDDEN", "message": "Access denied"},
+            )
 
         if response.status_code != 200:
             body_text = response.text
@@ -87,7 +90,7 @@ class AuthzClient:
             )
 
         try:
-            authz_response = AuthzResponse.model_validate(response.json())
+            decisions = [Decision.model_validate(d) for d in response.json()]
         except Exception as e:
             logger.error("Failed to parse authz response", extra={"error": str(e)})
             raise HTTPException(
@@ -98,14 +101,26 @@ class AuthzClient:
                 },
             ) from e
 
+        if not decisions:
+            logger.error("Authz service returned empty decisions array")
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": "SERVICE_UNAVAILABLE",
+                    "message": "Invalid response from authorization service",
+                },
+            )
+
+        decision = decisions[0]
+
         logger.debug(
             "Authorization evaluated",
             extra={
                 "action": request.action,
                 "resource_type": request.resource.type,
                 "resource_id": request.resource.id,
-                "decision": authz_response.data.decision,
+                "decision": decision.decision,
             },
         )
 
-        return authz_response.data
+        return decision
