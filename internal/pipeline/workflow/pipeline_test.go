@@ -1117,8 +1117,8 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 	}
 }
 
-func TestPipeline_Render_SecretRefContextVariables(t *testing.T) {
-	t.Run("secretRef context variables rendered correctly", func(t *testing.T) {
+func TestPipeline_Render_ContextRefVariables(t *testing.T) {
+	t.Run("contextRef variables rendered correctly via container map", func(t *testing.T) {
 		input := &RenderInput{
 			WorkflowRun: &v1alpha1.WorkflowRun{
 				Spec: v1alpha1.WorkflowRunSpec{
@@ -1133,14 +1133,13 @@ func TestPipeline_Render_SecretRefContextVariables(t *testing.T) {
 						"apiVersion": "v1",
 						"kind":       "ConfigMap",
 						"metadata": map[string]interface{}{
-							"name": "secret-context-test",
+							"name": "context-ref-test",
 						},
 						"data": map[string]interface{}{
-							"secret_name":       "${secretRef.name}",
-							"secret_type":       "${secretRef.type}",
-							"first_secret_key":  "${secretRef.data[0].secretKey}",
-							"first_remote_key":  "${secretRef.data[0].remoteRef.key}",
-							"first_remote_prop": "${secretRef.data[0].remoteRef.property}",
+							"secret_type":       "${contextRefs['git-secret-reference'].spec.template.type}",
+							"first_secret_key":  "${contextRefs['git-secret-reference'].spec.data[0].secretKey}",
+							"first_remote_key":  "${contextRefs['git-secret-reference'].spec.data[0].remoteRef.key}",
+							"first_remote_prop": "${contextRefs['git-secret-reference'].spec.data[0].remoteRef.property}",
 						},
 					}),
 				},
@@ -1148,15 +1147,20 @@ func TestPipeline_Render_SecretRefContextVariables(t *testing.T) {
 			Context: WorkflowContext{
 				NamespaceName:   "test-namespace",
 				WorkflowRunName: "test-run",
-				SecretRef: &SecretRefInfo{
-					Name: "repo-git-secret",
-					Type: "kubernetes.io/basic-auth",
-					Data: []SecretDataInfo{
-						{
-							SecretKey: "username",
-							RemoteRef: RemoteRefInfo{
-								Key:      "secret/data/repo-creds",
-								Property: "username",
+				ContextRefs: map[string]any{
+					"git-secret-reference": map[string]any{
+						"spec": map[string]any{
+							"template": map[string]any{
+								"type": "kubernetes.io/basic-auth",
+							},
+							"data": []any{
+								map[string]any{
+									"secretKey": "username",
+									"remoteRef": map[string]any{
+										"key":      "secret/data/repo-creds",
+										"property": "username",
+									},
+								},
 							},
 						},
 					},
@@ -1170,9 +1174,6 @@ func TestPipeline_Render_SecretRefContextVariables(t *testing.T) {
 		}
 
 		data := output.Resource["data"].(map[string]interface{})
-		if data["secret_name"] != "repo-git-secret" {
-			t.Errorf("expected secret_name 'repo-git-secret', got %v", data["secret_name"])
-		}
 		if data["secret_type"] != "kubernetes.io/basic-auth" {
 			t.Errorf("expected secret_type 'kubernetes.io/basic-auth', got %v", data["secret_type"])
 		}
@@ -1295,7 +1296,7 @@ func TestPipeline_Render_SecretRefContextVariables(t *testing.T) {
 		}
 	})
 
-	t.Run("secretRef context defaults to empty values when absent", func(t *testing.T) {
+	t.Run("rendering works without contextRefs", func(t *testing.T) {
 		input := &RenderInput{
 			WorkflowRun: &v1alpha1.WorkflowRun{
 				Spec: v1alpha1.WorkflowRunSpec{
@@ -1310,11 +1311,10 @@ func TestPipeline_Render_SecretRefContextVariables(t *testing.T) {
 						"apiVersion": "v1",
 						"kind":       "ConfigMap",
 						"metadata": map[string]interface{}{
-							"name": "secret-context-defaults-test",
+							"name": "no-context-refs-test",
 						},
 						"data": map[string]interface{}{
-							"secret_name": "${secretRef.name}",
-							"secret_type": "${secretRef.type}",
+							"namespace": "${metadata.namespaceName}",
 						},
 					}),
 				},
@@ -1331,11 +1331,8 @@ func TestPipeline_Render_SecretRefContextVariables(t *testing.T) {
 		}
 
 		data := output.Resource["data"].(map[string]interface{})
-		if data["secret_name"] != "" {
-			t.Errorf("expected empty secret_name, got %v", data["secret_name"])
-		}
-		if data["secret_type"] != "" {
-			t.Errorf("expected empty secret_type, got %v", data["secret_type"])
+		if data["namespace"] != "test-namespace" {
+			t.Errorf("expected namespace 'test-namespace', got %v", data["namespace"])
 		}
 	})
 }

@@ -251,22 +251,78 @@ func toGatewayEndpointData(e *v1alpha1.GatewayEndpointSpec) *GatewayEndpointData
 }
 
 // extractEnvironmentData extracts EnvironmentData from Environment and DataPlane resources.
-// If the Environment has gateway configuration, it uses those values.
-// Otherwise, it falls back to the DataPlane gateway configuration.
+// Gateway configuration is merged at each dimension: ingress/egress and external/internal.
+// Environment-level values take precedence; missing values fall back to the DataPlane level.
 func extractEnvironmentData(env *v1alpha1.Environment, dp *v1alpha1.DataPlane, defaultNotificationChannel string) EnvironmentData {
-	// If environment has gateway configuration, use it
-	if env.Spec.Gateway.Ingress != nil || env.Spec.Gateway.Egress != nil {
-		return EnvironmentData{
-			Gateway:                    toGatewayData(&env.Spec.Gateway),
-			DefaultNotificationChannel: defaultNotificationChannel,
-		}
-	}
-
-	// Fallback to DataPlane gateway configuration
 	return EnvironmentData{
-		Gateway:                    toGatewayData(&dp.Spec.Gateway),
+		Gateway:                    mergeGatewayData(&env.Spec.Gateway, &dp.Spec.Gateway),
 		DefaultNotificationChannel: defaultNotificationChannel,
 	}
+}
+
+// mergeGatewayData merges environment-level and dataplane-level gateway specs.
+// Ingress and egress are merged independently, so specifying only one at the environment
+// level still falls back to the dataplane value for the other.
+func mergeGatewayData(envGW, dpGW *v1alpha1.GatewaySpec) *GatewayData {
+	var envIngress, dpIngress *v1alpha1.GatewayNetworkSpec
+	var envEgress, dpEgress *v1alpha1.GatewayNetworkSpec
+
+	if envGW != nil {
+		envIngress = envGW.Ingress
+		envEgress = envGW.Egress
+	}
+	if dpGW != nil {
+		dpIngress = dpGW.Ingress
+		dpEgress = dpGW.Egress
+	}
+
+	data := &GatewayData{
+		Ingress: mergeGatewayNetworkData(envIngress, dpIngress),
+		Egress:  mergeGatewayNetworkData(envEgress, dpEgress),
+	}
+	if data.Ingress == nil && data.Egress == nil {
+		return nil
+	}
+	return data
+}
+
+// mergeGatewayNetworkData merges environment-level and dataplane-level gateway network specs.
+// External and internal endpoints are merged independently, preferring environment values
+// and falling back to dataplane values for any unspecified endpoint.
+func mergeGatewayNetworkData(envNetwork, dpNetwork *v1alpha1.GatewayNetworkSpec) *GatewayNetworkData {
+	if envNetwork == nil && dpNetwork == nil {
+		return nil
+	}
+
+	var envExternal, dpExternal *v1alpha1.GatewayEndpointSpec
+	var envInternal, dpInternal *v1alpha1.GatewayEndpointSpec
+
+	if envNetwork != nil {
+		envExternal = envNetwork.External
+		envInternal = envNetwork.Internal
+	}
+	if dpNetwork != nil {
+		dpExternal = dpNetwork.External
+		dpInternal = dpNetwork.Internal
+	}
+
+	external := envExternal
+	if external == nil {
+		external = dpExternal
+	}
+	internal := envInternal
+	if internal == nil {
+		internal = dpInternal
+	}
+
+	data := &GatewayNetworkData{
+		External: toGatewayEndpointData(external),
+		Internal: toGatewayEndpointData(internal),
+	}
+	if data.External == nil && data.Internal == nil {
+		return nil
+	}
+	return data
 }
 
 // ExtractWorkloadData extracts relevant workload information for the rendering context.

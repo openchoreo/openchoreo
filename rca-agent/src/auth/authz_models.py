@@ -40,8 +40,3 @@ class DecisionContext(BaseModel):
 class Decision(BaseModel):
     decision: bool
     context: DecisionContext | None = None
-
-
-class AuthzResponse(BaseModel):
-    success: bool
-    data: Decision

@@ -1,17 +1,16 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workflow
 metadata:
-  name: react
+  name: docker
   namespace: default
   annotations:
-    openchoreo.dev/description: "Build workflow for React web applications"
+    openchoreo.dev/description: "Docker build workflow for containerized applications using Dockerfile"
     openchoreo.dev/workflow-scope: "component"
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
       branch: parameters.repository.revision.branch
       commit: parameters.repository.revision.commit
       appPath: parameters.repository.appPath
-      secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
     kind: BuildPlane
@@ -20,11 +19,11 @@ spec:
   # Template Variable Reference (processed by WorkflowRun controller):
   # ${metadata.workflowRunName}              - Generated name for this workflow run instance
   # ${metadata.namespaceName}                - Organization namespace where the component resides
-  # ${metadata.namespace}                    - Full namespace path for resource deployment
+  # ${metadata.namespace}                    - Full namespace path (e.g., openchoreo-ci-${metadata.namespaceName})
   # ${metadata.labels['key']}                - WorkflowRun labels (e.g., openchoreo.dev/project, openchoreo.dev/component)
   # ${parameters.repository.*}               - Repository parameters (url, revision, appPath, secretRef)
-  # ${parameters.*}                          - Custom developer parameters defined in schema (nodeVersion, etc.)
-  # ${secretRef.*}                           - Secret reference details when parameters.repository.secretRef is provided
+  # ${parameters.*}                          - Custom developer parameters defined in schema
+  # ${contextRefs['id'].spec.*}              - Resolved external CR spec from contextRefs declarations
 
   # Time-to-live for completed workflow runs - Automatically cleans up workflow resources after the specified duration
   # Format is a duration string without spaces (e.g., "1d" for 1 day, "12h" for 12 hours, "10d12h30m" for 10 days, 12 hours, and 30 minutes)
@@ -41,11 +40,13 @@ spec:
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest commit on branch)"
-        appPath: string | default=. description="Path to the React application directory within the repository"
+        appPath: string | default=. description="Path to the application directory within the repository"
 
       # Developer-configurable parameters - Custom parameters defined by Platform Engineers
       # These allow developers to customize the build process within PE-defined constraints
-      nodeVersion: string | default="18" enum=16,18,20,22 description="Node.js version to use for building the React application"
+      docker:
+        context: string | default=. description="Docker build context path relative to the repository root"
+        filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
 
   # Workflow template that gets instantiated for each WorkflowRun
   # This generates an Argo Workflow resource in the build plane cluster
@@ -54,7 +55,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: ${metadata.namespace}
+      namespace: openchoreo-ci-${metadata.namespaceName}
     spec:
       arguments:
         parameters:
@@ -72,13 +73,17 @@ spec:
           - name: app-path
             value: ${parameters.repository.appPath}
           # Parameters from parameters (developer-facing)
-          - name: node-version
-            value: ${parameters.nodeVersion}
-
-          # Platform Engineer-controlled parameters - Hardcoded values not exposed to developers
-          # These ensure consistency and enforce organizational policies
+          - name: docker-context
+            value: ${parameters.docker.context}
+          - name: dockerfile-path
+            value: ${parameters.docker.filePath}
+          # PE-controlled hardcoded parameters
+          - name: registry-url
+            value: gcr.io/openchoreo-dev/images
+          - name: build-timeout
+            value: "30m"
           - name: image-name
-            value: ${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
+            value: ${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}-image
           - name: image-tag
             value: v1
           - name: git-secret
@@ -88,10 +93,16 @@ spec:
       serviceAccountName: workflow-sa
       workflowTemplateRef:
         clusterScope: true
-        name: react
+        name: docker
 
   # Additional Kubernetes resources created alongside the workflow
   # These resources are deployed to the build plane namespace before the workflow executes
+  contextRefs:
+    - id: git-secret-reference
+      apiVersion: openchoreo.dev/v1alpha1
+      kind: SecretReference
+      name: ${parameters.repository.secretRef}
+
   resources:
     # Git credentials secret - Only created when secretRef is provided (for private repositories)
     # Uses External Secrets Operator to fetch credentials from the secret store (OpenBao)
@@ -112,11 +123,11 @@ spec:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
             template:
-              type: ${secretRef.type}
-          # CEL expression that dynamically maps secretRef.data array in Secret Reference CR
+              type: ${contextRefs['git-secret-reference'].spec.template.type}
+          # CEL expression that dynamically maps data array from the resolved SecretReference CR
           # Uses oc_omit() to exclude empty property fields from the final manifest
           data: |
-            ${secretRef.data.map(secret, {
+            ${contextRefs['git-secret-reference'].spec.data.map(secret, {
               "secretKey": secret.secretKey,
               "remoteRef": {
                 "key": secret.remoteRef.key,
@@ -125,7 +136,7 @@ spec:
             })}
 
     # Container registry push credentials - Always created
-    # Used to authenticate and push the built React application image to the registry
+    # Used to authenticate and push the built Docker image to the container registry
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1

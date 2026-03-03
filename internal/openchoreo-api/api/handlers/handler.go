@@ -4,7 +4,6 @@
 package handlers
 
 import (
-	"errors"
 	"log/slog"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -12,10 +11,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 )
-
-// errNotImplemented is returned for stub methods that are not yet implemented.
-// TODO: Remove this error once all handler stubs are fully implemented.
-var errNotImplemented = errors.New("not implemented")
 
 // Handler implements gen.StrictServerInterface
 type Handler struct {

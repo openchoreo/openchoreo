@@ -149,8 +149,17 @@ func (s *ClusterComponentTypeService) toComponentTypeResponse(ct *openchoreov1al
 	displayName := ct.Annotations[controller.AnnotationKeyDisplayName]
 	description := ct.Annotations[controller.AnnotationKeyDescription]
 
-	allowedWorkflows := make([]string, 0, len(ct.Spec.AllowedWorkflows))
-	allowedWorkflows = append(allowedWorkflows, ct.Spec.AllowedWorkflows...)
+	allowedWorkflows := make([]models.AllowedWorkflowResponse, 0, len(ct.Spec.AllowedWorkflows))
+	for _, ref := range ct.Spec.AllowedWorkflows {
+		kind := string(ref.Kind)
+		if kind == "" {
+			kind = string(openchoreov1alpha1.WorkflowRefKindWorkflow)
+		}
+		allowedWorkflows = append(allowedWorkflows, models.AllowedWorkflowResponse{
+			Kind: kind,
+			Name: ref.Name,
+		})
+	}
 
 	allowedTraits := make([]models.AllowedTraitResponse, 0, len(ct.Spec.AllowedTraits))
 	for _, ref := range ct.Spec.AllowedTraits {

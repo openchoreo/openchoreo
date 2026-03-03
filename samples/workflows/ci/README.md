@@ -1,12 +1,12 @@
-# Workflow Samples
+# CI Workflow Samples
 
-This directory contains reusable Workflow definitions that define how OpenChoreo builds applications from source code. Workflows are specialized templates for component builds that integrate with the Build Plane (Argo Workflows) to automate the containerization of your applications.
+This directory contains reusable Workflow definitions that define how OpenChoreo builds applications from source code. CI Workflows are specialized templates for component builds that integrate with the Build Plane (Argo Workflows) to automate the containerization of your applications.
 
 ---
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [How Workflows Work](#how-workflows-work)
+2. [How CI Workflows Work](#how-ci-workflows-work)
     - [Key Concepts](#key-concepts)
     - [Referencing Build Plane Templates](#referencing-build-plane-templates)
 3. [Available Workflows](#available-workflows)
@@ -28,7 +28,7 @@ This directory contains reusable Workflow definitions that define how OpenChoreo
 ---
 ## Overview
 
-In OpenChoreo, a **Workflow** is a Custom Resource that:
+In OpenChoreo, a CI **Workflow** is a Custom Resource that:
 
 1. **Defines a build strategy** - Specifies how to build and containerize your application (Docker, Buildpacks, etc.)
 2. **Provides structured system parameters** - Required repository configuration for build automation features (webhooks, auto-build, UI actions)
@@ -36,7 +36,9 @@ In OpenChoreo, a **Workflow** is a Custom Resource that:
 4. **Templates Argo Workflows** - Generates the actual Argo Workflow resources that execute in the Build Plane
 5. **Enforces governance** - Platform Engineers control hardcoded parameters (registry URLs, timeouts, security settings)
 
-## How Workflows Work
+CI Workflows carry the annotation `openchoreo.dev/workflow-scope: component` and the `openchoreo.dev/component-workflow-parameters` annotation that maps repository fields for webhook and auto-build integration.
+
+## How CI Workflows Work
 
 ### Key Concepts
 
@@ -255,11 +257,11 @@ spec:
 Deploy a workflow to your control plane:
 
 ```bash
-# Deploy all workflows
-kubectl apply -f samples/component-workflows/
+# Deploy all CI workflows
+kubectl apply -f samples/workflows/ci/
 
 # Deploy a specific workflow
-kubectl apply -f samples/component-workflows/docker.yaml
+kubectl apply -f samples/workflows/ci/docker.yaml
 ```
 
 Verify the workflow is available:
@@ -283,7 +285,7 @@ Workflows support template variables for dynamic values in the `runTemplate`:
 | `${metadata.namespace}` | CI namespace (e.g., `openchoreo-ci-default`) | All workflows |
 | `${metadata.labels['key']}` | WorkflowRun labels (any label set on the WorkflowRun) | All workflows |
 | `${parameters.*}` | Parameter values (repository, developer params) | All workflows |
-| `${secretRef.*}` | Resolved secret reference data | When secretRef is configured |
+| `${contextRefs['id'].spec.*}` | Resolved external CR spec from `contextRefs` declarations | When contextRefs are declared |
 
 **Example**:
 ```yaml
@@ -335,7 +337,7 @@ When triggered via the API or webhooks, these labels are set automatically.
 
 ### Repository Parameters (Required Structure)
 
-Workflows define repository parameters for build automation:
+CI Workflows define repository parameters for build automation:
 
 ```yaml
 parameters:
@@ -440,71 +442,9 @@ schema:
 - **Built-in arrays**: `[]string`, `[]integer`, `[]boolean`
 - **Nested types**: Types can reference other types (e.g., `ResourceRequirements` references `ResourceQuantity`)
 
-### Example: Complete Schema with Types
-
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
-metadata:
-  name: example-workflow
-spec:
-  schema:
-    # Define reusable types
-    types:
-      Endpoint:
-        name: "string"
-        port: "integer"
-        type: "string | enum=REST,HTTP,TCP,UDP"
-
-      ResourceRequirements:
-        requests: "ResourceQuantity"
-        limits: "ResourceQuantity"
-
-      ResourceQuantity:
-        cpu: "string | default=100m"
-        memory: "string | default=256Mi"
-
-    parameters:
-      repository:
-        url: string
-        revision:
-          branch: string | default=main
-          commit: string
-        appPath: string | default=.
-      # Use custom types
-      endpoints: '[]Endpoint | default=[] description="Service endpoints"'
-      resources: "ResourceRequirements | default={}"
-
-      # Regular parameters
-      version: integer | default=1
-      buildArgs: '[]string | default=[]'
-```
-
-### Accessing Typed Parameters in Templates
-
-Typed parameters can be accessed in the `runTemplate` just like any other parameter:
-
-```yaml
-spec:
-  runTemplate:
-    apiVersion: argoproj.io/v1alpha1
-    kind: Workflow
-    spec:
-      arguments:
-        parameters:
-          # Access array of custom type
-          - name: endpoints
-            value: ${parameters.endpoints}
-
-          - name: resources
-            value: ${parameters.resources}
-```
-
-**Note**: Complex types (arrays and objects) are automatically converted to JSON strings when passed to Argo Workflow parameters, as Argo expects scalar string values.
-
 ## Working with Private Repositories
 
-All default Workflows support cloning from private Git repositories that require authentication. Private repository support is built-in and works seamlessly with GitHub, GitLab, Bitbucket, and AWS CodeCommit.
+All default CI Workflows support cloning from private Git repositories that require authentication. Private repository support is built-in and works seamlessly with GitHub, GitLab, Bitbucket, and AWS CodeCommit.
 
 ### How It Works
 
@@ -537,7 +477,7 @@ Use the OpenChoreo API to create git secrets that will be automatically synced t
 For most git providers (GitHub, GitLab, Bitbucket):
 
 ```bash
-# Create secret with token only 
+# Create secret with token only
 curl -X POST http://openchoreo-api/api/v1/namespaces/default/git-secrets \
   -H "Content-Type: application/json" \
   -d '{
@@ -676,13 +616,26 @@ Workflows support two approaches for managing secrets in the Build Plane:
 
 ### Approach 1: External Secrets with Dynamic Secret Names (Recommended)
 
-Use the `resources` section in Workflow to define ExternalSecret resources that point to secrets in your secret backend. This approach:
+Use the `contextRefs` and `resources` sections in Workflow to resolve external CRs and define ExternalSecret resources that point to secrets in your secret backend. This approach:
+- Declares external CR references via `contextRefs` — the controller resolves them and injects their spec into the CEL context
 - Automatically creates and syncs secrets in the Build Plane's execution namespace
 - Generates unique secret names per workflow run (e.g., `${metadata.workflowRunName}-git-secret`)
 - Passes the secret name as a parameter to the workflow, allowing the workflow to reference it during execution
 - Ideal for GitOps workflows where all configuration is version-controlled
 
-**Example with Git Secret (supports multiple data fields):**
+**Step 1: Declare contextRefs to resolve SecretReference CRs:**
+
+```yaml
+contextRefs:
+  - id: git-secret-reference
+    apiVersion: openchoreo.dev/v1alpha1
+    kind: SecretReference
+    name: ${parameters.repository.secretRef}
+```
+
+The controller evaluates the `name` (which can contain CEL expressions), fetches the referenced `SecretReference` CR, and injects its entire spec into the CEL context under `contextRefs['git-secret-reference']`.
+
+**Step 2: Use the resolved spec in resource templates:**
 
 ```yaml
 resources:
@@ -703,10 +656,10 @@ resources:
           name: ${metadata.workflowRunName}-git-secret
           creationPolicy: Owner
           template:
-            type: ${secretRef.type}
-        # Use secretRef.data array to support multiple fields (e.g., username + password)
+            type: ${contextRefs['git-secret-reference'].spec.template.type}
+        # Use resolved SecretReference data array to support multiple fields (e.g., username + password)
         data: |
-          ${secretRef.data.map(secret, {
+          ${contextRefs['git-secret-reference'].spec.data.map(secret, {
             "secretKey": secret.secretKey,
             "remoteRef": {
               "key": secret.remoteRef.key,
@@ -715,15 +668,22 @@ resources:
           })}
 ```
 
-**How secretRef.data Works:**
+**How contextRefs Work:**
 
-The `secretRef.data` variable provides access to all credential fields from the SecretReference:
-- For **basic-auth**: Contains `password` (always) and `username` (if provided)
-- For **ssh-auth**: Contains `ssh-privatekey`
+The `contextRefs` field declares references to external CRs (currently limited to `SecretReference`). For each entry:
+1. The `name` field is evaluated (supports CEL expressions like `${parameters.repository.secretRef}`)
+2. The referenced CR is fetched from the cluster
+3. The CR's entire spec is injected into the CEL context as `contextRefs['<id>'].spec`
+
+For SecretReference CRs, the resolved spec provides:
+- `spec.template.type` — the secret type (e.g., `kubernetes.io/basic-auth`, `kubernetes.io/ssh-auth`)
+- `spec.data` — array of credential fields (e.g., `password`, `username`, `ssh-privatekey`)
 
 The CEL `map` expression iterates over all data fields and generates ExternalSecret data entries dynamically.
 
 **Benefits:**
+- Generic mechanism — `contextRefs` can resolve any supported CR type (currently `SecretReference`)
+- Full spec access — templates can use any field from the resolved CR
 - Supports multiple credential fields (username + password)
 - Works with both basic-auth and SSH key authentication
 - Secrets are automatically created and cleaned up per workflow run
@@ -782,6 +742,6 @@ This ensures developers can only use approved build workflows for each component
 
 ## See Also
 
-- **[Build from Source Samples](../from-source/)** - Complete examples using these workflows
-- **[Component Samples](../component-types/)** - Low-level component examples
-- **[Workflow Discussion](../../discussions/component-workflows/)** - Design rationale and architecture details
+- **[Build from Source Samples](../../from-source/)** - Complete examples using these workflows
+- **[Component Samples](../../component-types/)** - Low-level component examples
+- **[Generic Workflow Samples](../generic/)** - Standalone automation workflows

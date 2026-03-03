@@ -294,15 +294,21 @@ type AllowedTraitResponse struct {
 	Name string `json:"name"`
 }
 
+// AllowedWorkflowResponse represents a workflow reference in ComponentType API responses
+type AllowedWorkflowResponse struct {
+	Kind string `json:"kind,omitempty"`
+	Name string `json:"name"`
+}
+
 // ComponentTypeResponse represents a ComponentType in API responses
 type ComponentTypeResponse struct {
-	Name             string                 `json:"name"`
-	DisplayName      string                 `json:"displayName,omitempty"`
-	Description      string                 `json:"description,omitempty"`
-	WorkloadType     string                 `json:"workloadType"`
-	AllowedWorkflows []string               `json:"allowedWorkflows,omitempty"`
-	AllowedTraits    []AllowedTraitResponse `json:"allowedTraits,omitempty"`
-	CreatedAt        time.Time              `json:"createdAt"`
+	Name             string                    `json:"name"`
+	DisplayName      string                    `json:"displayName,omitempty"`
+	Description      string                    `json:"description,omitempty"`
+	WorkloadType     string                    `json:"workloadType"`
+	AllowedWorkflows []AllowedWorkflowResponse `json:"allowedWorkflows,omitempty"`
+	AllowedTraits    []AllowedTraitResponse    `json:"allowedTraits,omitempty"`
+	CreatedAt        time.Time                 `json:"createdAt"`
 }
 
 // TraitResponse represents an Trait in API responses

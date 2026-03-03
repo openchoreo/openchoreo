@@ -83,7 +83,22 @@ spec:
                   for building components of this type. If empty, no Workflows are allowed.
                   References must point to Workflow resources.
                 items:
-                  type: string
+                  description: WorkflowRef represents a reference to a Workflow resource.
+                  properties:
+                    kind:
+                      default: Workflow
+                      description: Kind is the kind of workflow. Currently only "Workflow"
+                        is supported.
+                      enum:
+                      - Workflow
+                      type: string
+                    name:
+                      description: Name is the name of the workflow resource
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
                 type: array
               resources:
                 description: |-

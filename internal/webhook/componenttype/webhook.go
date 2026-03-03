@@ -120,6 +120,10 @@ func validateComponentType(ct *openchoreodevv1alpha1.ComponentType) field.ErrorL
 	allowedTraitErrs := validateAllowedTraits(ct)
 	allErrs = append(allErrs, allowedTraitErrs...)
 
+	// Validate allowedWorkflows
+	allowedWorkflowErrs := validateAllowedWorkflows(ct)
+	allErrs = append(allErrs, allowedWorkflowErrs...)
+
 	return allErrs
 }
 
@@ -201,6 +205,31 @@ func validateAllowedTraits(ct *openchoreodevv1alpha1.ComponentType) field.ErrorL
 				"trait is already embedded in spec.traits and cannot also be in allowedTraits",
 			))
 		}
+	}
+
+	return allErrs
+}
+
+// validateAllowedWorkflows validates the allowedWorkflows list in a ComponentType.
+func validateAllowedWorkflows(ct *openchoreodevv1alpha1.ComponentType) field.ErrorList {
+	allErrs := field.ErrorList{}
+	allowedPath := field.NewPath("spec", "allowedWorkflows")
+
+	seen := make(map[string]bool)
+	for i, ref := range ct.Spec.AllowedWorkflows {
+		entryPath := allowedPath.Index(i)
+
+		// Validate non-empty name
+		if ref.Name == "" {
+			allErrs = append(allErrs, field.Required(entryPath.Child("name"), "allowed workflow name must not be empty"))
+			continue
+		}
+
+		// Check for duplicates by name
+		if seen[ref.Name] {
+			allErrs = append(allErrs, field.Duplicate(entryPath, ref.Name))
+		}
+		seen[ref.Name] = true
 	}
 
 	return allErrs

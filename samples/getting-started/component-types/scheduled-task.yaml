@@ -9,8 +9,10 @@ spec:
   workloadType: cronjob
 
   allowedWorkflows:
-    - google-cloud-buildpacks
-    - docker
+    - kind: Workflow
+      name: google-cloud-buildpacks
+    - kind: Workflow
+      name: docker
 
   allowedTraits: []
 

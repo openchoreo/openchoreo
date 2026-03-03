@@ -9,9 +9,12 @@ spec:
   workloadType: deployment
 
   allowedWorkflows:
-    - google-cloud-buildpacks
-    - ballerina-buildpack
-    - docker
+    - kind: Workflow
+      name: google-cloud-buildpacks
+    - kind: Workflow
+      name: ballerina-buildpack
+    - kind: Workflow
+      name: docker
 
   allowedTraits:
     - name: api-configuration

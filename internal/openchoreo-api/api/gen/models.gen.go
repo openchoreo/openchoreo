@@ -44,6 +44,11 @@ const (
 	ClusterComponentTypeSpecAllowedTraitsKindClusterTrait ClusterComponentTypeSpecAllowedTraitsKind = "ClusterTrait"
 )
 
+// Defines values for ClusterComponentTypeSpecAllowedWorkflowsKind.
+const (
+	ClusterComponentTypeSpecAllowedWorkflowsKindWorkflow ClusterComponentTypeSpecAllowedWorkflowsKind = "Workflow"
+)
+
 // Defines values for ClusterComponentTypeSpecResourcesTargetPlane.
 const (
 	ClusterComponentTypeSpecResourcesTargetPlaneDataplane          ClusterComponentTypeSpecResourcesTargetPlane = "dataplane"
@@ -112,6 +117,11 @@ const (
 	ComponentTypeSpecAllowedTraitsKindTrait        ComponentTypeSpecAllowedTraitsKind = "Trait"
 )
 
+// Defines values for ComponentTypeSpecAllowedWorkflowsKind.
+const (
+	ComponentTypeSpecAllowedWorkflowsKindWorkflow ComponentTypeSpecAllowedWorkflowsKind = "Workflow"
+)
+
 // Defines values for ComponentTypeSpecResourcesTargetPlane.
 const (
 	ComponentTypeSpecResourcesTargetPlaneDataplane          ComponentTypeSpecResourcesTargetPlane = "dataplane"
@@ -138,6 +148,11 @@ const (
 	ConditionStatusFalse   ConditionStatus = "False"
 	ConditionStatusTrue    ConditionStatus = "True"
 	ConditionStatusUnknown ConditionStatus = "Unknown"
+)
+
+// Defines values for ContextRefKind.
+const (
+	ContextRefKindSecretReference ContextRefKind = "SecretReference"
 )
 
 // Defines values for CreateClusterRoleBindingRequestEffect.
@@ -695,8 +710,14 @@ type ClusterComponentTypeSpec struct {
 		Name string `json:"name"`
 	} `json:"allowedTraits,omitempty"`
 
-	// AllowedWorkflows List of allowed ComponentWorkflow names for this component type
-	AllowedWorkflows *[]string `json:"allowedWorkflows,omitempty"`
+	// AllowedWorkflows List of allowed Workflow references for this component type
+	AllowedWorkflows *[]struct {
+		// Kind Kind of the workflow reference. Currently only "Workflow" is supported.
+		Kind *ClusterComponentTypeSpecAllowedWorkflowsKind `json:"kind,omitempty"`
+
+		// Name Name of the workflow resource
+		Name string `json:"name"`
+	} `json:"allowedWorkflows,omitempty"`
 
 	// Resources Templates that generate Kubernetes resources dynamically
 	Resources []struct {
@@ -764,6 +785,9 @@ type ClusterComponentTypeSpec struct {
 
 // ClusterComponentTypeSpecAllowedTraitsKind Kind of trait reference (must be ClusterTrait)
 type ClusterComponentTypeSpecAllowedTraitsKind string
+
+// ClusterComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference. Currently only "Workflow" is supported.
+type ClusterComponentTypeSpecAllowedWorkflowsKind string
 
 // ClusterComponentTypeSpecResourcesTargetPlane Target plane for deployment
 type ClusterComponentTypeSpecResourcesTargetPlane string
@@ -1200,8 +1224,14 @@ type ComponentTypeSpec struct {
 		Name string `json:"name"`
 	} `json:"allowedTraits,omitempty"`
 
-	// AllowedWorkflows List of allowed ComponentWorkflow names for this component type
-	AllowedWorkflows *[]string `json:"allowedWorkflows,omitempty"`
+	// AllowedWorkflows List of allowed Workflow references for this component type
+	AllowedWorkflows *[]struct {
+		// Kind Kind of the workflow reference. Currently only "Workflow" is supported.
+		Kind *ComponentTypeSpecAllowedWorkflowsKind `json:"kind,omitempty"`
+
+		// Name Name of the workflow resource
+		Name string `json:"name"`
+	} `json:"allowedWorkflows,omitempty"`
 
 	// Resources Templates that generate Kubernetes resources dynamically
 	Resources []struct {
@@ -1269,6 +1299,9 @@ type ComponentTypeSpec struct {
 
 // ComponentTypeSpecAllowedTraitsKind Kind of trait reference
 type ComponentTypeSpecAllowedTraitsKind string
+
+// ComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference. Currently only "Workflow" is supported.
+type ComponentTypeSpecAllowedWorkflowsKind string
 
 // ComponentTypeSpecResourcesTargetPlane Target plane for deployment
 type ComponentTypeSpecResourcesTargetPlane string
@@ -1382,6 +1415,24 @@ type ContainerOverride struct {
 	Env   *[]EnvVar  `json:"env,omitempty"`
 	Files *[]FileVar `json:"files,omitempty"`
 }
+
+// ContextRef Reference to an external CR whose spec is resolved and injected into the CEL context under the given id.
+type ContextRef struct {
+	// ApiVersion API version of the referenced resource.
+	ApiVersion string `json:"apiVersion"`
+
+	// Id Unique identifier; becomes the CEL context variable name.
+	Id string `json:"id"`
+
+	// Kind Kind of the referenced resource.
+	Kind ContextRefKind `json:"kind"`
+
+	// Name Name of the referenced resource (supports CEL expressions).
+	Name string `json:"name"`
+}
+
+// ContextRefKind Kind of the referenced resource.
+type ContextRefKind string
 
 // CreateClusterRoleBindingRequest Request to create a cluster-scoped role binding (legacy)
 type CreateClusterRoleBindingRequest struct {
@@ -1822,10 +1873,10 @@ type GatewayEndpointSpec struct {
 	Https *GatewayListenerSpec `json:"https,omitempty"`
 
 	// Name Name of the Gateway resource
-	Name *string `json:"name,omitempty"`
+	Name string `json:"name"`
 
 	// Namespace Namespace of the Gateway resource
-	Namespace *string `json:"namespace,omitempty"`
+	Namespace string `json:"namespace"`
 
 	// Tls Gateway listener configuration
 	Tls *GatewayListenerSpec `json:"tls,omitempty"`
@@ -3224,6 +3275,9 @@ type WorkflowSchema struct {
 type WorkflowSpec struct {
 	// BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
 	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
+
+	// ContextRefs External CR references resolved and injected into the CEL context under their id.
+	ContextRefs *[]ContextRef `json:"contextRefs,omitempty"`
 
 	// Resources Additional resource templates to render and apply alongside the workflow run.
 	Resources *[]WorkflowResource `json:"resources,omitempty"`
