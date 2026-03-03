@@ -200,11 +200,13 @@ func main() {
 		baseMux.Handle("/mcp", mcpHandler)
 	}
 
-	// Create OpenAPI handler with middleware chain (order: logger → auth → handler)
+	// Create OpenAPI handler with middleware chain (order: logger → auth → webhookBody → handler)
+	// webhookRawBodyMiddleware must run innermost (before the strict handler decodes the body)
+	// so that HMAC signature validation can access the original raw bytes.
 	// The generated routes are registered on the baseMux alongside /mcp.
 	openapiRoutes := gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
 		BaseRouter:  baseMux,
-		Middlewares: []gen.MiddlewareFunc{loggerMiddleware, authMiddleware},
+		Middlewares: []gen.MiddlewareFunc{openapihandlers.WebhookRawBodyMiddleware, loggerMiddleware, authMiddleware},
 	})
 
 	// Create migration router that routes based on X-Use-Legacy-Routes header
