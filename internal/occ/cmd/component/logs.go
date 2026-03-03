@@ -233,8 +233,8 @@ func (cp *Component) fetchLogs(
 	obsClient := client.NewObserverClient(observerURL, token)
 	logResponse, err := obsClient.FetchComponentLogs(ctx, componentID, reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch logs for component %s/%s/%s in environment %s from observer %s: %w",
-			params.Namespace, params.Project, params.Component, params.Environment, observerURL, err)
+		return nil, fmt.Errorf("observer query failed for component %s project=%s, namespace=%s in environment %s at %s: %w",
+			params.Component, params.Project, params.Namespace, params.Environment, observerURL, err)
 	}
 
 	return logResponse.Logs, nil

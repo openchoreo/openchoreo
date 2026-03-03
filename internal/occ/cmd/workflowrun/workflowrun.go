@@ -29,7 +29,7 @@ func New() *WorkflowRun {
 	return &WorkflowRun{}
 }
 
-// List lists workflow runs in a namespace, excluding component workflow runs.
+// List lists workflow runs in a namespace (includes component workflow runs).
 func (w *WorkflowRun) List(params ListParams) error {
 	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkflowRun, params); err != nil {
 		return err
@@ -40,9 +40,7 @@ func (w *WorkflowRun) List(params ListParams) error {
 		return err
 	}
 
-	// Exclude workflow runs that belong to a component
-	filtered := ExcludeComponentRuns(items)
-	return PrintList(filtered)
+	return PrintList(items)
 }
 
 // FetchAll fetches all workflow runs from a namespace.
