@@ -48,7 +48,7 @@ spec:
               echo "Found workload.yaml descriptor, using it for workload creation"
               podman run --rm --network=none \
               -v $DESCRIPTOR_PATH:/app:rw -w /app \
-              ghcr.io/openchoreo/openchoreo-cli:latest-dev \
+              ghcr.io/openchoreo/openchoreo-cli:v0.16.0 \
                 workload create \
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
@@ -59,7 +59,7 @@ spec:
               echo "No workload.yaml descriptor found, creating workload without descriptor"
               podman run --rm --network=none \
               -v $DESCRIPTOR_PATH:/app:rw -w /app \
-              ghcr.io/openchoreo/openchoreo-cli:latest-dev \
+              ghcr.io/openchoreo/openchoreo-cli:v0.16.0 \
                 workload create \
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
