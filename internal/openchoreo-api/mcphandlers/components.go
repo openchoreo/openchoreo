@@ -93,7 +93,7 @@ func (h *MCPHandler) ListComponents(ctx context.Context, namespaceName, projectN
 }
 
 func (h *MCPHandler) GetComponent(
-	ctx context.Context, namespaceName, _, componentName string, _ []string,
+	ctx context.Context, namespaceName, componentName string,
 ) (any, error) {
 	component, err := h.services.ComponentService.GetComponent(ctx, namespaceName, componentName)
 	if err != nil {
@@ -103,7 +103,7 @@ func (h *MCPHandler) GetComponent(
 }
 
 func (h *MCPHandler) GetComponentWorkloads(
-	ctx context.Context, namespaceName, _, componentName string,
+	ctx context.Context, namespaceName, componentName string,
 ) (any, error) {
 	result, err := h.services.WorkloadService.ListWorkloads(ctx, namespaceName, componentName, services.ListOptions{})
 	if err != nil {
@@ -113,7 +113,7 @@ func (h *MCPHandler) GetComponentWorkloads(
 }
 
 func (h *MCPHandler) GetComponentWorkload(
-	ctx context.Context, namespaceName, _, _, workloadName string,
+	ctx context.Context, namespaceName, workloadName string,
 ) (any, error) {
 	w, err := h.services.WorkloadService.GetWorkload(ctx, namespaceName, workloadName)
 	if err != nil {
@@ -123,7 +123,7 @@ func (h *MCPHandler) GetComponentWorkload(
 }
 
 func (h *MCPHandler) ListComponentReleases(
-	ctx context.Context, namespaceName, _, componentName string, opts tools.ListOpts,
+	ctx context.Context, namespaceName, componentName string, opts tools.ListOpts,
 ) (any, error) {
 	result, err := h.services.ComponentReleaseService.ListComponentReleases(ctx, namespaceName, componentName, toServiceListOptions(opts))
 	if err != nil {
@@ -133,7 +133,7 @@ func (h *MCPHandler) ListComponentReleases(
 }
 
 func (h *MCPHandler) CreateComponentRelease(
-	ctx context.Context, namespaceName, _, componentName, releaseName string,
+	ctx context.Context, namespaceName, componentName, releaseName string,
 ) (any, error) {
 	cr, err := h.services.ComponentService.GenerateRelease(ctx, namespaceName, componentName, &componentsvc.GenerateReleaseRequest{
 		ReleaseName: releaseName,
@@ -145,7 +145,7 @@ func (h *MCPHandler) CreateComponentRelease(
 }
 
 func (h *MCPHandler) GetComponentRelease(
-	ctx context.Context, namespaceName, _, _, releaseName string,
+	ctx context.Context, namespaceName, releaseName string,
 ) (any, error) {
 	cr, err := h.services.ComponentReleaseService.GetComponentRelease(ctx, namespaceName, releaseName)
 	if err != nil {
@@ -155,7 +155,7 @@ func (h *MCPHandler) GetComponentRelease(
 }
 
 func (h *MCPHandler) ListReleaseBindings(
-	ctx context.Context, namespaceName, _, componentName string, _ []string, opts tools.ListOpts,
+	ctx context.Context, namespaceName, componentName string, opts tools.ListOpts,
 ) (any, error) {
 	result, err := h.services.ReleaseBindingService.ListReleaseBindings(ctx, namespaceName, componentName, toServiceListOptions(opts))
 	if err != nil {
@@ -175,7 +175,7 @@ func (h *MCPHandler) GetReleaseBinding(
 }
 
 func (h *MCPHandler) PatchReleaseBinding(
-	ctx context.Context, namespaceName, _, _, bindingName string,
+	ctx context.Context, namespaceName, bindingName string,
 	req *gen.ReleaseBindingSpec,
 ) (any, error) {
 	rb, err := h.services.ReleaseBindingService.GetReleaseBinding(ctx, namespaceName, bindingName)
@@ -227,7 +227,7 @@ func (h *MCPHandler) PatchReleaseBinding(
 }
 
 func (h *MCPHandler) DeployRelease(
-	ctx context.Context, namespaceName, _, componentName string, req *gen.DeployReleaseRequest,
+	ctx context.Context, namespaceName, componentName string, req *gen.DeployReleaseRequest,
 ) (any, error) {
 	rb, err := h.services.ComponentService.DeployRelease(ctx, namespaceName, componentName, &componentsvc.DeployReleaseRequest{
 		ReleaseName: req.ReleaseName,
@@ -242,7 +242,7 @@ func (h *MCPHandler) DeployRelease(
 }
 
 func (h *MCPHandler) PromoteComponent(
-	ctx context.Context, namespaceName, _, componentName string, req *gen.PromoteComponentRequest,
+	ctx context.Context, namespaceName, componentName string, req *gen.PromoteComponentRequest,
 ) (any, error) {
 	rb, err := h.services.ComponentService.PromoteComponent(ctx, namespaceName, componentName, &componentsvc.PromoteComponentRequest{
 		SourceEnvironment: req.SourceEnv,
@@ -257,7 +257,7 @@ func (h *MCPHandler) PromoteComponent(
 }
 
 func (h *MCPHandler) CreateWorkload(
-	ctx context.Context, namespaceName, _, componentName string, workloadSpec any,
+	ctx context.Context, namespaceName, componentName string, workloadSpec any,
 ) (any, error) {
 	specBytes, err := json.Marshal(workloadSpec)
 	if err != nil {
@@ -284,13 +284,13 @@ func (h *MCPHandler) CreateWorkload(
 }
 
 func (h *MCPHandler) GetComponentSchema(
-	ctx context.Context, namespaceName, _, componentName string,
+	ctx context.Context, namespaceName, componentName string,
 ) (any, error) {
 	return h.services.ComponentService.GetComponentSchema(ctx, namespaceName, componentName)
 }
 
 func (h *MCPHandler) GetEnvironmentRelease(
-	ctx context.Context, namespaceName, _, componentName, environmentName string,
+	ctx context.Context, namespaceName, componentName, environmentName string,
 ) (any, error) {
 	result, err := h.services.ReleaseService.ListReleases(ctx, namespaceName, componentName, environmentName, services.ListOptions{})
 	if err != nil {
@@ -303,7 +303,7 @@ func (h *MCPHandler) GetEnvironmentRelease(
 }
 
 func (h *MCPHandler) PatchComponent(
-	ctx context.Context, namespaceName, _, componentName string, req *gen.PatchComponentRequest,
+	ctx context.Context, namespaceName, componentName string, req *gen.PatchComponentRequest,
 ) (any, error) {
 	component, err := h.services.ComponentService.GetComponent(ctx, namespaceName, componentName)
 	if err != nil {
@@ -329,7 +329,7 @@ func (h *MCPHandler) PatchComponent(
 }
 
 func (h *MCPHandler) UpdateReleaseBindingState(
-	ctx context.Context, namespaceName, _, _, bindingName string, state *gen.ReleaseBindingSpecState,
+	ctx context.Context, namespaceName, bindingName string, state *gen.ReleaseBindingSpecState,
 ) (any, error) {
 	rb, err := h.services.ReleaseBindingService.GetReleaseBinding(ctx, namespaceName, bindingName)
 	if err != nil {
@@ -350,7 +350,7 @@ func (h *MCPHandler) UpdateReleaseBindingState(
 }
 
 func (h *MCPHandler) GetComponentReleaseSchema(
-	ctx context.Context, namespaceName, _, componentName, releaseName string,
+	ctx context.Context, namespaceName, componentName, releaseName string,
 ) (any, error) {
 	return h.services.ComponentService.GetComponentReleaseSchema(ctx, namespaceName, releaseName, componentName)
 }

@@ -97,54 +97,49 @@ type ComponentToolsetHandler interface {
 		ctx context.Context, namespaceName, projectName string, req *gen.CreateComponentRequest,
 	) (any, error)
 	ListComponents(ctx context.Context, namespaceName, projectName string, opts ListOpts) (any, error)
-	GetComponent(
-		ctx context.Context, namespaceName, projectName, componentName string, additionalResources []string,
-	) (any, error)
-	GetComponentWorkloads(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
-	GetComponentWorkload(ctx context.Context, namespaceName, projectName, componentName, workloadName string) (any, error)
+	GetComponent(ctx context.Context, namespaceName, componentName string) (any, error)
+	GetComponentWorkloads(ctx context.Context, namespaceName, componentName string) (any, error)
+	GetComponentWorkload(ctx context.Context, namespaceName, workloadName string) (any, error)
 	// Component release operations
-	ListComponentReleases(ctx context.Context, namespaceName, projectName, componentName string, opts ListOpts,
-	) (any, error)
-	CreateComponentRelease(ctx context.Context, namespaceName, projectName, componentName, releaseName string) (any, error)
-	GetComponentRelease(ctx context.Context, namespaceName, projectName, componentName, releaseName string) (any, error)
+	ListComponentReleases(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
+	CreateComponentRelease(ctx context.Context, namespaceName, componentName, releaseName string) (any, error)
+	GetComponentRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
 	// Release binding operations
-	ListReleaseBindings(
-		ctx context.Context, namespaceName, projectName, componentName string, environments []string, opts ListOpts,
-	) (any, error)
+	ListReleaseBindings(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
 	GetReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
 	PatchReleaseBinding(
-		ctx context.Context, namespaceName, projectName, componentName, bindingName string,
+		ctx context.Context, namespaceName, bindingName string,
 		req *gen.ReleaseBindingSpec,
 	) (any, error)
 	// Deployment operations
 	DeployRelease(
-		ctx context.Context, namespaceName, projectName, componentName string, req *gen.DeployReleaseRequest,
+		ctx context.Context, namespaceName, componentName string, req *gen.DeployReleaseRequest,
 	) (any, error)
 	PromoteComponent(
-		ctx context.Context, namespaceName, projectName, componentName string, req *gen.PromoteComponentRequest,
+		ctx context.Context, namespaceName, componentName string, req *gen.PromoteComponentRequest,
 	) (any, error)
 	// Workload operations
 	CreateWorkload(
-		ctx context.Context, namespaceName, projectName, componentName string, workloadSpec interface{},
+		ctx context.Context, namespaceName, componentName string, workloadSpec interface{},
 	) (any, error)
 	// Schema operations
-	GetComponentSchema(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
+	GetComponentSchema(ctx context.Context, namespaceName, componentName string) (any, error)
 	// Release operations
 	GetEnvironmentRelease(
-		ctx context.Context, namespaceName, projectName, componentName, environmentName string,
+		ctx context.Context, namespaceName, componentName, environmentName string,
 	) (any, error)
 	// Component patch operations
 	PatchComponent(
-		ctx context.Context, namespaceName, projectName, componentName string, req *gen.PatchComponentRequest,
+		ctx context.Context, namespaceName, componentName string, req *gen.PatchComponentRequest,
 	) (any, error)
 	// Release binding state operations
 	UpdateReleaseBindingState(
-		ctx context.Context, namespaceName, projectName, componentName, bindingName string,
+		ctx context.Context, namespaceName, bindingName string,
 		state *gen.ReleaseBindingSpecState,
 	) (any, error)
 	// Component release schema
 	GetComponentReleaseSchema(
-		ctx context.Context, namespaceName, projectName, componentName, releaseName string,
+		ctx context.Context, namespaceName, componentName, releaseName string,
 	) (any, error)
 	// Workflow run operations scoped by component
 	TriggerWorkflowRun(

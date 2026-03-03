@@ -375,23 +375,8 @@ func releaseBindingDetail(rb *openchoreov1alpha1.ReleaseBinding) map[string]any 
 	if rb.Spec.ComponentTypeEnvOverrides != nil {
 		m["overrides"] = rawExtensionToAny(rb.Spec.ComponentTypeEnvOverrides)
 	}
-	if len(rb.Status.Endpoints) > 0 {
-		urls := make([]map[string]any, 0, len(rb.Status.Endpoints))
-		for i := range rb.Status.Endpoints {
-			ep := rb.Status.Endpoints[i]
-			e := map[string]any{"name": ep.Name}
-			setIfNotEmpty(e, "invokeURL", ep.InvokeURL)
-			if ep.Type != "" {
-				e["type"] = string(ep.Type)
-			}
-			urls = append(urls, e)
-		}
-		m["endpoints"] = urls
-	}
+	m["endpoints"] = rb.Status.Endpoints
 	setIfNotEmpty(m, "status", readyStatus(rb.Status.Conditions))
-	if conds := conditionsSummary(rb.Status.Conditions); conds != nil {
-		m["conditions"] = conds
-	}
 	return m
 }
 
