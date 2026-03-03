@@ -10,7 +10,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
@@ -32,33 +32,53 @@ func (h *MCPHandler) GetClusterDataPlane(ctx context.Context, cdpName string) (a
 	return clusterDataPlaneDetail(cdp), nil
 }
 
-func (h *MCPHandler) CreateClusterDataPlane(ctx context.Context, req *models.CreateClusterDataPlaneRequest) (any, error) {
-	cdp := &openchoreov1alpha1.ClusterDataPlane{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        req.Name,
-			Annotations: make(map[string]string),
-		},
-		Spec: openchoreov1alpha1.ClusterDataPlaneSpec{
-			PlaneID: req.PlaneID,
-			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
-				ClientCA: openchoreov1alpha1.ValueFrom{
-					Value: req.ClusterAgentClientCA,
-				},
-			},
-		},
+func (h *MCPHandler) CreateClusterDataPlane(ctx context.Context, req *gen.CreateClusterDataPlaneJSONRequestBody) (any, error) {
+	annotations := map[string]string{}
+	if req.Metadata.Annotations != nil {
+		annotations = *req.Metadata.Annotations
 	}
 
-	if req.DisplayName != "" {
-		cdp.Annotations[controller.AnnotationKeyDisplayName] = req.DisplayName
+	cdp := &openchoreov1alpha1.ClusterDataPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        req.Metadata.Name,
+			Annotations: annotations,
+		},
+		Spec: openchoreov1alpha1.ClusterDataPlaneSpec{},
 	}
-	if req.Description != "" {
-		cdp.Annotations[controller.AnnotationKeyDescription] = req.Description
+
+	if req.Spec != nil && req.Spec.PlaneID != nil {
+		cdp.Spec.PlaneID = *req.Spec.PlaneID
 	}
-	if req.ObservabilityPlaneRef != nil {
-		cdp.Spec.ObservabilityPlaneRef = &openchoreov1alpha1.ClusterObservabilityPlaneRef{
-			Kind: openchoreov1alpha1.ClusterObservabilityPlaneRefKind(req.ObservabilityPlaneRef.Kind),
-			Name: req.ObservabilityPlaneRef.Name,
+	if req.Spec != nil && req.Spec.ClusterAgent != nil && req.Spec.ClusterAgent.ClientCA != nil {
+		if req.Spec.ClusterAgent.ClientCA.Value != nil {
+			cdp.Spec.ClusterAgent.ClientCA.Value = *req.Spec.ClusterAgent.ClientCA.Value
 		}
+		if req.Spec.ClusterAgent.ClientCA.SecretRef != nil &&
+			req.Spec.ClusterAgent.ClientCA.SecretRef.Name != nil &&
+			req.Spec.ClusterAgent.ClientCA.SecretRef.Key != nil {
+			secretNamespace := ""
+			if req.Spec.ClusterAgent.ClientCA.SecretRef.Namespace != nil {
+				secretNamespace = *req.Spec.ClusterAgent.ClientCA.SecretRef.Namespace
+			}
+			cdp.Spec.ClusterAgent.ClientCA.SecretRef = &openchoreov1alpha1.SecretKeyReference{
+				Name:      *req.Spec.ClusterAgent.ClientCA.SecretRef.Name,
+				Namespace: secretNamespace,
+				Key:       *req.Spec.ClusterAgent.ClientCA.SecretRef.Key,
+			}
+		}
+	}
+	if req.Spec != nil && req.Spec.ObservabilityPlaneRef != nil {
+		cdp.Spec.ObservabilityPlaneRef = &openchoreov1alpha1.ClusterObservabilityPlaneRef{
+			Kind: openchoreov1alpha1.ClusterObservabilityPlaneRefKind(req.Spec.ObservabilityPlaneRef.Kind),
+			Name: req.Spec.ObservabilityPlaneRef.Name,
+		}
+	}
+
+	if displayName, ok := cdp.Annotations[controller.AnnotationKeyDisplayName]; ok && displayName == "" {
+		delete(cdp.Annotations, controller.AnnotationKeyDisplayName)
+	}
+	if description, ok := cdp.Annotations[controller.AnnotationKeyDescription]; ok && description == "" {
+		delete(cdp.Annotations, controller.AnnotationKeyDescription)
 	}
 
 	created, err := h.services.ClusterDataPlaneService.CreateClusterDataPlane(ctx, cdp)

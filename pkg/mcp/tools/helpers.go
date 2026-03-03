@@ -39,16 +39,6 @@ func handleToolResult(result any, err error) (*mcp.CallToolResult, any, error) {
 	}, result, nil
 }
 
-func arrayProperty(description, itemType string) map[string]any {
-	return map[string]any{
-		"type":        "array",
-		"description": description,
-		"items": map[string]any{
-			"type": itemType,
-		},
-	}
-}
-
 func intProperty(description string) map[string]any {
 	return map[string]any{
 		"type":        "integer",

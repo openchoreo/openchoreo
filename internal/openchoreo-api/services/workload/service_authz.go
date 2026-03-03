@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -142,4 +143,9 @@ func (s *workloadServiceWithAuthz) DeleteWorkload(ctx context.Context, namespace
 		return err
 	}
 	return s.internal.DeleteWorkload(ctx, namespaceName, workloadName)
+}
+
+func (s *workloadServiceWithAuthz) GetWorkloadSchema(ctx context.Context) (*extv1.JSONSchemaProps, error) {
+	// No authz needed — schema is public metadata
+	return s.internal.GetWorkloadSchema(ctx)
 }

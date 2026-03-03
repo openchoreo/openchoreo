@@ -40,7 +40,7 @@ func projectToolSpecs() []toolTestSpec {
 				if args[0] != testNamespaceName {
 					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
-				// args[1] is *models.CreateProjectRequest
+				// args[1] is *gen.CreateProjectJSONRequestBody
 			},
 		},
 	}

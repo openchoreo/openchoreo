@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -228,6 +229,245 @@ func (s *workloadService) workloadExists(ctx context.Context, namespaceName, wor
 		return false, fmt.Errorf("checking existence of workload %s/%s: %w", namespaceName, workloadName, err)
 	}
 	return true, nil
+}
+
+func (s *workloadService) GetWorkloadSchema(_ context.Context) (*extv1.JSONSchemaProps, error) {
+	return workloadSpecSchema(), nil
+}
+
+func workloadSpecSchema() *extv1.JSONSchemaProps {
+	stringType := "string"
+	intType := "integer"
+	arrayType := "array"
+	objectType := "object"
+
+	envVarSchema := extv1.JSONSchemaProps{
+		Type:        objectType,
+		Description: "Environment variable for the container.",
+		Required:    []string{"key"},
+		Properties: map[string]extv1.JSONSchemaProps{
+			"key": {
+				Type:        stringType,
+				Description: "The environment variable key.",
+			},
+			"value": {
+				Type:        stringType,
+				Description: "The literal value. Mutually exclusive with valueFrom.",
+			},
+			"valueFrom": {
+				Type:        objectType,
+				Description: "Extract value from another resource. Mutually exclusive with value.",
+				Properties: map[string]extv1.JSONSchemaProps{
+					"configurationGroupRef": {
+						Type:     objectType,
+						Required: []string{"name", "key"},
+						Properties: map[string]extv1.JSONSchemaProps{
+							"name": {Type: stringType},
+							"key":  {Type: stringType},
+						},
+					},
+					"secretRef": {
+						Type:     objectType,
+						Required: []string{"name", "key"},
+						Properties: map[string]extv1.JSONSchemaProps{
+							"name": {Type: stringType},
+							"key":  {Type: stringType},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	fileVarSchema := extv1.JSONSchemaProps{
+		Type:        objectType,
+		Description: "File mount configuration for the container.",
+		Required:    []string{"key", "mountPath"},
+		Properties: map[string]extv1.JSONSchemaProps{
+			"key": {
+				Type:        stringType,
+				Description: "The file key/name.",
+			},
+			"mountPath": {
+				Type:        stringType,
+				Description: "The mount path where the file will be mounted.",
+			},
+			"value": {
+				Type:        stringType,
+				Description: "The literal content of the file. Mutually exclusive with valueFrom.",
+			},
+			"valueFrom": {
+				Type:        objectType,
+				Description: "Extract value from another resource. Mutually exclusive with value.",
+				Properties: map[string]extv1.JSONSchemaProps{
+					"configurationGroupRef": {
+						Type:     objectType,
+						Required: []string{"name", "key"},
+						Properties: map[string]extv1.JSONSchemaProps{
+							"name": {Type: stringType},
+							"key":  {Type: stringType},
+						},
+					},
+					"secretRef": {
+						Type:     objectType,
+						Required: []string{"name", "key"},
+						Properties: map[string]extv1.JSONSchemaProps{
+							"name": {Type: stringType},
+							"key":  {Type: stringType},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	var minPort, maxPort float64 = 1, 65535
+	endpointSchema := extv1.JSONSchemaProps{
+		Type:        objectType,
+		Description: "Network endpoint for port exposure.",
+		Required:    []string{"type", "port"},
+		Properties: map[string]extv1.JSONSchemaProps{
+			"type": {
+				Type:        stringType,
+				Description: "Protocol/technology of the endpoint.",
+				Enum:        []extv1.JSON{{Raw: []byte(`"HTTP"`)}, {Raw: []byte(`"REST"`)}, {Raw: []byte(`"gRPC"`)}, {Raw: []byte(`"GraphQL"`)}, {Raw: []byte(`"Websocket"`)}, {Raw: []byte(`"TCP"`)}, {Raw: []byte(`"UDP"`)}},
+			},
+			"port": {
+				Type:        intType,
+				Description: "Port exposed by the endpoint.",
+				Minimum:     &minPort,
+				Maximum:     &maxPort,
+			},
+			"targetPort": {
+				Type:        intType,
+				Description: "Container listening port. Defaults to port if not set.",
+				Minimum:     &minPort,
+				Maximum:     &maxPort,
+			},
+			"visibility": {
+				Type:        arrayType,
+				Description: "Additional endpoint visibilities beyond implicit project visibility.",
+				Items: &extv1.JSONSchemaPropsOrArray{
+					Schema: &extv1.JSONSchemaProps{
+						Type: stringType,
+						Enum: []extv1.JSON{{Raw: []byte(`"project"`)}, {Raw: []byte(`"namespace"`)}, {Raw: []byte(`"internal"`)}, {Raw: []byte(`"external"`)}},
+					},
+				},
+			},
+			"displayName": {
+				Type:        stringType,
+				Description: "Human-readable name for the endpoint.",
+			},
+			"basePath": {
+				Type:        stringType,
+				Description: "Base path of the API exposed via the endpoint.",
+			},
+			"schema": {
+				Type:        objectType,
+				Description: "API definition schema for the endpoint.",
+				Properties: map[string]extv1.JSONSchemaProps{
+					"type":    {Type: stringType},
+					"content": {Type: stringType},
+				},
+			},
+		},
+	}
+
+	connectionSchema := extv1.JSONSchemaProps{
+		Type:        objectType,
+		Description: "Connection to another component's endpoint.",
+		Required:    []string{"component", "endpoint", "visibility"},
+		Properties: map[string]extv1.JSONSchemaProps{
+			"component": {
+				Type:        stringType,
+				Description: "Target component name.",
+			},
+			"endpoint": {
+				Type:        stringType,
+				Description: "Target endpoint name on the target component.",
+			},
+			"visibility": {
+				Type:        stringType,
+				Description: "Visibility level at which this connection consumes the endpoint.",
+				Enum:        []extv1.JSON{{Raw: []byte(`"namespace"`)}, {Raw: []byte(`"project"`)}},
+			},
+			"project": {
+				Type:        stringType,
+				Description: "Target component's project name. If empty, defaults to the same project as the consumer.",
+			},
+			"envBindings": {
+				Type:        objectType,
+				Description: "Maps resolved connection address components to environment variable names.",
+				Properties: map[string]extv1.JSONSchemaProps{
+					"address": {
+						Type:        stringType,
+						Description: "Env var name for the protocol-appropriate connection string.",
+					},
+					"basePath": {
+						Type:        stringType,
+						Description: "Env var name for just the base path.",
+					},
+					"host": {
+						Type:        stringType,
+						Description: "Env var name for just the hostname.",
+					},
+					"port": {
+						Type:        stringType,
+						Description: "Env var name for just the port number.",
+					},
+				},
+			},
+		},
+	}
+
+	return &extv1.JSONSchemaProps{
+		Type:        objectType,
+		Description: "Workload specification defining the runtime configuration for a component.",
+		Required:    []string{"container"},
+		Properties: map[string]extv1.JSONSchemaProps{
+			"container": {
+				Type:        objectType,
+				Description: "Container specification for this workload.",
+				Required:    []string{"image"},
+				Properties: map[string]extv1.JSONSchemaProps{
+					"image": {
+						Type:        stringType,
+						Description: "OCI image to run (digest or tag).",
+					},
+					"command": {
+						Type:        arrayType,
+						Description: "Container entrypoint.",
+						Items:       &extv1.JSONSchemaPropsOrArray{Schema: &extv1.JSONSchemaProps{Type: stringType}},
+					},
+					"args": {
+						Type:        arrayType,
+						Description: "Arguments to the entrypoint.",
+						Items:       &extv1.JSONSchemaPropsOrArray{Schema: &extv1.JSONSchemaProps{Type: stringType}},
+					},
+					"env": {
+						Type:        arrayType,
+						Description: "Environment variables for the container.",
+						Items:       &extv1.JSONSchemaPropsOrArray{Schema: &envVarSchema},
+					},
+					"files": {
+						Type:        arrayType,
+						Description: "File mount configurations.",
+						Items:       &extv1.JSONSchemaPropsOrArray{Schema: &fileVarSchema},
+					},
+				},
+			},
+			"endpoints": {
+				Type:                 objectType,
+				Description:          "Network endpoints for port exposure. Keys are endpoint names.",
+				AdditionalProperties: &extv1.JSONSchemaPropsOrBool{Schema: &endpointSchema},
+			},
+			"connections": {
+				Type:                 objectType,
+				Description:          "Connections to internal and external resources. Keys are connection names.",
+				AdditionalProperties: &extv1.JSONSchemaPropsOrBool{Schema: &connectionSchema},
+			},
+		},
+	}
 }
 
 func (s *workloadService) validateComponentExists(ctx context.Context, namespaceName, componentName string) error {

@@ -3,7 +3,11 @@
 
 package tools
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+)
 
 // namespaceToolSpecs returns test specs for namespace toolset
 func namespaceToolSpecs() []toolTestSpec {
@@ -38,7 +42,19 @@ func namespaceToolSpecs() []toolTestSpec {
 			},
 			expectedMethod: "CreateNamespace",
 			validateCall: func(t *testing.T, args []interface{}) {
-				// args[0] is *models.CreateNamespaceRequest
+				t.Helper()
+				if len(args) != 1 {
+					t.Errorf("Expected 1 argument for CreateNamespace, got %d", len(args))
+					return
+				}
+				req, ok := args[0].(*gen.CreateNamespaceJSONRequestBody)
+				if !ok {
+					t.Errorf("Expected args[0] to be *gen.CreateNamespaceJSONRequestBody, got %T", args[0])
+					return
+				}
+				if req.Metadata.Name != "new-namespace" {
+					t.Errorf("Expected Metadata.Name %q, got %q", "new-namespace", req.Metadata.Name)
+				}
 			},
 		},
 		{

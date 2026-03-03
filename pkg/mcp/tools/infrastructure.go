@@ -9,7 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 func (t *Toolsets) RegisterListEnvironments(s *mcp.Server) {
@@ -75,22 +75,31 @@ func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
 		IsProduction  bool   `json:"is_production"`
 		DNSPrefix     string `json:"dns_prefix"`
 	}) (*mcp.CallToolResult, any, error) {
-		// Convert DataPlaneRef string to object (default to DataPlane kind)
-		var dataPlaneRef *models.DataPlaneRef
-		if args.DataPlaneRef != "" {
-			dataPlaneRef = &models.DataPlaneRef{
-				Kind: "DataPlane",
-				Name: args.DataPlaneRef,
-			}
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
 		}
 
-		envReq := &models.CreateEnvironmentRequest{
-			Name:         args.Name,
-			DisplayName:  args.DisplayName,
-			Description:  args.Description,
-			DataPlaneRef: dataPlaneRef,
-			IsProduction: args.IsProduction,
-			DNSPrefix:    args.DNSPrefix,
+		envReq := &gen.CreateEnvironmentJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &gen.EnvironmentSpec{
+				IsProduction: &args.IsProduction,
+			},
+		}
+		if args.DataPlaneRef != "" {
+			envReq.Spec.DataPlaneRef = &struct {
+				Kind gen.EnvironmentSpecDataPlaneRefKind `json:"kind"`
+				Name string                              `json:"name"`
+			}{
+				Kind: gen.EnvironmentSpecDataPlaneRefKindDataPlane,
+				Name: args.DataPlaneRef,
+			}
 		}
 		result, err := t.PEToolset.CreateEnvironment(ctx, args.NamespaceName, envReq)
 		return handleToolResult(result, err)
@@ -173,12 +182,27 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 			Name string `json:"name"`
 		} `json:"observability_plane_ref"`
 	}) (*mcp.CallToolResult, any, error) {
-		dataPlaneReq := &models.CreateDataPlaneRequest{
-			Name:                 args.Name,
-			DisplayName:          args.DisplayName,
-			Description:          args.Description,
-			ClusterAgentClientCA: args.ClusterAgentClientCA,
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
 		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+
+		clientCA := args.ClusterAgentClientCA
+		dataPlaneReq := &gen.CreateDataPlaneJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &gen.DataPlaneSpec{
+				ClusterAgent: &gen.ClusterAgentConfig{
+					ClientCA: &gen.ValueFrom{Value: &clientCA},
+				},
+			},
+		}
+
 		if args.ObservabilityPlaneRef != nil {
 			if args.ObservabilityPlaneRef.Name == "" {
 				return nil, nil, fmt.Errorf("observability_plane_ref.name is required when observability_plane_ref is provided")
@@ -191,8 +215,11 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 					"observability_plane_ref.kind must be 'ObservabilityPlane' or "+
 						"'ClusterObservabilityPlane', got '%s'", kind)
 			}
-			dataPlaneReq.ObservabilityPlaneRef = &models.ObservabilityPlaneRef{
-				Kind: kind,
+			if dataPlaneReq.Spec == nil {
+				dataPlaneReq.Spec = &gen.DataPlaneSpec{}
+			}
+			dataPlaneReq.Spec.ObservabilityPlaneRef = &gen.ObservabilityPlaneRef{
+				Kind: gen.ObservabilityPlaneRefKind(kind),
 				Name: args.ObservabilityPlaneRef.Name,
 			}
 		}
@@ -571,24 +598,36 @@ func (t *Toolsets) RegisterCreateClusterDataPlane(s *mcp.Server) {
 			Name string `json:"name"`
 		} `json:"observability_plane_ref"`
 	}) (*mcp.CallToolResult, any, error) {
-		cdpReq := &models.CreateClusterDataPlaneRequest{
-			Name:                 args.Name,
-			DisplayName:          args.DisplayName,
-			Description:          args.Description,
-			PlaneID:              args.PlaneID,
-			ClusterAgentClientCA: args.ClusterAgentClientCA,
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
 		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+
+		clientCA := args.ClusterAgentClientCA
+		cdpReq := &gen.CreateClusterDataPlaneJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &gen.ClusterDataPlaneSpec{
+				PlaneID: &args.PlaneID,
+				ClusterAgent: &gen.ClusterAgentConfig{
+					ClientCA: &gen.ValueFrom{Value: &clientCA},
+				},
+			},
+		}
+
 		if args.ObservabilityPlaneRef != nil {
 			if args.ObservabilityPlaneRef.Name == "" {
 				return nil, nil, fmt.Errorf("observability_plane_ref.name is required when observability_plane_ref is provided")
 			}
-			cdpReq.ObservabilityPlaneRef = &models.ObservabilityPlaneRef{
-				Kind: "ClusterObservabilityPlane",
+			cdpReq.Spec.ObservabilityPlaneRef = &gen.ClusterObservabilityPlaneRef{
+				Kind: gen.ClusterObservabilityPlaneRefKindClusterObservabilityPlane,
 				Name: args.ObservabilityPlaneRef.Name,
 			}
-		}
-		if err := cdpReq.Validate(); err != nil {
-			return nil, nil, fmt.Errorf("invalid cluster dataplane request: %w", err)
 		}
 		result, err := t.PEToolset.CreateClusterDataPlane(ctx, cdpReq)
 		return handleToolResult(result, err)

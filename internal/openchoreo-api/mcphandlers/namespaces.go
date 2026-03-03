@@ -11,7 +11,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
@@ -23,22 +23,33 @@ func (h *MCPHandler) ListNamespaces(ctx context.Context, opts tools.ListOpts) (a
 	return wrapTransformedList("namespaces", result.Items, result.NextCursor, namespaceSummary), nil
 }
 
-func (h *MCPHandler) CreateNamespace(ctx context.Context, req *models.CreateNamespaceRequest) (any, error) {
+func (h *MCPHandler) CreateNamespace(ctx context.Context, req *gen.CreateNamespaceJSONRequestBody) (any, error) {
+	annotations := map[string]string{}
+	if req.Metadata.Annotations != nil {
+		annotations = *req.Metadata.Annotations
+	}
+
+	resourceLabels := map[string]string{}
+	if req.Metadata.Labels != nil {
+		for key, value := range *req.Metadata.Labels {
+			resourceLabels[key] = value
+		}
+	}
+	resourceLabels[labels.LabelKeyControlPlaneNamespace] = labels.LabelValueTrue
+
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: req.Name,
-			Labels: map[string]string{
-				labels.LabelKeyControlPlaneNamespace: labels.LabelValueTrue,
-			},
-			Annotations: make(map[string]string),
+			Name:        req.Metadata.Name,
+			Labels:      resourceLabels,
+			Annotations: annotations,
 		},
 	}
 
-	if req.DisplayName != "" {
-		ns.Annotations[controller.AnnotationKeyDisplayName] = req.DisplayName
+	if displayName, ok := ns.Annotations[controller.AnnotationKeyDisplayName]; ok && displayName == "" {
+		delete(ns.Annotations, controller.AnnotationKeyDisplayName)
 	}
-	if req.Description != "" {
-		ns.Annotations[controller.AnnotationKeyDescription] = req.Description
+	if description, ok := ns.Annotations[controller.AnnotationKeyDescription]; ok && description == "" {
+		delete(ns.Annotations, controller.AnnotationKeyDescription)
 	}
 
 	created, err := h.services.NamespaceService.CreateNamespace(ctx, ns)

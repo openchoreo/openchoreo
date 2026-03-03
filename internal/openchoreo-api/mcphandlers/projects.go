@@ -10,7 +10,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
@@ -22,23 +22,35 @@ func (h *MCPHandler) ListProjects(ctx context.Context, namespaceName string, opt
 	return wrapTransformedList("projects", result.Items, result.NextCursor, projectSummary), nil
 }
 
-func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, req *models.CreateProjectRequest) (any, error) {
+func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody) (any, error) {
+	annotations := map[string]string{}
+	if req.Metadata.Annotations != nil {
+		for key, value := range *req.Metadata.Annotations {
+			annotations[key] = value
+		}
+	}
+
+	deploymentPipelineRef := ""
+	if req.Spec != nil && req.Spec.DeploymentPipelineRef != nil {
+		deploymentPipelineRef = *req.Spec.DeploymentPipelineRef
+	}
+
 	project := &openchoreov1alpha1.Project{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        req.Name,
+			Name:        req.Metadata.Name,
 			Namespace:   namespaceName,
-			Annotations: make(map[string]string),
+			Annotations: annotations,
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
-			DeploymentPipelineRef: req.DeploymentPipeline,
+			DeploymentPipelineRef: deploymentPipelineRef,
 		},
 	}
 
-	if req.DisplayName != "" {
-		project.Annotations[controller.AnnotationKeyDisplayName] = req.DisplayName
+	if displayName, ok := project.Annotations[controller.AnnotationKeyDisplayName]; ok && displayName == "" {
+		delete(project.Annotations, controller.AnnotationKeyDisplayName)
 	}
-	if req.Description != "" {
-		project.Annotations[controller.AnnotationKeyDescription] = req.Description
+	if description, ok := project.Annotations[controller.AnnotationKeyDescription]; ok && description == "" {
+		delete(project.Annotations, controller.AnnotationKeyDescription)
 	}
 
 	created, err := h.services.ProjectService.CreateProject(ctx, namespaceName, project)
