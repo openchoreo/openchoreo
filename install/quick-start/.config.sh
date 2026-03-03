@@ -12,6 +12,7 @@ CONTROL_PLANE_NS="openchoreo-control-plane"
 DATA_PLANE_NS="openchoreo-data-plane"
 BUILD_PLANE_NS="openchoreo-build-plane"
 OBSERVABILITY_NS="openchoreo-observability-plane"
+THUNDER_NS="thunder"
 
 # Helm repository
 HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
@@ -28,4 +29,4 @@ ESO_REPO="oci://ghcr.io/external-secrets/charts"
 KGATEWAY_VERSION="v2.2.1"
 
 # Thunder configuration
-THUNDER_VERSION="0.23.0"
+THUNDER_VERSION="0.24.0"

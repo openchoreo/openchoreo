@@ -112,7 +112,8 @@ bootstrap:
               },
               \"password\": {
                 \"type\": \"string\",
-                \"required\": true
+                \"required\": false,
+                \"credential\": true
               },
               \"given_name\": {
                 \"type\": \"string\"

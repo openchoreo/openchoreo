@@ -305,7 +305,7 @@ data:
               issuer: http://thunder.openchoreo.localhost:8080
               jwks:
                 remote:
-                  uri: http://thunder-service.openchoreo-control-plane:8090/oauth2/jwks
+                  uri: http://thunder-service.thunder:8090/oauth2/jwks
                   skipTlsVerify: true
             jwkscachettl: "5m"
             jwksfetchtimeout: "5s"
