@@ -775,11 +775,27 @@ observer:
 
   # @schema
   # type: object
-  # additionalProperties: true
-  # description: Control experimental features in the Observer service
-  # default: true
+  # description: Configurations for logs adapter connectivity
   # @schema
-  experimental: {}
+  logsAdapter:
+    # @schema
+    # type: boolean
+    # description: Enable logs adapter for fetching logs from an external adapter
+    # default: false
+    # @schema
+    enabled: false
+    # @schema
+    # type: string
+    # description: URL of the logs adapter service
+    # default: "http://logs-adapter:9098"
+    # @schema
+    url: "http://logs-adapter:9098"
+    # @schema
+    # type: string
+    # description: Timeout for logs adapter requests
+    # default: "30s"
+    # @schema
+    timeout: "30s"
 
   # @schema
   # type: integer
@@ -844,6 +860,30 @@ observer:
             entitlement:
               claim: "sub"
               display_name: "Client ID"
+
+  # @schema
+  # type: object
+  # description: Configurations for tracing adapter connectivity
+  # @schema
+  tracingAdapter:
+    # @schema
+    # type: boolean
+    # description: Enable tracing adapter for fetching traces from an external adapter
+    # default: false
+    # @schema
+    enabled: false
+    # @schema
+    # type: string
+    # description: URL of the tracing adapter service
+    # default: "http://tracing-adapter:9098"
+    # @schema
+    url: "http://tracing-adapter:9100"
+    # @schema
+    # type: string
+    # description: Timeout for tracing adapter requests
+    # default: "30s"
+    # @schema
+    timeout: "30s"
 
   # @schema
   # type: string

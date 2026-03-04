@@ -64,7 +64,7 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 	s.logger.Info("QueryTraces called",
 		"startTime", req.StartTime,
 		"endTime", req.EndTime,
-		"useTracingAdapter", s.config.Experimental.UseTracingAdapter)
+		"useTracingAdapter", s.config.Adapters.TracingAdapterEnabled)
 
 	// Resolve search scope to UIDs
 	projectUID, componentUID, environmentUID, err := s.resolveSearchScope(ctx, &req.SearchScope)
@@ -87,7 +87,7 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 
 	// Route to tracing adapter or OpenSearch
 	var result *observability.TracesQueryResult
-	if s.config.Experimental.UseTracingAdapter && s.tracingAdapter != nil {
+	if s.config.Adapters.TracingAdapterEnabled && s.tracingAdapter != nil {
 		s.logger.Debug("Using tracing adapter for query")
 		result, err = s.tracingAdapter.GetTraces(ctx, params)
 	} else {

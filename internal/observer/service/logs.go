@@ -43,7 +43,7 @@ func NewLogsService(
 ) (*LogsService, error) {
 	var defaultAdaptor *adaptor.DefaultLogsAdaptor
 	// Initialize default logs adaptor (queries OpenSearch when logs adapter is not enabled)
-	if !cfg.Experimental.UseLogsAdapter || logsAdapter == nil {
+	if !cfg.Adapters.LogsAdapterEnabled || logsAdapter == nil {
 		var err error
 		defaultAdaptor, err = adaptor.NewDefaultLogsAdaptor(&cfg.OpenSearch, logger)
 		if err != nil {
@@ -88,7 +88,7 @@ func (s *LogsService) QueryLogs(ctx context.Context, req *types.LogsQueryRequest
 		"endTime", req.EndTime,
 		"hasSearchPhrase", req.SearchPhrase != "",
 		"limit", req.Limit,
-		"useLogsAdapter", s.config.Experimental.UseLogsAdapter)
+		"useLogsAdapter", s.config.Adapters.LogsAdapterEnabled)
 
 	// Convert request to internal representation with resolved UIDs
 	scope, err := s.resolveSearchScope(ctx, req.SearchScope)
@@ -147,7 +147,7 @@ func (s *LogsService) queryComponentLogs(
 	var err error
 
 	// Check if adapter is enabled and available
-	if s.config.Experimental.UseLogsAdapter && s.logsAdapter != nil {
+	if s.config.Adapters.LogsAdapterEnabled && s.logsAdapter != nil {
 		s.logger.Debug("Using logs adapter for component logs query")
 		result, err = s.getComponentLogsFromAdapter(ctx, params)
 	} else {
@@ -190,7 +190,7 @@ func (s *LogsService) queryWorkflowLogs(
 	var err error
 
 	// Check if adapter is enabled and available
-	if s.config.Experimental.UseLogsAdapter && s.logsAdapter != nil {
+	if s.config.Adapters.LogsAdapterEnabled && s.logsAdapter != nil {
 		s.logger.Debug("Using logs adapter for workflow logs query")
 		result, err = s.getWorkflowLogsFromAdapter(ctx, params)
 	} else {

@@ -249,10 +249,10 @@ func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch
 		"component_id", params.ComponentID,
 		"environment_id", params.EnvironmentID,
 		"search_phrase", params.SearchPhrase,
-		"use_adapter", s.config.Experimental.UseLogsAdapter)
+		"use_adapter", s.config.Adapters.LogsAdapterEnabled)
 
 	// Check if adapter is enabled and available
-	if s.config.Experimental.UseLogsAdapter && s.logsAdapter != nil {
+	if s.config.Adapters.LogsAdapterEnabled && s.logsAdapter != nil {
 		// Parse time parameters for adapter
 		startTime, err := time.Parse(time.RFC3339, params.StartTime)
 		if err != nil {

@@ -79,16 +79,16 @@ func main() {
 	// Initialize prometheus metrics service for the legacy logging service
 	promService := prometheus.NewMetricsService(promClient, logger)
 
-	// Initialize logs adapter (optional - based on experimental flag)
+	// Initialize logs adapter (optional)
 	var logsAdapter observability.LogsAdapter
-	if cfg.Experimental.UseLogsAdapter {
-		logger.Info("Experimental feature active: Using logs adapter",
-			"adapter_url", cfg.Experimental.LogsAdapterURL)
+	if cfg.Adapters.LogsAdapterEnabled {
+		logger.Info("Using logs adapter",
+			"adapter_url", cfg.Adapters.LogsAdapterURL)
 
 		// Initialize HTTP-based adapter (e.g., OpenObserve)
 		adapterConfig := service.LogsAdapterConfig{
-			BaseURL: cfg.Experimental.LogsAdapterURL,
-			Timeout: cfg.Experimental.LogsAdapterTimeout,
+			BaseURL: cfg.Adapters.LogsAdapterURL,
+			Timeout: cfg.Adapters.LogsAdapterTimeout,
 		}
 		logsAdapter = service.NewLogsAdapter(adapterConfig)
 		logger.Info("Logs adapter initialized")
@@ -96,15 +96,15 @@ func main() {
 		logger.Info("Using OpenSearch for component logs")
 	}
 
-	// Initialize tracing adapter (optional - based on experimental flag)
+	// Initialize tracing adapter (optional)
 	var tracingAdapter observability.TracingAdapter
-	if cfg.Experimental.UseTracingAdapter {
-		logger.Info("Experimental feature active: Using tracing adapter",
-			"adapter_url", cfg.Experimental.TracingAdapterURL)
+	if cfg.Adapters.TracingAdapterEnabled {
+		logger.Info("Using tracing adapter",
+			"adapter_url", cfg.Adapters.TracingAdapterURL)
 
 		adapterConfig := service.TracingAdapterConfig{
-			BaseURL: cfg.Experimental.TracingAdapterURL,
-			Timeout: cfg.Experimental.TracingAdapterTimeout,
+			BaseURL: cfg.Adapters.TracingAdapterURL,
+			Timeout: cfg.Adapters.TracingAdapterTimeout,
 		}
 		tracingAdapter = service.NewTracingAdapter(adapterConfig)
 		logger.Info("Tracing adapter initialized")

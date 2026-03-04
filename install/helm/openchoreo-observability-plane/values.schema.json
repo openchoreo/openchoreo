@@ -1488,14 +1488,6 @@
           "title": "cors",
           "type": "object"
         },
-        "experimental": {
-          "additionalProperties": true,
-          "default": true,
-          "description": "Control experimental features in the Observer service",
-          "required": [],
-          "title": "experimental",
-          "type": "object"
-        },
         "extraEnvs": {
           "description": "Extra environment variables for the Observer container",
           "items": {
@@ -1598,6 +1590,33 @@
           ],
           "required": [],
           "title": "logLevel"
+        },
+        "logsAdapter": {
+          "additionalProperties": false,
+          "description": "Configurations for logs adapter connectivity",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable logs adapter for fetching logs from an external adapter",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "timeout": {
+              "default": "30s",
+              "description": "Timeout for logs adapter requests",
+              "title": "timeout",
+              "type": "string"
+            },
+            "url": {
+              "default": "http://logs-adapter:9098",
+              "description": "URL of the logs adapter service",
+              "title": "url",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "logsAdapter",
+          "type": "object"
         },
         "oauthClientId": {
           "default": "openchoreo-observer",
@@ -1781,6 +1800,33 @@
           },
           "required": [],
           "title": "service",
+          "type": "object"
+        },
+        "tracingAdapter": {
+          "additionalProperties": false,
+          "description": "Configurations for tracing adapter connectivity",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable tracing adapter for fetching traces from an external adapter",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "timeout": {
+              "default": "30s",
+              "description": "Timeout for tracing adapter requests",
+              "title": "timeout",
+              "type": "string"
+            },
+            "url": {
+              "default": "http://tracing-adapter:9098",
+              "description": "URL of the tracing adapter service",
+              "title": "url",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "tracingAdapter",
           "type": "object"
         }
       },

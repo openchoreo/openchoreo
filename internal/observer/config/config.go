@@ -18,26 +18,26 @@ import (
 
 // Config holds all configuration for the logging service
 type Config struct {
-	Server       ServerConfig       `koanf:"server"`
-	OpenSearch   OpenSearchConfig   `koanf:"opensearch"`
-	Prometheus   PrometheusConfig   `koanf:"prometheus"`
-	Auth         AuthConfig         `koanf:"auth"`
-	Authz        AuthzConfig        `koanf:"authz"`
-	Logging      LoggingConfig      `koanf:"logging"`
-	Alerting     AlertingConfig     `koanf:"alerting"`
-	Experimental ExperimentalConfig `koanf:"experimental"`
-	UIDResolver  UIDResolverConfig  `koanf:"uid_resolver"`
-	CORS         CORSConfig         `koanf:"cors"`
-	LogLevel     string             `koanf:"loglevel"`
+	Server      ServerConfig      `koanf:"server"`
+	OpenSearch  OpenSearchConfig  `koanf:"opensearch"`
+	Prometheus  PrometheusConfig  `koanf:"prometheus"`
+	Auth        AuthConfig        `koanf:"auth"`
+	Authz       AuthzConfig       `koanf:"authz"`
+	Logging     LoggingConfig     `koanf:"logging"`
+	Alerting    AlertingConfig    `koanf:"alerting"`
+	Adapters    AdaptersConfig    `koanf:"adapters"`
+	UIDResolver UIDResolverConfig `koanf:"uid_resolver"`
+	CORS        CORSConfig        `koanf:"cors"`
+	LogLevel    string            `koanf:"loglevel"`
 }
 
-// ExperimentalConfig holds experimental feature flags
-type ExperimentalConfig struct {
-	UseLogsAdapter     bool          `koanf:"use.logs.adapter"`
+// AdaptersConfig holds adapter configuration
+type AdaptersConfig struct {
+	LogsAdapterEnabled bool          `koanf:"logs.adapter.enabled"`
 	LogsAdapterURL     string        `koanf:"logs.adapter.url"`
 	LogsAdapterTimeout time.Duration `koanf:"logs.adapter.timeout"`
 
-	UseTracingAdapter     bool          `koanf:"use.tracing.adapter"`
+	TracingAdapterEnabled bool          `koanf:"tracing.adapter.enabled"`
 	TracingAdapterURL     string        `koanf:"tracing.adapter.url"`
 	TracingAdapterTimeout time.Duration `koanf:"tracing.adapter.timeout"`
 }
@@ -193,12 +193,12 @@ func Load() (*Config, error) {
 		"JWT_SECRET":                            "auth.jwt.secret",       // Common alias
 		"ENABLE_AUTH":                           "auth.enable.auth",      // Common alias
 		"MAX_LOG_LIMIT":                         "logging.max.log.limit", // Common alias
-		"EXPERIMENTAL_USE_LOGS_ADAPTER":         "experimental.use.logs.adapter",
-		"EXPERIMENTAL_LOGS_ADAPTER_URL":         "experimental.logs.adapter.url",
-		"EXPERIMENTAL_LOGS_ADAPTER_TIMEOUT":     "experimental.logs.adapter.timeout",
-		"EXPERIMENTAL_USE_TRACING_ADAPTER":      "experimental.use.tracing.adapter",
-		"EXPERIMENTAL_TRACING_ADAPTER_URL":      "experimental.tracing.adapter.url",
-		"EXPERIMENTAL_TRACING_ADAPTER_TIMEOUT":  "experimental.tracing.adapter.timeout",
+		"LOGS_ADAPTER_ENABLED":                  "adapters.logs.adapter.enabled",
+		"LOGS_ADAPTER_URL":                      "adapters.logs.adapter.url",
+		"LOGS_ADAPTER_TIMEOUT":                  "adapters.logs.adapter.timeout",
+		"TRACING_ADAPTER_ENABLED":               "adapters.tracing.adapter.enabled",
+		"TRACING_ADAPTER_URL":                   "adapters.tracing.adapter.url",
+		"TRACING_ADAPTER_TIMEOUT":               "adapters.tracing.adapter.timeout",
 		"UID_RESOLVER_OPENCHOREO_API_URL":       "uid_resolver.openchoreo.api.url",
 		"UID_RESOLVER_OAUTH_TOKEN_URL":          "uid_resolver.oauth.token.url",
 		"UID_RESOLVER_OAUTH_CLIENT_ID":          "uid_resolver.oauth.client.id",
@@ -320,11 +320,11 @@ func getDefaults() map[string]interface{} {
 			"ai.rca.enabled":          false,
 			"observability.namespace": "openchoreo-observability-plane",
 		},
-		"experimental": map[string]interface{}{
-			"use.logs.adapter":        false,
+		"adapters": map[string]interface{}{
+			"logs.adapter.enabled":    false,
 			"logs.adapter.url":        "http://logs-adapter:9098",
 			"logs.adapter.timeout":    "30s",
-			"use.tracing.adapter":     false,
+			"tracing.adapter.enabled": false,
 			"tracing.adapter.url":     "http://tracing-adapter:9100",
 			"tracing.adapter.timeout": "30s",
 		},

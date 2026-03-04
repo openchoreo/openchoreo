@@ -92,6 +92,20 @@ spec:
         - name: CORS_ALLOWED_ORIGINS
           value: {{ join "," .Values.observer.cors.allowedOrigins | quote }}
         {{- end }}
+        # Logs adapter configuration
+        - name: LOGS_ADAPTER_ENABLED
+          value: {{ .Values.observer.logsAdapter.enabled | default false | quote }}
+        - name: LOGS_ADAPTER_URL
+          value: {{ .Values.observer.logsAdapter.url | default "http://logs-adapter:9098" | quote }}
+        - name: LOGS_ADAPTER_TIMEOUT
+          value: {{ .Values.observer.logsAdapter.timeout | default "30s" | quote }}
+        # Tracing adapter configuration
+        - name: TRACING_ADAPTER_ENABLED
+          value: {{ .Values.observer.tracingAdapter.enabled | default false | quote }}
+        - name: TRACING_ADAPTER_URL
+          value: {{ .Values.observer.tracingAdapter.url | default "http://tracing-adapter:9098" | quote }}
+        - name: TRACING_ADAPTER_TIMEOUT
+          value: {{ .Values.observer.tracingAdapter.timeout | default "30s" | quote }}
         {{- if .Values.observer.extraEnvs }}
         {{- toYaml .Values.observer.extraEnvs | nindent 8 }}
         {{- end }}
