@@ -758,7 +758,9 @@ This command allows you to:
   occ workflow run database-migration --namespace acme-corp
 
   # Run with parameters
-  occ workflow run migration --namespace acme --set version=v2 --set dry_run=false`,
+  occ workflow run github-stats-report --namespace acme-corp \
+    --set spec.workflow.parameters.source.org=openchoreo \
+    --set spec.workflow.parameters.output.format=json`,
 	}
 
 	LogsWorkflow = Command{
@@ -1003,7 +1005,7 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
   %[1]s component deploy api-service --to staging
 
   # Deploy with overrides
-  %[1]s component deploy api-service --set componentTypeEnvOverrides.replicas=3`, messages.DefaultCLIName),
+  %[1]s component deploy api-service --set spec.componentTypeEnvOverrides.replicas=3`, messages.DefaultCLIName),
 	}
 
 	StartComponentWorkflow = Command{
