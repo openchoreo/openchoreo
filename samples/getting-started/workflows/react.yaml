@@ -11,6 +11,7 @@ metadata:
       branch: parameters.repository.revision.branch
       commit: parameters.repository.revision.commit
       appPath: parameters.repository.appPath
+      secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
     kind: BuildPlane
