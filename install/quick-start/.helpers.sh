@@ -892,7 +892,7 @@ spec:
     clientCA:
       value: |
 $(echo "$agent_ca" | sed 's/^/        /')
-  observerURL: http://observer.openchoreo-observability-plane.svc.cluster.local:8080
+  observerURL: http://observer.openchoreo.localhost:11080
 OPEOF
 
     log_success "ObservabilityPlane resource created"

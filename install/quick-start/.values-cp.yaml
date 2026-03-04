@@ -41,6 +41,13 @@ openchoreoApi:
                 claim: sub
                 value: openchoreo-cli-quickstart
               effect: allow
+            - name: observer-binding
+              roleRef:
+                name: observer
+              entitlement:
+                claim: sub
+                value: openchoreo-observer
+              effect: allow
 
 backstage:
   secretName: backstage-secrets
