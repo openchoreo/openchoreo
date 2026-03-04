@@ -28,6 +28,11 @@ security:
     tokenUrl: "http://thunder-service.thunder.svc.cluster.local:8090/oauth2/token"
     authServerBaseUrl: "http://thunder.openchoreo.localhost:8080"
 
+rca:
+  http:
+    hostnames:
+    - rca-agent.openchoreo.localhost
+
 gateway:
   httpPort: 11080
   httpsPort: 11085

@@ -3631,8 +3631,8 @@
           "type": "object"
         },
         "remedAgent": {
-          "default": false,
-          "description": "Enable experimental remediation agent",
+          "default": true,
+          "description": "Enable remediation agent",
           "title": "remedAgent",
           "type": "boolean"
         },

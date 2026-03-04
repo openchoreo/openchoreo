@@ -2890,10 +2890,10 @@ rca:
 
   # @schema
   # type: boolean
-  # description: Enable experimental remediation agent
-  # default: false
+  # description: Enable remediation agent
+  # default: true
   # @schema
-  remedAgent: false
+  remedAgent: true
 
   # @schema
   # type: object
