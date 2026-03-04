@@ -774,6 +774,13 @@ observer:
   controlPlaneApiUrl: "http://api.openchoreo.localhost:8080"
 
   # @schema
+  # type: boolean
+  # description: Skip TLS certificate verification when calling the control plane authz service (use for self-signed certs)
+  # default: false
+  # @schema
+  authzTlsInsecureSkipVerify: false
+
+  # @schema
   # type: object
   # description: Configurations for logs adapter connectivity
   # @schema

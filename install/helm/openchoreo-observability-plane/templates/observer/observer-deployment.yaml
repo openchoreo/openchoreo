@@ -73,6 +73,8 @@ spec:
           value: /etc/openchoreo/auth-config.yaml
         - name: AUTHZ_SERVICE_URL
           value: {{ .Values.observer.controlPlaneApiUrl | quote }}
+        - name: AUTHZ_TLS_INSECURE_SKIP_VERIFY
+          value: {{ .Values.observer.authzTlsInsecureSkipVerify | default false | quote }}
         # UIDResolver configuration for calling openchoreo-api with OAuth2 client credentials
         - name: UID_RESOLVER_OPENCHOREO_API_URL
           value: {{ .Values.observer.controlPlaneApiUrl | quote }}

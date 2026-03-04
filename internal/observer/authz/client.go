@@ -6,6 +6,7 @@ package authz
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -39,6 +40,11 @@ func NewClient(cfg *config.AuthzConfig, logger *slog.Logger) (*Client, error) {
 
 	httpClient := &http.Client{
 		Timeout: cfg.Timeout,
+	}
+	if cfg.TLSInsecureSkipVerify {
+		httpClient.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // intentional for self-signed certs
+		}
 	}
 
 	logger.Info("Authorization client initialized",

@@ -1465,6 +1465,12 @@
       "additionalProperties": true,
       "description": "OpenChoreo Observer service configuration - REST API that abstracts OpenSearch for logging, metrics, and tracing",
       "properties": {
+        "authzTlsInsecureSkipVerify": {
+          "default": false,
+          "description": "Skip TLS certificate verification when calling the control plane authz service (use for self-signed certs)",
+          "title": "authzTlsInsecureSkipVerify",
+          "type": "boolean"
+        },
         "controlPlaneApiUrl": {
           "default": "http://api.openchoreo.localhost:8080",
           "description": "Control plane API base URL used by observer",

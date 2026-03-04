@@ -85,8 +85,9 @@ type AuthConfig struct {
 
 // AuthzConfig holds authorization configuration
 type AuthzConfig struct {
-	ServiceURL string        `koanf:"service.url"`
-	Timeout    time.Duration `koanf:"timeout"`
+	ServiceURL            string        `koanf:"service.url"`
+	Timeout               time.Duration `koanf:"timeout"`
+	TLSInsecureSkipVerify bool          `koanf:"tls.insecure.skip.verify"`
 }
 
 // LoggingConfig holds application logging configuration
@@ -181,6 +182,7 @@ func Load() (*Config, error) {
 		"AUTH_REQUIRED_ROLE":                    "auth.required.role",
 		"AUTHZ_SERVICE_URL":                     "authz.service.url",
 		"AUTHZ_TIMEOUT":                         "authz.timeout",
+		"AUTHZ_TLS_INSECURE_SKIP_VERIFY":        "authz.tls.insecure.skip.verify",
 		"LOGGING_MAX_LOG_LIMIT":                 "logging.max.log.limit",
 		"LOGGING_DEFAULT_LOG_LIMIT":             "logging.default.log.limit",
 		"LOGGING_DEFAULT_BUILD_LOG_LIMIT":       "logging.default.build.log.limit",
@@ -323,8 +325,9 @@ func getDefaults() map[string]interface{} {
 			"required.role": "user",
 		},
 		"authz": map[string]interface{}{
-			"service.url": "http://localhost:8080",
-			"timeout":     "30s",
+			"service.url":              "http://localhost:8080",
+			"timeout":                  "30s",
+			"tls.insecure.skip.verify": false,
 		},
 		"logging": map[string]interface{}{
 			"max.log.limit":           10000,
