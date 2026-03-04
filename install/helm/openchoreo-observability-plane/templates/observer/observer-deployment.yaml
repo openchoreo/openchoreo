@@ -98,7 +98,7 @@ spec:
         - name: LOGS_ADAPTER_ENABLED
           value: {{ .Values.observer.logsAdapter.enabled | default false | quote }}
         - name: LOGS_ADAPTER_URL
-          value: {{ .Values.observer.logsAdapter.url | default "http://logs-adapter:9098" | quote }}
+          value: {{ .Values.observer.logsAdapter.url | default "http://logs-adapter:9100" | quote }}
         - name: LOGS_ADAPTER_TIMEOUT
           value: {{ .Values.observer.logsAdapter.timeout | default "30s" | quote }}
         # Tracing adapter configuration

@@ -1819,7 +1819,7 @@
               "type": "string"
             },
             "url": {
-              "default": "http://tracing-adapter:9098",
+              "default": "http://tracing-adapter:9100",
               "description": "URL of the tracing adapter service",
               "title": "url",
               "type": "string"

@@ -179,6 +179,122 @@ func TestLoad_CORSAllowedOrigins(t *testing.T) {
 	}
 }
 
+func TestLoad_BooleanEnvParsing(t *testing.T) {
+	tests := []struct {
+		name                  string
+		logsAdapterEnabled    string
+		tracingAdapterEnabled string
+		expectedLogs          bool
+		expectedTracing       bool
+	}{
+		{
+			name:                  "true string",
+			logsAdapterEnabled:    "true",
+			tracingAdapterEnabled: "true",
+			expectedLogs:          true,
+			expectedTracing:       true,
+		},
+		{
+			name:                  "false string",
+			logsAdapterEnabled:    "false",
+			tracingAdapterEnabled: "false",
+			expectedLogs:          false,
+			expectedTracing:       false,
+		},
+		{
+			name:                  "1 is true",
+			logsAdapterEnabled:    "1",
+			tracingAdapterEnabled: "1",
+			expectedLogs:          true,
+			expectedTracing:       true,
+		},
+		{
+			name:                  "0 is false",
+			logsAdapterEnabled:    "0",
+			tracingAdapterEnabled: "0",
+			expectedLogs:          false,
+			expectedTracing:       false,
+		},
+		{
+			name:                  "mixed valid values",
+			logsAdapterEnabled:    "true",
+			tracingAdapterEnabled: "false",
+			expectedLogs:          true,
+			expectedTracing:       false,
+		},
+		{
+			name:                  "TRUE uppercase",
+			logsAdapterEnabled:    "TRUE",
+			tracingAdapterEnabled: "FALSE",
+			expectedLogs:          true,
+			expectedTracing:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("LOGS_ADAPTER_ENABLED", tt.logsAdapterEnabled)
+			t.Setenv("TRACING_ADAPTER_ENABLED", tt.tracingAdapterEnabled)
+
+			cfg, err := Load()
+			if err != nil {
+				t.Fatalf("Failed to load config: %v", err)
+			}
+
+			if cfg.Adapters.LogsAdapterEnabled != tt.expectedLogs {
+				t.Errorf("LogsAdapterEnabled: expected %v, got %v (env=%q)",
+					tt.expectedLogs, cfg.Adapters.LogsAdapterEnabled, tt.logsAdapterEnabled)
+			}
+			if cfg.Adapters.TracingAdapterEnabled != tt.expectedTracing {
+				t.Errorf("TracingAdapterEnabled: expected %v, got %v (env=%q)",
+					tt.expectedTracing, cfg.Adapters.TracingAdapterEnabled, tt.tracingAdapterEnabled)
+			}
+		})
+	}
+}
+
+func TestLoad_BooleanEnvParsing_InvalidValues(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{name: "yes is invalid", value: "yes"},
+		{name: "no is invalid", value: "no"},
+		{name: "arbitrary string is invalid", value: "notabool"},
+		{name: "numeric non-boolean is invalid", value: "2"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("LOGS_ADAPTER_ENABLED", tt.value)
+			t.Setenv("TRACING_ADAPTER_ENABLED", tt.value)
+
+			_, err := Load()
+			if err == nil {
+				t.Errorf("Expected error for invalid boolean value %q, but got none", tt.value)
+			}
+		})
+	}
+}
+
+func TestLoad_BooleanEnvParsing_Unset(t *testing.T) {
+	// When env vars are not set, adapters should default to false
+	os.Unsetenv("LOGS_ADAPTER_ENABLED")
+	os.Unsetenv("TRACING_ADAPTER_ENABLED")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	if cfg.Adapters.LogsAdapterEnabled != false {
+		t.Errorf("Expected LogsAdapterEnabled default false, got %v", cfg.Adapters.LogsAdapterEnabled)
+	}
+	if cfg.Adapters.TracingAdapterEnabled != false {
+		t.Errorf("Expected TracingAdapterEnabled default false, got %v", cfg.Adapters.TracingAdapterEnabled)
+	}
+}
+
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name      string

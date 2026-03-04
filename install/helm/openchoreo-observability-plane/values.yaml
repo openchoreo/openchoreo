@@ -875,7 +875,7 @@ observer:
     # @schema
     # type: string
     # description: URL of the tracing adapter service
-    # default: "http://tracing-adapter:9098"
+    # default: "http://tracing-adapter:9100"
     # @schema
     url: "http://tracing-adapter:9100"
     # @schema

@@ -6,6 +6,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -207,14 +208,30 @@ func Load() (*Config, error) {
 		"UID_RESOLVER_TIMEOUT":                  "uid_resolver.timeout",
 	}
 
+	// Environment variables that require string-to-boolean conversion
+	boolEnvKeys := map[string]bool{
+		"LOGS_ADAPTER_ENABLED":    true,
+		"TRACING_ADAPTER_ENABLED": true,
+	}
+
 	// Check for environment variables and map them to nested structure
 	for envKey, configKey := range envMappings {
 		if value := os.Getenv(envKey); value != "" {
+			// Convert string value to the appropriate type
+			var parsedValue interface{} = value
+			if boolEnvKeys[envKey] {
+				b, err := strconv.ParseBool(value)
+				if err != nil {
+					return nil, fmt.Errorf("invalid boolean value for env %s: %q: %w", envKey, value, err)
+				}
+				parsedValue = b
+			}
+
 			// Split the config key and create nested structure
 			parts := strings.Split(configKey, ".")
 			if len(parts) == 1 {
 				// Top-level key
-				envOverrides[configKey] = value
+				envOverrides[configKey] = parsedValue
 			} else if len(parts) == 2 {
 				// Nested key like "server.port"
 				section := parts[0]
@@ -222,7 +239,7 @@ func Load() (*Config, error) {
 				if envOverrides[section] == nil {
 					envOverrides[section] = make(map[string]interface{})
 				}
-				envOverrides[section].(map[string]interface{})[key] = value
+				envOverrides[section].(map[string]interface{})[key] = parsedValue
 			} else if len(parts) >= 3 {
 				// Handle multi-part keys like "logging.max.log.limit"
 				section := parts[0]
@@ -230,7 +247,7 @@ func Load() (*Config, error) {
 				if envOverrides[section] == nil {
 					envOverrides[section] = make(map[string]interface{})
 				}
-				envOverrides[section].(map[string]interface{})[key] = value
+				envOverrides[section].(map[string]interface{})[key] = parsedValue
 			}
 		}
 	}
