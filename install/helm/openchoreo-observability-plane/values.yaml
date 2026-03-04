@@ -2857,6 +2857,12 @@ security:
     jwksUrlTlsInsecureSkipVerify: "false"
     # @schema
     # type: string
+    # description: Skip TLS verification for the UID resolver OAuth token endpoint (for self-signed certs)
+    # default: "false"
+    # @schema
+    uidResolverTlsInsecureSkipVerify: "false"
+    # @schema
+    # type: string
     # description: Base URL for the authorization server (used for OAuth metadata)
     # default: ""
     # @schema

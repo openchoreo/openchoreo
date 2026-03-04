@@ -3831,6 +3831,12 @@
               "description": "OIDC token endpoint URL",
               "title": "tokenUrl",
               "type": "string"
+            },
+            "uidResolverTlsInsecureSkipVerify": {
+              "default": "false",
+              "description": "Skip TLS verification for the UID resolver OAuth token endpoint (for self-signed certs)",
+              "title": "uidResolverTlsInsecureSkipVerify",
+              "type": "string"
             }
           },
           "required": [],
