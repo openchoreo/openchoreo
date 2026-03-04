@@ -47,7 +47,7 @@ curl "http://${HOSTNAME}:19080${PATH_PREFIX}/greeter/greet?name=Alice"
 ```
 
 ### Example with direct URL (base path is /{component-name})
-The service is exposed at the base path `/{component-name}`. For this sample, the component name is `greeter-service`.
+The service is exposed at the base path `/{component-name}-{endpoint-name}`. For this sample, the component name is `greeter-service`.
 
 ```bash
 curl http://development-default.openchoreoapis.localhost:19080/greeter-service-http/greeter/greet
