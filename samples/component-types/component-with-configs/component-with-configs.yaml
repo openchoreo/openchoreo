@@ -236,6 +236,7 @@ spec:
     - secretKey: password
       remoteRef:
         key: password
+        property: value
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: SecretReference
@@ -250,6 +251,7 @@ spec:
     - secretKey: gitPAT
       remoteRef:
         key: github-pat
+        property: value
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
