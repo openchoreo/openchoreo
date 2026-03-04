@@ -1056,14 +1056,18 @@ install_observability_plane() {
     log_info "Installing observability modules..."
 
     install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
+        "--version" "0.3.2" \
         "--set" "openSearchSetup.openSearchSecretName=opensearch-admin-credentials"
 
     # Enable fluent-bit after opensearch is installed and ready
     log_info "Enabling fluent-bit for log collection..."
     install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
-        "--reuse-values" "--set" "fluent-bit.enabled=true"
+        "--version" "0.3.2" \
+        "--reuse-values" \
+        "--set" "fluent-bit.enabled=true"
 
-    install_helm_chart "observability-metrics-prometheus" "$modules_repo/observability-metrics-prometheus" "$OBSERVABILITY_NS" "true" "true" "true" "600"
+    install_helm_chart "observability-metrics-prometheus" "$modules_repo/observability-metrics-prometheus" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
+        "--version" "0.2.2"
 }
 
 # Apply ClusterWorkflowTemplates required by the build plane
