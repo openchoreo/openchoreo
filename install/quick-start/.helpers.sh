@@ -629,7 +629,10 @@ setup_data_plane_ca() {
     # Copy CA ConfigMap (public cert only, so the agent can verify the gateway server)
     kubectl create configmap cluster-gateway-ca \
         --from-literal=ca.crt="$ca_crt" \
-        -n "$DATA_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
+        -n "$DATA_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1 || {
+        log_error "Failed to create cluster-gateway-ca ConfigMap in $DATA_PLANE_NS"
+        return 1
+    }
 
     log_success "Data Plane CA configured"
 }
@@ -648,7 +651,10 @@ setup_build_plane_ca() {
     # Copy CA ConfigMap (public cert only, so the agent can verify the gateway server)
     kubectl create configmap cluster-gateway-ca \
         --from-literal=ca.crt="$ca_crt" \
-        -n "$BUILD_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
+        -n "$BUILD_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1 || {
+        log_error "Failed to create cluster-gateway-ca ConfigMap in $BUILD_PLANE_NS"
+        return 1
+    }
 
     log_success "Build Plane CA configured"
 }
@@ -672,10 +678,13 @@ install_openbao() {
         "--set" "server.resources.limits.cpu=100m"
 
     log_info "Waiting for OpenBao to be ready..."
-    kubectl wait --namespace "$openbao_ns" \
+    if ! kubectl wait --namespace "$openbao_ns" \
         --for=condition=Ready pods \
         -l app.kubernetes.io/name=openbao,component=server \
-        --timeout=300s >/dev/null 2>&1
+        --timeout=300s >/dev/null 2>&1; then
+        log_error "OpenBao pod failed to become ready"
+        return 1
+    fi
 
     log_info "Configuring OpenBao policies and auth..."
     kubectl exec -n "$openbao_ns" openbao-0 -- sh -c "
@@ -716,7 +725,10 @@ POLICY
             bound_service_account_namespaces='openbao,openchoreo-build-plane' \
             policies=openchoreo-secret-writer-policy \
             ttl=20m
-    " >/dev/null 2>&1
+    " >/dev/null 2>&1 || {
+        log_error "Failed to configure OpenBao policies and auth"
+        return 1
+    }
 
     # ServiceAccount for ESO
     kubectl apply --server-side -f - >/dev/null 2>&1 <<SAEOF
@@ -899,7 +911,10 @@ create_backstage_secret() {
         --from-literal=backend-secret="$backend_secret" \
         --from-literal=client-secret="backstage-portal-secret" \
         --from-literal=jenkins-api-key="placeholder-not-in-use" \
-        -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
+        -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1 || {
+        log_error "Failed to create backstage secret in $namespace"
+        return 1
+    }
 
     log_success "Backstage secret created"
 }
@@ -949,11 +964,19 @@ extract_cluster_gateway_ca() {
         return 1
     fi
 
-    echo "$ca_crt_b64" | base64 -d | \
-        kubectl create configmap cluster-gateway-ca \
-            --from-file=ca.crt=/dev/stdin \
-            -n "$CONTROL_PLANE_NS" \
-            --dry-run=client -o yaml | kubectl apply --server-side -f - >/dev/null 2>&1
+    local ca_crt
+    ca_crt=$(echo "$ca_crt_b64" | base64 -d) || {
+        log_error "Failed to decode cluster-gateway CA certificate"
+        return 1
+    }
+
+    kubectl create configmap cluster-gateway-ca \
+        --from-literal=ca.crt="$ca_crt" \
+        -n "$CONTROL_PLANE_NS" \
+        --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1 || {
+        log_error "Failed to create cluster-gateway-ca ConfigMap"
+        return 1
+    }
 
     log_success "cluster-gateway-ca ConfigMap populated"
 }
@@ -1011,7 +1034,10 @@ setup_observability_plane_ca() {
     # Copy CA ConfigMap (public cert only, so the agent can verify the gateway server)
     kubectl create configmap cluster-gateway-ca \
         --from-literal=ca.crt="$ca_crt" \
-        -n "$OBSERVABILITY_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
+        -n "$OBSERVABILITY_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1 || {
+        log_error "Failed to create cluster-gateway-ca ConfigMap in $OBSERVABILITY_NS"
+        return 1
+    }
 
     log_success "Observability Plane CA configured"
 }
@@ -1026,13 +1052,19 @@ create_opensearch_secret() {
         --namespace "$namespace" \
         --from-literal=username="admin" \
         --from-literal=password="ThisIsTheOpenSearchPassword1" \
-        -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
+        -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1 || {
+        log_error "Failed to create opensearch-admin-credentials secret"
+        return 1
+    }
 
     kubectl create secret generic "$secret_name" \
         --namespace "$namespace" \
         --from-literal=username="admin" \
         --from-literal=password="ThisIsTheOpenSearchPassword1" \
-        -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
+        -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1 || {
+        log_error "Failed to create $secret_name secret"
+        return 1
+    }
 
     log_success "OpenSearch credentials secrets created"
 }

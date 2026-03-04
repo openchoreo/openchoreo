@@ -7,6 +7,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source helper functions
 source "${SCRIPT_DIR}/.helpers.sh"
 
+# Catch unexpected exits so users don't think the install succeeded
+trap 'exit_code=$?; if [[ $exit_code -ne 0 ]]; then echo ""; log_error "Installation failed unexpectedly (exit code $exit_code)"; log_error "Re-run with --debug for more details"; fi' EXIT
+
 # Parse command line arguments
 ENABLE_BUILD_PLANE=false
 ENABLE_OBSERVABILITY=false
