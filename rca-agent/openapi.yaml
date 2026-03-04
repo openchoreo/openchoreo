@@ -868,17 +868,54 @@ components:
 
     ResourceChange:
       type: object
-      required: [release_binding, fields]
+      required: [release_binding]
       properties:
         release_binding:
           type: string
           description: Name of the ReleaseBinding to modify
+        env:
+          type: array
+          default: []
+          description: Environment variable changes, identified by key name
+          items:
+            $ref: '#/components/schemas/EnvVarChange'
+        files:
+          type: array
+          default: []
+          description: File mount changes, identified by key name
+          items:
+            $ref: '#/components/schemas/FileChange'
         fields:
           type: array
-          minItems: 1
-          description: Field-level changes to apply to this ReleaseBinding
+          default: []
+          description: Field-level changes for non-array paths (trait overrides, componentType overrides)
           items:
             $ref: '#/components/schemas/FieldChange'
+
+    EnvVarChange:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+          description: "Environment variable name (e.g. POSTGRES_DSN)"
+        value:
+          type: string
+          description: New value for the environment variable
+
+    FileChange:
+      type: object
+      required: [key]
+      properties:
+        key:
+          type: string
+          description: "File key (e.g. config.yaml)"
+        value:
+          type: string
+          description: New file content
+        mount_path:
+          type: string
+          description: "New mount path (e.g. /app/)"
 
     FieldChange:
       type: object
@@ -886,7 +923,7 @@ components:
       properties:
         json_pointer:
           type: string
-          description: "RFC 6901 JSON Pointer starting with /spec/ and override category. Example: /spec/workloadOverrides/container/env/0/value"
+          description: "RFC 6901 JSON Pointer for non-array fields. Example: /spec/traitOverrides/my-trait/enabled"
         value:
           description: Value to set at the JSON Pointer location
           oneOf:

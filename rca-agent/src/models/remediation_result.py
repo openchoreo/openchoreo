@@ -13,6 +13,27 @@ class ActionStatus(StrEnum):
     APPLIED = "applied"
 
 
+class EnvVarChange(BaseModel):
+    """A single environment variable change, identified by key name"""
+
+    key: str = Field(..., description="Environment variable name (e.g. 'POSTGRES_DSN')")
+    value: str = Field(..., description="New value for the environment variable")
+
+
+class FileChange(BaseModel):
+    """A single file mount change, identified by key name"""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    key: str = Field(..., description="File key (e.g. 'config.yaml')")
+    value: str | None = Field(default=None, description="New file content")
+    mount_path: str | None = Field(
+        default=None,
+        alias="mountPath",
+        description="New mount path (e.g. '/app/')",
+    )
+
+
 class FieldChange(BaseModel):
     """A single field-level change within a ReleaseBinding, identified by JSON Pointer"""
 
@@ -22,24 +43,32 @@ class FieldChange(BaseModel):
         ...,
         alias="jsonPointer",
         description=(
-            "RFC 6901 JSON Pointer starting with /spec/ followed by override category. "
-            "Use numeric indices for arrays, or '-' to append. "
-            "Example: '/spec/workloadOverrides/container/env/0/value'"
+            "RFC 6901 JSON Pointer for non-array fields. "
+            "Example: '/spec/componentTypeEnvOverrides/replicas', "
+            "'/spec/traitOverrides/my-trait/enabled'"
         ),
     )
     value: Any = Field(..., description="Value to set at the JSON Pointer location")
 
 
 class ResourceChange(BaseModel):
-    """A set of field changes to apply to a specific ReleaseBinding"""
+    """A set of changes to apply to a specific ReleaseBinding"""
 
     release_binding: str = Field(
         ...,
         description="Name of the ReleaseBinding to modify (e.g. 'api-service-development')",
     )
+    env: list[EnvVarChange] = Field(
+        default_factory=list,
+        description="Environment variable changes, identified by key. Updates existing vars or appends new ones.",
+    )
+    files: list[FileChange] = Field(
+        default_factory=list,
+        description="File mount changes, identified by key. Updates existing files or appends new ones.",
+    )
     fields: list[FieldChange] = Field(
-        ...,
-        description="Field-level changes to apply to this ReleaseBinding",
+        default_factory=list,
+        description="Field-level changes for non-array paths (e.g. trait overrides, componentType overrides)",
     )
 
 
