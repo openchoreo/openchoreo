@@ -98,7 +98,7 @@ curl "http://${HOSTNAME}:19080${PATH_PREFIX}/mediflow/health"
 Example with direct URL (base path is `/{component-name}`). For this sample, the component name is `patient-management-service`:
 
 ```bash
-curl http://development-default.openchoreoapis.localhost:19080/patient-management-service/mediflow/health
+curl http://development-default.openchoreoapis.localhost:19080/patient-management-service-patient-management-api/mediflow/health
 ```
 
 ### Add a new patient

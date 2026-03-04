@@ -50,7 +50,7 @@ curl "http://${HOSTNAME}:19080${PATH_PREFIX}/greeter/greet?name=Alice"
 The service is exposed at the base path `/{component-name}`. For this sample, the component name is `greeter-service`.
 
 ```bash
-curl http://development-default.openchoreoapis.localhost:19080/greeter-service/greeter/greet
+curl http://development-default.openchoreoapis.localhost:19080/greeter-service-http/greeter/greet
 ```
 
 ## Troubleshooting Service Access Issues
