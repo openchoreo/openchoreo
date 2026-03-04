@@ -13,66 +13,42 @@ from langchain.tools.tool_node import ToolCallRequest
 from langgraph.types import Command
 
 from src.agent.tool_registry import TOOLS
-from src.config import LABEL_COMPONENT_UID, LABEL_ENVIRONMENT_UID, LABEL_PROJECT_UID
 from src.template_manager import render
 
 logger = logging.getLogger(__name__)
 
 
-def _process_component_logs(content: dict[str, Any]) -> str:
+def _process_logs(content: dict[str, Any]) -> str:
     try:
         logs = content.get("logs", [])
 
         if not logs:
             return "No logs found"
 
-        first_log = logs[0]
-        labels = first_log.get("labels", {})
+        first_metadata = logs[0].get("metadata", {})
 
-        context = {
-            "component_uid": labels.get(LABEL_COMPONENT_UID, "N/A"),
-            "environment_uid": labels.get(LABEL_ENVIRONMENT_UID, "N/A"),
-            "project_uid": labels.get(LABEL_PROJECT_UID, "N/A"),
-            "logs": logs,
-        }
-
-        return render("middleware/component_logs.j2", context)
-    except Exception as e:
-        logger.error(f"Error processing component logs: {e}")
-        return json.dumps(content)
-
-
-def _process_project_logs(content: dict[str, Any]) -> str:
-    try:
-        logs = content.get("logs", [])
-
-        if not logs:
-            return "No logs found"
-
-        first_log = logs[0]
-        labels = first_log.get("labels", {})
-
-        logs_by_component = {}
+        logs_by_component: dict[str, dict[str, Any]] = {}
         for log in logs:
-            log_labels = log.get("labels", {})
-            component_uid = log_labels.get(LABEL_COMPONENT_UID, "unknown")
+            log_metadata = log.get("metadata", {})
+            component_name = log_metadata.get("componentName", "unknown")
 
-            if component_uid not in logs_by_component:
-                logs_by_component[component_uid] = {
-                    "component_uid": component_uid,
+            if component_name not in logs_by_component:
+                logs_by_component[component_name] = {
+                    "componentName": component_name,
                     "logs": [],
                 }
-            logs_by_component[component_uid]["logs"].append(log)
+            logs_by_component[component_name]["logs"].append(log)
 
         context = {
-            "project_uid": labels.get(LABEL_PROJECT_UID, "N/A"),
-            "environment_uid": labels.get(LABEL_ENVIRONMENT_UID, "N/A"),
+            "namespaceName": first_metadata.get("namespaceName", "N/A"),
+            "projectName": first_metadata.get("projectName", "N/A"),
+            "environmentName": first_metadata.get("environmentName", "N/A"),
             "components": list(logs_by_component.values()),
         }
 
-        return render("middleware/project_logs.j2", context)
+        return render("middleware/logs.j2", context)
     except Exception as e:
-        logger.error(f"Error processing project logs: {e}")
+        logger.error(f"Error processing logs: {e}")
         return json.dumps(content)
 
 
@@ -175,13 +151,13 @@ def _process_metrics(content: dict[str, Any]) -> str:
             "cpuUsage",
             "cpuRequests",
             "cpuLimits",
-            "memory",
+            "memoryUsage",
             "memoryRequests",
             "memoryLimits",
         ]:
             if metric_name in content and content[metric_name]:
                 values = np.array([point["value"] for point in content[metric_name]])
-                times = [point["time"] for point in content[metric_name]]
+                times = [point["timestamp"] for point in content[metric_name]]
                 metrics_data[metric_name] = values
                 timestamps[metric_name] = times
 
@@ -194,7 +170,7 @@ def _process_metrics(content: dict[str, Any]) -> str:
         config_values = {}
 
         for metric_name, values in metrics_data.items():
-            if metric_name in ["cpuUsage", "memory"]:
+            if metric_name in ["cpuUsage", "memoryUsage"]:
                 # Full statistical analysis for usage metrics
                 stats[metric_name] = _calculate_metric_stats(values, timestamps[metric_name])
                 anomalies[metric_name] = _detect_anomalies(values)
@@ -213,20 +189,20 @@ def _process_metrics(content: dict[str, Any]) -> str:
                 metrics_data.get("cpuLimits", np.array([])),
             )
 
-        if "memory" in metrics_data:
+        if "memoryUsage" in metrics_data:
             memory_pressure = _calculate_resource_pressure(
-                metrics_data.get("memory", np.array([])),
+                metrics_data.get("memoryUsage", np.array([])),
                 metrics_data.get("memoryRequests", np.array([])),
                 metrics_data.get("memoryLimits", np.array([])),
             )
 
         # Calculate correlations
         correlations = {}
-        if "cpuUsage" in metrics_data and "memory" in metrics_data:
+        if "cpuUsage" in metrics_data and "memoryUsage" in metrics_data:
             # Align the arrays (in case they have different lengths)
-            min_len = min(len(metrics_data["cpuUsage"]), len(metrics_data["memory"]))
+            min_len = min(len(metrics_data["cpuUsage"]), len(metrics_data["memoryUsage"]))
             cpu_usage = metrics_data["cpuUsage"][:min_len]
-            memory = metrics_data["memory"][:min_len]
+            memory = metrics_data["memoryUsage"][:min_len]
 
             if len(cpu_usage) > 1:
                 corr_matrix = np.corrcoef(cpu_usage, memory)
@@ -249,97 +225,101 @@ def _process_metrics(content: dict[str, Any]) -> str:
         return json.dumps(content)
 
 
-def _build_span_tree(spans: list[dict]) -> list[dict]:
-    if not spans:
-        return []
+def _process_traces(content: dict[str, Any]) -> str:
+    try:
+        traces = content.get("traces", [])
 
-    # Create a map of spanId -> span for quick lookup
-    span_map = {span["spanId"]: span.copy() for span in spans}
+        if not traces:
+            return "No traces found"
 
-    # Find root spans (those without a parent or whose parent is not in this trace)
+        context = {
+            "traces": traces,
+            "total": content.get("total", len(traces)),
+        }
+
+        return render("middleware/traces.j2", context)
+    except Exception as e:
+        logger.error(f"Error processing traces: {e}")
+        return json.dumps(content)
+
+
+def _build_span_tree(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    span_map = {span["spanId"]: span for span in spans}
+
     root_spans = []
     for span in spans:
         parent_id = span.get("parentSpanId")
         if not parent_id or parent_id not in span_map:
             root_spans.append(span["spanId"])
 
-    # Build tree with depth information
-    result = []
+    result: list[dict[str, Any]] = []
 
-    def add_span_and_children(span_id: str, depth: int = 0):
+    def walk(span_id: str, depth: int = 0):
         if span_id not in span_map:
             return
-
         span = span_map[span_id]
-        span["depth"] = depth
-        result.append(span)
 
-        # Find and add children
+        attrs = span.get("attributes", {})
+        resource_attrs = span.get("resourceAttributes", {})
+
+        # Pass through all application attributes, dropping only internal/metadata keys
+        relevant_attrs = {
+            k: v for k, v in attrs.items() if k not in ("data_stream",)
+        }
+
+        result.append(
+            {
+                "spanId": span["spanId"],
+                "spanName": span["spanName"],
+                "serviceName": resource_attrs.get("service.name", "unknown"),
+                "component": resource_attrs.get("openchoreo.dev/component"),
+                "project": resource_attrs.get("openchoreo.dev/project"),
+                "namespace": resource_attrs.get("openchoreo.dev/namespace"),
+                "durationNs": span.get("durationNs", 0),
+                "startTime": span.get("startTime"),
+                "depth": depth,
+                "attributes": relevant_attrs,
+            }
+        )
+
         children = [s for s in spans if s.get("parentSpanId") == span_id]
-        # Sort children by startTime for chronological order
         children.sort(key=lambda s: s.get("startTime", ""))
-
         for child in children:
-            add_span_and_children(child["spanId"], depth + 1)
+            walk(child["spanId"], depth + 1)
 
-    # Process all root spans
-    root_spans_objects = [span_map[sid] for sid in root_spans if sid in span_map]
-    root_spans_objects.sort(key=lambda s: s.get("startTime", ""))
-
-    for root_span in root_spans_objects:
-        add_span_and_children(root_span["spanId"], 0)
+    root_spans.sort(key=lambda sid: span_map[sid].get("startTime", ""))
+    for root_id in root_spans:
+        walk(root_id)
 
     return result
 
 
-def _process_traces(content: dict[str, Any]) -> str:
+def _process_trace_spans(content: dict[str, Any]) -> str:
     try:
-        traces = content.get("traces", [])
-        took_ms = content.get("tookMs", 0)
+        spans = content.get("spans", [])
 
-        if not traces:
-            return "No traces found"
+        if not spans:
+            return "No spans found"
 
-        # Process each trace to build hierarchical structure
-        processed_traces = []
-        for trace in traces:
-            spans = trace.get("spans", [])
-            if not spans:
-                continue
+        span_tree = _build_span_tree(spans)
 
-            # Build span tree
-            span_tree = _build_span_tree(spans)
+        context = {
+            "spans": span_tree,
+            "total": content.get("total", len(spans)),
+        }
 
-            # Calculate total duration (sum of root span durations)
-            root_durations = [
-                span["durationNanoseconds"] for span in span_tree if span.get("depth", 0) == 0
-            ]
-            total_duration_ns = sum(root_durations) if root_durations else 0
-
-            processed_traces.append(
-                {
-                    "traceId": trace.get("traceId"),
-                    "span_tree": span_tree,
-                    "total_spans": len(spans),
-                    "total_duration_ms": total_duration_ns / 1000000,
-                }
-            )
-
-        context = {"traces": processed_traces, "tookMs": took_ms}
-
-        return render("middleware/traces.j2", context)
-
+        return render("middleware/trace_spans.j2", context)
     except Exception as e:
-        logger.error(f"Error processing traces: {e}")
+        logger.error(f"Error processing trace spans: {e}")
         return json.dumps(content)
 
 
 def get_processor(tool_name: str | None) -> Callable[[dict[str, Any]], str]:
     processors: dict[str, Callable[[dict[str, Any]], str]] = {
-        TOOLS.GET_COMPONENT_LOGS: _process_component_logs,
-        TOOLS.GET_PROJECT_LOGS: _process_project_logs,
-        TOOLS.GET_COMPONENT_RESOURCE_METRICS: _process_metrics,
-        TOOLS.GET_TRACES: _process_traces,
+        TOOLS.QUERY_COMPONENT_LOGS: _process_logs,
+        TOOLS.QUERY_RESOURCE_METRICS: _process_metrics,
+        TOOLS.QUERY_TRACES: _process_traces,
+        TOOLS.QUERY_TRACE_SPANS: _process_trace_spans,
     }
     if tool_name and tool_name in processors:
         return processors[tool_name]

@@ -112,10 +112,7 @@ async def analyze(
         report_id=report_id,
         alert_id=request.alert.id,
         alert=request.alert,
-        namespace=request.namespace,
-        project=request.project,
-        component=request.component,
-        environment=request.environment,
+        scope=scope,
         meta=request.meta,
     )
 

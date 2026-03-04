@@ -3,8 +3,8 @@
 An alert has been triggered in OpenChoreo. Systematically investigate and identify the root cause(s) of this incident.
 
 - **Current Namespace:** {{ scope.namespace }}
-- **Current Environment:** {{ scope.environment }} (`{{ scope.environment_uid }}`)
-- **Current Project:** {{ scope.project }} (`{{ scope.project_uid }}`)
+- **Current Environment:** {{ scope.environment }}
+- **Current Project:** {{ scope.project }}
 
 
 All your analysis should be scoped to the current namespace and environment and project. Everything else is considered external to your investigation
@@ -24,7 +24,7 @@ All your analysis should be scoped to the current namespace and environment and 
 
 ### Alert Origin
 
-- **Component:** {{ scope.component }} (`{{ scope.component_uid }}`)
+- **Component:** {{ scope.component }}
 
 {% if alert.rule.source -%}
 ### Alert Rule Source

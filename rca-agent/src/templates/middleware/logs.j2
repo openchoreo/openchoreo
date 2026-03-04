@@ -1,0 +1,17 @@
+## Logs
+
+**Namespace:** {{ namespaceName }}
+**Project:** {{ projectName }}
+**Environment:** {{ environmentName }}
+
+{% for component in components -%}
+
+**Component:** {{ component.componentName }}
+
+Timestamp | Log Level | Message
+--- | --- | ---
+{% for log in component.logs -%}
+{{ log.timestamp }} | {{ log.level }} | {{ log.log }}
+{% endfor %}
+
+{% endfor -%}

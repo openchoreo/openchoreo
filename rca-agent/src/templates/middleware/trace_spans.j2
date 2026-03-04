@@ -1,0 +1,6 @@
+## Trace Spans ({{ total }} total)
+
+{% for span in spans -%}
+{{ "  " * span.depth }}{{ span.spanName }} [{{ span.serviceName }}{% if span.namespace %} ns={{ span.namespace }}{% endif %}{% if span.project %} project={{ span.project }}{% endif %}{% if span.component %} component={{ span.component }}{% endif %}] {{ "%.2f"|format(span.durationNs / 1000000) }}ms
+{%- if span.attributes %} |{% for k, v in span.attributes.items() %} {{ k }}={{ v }}{% endfor %}{% endif %}
+{% endfor -%}

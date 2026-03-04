@@ -26,20 +26,28 @@ OPENCHOREO = "openchoreo"
 
 
 class TOOLS:
-    GET_TRACES = Tool("get_traces", server=OBSERVABILITY, active_form="Retrieving traces...")
-    GET_NAMESPACE_LOGS = Tool(
-        "get_namespace_logs", server=OBSERVABILITY, active_form="Fetching namespace logs..."
+    QUERY_COMPONENT_LOGS = Tool(
+        "query_component_logs", server=OBSERVABILITY, active_form="Fetching component logs..."
     )
-    GET_PROJECT_LOGS = Tool(
-        "get_project_logs", server=OBSERVABILITY, active_form="Fetching project logs..."
+    QUERY_WORKFLOW_LOGS = Tool(
+        "query_workflow_logs", server=OBSERVABILITY, active_form="Fetching workflow logs..."
     )
-    GET_COMPONENT_LOGS = Tool(
-        "get_component_logs", server=OBSERVABILITY, active_form="Fetching component logs..."
-    )
-    GET_COMPONENT_RESOURCE_METRICS = Tool(
-        "get_component_resource_metrics",
+    QUERY_RESOURCE_METRICS = Tool(
+        "query_resource_metrics",
         server=OBSERVABILITY,
         active_form="Gathering resource metrics...",
+    )
+    QUERY_HTTP_METRICS = Tool(
+        "query_http_metrics",
+        server=OBSERVABILITY,
+        active_form="Gathering HTTP metrics...",
+    )
+    QUERY_TRACES = Tool("query_traces", server=OBSERVABILITY, active_form="Retrieving traces...")
+    QUERY_TRACE_SPANS = Tool(
+        "query_trace_spans", server=OBSERVABILITY, active_form="Retrieving trace spans..."
+    )
+    GET_SPAN_DETAILS = Tool(
+        "get_span_details", server=OBSERVABILITY, active_form="Fetching span details..."
     )
     LIST_ENVIRONMENTS = Tool(
         "list_environments", server=OPENCHOREO, active_form="Loading environments..."

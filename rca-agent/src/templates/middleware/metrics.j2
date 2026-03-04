@@ -43,19 +43,19 @@ Time Range: {{ stats.cpuUsage.start_time }} to {{ stats.cpuUsage.end_time }}
 
 ### Memory Metrics
 
-{% if stats.memory -%}
+{% if stats.memoryUsage -%}
 **Memory Usage:**
-- Mean: {{ "%.0f"|format(stats.memory.mean) }} bytes ({{ "%.2f"|format(stats.memory.mean / 1024 / 1024) }} MB)
-- Median: {{ "%.0f"|format(stats.memory.median) }} bytes ({{ "%.2f"|format(stats.memory.median / 1024 / 1024) }} MB)
-- Range: {{ "%.0f"|format(stats.memory.min) }} - {{ "%.0f"|format(stats.memory.max) }} bytes ({{ "%.2f"|format(stats.memory.min / 1024 / 1024) }} - {{ "%.2f"|format(stats.memory.max / 1024 / 1024) }} MB)
-- Std Dev: {{ "%.0f"|format(stats.memory.std_dev) }} bytes, CV: {{ "%.2f"|format(stats.memory.coefficient_of_variation) }}
-- P90: {{ "%.2f"|format(stats.memory.p90 / 1024 / 1024) }} MB, P95: {{ "%.2f"|format(stats.memory.p95 / 1024 / 1024) }} MB
+- Mean: {{ "%.0f"|format(stats.memoryUsage.mean) }} bytes ({{ "%.2f"|format(stats.memoryUsage.mean / 1024 / 1024) }} MB)
+- Median: {{ "%.0f"|format(stats.memoryUsage.median) }} bytes ({{ "%.2f"|format(stats.memoryUsage.median / 1024 / 1024) }} MB)
+- Range: {{ "%.0f"|format(stats.memoryUsage.min) }} - {{ "%.0f"|format(stats.memoryUsage.max) }} bytes ({{ "%.2f"|format(stats.memoryUsage.min / 1024 / 1024) }} - {{ "%.2f"|format(stats.memoryUsage.max / 1024 / 1024) }} MB)
+- Std Dev: {{ "%.0f"|format(stats.memoryUsage.std_dev) }} bytes, CV: {{ "%.2f"|format(stats.memoryUsage.coefficient_of_variation) }}
+- P90: {{ "%.2f"|format(stats.memoryUsage.p90 / 1024 / 1024) }} MB, P95: {{ "%.2f"|format(stats.memoryUsage.p95 / 1024 / 1024) }} MB
 
-{% if anomalies.memory.spike_count > 0 -%}
-- **Anomalies Detected:** {{ anomalies.memory.spike_count }} spike(s)
-  - Max spike magnitude: {{ "%.2f"|format(anomalies.memory.max_spike_magnitude) }} σ
-  {% if anomalies.memory.largest_drop < -1000000 -%}
-  - Largest drop: {{ "%.2f"|format(anomalies.memory.largest_drop / 1024 / 1024) }} MB
+{% if anomalies.memoryUsage.spike_count > 0 -%}
+- **Anomalies Detected:** {{ anomalies.memoryUsage.spike_count }} spike(s)
+  - Max spike magnitude: {{ "%.2f"|format(anomalies.memoryUsage.max_spike_magnitude) }} σ
+  {% if anomalies.memoryUsage.largest_drop < -1000000 -%}
+  - Largest drop: {{ "%.2f"|format(anomalies.memoryUsage.largest_drop / 1024 / 1024) }} MB
   {% endif -%}
 {% endif -%}
 {% endif -%}

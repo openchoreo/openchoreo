@@ -22,6 +22,7 @@ class LogLevel(StrEnum):
     WARN = "WARN"
     INFO = "INFO"
     DEBUG = "DEBUG"
+    UNDEFINED = "UNDEFINED"
 
 
 class NoRootCauseOutcome(StrEnum):
@@ -61,9 +62,9 @@ class ReportAlertContext(BaseModel):
         default=None, description="The metric name if source type is metric"
     )
     condition: AlertCondition = Field(..., description="The condition that triggered the alert")
-    component_uid: str = Field(..., description="Component UID the alert was configured on")
-    project_uid: str = Field(..., description="Project UID of the relevant component")
-    environment_uid: str = Field(..., description="Environment UID of the relevant project")
+    component: str = Field(..., description="Component name the alert was configured on")
+    project: str = Field(..., description="Project name of the relevant component")
+    environment: str = Field(..., description="Environment name of the relevant project")
 
 
 class TimeRange(BaseModel):
@@ -78,7 +79,7 @@ class LogLine(BaseModel):
 
     timestamp: str = Field(..., description="ISO 8601 timestamp when the log was emitted")
     level: LogLevel = Field(..., description="Log severity level")
-    message: str = Field(..., description="The log message content")
+    log: str = Field(..., description="The log message content")
 
 
 class LogEvidence(BaseModel):
@@ -111,7 +112,7 @@ class TraceEvidence(BaseModel):
 
     type: Literal["trace"] = "trace"
     trace_id: str = Field(..., description="Trace ID for linking to trace viewer")
-    span_id: str = Field(..., description="Span ID for linking to specific span")
+    span_id: str | None = Field(default=None, description="Span ID for linking to specific span")
     summary: str = Field(
         ...,
         description="Summary of the trace issue. Use backticks to highlight key info (e.g., 'db.query took `4,800ms`')",
@@ -132,7 +133,7 @@ class Finding(BaseModel):
     """A single observation that supports a root cause"""
 
     observation: str = Field(..., description="Human-readable summary of the finding")
-    component_uid: str = Field(..., description="Component this finding relates to")
+    component: str = Field(..., description="Component name this finding relates to")
     time_range: TimeRange = Field(..., description="Time range for deep-dive linking")
     evidence: Evidence = Field(..., description="The supporting evidence")
 
@@ -149,7 +150,7 @@ class RootCause(BaseModel):
     )
     analysis: str = Field(
         ...,
-        description="Narrative explanation of how findings correlate to support this root cause. Use backticks and **bold** to highlight key info",
+        description="2-3 sentence concise explanation of how findings correlate to support this root cause. Do not repeat the summary. Use backticks to highlight key values",
     )
     supporting_findings: list[Finding] = Field(
         ...,
@@ -162,7 +163,7 @@ class TimelineEvent(BaseModel):
     """A significant system event - when, where, what"""
 
     timestamp: str = Field(..., description="ISO 8601 timestamp when the event occurred")
-    component_uid: str | None = Field(
+    component: str | None = Field(
         default=None,
         description="Which component (None for alert/system-level events)",
     )
@@ -215,11 +216,13 @@ class Recommendations(BaseModel):
 
     recommended_actions: list[Action] = Field(
         default_factory=list,
-        description="Prioritized actions to mitigate and prevent recurrence",
+        max_length=3,
+        description="Top 2-3 prioritized actions to mitigate and prevent recurrence. Only include more than 2 if absolutely necessary",
     )
     observability_recommendations: list[Action] = Field(
         default_factory=list,
-        description="Suggestions for improving telemetry/monitoring for better future RCA",
+        max_length=2,
+        description="Up to 2 suggestions for improving telemetry/monitoring for better future RCA",
     )
 
 

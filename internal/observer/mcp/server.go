@@ -6,6 +6,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -55,6 +56,16 @@ func setDefaults(limit int, sortOrder string, logLevels []string) (int, string, 
 	return limit, sortOrder, logLevels
 }
 
+func validateComponentScope(namespace, project, component string) error {
+	if namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	if component != "" && project == "" {
+		return fmt.Errorf("project is required when component is provided")
+	}
+	return nil
+}
+
 func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 	// Tool 1: query_component_logs
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
@@ -84,6 +95,9 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Limit        int      `json:"limit"`
 		SortOrder    string   `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
+		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
+			return nil, nil, err
+		}
 		result, err := handler.QueryComponentLogs(ctx,
 			args.Namespace, args.Project, args.Component, args.Environment,
 			args.StartTime, args.EndTime, args.SearchPhrase,
@@ -148,6 +162,9 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		EndTime     string `json:"end_time"`
 		Step        string `json:"step"`
 	}) (*mcpsdk.CallToolResult, any, error) {
+		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
+			return nil, nil, err
+		}
 		var step *string
 		if args.Step != "" {
 			step = &args.Step
@@ -181,6 +198,9 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		EndTime     string `json:"end_time"`
 		Step        string `json:"step"`
 	}) (*mcpsdk.CallToolResult, any, error) {
+		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
+			return nil, nil, err
+		}
 		var step *string
 		if args.Step != "" {
 			step = &args.Step
@@ -216,6 +236,9 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Limit       int    `json:"limit"`
 		SortOrder   string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
+		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
+			return nil, nil, err
+		}
 		result, err := handler.QueryTraces(ctx,
 			args.Namespace, args.Project, args.Component, args.Environment,
 			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
@@ -249,6 +272,9 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Limit       int    `json:"limit"`
 		SortOrder   string `json:"sort_order"`
 	}) (*mcpsdk.CallToolResult, any, error) {
+		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
+			return nil, nil, err
+		}
 		result, err := handler.QueryTraceSpans(ctx,
 			args.TraceID,
 			args.Namespace, args.Project, args.Component, args.Environment,

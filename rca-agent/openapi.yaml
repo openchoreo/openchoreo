@@ -589,9 +589,9 @@ components:
           triggered_at,
           trigger_value,
           condition,
-          component_uid,
-          project_uid,
-          environment_uid,
+          component,
+          project,
+          environment,
         ]
       properties:
         alert_id:
@@ -619,11 +619,11 @@ components:
           nullable: true
         condition:
           $ref: '#/components/schemas/ReportAlertCondition'
-        component_uid:
+        component:
           type: string
-        project_uid:
+        project:
           type: string
-        environment_uid:
+        environment:
           type: string
 
     ReportAlertCondition:
@@ -704,11 +704,11 @@ components:
 
     Finding:
       type: object
-      required: [observation, component_uid, time_range, evidence]
+      required: [observation, component, time_range, evidence]
       properties:
         observation:
           type: string
-        component_uid:
+        component:
           type: string
         time_range:
           $ref: '#/components/schemas/TimeRange'
@@ -751,14 +751,14 @@ components:
 
     LogLine:
       type: object
-      required: [timestamp, level, message]
+      required: [timestamp, level, log]
       properties:
         timestamp:
           type: string
         level:
           type: string
-          enum: [ERROR, WARN, INFO, DEBUG]
-        message:
+          enum: [ERROR, WARN, INFO, DEBUG, UNDEFINED]
+        log:
           type: string
 
     MetricEvidence:
@@ -773,7 +773,7 @@ components:
 
     TraceEvidence:
       type: object
-      required: [type, trace_id, span_id, summary]
+      required: [type, trace_id, summary]
       properties:
         type:
           type: string
@@ -782,6 +782,7 @@ components:
           type: string
         span_id:
           type: string
+          nullable: true
         summary:
           type: string
         is_error:
@@ -800,7 +801,7 @@ components:
       properties:
         timestamp:
           type: string
-        component_uid:
+        component:
           type: string
           nullable: true
         event:

@@ -34,7 +34,7 @@ from src.auth.bearer import BearerTokenAuth
 from src.auth.oauth_client import get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
 from src.config import settings
-from src.helpers import AlertScope, resolve_component_scope
+from src.helpers import AlertScope
 from src.logging_config import request_id_context
 from src.models import ChatResponse, RCAReport
 from src.models.rca_report import RootCauseIdentified
@@ -115,10 +115,10 @@ class Agent:
 RCA_AGENT = Agent(
     template="prompts/rca_agent_prompt.j2",
     tools={
-        TOOLS.GET_TRACES,
-        TOOLS.GET_PROJECT_LOGS,
-        TOOLS.GET_COMPONENT_LOGS,
-        TOOLS.GET_COMPONENT_RESOURCE_METRICS,
+        TOOLS.QUERY_COMPONENT_LOGS,
+        TOOLS.QUERY_RESOURCE_METRICS,
+        TOOLS.QUERY_TRACES,
+        TOOLS.QUERY_TRACE_SPANS,
         # TOOLS.LIST_PROJECTS,
         TOOLS.LIST_COMPONENTS,
     },
@@ -148,10 +148,10 @@ REMED_AGENT = Agent(
 CHAT_AGENT = Agent(
     template="prompts/chat_agent_prompt.j2",
     tools={
-        TOOLS.GET_TRACES,
-        TOOLS.GET_PROJECT_LOGS,
-        TOOLS.GET_COMPONENT_LOGS,
-        TOOLS.GET_COMPONENT_RESOURCE_METRICS,
+        TOOLS.QUERY_COMPONENT_LOGS,
+        TOOLS.QUERY_RESOURCE_METRICS,
+        TOOLS.QUERY_TRACES,
+        TOOLS.QUERY_TRACE_SPANS,
         # TOOLS.LIST_PROJECTS,
         TOOLS.LIST_COMPONENTS,
     },
@@ -254,10 +254,7 @@ async def run_analysis(
     report_id: str,
     alert_id: str,
     alert: Any,
-    namespace: str,
-    project: str,
-    component: str,
-    environment: str,
+    scope: AlertScope,
     meta: dict[str, Any] | None = None,
 ) -> None:
     # Set request_id in context for logging (use report_id as it's unique per request)
@@ -270,13 +267,6 @@ async def run_analysis(
 
     async with semaphore:
         logger.info("Analysis task started")
-
-        scope = await resolve_component_scope(
-            namespace=namespace,
-            project=project,
-            component=component,
-            environment=environment,
-        )
 
         try:
             usage_callback = UsageMetadataCallbackHandler()
