@@ -38,8 +38,18 @@ server:
         bound_service_account_namespaces="openbao,openchoreo-build-plane" \
         policies=openchoreo-secret-writer-policy ttl=20m
 
+      # Sample apps
+      bao kv put secret/npm-token value="fake-npm-token-for-development"
+      bao kv put secret/docker-username value="dev-user"
+      bao kv put secret/docker-password value="dev-password"
+      bao kv put secret/github-pat value="fake-github-token-for-development"
+      bao kv put secret/username value="dev-user"
+      bao kv put secret/password value="dev-password"
+
+      # Backstage (web console)
       bao kv put secret/backstage-backend-secret value="local-dev-backend-secret"
       bao kv put secret/backstage-client-secret value="backstage-portal-secret"
       bao kv put secret/backstage-jenkins-api-key value="placeholder-not-in-use"
+      # OpenSearch (observability)
       bao kv put secret/opensearch-username value="admin"
       bao kv put secret/opensearch-password value="ThisIsTheOpenSearchPassword1"
