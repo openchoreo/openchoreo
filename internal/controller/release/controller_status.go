@@ -319,16 +319,16 @@ func getPodHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.HealthStat
 	case corev1.PodRunning:
 		// Check if all containers are ready
 		for _, containerStatus := range pod.Status.ContainerStatuses {
-			if !containerStatus.Ready {
-				return openchoreov1alpha1.HealthStatusProgressing, nil
-			}
-			// Check if container is in a waiting state with error
+			// Check if container is in a waiting state with error before checking readiness
 			if containerStatus.State.Waiting != nil {
 				if containerStatus.State.Waiting.Reason == "CrashLoopBackOff" ||
 					containerStatus.State.Waiting.Reason == "ImagePullBackOff" ||
 					containerStatus.State.Waiting.Reason == "ErrImagePull" {
 					return openchoreov1alpha1.HealthStatusDegraded, nil
 				}
+			}
+			if !containerStatus.Ready {
+				return openchoreov1alpha1.HealthStatusProgressing, nil
 			}
 		}
 		return openchoreov1alpha1.HealthStatusHealthy, nil
