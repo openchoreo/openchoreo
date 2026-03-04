@@ -242,7 +242,7 @@ kube-prometheus-stack:
     #   type: string
     # @schema
     metricLabelsAllowlist:
-      - pods=[openchoreo.dev/component-uid,openchoreo.dev/project-uid,openchoreo.dev/environment-uid]
+      - pods=[openchoreo.dev/namespace,openchoreo.dev/component-uid,openchoreo.dev/project-uid,openchoreo.dev/environment-uid]
 
   # @schema
   # type: object
