@@ -510,10 +510,10 @@ func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 
-	if project.Spec == nil || project.Spec.DeploymentPipelineRef == nil || strings.TrimSpace(*project.Spec.DeploymentPipelineRef) == "" {
+	if project.Spec == nil || project.Spec.DeploymentPipelineRef == nil || strings.TrimSpace(project.Spec.DeploymentPipelineRef.Name) == "" {
 		return nil, fmt.Errorf("project %q does not have a deployment pipeline configured", projectName)
 	}
-	pipelineName := *project.Spec.DeploymentPipelineRef
+	pipelineName := strings.TrimSpace(project.Spec.DeploymentPipelineRef.Name)
 
 	resp, err := c.client.GetDeploymentPipelineWithResponse(ctx, namespaceName, pipelineName)
 	if err != nil {

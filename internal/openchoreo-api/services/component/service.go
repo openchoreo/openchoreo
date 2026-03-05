@@ -254,7 +254,7 @@ func (s *componentService) DeployRelease(ctx context.Context, namespaceName, com
 		return nil, err
 	}
 
-	pipelineName := project.Spec.DeploymentPipelineRef
+	pipelineName := project.Spec.DeploymentPipelineRef.Name
 	if pipelineName == "" {
 		return nil, ErrPipelineNotConfigured
 	}
@@ -404,7 +404,7 @@ func (s *componentService) validatePromotionPath(ctx context.Context, namespaceN
 		return err
 	}
 
-	pipelineName := project.Spec.DeploymentPipelineRef
+	pipelineName := project.Spec.DeploymentPipelineRef.Name
 	if pipelineName == "" {
 		return ErrPipelineNotConfigured
 	}

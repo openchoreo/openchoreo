@@ -9,4 +9,5 @@ metadata:
   name: gcp-microservice-demo
   namespace: default
 spec:
-  deploymentPipelineRef: default
+  deploymentPipelineRef:
+    name: default

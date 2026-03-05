@@ -163,7 +163,10 @@ func (s *ProjectService) buildProjectCR(namespaceName string, req *models.Create
 	}
 
 	projectSpec := openchoreov1alpha1.ProjectSpec{
-		DeploymentPipelineRef: deploymentPipeline,
+		DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+			Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
+			Name: deploymentPipeline,
+		},
 	}
 
 	return &openchoreov1alpha1.Project{
@@ -247,7 +250,7 @@ func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) 
 		NamespaceName:      project.Namespace,
 		DisplayName:        displayName,
 		Description:        description,
-		DeploymentPipeline: project.Spec.DeploymentPipelineRef,
+		DeploymentPipeline: project.Spec.DeploymentPipelineRef.Name,
 		CreatedAt:          project.CreationTimestamp.Time,
 		Status:             status,
 	}

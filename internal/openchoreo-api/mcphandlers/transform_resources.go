@@ -26,7 +26,7 @@ func namespaceSummary(ns corev1.Namespace) map[string]any {
 
 func projectSummary(p openchoreov1alpha1.Project) map[string]any {
 	m := extractCommonMeta(&p)
-	setIfNotEmpty(m, "deploymentPipelineRef", p.Spec.DeploymentPipelineRef)
+	setIfNotEmpty(m, "deploymentPipelineRef", p.Spec.DeploymentPipelineRef.Name)
 	setIfNotEmpty(m, "status", readyStatus(p.Status.Conditions))
 	return m
 }
