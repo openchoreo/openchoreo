@@ -418,7 +418,7 @@ spec:
           - name: container-image
           - name: descriptor-content
       container:
-        image: ghcr.io/openchoreo/openchoreo-cli:latest-dev
+        image: ghcr.io/openchoreo/openchoreo-cli:v0.17.0
         imagePullPolicy: Always
         command: [sh, -c]
         args:
