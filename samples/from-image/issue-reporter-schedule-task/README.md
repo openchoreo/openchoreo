@@ -18,7 +18,7 @@ Features:
 The following command will create the relevant resources in OpenChoreo:
 
 ```bash
-kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/issue-reporter-schedule-task/github-issue-reporter.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.17/samples/from-image/issue-reporter-schedule-task/github-issue-reporter.yaml
 ```
 
 > [!NOTE]
@@ -50,7 +50,7 @@ The scheduled task requires several environment variables to be configured:
 - `GITHUB_REPOSITORY`: Target GitHub repository URL
 - `GITHUB_TOKEN`: GitHub personal access token for API access
 
-### MySQL Configuration  
+### MySQL Configuration
 - `MYSQL_HOST`: MySQL server hostname
 - `MYSQL_PORT`: MySQL server port (default: 3306)
 - `MYSQL_USER`: Database username
@@ -128,5 +128,5 @@ You can also override the schedule for specific environments by modifying the `R
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/issue-reporter-schedule-task/github-issue-reporter.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.17/samples/from-image/issue-reporter-schedule-task/github-issue-reporter.yaml
 ```

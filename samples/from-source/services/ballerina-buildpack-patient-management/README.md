@@ -12,25 +12,25 @@ The service exposes several REST endpoints for performing these operations.
 
 ### Health Check
 
-**Endpoint:** `/health`  
+**Endpoint:** `/health`
 **Functionality:** Ensures the service is running.
 
 ### Add a new patient
 
-**Endpoint:** `/patients`  
-**Method:** `POST`  
+**Endpoint:** `/patients`
+**Method:** `POST`
 **Functionality:** Adds a new patient by sending a JSON payload.
 
 ### Retrieve a patient by name
 
-**Endpoint:** `/patients/{name}`  
-**Method:** `GET`  
+**Endpoint:** `/patients/{name}`
+**Method:** `GET`
 **Functionality:** Retrieves patient details by their name.
 
 ### List all patients
 
-**Endpoint:** `/patients`  
-**Method:** `GET`  
+**Endpoint:** `/patients`
+**Method:** `GET`
 **Functionality:** Retrieves all patients.
 
 The source code is available at:
@@ -42,7 +42,7 @@ https://github.com/wso2/choreo-samples/tree/main/patient-management-service
 The following command will create the relevant resources in OpenChoreo. It will also trigger a workflow by creating a workflow resource.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.17/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
 ```
 
 > [!NOTE]
@@ -186,5 +186,5 @@ If the application is not accessible:
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.17/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
 ```
