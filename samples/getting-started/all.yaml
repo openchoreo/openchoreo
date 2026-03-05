@@ -1007,6 +1007,7 @@ spec:
             - secretKey: registrysecret
               remoteRef:
                 key: registry-push-secret
+                property: value
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -1171,6 +1172,7 @@ spec:
             - secretKey: registrysecret
               remoteRef:
                 key: registry-push-secret
+                property: value
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -1332,6 +1334,7 @@ spec:
             - secretKey: registrysecret
               remoteRef:
                 key: registry-push-secret
+                property: value
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -1493,6 +1496,7 @@ spec:
             - secretKey: registrysecret
               remoteRef:
                 key: registry-push-secret
+                property: value
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
