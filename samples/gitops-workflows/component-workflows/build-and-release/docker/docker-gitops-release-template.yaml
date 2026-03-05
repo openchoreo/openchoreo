@@ -323,7 +323,7 @@ spec:
           - name: container-image
           - name: descriptor-content
       container:
-        image: ghcr.io/openchoreo/openchoreo-cli:latest-dev
+        image: ghcr.io/openchoreo/openchoreo-cli:v0.17.0
         imagePullPolicy: Always
         command: [sh, -c]
         args:
@@ -392,7 +392,7 @@ spec:
             # TODO: Fix the occ properly to determine the output path from the repo itself
             OUTPUT_PATH="projects/$PROJECT_NAME/components/$COMPONENT_NAME/releases"
             echo " - output-path: $OUTPUT_PATH"
-            
+
             occ componentrelease generate \
               --name "$RELEASE_NAME" \
               --component "$COMPONENT_NAME" \

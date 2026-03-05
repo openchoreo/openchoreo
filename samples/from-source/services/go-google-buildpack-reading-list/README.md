@@ -9,28 +9,28 @@ The Reading List Service allows you to manage a collection of books, including:
 The service exposes several REST endpoints for performing these operations.
 
 ### Add a new book
-**Endpoint:** `/reading-list/books`  
-**Method:** `POST`  
+**Endpoint:** `/reading-list/books`
+**Method:** `POST`
 **Functionality:** Adds a new book to the reading list by sending a JSON payload.
 
 ### Retrieve a book by ID
-**Endpoint:** `/reading-list/books/{id}`  
-**Method:** `GET`  
+**Endpoint:** `/reading-list/books/{id}`
+**Method:** `GET`
 **Functionality:** Retrieves book details by their ID.
 
 ### Update a book
-**Endpoint:** `/reading-list/books/{id}`  
-**Method:** `PUT`  
+**Endpoint:** `/reading-list/books/{id}`
+**Method:** `PUT`
 **Functionality:** Updates book information by sending a JSON payload.
 
 ### Delete a book
-**Endpoint:** `/reading-list/books/{id}`  
-**Method:** `DELETE`  
+**Endpoint:** `/reading-list/books/{id}`
+**Method:** `DELETE`
 **Functionality:** Deletes a book from the reading list.
 
 ### List all books
-**Endpoint:** `/reading-list/books`  
-**Method:** `GET`  
+**Endpoint:** `/reading-list/books`
+**Method:** `GET`
 **Functionality:** Retrieves all books from the reading list.
 
 The source code is available at:
@@ -41,7 +41,7 @@ https://github.com/wso2/choreo-samples/tree/main/go-reading-list-rest-api
 The following command will create the relevant resources in OpenChoreo. It will also trigger a workflow by creating a workflow resource.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/go-google-buildpack-reading-list/reading-list-service.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.17/samples/from-source/services/go-google-buildpack-reading-list/reading-list-service.yaml
 ```
 
 > [!NOTE]
@@ -196,5 +196,5 @@ If the application is not accessible:
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/go-google-buildpack-reading-list/reading-list-service.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.17/samples/from-source/services/go-google-buildpack-reading-list/reading-list-service.yaml
 ```
