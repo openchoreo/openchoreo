@@ -639,9 +639,6 @@ components:
         log:
           type: string
           description: The log message
-        metadata:
-          type: object
-          description: The metadata of the log entry
 
     LogsQueryResponse:
       type: object

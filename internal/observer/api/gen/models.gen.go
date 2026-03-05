@@ -501,9 +501,6 @@ type WorkflowLogEntry struct {
 	// Log The log message
 	Log *string `json:"log,omitempty"`
 
-	// Metadata The metadata of the log entry
-	Metadata *map[string]interface{} `json:"metadata,omitempty"`
-
 	// Timestamp The timestamp of the log entry
 	Timestamp *time.Time `json:"timestamp,omitempty"`
 }

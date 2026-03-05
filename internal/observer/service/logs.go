@@ -202,7 +202,7 @@ func (s *LogsService) queryWorkflowLogs(
 		return nil, fmt.Errorf("%w: %w", ErrLogsRetrieval, err)
 	}
 
-	return s.convertWorkflowLogsToResponse(result, scope), nil
+	return s.convertWorkflowLogsToResponse(result), nil
 }
 
 // getComponentLogsFromAdapter fetches component logs from the configured logs adapter
@@ -333,7 +333,6 @@ func (s *LogsService) convertComponentLogsToResponse(
 // convertWorkflowLogsToResponse converts workflow logs result to types response
 func (s *LogsService) convertWorkflowLogsToResponse(
 	result *observability.WorkflowLogsResult,
-	scope *internalSearchScope,
 ) *types.LogsQueryResponse {
 	logs := make([]types.LogEntry, 0, len(result.Logs))
 	for _, log := range result.Logs {
@@ -341,11 +340,6 @@ func (s *LogsService) convertWorkflowLogsToResponse(
 			Timestamp: log.Timestamp.Format(time.RFC3339),
 			Log:       log.Log,
 			Level:     log.LogLevel,
-			Metadata: &types.LogMetadata{
-				NamespaceName: scope.NamespaceName,
-				PodName:       log.PodName,
-				PodNamespace:  log.PodNamespace,
-			},
 		})
 	}
 
