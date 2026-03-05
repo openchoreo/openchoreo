@@ -149,6 +149,11 @@ func projectFixture(name string) *openchoreov1alpha1.Project {
 			Name:      name,
 			Namespace: ns,
 		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+				Name: "default",
+			},
+		},
 	}
 }
 

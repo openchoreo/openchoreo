@@ -340,7 +340,9 @@ var _ = Describe("DeploymentPipeline Controller - Finalizer with referencing Pro
 					},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
-					DeploymentPipelineRef: pipelineName,
+					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+						Name: pipelineName,
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, project)).To(Succeed())

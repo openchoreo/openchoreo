@@ -51,7 +51,9 @@ var _ = Describe("Project Webhook", func() {
 				},
 			},
 			Spec: openchoreov1alpha1.ProjectSpec{
-				DeploymentPipelineRef: pipelineName,
+				DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+					Name: pipelineName,
+				},
 			},
 		}
 		return project

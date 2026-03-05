@@ -46,7 +46,21 @@ spec:
                 description: |-
                   DeploymentPipelineRef references the DeploymentPipeline that defines the environments
                   and deployment progression for components in this project.
-                type: string
+                properties:
+                  kind:
+                    default: DeploymentPipeline
+                    description: Kind is the kind of deployment pipeline (DeploymentPipeline)
+                    enum:
+                    - DeploymentPipeline
+                    type: string
+                  name:
+                    description: Name is the name of the deployment pipeline resource
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
             required:
             - deploymentPipelineRef
             type: object

@@ -205,7 +205,9 @@ func TestProjectSummary(t *testing.T) {
 			Namespace: "org-ns",
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
-			DeploymentPipelineRef: "default-pipeline",
+			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+				Name: "default-pipeline",
+			},
 		},
 		Status: openchoreov1alpha1.ProjectStatus{
 			Conditions: []metav1.Condition{
