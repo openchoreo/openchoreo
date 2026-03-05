@@ -361,6 +361,29 @@ type ComponentTypeRef struct {
 	Name string `json:"name"`
 }
 
+// DeploymentPipelineRefKind defines the kind of deployment pipeline referenced by a DeploymentPipelineRef
+// +kubebuilder:validation:Enum=DeploymentPipeline
+type DeploymentPipelineRefKind string
+
+const (
+	// DeploymentPipelineRefKindDeploymentPipeline references a namespace-scoped DeploymentPipeline
+	DeploymentPipelineRefKindDeploymentPipeline DeploymentPipelineRefKind = "DeploymentPipeline"
+)
+
+// DeploymentPipelineRef represents a reference to a DeploymentPipeline
+type DeploymentPipelineRef struct {
+	// Kind is the kind of deployment pipeline (DeploymentPipeline)
+	// +optional
+	// +kubebuilder:default=DeploymentPipeline
+	Kind DeploymentPipelineRefKind `json:"kind,omitempty"`
+
+	// Name is the name of the deployment pipeline resource
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name"`
+}
+
 // EffectType defines whether to allow or deny access
 // Used by AuthzRoleBinding and AuthzClusterRoleBinding
 // +kubebuilder:validation:Enum=allow;deny

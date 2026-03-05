@@ -32,7 +32,7 @@ func (r *Reconciler) makeProjectContext(ctx context.Context, project *openchoreo
 
 	environmentNames := r.findEnvironmentNamesFromDeploymentPipeline(deploymentPipeline)
 	if len(environmentNames) == 0 {
-		return nil, fmt.Errorf("no environments found for deployment pipeline %s", project.Spec.DeploymentPipelineRef)
+		return nil, fmt.Errorf("no environments found for deployment pipeline %s", project.Spec.DeploymentPipelineRef.Name)
 	}
 
 	namespaceNames := k8sintegrations.MakeNamespaceNames(environmentNames, *project)
@@ -51,18 +51,18 @@ func (r *Reconciler) findDeploymentPipeline(ctx context.Context, project *opench
 	var deploymentPipeline openchoreov1alpha1.DeploymentPipeline
 	err := r.Get(ctx, types.NamespacedName{
 		Namespace: project.Namespace,
-		Name:      project.Spec.DeploymentPipelineRef,
+		Name:      project.Spec.DeploymentPipelineRef.Name,
 	}, &deploymentPipeline)
 
 	if apierrors.IsNotFound(err) {
 		logger.Info("DeploymentPipeline not found, may have been already deleted",
-			"pipelineRef", project.Spec.DeploymentPipelineRef,
+			"pipelineRef", project.Spec.DeploymentPipelineRef.Name,
 			"namespace", project.Namespace)
 		return nil, nil
 	}
 	if err != nil {
 		logger.Error(err, "Failed to get deployment pipeline",
-			"pipelineRef", project.Spec.DeploymentPipelineRef,
+			"pipelineRef", project.Spec.DeploymentPipelineRef.Name,
 			"namespace", project.Namespace)
 		return nil, err
 	}

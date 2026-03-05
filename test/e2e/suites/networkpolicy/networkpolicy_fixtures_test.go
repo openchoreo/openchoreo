@@ -222,7 +222,7 @@ func platformResourcesYAML(cpNamespace string, environments, projects []string) 
 					"openchoreo.dev/name": proj,
 				},
 			},
-			Spec: openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: "default"},
+			Spec: openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "default"}},
 		})
 	}
 

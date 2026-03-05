@@ -5467,11 +5467,24 @@ components:
       description: Desired state of a Project
       properties:
         deploymentPipelineRef:
-          type: string
+          type: object
           description: |
             Reference to the DeploymentPipeline that defines the environments
             and deployment progression for components in this project.
-          example: default
+          properties:
+            kind:
+              type: string
+              description: Kind of deployment pipeline resource
+              enum: [DeploymentPipeline]
+              default: DeploymentPipeline
+            name:
+              type: string
+              description: Name of the deployment pipeline resource
+              minLength: 1
+              maxLength: 63
+              example: default
+          required:
+            - name
 
     ProjectStatus:
       type: object

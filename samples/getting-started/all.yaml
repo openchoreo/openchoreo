@@ -24,7 +24,8 @@ metadata:
   labels:
     openchoreo.dev/name: default
 spec:
-  deploymentPipelineRef: default
+  deploymentPipelineRef:
+    name: default
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

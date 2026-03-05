@@ -173,7 +173,9 @@ var _ = Describe("Project Controller", func() {
 						},
 					},
 					Spec: openchoreov1alpha1.ProjectSpec{
-						DeploymentPipelineRef: "test-deployment-pipeline",
+						DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+							Name: "test-deployment-pipeline",
+						},
 					},
 				}
 				Expect(k8sClient.Create(ctx, dp)).To(Succeed())
@@ -199,7 +201,7 @@ var _ = Describe("Project Controller", func() {
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())
 			Expect(project.Name).To(Equal(projectName))
 			Expect(project.Namespace).To(Equal(namespaceName))
-			Expect(project.Spec).To(Equal(openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: "test-deployment-pipeline"}))
+			Expect(project.Spec).To(Equal(openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline, Name: "test-deployment-pipeline"}}))
 			Expect(project.Spec).NotTo(BeNil())
 		})
 

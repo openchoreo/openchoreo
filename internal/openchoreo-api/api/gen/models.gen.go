@@ -224,6 +224,11 @@ const (
 	ObservabilityPlaneRefKindObservabilityPlane        ObservabilityPlaneRefKind = "ObservabilityPlane"
 )
 
+// Defines values for ProjectSpecDeploymentPipelineRefKind.
+const (
+	ProjectSpecDeploymentPipelineRefKindDeploymentPipeline ProjectSpecDeploymentPipelineRefKind = "DeploymentPipeline"
+)
+
 // Defines values for ReleaseBindingSpecState.
 const (
 	ReleaseBindingSpecStateActive   ReleaseBindingSpecState = "Active"
@@ -2497,8 +2502,17 @@ type ProjectList struct {
 type ProjectSpec struct {
 	// DeploymentPipelineRef Reference to the DeploymentPipeline that defines the environments
 	// and deployment progression for components in this project.
-	DeploymentPipelineRef *string `json:"deploymentPipelineRef,omitempty"`
+	DeploymentPipelineRef *struct {
+		// Kind Kind of deployment pipeline resource
+		Kind *ProjectSpecDeploymentPipelineRefKind `json:"kind,omitempty"`
+
+		// Name Name of the deployment pipeline resource
+		Name string `json:"name"`
+	} `json:"deploymentPipelineRef,omitempty"`
 }
+
+// ProjectSpecDeploymentPipelineRefKind Kind of deployment pipeline resource
+type ProjectSpecDeploymentPipelineRefKind string
 
 // ProjectStatus Observed state of a Project
 type ProjectStatus struct {

@@ -149,10 +149,10 @@ var _ = BeforeSuite(func() {
 	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Project{},
 		controller.IndexKeyProjectDeploymentPipelineRef, func(obj client.Object) []string {
 			project := obj.(*openchoreov1alpha1.Project)
-			if project.Spec.DeploymentPipelineRef == "" {
+			if project.Spec.DeploymentPipelineRef.Name == "" {
 				return nil
 			}
-			return []string{project.Spec.DeploymentPipelineRef}
+			return []string{project.Spec.DeploymentPipelineRef.Name}
 		})
 	Expect(err).NotTo(HaveOccurred())
 

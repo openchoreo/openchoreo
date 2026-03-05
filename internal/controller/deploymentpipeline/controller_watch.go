@@ -23,18 +23,18 @@ func (r *Reconciler) findDeploymentPipelineForProject(_ context.Context, obj cli
 	}
 
 	pipelineRef := project.Spec.DeploymentPipelineRef
-	if pipelineRef == "" {
+	if pipelineRef.Name == "" {
 		return nil
 	}
 
 	log.Log.V(1).Info("Project change detected, enqueueing DeploymentPipeline",
-		"project", project.Name, "deploymentPipeline", pipelineRef)
+		"project", project.Name, "deploymentPipeline", pipelineRef.Name)
 
 	return []reconcile.Request{
 		{
 			NamespacedName: client.ObjectKey{
 				Namespace: project.Namespace,
-				Name:      pipelineRef,
+				Name:      pipelineRef.Name,
 			},
 		},
 	}
