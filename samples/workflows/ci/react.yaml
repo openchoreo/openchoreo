@@ -155,3 +155,4 @@ spec:
             - secretKey: registrysecret
               remoteRef:
                 key: registry-push-secret
+                property: value
