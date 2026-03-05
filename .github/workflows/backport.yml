@@ -1,0 +1,81 @@
+# Backport merged pull requests to release branches using cherry-pick.
+#
+# Usage: Comment `/backport <target-branch>` on a merged pull request.
+#   Example: `/backport release-0.1`
+#
+# Only organization members and collaborators can trigger this command.
+# The action will create a new PR with the cherry-picked changes targeting
+# the specified branch. If there are conflicts, the action will comment
+# with instructions to resolve them manually.
+
+name: Backport merged pull request
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  backport:
+    name: Backport pull request
+    runs-on: ubuntu-latest
+    # Only run when a comment starts with `/backport` on a PR and the commenter
+    # has write access. This prevents arbitrary users from creating branches.
+    if: >
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/backport ') &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'COLLABORATOR' ||
+        github.event.comment.author_association == 'MEMBER'
+      )
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Check if PR is merged
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          merged=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }} --jq '.merged')
+          if [ "$merged" != "true" ]; then
+            echo "PR #${{ github.event.issue.number }} is not merged; aborting backport." >&2
+            exit 1
+          fi
+
+      - name: Extract target branch
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          set -euo pipefail
+          line="${COMMENT_BODY%%$'\n'*}"
+          if [[ $line =~ ^/backport[[:space:]]+([^[:space:]]+) ]]; then
+            echo "BACKPORT_TARGET=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+          else
+            echo "Usage: /backport <target-branch>" >&2
+            exit 1
+          fi
+
+      - name: Create backport pull request
+        uses: korthout/backport-action@01619ebc9a6e3f6820274221b9956b3e7365000a # v4.1.0
+        with:
+          target_branches: ${{ env.BACKPORT_TARGET }}
+          # Disable label-based detection; we use comment-based triggering only.
+          label_pattern: ''
+          # Copy all labels from the original PR to the backport PR.
+          copy_labels_pattern: '.*'
+          # Copy reviewers so the backport PR gets reviewed by the same people.
+          copy_requested_reviewers: true
+          # Suffix format keeps the conventional commit prefix intact.
+          pull_title: '${pull_title} (backport to ${target_branch})'
+          # Link back to the original PR and include its description for context.
+          pull_description: |-
+            Backport of #${pull_number} to `${target_branch}`.
+
+            ## Original description
+
+            ${pull_description}
