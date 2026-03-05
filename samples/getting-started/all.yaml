@@ -886,6 +886,8 @@ spec:
             value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
             value: ${metadata.labels['openchoreo.dev/project']}
+          - name: namespace-name
+            value: ${metadata.namespaceName}
           - name: git-repo
             value: ${parameters.repository.url}
           - name: branch
@@ -1053,6 +1055,8 @@ spec:
             value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
             value: ${metadata.labels['openchoreo.dev/project']}
+          - name: namespace-name
+            value: ${metadata.namespaceName}
           - name: git-repo
             value: ${parameters.repository.url}
           - name: branch
@@ -1217,6 +1221,8 @@ spec:
             value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
             value: ${metadata.labels['openchoreo.dev/project']}
+          - name: namespace-name
+            value: ${metadata.namespaceName}
           - name: git-repo
             value: ${parameters.repository.url}
           - name: branch
@@ -1379,6 +1385,8 @@ spec:
             value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
             value: ${metadata.labels['openchoreo.dev/project']}
+          - name: namespace-name
+            value: ${metadata.namespaceName}
           - name: git-repo
             value: ${parameters.repository.url}
           - name: branch

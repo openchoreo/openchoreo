@@ -4233,6 +4233,9 @@ type UpdateTraitJSONRequestBody = Trait
 // CreateWorkflowRunJSONRequestBody defines body for CreateWorkflowRun for application/json ContentType.
 type CreateWorkflowRunJSONRequestBody = WorkflowRun
 
+// UpdateWorkflowRunJSONRequestBody defines body for UpdateWorkflowRun for application/json ContentType.
+type UpdateWorkflowRunJSONRequestBody = WorkflowRun
+
 // CreateWorkflowJSONRequestBody defines body for CreateWorkflow for application/json ContentType.
 type CreateWorkflowJSONRequestBody = Workflow
 

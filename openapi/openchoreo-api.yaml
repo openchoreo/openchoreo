@@ -2359,6 +2359,38 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    put:
+      operationId: updateWorkflowRun
+      summary: Update workflow run
+      description: Replaces an existing workflow run (full update).
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkflowRunNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowRun'
+      responses:
+        '200':
+          description: Workflow run updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowRun'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/status:
     get:
       operationId: getWorkflowRunStatus

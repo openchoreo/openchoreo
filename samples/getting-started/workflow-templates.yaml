@@ -155,6 +155,7 @@ spec:
             mountPath: /mnt/vol
         securityContext:
           privileged: true
+
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate

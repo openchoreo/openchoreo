@@ -62,6 +62,8 @@ spec:
             value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
             value: ${metadata.labels['openchoreo.dev/project']}
+          - name: namespace-name
+            value: ${metadata.namespaceName}
           # Parameters from repository (developer-facing)
           - name: git-repo
             value: ${parameters.repository.url}

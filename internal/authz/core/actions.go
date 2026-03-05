@@ -62,6 +62,7 @@ var systemActions = []Action{
 	// WorkflowRun
 	{Name: "workflowrun:view", IsInternal: false},
 	{Name: "workflowrun:create", IsInternal: false},
+	{Name: "workflowrun:update", IsInternal: false},
 
 	// Trait
 	{Name: "trait:view", IsInternal: false},

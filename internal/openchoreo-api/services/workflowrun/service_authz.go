@@ -19,6 +19,7 @@ import (
 
 const (
 	actionCreateWorkflowRun = "workflowrun:create"
+	actionUpdateWorkflowRun = "workflowrun:update"
 	actionViewWorkflowRun   = "workflowrun:view"
 
 	resourceTypeWorkflowRun = "workflowrun"
@@ -50,6 +51,18 @@ func (s *workflowRunServiceWithAuthz) CreateWorkflowRun(ctx context.Context, nam
 		return nil, err
 	}
 	return s.internal.CreateWorkflowRun(ctx, namespaceName, wfRun)
+}
+
+func (s *workflowRunServiceWithAuthz) UpdateWorkflowRun(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionUpdateWorkflowRun,
+		ResourceType: resourceTypeWorkflowRun,
+		ResourceID:   wfRun.Name,
+		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.UpdateWorkflowRun(ctx, namespaceName, wfRun)
 }
 
 func (s *workflowRunServiceWithAuthz) ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName, workflowName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.WorkflowRun], error) {
