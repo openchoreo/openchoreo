@@ -9,7 +9,6 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -51,10 +50,6 @@ func (s *secretReferenceService) CreateSecretReference(ctx context.Context, name
 	}
 
 	// Set defaults
-	sr.TypeMeta = metav1.TypeMeta{
-		Kind:       "SecretReference",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
 	sr.Namespace = namespaceName
 	if err := s.k8sClient.Create(ctx, sr); err != nil {
 		if apierrors.IsAlreadyExists(err) {

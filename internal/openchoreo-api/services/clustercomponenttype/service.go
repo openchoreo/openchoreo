@@ -10,7 +10,6 @@ import (
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -44,10 +43,6 @@ func (s *clusterComponentTypeService) CreateClusterComponentType(ctx context.Con
 	s.logger.Debug("Creating cluster component type", "clusterComponentType", cct.Name)
 
 	// Set defaults
-	cct.TypeMeta = metav1.TypeMeta{
-		Kind:       "ClusterComponentType",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
 
 	if err := s.k8sClient.Create(ctx, cct); err != nil {
 		if apierrors.IsAlreadyExists(err) {

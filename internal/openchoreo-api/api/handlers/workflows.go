@@ -9,6 +9,8 @@ import (
 	"errors"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
@@ -16,6 +18,16 @@ import (
 	workflowsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflow"
 	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
 )
+
+var workflowRunTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "WorkflowRun",
+}
+
+var workflowTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Workflow",
+}
 
 // ListWorkflows returns a paginated list of workflows within a namespace.
 func (h *Handler) ListWorkflows(
@@ -30,6 +42,10 @@ func (h *Handler) ListWorkflows(
 	if err != nil {
 		h.logger.Error("Failed to list workflows", "error", err)
 		return gen.ListWorkflows500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = workflowTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.Workflow, gen.Workflow](result.Items)
@@ -74,6 +90,8 @@ func (h *Handler) CreateWorkflow(
 		return gen.CreateWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = workflowTypeMeta
+
 	genWf, err := convert[openchoreov1alpha1.Workflow, gen.Workflow](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created workflow", "error", err)
@@ -102,6 +120,8 @@ func (h *Handler) GetWorkflow(
 		h.logger.Error("Failed to get workflow", "error", err, "namespace", request.NamespaceName, "workflow", request.WorkflowName)
 		return gen.GetWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	wf.TypeMeta = workflowTypeMeta
 
 	genWf, err := convert[openchoreov1alpha1.Workflow, gen.Workflow](*wf)
 	if err != nil {
@@ -144,6 +164,8 @@ func (h *Handler) UpdateWorkflow(
 		h.logger.Error("Failed to update workflow", "error", err)
 		return gen.UpdateWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = workflowTypeMeta
 
 	genWf, err := convert[openchoreov1alpha1.Workflow, gen.Workflow](*updated)
 	if err != nil {
@@ -236,6 +258,10 @@ func (h *Handler) ListWorkflowRuns(
 		return gen.ListWorkflowRuns500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	for i := range result.Items {
+		result.Items[i].TypeMeta = workflowRunTypeMeta
+	}
+
 	items, err := convertList[openchoreov1alpha1.WorkflowRun, gen.WorkflowRun](result.Items)
 	if err != nil {
 		h.logger.Error("Failed to convert workflow runs", "error", err)
@@ -278,6 +304,8 @@ func (h *Handler) CreateWorkflowRun(
 		return gen.CreateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = workflowRunTypeMeta
+
 	genWfRun, err := convert[openchoreov1alpha1.WorkflowRun, gen.WorkflowRun](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created workflow run", "error", err)
@@ -308,6 +336,8 @@ func (h *Handler) GetWorkflowRun(
 		h.logger.Error("Failed to get workflow run", "error", err)
 		return gen.GetWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	wfRun.TypeMeta = workflowRunTypeMeta
 
 	genWfRun, err := convert[openchoreov1alpha1.WorkflowRun, gen.WorkflowRun](*wfRun)
 	if err != nil {

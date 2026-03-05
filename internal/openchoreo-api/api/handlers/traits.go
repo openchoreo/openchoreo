@@ -8,11 +8,18 @@ import (
 	"encoding/json"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
 )
+
+var traitTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Trait",
+}
 
 // ListTraits returns a paginated list of traits within a namespace.
 func (h *Handler) ListTraits(
@@ -27,6 +34,10 @@ func (h *Handler) ListTraits(
 	if err != nil {
 		h.logger.Error("Failed to list traits", "error", err)
 		return gen.ListTraits500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = traitTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.Trait, gen.Trait](result.Items)
@@ -71,6 +82,8 @@ func (h *Handler) CreateTrait(
 		return gen.CreateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = traitTypeMeta
+
 	genTrait, err := convert[openchoreov1alpha1.Trait, gen.Trait](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created trait", "error", err)
@@ -99,6 +112,8 @@ func (h *Handler) GetTrait(
 		h.logger.Error("Failed to get trait", "error", err)
 		return gen.GetTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	t.TypeMeta = traitTypeMeta
 
 	genTrait, err := convert[openchoreov1alpha1.Trait, gen.Trait](*t)
 	if err != nil {
@@ -141,6 +156,8 @@ func (h *Handler) UpdateTrait(
 		h.logger.Error("Failed to update trait", "error", err)
 		return gen.UpdateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = traitTypeMeta
 
 	genTrait, err := convert[openchoreov1alpha1.Trait, gen.Trait](*updated)
 	if err != nil {

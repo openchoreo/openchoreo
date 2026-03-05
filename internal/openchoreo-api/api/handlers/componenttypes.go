@@ -8,11 +8,18 @@ import (
 	"encoding/json"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
 )
+
+var componentTypeTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ComponentType",
+}
 
 // ListComponentTypes returns a paginated list of component types within a namespace.
 func (h *Handler) ListComponentTypes(
@@ -27,6 +34,10 @@ func (h *Handler) ListComponentTypes(
 	if err != nil {
 		h.logger.Error("Failed to list component types", "error", err)
 		return gen.ListComponentTypes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = componentTypeTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.ComponentType, gen.ComponentType](result.Items)
@@ -71,6 +82,8 @@ func (h *Handler) CreateComponentType(
 		return gen.CreateComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = componentTypeTypeMeta
+
 	genCT, err := convert[openchoreov1alpha1.ComponentType, gen.ComponentType](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created component type", "error", err)
@@ -99,6 +112,8 @@ func (h *Handler) GetComponentType(
 		h.logger.Error("Failed to get component type", "error", err)
 		return gen.GetComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	ct.TypeMeta = componentTypeTypeMeta
 
 	genCT, err := convert[openchoreov1alpha1.ComponentType, gen.ComponentType](*ct)
 	if err != nil {
@@ -141,6 +156,8 @@ func (h *Handler) UpdateComponentType(
 		h.logger.Error("Failed to update component type", "error", err)
 		return gen.UpdateComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = componentTypeTypeMeta
 
 	genCT, err := convert[openchoreov1alpha1.ComponentType, gen.ComponentType](*updated)
 	if err != nil {

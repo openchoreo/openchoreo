@@ -5357,7 +5357,7 @@ components:
     Namespace:
       type: object
       description: |
-        Namespace resource (Kubernetes object without kind/apiVersion).
+        Namespace resource.
         Control plane namespaces hold resources like Projects, Components, and Environments.
         These namespaces are identified by the label `openchoreo.dev/controlplane-namespace=true`.
       required:
@@ -5550,11 +5550,21 @@ components:
     Component:
       type: object
       description: |
-        Component resource (Kubernetes object without kind/apiVersion).
+        Component resource.
         Components group source code and deployment configuration within a project.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: Component
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -5778,11 +5788,21 @@ components:
     Environment:
       type: object
       description: |
-        Environment resource (Kubernetes object without kind/apiVersion).
+        Environment resource.
         Environments represent deployment targets within a namespace.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: Environment
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -5852,11 +5872,21 @@ components:
     DataPlane:
       type: object
       description: |
-        DataPlane resource (Kubernetes object without kind/apiVersion).
+        DataPlane resource.
         Represents a Kubernetes cluster for workload deployment.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: DataPlane
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -5980,11 +6010,21 @@ components:
     BuildPlane:
       type: object
       description: |
-        BuildPlane resource (Kubernetes object without kind/apiVersion).
+        BuildPlane resource.
         Represents CI/CD build infrastructure within a namespace.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: BuildPlane
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -6135,11 +6175,21 @@ components:
     ObservabilityPlane:
       type: object
       description: |
-        ObservabilityPlane resource (Kubernetes object without kind/apiVersion).
+        ObservabilityPlane resource.
         Represents monitoring and logging infrastructure within a namespace.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ObservabilityPlane
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -6206,11 +6256,21 @@ components:
     ClusterDataPlane:
       type: object
       description: |
-        ClusterDataPlane resource (Kubernetes object without kind/apiVersion).
+        ClusterDataPlane resource.
         Represents a cluster-scoped data plane for workload deployment.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ClusterDataPlane
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -6281,11 +6341,21 @@ components:
     ClusterBuildPlane:
       type: object
       description: |
-        ClusterBuildPlane resource (Kubernetes object without kind/apiVersion).
+        ClusterBuildPlane resource.
         Represents cluster-scoped CI/CD build infrastructure.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ClusterBuildPlane
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -6371,11 +6441,21 @@ components:
     ClusterObservabilityPlane:
       type: object
       description: |
-        ClusterObservabilityPlane resource (Kubernetes object without kind/apiVersion).
+        ClusterObservabilityPlane resource.
         Represents cluster-scoped monitoring and logging infrastructure.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ClusterObservabilityPlane
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -6442,11 +6522,21 @@ components:
     ClusterComponentType:
       type: object
       description: |
-        ClusterComponentType resource (Kubernetes object without kind/apiVersion).
+        ClusterComponentType resource.
         Cluster-scoped version of ComponentType.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ClusterComponentType
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -6631,11 +6721,21 @@ components:
     ClusterTrait:
       type: object
       description: |
-        ClusterTrait resource (Kubernetes object without kind/apiVersion).
+        ClusterTrait resource.
         Cluster-scoped version of Trait.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ClusterTrait
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -6925,11 +7025,21 @@ components:
     ComponentType:
       type: object
       description: |
-        ComponentType resource (Kubernetes object without kind/apiVersion).
+        ComponentType resource.
         Defines workload templates used by platform engineers to govern component behavior.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ComponentType
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -7084,11 +7194,21 @@ components:
     Trait:
       type: object
       description: |
-        Trait resource (Kubernetes object without kind/apiVersion).
+        Trait resource.
         Defines composable cross-cutting concerns that can be applied to components.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: Trait
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -7137,6 +7257,16 @@ components:
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: Workflow
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -7280,6 +7410,16 @@ components:
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: WorkflowRun
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -7552,11 +7692,21 @@ components:
     ComponentRelease:
       type: object
       description: |
-        ComponentRelease resource (Kubernetes object without kind/apiVersion).
+        ComponentRelease resource.
         Immutable snapshot of component state at release time.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ComponentRelease
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -7635,11 +7785,21 @@ components:
     ReleaseBinding:
       type: object
       description: |
-        ReleaseBinding resource (Kubernetes object without kind/apiVersion).
+        ReleaseBinding resource.
         Binds a ComponentRelease to a specific environment.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ReleaseBinding
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -7873,11 +8033,21 @@ components:
     Release:
       type: object
       description: |
-        Release resource (Kubernetes object without kind/apiVersion).
+        Release resource.
         Contains the final Kubernetes manifests deployed to data plane clusters.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: Release
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -9000,11 +9170,21 @@ components:
     SecretReference:
       type: object
       description: |
-        SecretReference resource (Kubernetes object without kind/apiVersion).
+        SecretReference resource.
         Defines references to external secrets that are synced into the cluster.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: SecretReference
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -9159,11 +9339,21 @@ components:
     Workload:
       type: object
       description: |
-        Workload resource (Kubernetes object without kind/apiVersion).
+        Workload resource.
         Defines the source code, container, endpoints and connections for a component.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: Workload
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -9349,11 +9539,21 @@ components:
     DeploymentPipeline:
       type: object
       description: |
-        DeploymentPipeline resource (Kubernetes object without kind/apiVersion).
+        DeploymentPipeline resource.
         Defines promotion paths between environments for component deployments.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: DeploymentPipeline
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -9439,11 +9639,21 @@ components:
     ObservabilityAlertsNotificationChannel:
       type: object
       description: |
-        ObservabilityAlertsNotificationChannel resource (Kubernetes object without kind/apiVersion).
+        ObservabilityAlertsNotificationChannel resource.
         Defines a channel for sending alert notifications. Currently email and webhook notifications are supported.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ObservabilityAlertsNotificationChannel
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:

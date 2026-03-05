@@ -7,11 +7,18 @@ import (
 	"context"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	buildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/buildplane"
 )
+
+var buildPlaneTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "BuildPlane",
+}
 
 // ListBuildPlanes returns a paginated list of build planes within a namespace.
 func (h *Handler) ListBuildPlanes(
@@ -26,6 +33,10 @@ func (h *Handler) ListBuildPlanes(
 	if err != nil {
 		h.logger.Error("Failed to list build planes", "error", err)
 		return gen.ListBuildPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = buildPlaneTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.BuildPlane, gen.BuildPlane](result.Items)
@@ -58,6 +69,8 @@ func (h *Handler) GetBuildPlane(
 		h.logger.Error("Failed to get build plane", "error", err)
 		return gen.GetBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	buildPlane.TypeMeta = buildPlaneTypeMeta
 
 	genBuildPlane, err := convert[openchoreov1alpha1.BuildPlane, gen.BuildPlane](*buildPlane)
 	if err != nil {
@@ -97,6 +110,8 @@ func (h *Handler) CreateBuildPlane(
 		h.logger.Error("Failed to create build plane", "error", err)
 		return gen.CreateBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	created.TypeMeta = buildPlaneTypeMeta
 
 	genBP, err := convert[openchoreov1alpha1.BuildPlane, gen.BuildPlane](*created)
 	if err != nil {
@@ -140,6 +155,8 @@ func (h *Handler) UpdateBuildPlane(
 		h.logger.Error("Failed to update build plane", "error", err)
 		return gen.UpdateBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = buildPlaneTypeMeta
 
 	genBP, err := convert[openchoreov1alpha1.BuildPlane, gen.BuildPlane](*updated)
 	if err != nil {

@@ -7,11 +7,18 @@ import (
 	"context"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	releasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/release"
 )
+
+var releaseTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Release",
+}
 
 // ListReleases returns a paginated list of releases within a namespace.
 func (h *Handler) ListReleases(
@@ -36,6 +43,10 @@ func (h *Handler) ListReleases(
 	if err != nil {
 		h.logger.Error("Failed to list releases", "error", err)
 		return gen.ListReleases500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = releaseTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.Release, gen.Release](result.Items)
@@ -70,6 +81,8 @@ func (h *Handler) GetRelease(
 		h.logger.Error("Failed to get release", "error", err)
 		return gen.GetRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	r.TypeMeta = releaseTypeMeta
 
 	genRelease, err := convert[openchoreov1alpha1.Release, gen.Release](*r)
 	if err != nil {

@@ -9,7 +9,6 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -51,10 +50,6 @@ func (s *observabilityAlertsNotificationChannelService) CreateObservabilityAlert
 	}
 
 	// Set defaults
-	nc.TypeMeta = metav1.TypeMeta{
-		Kind:       "ObservabilityAlertsNotificationChannel",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
 	nc.Namespace = namespaceName
 	if err := s.k8sClient.Create(ctx, nc); err != nil {
 		if apierrors.IsAlreadyExists(err) {

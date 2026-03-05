@@ -9,7 +9,6 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -89,10 +88,6 @@ func (s *clusterBuildPlaneService) CreateClusterBuildPlane(ctx context.Context, 
 	}
 	s.logger.Debug("Creating cluster build plane", "clusterBuildPlane", cbp.Name)
 
-	cbp.TypeMeta = metav1.TypeMeta{
-		Kind:       "ClusterBuildPlane",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
 	if err := s.k8sClient.Create(ctx, cbp); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil, ErrClusterBuildPlaneAlreadyExists

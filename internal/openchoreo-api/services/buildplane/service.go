@@ -9,7 +9,6 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -98,10 +97,6 @@ func (s *buildPlaneService) CreateBuildPlane(ctx context.Context, namespaceName 
 	}
 	s.logger.Debug("Creating build plane", "namespace", namespaceName, "buildPlane", bp.Name)
 
-	bp.TypeMeta = metav1.TypeMeta{
-		Kind:       "BuildPlane",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
 	bp.Namespace = namespaceName
 	if err := s.k8sClient.Create(ctx, bp); err != nil {
 		if apierrors.IsAlreadyExists(err) {

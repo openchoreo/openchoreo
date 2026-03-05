@@ -67,10 +67,6 @@ func (s *componentService) CreateComponent(ctx context.Context, namespaceName st
 	}
 
 	// Set defaults
-	component.TypeMeta = metav1.TypeMeta{
-		Kind:       "Component",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
 	component.Namespace = namespaceName
 	if component.Labels == nil {
 		component.Labels = make(map[string]string)

@@ -7,11 +7,18 @@ import (
 	"context"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
 )
+
+var deploymentPipelineTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "DeploymentPipeline",
+}
 
 // ListDeploymentPipelines returns a paginated list of deployment pipelines within a namespace.
 func (h *Handler) ListDeploymentPipelines(
@@ -29,6 +36,10 @@ func (h *Handler) ListDeploymentPipelines(
 		}
 		h.logger.Error("Failed to list deployment pipelines", "error", err)
 		return gen.ListDeploymentPipelines500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = deploymentPipelineTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](result.Items)
@@ -73,6 +84,8 @@ func (h *Handler) CreateDeploymentPipeline(
 		return gen.CreateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = deploymentPipelineTypeMeta
+
 	genDP, err := convert[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created deployment pipeline", "error", err)
@@ -101,6 +114,8 @@ func (h *Handler) GetDeploymentPipeline(
 		h.logger.Error("Failed to get deployment pipeline", "error", err)
 		return gen.GetDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	dp.TypeMeta = deploymentPipelineTypeMeta
 
 	genDP, err := convert[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](*dp)
 	if err != nil {
@@ -143,6 +158,8 @@ func (h *Handler) UpdateDeploymentPipeline(
 		h.logger.Error("Failed to update deployment pipeline", "error", err)
 		return gen.UpdateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = deploymentPipelineTypeMeta
 
 	genDP, err := convert[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](*updated)
 	if err != nil {

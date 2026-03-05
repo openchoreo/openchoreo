@@ -10,7 +10,6 @@ import (
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -44,10 +43,6 @@ func (s *clusterTraitService) CreateClusterTrait(ctx context.Context, ct *opench
 	s.logger.Debug("Creating cluster trait", "clusterTrait", ct.Name)
 
 	// Set defaults
-	ct.TypeMeta = metav1.TypeMeta{
-		Kind:       "ClusterTrait",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
 
 	if err := s.k8sClient.Create(ctx, ct); err != nil {
 		if apierrors.IsAlreadyExists(err) {

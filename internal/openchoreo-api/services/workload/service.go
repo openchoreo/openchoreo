@@ -10,7 +10,6 @@ import (
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -58,10 +57,6 @@ func (s *workloadService) CreateWorkload(ctx context.Context, namespaceName stri
 	}
 
 	// Set defaults
-	w.TypeMeta = metav1.TypeMeta{
-		Kind:       "Workload",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
 	w.Namespace = namespaceName
 	if w.Labels == nil {
 		w.Labels = make(map[string]string)

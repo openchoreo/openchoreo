@@ -7,11 +7,18 @@ import (
 	"context"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	observabilityalertsnotificationchannelsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityalertsnotificationchannel"
 )
+
+var observabilityAlertsNotificationChannelTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ObservabilityAlertsNotificationChannel",
+}
 
 // ListObservabilityAlertsNotificationChannels returns a paginated list of observability alerts notification channels within a namespace.
 func (h *Handler) ListObservabilityAlertsNotificationChannels(
@@ -26,6 +33,10 @@ func (h *Handler) ListObservabilityAlertsNotificationChannels(
 	if err != nil {
 		h.logger.Error("Failed to list observability alerts notification channels", "error", err)
 		return gen.ListObservabilityAlertsNotificationChannels500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = observabilityAlertsNotificationChannelTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](result.Items)
@@ -70,6 +81,8 @@ func (h *Handler) CreateObservabilityAlertsNotificationChannel(
 		return gen.CreateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = observabilityAlertsNotificationChannelTypeMeta
+
 	genNC, err := convert[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created observability alerts notification channel", "error", err)
@@ -98,6 +111,8 @@ func (h *Handler) GetObservabilityAlertsNotificationChannel(
 		h.logger.Error("Failed to get observability alerts notification channel", "error", err)
 		return gen.GetObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	nc.TypeMeta = observabilityAlertsNotificationChannelTypeMeta
 
 	genNC, err := convert[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](*nc)
 	if err != nil {
@@ -140,6 +155,8 @@ func (h *Handler) UpdateObservabilityAlertsNotificationChannel(
 		h.logger.Error("Failed to update observability alerts notification channel", "error", err)
 		return gen.UpdateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = observabilityAlertsNotificationChannelTypeMeta
 
 	genNC, err := convert[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](*updated)
 	if err != nil {

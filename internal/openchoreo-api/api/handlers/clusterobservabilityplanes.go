@@ -7,11 +7,18 @@ import (
 	"context"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clusterobservabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane"
 )
+
+var clusterObservabilityPlaneTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ClusterObservabilityPlane",
+}
 
 // ListClusterObservabilityPlanes returns a paginated list of cluster-scoped observability planes.
 func (h *Handler) ListClusterObservabilityPlanes(
@@ -26,6 +33,10 @@ func (h *Handler) ListClusterObservabilityPlanes(
 	if err != nil {
 		h.logger.Error("Failed to list cluster observability planes", "error", err)
 		return gen.ListClusterObservabilityPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = clusterObservabilityPlaneTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.ClusterObservabilityPlane, gen.ClusterObservabilityPlane](result.Items)
@@ -58,6 +69,8 @@ func (h *Handler) GetClusterObservabilityPlane(
 		h.logger.Error("Failed to get cluster observability plane", "error", err)
 		return gen.GetClusterObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	cop.TypeMeta = clusterObservabilityPlaneTypeMeta
 
 	genCOP, err := convert[openchoreov1alpha1.ClusterObservabilityPlane, gen.ClusterObservabilityPlane](*cop)
 	if err != nil {
@@ -97,6 +110,8 @@ func (h *Handler) CreateClusterObservabilityPlane(
 		h.logger.Error("Failed to create cluster observability plane", "error", err)
 		return gen.CreateClusterObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	created.TypeMeta = clusterObservabilityPlaneTypeMeta
 
 	genCOP, err := convert[openchoreov1alpha1.ClusterObservabilityPlane, gen.ClusterObservabilityPlane](*created)
 	if err != nil {
@@ -140,6 +155,8 @@ func (h *Handler) UpdateClusterObservabilityPlane(
 		h.logger.Error("Failed to update cluster observability plane", "error", err)
 		return gen.UpdateClusterObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = clusterObservabilityPlaneTypeMeta
 
 	genCOP, err := convert[openchoreov1alpha1.ClusterObservabilityPlane, gen.ClusterObservabilityPlane](*updated)
 	if err != nil {

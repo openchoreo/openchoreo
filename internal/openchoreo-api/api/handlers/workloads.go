@@ -7,11 +7,18 @@ import (
 	"context"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
 )
+
+var workloadTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Workload",
+}
 
 // ListWorkloads returns a paginated list of workloads within a namespace.
 func (h *Handler) ListWorkloads(
@@ -31,6 +38,10 @@ func (h *Handler) ListWorkloads(
 	if err != nil {
 		h.logger.Error("Failed to list workloads", "error", err)
 		return gen.ListWorkloads500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = workloadTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.Workload, gen.Workload](result.Items)
@@ -78,6 +89,8 @@ func (h *Handler) CreateWorkload(
 		return gen.CreateWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = workloadTypeMeta
+
 	genWorkload, err := convert[openchoreov1alpha1.Workload, gen.Workload](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created workload", "error", err)
@@ -106,6 +119,8 @@ func (h *Handler) GetWorkload(
 		h.logger.Error("Failed to get workload", "error", err)
 		return gen.GetWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	w.TypeMeta = workloadTypeMeta
 
 	genWorkload, err := convert[openchoreov1alpha1.Workload, gen.Workload](*w)
 	if err != nil {
@@ -152,6 +167,8 @@ func (h *Handler) UpdateWorkload(
 		h.logger.Error("Failed to update workload", "error", err)
 		return gen.UpdateWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = workloadTypeMeta
 
 	genWorkload, err := convert[openchoreov1alpha1.Workload, gen.Workload](*updated)
 	if err != nil {

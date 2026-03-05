@@ -9,7 +9,6 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -57,10 +56,6 @@ func (s *releaseBindingService) CreateReleaseBinding(ctx context.Context, namesp
 	}
 
 	// Set defaults
-	rb.TypeMeta = metav1.TypeMeta{
-		Kind:       "ReleaseBinding",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
 	rb.Namespace = namespaceName
 	if rb.Labels == nil {
 		rb.Labels = make(map[string]string)

@@ -8,11 +8,18 @@ import (
 	"encoding/json"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clustertraitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait"
 )
+
+var clusterTraitTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ClusterTrait",
+}
 
 // ListClusterTraits returns a paginated list of cluster-scoped traits.
 func (h *Handler) ListClusterTraits(
@@ -30,6 +37,10 @@ func (h *Handler) ListClusterTraits(
 		}
 		h.logger.Error("Failed to list cluster traits", "error", err)
 		return gen.ListClusterTraits500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = clusterTraitTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.ClusterTrait, gen.ClusterTrait](result.Items)
@@ -74,6 +85,8 @@ func (h *Handler) CreateClusterTrait(
 		return gen.CreateClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = clusterTraitTypeMeta
+
 	genCT, err := convert[openchoreov1alpha1.ClusterTrait, gen.ClusterTrait](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster trait", "error", err)
@@ -117,6 +130,8 @@ func (h *Handler) UpdateClusterTrait(
 		return gen.UpdateClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	updated.TypeMeta = clusterTraitTypeMeta
+
 	genCT, err := convert[openchoreov1alpha1.ClusterTrait, gen.ClusterTrait](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated cluster trait", "error", err)
@@ -145,6 +160,8 @@ func (h *Handler) GetClusterTrait(
 		h.logger.Error("Failed to get cluster trait", "error", err)
 		return gen.GetClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	trait.TypeMeta = clusterTraitTypeMeta
 
 	genTrait, err := convert[openchoreov1alpha1.ClusterTrait, gen.ClusterTrait](*trait)
 	if err != nil {

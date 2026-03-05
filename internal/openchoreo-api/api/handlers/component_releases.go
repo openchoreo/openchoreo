@@ -7,11 +7,18 @@ import (
 	"context"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	componentreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentrelease"
 )
+
+var componentReleaseTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ComponentRelease",
+}
 
 // ListComponentReleases returns a paginated list of component releases within a namespace.
 func (h *Handler) ListComponentReleases(
@@ -31,6 +38,10 @@ func (h *Handler) ListComponentReleases(
 	if err != nil {
 		h.logger.Error("Failed to list component releases", "error", err)
 		return gen.ListComponentReleases500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = componentReleaseTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.ComponentRelease, gen.ComponentRelease](result.Items)
@@ -65,6 +76,8 @@ func (h *Handler) GetComponentRelease(
 		h.logger.Error("Failed to get component release", "error", err)
 		return gen.GetComponentRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	cr.TypeMeta = componentReleaseTypeMeta
 
 	genCR, err := convert[openchoreov1alpha1.ComponentRelease, gen.ComponentRelease](*cr)
 	if err != nil {

@@ -7,11 +7,18 @@ import (
 	"context"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
 )
+
+var releaseBindingTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ReleaseBinding",
+}
 
 // ListReleaseBindings returns a paginated list of release bindings within a namespace.
 func (h *Handler) ListReleaseBindings(
@@ -37,6 +44,10 @@ func (h *Handler) ListReleaseBindings(
 		}
 		h.logger.Error("Failed to list release bindings", "error", err)
 		return gen.ListReleaseBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = releaseBindingTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.ReleaseBinding, gen.ReleaseBinding](result.Items)
@@ -90,6 +101,8 @@ func (h *Handler) CreateReleaseBinding(
 		return gen.CreateReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = releaseBindingTypeMeta
+
 	genRB, err := convert[openchoreov1alpha1.ReleaseBinding, gen.ReleaseBinding](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created release binding", "error", err)
@@ -118,6 +131,8 @@ func (h *Handler) GetReleaseBinding(
 		h.logger.Error("Failed to get release binding", "error", err)
 		return gen.GetReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	rb.TypeMeta = releaseBindingTypeMeta
 
 	genRB, err := convert[openchoreov1alpha1.ReleaseBinding, gen.ReleaseBinding](*rb)
 	if err != nil {
@@ -168,6 +183,8 @@ func (h *Handler) UpdateReleaseBinding(
 		h.logger.Error("Failed to update release binding", "error", err)
 		return gen.UpdateReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = releaseBindingTypeMeta
 
 	genRB, err := convert[openchoreov1alpha1.ReleaseBinding, gen.ReleaseBinding](*updated)
 	if err != nil {
