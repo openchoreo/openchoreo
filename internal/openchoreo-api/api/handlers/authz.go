@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -14,6 +16,26 @@ import (
 	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
+
+var authzClusterRoleTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "AuthzClusterRole",
+}
+
+var authzRoleTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "AuthzRole",
+}
+
+var authzClusterRoleBindingTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "AuthzClusterRoleBinding",
+}
+
+var authzRoleBindingTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "AuthzRoleBinding",
+}
 
 // Helper functions to safely dereference pointers
 func getStringValue(s *string) string {
@@ -261,6 +283,10 @@ func (h *Handler) ListClusterRoles(
 		return gen.ListClusterRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	for i := range result.Items {
+		result.Items[i].TypeMeta = authzClusterRoleTypeMeta
+	}
+
 	items, err := convertList[openchoreov1alpha1.AuthzClusterRole, gen.AuthzClusterRole](result.Items)
 	if err != nil {
 		h.logger.Error("Failed to convert cluster roles", "error", err)
@@ -299,6 +325,8 @@ func (h *Handler) CreateClusterRole(
 		return gen.CreateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = authzClusterRoleTypeMeta
+
 	genRole, err := convert[openchoreov1alpha1.AuthzClusterRole, gen.AuthzClusterRole](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster role", "error", err)
@@ -327,6 +355,8 @@ func (h *Handler) GetClusterRole(
 		h.logger.Error("Failed to get cluster role", "error", err)
 		return gen.GetClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	role.TypeMeta = authzClusterRoleTypeMeta
 
 	genRole, err := convert[openchoreov1alpha1.AuthzClusterRole, gen.AuthzClusterRole](*role)
 	if err != nil {
@@ -367,6 +397,8 @@ func (h *Handler) UpdateClusterRole(
 		h.logger.Error("Failed to update cluster role", "error", err)
 		return gen.UpdateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = authzClusterRoleTypeMeta
 
 	genRole, err := convert[openchoreov1alpha1.AuthzClusterRole, gen.AuthzClusterRole](*updated)
 	if err != nil {
@@ -423,6 +455,10 @@ func (h *Handler) ListClusterRoleBindings(
 		return gen.ListClusterRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	for i := range result.Items {
+		result.Items[i].TypeMeta = authzClusterRoleBindingTypeMeta
+	}
+
 	items, err := convertList[openchoreov1alpha1.AuthzClusterRoleBinding, gen.AuthzClusterRoleBinding](result.Items)
 	if err != nil {
 		h.logger.Error("Failed to convert cluster role bindings", "error", err)
@@ -464,6 +500,8 @@ func (h *Handler) CreateClusterRoleBinding(
 		return gen.CreateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = authzClusterRoleBindingTypeMeta
+
 	genBinding, err := convert[openchoreov1alpha1.AuthzClusterRoleBinding, gen.AuthzClusterRoleBinding](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster role binding", "error", err)
@@ -492,6 +530,8 @@ func (h *Handler) GetClusterRoleBinding(
 		h.logger.Error("Failed to get cluster role binding", "error", err)
 		return gen.GetClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	binding.TypeMeta = authzClusterRoleBindingTypeMeta
 
 	genBinding, err := convert[openchoreov1alpha1.AuthzClusterRoleBinding, gen.AuthzClusterRoleBinding](*binding)
 	if err != nil {
@@ -532,6 +572,8 @@ func (h *Handler) UpdateClusterRoleBinding(
 		h.logger.Error("Failed to update cluster role binding", "error", err)
 		return gen.UpdateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = authzClusterRoleBindingTypeMeta
 
 	genBinding, err := convert[openchoreov1alpha1.AuthzClusterRoleBinding, gen.AuthzClusterRoleBinding](*updated)
 	if err != nil {
@@ -585,6 +627,10 @@ func (h *Handler) ListNamespaceRoles(
 		return gen.ListNamespaceRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	for i := range result.Items {
+		result.Items[i].TypeMeta = authzRoleTypeMeta
+	}
+
 	items, err := convertList[openchoreov1alpha1.AuthzRole, gen.AuthzRole](result.Items)
 	if err != nil {
 		h.logger.Error("Failed to convert namespace roles", "error", err)
@@ -623,6 +669,8 @@ func (h *Handler) CreateNamespaceRole(
 		return gen.CreateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = authzRoleTypeMeta
+
 	genRole, err := convert[openchoreov1alpha1.AuthzRole, gen.AuthzRole](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created namespace role", "error", err)
@@ -651,6 +699,8 @@ func (h *Handler) GetNamespaceRole(
 		h.logger.Error("Failed to get namespace role", "error", err)
 		return gen.GetNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	role.TypeMeta = authzRoleTypeMeta
 
 	genRole, err := convert[openchoreov1alpha1.AuthzRole, gen.AuthzRole](*role)
 	if err != nil {
@@ -691,6 +741,8 @@ func (h *Handler) UpdateNamespaceRole(
 		h.logger.Error("Failed to update namespace role", "error", err)
 		return gen.UpdateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = authzRoleTypeMeta
 
 	genRole, err := convert[openchoreov1alpha1.AuthzRole, gen.AuthzRole](*updated)
 	if err != nil {
@@ -747,6 +799,10 @@ func (h *Handler) ListNamespaceRoleBindings(
 		return gen.ListNamespaceRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	for i := range result.Items {
+		result.Items[i].TypeMeta = authzRoleBindingTypeMeta
+	}
+
 	items, err := convertList[openchoreov1alpha1.AuthzRoleBinding, gen.AuthzRoleBinding](result.Items)
 	if err != nil {
 		h.logger.Error("Failed to convert namespace role bindings", "error", err)
@@ -785,6 +841,8 @@ func (h *Handler) CreateNamespaceRoleBinding(
 		return gen.CreateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = authzRoleBindingTypeMeta
+
 	genBinding, err := convert[openchoreov1alpha1.AuthzRoleBinding, gen.AuthzRoleBinding](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created namespace role binding", "error", err)
@@ -813,6 +871,8 @@ func (h *Handler) GetNamespaceRoleBinding(
 		h.logger.Error("Failed to get namespace role binding", "error", err)
 		return gen.GetNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	binding.TypeMeta = authzRoleBindingTypeMeta
 
 	genBinding, err := convert[openchoreov1alpha1.AuthzRoleBinding, gen.AuthzRoleBinding](*binding)
 	if err != nil {
@@ -853,6 +913,8 @@ func (h *Handler) UpdateNamespaceRoleBinding(
 		h.logger.Error("Failed to update namespace role binding", "error", err)
 		return gen.UpdateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = authzRoleBindingTypeMeta
 
 	genBinding, err := convert[openchoreov1alpha1.AuthzRoleBinding, gen.AuthzRoleBinding](*updated)
 	if err != nil {

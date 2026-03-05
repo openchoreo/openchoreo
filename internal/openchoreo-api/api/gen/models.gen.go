@@ -392,6 +392,12 @@ type AuthMechanismConfig struct {
 // AuthzClusterRole Cluster-scoped authorization role (Kubernetes CRD).
 // Defines a set of actions that can be assigned to subjects via role bindings.
 type AuthzClusterRole struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
 	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
 	Metadata ObjectMeta `json:"metadata"`
@@ -403,6 +409,12 @@ type AuthzClusterRole struct {
 // AuthzClusterRoleBinding Cluster-scoped role binding (Kubernetes CRD).
 // Binds a cluster role to a subject identified by an entitlement claim.
 type AuthzClusterRoleBinding struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
 	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
 	Metadata ObjectMeta `json:"metadata"`
@@ -468,6 +480,12 @@ type AuthzEntitlementClaim struct {
 // AuthzRole Namespace-scoped authorization role (Kubernetes CRD).
 // Defines a set of actions that can be assigned to subjects via role bindings within a namespace.
 type AuthzRole struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
 	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
 	Metadata ObjectMeta `json:"metadata"`
@@ -479,6 +497,12 @@ type AuthzRole struct {
 // AuthzRoleBinding Namespace-scoped role binding (Kubernetes CRD).
 // Binds a role to a subject identified by an entitlement claim within a namespace.
 type AuthzRoleBinding struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
 	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
 	Metadata ObjectMeta `json:"metadata"`

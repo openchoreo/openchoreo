@@ -8431,6 +8431,16 @@ components:
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: AuthzClusterRole
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -8475,6 +8485,16 @@ components:
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: AuthzRole
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -8519,6 +8539,16 @@ components:
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: AuthzClusterRoleBinding
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
@@ -8564,6 +8594,16 @@ components:
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: AuthzRoleBinding
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
