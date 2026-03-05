@@ -1099,6 +1099,13 @@ openchoreoApi:
                 - "alerts:view"
                 - "traces:view"
 
+            # Workflow role for creating workloads from CI workflows
+            - name: workflow
+              actions:
+                - "workload:create"
+                - "workflowrun:view"
+                - "workflowrun:update"
+
             # Observer service role for resolving resource UIDs
             - name: observer
               actions:
@@ -1180,6 +1187,15 @@ openchoreoApi:
               entitlement:
                 claim: sub
                 value: openchoreo-rca-agent
+              effect: allow
+
+            # Workflow mapping - grants workflow service account workload creation access
+            - name: workflow-binding
+              roleRef:
+                name: workflow
+              entitlement:
+                claim: sub
+                value: openchoreo-workflow-client
               effect: allow
 
             # Observer mapping - grants observer service account resource UID resolver access

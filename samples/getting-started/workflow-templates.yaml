@@ -23,11 +23,23 @@ spec:
       inputs:
         parameters:
           - name: image
-      outputs:
-        parameters:
-          - name: workload-cr
-            valueFrom:
-              path: /mnt/vol/workload-cr.yaml
+          # --- IDP / OAuth Configuration ---
+          # Update these when changing your identity provider or its public URL.
+          - name: oauth-token-url
+            default: "http://host.k3d.internal:8080/oauth2/token"
+          - name: oauth-host-header
+            default: "thunder.openchoreo.localhost"
+          - name: oauth-client-id
+            default: "openchoreo-workflow-client"
+          # TODO: Mount the client secret from a Kubernetes secret instead of using a default value.
+          - name: oauth-client-secret
+            default: "openchoreo-workflow-secret"
+          # --- OpenChoreo API Server Configuration ---
+          # Update these when the API server URL or host changes.
+          - name: api-server-url
+            default: "http://host.k3d.internal:8080"
+          - name: api-server-host-header
+            default: "api.openchoreo.localhost"
       container:
         image: ghcr.io/openchoreo/podman-runner:v1.0
         command:
@@ -40,10 +52,10 @@ spec:
             IMAGE={{inputs.parameters.image}}
             PROJECT_NAME={{workflow.parameters.project-name}}
             COMPONENT_NAME={{workflow.parameters.component-name}}
+            NAMESPACE_NAME={{workflow.parameters.namespace-name}}
             APP_PATH="{{workflow.parameters.app-path}}"
 
             DESCRIPTOR_PATH="/mnt/vol/source${APP_PATH:+/${APP_PATH#/}}"
-
             OUTPUT_PATH="/mnt/vol/workload-cr.yaml"
 
             echo "Creating workload with image: ${IMAGE}"
@@ -59,12 +71,14 @@ spec:
             mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
+            # --- Step 1: Generate workload CR using occ ---
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
               echo "Found workload.yaml descriptor, using it for workload creation"
               podman run --rm --network=none \
               -v $DESCRIPTOR_PATH:/app:rw -w /app \
               ghcr.io/openchoreo/openchoreo-cli:latest-dev \
                 workload create \
+                --namespace "${NAMESPACE_NAME}" \
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
                 --image "${IMAGE}" \
@@ -76,6 +90,7 @@ spec:
               -v $DESCRIPTOR_PATH:/app:rw -w /app \
               ghcr.io/openchoreo/openchoreo-cli:latest-dev \
                 workload create \
+                --namespace "${NAMESPACE_NAME}" \
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
                 --image "${IMAGE}" \
@@ -83,12 +98,63 @@ spec:
             fi
 
             cp -f "${DESCRIPTOR_PATH}/workload-cr.yaml" "${OUTPUT_PATH}"
+
+            # --- Step 2: Convert workload CR YAML to JSON (strip apiVersion and kind) ---
+             podman run --rm \
+               -v /mnt/vol:/data:rw \
+               mikefarah/yq -o=json 'del(.apiVersion) | del(.kind)' /data/workload-cr.yaml \
+               > /mnt/vol/workload-cr.json
+            echo "Generated workload JSON payload:"
+            cat /mnt/vol/workload-cr.json
+
+            # --- Step 3: Get OAuth token ---
+            OAUTH_URL="{{inputs.parameters.oauth-token-url}}"
+            OAUTH_HOST="{{inputs.parameters.oauth-host-header}}"
+            CLIENT_ID="{{inputs.parameters.oauth-client-id}}"
+            CLIENT_SECRET="{{inputs.parameters.oauth-client-secret}}"
+
+            echo "Requesting OAuth token from ${OAUTH_URL}..."
+            TOKEN_RESPONSE=$(curl -s --fail-with-body \
+              -X POST "${OAUTH_URL}" \
+              -H "Host: ${OAUTH_HOST}" \
+              -H "Content-Type: application/x-www-form-urlencoded" \
+              -d "grant_type=client_credentials&client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}")
+
+            ACCESS_TOKEN=$(echo "${TOKEN_RESPONSE}" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+
+            if [ -z "${ACCESS_TOKEN}" ]; then
+              echo "Failed to get access token: ${TOKEN_RESPONSE}"
+              exit 1
+            fi
+
+            echo "Successfully obtained access token"
+
+            # --- Step 4: Create workload via API server ---
+            API_URL="{{inputs.parameters.api-server-url}}"
+            API_HOST="{{inputs.parameters.api-server-host-header}}"
+
+            echo "Creating workload via ${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads..."
+            RESPONSE=$(curl -s -w "\n%{http_code}" \
+              -X POST "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads" \
+              -H "Host: ${API_HOST}" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+              -d @/mnt/vol/workload-cr.json)
+
+            HTTP_CODE=$(echo "${RESPONSE}" | tail -1)
+            BODY=$(echo "${RESPONSE}" | sed '$d')
+
+            if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 300 ]; then
+              echo "Workload created successfully (HTTP ${HTTP_CODE}): ${BODY}"
+            else
+              echo "Failed to create workload (HTTP ${HTTP_CODE}): ${BODY}"
+              exit 1
+            fi
         volumeMounts:
           - name: workspace
             mountPath: /mnt/vol
         securityContext:
           privileged: true
-
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
