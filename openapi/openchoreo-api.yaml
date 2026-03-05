@@ -5411,11 +5411,21 @@ components:
     Project:
       type: object
       description: |
-        Project resource (Kubernetes object without kind/apiVersion).
+        Project resource.
         Projects group components within a namespace and reference a deployment pipeline.
       required:
         - metadata
       properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: Project
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:

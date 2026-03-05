@@ -2302,9 +2302,15 @@ type PodLogEntry struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// Project Project resource (Kubernetes object without kind/apiVersion).
+// Project Project resource.
 // Projects group components within a namespace and reference a deployment pipeline.
 type Project struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
 	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
 	Metadata ObjectMeta `json:"metadata"`
@@ -2316,7 +2322,12 @@ type Project struct {
 
 // ProjectList Paginated list of projects
 type ProjectList struct {
-	Items []Project `json:"items"`
+	// ApiVersion API version of the resource list
+	ApiVersion *string   `json:"apiVersion,omitempty"`
+	Items      []Project `json:"items"`
+
+	// Kind Kind of the resource list
+	Kind *string `json:"kind,omitempty"`
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.

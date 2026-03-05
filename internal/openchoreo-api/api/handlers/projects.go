@@ -7,11 +7,18 @@ import (
 	"context"
 	"errors"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 )
+
+var projectTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Project",
+}
 
 // ListProjects returns a paginated list of projects within a namespace.
 func (h *Handler) ListProjects(
@@ -26,6 +33,10 @@ func (h *Handler) ListProjects(
 	if err != nil {
 		h.logger.Error("Failed to list projects", "error", err)
 		return gen.ListProjects500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	for i := range result.Items {
+		result.Items[i].TypeMeta = projectTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.Project, gen.Project](result.Items)
@@ -70,6 +81,8 @@ func (h *Handler) CreateProject(
 		return gen.CreateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	created.TypeMeta = projectTypeMeta
+
 	genProject, err := convert[openchoreov1alpha1.Project, gen.Project](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created project", "error", err)
@@ -98,6 +111,8 @@ func (h *Handler) GetProject(
 		h.logger.Error("Failed to get project", "error", err)
 		return gen.GetProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	project.TypeMeta = projectTypeMeta
 
 	genProject, err := convert[openchoreov1alpha1.Project, gen.Project](*project)
 	if err != nil {
@@ -140,6 +155,8 @@ func (h *Handler) UpdateProject(
 		h.logger.Error("Failed to update project", "error", err)
 		return gen.UpdateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	updated.TypeMeta = projectTypeMeta
 
 	genProject, err := convert[openchoreov1alpha1.Project, gen.Project](*updated)
 	if err != nil {

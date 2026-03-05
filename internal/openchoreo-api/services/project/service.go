@@ -9,7 +9,6 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -54,11 +53,6 @@ func (s *projectService) CreateProject(ctx context.Context, namespaceName string
 		return nil, ErrProjectAlreadyExists
 	}
 
-	// Set defaults
-	project.TypeMeta = metav1.TypeMeta{
-		Kind:       "Project",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
 	project.Namespace = namespaceName
 	if project.Spec.DeploymentPipelineRef == "" {
 		project.Spec.DeploymentPipelineRef = defaultPipeline
