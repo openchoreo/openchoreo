@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
@@ -35,11 +36,22 @@ func (h *Handler) GetReleaseBindingK8sResourceTree(
 			h.logger.Error("Failed to convert resource nodes", "error", err)
 			return gen.GetReleaseBindingK8sResourceTree500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 		}
-		genReleases = append(genReleases, gen.ReleaseResourceTree{
+		entry := gen.ReleaseResourceTree{
 			Name:        r.Name,
 			TargetPlane: gen.ReleaseResourceTreeTargetPlane(r.TargetPlane),
 			Nodes:       nodes,
-		})
+		}
+
+		if r.Release != nil {
+			genRelease, err := convert[openchoreov1alpha1.Release, gen.Release](*r.Release)
+			if err != nil {
+				h.logger.Error("Failed to convert release", "error", err)
+				return gen.GetReleaseBindingK8sResourceTree500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+			}
+			entry.Release = &genRelease
+		}
+
+		genReleases = append(genReleases, entry)
 	}
 
 	return gen.GetReleaseBindingK8sResourceTree200JSONResponse{

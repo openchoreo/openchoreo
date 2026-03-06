@@ -2566,6 +2566,9 @@ type ReleaseResourceTree struct {
 	// Nodes All resource nodes in the tree
 	Nodes []ResourceNode `json:"nodes"`
 
+	// Release Full Release CR (metadata + spec + status). Same structure as returned by GET /releases/{releaseName}.
+	Release *Release `json:"release,omitempty"`
+
 	// TargetPlane Target plane of the release
 	TargetPlane ReleaseResourceTreeTargetPlane `json:"targetPlane"`
 }

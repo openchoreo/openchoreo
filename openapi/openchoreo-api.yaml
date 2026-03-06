@@ -8281,6 +8281,12 @@ components:
           description: All resource nodes in the tree
           items:
             $ref: '#/components/schemas/ResourceNode'
+        release:
+          description: >
+            Full Release CR (metadata + spec + status). Same structure as
+            returned by GET /releases/{releaseName}.
+          allOf:
+            - $ref: '#/components/schemas/Release'
 
     # -------------------------------------------------------------------------
     # Deploy/Promote Requests
