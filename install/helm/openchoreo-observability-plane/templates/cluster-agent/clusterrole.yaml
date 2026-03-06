@@ -27,6 +27,7 @@ rules:
 - apiGroups: [""]
   resources:
   - pods
+  - events
   verbs: ["get", "list"]
 # OpenChoreo Observability Plane resources
 - apiGroups: ["openchoreo.dev"]
