@@ -174,11 +174,22 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 		SortOrder:     req.Sort,
 	}
 
-	// Query spans using the default adaptor (for now, external adapter not supported for span queries)
+	// Route to tracing adapter or OpenSearch
+	if s.config.Adapters.TracingAdapterEnabled && s.tracingAdapter != nil {
+		s.logger.Debug("Using tracing adapter for span query")
+		spansResult, err := s.tracingAdapter.GetSpans(ctx, traceID, params)
+		if err != nil {
+			s.logger.Error("Failed to retrieve spans", "error", err)
+			return nil, fmt.Errorf("%w: %w", ErrTracesRetrieval, err)
+		}
+		return s.convertAdapterSpansToResponse(spansResult), nil
+	}
+
 	if s.defaultAdaptor == nil {
 		return nil, fmt.Errorf("%w: default traces adaptor not initialized", ErrTracesRetrieval)
 	}
 
+	s.logger.Debug("Using default adaptor (OpenSearch) for span query")
 	result, err := s.defaultAdaptor.GetTraces(ctx, params)
 	if err != nil {
 		s.logger.Error("Failed to retrieve spans", "error", err)
@@ -201,11 +212,34 @@ func (s *TracesService) GetSpanDetails(ctx context.Context, traceID string, span
 		"traceId", traceID,
 		"spanId", spanID)
 
-	// Query using the default adaptor
+	// Route to tracing adapter or OpenSearch
+	if s.config.Adapters.TracingAdapterEnabled && s.tracingAdapter != nil {
+		s.logger.Debug("Using tracing adapter for span details")
+		detail, err := s.tracingAdapter.GetSpanDetails(ctx, traceID, spanID)
+		if err != nil {
+			s.logger.Error("Failed to retrieve span details", "error", err)
+			if errors.Is(err, ErrSpanNotFound) {
+				return nil, err
+			}
+			return nil, fmt.Errorf("%w: %w", ErrTracesRetrieval, err)
+		}
+		return &types.SpanInfo{
+			SpanID:             detail.SpanID,
+			SpanName:           detail.SpanName,
+			ParentSpanID:       detail.ParentSpanID,
+			StartTime:          &detail.StartTime,
+			EndTime:            &detail.EndTime,
+			DurationNs:         detail.DurationNs,
+			Attributes:         detail.Attributes,
+			ResourceAttributes: detail.ResourceAttributes,
+		}, nil
+	}
+
 	if s.defaultAdaptor == nil {
 		return nil, fmt.Errorf("%w: default traces adaptor not initialized", ErrTracesRetrieval)
 	}
 
+	s.logger.Debug("Using default adaptor (OpenSearch) for span details")
 	span, err := s.defaultAdaptor.GetSpanDetails(ctx, traceID, spanID)
 	if err != nil {
 		s.logger.Error("Failed to retrieve span details", "error", err)
@@ -279,6 +313,30 @@ func (s *TracesService) convertSpansToResponse(result *observability.TracesQuery
 	return &types.SpansQueryResponse{
 		Spans:  spans,
 		Total:  len(spans),
+		TookMs: result.Took,
+	}
+}
+
+func (s *TracesService) convertAdapterSpansToResponse(result *observability.SpansResult) *types.SpansQueryResponse {
+	spans := make([]types.SpanInfo, 0, len(result.Spans))
+	for _, span := range result.Spans {
+		startTime := span.StartTime
+		endTime := span.EndTime
+		spans = append(spans, types.SpanInfo{
+			SpanID:             span.SpanID,
+			SpanName:           span.Name,
+			ParentSpanID:       span.ParentSpanID,
+			StartTime:          &startTime,
+			EndTime:            &endTime,
+			DurationNs:         span.DurationNs,
+			Attributes:         span.Attributes,
+			ResourceAttributes: span.ResourceAttributes,
+		})
+	}
+
+	return &types.SpansQueryResponse{
+		Spans:  spans,
+		Total:  result.TotalCount,
 		TookMs: result.Took,
 	}
 }

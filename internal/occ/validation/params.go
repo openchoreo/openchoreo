@@ -17,12 +17,8 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateProjectParams(cmdType, params)
 	case ResourceComponent:
 		return validateComponentParams(cmdType, params)
-	case ResourceBuild:
-		return validateBuildParams(cmdType, params)
 	case ResourceDeployment:
 		return validateDeploymentParams(cmdType, params)
-	case ResourceDeploymentTrack:
-		return validateDeploymentTrackParams(cmdType, params)
 	case ResourceEnvironment:
 		return validateEnvironmentParams(cmdType, params)
 	case ResourceDeployableArtifact:
@@ -37,8 +33,6 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateLogParams(cmdType, params)
 	case ResourceDeploymentPipeline:
 		return validateDeploymentPipelineParams(cmdType, params)
-	case ResourceConfigurationGroup:
-		return validateConfigurationGroupParams(cmdType, params)
 	case ResourceWorkload:
 		return validateWorkloadParams(cmdType, params)
 	case ResourceBuildPlane:
@@ -180,39 +174,6 @@ func validateDeployComponentParams(params interface{}) error {
 	return nil
 }
 
-// validateBuildParams validates parameters for build operations
-func validateBuildParams(cmdType CommandType, params interface{}) error {
-	switch cmdType {
-	case CmdCreate:
-		if p, ok := params.(api.CreateBuildParams); ok {
-			// All required fields
-			requiredFields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-				"component": p.Component,
-				"name":      p.Name,
-			}
-
-			if !checkRequiredFields(requiredFields) {
-				return generateHelpError(cmdType, ResourceBuild, requiredFields)
-			}
-		}
-
-	case CmdGet:
-		if p, ok := params.(api.GetBuildParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-				"component": p.Component,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceBuild, fields)
-			}
-		}
-	}
-	return nil
-}
-
 // validateDeploymentParams validates parameters for deployment operations
 func validateDeploymentParams(cmdType CommandType, params interface{}) error {
 	switch cmdType {
@@ -236,35 +197,6 @@ func validateDeploymentParams(cmdType CommandType, params interface{}) error {
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDeployment, fields)
-			}
-		}
-	}
-	return nil
-}
-
-// validateDeploymentTrackParams validates parameters for deployment track operations
-func validateDeploymentTrackParams(cmdType CommandType, params interface{}) error {
-	switch cmdType {
-	case CmdCreate:
-		if p, ok := params.(api.CreateDeploymentTrackParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-				"component": p.Component,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceDeploymentTrack, fields)
-			}
-		}
-	case CmdGet:
-		if p, ok := params.(api.GetDeploymentTrackParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-				"project":   p.Project,
-				"component": p.Component,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceDeploymentTrack, fields)
 			}
 		}
 	}
@@ -497,20 +429,6 @@ func validateDeleteDeploymentPipelineParams(params interface{}) error {
 		}
 		if !checkRequiredFields(fields) {
 			return generateHelpError(CmdDelete, ResourceDeploymentPipeline, fields)
-		}
-	}
-	return nil
-}
-
-func validateConfigurationGroupParams(cmdType CommandType, params interface{}) error {
-	if cmdType == CmdGet {
-		if p, ok := params.(api.GetConfigurationGroupParams); ok {
-			fields := map[string]string{
-				"namespace": p.Namespace,
-			}
-			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceConfigurationGroup, fields)
-			}
 		}
 	}
 	return nil

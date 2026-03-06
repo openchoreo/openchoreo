@@ -26,7 +26,6 @@ import (
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterbuildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clustercomponenttype"
@@ -38,9 +37,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
-	"github.com/openchoreo/openchoreo/internal/controller/deploymenttrack"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
-	"github.com/openchoreo/openchoreo/internal/controller/gitcommitrequest"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertrule"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertsnotificationchannel"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityplane"
@@ -123,12 +120,6 @@ func setupControlPlaneControllers(
 			K8sClientMgr: k8sClientMgr,
 			Scheme:       mgr.GetScheme(),
 			GatewayURL:   clusterGatewayURL,
-		}).SetupWithManager(mgr); err != nil {
-			return err
-		}
-		if err := (&deploymenttrack.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr); err != nil {
 			return err
 		}
@@ -228,13 +219,6 @@ func setupControlPlaneControllers(
 		return err
 	}
 
-	if err := (&gitcommitrequest.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
 	if err := (&release.Reconciler{
 		Client:              mgr.GetClient(),
 		K8sClientMgr:        k8sClientMgr,
@@ -258,15 +242,6 @@ func setupControlPlaneControllers(
 		Scheme:       mgr.GetScheme(),
 		GatewayURL:   clusterGatewayURL,
 		Pipeline:     workflowpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&build.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}

@@ -57,7 +57,6 @@ func (h *Handler) CreateTrait(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateTrait400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	tCR.Status = openchoreov1alpha1.TraitStatus{}
 
 	created, err := h.services.TraitService.CreateTrait(ctx, request.NamespaceName, &tCR)
 	if err != nil {
@@ -125,7 +124,6 @@ func (h *Handler) UpdateTrait(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateTrait400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	tCR.Status = openchoreov1alpha1.TraitStatus{}
 
 	// Ensure the name from the URL path is used
 	tCR.Name = request.TraitName

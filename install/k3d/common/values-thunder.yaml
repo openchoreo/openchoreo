@@ -91,18 +91,18 @@ bootstrap:
       fi
       log_info "Using organization unit ID: $ORG_UNIT_ID"
 
-      log_info "Checking if user schema 'engineer' already exists..."
+      log_info "Checking if user schema 'openchoreo-user' already exists..."
       existing_schemas=$(curl -s --max-time 10 "${THUNDER_URL}/user-schemas")
 
-      if echo "$existing_schemas" | grep -q '"name" *: *"engineer"'; then
-        log_info "User schema 'engineer' already exists, skipping creation"
+      if echo "$existing_schemas" | grep -q '"name" *: *"openchoreo-user"'; then
+        log_info "User schema 'openchoreo-user' already exists, skipping creation"
       else
         log_info "User schema does not exist, creating user schema..."
         curl --location "${THUNDER_URL}/user-schemas" \
           --header 'accept: application/json' \
           --header 'Content-Type: application/json' \
           --data "{
-            \"name\": \"engineer\",
+            \"name\": \"openchoreo-user\",
             \"ouId\": \"$ORG_UNIT_ID\",
             \"allowSelfRegistration\": true,
             \"schema\": {
@@ -143,7 +143,7 @@ bootstrap:
           --header 'accept: application/json' \
           --header 'Content-Type: application/json' \
           --data "{
-            \"type\": \"engineer\",
+            \"type\": \"openchoreo-user\",
             \"organizationUnit\": \"$ORG_UNIT_ID\",
             \"attributes\": {
               \"username\": \"admin@openchoreo.dev\",
@@ -161,13 +161,13 @@ bootstrap:
         USER_ID_0=$(echo "$USER_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
       fi
 
-      log_info "Checking if group 'platformEngineer' already exists..."
+      log_info "Checking if group 'admins' already exists..."
       existing_groups=$(curl -s --max-time 10 "${THUNDER_URL}/groups")
 
-      if echo "$existing_groups" | grep -q '"name" *: *"platformEngineer"'; then
-        log_info "Group 'platformEngineer' already exists, skipping creation"
+      if echo "$existing_groups" | grep -q '"name" *: *"admins"'; then
+        log_info "Group 'admins' already exists, skipping creation"
       else
-        log_info "Group does not exist, creating group 'platformEngineer' with members..."
+        log_info "Group does not exist, creating group 'admins' with members..."
         GROUP_MEMBERS=""
         if [ -n "$USER_ID_0" ]; then
           GROUP_MEMBERS="{\"type\":\"user\",\"id\":\"$USER_ID_0\"}"
@@ -176,9 +176,9 @@ bootstrap:
           --header 'accept: application/json' \
           --header 'Content-Type: application/json' \
           --data "{
-            \"name\": \"platformEngineer\",
+            \"name\": \"admins\",
             \"organizationUnitId\": \"$ORG_UNIT_ID\",
-            \"description\": \"platformEngineer group\",
+            \"description\": \"Admins group\",
             \"members\": [$GROUP_MEMBERS]
           }" \
           --fail-with-body \
@@ -186,7 +186,7 @@ bootstrap:
           --retry 3 \
           --retry-delay 5
 
-        log_info "Group 'platformEngineer' created successfully with members"
+        log_info "Group 'admins' created successfully with members"
       fi
 
     51-backstage-app.sh: |
@@ -203,7 +203,7 @@ bootstrap:
       APP_PAYLOAD='{
         "name": "Backstage",
         "description": "OpenChoreo Backstage Portal",
-        "allowed_user_types": ["engineer"],
+        "allowed_user_types": ["openchoreo-user"],
         "assertion": {
           "validity_period": 3600
         },
@@ -293,14 +293,14 @@ bootstrap:
 
       THUNDER_URL="http://localhost:8090"
 
-      log_info "Checking if application with client ID 'customer-portal-client' already exists..."
+      log_info "Checking if application 'Customer Portal' already exists..."
       existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
 
       app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"client_id":"customer-portal-client"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"customer-portal-client"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
       APP_PAYLOAD='{
-        "name": "Default App",
-        "description": "Default Application",
+        "name": "Customer Portal",
+        "description": "Customer Portal Application",
         "inbound_auth_config": [
           {
             "type": "oauth2",
@@ -324,7 +324,7 @@ bootstrap:
       }'
 
       if [ -n "$app_id" ]; then
-        log_info "Application with client ID 'customer-portal-client' already exists (id: $app_id), updating..."
+        log_info "Application 'Customer Portal' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
           --data "$APP_PAYLOAD" \
@@ -335,7 +335,7 @@ bootstrap:
 
         log_info "Application updated successfully"
       else
-        log_info "Application does not exist, creating application with client ID 'customer-portal-client'..."
+        log_info "Application 'Customer Portal' does not exist, creating..."
         curl --location "${THUNDER_URL}/applications" \
           --header 'Content-Type: application/json' \
           --data "$APP_PAYLOAD" \
@@ -421,7 +421,7 @@ bootstrap:
       APP_PAYLOAD='{
         "name": "OpenChoreo CLI",
         "description": "OpenChoreo CLI Default Application",
-        "allowed_user_types": ["engineer"],
+        "allowed_user_types": ["openchoreo-user"],
         "assertion": {
           "validity_period": 3600
         },
@@ -578,7 +578,7 @@ bootstrap:
       APP_PAYLOAD='{
         "name": "User MCP App",
         "description": "User MCP app to be used by terminals and user facing AI agents",
-        "allowed_user_types": ["engineer"],
+        "allowed_user_types": ["openchoreo-user"],
         "assertion": {
           "validity_period": 3600
         },

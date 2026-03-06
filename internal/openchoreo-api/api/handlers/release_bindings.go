@@ -73,7 +73,6 @@ func (h *Handler) CreateReleaseBinding(
 		return gen.CreateReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest("Namespace in body does not match path")}, nil
 	}
 	rbCR.Namespace = request.NamespaceName
-	rbCR.Status = openchoreov1alpha1.ReleaseBindingStatus{}
 
 	created, err := h.services.ReleaseBindingService.CreateReleaseBinding(ctx, request.NamespaceName, &rbCR)
 	if err != nil {
@@ -148,7 +147,6 @@ func (h *Handler) UpdateReleaseBinding(
 		return gen.UpdateReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest("Namespace in body does not match path")}, nil
 	}
 	rbCR.Namespace = request.NamespaceName
-	rbCR.Status = openchoreov1alpha1.ReleaseBindingStatus{}
 
 	// Ensure the name from the URL path is used
 	rbCR.Name = request.ReleaseBindingName

@@ -12,6 +12,29 @@ import (
 type TracingAdapter interface {
 	// GetTraces retrieves traces based on query parameters
 	GetTraces(ctx context.Context, params TracesQueryParams) (*TracesQueryResult, error)
+	// GetSpans retrieves spans for a specific trace
+	GetSpans(ctx context.Context, traceID string, params TracesQueryParams) (*SpansResult, error)
+	// GetSpanDetails retrieves detailed information about a specific span
+	GetSpanDetails(ctx context.Context, traceID string, spanID string) (*SpanDetail, error)
+}
+
+// SpanDetail represents detailed information about a single span
+type SpanDetail struct {
+	SpanID             string                 `json:"spanId"`
+	SpanName           string                 `json:"spanName"`
+	ParentSpanID       string                 `json:"parentSpanId,omitempty"`
+	StartTime          time.Time              `json:"startTime"`
+	EndTime            time.Time              `json:"endTime"`
+	DurationNs         int64                  `json:"durationNs"`
+	Attributes         map[string]interface{} `json:"attributes,omitempty"`
+	ResourceAttributes map[string]interface{} `json:"resourceAttributes,omitempty"`
+}
+
+// SpansResult defines the result structure for span queries
+type SpansResult struct {
+	Spans      []TraceSpan `json:"spans"`
+	TotalCount int         `json:"totalCount"`
+	Took       int         `json:"tookMs"`
 }
 
 // TracesQueryParams defines parameters for querying traces

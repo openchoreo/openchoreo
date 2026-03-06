@@ -16,6 +16,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
+var deploymentPipelineTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "DeploymentPipeline",
+}
+
 // deploymentPipelineService handles deployment pipeline business logic without authorization checks.
 // Other services within this layer should use this directly to avoid double authz.
 type deploymentPipelineService struct {
@@ -51,10 +56,7 @@ func (s *deploymentPipelineService) CreateDeploymentPipeline(ctx context.Context
 	}
 
 	// Set defaults
-	dp.TypeMeta = metav1.TypeMeta{
-		Kind:       "DeploymentPipeline",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
+	dp.Status = openchoreov1alpha1.DeploymentPipelineStatus{}
 	dp.Namespace = namespaceName
 	if err := s.k8sClient.Create(ctx, dp); err != nil {
 		if apierrors.IsAlreadyExists(err) {
@@ -66,6 +68,7 @@ func (s *deploymentPipelineService) CreateDeploymentPipeline(ctx context.Context
 	}
 
 	s.logger.Debug("Deployment pipeline created successfully", "namespace", namespaceName, "deploymentPipeline", dp.Name)
+	dp.TypeMeta = deploymentPipelineTypeMeta
 	return dp, nil
 }
 
@@ -86,6 +89,9 @@ func (s *deploymentPipelineService) UpdateDeploymentPipeline(ctx context.Context
 		return nil, fmt.Errorf("failed to get deployment pipeline: %w", err)
 	}
 
+	// Clear status from user input — status is server-managed
+	dp.Status = openchoreov1alpha1.DeploymentPipelineStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = dp.Spec
 	existing.Labels = dp.Labels
@@ -97,6 +103,7 @@ func (s *deploymentPipelineService) UpdateDeploymentPipeline(ctx context.Context
 	}
 
 	s.logger.Debug("Deployment pipeline updated successfully", "namespace", namespaceName, "deploymentPipeline", dp.Name)
+	existing.TypeMeta = deploymentPipelineTypeMeta
 	return existing, nil
 }
 
@@ -117,6 +124,10 @@ func (s *deploymentPipelineService) ListDeploymentPipelines(ctx context.Context,
 	if err := s.k8sClient.List(ctx, &dpList, listOpts...); err != nil {
 		s.logger.Error("Failed to list deployment pipelines", "error", err)
 		return nil, fmt.Errorf("failed to list deployment pipelines: %w", err)
+	}
+
+	for i := range dpList.Items {
+		dpList.Items[i].TypeMeta = deploymentPipelineTypeMeta
 	}
 
 	result := &services.ListResult[openchoreov1alpha1.DeploymentPipeline]{
@@ -150,6 +161,7 @@ func (s *deploymentPipelineService) GetDeploymentPipeline(ctx context.Context, n
 		return nil, fmt.Errorf("failed to get deployment pipeline: %w", err)
 	}
 
+	dp.TypeMeta = deploymentPipelineTypeMeta
 	return dp, nil
 }
 

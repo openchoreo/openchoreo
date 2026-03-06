@@ -56,7 +56,6 @@ func (h *Handler) CreateSecretReference(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateSecretReference400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	srCR.Status = openchoreov1alpha1.SecretReferenceStatus{}
 
 	created, err := h.services.SecretReferenceService.CreateSecretReference(ctx, request.NamespaceName, &srCR)
 	if err != nil {
@@ -124,7 +123,6 @@ func (h *Handler) UpdateSecretReference(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateSecretReference400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	srCR.Status = openchoreov1alpha1.SecretReferenceStatus{}
 
 	// Ensure the name from the URL path is used
 	srCR.Name = request.SecretReferenceName

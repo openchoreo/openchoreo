@@ -14,13 +14,15 @@ func TestNewTracingAdapter_DefaultTimeout(t *testing.T) {
 		Timeout: 0, // Should use default
 	}
 
-	adapter := NewTracingAdapter(config)
+	adapter, err := NewTracingAdapter(config)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
 	if adapter == nil {
 		t.Fatal("Expected non-nil adapter")
 	}
-
-	if adapter.httpClient.Timeout != 30*time.Second {
-		t.Errorf("Expected timeout 30s, got %v", adapter.httpClient.Timeout)
+	if adapter.client == nil {
+		t.Fatal("Expected non-nil client")
 	}
 }
 
@@ -30,45 +32,50 @@ func TestNewTracingAdapter_CustomTimeout(t *testing.T) {
 		Timeout: 60 * time.Second,
 	}
 
-	adapter := NewTracingAdapter(config)
+	adapter, err := NewTracingAdapter(config)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
 	if adapter == nil {
 		t.Fatal("Expected non-nil adapter")
 	}
-
-	if adapter.httpClient.Timeout != 60*time.Second {
-		t.Errorf("Expected timeout 60s, got %v", adapter.httpClient.Timeout)
+	if adapter.client == nil {
+		t.Fatal("Expected non-nil client")
 	}
 }
 
 func TestNewTracingAdapter_BaseURLSet(t *testing.T) {
-	baseURL := "http://traces-adapter.example.com:9000"
 	config := TracingAdapterConfig{
-		BaseURL: baseURL,
+		BaseURL: "http://traces-adapter.example.com:9000",
 		Timeout: 30 * time.Second,
 	}
 
-	adapter := NewTracingAdapter(config)
+	adapter, err := NewTracingAdapter(config)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
 	if adapter == nil {
 		t.Fatal("Expected non-nil adapter")
 	}
-
-	if adapter.baseURL != baseURL {
-		t.Errorf("Expected baseURL %s, got %s", baseURL, adapter.baseURL)
+	if adapter.client == nil {
+		t.Fatal("Expected non-nil client")
 	}
 }
 
-func TestNewTracingAdapter_HTTPClientInitialized(t *testing.T) {
+func TestNewTracingAdapter_ClientInitialized(t *testing.T) {
 	config := TracingAdapterConfig{
 		BaseURL: "http://localhost:8080",
 		Timeout: 30 * time.Second,
 	}
 
-	adapter := NewTracingAdapter(config)
+	adapter, err := NewTracingAdapter(config)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
 	if adapter == nil {
 		t.Fatal("Expected non-nil adapter")
 	}
-
-	if adapter.httpClient == nil {
-		t.Fatal("Expected non-nil httpClient")
+	if adapter.client == nil {
+		t.Fatal("Expected non-nil client")
 	}
 }

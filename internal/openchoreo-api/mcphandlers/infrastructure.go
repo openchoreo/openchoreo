@@ -40,7 +40,3 @@ func (h *MCPHandler) ListBuildPlanes(ctx context.Context, namespaceName string, 
 	}
 	return wrapTransformedList("build_planes", result.Items, result.NextCursor, buildPlaneSummary), nil
 }
-
-func (h *MCPHandler) GetObserverURL(ctx context.Context, namespaceName, envName string) (any, error) {
-	return h.services.EnvironmentService.GetObserverURL(ctx, namespaceName, envName)
-}

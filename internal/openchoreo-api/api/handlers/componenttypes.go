@@ -57,7 +57,6 @@ func (h *Handler) CreateComponentType(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateComponentType400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	ctCR.Status = openchoreov1alpha1.ComponentTypeStatus{}
 
 	created, err := h.services.ComponentTypeService.CreateComponentType(ctx, request.NamespaceName, &ctCR)
 	if err != nil {
@@ -125,7 +124,6 @@ func (h *Handler) UpdateComponentType(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateComponentType400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	ctCR.Status = openchoreov1alpha1.ComponentTypeStatus{}
 
 	// Ensure the name from the URL path is used
 	ctCR.Name = request.CtName

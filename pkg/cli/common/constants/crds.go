@@ -13,17 +13,15 @@ const (
 )
 
 const (
-	LabelNamespace       = "openchoreo.dev/namespace"
-	LabelProject         = "openchoreo.dev/project"
-	LabelComponent       = "openchoreo.dev/component"
-	LabelBuild           = "openchoreo.dev/build"
-	LabelName            = "openchoreo.dev/name"
-	LabelType            = "openchoreo.dev/type"
-	LabelVersion         = "openchoreo.dev/version"
-	LabelArtifact        = "openchoreo.dev/deployment-artifact"
-	LabelDeployment      = "openchoreo.dev/deployment"
-	LabelEnvironment     = "openchoreo.dev/environment"
-	LabelDeploymentTrack = "openchoreo.dev/deployment-track"
+	LabelNamespace   = "openchoreo.dev/namespace"
+	LabelProject     = "openchoreo.dev/project"
+	LabelComponent   = "openchoreo.dev/component"
+	LabelName        = "openchoreo.dev/name"
+	LabelType        = "openchoreo.dev/type"
+	LabelVersion     = "openchoreo.dev/version"
+	LabelArtifact    = "openchoreo.dev/deployment-artifact"
+	LabelDeployment  = "openchoreo.dev/deployment"
+	LabelEnvironment = "openchoreo.dev/environment"
 )
 const (
 	AnnotationDescription = "openchoreo.dev/description"
@@ -72,11 +70,6 @@ var (
 		Version: V1Alpha1,
 		Kind:    WorkloadKind,
 	}
-	BuildV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    "Build",
-	}
 	DeployableArtifactV1Config = CRDConfig{
 		Group:   ChoreoGroup,
 		Version: V1Alpha1,
@@ -92,11 +85,6 @@ var (
 		Version: V1Alpha1,
 		Kind:    "DataPlane",
 	}
-	DeploymentTrackV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    "DeploymentTrack",
-	}
 	EndpointV1Config = CRDConfig{
 		Group:   ChoreoGroup,
 		Version: V1Alpha1,
@@ -111,10 +99,5 @@ var (
 		Group:   ChoreoGroup,
 		Version: V1Alpha1,
 		Kind:    "DeploymentPipeline",
-	}
-	ConfigurationGroupV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    "ConfigurationGroup",
 	}
 )

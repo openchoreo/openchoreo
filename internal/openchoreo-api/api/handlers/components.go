@@ -74,8 +74,6 @@ func (h *Handler) CreateComponent(
 	if componentCR.Namespace != "" && componentCR.Namespace != request.NamespaceName {
 		return gen.CreateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Namespace in body does not match path")}, nil
 	}
-	componentCR.Status = openchoreov1alpha1.ComponentStatus{}
-
 	created, err := h.services.ComponentService.CreateComponent(ctx, request.NamespaceName, &componentCR)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
@@ -220,7 +218,6 @@ func (h *Handler) UpdateComponent(
 	if componentCR.Namespace != "" && componentCR.Namespace != request.NamespaceName {
 		return gen.UpdateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Namespace in body does not match path")}, nil
 	}
-	componentCR.Status = openchoreov1alpha1.ComponentStatus{}
 	componentCR.Name = request.ComponentName
 
 	updated, err := h.services.ComponentService.UpdateComponent(ctx, request.NamespaceName, &componentCR)

@@ -23,6 +23,21 @@ import (
 	openchoreoschema "github.com/openchoreo/openchoreo/internal/schema"
 )
 
+var componentTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Component",
+}
+
+var releaseBindingTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ReleaseBinding",
+}
+
+var componentReleaseTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ComponentRelease",
+}
+
 // componentService handles component-related business logic without authorization checks.
 // Other services within this layer should use this directly to avoid double authz.
 type componentService struct {
@@ -67,10 +82,7 @@ func (s *componentService) CreateComponent(ctx context.Context, namespaceName st
 	}
 
 	// Set defaults
-	component.TypeMeta = metav1.TypeMeta{
-		Kind:       "Component",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
+	component.Status = openchoreov1alpha1.ComponentStatus{}
 	component.Namespace = namespaceName
 	if component.Labels == nil {
 		component.Labels = make(map[string]string)
@@ -87,6 +99,7 @@ func (s *componentService) CreateComponent(ctx context.Context, namespaceName st
 	}
 
 	s.logger.Debug("Component created successfully", "namespace", namespaceName, "component", component.Name)
+	component.TypeMeta = componentTypeMeta
 	return component, nil
 }
 
@@ -106,6 +119,9 @@ func (s *componentService) UpdateComponent(ctx context.Context, namespaceName st
 		s.logger.Error("Failed to get component", "error", err)
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
+
+	// Clear status from user input — status is server-managed
+	component.Status = openchoreov1alpha1.ComponentStatus{}
 
 	// Prevent project reassignment: if the incoming component specifies a project,
 	// it must match the existing component's project
@@ -134,6 +150,7 @@ func (s *componentService) UpdateComponent(ctx context.Context, namespaceName st
 	}
 
 	s.logger.Debug("Component updated successfully", "namespace", namespaceName, "component", component.Name)
+	existing.TypeMeta = componentTypeMeta
 	return existing, nil
 }
 
@@ -180,6 +197,10 @@ func (s *componentService) listComponentsResource(namespaceName string) services
 			return nil, fmt.Errorf("failed to list components: %w", err)
 		}
 
+		for i := range componentList.Items {
+			componentList.Items[i].TypeMeta = componentTypeMeta
+		}
+
 		result := &services.ListResult[openchoreov1alpha1.Component]{
 			Items:      componentList.Items,
 			NextCursor: componentList.Continue,
@@ -211,6 +232,7 @@ func (s *componentService) GetComponent(ctx context.Context, namespaceName, comp
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 
+	component.TypeMeta = componentTypeMeta
 	return component, nil
 }
 
@@ -324,6 +346,7 @@ func (s *componentService) DeployRelease(ctx context.Context, namespaceName, com
 	}
 
 	s.logger.Debug("Release deployed successfully", "namespace", namespaceName, "component", componentName, "release", req.ReleaseName, "environment", lowestEnv)
+	binding.TypeMeta = releaseBindingTypeMeta
 	return &binding, nil
 }
 
@@ -395,6 +418,7 @@ func (s *componentService) PromoteComponent(ctx context.Context, namespaceName, 
 
 	s.logger.Debug("Component promoted successfully", "namespace", namespaceName, "component", componentName,
 		"source", req.SourceEnvironment, "target", req.TargetEnvironment)
+	targetBinding.TypeMeta = releaseBindingTypeMeta
 	return &targetBinding, nil
 }
 
@@ -561,6 +585,7 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 	}
 
 	s.logger.Debug("ComponentRelease created successfully", "namespace", namespaceName, "component", componentName, "release", releaseName)
+	componentRelease.TypeMeta = componentReleaseTypeMeta
 	return componentRelease, nil
 }
 

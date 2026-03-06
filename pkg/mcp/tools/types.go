@@ -193,9 +193,6 @@ type InfrastructureToolsetHandler interface {
 	// DeploymentPipeline operations
 	GetDeploymentPipeline(ctx context.Context, namespaceName, pipelineName string) (any, error)
 	ListDeploymentPipelines(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-
-	// Observer URL operations
-	GetObserverURL(ctx context.Context, namespaceName, envName string) (any, error)
 }
 
 // RegisterFunc is a function type for registering MCP tools

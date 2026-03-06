@@ -59,8 +59,6 @@ func (h *Handler) CreateClusterDataPlane(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateClusterDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	cdpCR.Status = openchoreov1alpha1.ClusterDataPlaneStatus{}
-
 	created, err := h.services.ClusterDataPlaneService.CreateClusterDataPlane(ctx, &cdpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -127,8 +125,6 @@ func (h *Handler) UpdateClusterDataPlane(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateClusterDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	cdpCR.Status = openchoreov1alpha1.ClusterDataPlaneStatus{}
-
 	// Ensure the name from the URL path is used
 	cdpCR.Name = request.CdpName
 

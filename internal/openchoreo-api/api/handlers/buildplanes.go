@@ -84,8 +84,6 @@ func (h *Handler) CreateBuildPlane(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	bpCR.Status = openchoreov1alpha1.BuildPlaneStatus{}
-
 	created, err := h.services.BuildPlaneService.CreateBuildPlane(ctx, request.NamespaceName, &bpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -124,8 +122,6 @@ func (h *Handler) UpdateBuildPlane(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	bpCR.Status = openchoreov1alpha1.BuildPlaneStatus{}
-
 	// Ensure the name from the URL path is used
 	bpCR.Name = request.BuildPlaneName
 

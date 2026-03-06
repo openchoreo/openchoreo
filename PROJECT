@@ -21,21 +21,6 @@ resources:
     namespaced: true
   controller: true
   domain: openchoreo.dev
-  kind: Build
-  path: github.com/openchoreo/openchoreo/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  domain: openchoreo.dev
-  kind: ConfigurationGroup
-  path: github.com/openchoreo/openchoreo/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: openchoreo.dev
   kind: Component
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
@@ -61,14 +46,6 @@ resources:
   controller: true
   domain: openchoreo.dev
   kind: Workload
-  path: github.com/openchoreo/openchoreo/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: openchoreo.dev
-  kind: GitCommitRequest
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
 - api:

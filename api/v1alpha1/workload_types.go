@@ -30,21 +30,9 @@ type EnvVar struct {
 
 // EnvVarValueFrom holds references to external sources for environment variables.
 type EnvVarValueFrom struct {
-	// Reference to a configuration group.
-	// +optional
-	ConfigurationGroupRef *ConfigurationGroupKeyRef `json:"configurationGroupRef,omitempty"`
-
 	// Reference to a secret resource.
 	// +optional
 	SecretRef *SecretKeyRef `json:"secretRef,omitempty"`
-}
-
-// ConfigurationGroupKeyRef references a specific key in a configuration group.
-type ConfigurationGroupKeyRef struct {
-	// +required
-	Name string `json:"name"`
-	// +required
-	Key string `json:"key"`
 }
 
 // SecretKeyRef references a specific key in a K8s secret.

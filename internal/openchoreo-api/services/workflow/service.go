@@ -10,6 +10,7 @@ import (
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -18,6 +19,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/schema"
 	"github.com/openchoreo/openchoreo/internal/schema/extractor"
 )
+
+var workflowTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Workflow",
+}
 
 // workflowService handles workflow-related business logic without authorization checks.
 type workflowService struct {
@@ -54,6 +60,10 @@ func (s *workflowService) ListWorkflows(ctx context.Context, namespaceName strin
 		return nil, fmt.Errorf("failed to list workflows: %w", err)
 	}
 
+	for i := range wfList.Items {
+		wfList.Items[i].TypeMeta = workflowTypeMeta
+	}
+
 	result := &services.ListResult[openchoreov1alpha1.Workflow]{
 		Items:      wfList.Items,
 		NextCursor: wfList.Continue,
@@ -85,6 +95,7 @@ func (s *workflowService) GetWorkflow(ctx context.Context, namespaceName, workfl
 		return nil, fmt.Errorf("failed to get workflow: %w", err)
 	}
 
+	wf.TypeMeta = workflowTypeMeta
 	return wf, nil
 }
 
@@ -139,12 +150,14 @@ func (s *workflowService) CreateWorkflow(ctx context.Context, namespaceName stri
 	}
 
 	wf.Namespace = namespaceName
+	wf.Status = openchoreov1alpha1.WorkflowStatus{}
 
 	if err := s.k8sClient.Create(ctx, wf); err != nil {
 		s.logger.Error("Failed to create workflow CR", "error", err)
 		return nil, fmt.Errorf("failed to create workflow: %w", err)
 	}
 
+	wf.TypeMeta = workflowTypeMeta
 	s.logger.Debug("Workflow created successfully", "namespace", namespaceName, "workflow", wf.Name)
 	return wf, nil
 }
@@ -165,6 +178,8 @@ func (s *workflowService) UpdateWorkflow(ctx context.Context, namespaceName stri
 		return nil, fmt.Errorf("failed to get workflow: %w", err)
 	}
 
+	wf.Status = openchoreov1alpha1.WorkflowStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = wf.Spec
 	existing.Labels = wf.Labels
@@ -179,6 +194,7 @@ func (s *workflowService) UpdateWorkflow(ctx context.Context, namespaceName stri
 		return nil, fmt.Errorf("failed to update workflow: %w", err)
 	}
 
+	existing.TypeMeta = workflowTypeMeta
 	s.logger.Debug("Workflow updated successfully", "namespace", namespaceName, "workflow", wf.Name)
 	return existing, nil
 }

@@ -56,7 +56,6 @@ const (
 	FlagPathDesc               = "Path to the source code directory"
 	FlagAutoBuildDesc          = "Enable automatic builds"
 	FlagRevisionDesc           = "Git commit hash"
-	FlagDeploymentTrackrDesc   = "Deployment track for the component [main|feature|bugfix]"
 	FlagDockerImageDesc        = "Name of the Docker image (e.g., product-catalog:latest)"
 	FlagEnvironmentDesc        = "Environment where the component will be deployed (e.g., dev, staging, production)"
 	FlagDeployableArtifactDesc = "Deployable artifact name (e.g., product-catalog-artifact)"

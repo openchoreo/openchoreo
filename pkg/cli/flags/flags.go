@@ -61,10 +61,6 @@ var (
 		Usage: messages.FlagDeploymentDesc,
 	}
 
-	DeploymentTrack = Flag{
-		Name:  "deployment-track",
-		Usage: messages.FlagDeploymentTrackrDesc,
-	}
 	Image = Flag{
 		Name:  "image",
 		Usage: messages.FlagDockerImageDesc,

@@ -120,6 +120,20 @@ var _ = BeforeSuite(func() {
 		})
 	Expect(err).NotTo(HaveOccurred())
 
+	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
+		controller.IndexKeyReleaseBindingOwnerEnv, func(obj client.Object) []string {
+			rb := obj.(*openchoreov1alpha1.ReleaseBinding)
+			if rb.Spec.Owner.ProjectName == "" || rb.Spec.Owner.ComponentName == "" || rb.Spec.Environment == "" {
+				return nil
+			}
+			return []string{controller.MakeReleaseBindingOwnerEnvKey(
+				rb.Spec.Owner.ProjectName,
+				rb.Spec.Owner.ComponentName,
+				rb.Spec.Environment,
+			)}
+		})
+	Expect(err).NotTo(HaveOccurred())
+
 	// Register field index for Workload by owner (projectName/componentName)
 	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Workload{},
 		workloadOwnerIndex, func(obj client.Object) []string {

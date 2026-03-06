@@ -59,8 +59,6 @@ func (h *Handler) CreateDeploymentPipeline(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateDeploymentPipeline400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	dpCR.Status = openchoreov1alpha1.DeploymentPipelineStatus{}
-
 	created, err := h.services.DeploymentPipelineService.CreateDeploymentPipeline(ctx, request.NamespaceName, &dpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -127,8 +125,6 @@ func (h *Handler) UpdateDeploymentPipeline(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateDeploymentPipeline400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	dpCR.Status = openchoreov1alpha1.DeploymentPipelineStatus{}
-
 	// Ensure the name from the URL path is used
 	dpCR.Name = request.DeploymentPipelineName
 

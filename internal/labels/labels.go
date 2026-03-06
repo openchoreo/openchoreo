@@ -7,15 +7,13 @@ package labels
 
 const (
 	// LabelKeyNamespaceName identifies the OpenChoreo namespace for resources.
-	LabelKeyNamespaceName       = "openchoreo.dev/namespace"
-	LabelKeyProjectName         = "openchoreo.dev/project"
-	LabelKeyComponentName       = "openchoreo.dev/component"
-	LabelKeyDeploymentTrackName = "openchoreo.dev/deployment-track"
-	LabelKeyBuildName           = "openchoreo.dev/build"
-	LabelKeyEnvironmentName     = "openchoreo.dev/environment"
-	LabelKeyName                = "openchoreo.dev/name"
-	LabelKeyDataPlaneName       = "openchoreo.dev/dataplane"
-	LabelKeyBuildPlane          = "openchoreo.dev/build-plane"
+	LabelKeyNamespaceName   = "openchoreo.dev/namespace"
+	LabelKeyProjectName     = "openchoreo.dev/project"
+	LabelKeyComponentName   = "openchoreo.dev/component"
+	LabelKeyEnvironmentName = "openchoreo.dev/environment"
+	LabelKeyName            = "openchoreo.dev/name"
+	LabelKeyDataPlaneName   = "openchoreo.dev/dataplane"
+	LabelKeyBuildPlane      = "openchoreo.dev/build-plane"
 
 	LabelKeyProjectUID     = "openchoreo.dev/project-uid"
 	LabelKeyComponentUID   = "openchoreo.dev/component-uid"

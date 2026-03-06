@@ -397,13 +397,6 @@ spec:
                         type: object
                     type: object
                 type: object
-              imagePullSecretRefs:
-                description: |-
-                  ImagePullSecretRefs contains references to SecretReference resources
-                  These will be converted to ExternalSecrets and added as imagePullSecrets to all deployments
-                items:
-                  type: string
-                type: array
               observabilityPlaneRef:
                 description: |-
                   ObservabilityPlaneRef specifies the ClusterObservabilityPlane for this ClusterDataPlane.

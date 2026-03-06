@@ -84,8 +84,6 @@ func (h *Handler) CreateClusterBuildPlane(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateClusterBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	cbpCR.Status = openchoreov1alpha1.ClusterBuildPlaneStatus{}
-
 	created, err := h.services.ClusterBuildPlaneService.CreateClusterBuildPlane(ctx, &cbpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -124,8 +122,6 @@ func (h *Handler) UpdateClusterBuildPlane(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateClusterBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	cbpCR.Status = openchoreov1alpha1.ClusterBuildPlaneStatus{}
-
 	// Ensure the name from the URL path is used
 	cbpCR.Name = request.ClusterBuildPlaneName
 

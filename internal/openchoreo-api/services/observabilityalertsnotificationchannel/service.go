@@ -16,6 +16,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
+var observabilityAlertsNotificationChannelTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ObservabilityAlertsNotificationChannel",
+}
+
 // observabilityAlertsNotificationChannelService handles business logic without authorization checks.
 // Other services within this layer should use this directly to avoid double authz.
 type observabilityAlertsNotificationChannelService struct {
@@ -51,11 +56,8 @@ func (s *observabilityAlertsNotificationChannelService) CreateObservabilityAlert
 	}
 
 	// Set defaults
-	nc.TypeMeta = metav1.TypeMeta{
-		Kind:       "ObservabilityAlertsNotificationChannel",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
 	nc.Namespace = namespaceName
+	nc.Status = openchoreov1alpha1.ObservabilityAlertsNotificationChannelStatus{}
 	if err := s.k8sClient.Create(ctx, nc); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			s.logger.Warn("Observability alerts notification channel already exists", "namespace", namespaceName, "channel", nc.Name)
@@ -65,6 +67,7 @@ func (s *observabilityAlertsNotificationChannelService) CreateObservabilityAlert
 		return nil, fmt.Errorf("failed to create observability alerts notification channel: %w", err)
 	}
 
+	nc.TypeMeta = observabilityAlertsNotificationChannelTypeMeta
 	s.logger.Debug("Observability alerts notification channel created successfully", "namespace", namespaceName, "channel", nc.Name)
 	return nc, nil
 }
@@ -91,6 +94,8 @@ func (s *observabilityAlertsNotificationChannelService) UpdateObservabilityAlert
 		return nil, &services.ValidationError{Msg: "spec.environment is immutable"}
 	}
 
+	nc.Status = openchoreov1alpha1.ObservabilityAlertsNotificationChannelStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = nc.Spec
 	existing.Labels = nc.Labels
@@ -101,6 +106,7 @@ func (s *observabilityAlertsNotificationChannelService) UpdateObservabilityAlert
 		return nil, fmt.Errorf("failed to update observability alerts notification channel: %w", err)
 	}
 
+	existing.TypeMeta = observabilityAlertsNotificationChannelTypeMeta
 	s.logger.Debug("Observability alerts notification channel updated successfully", "namespace", namespaceName, "channel", nc.Name)
 	return existing, nil
 }
@@ -122,6 +128,10 @@ func (s *observabilityAlertsNotificationChannelService) ListObservabilityAlertsN
 	if err := s.k8sClient.List(ctx, &ncList, listOpts...); err != nil {
 		s.logger.Error("Failed to list observability alerts notification channels", "error", err)
 		return nil, fmt.Errorf("failed to list observability alerts notification channels: %w", err)
+	}
+
+	for i := range ncList.Items {
+		ncList.Items[i].TypeMeta = observabilityAlertsNotificationChannelTypeMeta
 	}
 
 	result := &services.ListResult[openchoreov1alpha1.ObservabilityAlertsNotificationChannel]{
@@ -155,6 +165,7 @@ func (s *observabilityAlertsNotificationChannelService) GetObservabilityAlertsNo
 		return nil, fmt.Errorf("failed to get observability alerts notification channel: %w", err)
 	}
 
+	nc.TypeMeta = observabilityAlertsNotificationChannelTypeMeta
 	return nc, nil
 }
 

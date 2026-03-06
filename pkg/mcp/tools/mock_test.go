@@ -376,13 +376,6 @@ func (m *MockCoreToolsetHandler) ListBuildPlanes(
 	return `[{"name":"bp1"}]`, nil
 }
 
-func (m *MockCoreToolsetHandler) GetObserverURL(
-	ctx context.Context, namespaceName, envName string,
-) (any, error) {
-	m.recordCall("GetObserverURL", namespaceName, envName)
-	return `{"observerURL":"https://observer.example.com"}`, nil
-}
-
 // ClusterPlaneHandler methods
 
 func (m *MockCoreToolsetHandler) ListClusterDataPlanes(ctx context.Context, opts ListOpts) (any, error) {

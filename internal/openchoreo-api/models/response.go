@@ -202,7 +202,6 @@ type DataPlaneResponse struct {
 	Namespace             string                         `json:"namespace"`
 	DisplayName           string                         `json:"displayName,omitempty"`
 	Description           string                         `json:"description,omitempty"`
-	ImagePullSecretRefs   []string                       `json:"imagePullSecretRefs,omitempty"`
 	SecretStoreRef        string                         `json:"secretStoreRef,omitempty"`
 	ObservabilityPlaneRef *ObservabilityPlaneRef         `json:"observabilityPlaneRef,omitempty"`
 	AgentConnection       *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
@@ -502,7 +501,6 @@ type ClusterDataPlaneResponse struct {
 	PlaneID               string                         `json:"planeID"`
 	DisplayName           string                         `json:"displayName,omitempty"`
 	Description           string                         `json:"description,omitempty"`
-	ImagePullSecretRefs   []string                       `json:"imagePullSecretRefs,omitempty"`
 	SecretStoreRef        string                         `json:"secretStoreRef,omitempty"`
 	ObservabilityPlaneRef *ObservabilityPlaneRef         `json:"observabilityPlaneRef,omitempty"`
 	AgentConnection       *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`

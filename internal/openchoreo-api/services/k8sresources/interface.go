@@ -6,6 +6,7 @@ package k8sresources
 import (
 	"context"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -14,6 +15,7 @@ type ReleaseResourceTree struct {
 	Name        string
 	TargetPlane string
 	Nodes       []models.ResourceNode
+	Release     *openchoreov1alpha1.Release // Full Release CR
 }
 
 // K8sResourceTreeResult is the result of GetResourceTree.

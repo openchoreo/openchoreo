@@ -60,8 +60,6 @@ func (h *Handler) CreateWorkflow(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateWorkflow400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	wfCR.Status = openchoreov1alpha1.WorkflowStatus{}
-
 	created, err := h.services.WorkflowService.CreateWorkflow(ctx, request.NamespaceName, &wfCR)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
@@ -128,8 +126,6 @@ func (h *Handler) UpdateWorkflow(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateWorkflow400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	wfCR.Status = openchoreov1alpha1.WorkflowStatus{}
-
 	// Ensure the name from the URL path is used
 	wfCR.Name = request.WorkflowName
 
@@ -264,8 +260,6 @@ func (h *Handler) CreateWorkflowRun(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateWorkflowRun400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	wfRunCR.Status = openchoreov1alpha1.WorkflowRunStatus{}
-
 	created, err := h.services.WorkflowRunService.CreateWorkflowRun(ctx, request.NamespaceName, &wfRunCR)
 	if err != nil {
 		if errors.Is(err, workflowrunsvc.ErrWorkflowNotFound) {

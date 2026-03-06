@@ -18,7 +18,6 @@ rules:
   - apiclasses
   - apis
   - buildplanes
-  - builds
   - clusterbuildplanes
   - clustercomponenttypes
   - clusterdataplanes
@@ -32,10 +31,8 @@ rules:
   - deployableartifacts
   - deploymentpipelines
   - deployments
-  - deploymenttracks
   - endpoints
   - environments
-  - gitcommitrequests
   - gitrepositorywebhooks
   - observabilityalertsnotificationchannels
   - observabilityplanes
@@ -83,7 +80,6 @@ rules:
   - apiclasses/status
   - apis/status
   - buildplanes/status
-  - builds/status
   - clusterbuildplanes/status
   - clustercomponenttypes/status
   - clusterdataplanes/status
@@ -97,10 +93,8 @@ rules:
   - deployableartifacts/status
   - deploymentpipelines/status
   - deployments/status
-  - deploymenttracks/status
   - endpoints/status
   - environments/status
-  - gitcommitrequests/status
   - gitrepositorywebhooks/status
   - observabilityalertsnotificationchannels/status
   - observabilityplanes/status

@@ -19,6 +19,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
+var buildPlaneTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "BuildPlane",
+}
+
 // buildPlaneService handles build plane-related business logic without authorization checks.
 // Other services within this layer should use this directly to avoid double authz.
 type buildPlaneService struct {
@@ -57,6 +62,10 @@ func (s *buildPlaneService) ListBuildPlanes(ctx context.Context, namespaceName s
 		return nil, fmt.Errorf("failed to list build planes: %w", err)
 	}
 
+	for i := range buildPlaneList.Items {
+		buildPlaneList.Items[i].TypeMeta = buildPlaneTypeMeta
+	}
+
 	result := &services.ListResult[openchoreov1alpha1.BuildPlane]{
 		Items:      buildPlaneList.Items,
 		NextCursor: buildPlaneList.Continue,
@@ -88,6 +97,7 @@ func (s *buildPlaneService) GetBuildPlane(ctx context.Context, namespaceName, bu
 		return nil, fmt.Errorf("failed to get build plane: %w", err)
 	}
 
+	buildPlane.TypeMeta = buildPlaneTypeMeta
 	return buildPlane, nil
 }
 
@@ -98,10 +108,7 @@ func (s *buildPlaneService) CreateBuildPlane(ctx context.Context, namespaceName 
 	}
 	s.logger.Debug("Creating build plane", "namespace", namespaceName, "buildPlane", bp.Name)
 
-	bp.TypeMeta = metav1.TypeMeta{
-		Kind:       "BuildPlane",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
+	bp.Status = openchoreov1alpha1.BuildPlaneStatus{}
 	bp.Namespace = namespaceName
 	if err := s.k8sClient.Create(ctx, bp); err != nil {
 		if apierrors.IsAlreadyExists(err) {
@@ -112,6 +119,7 @@ func (s *buildPlaneService) CreateBuildPlane(ctx context.Context, namespaceName 
 	}
 
 	s.logger.Debug("Build plane created successfully", "namespace", namespaceName, "buildPlane", bp.Name)
+	bp.TypeMeta = buildPlaneTypeMeta
 	return bp, nil
 }
 
@@ -132,6 +140,9 @@ func (s *buildPlaneService) UpdateBuildPlane(ctx context.Context, namespaceName 
 		return nil, fmt.Errorf("failed to get build plane: %w", err)
 	}
 
+	// Clear status from user input — status is server-managed
+	bp.Status = openchoreov1alpha1.BuildPlaneStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = bp.Spec
 	existing.Labels = bp.Labels
@@ -143,6 +154,7 @@ func (s *buildPlaneService) UpdateBuildPlane(ctx context.Context, namespaceName 
 	}
 
 	s.logger.Debug("Build plane updated successfully", "namespace", namespaceName, "buildPlane", bp.Name)
+	existing.TypeMeta = buildPlaneTypeMeta
 	return existing, nil
 }
 

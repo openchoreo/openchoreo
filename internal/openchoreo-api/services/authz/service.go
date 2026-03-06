@@ -26,6 +26,26 @@ type authzService struct {
 
 var _ Service = (*authzService)(nil)
 
+var authzClusterRoleTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "AuthzClusterRole",
+}
+
+var authzRoleTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "AuthzRole",
+}
+
+var authzClusterRoleBindingTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "AuthzClusterRoleBinding",
+}
+
+var authzRoleBindingTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "AuthzRoleBinding",
+}
+
 // NewService creates a new authz service without authorization checks.
 func NewService(pap authzcore.PAP, pdp authzcore.PDP, k8sClient client.Client, logger *slog.Logger) Service {
 	return &authzService{
@@ -43,12 +63,22 @@ func (s *authzService) CreateClusterRole(ctx context.Context, role *openchoreov1
 		return nil, fmt.Errorf("cluster role cannot be nil")
 	}
 	s.logger.Debug("Creating cluster role", "name", role.Name)
-	return s.pap.CreateClusterRole(ctx, role)
+	created, err := s.pap.CreateClusterRole(ctx, role)
+	if err != nil {
+		return nil, err
+	}
+	created.TypeMeta = authzClusterRoleTypeMeta
+	return created, nil
 }
 
 func (s *authzService) GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRole, error) {
 	s.logger.Debug("Getting cluster role", "name", name)
-	return s.pap.GetClusterRole(ctx, name)
+	role, err := s.pap.GetClusterRole(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	role.TypeMeta = authzClusterRoleTypeMeta
+	return role, nil
 }
 
 func (s *authzService) ListClusterRoles(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzClusterRole], error) {
@@ -56,6 +86,9 @@ func (s *authzService) ListClusterRoles(ctx context.Context, opts services.ListO
 	paged, err := s.pap.ListClusterRoles(ctx, opts.Limit, opts.Cursor)
 	if err != nil {
 		return nil, err
+	}
+	for i := range paged.Items {
+		paged.Items[i].TypeMeta = authzClusterRoleTypeMeta
 	}
 	return &services.ListResult[openchoreov1alpha1.AuthzClusterRole]{
 		Items:      paged.Items,
@@ -68,7 +101,12 @@ func (s *authzService) UpdateClusterRole(ctx context.Context, role *openchoreov1
 		return nil, fmt.Errorf("cluster role cannot be nil")
 	}
 	s.logger.Debug("Updating cluster role", "name", role.Name)
-	return s.pap.UpdateClusterRole(ctx, role)
+	updated, err := s.pap.UpdateClusterRole(ctx, role)
+	if err != nil {
+		return nil, err
+	}
+	updated.TypeMeta = authzClusterRoleTypeMeta
+	return updated, nil
 }
 
 func (s *authzService) DeleteClusterRole(ctx context.Context, name string) error {
@@ -93,12 +131,22 @@ func (s *authzService) CreateNamespaceRole(ctx context.Context, namespace string
 	}
 	role.Namespace = namespace
 	s.logger.Debug("Creating namespace role", "namespace", namespace, "name", role.Name)
-	return s.pap.CreateNamespacedRole(ctx, role)
+	created, err := s.pap.CreateNamespacedRole(ctx, role)
+	if err != nil {
+		return nil, err
+	}
+	created.TypeMeta = authzRoleTypeMeta
+	return created, nil
 }
 
 func (s *authzService) GetNamespaceRole(ctx context.Context, namespace, name string) (*openchoreov1alpha1.AuthzRole, error) {
 	s.logger.Debug("Getting namespace role", "namespace", namespace, "name", name)
-	return s.pap.GetNamespacedRole(ctx, name, namespace)
+	role, err := s.pap.GetNamespacedRole(ctx, name, namespace)
+	if err != nil {
+		return nil, err
+	}
+	role.TypeMeta = authzRoleTypeMeta
+	return role, nil
 }
 
 func (s *authzService) ListNamespaceRoles(ctx context.Context, namespace string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzRole], error) {
@@ -106,6 +154,9 @@ func (s *authzService) ListNamespaceRoles(ctx context.Context, namespace string,
 	paged, err := s.pap.ListNamespacedRoles(ctx, namespace, opts.Limit, opts.Cursor)
 	if err != nil {
 		return nil, err
+	}
+	for i := range paged.Items {
+		paged.Items[i].TypeMeta = authzRoleTypeMeta
 	}
 	return &services.ListResult[openchoreov1alpha1.AuthzRole]{
 		Items:      paged.Items,
@@ -119,7 +170,12 @@ func (s *authzService) UpdateNamespaceRole(ctx context.Context, namespace string
 	}
 	role.Namespace = namespace
 	s.logger.Debug("Updating namespace role", "namespace", namespace, "name", role.Name)
-	return s.pap.UpdateNamespacedRole(ctx, role)
+	updated, err := s.pap.UpdateNamespacedRole(ctx, role)
+	if err != nil {
+		return nil, err
+	}
+	updated.TypeMeta = authzRoleTypeMeta
+	return updated, nil
 }
 
 func (s *authzService) DeleteNamespaceRole(ctx context.Context, namespace, name string) error {
@@ -143,12 +199,22 @@ func (s *authzService) CreateClusterRoleBinding(ctx context.Context, binding *op
 		return nil, fmt.Errorf("cluster role binding cannot be nil")
 	}
 	s.logger.Debug("Creating cluster role binding", "name", binding.Name)
-	return s.pap.CreateClusterRoleBinding(ctx, binding)
+	created, err := s.pap.CreateClusterRoleBinding(ctx, binding)
+	if err != nil {
+		return nil, err
+	}
+	created.TypeMeta = authzClusterRoleBindingTypeMeta
+	return created, nil
 }
 
 func (s *authzService) GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
 	s.logger.Debug("Getting cluster role binding", "name", name)
-	return s.pap.GetClusterRoleBinding(ctx, name)
+	binding, err := s.pap.GetClusterRoleBinding(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	binding.TypeMeta = authzClusterRoleBindingTypeMeta
+	return binding, nil
 }
 
 func (s *authzService) ListClusterRoleBindings(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzClusterRoleBinding], error) {
@@ -156,6 +222,9 @@ func (s *authzService) ListClusterRoleBindings(ctx context.Context, opts service
 	paged, err := s.pap.ListClusterRoleBindings(ctx, opts.Limit, opts.Cursor)
 	if err != nil {
 		return nil, err
+	}
+	for i := range paged.Items {
+		paged.Items[i].TypeMeta = authzClusterRoleBindingTypeMeta
 	}
 	return &services.ListResult[openchoreov1alpha1.AuthzClusterRoleBinding]{
 		Items:      paged.Items,
@@ -168,7 +237,12 @@ func (s *authzService) UpdateClusterRoleBinding(ctx context.Context, binding *op
 		return nil, fmt.Errorf("cluster role binding cannot be nil")
 	}
 	s.logger.Debug("Updating cluster role binding", "name", binding.Name)
-	return s.pap.UpdateClusterRoleBinding(ctx, binding)
+	updated, err := s.pap.UpdateClusterRoleBinding(ctx, binding)
+	if err != nil {
+		return nil, err
+	}
+	updated.TypeMeta = authzClusterRoleBindingTypeMeta
+	return updated, nil
 }
 
 func (s *authzService) DeleteClusterRoleBinding(ctx context.Context, name string) error {
@@ -193,12 +267,22 @@ func (s *authzService) CreateNamespaceRoleBinding(ctx context.Context, namespace
 	}
 	binding.Namespace = namespace
 	s.logger.Debug("Creating namespace role binding", "namespace", namespace, "name", binding.Name)
-	return s.pap.CreateNamespacedRoleBinding(ctx, binding)
+	created, err := s.pap.CreateNamespacedRoleBinding(ctx, binding)
+	if err != nil {
+		return nil, err
+	}
+	created.TypeMeta = authzRoleBindingTypeMeta
+	return created, nil
 }
 
 func (s *authzService) GetNamespaceRoleBinding(ctx context.Context, namespace, name string) (*openchoreov1alpha1.AuthzRoleBinding, error) {
 	s.logger.Debug("Getting namespace role binding", "namespace", namespace, "name", name)
-	return s.pap.GetNamespacedRoleBinding(ctx, name, namespace)
+	binding, err := s.pap.GetNamespacedRoleBinding(ctx, name, namespace)
+	if err != nil {
+		return nil, err
+	}
+	binding.TypeMeta = authzRoleBindingTypeMeta
+	return binding, nil
 }
 
 func (s *authzService) ListNamespaceRoleBindings(ctx context.Context, namespace string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzRoleBinding], error) {
@@ -206,6 +290,9 @@ func (s *authzService) ListNamespaceRoleBindings(ctx context.Context, namespace 
 	paged, err := s.pap.ListNamespacedRoleBindings(ctx, namespace, opts.Limit, opts.Cursor)
 	if err != nil {
 		return nil, err
+	}
+	for i := range paged.Items {
+		paged.Items[i].TypeMeta = authzRoleBindingTypeMeta
 	}
 	return &services.ListResult[openchoreov1alpha1.AuthzRoleBinding]{
 		Items:      paged.Items,
@@ -219,7 +306,12 @@ func (s *authzService) UpdateNamespaceRoleBinding(ctx context.Context, namespace
 	}
 	binding.Namespace = namespace
 	s.logger.Debug("Updating namespace role binding", "namespace", namespace, "name", binding.Name)
-	return s.pap.UpdateNamespacedRoleBinding(ctx, binding)
+	updated, err := s.pap.UpdateNamespacedRoleBinding(ctx, binding)
+	if err != nil {
+		return nil, err
+	}
+	updated.TypeMeta = authzRoleBindingTypeMeta
+	return updated, nil
 }
 
 func (s *authzService) DeleteNamespaceRoleBinding(ctx context.Context, namespace, name string) error {

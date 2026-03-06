@@ -60,8 +60,6 @@ func (h *Handler) CreateClusterComponentType(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateClusterComponentType400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	cctCR.Status = openchoreov1alpha1.ClusterComponentTypeStatus{}
-
 	created, err := h.services.ClusterComponentTypeService.CreateClusterComponentType(ctx, &cctCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -100,8 +98,6 @@ func (h *Handler) UpdateClusterComponentType(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateClusterComponentType400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	cctCR.Status = openchoreov1alpha1.ClusterComponentTypeStatus{}
-
 	// Ensure the name from the URL path is used
 	cctCR.Name = request.CctName
 

@@ -19,13 +19,8 @@ const (
 	ErrCreateProject = "failed to create project: %w"
 	// Component related errors
 	ErrCreateComponent = "failed to create component: %w"
-	ErrCreateDepTrack  = "failed to create deployment track: %w"
-
 	// Deployment related errors
 	ErrCreateDeployment = "failed to create deployment: %w"
-
-	// Build related errors
-	ErrCreateBuild = "failed to create build: %w"
 
 	// Environment related errors
 	ErrCreateEnvironment = "failed to create environment: %w"
@@ -42,9 +37,6 @@ const (
 	// DeployableArtifact related errors
 	ErrCreateArtifact = "failed to create deployable artifact: %w"
 
-	// DeploymentTrack related errors
-	ErrCreateDeploymentTrack = "failed to create deployment track: %w"
-
 	// Workload related errors
 	ErrCreateWorkload = "failed to create workload: %w"
 )
@@ -55,26 +47,23 @@ const (
 
 // Common header values used across resource types
 const (
-	HeaderName            = "NAME"
-	HeaderStatus          = "STATUS"
-	HeaderAge             = "AGE"
-	HeaderType            = "TYPE"
-	HeaderProject         = "PROJECT"
-	HeaderNamespace       = "NAMESPACE"
-	HeaderComponent       = "COMPONENT"
-	HeaderEnvironment     = "ENVIRONMENT"
-	HeaderDeploymentTrack = "DEPLOYMENT TRACK"
-	HeaderRevision        = "REVISION"
-	HeaderDuration        = "DURATION"
-	HeaderSource          = "SOURCE"
-	HeaderArtifact        = "ARTIFACT"
-	HeaderAPIVersion      = "API VERSION"
-	HeaderAutoDeploy      = "AUTO DEPLOY"
-	HeaderDataPlane       = "DATA PLANE"
-	HeaderProduction      = "PRODUCTION"
-	HeaderDNSPrefix       = "DNS PREFIX"
-	HeaderCluster         = "CLUSTER"
-	HeaderAddress         = "ADDRESS"
+	HeaderName        = "NAME"
+	HeaderStatus      = "STATUS"
+	HeaderAge         = "AGE"
+	HeaderType        = "TYPE"
+	HeaderProject     = "PROJECT"
+	HeaderNamespace   = "NAMESPACE"
+	HeaderComponent   = "COMPONENT"
+	HeaderEnvironment = "ENVIRONMENT"
+	HeaderRevision    = "REVISION"
+	HeaderDuration    = "DURATION"
+	HeaderSource      = "SOURCE"
+	HeaderArtifact    = "ARTIFACT"
+	HeaderDataPlane   = "DATA PLANE"
+	HeaderProduction  = "PRODUCTION"
+	HeaderDNSPrefix   = "DNS PREFIX"
+	HeaderCluster     = "CLUSTER"
+	HeaderAddress     = "ADDRESS"
 )
 
 // Resource-specific table headers defined as variables (not constants)
@@ -88,17 +77,11 @@ var (
 	// Component table headers
 	HeadersComponent = []string{HeaderName, HeaderType, HeaderStatus, HeaderAge, HeaderProject, HeaderNamespace}
 
-	// Build table headers
-	HeadersBuild = []string{HeaderName, HeaderStatus, HeaderRevision, HeaderDuration, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
-
 	// DeployableArtifact table headers
 	HeadersDeployableArtifact = []string{HeaderName, HeaderSource, HeaderStatus, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
 
 	// Deployment table headers
 	HeadersDeployment = []string{HeaderName, HeaderArtifact, HeaderEnvironment, HeaderStatus, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
-
-	// DeploymentTrack table headers
-	HeadersDeploymentTrack = []string{HeaderName, HeaderAPIVersion, HeaderAutoDeploy, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
 
 	// Environment table headers
 	HeadersEnvironment = []string{HeaderName, HeaderDataPlane, HeaderProduction, HeaderAge, HeaderNamespace}
@@ -143,16 +126,6 @@ const (
 	ConditionTypeDeployed    = "Deployed"
 	ConditionTypeProgressing = "Progressing"
 	ConditionTypeAvailable   = "Available"
-)
-
-// Build specific condition types
-const (
-	ConditionTypeStepCloneSucceeded        = "StepCloneSucceeded"
-	ConditionTypeStepBuildSucceeded        = "StepBuildSucceeded"
-	ConditionTypeStepPushSucceeded         = "StepPushSucceeded"
-	ConditionTypeCompleted                 = "Completed"
-	ConditionTypeDeployableArtifactCreated = "DeployableArtifactCreated"
-	ConditionTypeDeploymentApplied         = "DeploymentApplied"
 )
 
 // Environment specific condition types
@@ -204,10 +177,6 @@ const (
 	FmtDeploymentSuccess = "Deployment '%s' created successfully in environment '%s' for component '%s' of project '%s' in namespace '%s'\n"
 	FmtDeploySuccessMsg  = "Deployment '%s' created successfully in environment '%s' for component '%s' of project '%s' in namespace '%s'\n"
 
-	// Build success messages
-	FmtBuildSuccess       = "Build '%s' created successfully for component '%s' in project '%s' of namespace '%s'\n"
-	FmtBuildCreateSuccess = "Build '%s' created successfully for component '%s' in project '%s' of namespace '%s'\n"
-
 	// Environment success messages
 	FmtEnvironmentSuccess = "Environment '%s' created successfully in namespace '%s'\n"
 
@@ -216,9 +185,6 @@ const (
 
 	// Namespace success messages
 	FmtNamespaceSuccess = "Namespace '%s' created\n"
-
-	// DeploymentTrack success messages
-	FmtDeploymentTrackSuccess = "Deployment track '%s' created successfully in component '%s' of project '%s' in namespace '%s'\n"
 
 	// DeployableArtifact success messages
 	FmtDeployableArtifactSuccess = "Deployable artifact '%s' created successfully in component '%s' of project '%s' in namespace '%s'\n"
@@ -241,20 +207,11 @@ const (
 	DefaultPath       = "/"
 	DefaultContext    = "/"
 	DefaultDockerfile = "Dockerfile"
-
-	// Track names
-	DefaultTrackName = "default"
 )
 
 //
 // ANNOTATIONS
 //
-
-// Annotations used across resources
-const (
-	// DeploymentTrack annotations
-	AutoDeployAnnotation = "openchoreo.dev/auto-deploy"
-)
 
 //
 // PLACEHOLDERS

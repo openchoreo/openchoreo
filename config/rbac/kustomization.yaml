@@ -30,8 +30,7 @@ resources:
   # default, aiding admins in cluster management. Those roles are
   # not used by the Project itself. You can comment the following lines
   # if you do not want those helpers be installed with your Project.
-  - deploymenttrack_editor_role.yaml
-  - deploymenttrack_viewer_role.yaml
+
   - component_editor_role.yaml
   - component_viewer_role.yaml
   - componenttype_editor_role.yaml
@@ -48,8 +47,7 @@ resources:
   # if you do not want those helpers be installed with your Project.
   - workload_editor_role.yaml
   - workload_viewer_role.yaml
-  - configurationgroup_editor_role.yaml
-  - configurationgroup_viewer_role.yaml
+
 # For each CRD, "Editor" and "Viewer" roles are scaffolded by
 # default, aiding admins in cluster management. Those roles are
 # not used by the Project itself. You can comment the following lines
@@ -62,14 +60,11 @@ resources:
   - secretreference_viewer_role.yaml
   - release_editor_role.yaml
   - release_viewer_role.yaml
-  - gitcommitrequest_editor_role.yaml
-  - gitcommitrequest_viewer_role.yaml
+
   - buildplane_admin_role.yaml
   - buildplane_editor_role.yaml
   - buildplane_viewer_role.yaml
-  - build_admin_role.yaml
-  - build_editor_role.yaml
-  - build_viewer_role.yaml
+
 # For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
 # default, aiding admins in cluster management. Those roles are
 # not used by the openchoreo itself. You can comment the following lines

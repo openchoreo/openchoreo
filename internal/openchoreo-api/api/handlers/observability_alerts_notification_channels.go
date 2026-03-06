@@ -56,8 +56,6 @@ func (h *Handler) CreateObservabilityAlertsNotificationChannel(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateObservabilityAlertsNotificationChannel400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	ncCR.Status = openchoreov1alpha1.ObservabilityAlertsNotificationChannelStatus{}
-
 	created, err := h.services.ObservabilityAlertsNotificationChannelService.CreateObservabilityAlertsNotificationChannel(ctx, request.NamespaceName, &ncCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -124,8 +122,6 @@ func (h *Handler) UpdateObservabilityAlertsNotificationChannel(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateObservabilityAlertsNotificationChannel400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	ncCR.Status = openchoreov1alpha1.ObservabilityAlertsNotificationChannelStatus{}
-
 	// Ensure the name from the URL path is used
 	ncCR.Name = request.ObservabilityAlertsNotificationChannelName
 

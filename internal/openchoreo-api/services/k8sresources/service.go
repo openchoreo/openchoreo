@@ -84,6 +84,7 @@ func (s *k8sResourcesService) GetResourceTree(ctx context.Context, namespaceName
 			Name:        rc.release.Name,
 			TargetPlane: rc.release.Spec.TargetPlane,
 			Nodes:       nodes,
+			Release:     rc.release,
 		})
 	}
 

@@ -84,8 +84,6 @@ func (h *Handler) CreateClusterObservabilityPlane(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateClusterObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	copCR.Status = openchoreov1alpha1.ClusterObservabilityPlaneStatus{}
-
 	created, err := h.services.ClusterObservabilityPlaneService.CreateClusterObservabilityPlane(ctx, &copCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -124,8 +122,6 @@ func (h *Handler) UpdateClusterObservabilityPlane(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateClusterObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	copCR.Status = openchoreov1alpha1.ClusterObservabilityPlaneStatus{}
-
 	// Ensure the name from the URL path is used
 	copCR.Name = request.ClusterObservabilityPlaneName
 

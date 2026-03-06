@@ -87,8 +87,6 @@ func (h *Handler) CreateObservabilityPlane(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	opCR.Status = openchoreov1alpha1.ObservabilityPlaneStatus{}
-
 	created, err := h.services.ObservabilityPlaneService.CreateObservabilityPlane(ctx, request.NamespaceName, &opCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -127,8 +125,6 @@ func (h *Handler) UpdateObservabilityPlane(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	opCR.Status = openchoreov1alpha1.ObservabilityPlaneStatus{}
-
 	// Ensure the name from the URL path is used
 	opCR.Name = request.ObservabilityPlaneName
 

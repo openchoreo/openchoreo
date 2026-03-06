@@ -28,6 +28,11 @@ type clusterTraitService struct {
 
 var _ Service = (*clusterTraitService)(nil)
 
+var clusterTraitTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ClusterTrait",
+}
+
 // NewService creates a new cluster trait service without authorization.
 func NewService(k8sClient client.Client, logger *slog.Logger) Service {
 	return &clusterTraitService{
@@ -44,10 +49,7 @@ func (s *clusterTraitService) CreateClusterTrait(ctx context.Context, ct *opench
 	s.logger.Debug("Creating cluster trait", "clusterTrait", ct.Name)
 
 	// Set defaults
-	ct.TypeMeta = metav1.TypeMeta{
-		Kind:       "ClusterTrait",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
+	ct.Status = openchoreov1alpha1.ClusterTraitStatus{}
 
 	if err := s.k8sClient.Create(ctx, ct); err != nil {
 		if apierrors.IsAlreadyExists(err) {
@@ -59,6 +61,7 @@ func (s *clusterTraitService) CreateClusterTrait(ctx context.Context, ct *opench
 	}
 
 	s.logger.Debug("Cluster trait created successfully", "clusterTrait", ct.Name)
+	ct.TypeMeta = clusterTraitTypeMeta
 	return ct, nil
 }
 
@@ -80,6 +83,7 @@ func (s *clusterTraitService) UpdateClusterTrait(ctx context.Context, ct *opench
 	}
 
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	ct.Status = openchoreov1alpha1.ClusterTraitStatus{}
 	existing.Spec = ct.Spec
 	existing.Labels = ct.Labels
 	existing.Annotations = ct.Annotations
@@ -90,6 +94,7 @@ func (s *clusterTraitService) UpdateClusterTrait(ctx context.Context, ct *opench
 	}
 
 	s.logger.Debug("Cluster trait updated successfully", "clusterTrait", ct.Name)
+	existing.TypeMeta = clusterTraitTypeMeta
 	return existing, nil
 }
 
@@ -108,6 +113,10 @@ func (s *clusterTraitService) ListClusterTraits(ctx context.Context, opts servic
 	if err := s.k8sClient.List(ctx, &traitList, listOpts...); err != nil {
 		s.logger.Error("Failed to list cluster traits", "error", err)
 		return nil, fmt.Errorf("failed to list cluster traits: %w", err)
+	}
+
+	for i := range traitList.Items {
+		traitList.Items[i].TypeMeta = clusterTraitTypeMeta
 	}
 
 	result := &services.ListResult[openchoreov1alpha1.ClusterTrait]{
@@ -140,6 +149,7 @@ func (s *clusterTraitService) GetClusterTrait(ctx context.Context, clusterTraitN
 		return nil, fmt.Errorf("failed to get cluster trait: %w", err)
 	}
 
+	trait.TypeMeta = clusterTraitTypeMeta
 	return trait, nil
 }
 

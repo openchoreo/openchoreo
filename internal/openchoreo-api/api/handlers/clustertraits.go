@@ -60,8 +60,6 @@ func (h *Handler) CreateClusterTrait(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateClusterTrait400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	ctCR.Status = openchoreov1alpha1.ClusterTraitStatus{}
-
 	created, err := h.services.ClusterTraitService.CreateClusterTrait(ctx, &ctCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -100,8 +98,6 @@ func (h *Handler) UpdateClusterTrait(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateClusterTrait400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	ctCR.Status = openchoreov1alpha1.ClusterTraitStatus{}
-
 	// Ensure the name from the URL path is used
 	ctCR.Name = request.ClusterTraitName
 

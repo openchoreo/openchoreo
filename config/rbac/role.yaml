@@ -69,7 +69,6 @@ rules:
   - openchoreo.dev
   resources:
   - buildplanes
-  - builds
   - clusterbuildplanes
   - clustercomponenttypes
   - clusterdataplanes
@@ -80,9 +79,7 @@ rules:
   - componenttypes
   - dataplanes
   - deploymentpipelines
-  - deploymenttracks
   - environments
-  - gitcommitrequests
   - observabilityalertrules
   - observabilityalertsnotificationchannels
   - observabilityplanes
@@ -105,7 +102,6 @@ rules:
   - openchoreo.dev
   resources:
   - buildplanes/finalizers
-  - builds/finalizers
   - clusterbuildplanes/finalizers
   - clustercomponenttypes/finalizers
   - clusterdataplanes/finalizers
@@ -116,9 +112,7 @@ rules:
   - componenttypes/finalizers
   - dataplanes/finalizers
   - deploymentpipelines/finalizers
-  - deploymenttracks/finalizers
   - environments/finalizers
-  - gitcommitrequests/finalizers
   - observabilityalertrules/finalizers
   - observabilityalertsnotificationchannels/finalizers
   - observabilityplanes/finalizers
@@ -136,7 +130,6 @@ rules:
   - openchoreo.dev
   resources:
   - buildplanes/status
-  - builds/status
   - clusterbuildplanes/status
   - clustercomponenttypes/status
   - clusterdataplanes/status
@@ -147,9 +140,7 @@ rules:
   - componenttypes/status
   - dataplanes/status
   - deploymentpipelines/status
-  - deploymenttracks/status
   - environments/status
-  - gitcommitrequests/status
   - observabilityalertrules/status
   - observabilityalertsnotificationchannels/status
   - observabilityplanes/status

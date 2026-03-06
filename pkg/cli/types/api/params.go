@@ -3,10 +3,6 @@
 
 package api
 
-import (
-	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-)
-
 // GetParams defines common parameters for listing resources
 type GetParams struct {
 	OutputFormat string
@@ -53,13 +49,6 @@ type CreateComponentParams struct {
 	Project          string
 	Description      string
 	GitRepositoryURL string
-	Branch           string
-	Path             string
-	DockerContext    string
-	DockerFile       string
-	BuildpackName    string
-	BuildpackVersion string
-	BuildConfig      string
 	Image            string
 	Tag              string
 	Port             int
@@ -75,56 +64,26 @@ type LoginParams struct {
 }
 
 type LogParams struct {
-	Name            string
-	Namespace       string
-	Project         string
-	Component       string
-	Build           string
-	Type            string
-	Environment     string
-	Follow          bool
-	TailLines       int64
-	Deployment      string
-	DeploymentTrack string
-}
-
-// CreateBuildParams contains parameters for build creation
-type CreateBuildParams struct {
-	// Basic metadata
-	Name            string
-	Namespace       string
-	Project         string
-	Component       string
-	DeploymentTrack string
-	// Build configuration
-	Docker    *openchoreov1alpha1.DockerConfiguration
-	Buildpack *openchoreov1alpha1.BuildpackConfiguration
-	// Build spec
-	Branch    string
-	Path      string
-	Revision  string
-	AutoBuild bool
-}
-
-// GetBuildParams defines parameters for listing builds
-type GetBuildParams struct {
-	Namespace       string
-	Project         string
-	Component       string
-	DeploymentTrack string
-	OutputFormat    string
-	Name            string
+	Name        string
+	Namespace   string
+	Project     string
+	Component   string
+	Build       string
+	Type        string
+	Environment string
+	Follow      bool
+	TailLines   int64
+	Deployment  string
 }
 
 // CreateDeployableArtifactParams defines parameters for creating a deployable artifact
 type CreateDeployableArtifactParams struct {
-	Name            string
-	Namespace       string
-	Project         string
-	Component       string
-	DeploymentTrack string
-	DisplayName     string
-	Description     string
+	Name        string
+	Namespace   string
+	Project     string
+	Component   string
+	DisplayName string
+	Description string
 }
 
 // GetDeployableArtifactParams defines parameters for listing deployable artifacts
@@ -135,9 +94,8 @@ type GetDeployableArtifactParams struct {
 	Component string
 
 	// Artifact-specific filters
-	DeploymentTrack string
-	Build           string
-	DockerImage     string
+	Build       string
+	DockerImage string
 
 	// Display options
 	OutputFormat string
@@ -156,9 +114,8 @@ type GetDeploymentParams struct {
 	Component string
 
 	// Deployment specific filters
-	Environment     string
-	DeploymentTrack string
-	ArtifactRef     string
+	Environment string
+	ArtifactRef string
 
 	// Display options
 	OutputFormat string
@@ -172,30 +129,7 @@ type CreateDeploymentParams struct {
 	Project            string
 	Component          string
 	Environment        string
-	DeploymentTrack    string
 	DeployableArtifact string
-}
-
-// CreateDeploymentTrackParams defines parameters for creating a deployment track
-type CreateDeploymentTrackParams struct {
-	Name              string
-	Namespace         string
-	Project           string
-	Component         string
-	DisplayName       string
-	Description       string
-	APIVersion        string
-	AutoDeploy        bool
-	BuildTemplateSpec *openchoreov1alpha1.BuildTemplateSpec
-}
-
-// GetDeploymentTrackParams defines parameters for listing deployment tracks
-type GetDeploymentTrackParams struct {
-	Namespace    string
-	Project      string
-	Component    string
-	OutputFormat string
-	Name         string
 }
 
 // CreateEnvironmentParams defines parameters for creating an environment
@@ -263,12 +197,6 @@ type TargetEnvironmentParams struct {
 }
 
 type GetDeploymentPipelineParams struct {
-	Name         string
-	Namespace    string
-	OutputFormat string
-}
-
-type GetConfigurationGroupParams struct {
 	Name         string
 	Namespace    string
 	OutputFormat string

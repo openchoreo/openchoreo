@@ -277,46 +277,6 @@ This command allows you to:
   `,
 	}
 
-	CreateBuild = Command{
-		Use:     "build",
-		Aliases: []string{"builds"},
-		Short:   "Build a component",
-		Long: `Build a component in the current project.
-
-This command creates a new build for a component. You can:
-- Create Docker builds
-- Create Buildpack builds
-- Specify build context and Dockerfile
-- Define custom build arguments`,
-		Example: `  # Create a build
-  occ create build --name product-catalog-build-01 --namespace acme-corp --project online-store \
-    --component product-catalog --docker-context ./src --dockerfile-path ./src/Dockerfile --deployment-track main
-
-  # Create a Buildpack build
-  occ create build --name product-catalog-build-01 --namespace acme-corp --project online-store \
-    --component product-catalog --buildpack-name java --buildpack-version  --deployment-track main
-
-  # Create a build with revision and branch
-  occ create build --name product-catalog-build-01 --namespace acme-corp --project online-store \
-    --component product-catalog --branch main --revision abc123 --auto-build true`,
-	}
-
-	ListBuild = Command{
-		Use:     "build",
-		Aliases: []string{"builds"},
-		Short:   "List builds",
-		Long: `List all builds in the current project or namespace.
-`,
-		Example: `  # List all builds
-  occ get build
-
-  # List builds for a specific component
-  occ get build  --namespace acme-corp --project online-store --component product-catalog
-
-  # List builds in yaml format
-  occ get build -o yaml
-`,
-	}
 	ListDeployableArtifact = Command{
 		Use:     "deployableartifact",
 		Aliases: []string{"deployableartifacts"},
@@ -374,31 +334,6 @@ This command allows you to:
 		Example: `  # Create a deployment with specific parameters
   occ create deployment --name product-catalog-dev-01 --namespace acme-corp --project online-store \
     --component product-catalog --environment development --deployableartifact product-catalog-artifact`,
-	}
-
-	CreateDeploymentTrack = Command{
-		Use:     "deploymenttrack",
-		Aliases: []string{"deptrack", "deptracks"},
-		Short:   "Create a deployment track",
-		Long:    `Create a deployment track in the specified namespace, project and component.`,
-		Example: `  # Create a deployment track with specific parameters
-  occ create deploymenttrack --name main-track --namespace acme-corp --project online-store \
-    --component product-catalog --api-version v1 --auto-deploy true`,
-	}
-
-	ListDeploymentTrack = Command{
-		Use:     "deploymenttrack [name]",
-		Aliases: []string{"deptrack", "deptracks"},
-		Short:   "List deployment tracks",
-		Long:    `List deployment tracks in a namespace, project and component.`,
-		Example: `  # List all deployment tracks
-  occ get deploymenttrack --namespace acme-corp --project online-store --component product-catalog
-
-  # List specific deployment track
-  occ get deploymenttrack main-track --namespace acme-corp --project online-store --component product-catalog
-
-  # Output deployment tracks in YAML format
-  occ get deploymenttrack -o yaml`,
 	}
 
 	ListEnvironment = Command{
@@ -559,21 +494,6 @@ This command allows you to:
 		Long:  `Delete a deployment pipeline by name.`,
 		Example: fmt.Sprintf(`  # Delete a deployment pipeline
   %[1]s deploymentpipeline delete my-pipeline --namespace acme-corp`, messages.DefaultCLIName),
-	}
-
-	ListConfigurationGroup = Command{
-		Use:     "configurationgroup [name]",
-		Aliases: []string{"cg", "configurationgroup"},
-		Short:   "List configuration groups",
-		Long:    `List all configuration groups or a specific configuration group in a namespace.`,
-		Example: `  # List all configuration groups
-  occ get configurationgroup --namespace acme-corp
-
-  # List a specific configuration group
-  occ get configurationgroup config-group-1 --namespace acme-corp
-
-  # Output configuration group details in YAML format
-  occ get configurationgroup --namespace acme-corp -o yaml`,
 	}
 
 	ListBuildPlane = Command{
@@ -1341,9 +1261,6 @@ Use --workflowrun to specify a particular run.`,
 
 	// FlagBuildDesc is used for the --build flag.
 	FlagBuildDesc = "Build identifier stored in this configuration context"
-
-	// FlagDeploymentTrackDesc is used for the --deploymenttrack flag.
-	FlagDeploymentTrackDesc = "Deployment track name stored in this configuration context"
 
 	// FlagEnvDesc is used for the --environment flag.
 	FlagEnvDesc = "Environment name stored in this configuration context"

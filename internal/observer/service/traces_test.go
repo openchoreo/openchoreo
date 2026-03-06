@@ -28,9 +28,12 @@ func TestNewTracingAdapter_ConfigValidation(t *testing.T) {
 		BaseURL: "http://localhost:8080",
 		Timeout: 0,
 	}
-	adapter1 := NewTracingAdapter(cfg1)
-	if adapter1.httpClient.Timeout != 30*time.Second {
-		t.Errorf("Expected default timeout 30s, got %v", adapter1.httpClient.Timeout)
+	adapter1, err := NewTracingAdapter(cfg1)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if adapter1 == nil || adapter1.client == nil {
+		t.Fatal("Expected non-nil adapter with initialized client")
 	}
 
 	// Test with custom timeout
@@ -38,9 +41,12 @@ func TestNewTracingAdapter_ConfigValidation(t *testing.T) {
 		BaseURL: "http://localhost:8080",
 		Timeout: 60 * time.Second,
 	}
-	adapter2 := NewTracingAdapter(cfg2)
-	if adapter2.httpClient.Timeout != 60*time.Second {
-		t.Errorf("Expected custom timeout 60s, got %v", adapter2.httpClient.Timeout)
+	adapter2, err := NewTracingAdapter(cfg2)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if adapter2 == nil || adapter2.client == nil {
+		t.Fatal("Expected non-nil adapter with initialized client")
 	}
 }
 

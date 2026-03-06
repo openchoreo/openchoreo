@@ -64,8 +64,6 @@ func (h *Handler) CreateDataPlane(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	dpCR.Status = openchoreov1alpha1.DataPlaneStatus{}
-
 	created, err := h.services.DataPlaneService.CreateDataPlane(ctx, request.NamespaceName, &dpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -132,8 +130,6 @@ func (h *Handler) UpdateDataPlane(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	dpCR.Status = openchoreov1alpha1.DataPlaneStatus{}
-
 	// Ensure the name from the URL path is used
 	dpCR.Name = request.DpName
 

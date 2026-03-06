@@ -16,6 +16,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
+var projectTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Project",
+}
+
 const (
 	defaultPipeline = "default"
 )
@@ -54,12 +59,8 @@ func (s *projectService) CreateProject(ctx context.Context, namespaceName string
 		return nil, ErrProjectAlreadyExists
 	}
 
-	// Set defaults
-	project.TypeMeta = metav1.TypeMeta{
-		Kind:       "Project",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
 	project.Namespace = namespaceName
+	project.Status = openchoreov1alpha1.ProjectStatus{}
 	if project.Spec.DeploymentPipelineRef == "" {
 		project.Spec.DeploymentPipelineRef = defaultPipeline
 	}
@@ -74,6 +75,7 @@ func (s *projectService) CreateProject(ctx context.Context, namespaceName string
 	}
 
 	s.logger.Debug("Project created successfully", "namespace", namespaceName, "project", project.Name)
+	project.TypeMeta = projectTypeMeta
 	return project, nil
 }
 
@@ -94,6 +96,9 @@ func (s *projectService) UpdateProject(ctx context.Context, namespaceName string
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 
+	// Clear status from user input — status is server-managed
+	project.Status = openchoreov1alpha1.ProjectStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = project.Spec
 	existing.Labels = project.Labels
@@ -105,6 +110,7 @@ func (s *projectService) UpdateProject(ctx context.Context, namespaceName string
 	}
 
 	s.logger.Debug("Project updated successfully", "namespace", namespaceName, "project", project.Name)
+	existing.TypeMeta = projectTypeMeta
 	return existing, nil
 }
 
@@ -125,6 +131,10 @@ func (s *projectService) ListProjects(ctx context.Context, namespaceName string,
 	if err := s.k8sClient.List(ctx, &projectList, listOpts...); err != nil {
 		s.logger.Error("Failed to list projects", "error", err)
 		return nil, fmt.Errorf("failed to list projects: %w", err)
+	}
+
+	for i := range projectList.Items {
+		projectList.Items[i].TypeMeta = projectTypeMeta
 	}
 
 	result := &services.ListResult[openchoreov1alpha1.Project]{
@@ -158,6 +168,7 @@ func (s *projectService) GetProject(ctx context.Context, namespaceName, projectN
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 
+	project.TypeMeta = projectTypeMeta
 	return project, nil
 }
 

@@ -10,18 +10,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
-// ObserverURLResult holds the observer URL response for an environment.
-type ObserverURLResult struct {
-	ObserverURL string
-	Message     string
-}
-
-// RCAAgentURLResult holds the RCA agent URL response for an environment.
-type RCAAgentURLResult struct {
-	RCAAgentURL string
-	Message     string
-}
-
 // Service defines the environment service interface.
 // Both the core service (no authz) and the authz-wrapped service implement this.
 // Methods accept and return Kubernetes CRD types directly for alignment with
@@ -32,6 +20,4 @@ type Service interface {
 	CreateEnvironment(ctx context.Context, namespaceName string, env *openchoreov1alpha1.Environment) (*openchoreov1alpha1.Environment, error)
 	UpdateEnvironment(ctx context.Context, namespaceName string, env *openchoreov1alpha1.Environment) (*openchoreov1alpha1.Environment, error)
 	DeleteEnvironment(ctx context.Context, namespaceName, envName string) error
-	GetObserverURL(ctx context.Context, namespaceName, envName string) (*ObserverURLResult, error)
-	GetRCAAgentURL(ctx context.Context, namespaceName, envName string) (*RCAAgentURLResult, error)
 }

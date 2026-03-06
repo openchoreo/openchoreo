@@ -61,7 +61,6 @@ func (h *Handler) CreateWorkload(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateWorkload400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	wCR.Status = openchoreov1alpha1.WorkloadStatus{}
 
 	created, err := h.services.WorkloadService.CreateWorkload(ctx, request.NamespaceName, &wCR)
 	if err != nil {
@@ -132,7 +131,6 @@ func (h *Handler) UpdateWorkload(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateWorkload400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	wCR.Status = openchoreov1alpha1.WorkloadStatus{}
 
 	// Ensure the name from the URL path is used
 	wCR.Name = request.WorkloadName

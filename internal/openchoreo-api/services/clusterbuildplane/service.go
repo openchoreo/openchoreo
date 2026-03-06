@@ -24,6 +24,11 @@ type clusterBuildPlaneService struct {
 
 var _ Service = (*clusterBuildPlaneService)(nil)
 
+var clusterBuildPlaneTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ClusterBuildPlane",
+}
+
 // NewService creates a new cluster build plane service without authorization.
 func NewService(k8sClient client.Client, logger *slog.Logger) Service {
 	return &clusterBuildPlaneService{
@@ -47,6 +52,10 @@ func (s *clusterBuildPlaneService) ListClusterBuildPlanes(ctx context.Context, o
 	if err := s.k8sClient.List(ctx, &cbpList, listOpts...); err != nil {
 		s.logger.Error("Failed to list cluster build planes", "error", err)
 		return nil, fmt.Errorf("failed to list cluster build planes: %w", err)
+	}
+
+	for i := range cbpList.Items {
+		cbpList.Items[i].TypeMeta = clusterBuildPlaneTypeMeta
 	}
 
 	result := &services.ListResult[openchoreov1alpha1.ClusterBuildPlane]{
@@ -79,6 +88,7 @@ func (s *clusterBuildPlaneService) GetClusterBuildPlane(ctx context.Context, clu
 		return nil, fmt.Errorf("failed to get cluster build plane: %w", err)
 	}
 
+	cbp.TypeMeta = clusterBuildPlaneTypeMeta
 	return cbp, nil
 }
 
@@ -89,10 +99,8 @@ func (s *clusterBuildPlaneService) CreateClusterBuildPlane(ctx context.Context, 
 	}
 	s.logger.Debug("Creating cluster build plane", "clusterBuildPlane", cbp.Name)
 
-	cbp.TypeMeta = metav1.TypeMeta{
-		Kind:       "ClusterBuildPlane",
-		APIVersion: "openchoreo.dev/v1alpha1",
-	}
+	cbp.Status = openchoreov1alpha1.ClusterBuildPlaneStatus{}
+
 	if err := s.k8sClient.Create(ctx, cbp); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil, ErrClusterBuildPlaneAlreadyExists
@@ -102,6 +110,7 @@ func (s *clusterBuildPlaneService) CreateClusterBuildPlane(ctx context.Context, 
 	}
 
 	s.logger.Debug("Cluster build plane created successfully", "clusterBuildPlane", cbp.Name)
+	cbp.TypeMeta = clusterBuildPlaneTypeMeta
 	return cbp, nil
 }
 
@@ -123,6 +132,7 @@ func (s *clusterBuildPlaneService) UpdateClusterBuildPlane(ctx context.Context, 
 	}
 
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	cbp.Status = openchoreov1alpha1.ClusterBuildPlaneStatus{}
 	existing.Spec = cbp.Spec
 	existing.Labels = cbp.Labels
 	existing.Annotations = cbp.Annotations
@@ -133,6 +143,7 @@ func (s *clusterBuildPlaneService) UpdateClusterBuildPlane(ctx context.Context, 
 	}
 
 	s.logger.Debug("Cluster build plane updated successfully", "clusterBuildPlane", cbp.Name)
+	existing.TypeMeta = clusterBuildPlaneTypeMeta
 	return existing, nil
 }
 

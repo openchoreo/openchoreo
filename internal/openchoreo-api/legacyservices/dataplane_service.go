@@ -220,14 +220,13 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 	}
 
 	response := &models.DataPlaneResponse{
-		Name:                dp.Name,
-		Namespace:           dp.Namespace,
-		DisplayName:         displayName,
-		Description:         description,
-		ImagePullSecretRefs: dp.Spec.ImagePullSecretRefs,
-		SecretStoreRef:      secretStoreRef,
-		CreatedAt:           dp.CreationTimestamp.Time,
-		Status:              status,
+		Name:           dp.Name,
+		Namespace:      dp.Namespace,
+		DisplayName:    displayName,
+		Description:    description,
+		SecretStoreRef: secretStoreRef,
+		CreatedAt:      dp.CreationTimestamp.Time,
+		Status:         status,
 	}
 
 	// Add observability plane reference if present

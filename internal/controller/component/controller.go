@@ -44,7 +44,6 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=list;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=gitcommitrequests,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

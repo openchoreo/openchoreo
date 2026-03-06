@@ -9,12 +9,18 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
+
+var environmentTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Environment",
+}
 
 // environmentService handles environment-related business logic without authorization checks.
 // Other services within this layer should use this directly to avoid double authz.
@@ -52,6 +58,10 @@ func (s *environmentService) ListEnvironments(ctx context.Context, namespaceName
 		return nil, fmt.Errorf("failed to list environments: %w", err)
 	}
 
+	for i := range envList.Items {
+		envList.Items[i].TypeMeta = environmentTypeMeta
+	}
+
 	result := &services.ListResult[openchoreov1alpha1.Environment]{
 		Items:      envList.Items,
 		NextCursor: envList.Continue,
@@ -83,6 +93,7 @@ func (s *environmentService) GetEnvironment(ctx context.Context, namespaceName, 
 		return nil, fmt.Errorf("failed to get environment: %w", err)
 	}
 
+	env.TypeMeta = environmentTypeMeta
 	return env, nil
 }
 
@@ -122,6 +133,7 @@ func (s *environmentService) CreateEnvironment(ctx context.Context, namespaceNam
 		env.Spec.DataPlaneRef.Kind = openchoreov1alpha1.DataPlaneRefKindDataPlane
 	}
 
+	env.Status = openchoreov1alpha1.EnvironmentStatus{}
 	env.Namespace = namespaceName
 
 	if err := s.k8sClient.Create(ctx, env); err != nil {
@@ -130,6 +142,7 @@ func (s *environmentService) CreateEnvironment(ctx context.Context, namespaceNam
 	}
 
 	s.logger.Debug("Environment created successfully", "namespace", namespaceName, "env", env.Name)
+	env.TypeMeta = environmentTypeMeta
 	return env, nil
 }
 
@@ -150,6 +163,9 @@ func (s *environmentService) UpdateEnvironment(ctx context.Context, namespaceNam
 		return nil, fmt.Errorf("failed to get environment: %w", err)
 	}
 
+	// Clear status from user input — status is server-managed
+	env.Status = openchoreov1alpha1.EnvironmentStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = env.Spec
 	existing.Labels = env.Labels
@@ -165,6 +181,7 @@ func (s *environmentService) UpdateEnvironment(ctx context.Context, namespaceNam
 	}
 
 	s.logger.Debug("Environment updated successfully", "namespace", namespaceName, "env", env.Name)
+	existing.TypeMeta = environmentTypeMeta
 	return existing, nil
 }
 
@@ -186,114 +203,4 @@ func (s *environmentService) DeleteEnvironment(ctx context.Context, namespaceNam
 
 	s.logger.Debug("Environment deleted successfully", "namespace", namespaceName, "env", envName)
 	return nil
-}
-
-func (s *environmentService) GetObserverURL(ctx context.Context, namespaceName, envName string) (*ObserverURLResult, error) {
-	s.logger.Debug("Getting environment observer URL", "namespace", namespaceName, "env", envName)
-
-	env, err := s.GetEnvironment(ctx, namespaceName, envName)
-	if err != nil {
-		return nil, err
-	}
-
-	if env.Spec.DataPlaneRef == nil || env.Spec.DataPlaneRef.Name == "" {
-		return nil, ErrDataPlaneNotFound
-	}
-
-	if env.Spec.DataPlaneRef.Kind == openchoreov1alpha1.DataPlaneRefKindClusterDataPlane {
-		return &ObserverURLResult{
-			Message: "observability-logs for ClusterDataPlane not yet supported",
-		}, nil
-	}
-
-	dp := &openchoreov1alpha1.DataPlane{}
-	dpKey := client.ObjectKey{
-		Name:      env.Spec.DataPlaneRef.Name,
-		Namespace: namespaceName,
-	}
-	if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return nil, ErrDataPlaneNotFound
-		}
-		return nil, fmt.Errorf("failed to get dataplane: %w", err)
-	}
-
-	observabilityResult, err := controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx, s.k8sClient, dp)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return &ObserverURLResult{
-				Message: "observability-logs have not been configured",
-			}, nil
-		}
-		return nil, fmt.Errorf("failed to get observability plane: %w", err)
-	}
-
-	observerURL := observabilityResult.GetObserverURL()
-	if observerURL == "" {
-		return &ObserverURLResult{
-			Message: "observability-logs have not been configured",
-		}, nil
-	}
-
-	return &ObserverURLResult{
-		ObserverURL: observerURL,
-	}, nil
-}
-
-func (s *environmentService) GetRCAAgentURL(ctx context.Context, namespaceName, envName string) (*RCAAgentURLResult, error) {
-	s.logger.Debug("Getting RCA agent URL", "namespace", namespaceName, "env", envName)
-
-	env, err := s.GetEnvironment(ctx, namespaceName, envName)
-	if err != nil {
-		return nil, err
-	}
-
-	if env.Spec.DataPlaneRef == nil || env.Spec.DataPlaneRef.Name == "" {
-		return nil, ErrDataPlaneNotFound
-	}
-
-	if env.Spec.DataPlaneRef.Kind == openchoreov1alpha1.DataPlaneRefKindClusterDataPlane {
-		return &RCAAgentURLResult{
-			Message: "RCA agent for ClusterDataPlane not yet supported",
-		}, nil
-	}
-
-	dp := &openchoreov1alpha1.DataPlane{}
-	dpKey := client.ObjectKey{
-		Name:      env.Spec.DataPlaneRef.Name,
-		Namespace: namespaceName,
-	}
-	if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return nil, ErrDataPlaneNotFound
-		}
-		return nil, fmt.Errorf("failed to get dataplane: %w", err)
-	}
-
-	observabilityResult, err := controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx, s.k8sClient, dp)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return &RCAAgentURLResult{
-				Message: "ObservabilityPlaneRef has not been configured",
-			}, nil
-		}
-		return nil, fmt.Errorf("failed to get observability plane: %w", err)
-	}
-
-	var rcaAgentURL string
-	if observabilityResult.ObservabilityPlane != nil {
-		rcaAgentURL = observabilityResult.ObservabilityPlane.Spec.RCAAgentURL
-	} else if observabilityResult.ClusterObservabilityPlane != nil {
-		rcaAgentURL = observabilityResult.ClusterObservabilityPlane.Spec.RCAAgentURL
-	}
-
-	if rcaAgentURL == "" {
-		return &RCAAgentURLResult{
-			Message: "RCAAgentURL has not been configured",
-		}, nil
-	}
-
-	return &RCAAgentURLResult{
-		RCAAgentURL: rcaAgentURL,
-	}, nil
 }
