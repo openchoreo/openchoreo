@@ -646,56 +646,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/environments/{envName}/observer-url:
-    get:
-      operationId: getEnvironmentObserverURL
-      summary: Get environment observer URL
-      description: Returns the observer URL for accessing logs and metrics for this environment.
-      tags: [Environments]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/EnvironmentNameParam'
-      responses:
-        '200':
-          description: Observer URL information
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ObserverURLResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/namespaces/{namespaceName}/environments/{envName}/rca-agent-url:
-    get:
-      operationId: getRCAAgentURL
-      summary: Get RCA agent URL
-      description: Returns the RCA agent URL for AI-powered root cause analysis for this environment.
-      tags: [Environments]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/EnvironmentNameParam'
-      responses:
-        '200':
-          description: RCA agent URL information
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RCAAgentURLResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
   # =============================================================================
   # DataPlane Endpoints
   # =============================================================================
@@ -5825,32 +5775,6 @@ components:
             $ref: '#/components/schemas/Environment'
         pagination:
           $ref: '#/components/schemas/Pagination'
-
-    ObserverURLResponse:
-      type: object
-      description: Observer URL response for accessing logs and metrics
-      properties:
-        observerUrl:
-          type: string
-          description: URL to the observer service for logs and metrics
-          example: https://observer.example.com/api/v1
-        message:
-          type: string
-          description: Additional information or status message
-          example: Observer URL is available
-
-    RCAAgentURLResponse:
-      type: object
-      description: RCA agent URL response for AI-powered root cause analysis
-      properties:
-        rcaAgentUrl:
-          type: string
-          description: URL to the RCA agent service for AI-powered root cause analysis
-          example: https://rca-agent.example.com
-        message:
-          type: string
-          description: Additional information or status message
-          example: RCA agent URL is available
 
     # -------------------------------------------------------------------------
     # DataPlanes

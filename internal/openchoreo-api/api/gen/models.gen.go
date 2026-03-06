@@ -2350,15 +2350,6 @@ type ObservabilityPlaneStatus struct {
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
-// ObserverURLResponse Observer URL response for accessing logs and metrics
-type ObserverURLResponse struct {
-	// Message Additional information or status message
-	Message *string `json:"message,omitempty"`
-
-	// ObserverUrl URL to the observer service for logs and metrics
-	ObserverUrl *string `json:"observerUrl,omitempty"`
-}
-
 // OpenChoreoClient OAuth client configuration for an OpenChoreo external integration (e.g., CLI)
 type OpenChoreoClient struct {
 	// ClientId OAuth2 client ID
@@ -2463,15 +2454,6 @@ type PromotionPath struct {
 
 	// TargetEnvironmentRefs Target environments for promotion
 	TargetEnvironmentRefs []TargetEnvironmentRef `json:"targetEnvironmentRefs"`
-}
-
-// RCAAgentURLResponse RCA agent URL response for AI-powered root cause analysis
-type RCAAgentURLResponse struct {
-	// Message Additional information or status message
-	Message *string `json:"message,omitempty"`
-
-	// RcaAgentUrl URL to the RCA agent service for AI-powered root cause analysis
-	RcaAgentUrl *string `json:"rcaAgentUrl,omitempty"`
 }
 
 // Release Release resource.

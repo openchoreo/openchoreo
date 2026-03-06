@@ -108,27 +108,3 @@ func (s *environmentServiceWithAuthz) DeleteEnvironment(ctx context.Context, nam
 	}
 	return s.internal.DeleteEnvironment(ctx, namespaceName, envName)
 }
-
-func (s *environmentServiceWithAuthz) GetObserverURL(ctx context.Context, namespaceName, envName string) (*ObserverURLResult, error) {
-	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewEnvironment,
-		ResourceType: resourceTypeEnvironment,
-		ResourceID:   envName,
-		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
-	}); err != nil {
-		return nil, err
-	}
-	return s.internal.GetObserverURL(ctx, namespaceName, envName)
-}
-
-func (s *environmentServiceWithAuthz) GetRCAAgentURL(ctx context.Context, namespaceName, envName string) (*RCAAgentURLResult, error) {
-	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewEnvironment,
-		ResourceType: resourceTypeEnvironment,
-		ResourceID:   envName,
-		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
-	}); err != nil {
-		return nil, err
-	}
-	return s.internal.GetRCAAgentURL(ctx, namespaceName, envName)
-}

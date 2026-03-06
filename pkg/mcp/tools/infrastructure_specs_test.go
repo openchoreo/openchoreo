@@ -76,22 +76,5 @@ func infrastructureToolSpecs() []toolTestSpec {
 				}
 			},
 		},
-		{
-			name:                "get_observer_url",
-			toolset:             "infrastructure",
-			descriptionKeywords: []string{"observer", "url"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "env_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"env_name":       testEnvName,
-			},
-			expectedMethod: "GetObserverURL",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testEnvName {
-					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testEnvName, args[0], args[1])
-				}
-			},
-		},
 	}
 }

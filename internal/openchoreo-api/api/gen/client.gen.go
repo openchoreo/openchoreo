@@ -402,12 +402,6 @@ type ClientInterface interface {
 
 	UpdateEnvironment(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetEnvironmentObserverURL request
-	GetEnvironmentObserverURL(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetRCAAgentURL request
-	GetRCAAgentURL(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListObservabilityAlertsNotificationChannels request
 	ListObservabilityAlertsNotificationChannels(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2050,30 +2044,6 @@ func (c *Client) UpdateEnvironmentWithBody(ctx context.Context, namespaceName Na
 
 func (c *Client) UpdateEnvironment(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateEnvironmentRequest(c.Server, namespaceName, envName, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetEnvironmentObserverURL(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetEnvironmentObserverURLRequest(c.Server, namespaceName, envName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetRCAAgentURL(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetRCAAgentURLRequest(c.Server, namespaceName, envName)
 	if err != nil {
 		return nil, err
 	}
@@ -7182,88 +7152,6 @@ func NewUpdateEnvironmentRequestWithBody(server string, namespaceName NamespaceN
 	return req, nil
 }
 
-// NewGetEnvironmentObserverURLRequest generates requests for GetEnvironmentObserverURL
-func NewGetEnvironmentObserverURLRequest(server string, namespaceName NamespaceNameParam, envName EnvironmentNameParam) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "envName", runtime.ParamLocationPath, envName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/environments/%s/observer-url", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetRCAAgentURLRequest generates requests for GetRCAAgentURL
-func NewGetRCAAgentURLRequest(server string, namespaceName NamespaceNameParam, envName EnvironmentNameParam) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "envName", runtime.ParamLocationPath, envName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/environments/%s/rca-agent-url", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewListObservabilityAlertsNotificationChannelsRequest generates requests for ListObservabilityAlertsNotificationChannels
 func NewListObservabilityAlertsNotificationChannelsRequest(server string, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams) (*http.Request, error) {
 	var err error
@@ -11626,12 +11514,6 @@ type ClientWithResponsesInterface interface {
 
 	UpdateEnvironmentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResp, error)
 
-	// GetEnvironmentObserverURLWithResponse request
-	GetEnvironmentObserverURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetEnvironmentObserverURLResp, error)
-
-	// GetRCAAgentURLWithResponse request
-	GetRCAAgentURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetRCAAgentURLResp, error)
-
 	// ListObservabilityAlertsNotificationChannelsWithResponse request
 	ListObservabilityAlertsNotificationChannelsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams, reqEditors ...RequestEditorFn) (*ListObservabilityAlertsNotificationChannelsResp, error)
 
@@ -14067,58 +13949,6 @@ func (r UpdateEnvironmentResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateEnvironmentResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetEnvironmentObserverURLResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ObserverURLResponse
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetEnvironmentObserverURLResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetEnvironmentObserverURLResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetRCAAgentURLResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *RCAAgentURLResponse
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetRCAAgentURLResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetRCAAgentURLResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -17073,24 +16903,6 @@ func (c *ClientWithResponses) UpdateEnvironmentWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseUpdateEnvironmentResp(rsp)
-}
-
-// GetEnvironmentObserverURLWithResponse request returning *GetEnvironmentObserverURLResp
-func (c *ClientWithResponses) GetEnvironmentObserverURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetEnvironmentObserverURLResp, error) {
-	rsp, err := c.GetEnvironmentObserverURL(ctx, namespaceName, envName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetEnvironmentObserverURLResp(rsp)
-}
-
-// GetRCAAgentURLWithResponse request returning *GetRCAAgentURLResp
-func (c *ClientWithResponses) GetRCAAgentURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetRCAAgentURLResp, error) {
-	rsp, err := c.GetRCAAgentURL(ctx, namespaceName, envName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetRCAAgentURLResp(rsp)
 }
 
 // ListObservabilityAlertsNotificationChannelsWithResponse request returning *ListObservabilityAlertsNotificationChannelsResp
@@ -22498,114 +22310,6 @@ func ParseUpdateEnvironmentResp(rsp *http.Response) (*UpdateEnvironmentResp, err
 			return nil, err
 		}
 		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetEnvironmentObserverURLResp parses an HTTP response from a GetEnvironmentObserverURLWithResponse call
-func ParseGetEnvironmentObserverURLResp(rsp *http.Response) (*GetEnvironmentObserverURLResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetEnvironmentObserverURLResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ObserverURLResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetRCAAgentURLResp parses an HTTP response from a GetRCAAgentURLWithResponse call
-func ParseGetRCAAgentURLResp(rsp *http.Response) (*GetRCAAgentURLResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetRCAAgentURLResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest RCAAgentURLResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

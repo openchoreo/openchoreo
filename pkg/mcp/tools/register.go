@@ -74,7 +74,6 @@ func (t *Toolsets) infrastructureToolRegistrations() []RegisterFunc {
 		t.RegisterGetEnvironments,
 		t.RegisterGetDeploymentPipeline,
 		t.RegisterListDeploymentPipelines,
-		t.RegisterGetObserverURL,
 	}
 }
 

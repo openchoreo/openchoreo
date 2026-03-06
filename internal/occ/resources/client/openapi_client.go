@@ -1119,21 +1119,6 @@ func (c *Client) GetClusterObservabilityPlane(ctx context.Context, clusterObserv
 	return resp.JSON200, nil
 }
 
-// GetEnvironmentObserverURL retrieves the observer URL for an environment
-func (c *Client) GetEnvironmentObserverURL(ctx context.Context, namespaceName, envName string) (string, error) {
-	resp, err := c.client.GetEnvironmentObserverURLWithResponse(ctx, namespaceName, envName)
-	if err != nil {
-		return "", fmt.Errorf("failed to get environment observer URL: %w", err)
-	}
-	if resp.JSON200 == nil {
-		return "", fmt.Errorf("unexpected response status: %d", resp.StatusCode())
-	}
-	if resp.JSON200.ObserverUrl == nil {
-		return "", fmt.Errorf("observer URL not configured for environment")
-	}
-	return *resp.JSON200.ObserverUrl, nil
-}
-
 // GetComponentTypeSchema retrieves the parameter schema for a component type
 func (c *Client) GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (*json.RawMessage, error) {
 	resp, err := c.client.GetComponentTypeSchemaWithResponse(ctx, namespaceName, ctName)

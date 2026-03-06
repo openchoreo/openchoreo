@@ -359,24 +359,6 @@ func (t *Toolsets) RegisterListBuildPlanes(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetObserverURL(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_observer_url",
-		Description: "Get the observer URL for an environment. The observer URL provides access to monitoring, " +
-			"logging, and observability data for components deployed in the environment.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"env_name":       stringProperty("Use list_environments to discover valid names"),
-		}, []string{"namespace_name", "env_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		EnvName       string `json:"env_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.GetObserverURL(ctx, args.NamespaceName, args.EnvName)
-		return handleToolResult(result, err)
-	})
-}
-
 func (t *Toolsets) RegisterCreateWorkflowRun(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_workflow_run",
