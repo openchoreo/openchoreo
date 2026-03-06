@@ -4,6 +4,7 @@
 package workflowrun
 
 import (
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -206,7 +207,7 @@ func TestResolveExternalRefs(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !contains(err.Error(), "failed to get SecretReference") {
+		if !strings.Contains(err.Error(), "failed to get SecretReference") {
 			t.Fatalf("expected get SecretReference error, got %v", err)
 		}
 	})
@@ -235,7 +236,7 @@ func TestResolveExternalRefs(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !contains(err.Error(), "unsupported externalRef kind") {
+		if !strings.Contains(err.Error(), "unsupported externalRef kind") {
 			t.Fatalf("expected unsupported kind error, got %v", err)
 		}
 	})

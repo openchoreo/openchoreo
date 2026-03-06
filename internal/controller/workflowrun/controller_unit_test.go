@@ -4,16 +4,27 @@
 package workflowrun
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/controller"
+	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
-// Unit tests for helper functions that don't require k8s test environment
+const testBuildNS = "build-ns"
+
+// ---------------------------------------------------------------------------
+// extractServiceAccountName
+// ---------------------------------------------------------------------------
 
 func TestExtractServiceAccountName(t *testing.T) {
 	tests := []struct {
@@ -29,8 +40,7 @@ func TestExtractServiceAccountName(t *testing.T) {
 					"serviceAccountName": "my-service-account",
 				},
 			},
-			want:      "my-service-account",
-			wantError: false,
+			want: "my-service-account",
 		},
 		{
 			name: "should return error when spec not found",
@@ -78,6 +88,10 @@ func TestExtractServiceAccountName(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// extractRunResourceNamespace
+// ---------------------------------------------------------------------------
+
 func TestExtractRunResourceNamespace(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -93,8 +107,7 @@ func TestExtractRunResourceNamespace(t *testing.T) {
 					"name":      "my-resource",
 				},
 			},
-			want:      "my-namespace",
-			wantError: false,
+			want: "my-namespace",
 		},
 		{
 			name: "should return error when metadata not found",
@@ -142,21 +155,25 @@ func TestExtractRunResourceNamespace(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// convertToString
+// ---------------------------------------------------------------------------
+
 func TestConvertToString(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    any
 		want     string
-		contains string
+		contains string // use when exact match isn't practical (floats)
 	}{
-		{name: "string to string", input: "hello", want: "hello"},
-		{name: "int to string", input: 42, want: "42"},
-		{name: "int32 to string", input: int32(42), want: "42"},
-		{name: "int64 to string", input: int64(42), want: "42"},
-		{name: "float32 to string", input: float32(3.14), contains: "3.14"},
-		{name: "float64 to string", input: 3.14159, contains: "3.14"},
-		{name: "bool true to string", input: true, want: "true"},
-		{name: "bool false to string", input: false, want: "false"},
+		{name: "string", input: "hello", want: "hello"},
+		{name: "int", input: 42, want: "42"},
+		{name: "int32", input: int32(42), want: "42"},
+		{name: "int64", input: int64(42), want: "42"},
+		{name: "float32", input: float32(3.14), contains: "3.14"},
+		{name: "float64", input: 3.14159, contains: "3.14"},
+		{name: "bool true", input: true, want: "true"},
+		{name: "bool false", input: false, want: "false"},
 	}
 
 	for _, tt := range tests {
@@ -165,21 +182,18 @@ func TestConvertToString(t *testing.T) {
 			if tt.want != "" && result != tt.want {
 				t.Errorf("expected %s, got %s", tt.want, result)
 			}
-			if tt.contains != "" && !contains(result, tt.contains) {
-				t.Errorf("expected result to contain %s, got %s", tt.contains, result)
+			if tt.contains != "" && !strings.Contains(result, tt.contains) {
+				t.Errorf("expected result to contain %q, got %q", tt.contains, result)
 			}
 		})
 	}
 
 	t.Run("map to JSON string", func(t *testing.T) {
-		input := map[string]any{
-			"key1": "value1",
-			"key2": 42,
-		}
+		input := map[string]any{"key1": "value1", "key2": 42}
 		result := convertToString(input)
 		var decoded map[string]any
 		if err := json.Unmarshal([]byte(result), &decoded); err != nil {
-			t.Errorf("failed to unmarshal JSON: %v", err)
+			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
 		if decoded["key1"] != "value1" {
 			t.Errorf("expected key1=value1, got %v", decoded["key1"])
@@ -191,13 +205,17 @@ func TestConvertToString(t *testing.T) {
 		result := convertToString(input)
 		var decoded []any
 		if err := json.Unmarshal([]byte(result), &decoded); err != nil {
-			t.Errorf("failed to unmarshal JSON: %v", err)
+			t.Fatalf("failed to unmarshal JSON: %v", err)
 		}
 		if len(decoded) != 3 {
 			t.Errorf("expected length 3, got %d", len(decoded))
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// convertParameterValuesToStrings
+// ---------------------------------------------------------------------------
 
 func TestConvertParameterValuesToStrings(t *testing.T) {
 	t.Run("should convert parameter values in workflow resource", func(t *testing.T) {
@@ -207,14 +225,8 @@ func TestConvertParameterValuesToStrings(t *testing.T) {
 			"spec": map[string]any{
 				"arguments": map[string]any{
 					"parameters": []any{
-						map[string]any{
-							"name":  "param1",
-							"value": 42,
-						},
-						map[string]any{
-							"name":  "param2",
-							"value": true,
-						},
+						map[string]any{"name": "param1", "value": 42},
+						map[string]any{"name": "param2", "value": true},
 					},
 				},
 			},
@@ -225,14 +237,11 @@ func TestConvertParameterValuesToStrings(t *testing.T) {
 		args := spec["arguments"].(map[string]any)
 		params := args["parameters"].([]any)
 
-		param1 := params[0].(map[string]any)
-		if param1["value"] != "42" {
-			t.Errorf("expected param1 value to be '42', got %v", param1["value"])
+		if params[0].(map[string]any)["value"] != "42" {
+			t.Errorf("expected param1 value '42', got %v", params[0].(map[string]any)["value"])
 		}
-
-		param2 := params[1].(map[string]any)
-		if param2["value"] != "true" {
-			t.Errorf("expected param2 value to be 'true', got %v", param2["value"])
+		if params[1].(map[string]any)["value"] != "true" {
+			t.Errorf("expected param2 value 'true', got %v", params[1].(map[string]any)["value"])
 		}
 	})
 
@@ -240,291 +249,944 @@ func TestConvertParameterValuesToStrings(t *testing.T) {
 		resource := map[string]any{
 			"apiVersion": "argoproj.io/v1alpha1",
 			"kind":       "Workflow",
-			"metadata": map[string]any{
-				"name": "test",
-			},
+			"metadata":   map[string]any{"name": "test"},
 		}
 
 		result := convertParameterValuesToStrings(resource)
 		if result["apiVersion"] != "argoproj.io/v1alpha1" {
-			t.Errorf("expected apiVersion to be preserved")
+			t.Error("expected apiVersion to be preserved")
 		}
 		if result["kind"] != "Workflow" {
-			t.Errorf("expected kind to be preserved")
+			t.Error("expected kind to be preserved")
+		}
+	})
+
+	t.Run("should handle resource without spec", func(t *testing.T) {
+		resource := map[string]any{"metadata": map[string]any{"name": "test"}}
+		result := convertParameterValuesToStrings(resource)
+		if result["metadata"] == nil {
+			t.Error("expected metadata to be preserved")
+		}
+	})
+
+	t.Run("should handle spec without arguments", func(t *testing.T) {
+		resource := map[string]any{
+			"spec": map[string]any{"entrypoint": "main"},
+		}
+		result := convertParameterValuesToStrings(resource)
+		spec := result["spec"].(map[string]any)
+		if spec["entrypoint"] != "main" {
+			t.Error("expected entrypoint to be preserved")
 		}
 	})
 }
 
-func TestParseWorkflowParameterAnnotation(t *testing.T) {
-	annotation := "repoUrl: parameters.repository.url\nsecretRef: parameters.repository.secretRef\ncommit: parameters.repository.revision.commit\n"
-	result := controller.ParseWorkflowParameterAnnotation(annotation)
+// ---------------------------------------------------------------------------
+// Condition functions
+// ---------------------------------------------------------------------------
 
-	if result["repoUrl"] != "parameters.repository.url" {
-		t.Errorf("expected repoUrl path, got %q", result["repoUrl"])
-	}
-	if result["secretRef"] != "parameters.repository.secretRef" {
-		t.Errorf("expected secretRef path, got %q", result["secretRef"])
-	}
-	if result["commit"] != "parameters.repository.revision.commit" {
-		t.Errorf("expected commit path, got %q", result["commit"])
-	}
-}
-
-// ResourceReference tests
-func TestResourceReference(t *testing.T) {
-	t.Run("should correctly store RunReference in status", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-run",
-				Namespace: "default",
-			},
-		}
-
-		cwf.Status.RunReference = &openchoreodevv1alpha1.ResourceReference{
-			APIVersion: "argoproj.io/v1alpha1",
-			Kind:       "Workflow",
-			Name:       "test-workflow-run",
-			Namespace:  "build-namespace",
-		}
-
-		if cwf.Status.RunReference == nil {
-			t.Error("expected RunReference to be set")
-		}
-		if cwf.Status.RunReference.APIVersion != "argoproj.io/v1alpha1" {
-			t.Errorf("expected APIVersion argoproj.io/v1alpha1, got %s", cwf.Status.RunReference.APIVersion)
-		}
-		if cwf.Status.RunReference.Kind != "Workflow" {
-			t.Errorf("expected Kind Workflow, got %s", cwf.Status.RunReference.Kind)
-		}
-		if cwf.Status.RunReference.Name != "test-workflow-run" {
-			t.Errorf("expected Name test-workflow-run, got %s", cwf.Status.RunReference.Name)
-		}
-		if cwf.Status.RunReference.Namespace != "build-namespace" {
-			t.Errorf("expected Namespace build-namespace, got %s", cwf.Status.RunReference.Namespace)
-		}
-	})
-
-	t.Run("should correctly store Resources in status", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-run",
-				Namespace: "default",
-			},
-		}
-
-		resources := []openchoreodevv1alpha1.ResourceReference{
-			{
-				APIVersion: "v1",
-				Kind:       "Secret",
-				Name:       "registry-credentials",
-				Namespace:  "build-namespace",
-			},
-			{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-				Name:       "build-config",
-				Namespace:  "build-namespace",
-			},
-		}
-		cwf.Status.Resources = &resources
-
-		if cwf.Status.Resources == nil {
-			t.Error("expected Resources to be set")
-		}
-		if len(*cwf.Status.Resources) != 2 {
-			t.Errorf("expected 2 resources, got %d", len(*cwf.Status.Resources))
-		}
-		if (*cwf.Status.Resources)[0].Kind != "Secret" {
-			t.Errorf("expected first resource kind Secret, got %s", (*cwf.Status.Resources)[0].Kind)
-		}
-		if (*cwf.Status.Resources)[1].Kind != "ConfigMap" {
-			t.Errorf("expected second resource kind ConfigMap, got %s", (*cwf.Status.Resources)[1].Kind)
-		}
-	})
-
-	t.Run("should handle nil RunReference", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-run",
-				Namespace: "default",
-			},
-		}
-
-		if cwf.Status.RunReference != nil {
-			t.Error("expected RunReference to be nil")
-		}
-	})
-
-	t.Run("should handle nil Resources", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-run",
-				Namespace: "default",
-			},
-		}
-
-		if cwf.Status.Resources != nil {
-			t.Error("expected Resources to be nil")
-		}
-	})
-
-	t.Run("should handle empty Resources slice", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-run",
-				Namespace: "default",
-			},
-		}
-
-		emptyResources := []openchoreodevv1alpha1.ResourceReference{}
-		cwf.Status.Resources = &emptyResources
-
-		if cwf.Status.Resources == nil {
-			t.Error("expected Resources to not be nil")
-		}
-		if len(*cwf.Status.Resources) != 0 {
-			t.Errorf("expected 0 resources, got %d", len(*cwf.Status.Resources))
-		}
-	})
-}
-
-// Finalizer constant test
-func TestWorkflowRunCleanupFinalizer(t *testing.T) {
-	t.Run("should have correct finalizer value", func(t *testing.T) {
-		expected := "openchoreo.dev/workflowrun-cleanup"
-		if WorkflowRunCleanupFinalizer != expected {
-			t.Errorf("expected finalizer %s, got %s", expected, WorkflowRunCleanupFinalizer)
-		}
-	})
-}
-
-// Condition function tests
 func TestConditionFunctions(t *testing.T) {
-	t.Run("setWorkflowPendingCondition", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Generation: 1,
-			},
+	newWFRun := func() *openchoreodevv1alpha1.WorkflowRun {
+		return &openchoreodevv1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{Generation: 1},
 		}
-		setWorkflowPendingCondition(cwf)
+	}
 
-		if len(cwf.Status.Conditions) != 1 {
-			t.Errorf("expected 1 condition, got %d", len(cwf.Status.Conditions))
-		}
-		cond := cwf.Status.Conditions[0]
-		if cond.Type != string(ConditionWorkflowCompleted) {
-			t.Errorf("expected type %s, got %s", ConditionWorkflowCompleted, cond.Type)
-		}
-		if cond.Status != metav1.ConditionFalse {
-			t.Errorf("expected status False, got %s", cond.Status)
-		}
+	t.Run("setWorkflowPendingCondition", func(t *testing.T) {
+		wfr := newWFRun()
+		setWorkflowPendingCondition(wfr)
+		assertConditionCount(t, wfr, 1)
+		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionFalse, string(ReasonWorkflowPending))
 	})
 
 	t.Run("setWorkflowRunningCondition", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Generation: 1,
-			},
-		}
-		setWorkflowRunningCondition(cwf)
-
-		if len(cwf.Status.Conditions) != 1 {
-			t.Errorf("expected 1 condition, got %d", len(cwf.Status.Conditions))
-		}
-		cond := cwf.Status.Conditions[0]
-		if cond.Type != string(ConditionWorkflowRunning) {
-			t.Errorf("expected type %s, got %s", ConditionWorkflowRunning, cond.Type)
-		}
-		if cond.Status != metav1.ConditionTrue {
-			t.Errorf("expected status True, got %s", cond.Status)
-		}
+		wfr := newWFRun()
+		setWorkflowRunningCondition(wfr)
+		assertConditionCount(t, wfr, 1)
+		assertCondition(t, wfr, string(ConditionWorkflowRunning), metav1.ConditionTrue, string(ReasonWorkflowRunning))
 	})
 
 	t.Run("setWorkflowSucceededCondition", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Generation: 1,
+		wfr := newWFRun()
+		setWorkflowSucceededCondition(wfr)
+		assertConditionCount(t, wfr, 3)
+		assertCondition(t, wfr, string(ConditionWorkflowRunning), metav1.ConditionFalse, "")
+		assertCondition(t, wfr, string(ConditionWorkflowSucceeded), metav1.ConditionTrue, string(ReasonWorkflowSucceeded))
+		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionTrue, string(ReasonWorkflowSucceeded))
+	})
+
+	t.Run("setWorkflowFailedCondition", func(t *testing.T) {
+		wfr := newWFRun()
+		setWorkflowFailedCondition(wfr)
+		assertConditionCount(t, wfr, 3)
+		assertCondition(t, wfr, string(ConditionWorkflowRunning), metav1.ConditionFalse, "")
+		assertCondition(t, wfr, string(ConditionWorkflowFailed), metav1.ConditionTrue, string(ReasonWorkflowFailed))
+		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionTrue, string(ReasonWorkflowFailed))
+	})
+
+	t.Run("setWorkflowNotFoundCondition", func(t *testing.T) {
+		wfr := newWFRun()
+		setWorkflowNotFoundCondition(wfr)
+		assertConditionCount(t, wfr, 2)
+		assertCondition(t, wfr, string(ConditionWorkflowRunning), metav1.ConditionFalse, "")
+		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionTrue, string(ReasonWorkflowFailed))
+	})
+
+	t.Run("setBuildPlaneNotFoundCondition", func(t *testing.T) {
+		wfr := newWFRun()
+		setBuildPlaneNotFoundCondition(wfr)
+		assertConditionCount(t, wfr, 1)
+		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionFalse, string(ReasonBuildPlaneNotFound))
+	})
+
+	t.Run("setBuildPlaneResolutionFailedCondition", func(t *testing.T) {
+		wfr := newWFRun()
+		setBuildPlaneResolutionFailedCondition(wfr, errors.New("test error"))
+		assertConditionCount(t, wfr, 1)
+		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionFalse, string(ReasonBuildPlaneResolutionFailed))
+		cond := findConditionByType(wfr.Status.Conditions, string(ConditionWorkflowCompleted))
+		if !strings.Contains(cond.Message, "test error") {
+			t.Errorf("expected message to contain 'test error', got %q", cond.Message)
+		}
+	})
+
+	t.Run("setWorkloadUpdatedCondition", func(t *testing.T) {
+		wfr := newWFRun()
+		setWorkloadUpdatedCondition(wfr)
+		assertConditionCount(t, wfr, 1)
+		assertCondition(t, wfr, string(ConditionWorkloadUpdated), metav1.ConditionTrue, string(ReasonWorkloadUpdated))
+	})
+
+	t.Run("setWorkloadUpdateFailedCondition", func(t *testing.T) {
+		wfr := newWFRun()
+		setWorkloadUpdateFailedCondition(wfr)
+		assertConditionCount(t, wfr, 1)
+		assertCondition(t, wfr, string(ConditionWorkloadUpdated), metav1.ConditionFalse, string(ReasonWorkloadUpdateFailed))
+	})
+}
+
+func TestIsWorkflowInitiated(t *testing.T) {
+	t.Run("false when no conditions", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{}
+		if isWorkflowInitiated(wfr) {
+			t.Error("expected false")
+		}
+	})
+	t.Run("true after pending condition set", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{}
+		setWorkflowPendingCondition(wfr)
+		if !isWorkflowInitiated(wfr) {
+			t.Error("expected true")
+		}
+	})
+}
+
+func TestIsWorkflowCompleted(t *testing.T) {
+	t.Run("false for pending workflow", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+		setWorkflowPendingCondition(wfr)
+		if isWorkflowCompleted(wfr) {
+			t.Error("expected false")
+		}
+	})
+	t.Run("true for succeeded workflow", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+		setWorkflowSucceededCondition(wfr)
+		if !isWorkflowCompleted(wfr) {
+			t.Error("expected true")
+		}
+	})
+	t.Run("true for failed workflow", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+		setWorkflowFailedCondition(wfr)
+		if !isWorkflowCompleted(wfr) {
+			t.Error("expected true")
+		}
+	})
+}
+
+func TestIsWorkflowSucceeded(t *testing.T) {
+	t.Run("false for running workflow", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+		setWorkflowRunningCondition(wfr)
+		if isWorkflowSucceeded(wfr) {
+			t.Error("expected false")
+		}
+	})
+	t.Run("true for succeeded workflow", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+		setWorkflowSucceededCondition(wfr)
+		if !isWorkflowSucceeded(wfr) {
+			t.Error("expected true")
+		}
+	})
+	t.Run("false for failed workflow", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+		setWorkflowFailedCondition(wfr)
+		if isWorkflowSucceeded(wfr) {
+			t.Error("expected false")
+		}
+	})
+}
+
+func TestIsWorkloadUpdated(t *testing.T) {
+	t.Run("false when no condition", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{}
+		if isWorkloadUpdated(wfr) {
+			t.Error("expected false")
+		}
+	})
+	t.Run("true after setWorkloadUpdatedCondition", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+		setWorkloadUpdatedCondition(wfr)
+		if !isWorkloadUpdated(wfr) {
+			t.Error("expected true")
+		}
+	})
+	t.Run("false after setWorkloadUpdateFailedCondition", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+		setWorkloadUpdateFailedCondition(wfr)
+		if isWorkloadUpdated(wfr) {
+			t.Error("expected false")
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// setStartedAtIfNeeded / setCompletedAtIfNeeded
+// ---------------------------------------------------------------------------
+
+func TestSetStartedAtIfNeeded(t *testing.T) {
+	t.Run("sets StartedAt when nil", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{}
+		setStartedAtIfNeeded(wfr)
+		if wfr.Status.StartedAt == nil {
+			t.Error("expected StartedAt to be set")
+		}
+	})
+	t.Run("does not overwrite existing StartedAt", func(t *testing.T) {
+		existing := metav1.NewTime(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			Status: openchoreodevv1alpha1.WorkflowRunStatus{StartedAt: &existing},
+		}
+		setStartedAtIfNeeded(wfr)
+		if !wfr.Status.StartedAt.Equal(&existing) {
+			t.Error("expected StartedAt to remain unchanged")
+		}
+	})
+}
+
+func TestSetCompletedAtIfNeeded(t *testing.T) {
+	t.Run("sets CompletedAt when nil", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{}
+		setCompletedAtIfNeeded(wfr)
+		if wfr.Status.CompletedAt == nil {
+			t.Error("expected CompletedAt to be set")
+		}
+	})
+	t.Run("does not overwrite existing CompletedAt", func(t *testing.T) {
+		existing := metav1.NewTime(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			Status: openchoreodevv1alpha1.WorkflowRunStatus{CompletedAt: &existing},
+		}
+		setCompletedAtIfNeeded(wfr)
+		if !wfr.Status.CompletedAt.Equal(&existing) {
+			t.Error("expected CompletedAt to remain unchanged")
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// hasGenerateWorkloadTask
+// ---------------------------------------------------------------------------
+
+func TestHasGenerateWorkloadTask(t *testing.T) {
+	tests := []struct {
+		name  string
+		tasks []openchoreodevv1alpha1.WorkflowTask
+		want  bool
+	}{
+		{"empty tasks", nil, false},
+		{"no matching task", []openchoreodevv1alpha1.WorkflowTask{{Name: "build"}}, false},
+		{"has generate-workload-cr task", []openchoreodevv1alpha1.WorkflowTask{
+			{Name: "build"},
+			{Name: generateWorkloadTaskName},
+		}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wfr := &openchoreodevv1alpha1.WorkflowRun{
+				Status: openchoreodevv1alpha1.WorkflowRunStatus{Tasks: tt.tasks},
+			}
+			if got := hasGenerateWorkloadTask(wfr); got != tt.want {
+				t.Errorf("expected %v, got %v", tt.want, got)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// hasResourcesInStatus
+// ---------------------------------------------------------------------------
+
+func TestHasResourcesInStatus(t *testing.T) {
+	tests := []struct {
+		name string
+		wfr  *openchoreodevv1alpha1.WorkflowRun
+		want bool
+	}{
+		{
+			name: "nil RunReference and nil Resources",
+			wfr:  &openchoreodevv1alpha1.WorkflowRun{},
+			want: false,
+		},
+		{
+			name: "RunReference with empty name",
+			wfr: &openchoreodevv1alpha1.WorkflowRun{
+				Status: openchoreodevv1alpha1.WorkflowRunStatus{
+					RunReference: &openchoreodevv1alpha1.ResourceReference{Name: ""},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "RunReference with name",
+			wfr: &openchoreodevv1alpha1.WorkflowRun{
+				Status: openchoreodevv1alpha1.WorkflowRunStatus{
+					RunReference: &openchoreodevv1alpha1.ResourceReference{Name: "wf-run"},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "nil RunReference but Resources with entries",
+			wfr: &openchoreodevv1alpha1.WorkflowRun{
+				Status: openchoreodevv1alpha1.WorkflowRunStatus{
+					Resources: &[]openchoreodevv1alpha1.ResourceReference{
+						{Name: "secret1", Kind: "Secret"},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "nil RunReference and empty Resources slice",
+			wfr: &openchoreodevv1alpha1.WorkflowRun{
+				Status: openchoreodevv1alpha1.WorkflowRunStatus{
+					Resources: &[]openchoreodevv1alpha1.ResourceReference{},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasResourcesInStatus(tt.wfr); got != tt.want {
+				t.Errorf("expected %v, got %v", tt.want, got)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// extractWorkloadCRFromRunResource
+// ---------------------------------------------------------------------------
+
+func TestExtractWorkloadCRFromRunResource(t *testing.T) {
+	workloadYAML := "apiVersion: openchoreo.dev/v1alpha1\nkind: Workload\nmetadata:\n  name: my-workload"
+	anyStr := argoproj.AnyString(workloadYAML)
+
+	tests := []struct {
+		name  string
+		nodes argoproj.Nodes
+		want  string
+	}{
+		{
+			name:  "no nodes",
+			nodes: nil,
+			want:  "",
+		},
+		{
+			name: "node with DisplayName matching, Succeeded, has output param",
+			nodes: argoproj.Nodes{
+				"node1": {
+					DisplayName: generateWorkloadTaskName,
+					Phase:       argoproj.NodeSucceeded,
+					Type:        argoproj.NodeTypePod,
+					Outputs: &argoproj.Outputs{
+						Parameters: []argoproj.Parameter{
+							{Name: workloadCRParamName, Value: &anyStr},
+						},
+					},
+				},
+			},
+			want: workloadYAML,
+		},
+		{
+			name: "node with parsed name matching (no DisplayName)",
+			nodes: argoproj.Nodes{
+				"node1": {
+					Name:  "my-workflow[0]." + generateWorkloadTaskName,
+					Phase: argoproj.NodeSucceeded,
+					Type:  argoproj.NodeTypePod,
+					Outputs: &argoproj.Outputs{
+						Parameters: []argoproj.Parameter{
+							{Name: workloadCRParamName, Value: &anyStr},
+						},
+					},
+				},
+			},
+			want: workloadYAML,
+		},
+		{
+			name: "node with correct name but Phase != Succeeded",
+			nodes: argoproj.Nodes{
+				"node1": {
+					DisplayName: generateWorkloadTaskName,
+					Phase:       argoproj.NodeFailed,
+					Type:        argoproj.NodeTypePod,
+					Outputs: &argoproj.Outputs{
+						Parameters: []argoproj.Parameter{
+							{Name: workloadCRParamName, Value: &anyStr},
+						},
+					},
+				},
+			},
+			want: "",
+		},
+		{
+			name: "node with correct name and phase but no outputs",
+			nodes: argoproj.Nodes{
+				"node1": {
+					DisplayName: generateWorkloadTaskName,
+					Phase:       argoproj.NodeSucceeded,
+					Type:        argoproj.NodeTypePod,
+				},
+			},
+			want: "",
+		},
+		{
+			name: "node with correct name and phase but wrong param name",
+			nodes: argoproj.Nodes{
+				"node1": {
+					DisplayName: generateWorkloadTaskName,
+					Phase:       argoproj.NodeSucceeded,
+					Type:        argoproj.NodeTypePod,
+					Outputs: &argoproj.Outputs{
+						Parameters: []argoproj.Parameter{
+							{Name: "other-param", Value: &anyStr},
+						},
+					},
+				},
+			},
+			want: "",
+		},
+		{
+			name: "node with correct name and phase but param value is nil",
+			nodes: argoproj.Nodes{
+				"node1": {
+					DisplayName: generateWorkloadTaskName,
+					Phase:       argoproj.NodeSucceeded,
+					Type:        argoproj.NodeTypePod,
+					Outputs: &argoproj.Outputs{
+						Parameters: []argoproj.Parameter{
+							{Name: workloadCRParamName, Value: nil},
+						},
+					},
+				},
+			},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runResource := &argoproj.Workflow{}
+			runResource.Status.Nodes = tt.nodes
+			got := extractWorkloadCRFromRunResource(runResource)
+			if got != tt.want {
+				t.Errorf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// extractArgoStepOrderFromNodeName
+// ---------------------------------------------------------------------------
+
+func TestExtractArgoStepOrderFromNodeName(t *testing.T) {
+	tests := []struct {
+		name     string
+		nodeName string
+		want     int
+	}{
+		{"first step", "workflow-name[0].step-name", 0},
+		{"second step", "workflow-name[1].step-name", 1},
+		{"tenth step", "workflow-name[10].step-name", 10},
+		{"no brackets", "no-brackets", -1},
+		{"non-numeric in brackets", "brackets[abc].step", -1},
+		{"empty string", "", -1},
+		{"nested brackets extracts last pair", "name[0][1].step", 1},
+		{"missing closing bracket", "name[0.step", -1},
+		{"empty brackets", "name[].step", -1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractArgoStepOrderFromNodeName(tt.nodeName)
+			if got != tt.want {
+				t.Errorf("expected %d, got %d", tt.want, got)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// extractTaskNameFromArgoNodeName
+// ---------------------------------------------------------------------------
+
+func TestExtractTaskNameFromArgoNodeName(t *testing.T) {
+	tests := []struct {
+		name     string
+		nodeName string
+		want     string
+	}{
+		{"standard pattern", "workflow-name[0].step-name", "step-name"},
+		{"workload task name", "workflow-name[0].generate-workload-cr", "generate-workload-cr"},
+		{"no dot", "no-dot-in-name", ""},
+		{"trailing dot", "trailing-dot.", ""},
+		{"empty string", "", ""},
+		{"multiple dots", "a.b.c", "c"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractTaskNameFromArgoNodeName(tt.nodeName)
+			if got != tt.want {
+				t.Errorf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// extractArgoTasksFromWorkflowNodes
+// ---------------------------------------------------------------------------
+
+func TestExtractArgoTasksFromWorkflowNodes(t *testing.T) {
+	startTime := metav1.NewTime(time.Date(2025, 6, 1, 10, 0, 0, 0, time.UTC))
+	finishTime := metav1.NewTime(time.Date(2025, 6, 1, 10, 5, 0, 0, time.UTC))
+
+	t.Run("nil nodes returns nil", func(t *testing.T) {
+		tasks := extractArgoTasksFromWorkflowNodes(nil)
+		if tasks != nil {
+			t.Errorf("expected nil, got %v", tasks)
+		}
+	})
+
+	t.Run("empty nodes returns empty slice", func(t *testing.T) {
+		tasks := extractArgoTasksFromWorkflowNodes(argoproj.Nodes{})
+		if len(tasks) != 0 {
+			t.Errorf("expected 0 tasks, got %d", len(tasks))
+		}
+	})
+
+	t.Run("only Pod nodes are extracted", func(t *testing.T) {
+		nodes := argoproj.Nodes{
+			"pod-node": {
+				Name:        "wf[0].build",
+				DisplayName: "build",
+				Type:        argoproj.NodeTypePod,
+				Phase:       argoproj.NodeRunning,
+			},
+			"steps-node": {
+				Name:        "wf[0]",
+				DisplayName: "steps",
+				Type:        argoproj.NodeTypeSteps,
+				Phase:       argoproj.NodeRunning,
+			},
+			"group-node": {
+				Name:        "wf[0]",
+				DisplayName: "group",
+				Type:        argoproj.NodeTypeStepGroup,
+				Phase:       argoproj.NodeRunning,
 			},
 		}
-		setWorkflowSucceededCondition(cwf)
-
-		if len(cwf.Status.Conditions) != 3 {
-			t.Errorf("expected 3 conditions, got %d", len(cwf.Status.Conditions))
+		tasks := extractArgoTasksFromWorkflowNodes(nodes)
+		if len(tasks) != 1 {
+			t.Fatalf("expected 1 task, got %d", len(tasks))
 		}
+		if tasks[0].Name != "build" {
+			t.Errorf("expected task name 'build', got %q", tasks[0].Name)
+		}
+	})
 
-		var succeededCond *metav1.Condition
-		for i := range cwf.Status.Conditions {
-			if cwf.Status.Conditions[i].Type == string(ConditionWorkflowSucceeded) {
-				succeededCond = &cwf.Status.Conditions[i]
-				break
+	t.Run("tasks sorted by step order", func(t *testing.T) {
+		nodes := argoproj.Nodes{
+			"node-b": {
+				Name:        "wf[1].deploy",
+				DisplayName: "deploy",
+				Type:        argoproj.NodeTypePod,
+				Phase:       argoproj.NodeSucceeded,
+			},
+			"node-a": {
+				Name:        "wf[0].build",
+				DisplayName: "build",
+				Type:        argoproj.NodeTypePod,
+				Phase:       argoproj.NodeSucceeded,
+			},
+			"node-c": {
+				Name:        "wf[2].verify",
+				DisplayName: "verify",
+				Type:        argoproj.NodeTypePod,
+				Phase:       argoproj.NodeRunning,
+			},
+		}
+		tasks := extractArgoTasksFromWorkflowNodes(nodes)
+		if len(tasks) != 3 {
+			t.Fatalf("expected 3 tasks, got %d", len(tasks))
+		}
+		expectedOrder := []string{"build", "deploy", "verify"}
+		for i, name := range expectedOrder {
+			if tasks[i].Name != name {
+				t.Errorf("tasks[%d]: expected %q, got %q", i, name, tasks[i].Name)
 			}
 		}
-		if succeededCond == nil {
-			t.Error("expected WorkflowSucceeded condition")
-		} else if succeededCond.Status != metav1.ConditionTrue {
-			t.Errorf("expected status True, got %s", succeededCond.Status)
+	})
+
+	t.Run("timestamps are set when available", func(t *testing.T) {
+		nodes := argoproj.Nodes{
+			"node1": {
+				Name:        "wf[0].build",
+				DisplayName: "build",
+				Type:        argoproj.NodeTypePod,
+				Phase:       argoproj.NodeSucceeded,
+				StartedAt:   startTime,
+				FinishedAt:  finishTime,
+			},
+		}
+		tasks := extractArgoTasksFromWorkflowNodes(nodes)
+		if len(tasks) != 1 {
+			t.Fatalf("expected 1 task, got %d", len(tasks))
+		}
+		if tasks[0].StartedAt == nil || !tasks[0].StartedAt.Equal(&startTime) {
+			t.Errorf("expected StartedAt=%v, got %v", startTime, tasks[0].StartedAt)
+		}
+		if tasks[0].CompletedAt == nil || !tasks[0].CompletedAt.Equal(&finishTime) {
+			t.Errorf("expected CompletedAt=%v, got %v", finishTime, tasks[0].CompletedAt)
 		}
 	})
 
-	t.Run("isWorkflowInitiated", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{}
-		if isWorkflowInitiated(cwf) {
-			t.Error("expected false for uninitialized workflow")
+	t.Run("falls back to parsed node name when no DisplayName", func(t *testing.T) {
+		nodes := argoproj.Nodes{
+			"node1": {
+				Name:  "wf[0].checkout-code",
+				Type:  argoproj.NodeTypePod,
+				Phase: argoproj.NodeSucceeded,
+			},
 		}
-
-		setWorkflowPendingCondition(cwf)
-		if !isWorkflowInitiated(cwf) {
-			t.Error("expected true after setting pending condition")
+		tasks := extractArgoTasksFromWorkflowNodes(nodes)
+		if len(tasks) != 1 {
+			t.Fatalf("expected 1 task, got %d", len(tasks))
 		}
-	})
-
-	t.Run("isWorkflowCompleted", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{Generation: 1},
-		}
-		setWorkflowPendingCondition(cwf)
-		if isWorkflowCompleted(cwf) {
-			t.Error("expected false for pending workflow")
-		}
-
-		cwf2 := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{Generation: 1},
-		}
-		setWorkflowSucceededCondition(cwf2)
-		if !isWorkflowCompleted(cwf2) {
-			t.Error("expected true for succeeded workflow")
+		if tasks[0].Name != "checkout-code" {
+			t.Errorf("expected task name 'checkout-code', got %q", tasks[0].Name)
 		}
 	})
 
-	t.Run("isWorkflowSucceeded", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{Generation: 1},
+	t.Run("phase and message are set", func(t *testing.T) {
+		nodes := argoproj.Nodes{
+			"node1": {
+				Name:        "wf[0].build",
+				DisplayName: "build",
+				Type:        argoproj.NodeTypePod,
+				Phase:       argoproj.NodeFailed,
+				Message:     "OOMKilled",
+			},
 		}
-		setWorkflowRunningCondition(cwf)
-		if isWorkflowSucceeded(cwf) {
-			t.Error("expected false for running workflow")
+		tasks := extractArgoTasksFromWorkflowNodes(nodes)
+		if tasks[0].Phase != string(argoproj.NodeFailed) {
+			t.Errorf("expected phase %q, got %q", argoproj.NodeFailed, tasks[0].Phase)
 		}
-
-		cwf2 := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{Generation: 1},
-		}
-		setWorkflowSucceededCondition(cwf2)
-		if !isWorkflowSucceeded(cwf2) {
-			t.Error("expected true for succeeded workflow")
+		if tasks[0].Message != "OOMKilled" {
+			t.Errorf("expected message 'OOMKilled', got %q", tasks[0].Message)
 		}
 	})
 }
 
-// Helper function
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && len(substr) > 0 && findSubstring(s, substr))
-}
+// ---------------------------------------------------------------------------
+// syncWorkflowRunStatus
+// ---------------------------------------------------------------------------
 
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
+func TestSyncWorkflowRunStatus(t *testing.T) {
+	r := &Reconciler{}
+
+	newWFRun := func() *openchoreodevv1alpha1.WorkflowRun {
+		return &openchoreodevv1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{Generation: 1},
 		}
 	}
-	return false
+
+	t.Run("Running phase", func(t *testing.T) {
+		wfr := newWFRun()
+		runResource := &argoproj.Workflow{}
+		runResource.Status.Phase = argoproj.WorkflowRunning
+
+		result := r.syncWorkflowRunStatus(wfr, runResource)
+		if result.RequeueAfter != 20*time.Second {
+			t.Errorf("expected RequeueAfter=20s, got %v", result.RequeueAfter)
+		}
+		assertCondition(t, wfr, string(ConditionWorkflowRunning), metav1.ConditionTrue, "")
+	})
+
+	t.Run("Succeeded phase", func(t *testing.T) {
+		wfr := newWFRun()
+		runResource := &argoproj.Workflow{}
+		runResource.Status.Phase = argoproj.WorkflowSucceeded
+
+		result := r.syncWorkflowRunStatus(wfr, runResource)
+		if !result.Requeue {
+			t.Error("expected Requeue=true")
+		}
+		assertCondition(t, wfr, string(ConditionWorkflowSucceeded), metav1.ConditionTrue, "")
+		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionTrue, "")
+	})
+
+	t.Run("Failed phase", func(t *testing.T) {
+		wfr := newWFRun()
+		runResource := &argoproj.Workflow{}
+		runResource.Status.Phase = argoproj.WorkflowFailed
+
+		result := r.syncWorkflowRunStatus(wfr, runResource)
+		if result.Requeue || result.RequeueAfter > 0 {
+			t.Error("expected no requeue for failed workflow")
+		}
+		assertCondition(t, wfr, string(ConditionWorkflowFailed), metav1.ConditionTrue, "")
+	})
+
+	t.Run("Error phase", func(t *testing.T) {
+		wfr := newWFRun()
+		runResource := &argoproj.Workflow{}
+		runResource.Status.Phase = argoproj.WorkflowError
+
+		result := r.syncWorkflowRunStatus(wfr, runResource)
+		if result.Requeue || result.RequeueAfter > 0 {
+			t.Error("expected no requeue for error workflow")
+		}
+		assertCondition(t, wfr, string(ConditionWorkflowFailed), metav1.ConditionTrue, "")
+	})
+
+	t.Run("unknown phase requeues", func(t *testing.T) {
+		wfr := newWFRun()
+		runResource := &argoproj.Workflow{}
+		runResource.Status.Phase = "" // unknown
+
+		result := r.syncWorkflowRunStatus(wfr, runResource)
+		if !result.Requeue {
+			t.Error("expected Requeue=true for unknown phase")
+		}
+	})
+
+	t.Run("tasks are extracted from nodes", func(t *testing.T) {
+		wfr := newWFRun()
+		runResource := &argoproj.Workflow{}
+		runResource.Status.Phase = argoproj.WorkflowRunning
+		runResource.Status.Nodes = argoproj.Nodes{
+			"node1": {
+				Name:        "wf[0].build",
+				DisplayName: "build",
+				Type:        argoproj.NodeTypePod,
+				Phase:       argoproj.NodeSucceeded,
+			},
+		}
+
+		r.syncWorkflowRunStatus(wfr, runResource)
+		if len(wfr.Status.Tasks) != 1 {
+			t.Fatalf("expected 1 task, got %d", len(wfr.Status.Tasks))
+		}
+		if wfr.Status.Tasks[0].Name != "build" {
+			t.Errorf("expected task name 'build', got %q", wfr.Status.Tasks[0].Name)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// checkTTLExpiration (non-delete paths)
+// ---------------------------------------------------------------------------
+
+func TestCheckTTLExpiration(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = openchoreodevv1alpha1.AddToScheme(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	r := &Reconciler{Client: fakeClient, Scheme: scheme}
+
+	t.Run("returns false when CompletedAt is nil", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			Spec:   openchoreodevv1alpha1.WorkflowRunSpec{TTLAfterCompletion: "1h"},
+			Status: openchoreodevv1alpha1.WorkflowRunStatus{CompletedAt: nil},
+		}
+		shouldReturn, result, err := r.checkTTLExpiration(context.Background(), wfr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if shouldReturn {
+			t.Error("expected shouldReturn=false")
+		}
+		if result != (ctrl.Result{}) {
+			t.Errorf("expected empty result, got %v", result)
+		}
+	})
+
+	t.Run("returns false when TTLAfterCompletion is empty", func(t *testing.T) {
+		now := metav1.Now()
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			Spec:   openchoreodevv1alpha1.WorkflowRunSpec{TTLAfterCompletion: ""},
+			Status: openchoreodevv1alpha1.WorkflowRunStatus{CompletedAt: &now},
+		}
+		shouldReturn, result, err := r.checkTTLExpiration(context.Background(), wfr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if shouldReturn {
+			t.Error("expected shouldReturn=false")
+		}
+		if result != (ctrl.Result{}) {
+			t.Errorf("expected empty result, got %v", result)
+		}
+	})
+
+	t.Run("returns false for invalid TTL format", func(t *testing.T) {
+		now := metav1.Now()
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			Spec:   openchoreodevv1alpha1.WorkflowRunSpec{TTLAfterCompletion: "invalid"},
+			Status: openchoreodevv1alpha1.WorkflowRunStatus{CompletedAt: &now},
+		}
+		shouldReturn, _, err := r.checkTTLExpiration(context.Background(), wfr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if shouldReturn {
+			t.Error("expected shouldReturn=false for invalid TTL")
+		}
+	})
+
+	t.Run("requeues when TTL has not expired", func(t *testing.T) {
+		notExpiredTime := metav1.NewTime(time.Now().Add(-30 * time.Minute))
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			Spec:   openchoreodevv1alpha1.WorkflowRunSpec{TTLAfterCompletion: "2h"},
+			Status: openchoreodevv1alpha1.WorkflowRunStatus{CompletedAt: &notExpiredTime},
+		}
+		shouldReturn, result, err := r.checkTTLExpiration(context.Background(), wfr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !shouldReturn {
+			t.Error("expected shouldReturn=true")
+		}
+		if result.RequeueAfter <= 0 {
+			t.Error("expected positive RequeueAfter")
+		}
+		if result.RequeueAfter > 2*time.Hour {
+			t.Errorf("RequeueAfter too large: %v", result.RequeueAfter)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// make* helpers (run_engine.go)
+// ---------------------------------------------------------------------------
+
+func TestMakeNamespace(t *testing.T) {
+	ns := makeNamespace(testBuildNS)
+	if ns.Name != testBuildNS {
+		t.Errorf("expected name 'build-ns', got %q", ns.Name)
+	}
+}
+
+func TestMakeServiceAccount(t *testing.T) {
+	sa := makeServiceAccount(testBuildNS, "workflow-sa")
+	if sa.Name != "workflow-sa" {
+		t.Errorf("expected name 'workflow-sa', got %q", sa.Name)
+	}
+	if sa.Namespace != testBuildNS {
+		t.Errorf("expected namespace 'build-ns', got %q", sa.Namespace)
+	}
+}
+
+func TestMakeRole(t *testing.T) {
+	role := makeRole(testBuildNS, "workflow-role")
+	if role.Name != "workflow-role" {
+		t.Errorf("expected name 'workflow-role', got %q", role.Name)
+	}
+	if role.Namespace != testBuildNS {
+		t.Errorf("expected namespace 'build-ns', got %q", role.Namespace)
+	}
+	if len(role.Rules) != 1 {
+		t.Fatalf("expected 1 rule, got %d", len(role.Rules))
+	}
+	rule := role.Rules[0]
+	if len(rule.APIGroups) != 1 || rule.APIGroups[0] != "argoproj.io" {
+		t.Errorf("expected APIGroup 'argoproj.io', got %v", rule.APIGroups)
+	}
+	if len(rule.Resources) != 1 || rule.Resources[0] != "workflowtaskresults" {
+		t.Errorf("expected resource 'workflowtaskresults', got %v", rule.Resources)
+	}
+}
+
+func TestMakeRoleBinding(t *testing.T) {
+	rb := makeRoleBinding(testBuildNS, "workflow-sa", "workflow-role", "workflow-rb")
+	if rb.Name != "workflow-rb" {
+		t.Errorf("expected name 'workflow-rb', got %q", rb.Name)
+	}
+	if rb.Namespace != testBuildNS {
+		t.Errorf("expected namespace 'build-ns', got %q", rb.Namespace)
+	}
+	if len(rb.Subjects) != 1 {
+		t.Fatalf("expected 1 subject, got %d", len(rb.Subjects))
+	}
+	if rb.Subjects[0].Name != "workflow-sa" {
+		t.Errorf("expected subject name 'workflow-sa', got %q", rb.Subjects[0].Name)
+	}
+	if rb.RoleRef.Name != "workflow-role" {
+		t.Errorf("expected roleRef name 'workflow-role', got %q", rb.RoleRef.Name)
+	}
+	if rb.RoleRef.Kind != "Role" {
+		t.Errorf("expected roleRef kind 'Role', got %q", rb.RoleRef.Kind)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
+
+func findConditionByType(conditions []metav1.Condition, condType string) *metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == condType {
+			return &conditions[i]
+		}
+	}
+	return nil
+}
+
+func assertConditionCount(t *testing.T, wfr *openchoreodevv1alpha1.WorkflowRun, expected int) {
+	t.Helper()
+	if len(wfr.Status.Conditions) != expected {
+		t.Errorf("expected %d conditions, got %d", expected, len(wfr.Status.Conditions))
+	}
+}
+
+func assertCondition(t *testing.T, wfr *openchoreodevv1alpha1.WorkflowRun, condType string, status metav1.ConditionStatus, reason string) {
+	t.Helper()
+	cond := findConditionByType(wfr.Status.Conditions, condType)
+	if cond == nil {
+		t.Errorf("condition %q not found", condType)
+		return
+	}
+	if cond.Status != status {
+		t.Errorf("condition %q: expected status %s, got %s", condType, status, cond.Status)
+	}
+	if reason != "" && cond.Reason != reason {
+		t.Errorf("condition %q: expected reason %q, got %q", condType, reason, cond.Reason)
+	}
 }
