@@ -106,7 +106,12 @@ func main() {
 			BaseURL: cfg.Adapters.TracingAdapterURL,
 			Timeout: cfg.Adapters.TracingAdapterTimeout,
 		}
-		tracingAdapter = service.NewTracingAdapter(adapterConfig)
+		var adapterErr error
+		tracingAdapter, adapterErr = service.NewTracingAdapter(adapterConfig)
+		if adapterErr != nil {
+			logger.Error("Failed to create tracing adapter", "error", adapterErr)
+			os.Exit(1)
+		}
 		logger.Info("Tracing adapter initialized")
 	} else {
 		logger.Info("Using OpenSearch for traces")

@@ -393,7 +393,7 @@ type TraceSpanDetailsResponse struct {
 	} `json:"attributes,omitempty"`
 
 	// DurationNs The duration of the span in nanoseconds
-	DurationNs *float32 `json:"durationNs,omitempty"`
+	DurationNs *int64 `json:"durationNs,omitempty"`
 
 	// EndTime The end time of the span
 	EndTime *time.Time `json:"endTime,omitempty"`
@@ -416,7 +416,7 @@ type TraceSpansQueryResponse struct {
 	// Spans The list of spans
 	Spans *[]struct {
 		// DurationNs The duration of the span in nanoseconds
-		DurationNs *float32 `json:"durationNs,omitempty"`
+		DurationNs *int64 `json:"durationNs,omitempty"`
 
 		// EndTime The end time of the span
 		EndTime *time.Time `json:"endTime,omitempty"`
@@ -474,7 +474,7 @@ type TracesQueryResponse struct {
 	// Traces The list of traces
 	Traces *[]struct {
 		// DurationNs The duration of the trace in nanoseconds
-		DurationNs *float32 `json:"durationNs,omitempty"`
+		DurationNs *int64 `json:"durationNs,omitempty"`
 
 		// EndTime The end time of the trace
 		EndTime      *time.Time `json:"endTime,omitempty"`

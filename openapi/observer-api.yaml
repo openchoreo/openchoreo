@@ -825,7 +825,8 @@ components:
                 description: The end time of the trace
                 format: date-time
               durationNs:
-                type: number
+                type: integer
+                format: int64
                 description: The duration of the trace in nanoseconds
         total:
           type: integer
@@ -861,7 +862,8 @@ components:
                 description: The end time of the span
                 format: date-time
               durationNs:
-                type: number
+                type: integer
+                format: int64
                 description: The duration of the span in nanoseconds
               parentSpanId:
                 type: string
@@ -891,7 +893,8 @@ components:
           description: The end time of the span
           format: date-time
         durationNs:
-          type: number
+          type: integer
+          format: int64
           description: The duration of the span in nanoseconds
         parentSpanId:
           type: string
