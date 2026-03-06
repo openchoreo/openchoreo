@@ -104,14 +104,6 @@ type ObservabilityAlertRuleSpec struct {
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// EnableAiRootCauseAnalysis allows an attached AI engine to attempt root cause analysis when the rule fires.
-	// +optional
-	EnableAiRootCauseAnalysis bool `json:"enableAiRootCauseAnalysis,omitempty"`
-
-	// NotificationChannel references the alerts notification channel that should receive the alert.
-	// +kubebuilder:validation:Required
-	NotificationChannel string `json:"notificationChannel,omitempty"`
-
 	// Source specifies the origin and query that drives the rule.
 	// +kubebuilder:validation:Required
 	Source ObservabilityAlertSource `json:"source"`
@@ -119,6 +111,47 @@ type ObservabilityAlertRuleSpec struct {
 	// Condition controls how the rule should be evaluated against the source.
 	// +kubebuilder:validation:Required
 	Condition ObservabilityAlertCondition `json:"condition"`
+
+	// Actions defines the actions to take when the alert rule is triggered.
+	// +optional
+	Actions ObservabilityAlertActions `json:"actions,omitempty"`
+}
+
+// ObservabilityAlertActions defines the actions to take when the alert rule is triggered.
+type ObservabilityAlertActions struct {
+	// Notifications defines the notifications to send when the alert rule is triggered.
+	// +optional
+	Notifications *ObservabilityAlertNotifications `json:"notifications,omitempty"`
+
+	// Incident defines the incident to trigger when the alert rule is triggered.
+	// +optional
+	Incident *ObservabilityAlertIncident `json:"incident,omitempty"`
+}
+
+// ObservabilityAlertNotifications defines the notifications to send when the alert rule is triggered.
+type ObservabilityAlertNotifications struct {
+	// Enabled toggles whether notifications should be sent when the alert rule is triggered.
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Channels defines the channels to send notifications to.
+	// +optional
+	Channels []string `json:"channels,omitempty"`
+}
+
+// ObservabilityAlertIncident defines the incident to trigger when the alert rule is triggered.
+// +kubebuilder:validation:XValidation:rule="self.triggerAiRca == true ? self.enabled == true : true",message="Incident must be enabled to trigger AI RCA"
+type ObservabilityAlertIncident struct {
+	// Enabled toggles whether an incident should be triggered when the alert rule is triggered.
+	// +optional
+	// +kubebuilder:default:=false
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// TriggerAiRca toggles whether an AI root cause analysis should be triggered when an incident is created.
+	// To set this to true, Enabled must also be set to true.
+	// +optional
+	// +kubebuilder:default:=false
+	TriggerAiRca *bool `json:"triggerAiRca,omitempty"`
 }
 
 // ObservabilityAlertRulePhase represents the current phase of the rule.
@@ -163,7 +196,7 @@ type ObservabilityAlertRuleStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Severity",type=string,JSONPath=`.spec.severity`
-// +kubebuilder:printcolumn:name="NotificationChannel",type=string,JSONPath=`.spec.notificationChannel`
+// +kubebuilder:printcolumn:name="Enabled",type=string,JSONPath=`.spec.enabled`
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

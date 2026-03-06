@@ -14,14 +14,12 @@ type AlertingRuleRequest struct {
 
 // AlertingRuleMetadata contains metadata about an alerting rule
 type AlertingRuleMetadata struct {
-	Name                      string `json:"name"`
-	Namespace                 string `json:"namespace"`
-	ComponentUID              string `json:"component-uid"`
-	ProjectUID                string `json:"project-uid"`
-	EnvironmentUID            string `json:"environment-uid"`
-	Severity                  string `json:"severity"`
-	NotificationChannel       string `json:"notificationChannel"`
-	EnableAiRootCauseAnalysis bool   `json:"enableAiRootCauseAnalysis"`
+	Name           string `json:"name"`
+	Namespace      string `json:"namespace"`
+	ComponentUID   string `json:"component-uid"`
+	ProjectUID     string `json:"project-uid"`
+	EnvironmentUID string `json:"environment-uid"`
+	Severity       string `json:"severity"`
 }
 
 // AlertingRuleSource defines the source of data for the alerting rule
@@ -52,14 +50,13 @@ type AlertingRuleSyncResponse struct {
 // AlertDetails represents alert information used for notifications and CEL template rendering
 type AlertDetails struct {
 	// Alert information
-	AlertName                       string `json:"alertName"`
-	AlertTimestamp                  string `json:"alertTimestamp"`
-	AlertSeverity                   string `json:"alertSeverity"`
-	AlertDescription                string `json:"alertDescription"`
-	AlertThreshold                  string `json:"alertThreshold"`
-	AlertValue                      string `json:"alertValue"`
-	AlertType                       string `json:"alertType"`
-	AlertAIRootCauseAnalysisEnabled bool   `json:"alertAIRootCauseAnalysisEnabled"`
+	AlertName        string `json:"alertName"`
+	AlertTimestamp   string `json:"alertTimestamp"`
+	AlertSeverity    string `json:"alertSeverity"`
+	AlertDescription string `json:"alertDescription"`
+	AlertThreshold   string `json:"alertThreshold"`
+	AlertValue       string `json:"alertValue"`
+	AlertType        string `json:"alertType"`
 
 	// Component information
 	Namespace     string `json:"namespace"`
@@ -70,8 +67,12 @@ type AlertDetails struct {
 	ProjectID     string `json:"projectId"`
 	EnvironmentID string `json:"environmentId"`
 
-	// Notification channel name
-	NotificationChannel string `json:"notificationChannel,omitempty"`
+	// Notification channels to send alerts to
+	NotificationChannels []string `json:"notificationChannels,omitempty"`
+
+	// Incident actions
+	IncidentEnabled bool `json:"incidentEnabled"`
+	TriggerAiRca    bool `json:"triggerAiRca"`
 }
 
 // ToMap converts AlertDetails to a map for CEL template rendering.

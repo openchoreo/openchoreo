@@ -18,8 +18,8 @@ spec:
     - jsonPath: .spec.severity
       name: Severity
       type: string
-    - jsonPath: .spec.notificationChannel
-      name: NotificationChannel
+    - jsonPath: .spec.enabled
+      name: Enabled
       type: string
     - jsonPath: .status.phase
       name: Phase
@@ -53,6 +53,45 @@ spec:
           spec:
             description: ObservabilityAlertRuleSpec defines the desired state of ObservabilityAlertRule.
             properties:
+              actions:
+                description: Actions defines the actions to take when the alert rule
+                  is triggered.
+                properties:
+                  incident:
+                    description: Incident defines the incident to trigger when the
+                      alert rule is triggered.
+                    properties:
+                      enabled:
+                        default: false
+                        description: Enabled toggles whether an incident should be
+                          triggered when the alert rule is triggered.
+                        type: boolean
+                      triggerAiRca:
+                        default: false
+                        description: |-
+                          TriggerAiRca toggles whether an AI root cause analysis should be triggered when an incident is created.
+                          To set this to true, Enabled must also be set to true.
+                        type: boolean
+                    type: object
+                    x-kubernetes-validations:
+                    - message: Incident must be enabled to trigger AI RCA
+                      rule: 'self.triggerAiRca == true ? self.enabled == true : true'
+                  notifications:
+                    description: Notifications defines the notifications to send when
+                      the alert rule is triggered.
+                    properties:
+                      channels:
+                        description: Channels defines the channels to send notifications
+                          to.
+                        items:
+                          type: string
+                        type: array
+                      enabled:
+                        description: Enabled toggles whether notifications should
+                          be sent when the alert rule is triggered.
+                        type: boolean
+                    type: object
+                type: object
               condition:
                 description: Condition controls how the rule should be evaluated against
                   the source.
@@ -89,19 +128,11 @@ spec:
                 description: Description is a human-friendly summary of the alert
                   rule.
                 type: string
-              enableAiRootCauseAnalysis:
-                description: EnableAiRootCauseAnalysis allows an attached AI engine
-                  to attempt root cause analysis when the rule fires.
-                type: boolean
               enabled:
                 description: Enabled toggles whether this alert rule should be evaluated.
                 type: boolean
               name:
                 description: Name identifies the alert rule when defined as a Trait.
-                type: string
-              notificationChannel:
-                description: NotificationChannel references the alerts notification
-                  channel that should receive the alert.
                 type: string
               severity:
                 description: Severity describes how urgent the alert is.
@@ -132,7 +163,6 @@ spec:
             required:
             - condition
             - name
-            - notificationChannel
             - source
             type: object
           status:

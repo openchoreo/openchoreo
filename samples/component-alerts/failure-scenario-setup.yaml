@@ -25,8 +25,13 @@ spec:
   traitOverrides:
     frontend-rpc-unavailable-error-log-alert:
       enabled: true                                                 # Alert rules can be enabled/disabled per environment. Default is true.
-      enableAiRootCauseAnalysis: false                              # AI root cause analysis can be enabled/disabled per environment. Default is false.
-      notificationChannel: "email-notification-channel-development" # Notification channel can be specified per environment. If not specified, the default notification channel for the environment will be used. Here we are using the email notification channel for the development environment.
+      actions:
+        notifications:
+          channels:
+            - "email-notification-channel-development"             # Notification channels can be specified per environment. If not specified, the default notification channel for the environment will be used.
+        incident:
+          enabled: true                                            # Incident creation can be enabled/disabled per environment. Default is false.
+          triggerAiRca: false                                      # AI root cause analysis can be enabled/disabled per environment. Default is false.
 
 ---
 # ReleaseBinding for recommendation component with cpu limit misconfiguration
@@ -50,8 +55,13 @@ spec:
   traitOverrides:
     recommendation-high-cpu-alert:
       enabled: true
-      enableAiRootCauseAnalysis: true
-      notificationChannel: "webhook-notification-channel-development"
+      actions:
+        notifications:
+          channels:
+            - "webhook-notification-channel-development"
+        incident:
+          enabled: true
+          triggerAiRca: true
 
 ---
 # ReleaseBinding for cart component with memory limit misconfiguration

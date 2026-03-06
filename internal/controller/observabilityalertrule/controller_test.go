@@ -84,8 +84,7 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 						},
 					},
 					Spec: openchoreov1alpha1.ObservabilityAlertRuleSpec{
-						Name:                resourceName,
-						NotificationChannel: "test-channel",
+						Name: resourceName,
 						Source: openchoreov1alpha1.ObservabilityAlertSource{
 							Type:  openchoreov1alpha1.ObservabilityAlertSourceTypeLog,
 							Query: "error",

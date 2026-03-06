@@ -1285,7 +1285,7 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Trigger AI RCA analysis in background if enabled
-	if alertDetails.AlertAIRootCauseAnalysisEnabled {
+	if alertDetails.TriggerAiRca {
 		if h.aiRCAEnabled {
 			go func() {
 				h.logger.Info("AI RCA analysis triggered", "alertID", alertID)
@@ -1293,7 +1293,7 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 				h.service.TriggerRCAAnalysis(h.rcaServiceURL, alertID, alertDetails, alertRule)
 			}()
 		} else {
-			h.logger.Info("AI RCA analysis not triggered", "alertID", alertID, "enableRCA", alertDetails.AlertAIRootCauseAnalysisEnabled)
+			h.logger.Info("AI RCA analysis not triggered", "alertID", alertID, "enableRCA", alertDetails.TriggerAiRca)
 		}
 	}
 }

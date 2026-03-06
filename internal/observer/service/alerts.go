@@ -188,22 +188,36 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 
 	// Enrich alert details from the CR
 	alertDetails := &legacytypes.AlertDetails{
-		AlertName:                       alertRule.Spec.Name,
-		AlertTimestamp:                  alertTimestamp,
-		AlertSeverity:                   string(alertRule.Spec.Severity),
-		AlertDescription:                alertRule.Spec.Description,
-		AlertThreshold:                  strconv.FormatInt(alertRule.Spec.Condition.Threshold, 10),
-		AlertValue:                      alertValue,
-		AlertType:                       string(alertRule.Spec.Source.Type),
-		Namespace:                       alertRule.Labels[labels.LabelKeyNamespaceName],
-		ComponentID:                     alertRule.Labels[labels.LabelKeyComponentUID],
-		EnvironmentID:                   alertRule.Labels[labels.LabelKeyEnvironmentUID],
-		ProjectID:                       alertRule.Labels[labels.LabelKeyProjectUID],
-		Component:                       alertRule.Labels[labels.LabelKeyComponentName],
-		Project:                         alertRule.Labels[labels.LabelKeyProjectName],
-		Environment:                     alertRule.Labels[labels.LabelKeyEnvironmentName],
-		NotificationChannel:             alertRule.Spec.NotificationChannel,
-		AlertAIRootCauseAnalysisEnabled: alertRule.Spec.EnableAiRootCauseAnalysis,
+		AlertName:        alertRule.Spec.Name,
+		AlertTimestamp:   alertTimestamp,
+		AlertSeverity:    string(alertRule.Spec.Severity),
+		AlertDescription: alertRule.Spec.Description,
+		AlertThreshold:   strconv.FormatInt(alertRule.Spec.Condition.Threshold, 10),
+		AlertValue:       alertValue,
+		AlertType:        string(alertRule.Spec.Source.Type),
+		Namespace:        alertRule.Labels[labels.LabelKeyNamespaceName],
+		ComponentID:      alertRule.Labels[labels.LabelKeyComponentUID],
+		EnvironmentID:    alertRule.Labels[labels.LabelKeyEnvironmentUID],
+		ProjectID:        alertRule.Labels[labels.LabelKeyProjectUID],
+		Component:        alertRule.Labels[labels.LabelKeyComponentName],
+		Project:          alertRule.Labels[labels.LabelKeyProjectName],
+		Environment:      alertRule.Labels[labels.LabelKeyEnvironmentName],
+	}
+
+	// Populate notification channels from the Actions structure
+	if alertRule.Spec.Actions.Notifications != nil &&
+		(alertRule.Spec.Actions.Notifications.Enabled == nil || *alertRule.Spec.Actions.Notifications.Enabled) {
+		alertDetails.NotificationChannels = alertRule.Spec.Actions.Notifications.Channels
+	}
+
+	// Populate incident actions from the Actions structure
+	if alertRule.Spec.Actions.Incident != nil {
+		if alertRule.Spec.Actions.Incident.Enabled != nil {
+			alertDetails.IncidentEnabled = *alertRule.Spec.Actions.Incident.Enabled
+		}
+		if alertRule.Spec.Actions.Incident.TriggerAiRca != nil {
+			alertDetails.TriggerAiRca = *alertRule.Spec.Actions.Incident.TriggerAiRca
+		}
 	}
 
 	// Store alert entry in OpenSearch
@@ -221,7 +235,8 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 			observerlabels.EnvironmentID:   alertDetails.EnvironmentID,
 			observerlabels.ProjectID:       alertDetails.ProjectID,
 		},
-		"enable_ai_rca": alertDetails.AlertAIRootCauseAnalysisEnabled,
+		"incident_enabled": alertDetails.IncidentEnabled,
+		"trigger_ai_rca":   alertDetails.TriggerAiRca,
 	}
 
 	alertID, err := s.osClient.WriteAlertEntry(ctx, alertEntry)
@@ -241,7 +256,7 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 	}()
 
 	// Trigger AI RCA analysis in background if enabled
-	if alertDetails.AlertAIRootCauseAnalysisEnabled && s.aiRCAEnabled {
+	if alertDetails.TriggerAiRca && s.aiRCAEnabled {
 		go s.triggerRCAAnalysis(alertID, alertDetails, alertRule)
 	}
 
@@ -255,18 +270,26 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 
 // sendAlertNotification fetches the notification channel config from K8s and dispatches the notification.
 func (s *AlertService) sendAlertNotification(ctx context.Context, alertDetails *legacytypes.AlertDetails) error {
-	if alertDetails.NotificationChannel == "" {
-		s.logger.Warn("Missing notification channel in alert details, skipping notification",
+	if len(alertDetails.NotificationChannels) == 0 {
+		s.logger.Warn("No notification channels configured in alert details, skipping notification",
 			"ruleName", alertDetails.AlertName)
 		return nil
 	}
 
-	channelConfig, err := s.getNotificationChannelConfig(ctx, alertDetails.NotificationChannel)
-	if err != nil {
-		return fmt.Errorf("failed to get notification channel config: %w", err)
+	var errs []error
+	for _, channel := range alertDetails.NotificationChannels {
+		channelConfig, err := s.getNotificationChannelConfig(ctx, channel)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to get notification channel config for %q: %w", channel, err))
+			continue
+		}
+
+		if err := notifications.SendAlertNotification(ctx, channelConfig, alertDetails, s.logger); err != nil {
+			errs = append(errs, fmt.Errorf("failed to send notification to channel %q: %w", channel, err))
+		}
 	}
 
-	return notifications.SendAlertNotification(ctx, channelConfig, alertDetails, s.logger)
+	return errors.Join(errs...)
 }
 
 // getNotificationChannelConfig reads the K8s ConfigMap/Secret for the notification channel.

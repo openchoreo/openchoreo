@@ -25,7 +25,7 @@ This sample uses a simple, role-based workflow:
   - The same alert rules are reused as components are promoted across environments
 
 - **Per-environment tuning (by Platform Engineers)**:
-  - Use `ReleaseBinding` `traitOverrides` to enable/disable alerts, toggle AI analysis, and choose notification channels per environment
+  - Use `ReleaseBinding` `traitOverrides` to enable/disable alerts, configure notification channels, toggle incident creation, and toggle AI analysis per environment
 
 ### Files in this folder
 
@@ -91,7 +91,7 @@ Apply the components with alert rules:
 kubectl apply -f samples/component-alerts/components-with-alert-rules.yaml
 ```
 
-**Note**: The alert rules defined here don't specify notification channels in the trait parameters. Notification channels are configured per environment via `ReleaseBinding` `traitOverrides`. If you want to connect these alert rules to specific notification channels, you can use the `ReleaseBinding` resources in the next section with `traitOverrides` that reference the notification channel names (e.g., `email-notification-channel-development` or `webhook-notification-channel-development`). If not specified, the default notification channel for the environment will be used.
+**Note**: The alert rules defined here don't specify notification channels in the trait parameters. Notification channels are configured per environment via `ReleaseBinding` `traitOverrides`. If you want to connect these alert rules to specific notification channels, you can use the `ReleaseBinding` resources in the next section with `traitOverrides` that reference the notification channel names under `actions.notifications.channels` (e.g., `["email-notification-channel-development"]` or `["webhook-notification-channel-development"]`). If not specified, the default notification channel for the environment will be used.
 
 ---
 
@@ -107,21 +107,23 @@ This step creates `ReleaseBinding`s that:
 - **Configure alert rule behavior per environment** via `traitOverrides`:
   - **Frontend alert** (`frontend-rpc-unavailable-error-log-alert`):
     - `enabled: true` - Alert rule is enabled (default is `true`)
-    - `enableAiRootCauseAnalysis: false` - AI root cause analysis disabled (default is `false`)
-    - `notificationChannel: "email-notification-channel-development"` - Uses email notification channel
+    - `actions.notifications.channels: [email-notification-channel-development]` - Uses email notification channel
+    - `actions.incident.enabled: true` - Incident creation enabled
+    - `actions.incident.triggerAiRca: false` - AI root cause analysis disabled (default is `false`)
   - **Recommendation alert** (`recommendation-high-cpu-alert`):
     - `enabled: true` - Alert rule is enabled
-    - `enableAiRootCauseAnalysis: true` - AI root cause analysis enabled
-    - `notificationChannel: "webhook-notification-channel-development"` - Uses webhook notification channel
+    - `actions.notifications.channels: [webhook-notification-channel-development]` - Uses webhook notification channel
+    - `actions.incident.enabled: true` - Incident creation enabled
+    - `actions.incident.triggerAiRca: true` - AI root cause analysis enabled
   - **Cart alert** (`cartservice-high-memory-alert`):
-    - No `traitOverrides` specified - Uses default values (enabled, no AI analysis, default notification channel for environment)
+    - No `traitOverrides` specified - Uses default values (enabled, no incident creation, no AI analysis, default notification channel for environment)
 
 Apply the failure scenario setup:
 ```bash
 kubectl apply -f samples/component-alerts/failure-scenario-setup.yaml
 ```
 
-> **Note**: `traitOverrides` let Platform Engineers customize alert rule behavior per environment (enable/disable, AI analysis, notification channel) without changing the component definition. If `traitOverrides` are not specified for an alert rule, it uses the defaults (enabled, no AI analysis, default notification channel for the environment).
+> **Note**: `traitOverrides` let Platform Engineers customize alert rule behavior per environment (enable/disable, notification channels, incident creation, AI analysis) without changing the component definition. If `traitOverrides` are not specified for an alert rule, it uses the defaults (enabled, no incident creation, no AI analysis, default notification channel for the environment). Note that `actions.incident.triggerAiRca: true` requires `actions.incident.enabled: true`; AI RCA can be enabled only when incident creation is explicitly enabled.
 
 ### Step 6: Trigger Alerts
 

@@ -8,12 +8,21 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	choreoapis "github.com/openchoreo/openchoreo/api/v1alpha1"
+	openchoreolabels "github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/labels"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
+	observertypes "github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 // MockOpenSearchClient implements a mock OpenSearch client for testing
@@ -826,5 +835,107 @@ func TestLoggingService_GetBuildLogs_SearchError(t *testing.T) {
 	_, err := service.GetBuildLogs(context.Background(), params)
 	if err == nil {
 		t.Fatal("Expected error but got nil")
+	}
+}
+
+func TestLoggingService_EnrichAlertDetails_ActionsMapping(t *testing.T) {
+	service := newMockLoggingService()
+
+	notificationsEnabled := true
+	incidentEnabled := true
+	triggerAiRca := true
+
+	alertRule := &choreoapis.ObservabilityAlertRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"openchoreo.dev/component-uid":   "comp-uid",
+				"openchoreo.dev/environment-uid": "env-uid",
+				"openchoreo.dev/project-uid":     "proj-uid",
+				"openchoreo.dev/component":       "component-name",
+				"openchoreo.dev/namespace":       "default",
+				"openchoreo.dev/project":         "project-name",
+				"openchoreo.dev/environment":     "dev",
+			},
+		},
+		Spec: choreoapis.ObservabilityAlertRuleSpec{
+			Name: "rule-1",
+			Source: choreoapis.ObservabilityAlertSource{
+				Type: choreoapis.ObservabilityAlertSourceTypeLog,
+			},
+			Condition: choreoapis.ObservabilityAlertCondition{
+				Threshold: 10,
+			},
+			Actions: choreoapis.ObservabilityAlertActions{
+				Notifications: &choreoapis.ObservabilityAlertNotifications{
+					Enabled:  &notificationsEnabled,
+					Channels: []string{"chan-1", "chan-2"},
+				},
+				Incident: &choreoapis.ObservabilityAlertIncident{
+					Enabled:      &incidentEnabled,
+					TriggerAiRca: &triggerAiRca,
+				},
+			},
+		},
+	}
+
+	got, err := service.EnrichAlertDetails(alertRule, "42", "2026-03-06T00:00:00Z")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(got.NotificationChannels) != 2 {
+		t.Fatalf("expected 2 channels, got %d", len(got.NotificationChannels))
+	}
+	if !got.IncidentEnabled {
+		t.Fatal("expected incident enabled to be true")
+	}
+	if !got.TriggerAiRca {
+		t.Fatal("expected triggerAiRca to be true")
+	}
+}
+
+func TestLoggingService_SendAlertNotification_PartialFailure(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed adding corev1 scheme: %v", err)
+	}
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "email-good-cm",
+			Namespace: "default",
+			Labels: map[string]string{
+				openchoreolabels.LabelKeyNotificationChannelName: "email-good",
+			},
+		},
+		Data: map[string]string{
+			"type":      "email",
+			"smtp.host": "smtp.example.com",
+			"to":        "[alerts@example.com]",
+		},
+	}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "email-good-secret",
+			Namespace: "default",
+			Labels: map[string]string{
+				openchoreolabels.LabelKeyNotificationChannelName: "email-good",
+			},
+		},
+		Data: map[string][]byte{},
+	}
+
+	service := newMockLoggingService()
+	service.k8sClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(cm, secret).Build()
+
+	err := service.SendAlertNotification(context.Background(), &observertypes.AlertDetails{
+		AlertName:            "rule-1",
+		NotificationChannels: []string{"email-good", "missing-channel"},
+	})
+	if err == nil {
+		t.Fatal("expected aggregated error")
+	}
+	if !strings.Contains(err.Error(), "missing-channel") {
+		t.Fatalf("expected missing-channel in error, got %v", err)
 	}
 }

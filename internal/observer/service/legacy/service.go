@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -1273,27 +1274,34 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 	return metrics, nil
 }
 
-// SendAlertNotification sends an alert notification via the configured notification channel
+// SendAlertNotification sends an alert notification via the configured notification channels
 func (s *LoggingService) SendAlertNotification(ctx context.Context, alertDetails *observertypes.AlertDetails) error {
-	// If no notification channel is specified, log and skip
-	if alertDetails.NotificationChannel == "" {
-		s.logger.Warn("Missing notification channel in alert details, skipping notification",
-			"ruleName", alertDetails.AlertName,
-			"notificationChannel", alertDetails.NotificationChannel)
+	// If no notification channels are specified, log and skip
+	if len(alertDetails.NotificationChannels) == 0 {
+		s.logger.Warn("No notification channels configured in alert details, skipping notification",
+			"ruleName", alertDetails.AlertName)
 		return nil
 	}
 
-	// Fetch the notification channel configuration from Kubernetes
-	channelConfig, err := s.getNotificationChannelConfig(ctx, alertDetails.NotificationChannel)
-	if err != nil {
-		s.logger.Error("Failed to get notification channel config",
-			"error", err,
-			"channelName", alertDetails.NotificationChannel)
-		return fmt.Errorf("failed to get notification channel config: %w", err)
+	var errs []error
+	for _, channel := range alertDetails.NotificationChannels {
+		// Fetch the notification channel configuration from Kubernetes
+		channelConfig, err := s.getNotificationChannelConfig(ctx, channel)
+		if err != nil {
+			s.logger.Error("Failed to get notification channel config",
+				"error", err,
+				"channelName", channel)
+			errs = append(errs, fmt.Errorf("failed to get notification channel config for %q: %w", channel, err))
+			continue
+		}
+
+		// Send notification using the notifications package
+		if err := notifications.SendAlertNotification(ctx, channelConfig, alertDetails, s.logger); err != nil {
+			errs = append(errs, fmt.Errorf("failed to send notification to channel %q: %w", channel, err))
+		}
 	}
 
-	// Send notification using the notifications package
-	return notifications.SendAlertNotification(ctx, channelConfig, alertDetails, s.logger)
+	return errors.Join(errs...)
 }
 
 // getNotificationChannelConfig fetches the notification channel configuration from Kubernetes
@@ -1380,7 +1388,8 @@ func (s *LoggingService) StoreAlertEntry(ctx context.Context, alertDetails *obse
 			observerlabels.ComponentName:   alertDetails.Component,
 			observerlabels.EnvironmentName: alertDetails.Environment,
 		},
-		"enable_ai_rca": alertDetails.AlertAIRootCauseAnalysisEnabled,
+		"incident_enabled": alertDetails.IncidentEnabled,
+		"trigger_ai_rca":   alertDetails.TriggerAiRca,
 	}
 
 	alertID, err := s.osClient.WriteAlertEntry(ctx, alertEntry)
@@ -1545,22 +1554,38 @@ func (s *LoggingService) ParsePrometheusAlertPayload(requestBody map[string]inte
 
 // EnrichAlertDetails enriches the alert details with the ObservabilityAlertRule CR details
 func (s *LoggingService) EnrichAlertDetails(alertRule *choreoapis.ObservabilityAlertRule, alertValue string, timestamp string) (*observertypes.AlertDetails, error) {
-	return &observertypes.AlertDetails{
-		AlertName:                       alertRule.Spec.Name,
-		AlertTimestamp:                  timestamp,
-		AlertSeverity:                   string(alertRule.Spec.Severity),
-		AlertDescription:                alertRule.Spec.Description,
-		AlertThreshold:                  strconv.FormatInt(alertRule.Spec.Condition.Threshold, 10),
-		AlertValue:                      alertValue,
-		AlertType:                       string(alertRule.Spec.Source.Type),
-		ComponentID:                     alertRule.Labels["openchoreo.dev/component-uid"],
-		EnvironmentID:                   alertRule.Labels["openchoreo.dev/environment-uid"],
-		ProjectID:                       alertRule.Labels["openchoreo.dev/project-uid"],
-		Component:                       alertRule.Labels["openchoreo.dev/component"],
-		Namespace:                       alertRule.Labels["openchoreo.dev/namespace"],
-		Project:                         alertRule.Labels["openchoreo.dev/project"],
-		Environment:                     alertRule.Labels["openchoreo.dev/environment"],
-		NotificationChannel:             alertRule.Spec.NotificationChannel,
-		AlertAIRootCauseAnalysisEnabled: alertRule.Spec.EnableAiRootCauseAnalysis,
-	}, nil
+	details := &observertypes.AlertDetails{
+		AlertName:        alertRule.Spec.Name,
+		AlertTimestamp:   timestamp,
+		AlertSeverity:    string(alertRule.Spec.Severity),
+		AlertDescription: alertRule.Spec.Description,
+		AlertThreshold:   strconv.FormatInt(alertRule.Spec.Condition.Threshold, 10),
+		AlertValue:       alertValue,
+		AlertType:        string(alertRule.Spec.Source.Type),
+		ComponentID:      alertRule.Labels["openchoreo.dev/component-uid"],
+		EnvironmentID:    alertRule.Labels["openchoreo.dev/environment-uid"],
+		ProjectID:        alertRule.Labels["openchoreo.dev/project-uid"],
+		Component:        alertRule.Labels["openchoreo.dev/component"],
+		Namespace:        alertRule.Labels["openchoreo.dev/namespace"],
+		Project:          alertRule.Labels["openchoreo.dev/project"],
+		Environment:      alertRule.Labels["openchoreo.dev/environment"],
+	}
+
+	// Populate notification channels from the Actions structure
+	if alertRule.Spec.Actions.Notifications != nil &&
+		(alertRule.Spec.Actions.Notifications.Enabled == nil || *alertRule.Spec.Actions.Notifications.Enabled) {
+		details.NotificationChannels = alertRule.Spec.Actions.Notifications.Channels
+	}
+
+	// Populate incident actions from the Actions structure
+	if alertRule.Spec.Actions.Incident != nil {
+		if alertRule.Spec.Actions.Incident.Enabled != nil {
+			details.IncidentEnabled = *alertRule.Spec.Actions.Incident.Enabled
+		}
+		if alertRule.Spec.Actions.Incident.TriggerAiRca != nil {
+			details.TriggerAiRca = *alertRule.Spec.Actions.Incident.TriggerAiRca
+		}
+	}
+
+	return details, nil
 }

@@ -13,8 +13,6 @@ spec:
   description: "This is a test alert rule"
   severity: warning
   enabled: true
-  enableAiRootCauseAnalysis: true
-  notificationChannel: test-channel
   source:
     type: log
     query: "error"
@@ -23,3 +21,11 @@ spec:
     interval: 1m
     operator: gt
     threshold: 10
+  actions:
+    notifications:
+      enabled: true
+      channels:
+        - test-channel
+    incident:
+      enabled: true
+      triggerAiRca: true

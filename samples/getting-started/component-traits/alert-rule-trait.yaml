@@ -24,12 +24,18 @@ spec:
     envOverrides:
       # Platform engineers can override per environment
       enabled: "boolean | default=true | description=\"Controls whether this alert rule is active. When disabled, the rule will not trigger alerts.\""
-      enableAiRootCauseAnalysis: "boolean | default=false | description=\"Enables AI-powered root cause analysis for alerts triggered by this rule. When enabled, provides automated reports of root causes for alert conditions.\""
-      notificationChannel: "string | default=\"\" | description=\"The notification channel identifier where alerts should be delivered. Configured per environment by platform engineers. If not provided, defaults to the environment's default notification channel.\""
+      actions:
+        notifications:
+          channels: "[]string | default=[] | description=\"The notification channel identifiers where alerts should be delivered. Configured per environment by platform engineers. If not provided, defaults to the environment's default notification channel.\""
+        incident:
+          enabled: "boolean | default=false | description=\"Enables incident creation when this alert fires. When enabled, a corresponding incident will be created in the incident management system.\""
+          triggerAiRca: "boolean | default=false | description=\"Enables AI-powered root cause analysis when an incident is created. When enabled, provides automated reports of root causes for alert conditions. Requires incident.enabled to also be true.\""
 
   validations:
-    - rule: "${(has(envOverrides.notificationChannel) && envOverrides.notificationChannel != '') || (has(environment.defaultNotificationChannel) && environment.defaultNotificationChannel != '')}"
-      message: "A notification channel must be provided either in envOverrides or as the environment default."
+    - rule: "${(has(envOverrides.actions) && has(envOverrides.actions.notifications) && envOverrides.actions.notifications.channels.size() > 0) || (has(environment.defaultNotificationChannel) && environment.defaultNotificationChannel != '')}"
+      message: "A notification channel must be provided either in envOverrides.actions.notifications.channels or as the environment default."
+    - rule: "${!has(envOverrides.actions) || !has(envOverrides.actions.incident) || envOverrides.actions.incident.triggerAiRca == false || envOverrides.actions.incident.enabled == true}"
+      message: "incident.enabled must be true when triggerAiRca is true. AI-powered root cause analysis requires incident creation to be enabled."
 
   creates:
     - targetPlane: observabilityplane
@@ -50,11 +56,6 @@ spec:
           description: ${parameters.description}
           severity: ${parameters.severity}
           enabled: ${envOverrides.enabled}
-          enableAiRootCauseAnalysis: ${envOverrides.enableAiRootCauseAnalysis}
-          notificationChannel: >-
-            ${has(envOverrides.notificationChannel) && envOverrides.notificationChannel != ""
-              ? envOverrides.notificationChannel
-              : environment.defaultNotificationChannel}
           source:
             type: ${parameters.source.type}
             query: ${parameters.source.query}
@@ -64,3 +65,13 @@ spec:
             interval: ${parameters.condition.interval}
             operator: ${parameters.condition.operator}
             threshold: ${parameters.condition.threshold}
+          actions:
+            notifications:
+              enabled: true
+              channels: >-
+                ${(has(envOverrides.actions) && has(envOverrides.actions.notifications) && envOverrides.actions.notifications.channels.size() > 0)
+                  ? envOverrides.actions.notifications.channels
+                  : [environment.defaultNotificationChannel]}
+            incident:
+              enabled: ${has(envOverrides.actions) && has(envOverrides.actions.incident) && (envOverrides.actions.incident.enabled || envOverrides.actions.incident.triggerAiRca)}
+              triggerAiRca: ${has(envOverrides.actions) && has(envOverrides.actions.incident) && envOverrides.actions.incident.enabled && envOverrides.actions.incident.triggerAiRca}
