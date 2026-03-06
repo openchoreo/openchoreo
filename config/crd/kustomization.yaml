@@ -13,7 +13,7 @@ resources:
 
   - bases/openchoreo.dev_workloads.yaml
 
-  - bases/openchoreo.dev_releases.yaml
+  - bases/openchoreo.dev_renderedreleases.yaml
 
   - bases/openchoreo.dev_buildplanes.yaml
   - bases/openchoreo.dev_workflows.yaml

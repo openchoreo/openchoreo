@@ -830,7 +830,7 @@ func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, namespaceN
 		return nil, ErrComponentNotFound
 	}
 
-	var releaseList openchoreov1alpha1.ReleaseList
+	var releaseList openchoreov1alpha1.RenderedReleaseList
 	listOpts := []client.ListOption{
 		client.InNamespace(namespaceName),
 		client.MatchingLabels{
@@ -842,13 +842,13 @@ func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, namespaceN
 	}
 
 	if err := s.k8sClient.List(ctx, &releaseList, listOpts...); err != nil {
-		s.logger.Error("Failed to list releases", "error", err)
-		return nil, fmt.Errorf("failed to list releases: %w", err)
+		s.logger.Error("Failed to list rendered releases", "error", err)
+		return nil, fmt.Errorf("failed to list rendered releases: %w", err)
 	}
 
 	if len(releaseList.Items) == 0 {
-		s.logger.Warn("No release found", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
-		return nil, ErrReleaseNotFound
+		s.logger.Warn("No rendered release found", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
+		return nil, ErrRenderedReleaseNotFound
 	}
 
 	// Get the first matching Release (there should only be one per component/environment)

@@ -38,12 +38,12 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 	}
 }
 
-func (s *releaseServiceWithAuthz) ListReleases(ctx context.Context, namespaceName, componentName, environmentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Release], error) {
+func (s *releaseServiceWithAuthz) ListReleases(ctx context.Context, namespaceName, componentName, environmentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.RenderedRelease], error) {
 	return services.FilteredList(ctx, opts, s.authz,
-		func(ctx context.Context, pageOpts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Release], error) {
+		func(ctx context.Context, pageOpts services.ListOptions) (*services.ListResult[openchoreov1alpha1.RenderedRelease], error) {
 			return s.internal.ListReleases(ctx, namespaceName, componentName, environmentName, pageOpts)
 		},
-		func(r openchoreov1alpha1.Release) services.CheckRequest {
+		func(r openchoreov1alpha1.RenderedRelease) services.CheckRequest {
 			return services.CheckRequest{
 				Action:       actionViewRelease,
 				ResourceType: resourceTypeRelease,
@@ -58,7 +58,7 @@ func (s *releaseServiceWithAuthz) ListReleases(ctx context.Context, namespaceNam
 	)
 }
 
-func (s *releaseServiceWithAuthz) GetRelease(ctx context.Context, namespaceName, releaseName string) (*openchoreov1alpha1.Release, error) {
+func (s *releaseServiceWithAuthz) GetRelease(ctx context.Context, namespaceName, releaseName string) (*openchoreov1alpha1.RenderedRelease, error) {
 	// Fetch the release first to get owner info for authz
 	r, err := s.internal.GetRelease(ctx, namespaceName, releaseName)
 	if err != nil {

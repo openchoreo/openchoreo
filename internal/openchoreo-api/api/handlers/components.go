@@ -315,7 +315,7 @@ func (h *Handler) GetReleaseResourceTree(
 		"component", request.ComponentName,
 		"environment", request.EnvironmentName)
 
-	tree, err := h.legacyServices.ComponentService.GetReleaseResourceTree(
+	tree, err := h.legacyServices.ComponentService.GetRenderedReleaseResourceTree(
 		ctx,
 		request.NamespaceName,
 		request.ProjectName,
@@ -332,7 +332,7 @@ func (h *Handler) GetReleaseResourceTree(
 		if errors.Is(err, services.ErrComponentNotFound) {
 			return gen.GetReleaseResourceTree404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
 		}
-		if errors.Is(err, services.ErrReleaseNotFound) {
+		if errors.Is(err, services.ErrRenderedReleaseNotFound) {
 			return gen.GetReleaseResourceTree404JSONResponse{NotFoundJSONResponse: notFound("Release")}, nil
 		}
 		if errors.Is(err, services.ErrEnvironmentNotFound) {
@@ -436,7 +436,7 @@ func (h *Handler) GetReleaseResourcePodLogs(
 		if errors.Is(err, services.ErrComponentNotFound) {
 			return gen.GetReleaseResourcePodLogs404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
 		}
-		if errors.Is(err, services.ErrReleaseNotFound) {
+		if errors.Is(err, services.ErrRenderedReleaseNotFound) {
 			return gen.GetReleaseResourcePodLogs404JSONResponse{NotFoundJSONResponse: notFound("Release")}, nil
 		}
 		if errors.Is(err, services.ErrResourceNotFound) {

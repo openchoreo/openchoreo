@@ -16,7 +16,7 @@ resources:
   - openchoreo_v1alpha1_environment.yaml
 
   - openchoreo_v1alpha1_project.yaml
-  - openchoreo_v1alpha1_release.yaml
+  - openchoreo_v1alpha1_renderedrelease.yaml
   - openchoreo_v1alpha1_scheduledtask.yaml
   - openchoreo_v1alpha1_scheduledtaskbinding.yaml
   - openchoreo_v1alpha1_scheduledtaskclass.yaml

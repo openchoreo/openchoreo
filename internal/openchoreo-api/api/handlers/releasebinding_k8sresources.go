@@ -43,12 +43,12 @@ func (h *Handler) GetReleaseBindingK8sResourceTree(
 		}
 
 		if r.Release != nil {
-			genRelease, err := convert[openchoreov1alpha1.Release, gen.Release](*r.Release)
+			genRelease, err := convert[openchoreov1alpha1.RenderedRelease, gen.RenderedRelease](*r.Release)
 			if err != nil {
-				h.logger.Error("Failed to convert release", "error", err)
+				h.logger.Error("Failed to convert rendered release", "error", err)
 				return gen.GetReleaseBindingK8sResourceTree500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 			}
-			entry.Release = &genRelease
+			entry.RenderedRelease = &genRelease
 		}
 
 		genReleases = append(genReleases, entry)
@@ -135,7 +135,7 @@ func (h *Handler) handleK8sResourceTreeError(err error) (gen.GetReleaseBindingK8
 	if errors.Is(err, k8sresourcessvc.ErrReleaseBindingNotFound) {
 		return gen.GetReleaseBindingK8sResourceTree404JSONResponse{NotFoundJSONResponse: notFound("ReleaseBinding")}, nil
 	}
-	if errors.Is(err, k8sresourcessvc.ErrReleaseNotFound) {
+	if errors.Is(err, k8sresourcessvc.ErrRenderedReleaseNotFound) {
 		return gen.GetReleaseBindingK8sResourceTree404JSONResponse{NotFoundJSONResponse: notFound("Release")}, nil
 	}
 	if errors.Is(err, k8sresourcessvc.ErrEnvironmentNotFound) {
@@ -152,7 +152,7 @@ func (h *Handler) handleK8sResourceEventsError(err error) (gen.GetReleaseBinding
 	if errors.Is(err, k8sresourcessvc.ErrReleaseBindingNotFound) {
 		return gen.GetReleaseBindingK8sResourceEvents404JSONResponse{NotFoundJSONResponse: notFound("ReleaseBinding")}, nil
 	}
-	if errors.Is(err, k8sresourcessvc.ErrReleaseNotFound) {
+	if errors.Is(err, k8sresourcessvc.ErrRenderedReleaseNotFound) {
 		return gen.GetReleaseBindingK8sResourceEvents404JSONResponse{NotFoundJSONResponse: notFound("Release")}, nil
 	}
 	if errors.Is(err, k8sresourcessvc.ErrEnvironmentNotFound) {
@@ -172,7 +172,7 @@ func (h *Handler) handleK8sResourceLogsError(err error) (gen.GetReleaseBindingK8
 	if errors.Is(err, k8sresourcessvc.ErrReleaseBindingNotFound) {
 		return gen.GetReleaseBindingK8sResourceLogs404JSONResponse{NotFoundJSONResponse: notFound("ReleaseBinding")}, nil
 	}
-	if errors.Is(err, k8sresourcessvc.ErrReleaseNotFound) {
+	if errors.Is(err, k8sresourcessvc.ErrRenderedReleaseNotFound) {
 		return gen.GetReleaseBindingK8sResourceLogs404JSONResponse{NotFoundJSONResponse: notFound("Release")}, nil
 	}
 	if errors.Is(err, k8sresourcessvc.ErrEnvironmentNotFound) {

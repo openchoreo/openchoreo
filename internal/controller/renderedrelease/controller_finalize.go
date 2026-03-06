@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package release
+package renderedrelease
 
 import (
 	"context"
@@ -26,7 +26,7 @@ const (
 
 // ensureFinalizer ensures that the finalizer is added to the Release.
 // The first return value indicates whether the finalizer was added to the Release.
-func (r *Reconciler) ensureFinalizer(ctx context.Context, release *openchoreov1alpha1.Release) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, release *openchoreov1alpha1.RenderedRelease) (bool, error) {
 	// If the Release is being deleted, no need to add the finalizer
 	if !release.DeletionTimestamp.IsZero() {
 		return false, nil
@@ -40,7 +40,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, release *openchoreov1a
 }
 
 // finalize cleans up the target plane (dataplane or observabilityplane) resources associated with the Release.
-func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alpha1.Release) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alpha1.RenderedRelease) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(release, DataPlaneCleanupFinalizer) {
 		// Nothing to do if the finalizer is not present
 		return ctrl.Result{}, nil
@@ -49,7 +49,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alp
 	// STEP 1: Set finalizing status condition and return to persist it
 	// Mark the Release condition as finalizing and return so that the Release will indicate that it is being finalized.
 	// The actual finalization will be done in the next reconcile loop triggered by the status update.
-	if meta.SetStatusCondition(&release.Status.Conditions, NewReleaseFinalizingCondition(release.Generation)) {
+	if meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseFinalizingCondition(release.Generation)) {
 		if err := controller.UpdateStatusConditions(ctx, r.Client, old, release); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -68,7 +68,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alp
 	case "observabilityplane":
 		planeClient, err = r.getOPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
 		if err != nil {
-			meta.SetStatusCondition(&release.Status.Conditions, NewReleaseCleanupFailedCondition(release.Generation, err))
+			meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseCleanupFailedCondition(release.Generation, err))
 			if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
 				return ctrl.Result{}, updateErr
 			}
@@ -79,7 +79,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alp
 	default:
 		planeClient, err = r.getDPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
 		if err != nil {
-			meta.SetStatusCondition(&release.Status.Conditions, NewReleaseCleanupFailedCondition(release.Generation, err))
+			meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseCleanupFailedCondition(release.Generation, err))
 			if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
 				return ctrl.Result{}, updateErr
 			}
@@ -92,7 +92,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alp
 	gvks := findAllKnownGVKs(emptyDesiredResources, release.Status.Resources)
 	liveResources, err := r.listLiveResourcesByGVKs(ctx, planeClient, release, gvks)
 	if err != nil {
-		meta.SetStatusCondition(&release.Status.Conditions, NewReleaseCleanupFailedCondition(release.Generation, err))
+		meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseCleanupFailedCondition(release.Generation, err))
 		if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
 			return ctrl.Result{}, updateErr
 		}
@@ -101,7 +101,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alp
 
 	// STEP 4: Delete all live resources (since we want to delete everything, all live resources are "stale")
 	if err := r.deleteResources(ctx, planeClient, liveResources); err != nil {
-		meta.SetStatusCondition(&release.Status.Conditions, NewReleaseCleanupFailedCondition(release.Generation, err))
+		meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseCleanupFailedCondition(release.Generation, err))
 		if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
 			return ctrl.Result{}, updateErr
 		}

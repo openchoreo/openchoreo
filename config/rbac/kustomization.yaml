@@ -58,8 +58,8 @@ resources:
   - componentrelease_viewer_role.yaml
   - secretreference_editor_role.yaml
   - secretreference_viewer_role.yaml
-  - release_editor_role.yaml
-  - release_viewer_role.yaml
+  - renderedrelease_editor_role.yaml
+  - renderedrelease_viewer_role.yaml
 
   - buildplane_admin_role.yaml
   - buildplane_editor_role.yaml

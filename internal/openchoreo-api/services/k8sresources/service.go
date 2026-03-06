@@ -23,7 +23,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	releasecontroller "github.com/openchoreo/openchoreo/internal/controller/release"
+	renderedreleasecontroller "github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -43,7 +43,7 @@ type planeInfo struct {
 
 // releaseContext holds a release and its resolved plane info.
 type releaseContext struct {
-	release   *openchoreov1alpha1.Release
+	release   *openchoreov1alpha1.RenderedRelease
 	plane     planeInfo
 	namespace string // data plane namespace derived from Release.Status.Resources
 }
@@ -197,12 +197,12 @@ func (s *k8sResourcesService) resolveReleaseContexts(ctx context.Context, namesp
 	}
 
 	// 2. List Releases in the same namespace, filter by owner
-	var releaseList openchoreov1alpha1.ReleaseList
+	var releaseList openchoreov1alpha1.RenderedReleaseList
 	if err := s.k8sClient.List(ctx, &releaseList, client.InNamespace(namespaceName)); err != nil {
 		return nil, fmt.Errorf("failed to list releases: %w", err)
 	}
 
-	var ownedReleases []*openchoreov1alpha1.Release
+	var ownedReleases []*openchoreov1alpha1.RenderedRelease
 	for i := range releaseList.Items {
 		release := &releaseList.Items[i]
 		if metav1.IsControlledBy(release, &rb) {
@@ -252,7 +252,7 @@ func (s *k8sResourcesService) resolveReleaseContexts(ctx context.Context, namesp
 }
 
 // resolvePlaneInfo resolves gateway proxy coordinates for a release based on its target plane.
-func (s *k8sResourcesService) resolvePlaneInfo(ctx context.Context, release *openchoreov1alpha1.Release, dpResult *controller.DataPlaneResult) (planeInfo, error) {
+func (s *k8sResourcesService) resolvePlaneInfo(ctx context.Context, release *openchoreov1alpha1.RenderedRelease, dpResult *controller.DataPlaneResult) (planeInfo, error) {
 	switch release.Spec.TargetPlane {
 	case planeTypeObservabilityPlane:
 		obsResult, err := dpResult.GetObservabilityPlane(ctx, s.k8sClient)
@@ -309,7 +309,7 @@ func resolveObservabilityPlaneInfo(obsResult *controller.ObservabilityPlaneResul
 }
 
 // deriveNamespace extracts the data plane namespace from the first resource in the release status.
-func deriveNamespace(release *openchoreov1alpha1.Release) string {
+func deriveNamespace(release *openchoreov1alpha1.RenderedRelease) string {
 	if len(release.Status.Resources) > 0 {
 		return release.Status.Resources[0].Namespace
 	}
@@ -614,7 +614,7 @@ func buildResourceNode(obj map[string]any, parentRef *models.ResourceRef, health
 
 func computeHealthFromObject(obj map[string]any, group, kind string) *models.HealthInfo {
 	gvk := schema.GroupVersionKind{Group: group, Kind: kind}
-	healthCheckFunc := releasecontroller.GetHealthCheckFunc(gvk)
+	healthCheckFunc := renderedreleasecontroller.GetHealthCheckFunc(gvk)
 	if healthCheckFunc == nil {
 		return nil
 	}

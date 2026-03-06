@@ -845,9 +845,9 @@ func (h *Handler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Request) 
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
-		if errors.Is(err, services.ErrReleaseNotFound) {
+		if errors.Is(err, services.ErrRenderedReleaseNotFound) {
 			logger.Warn("Release not found", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
-			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeReleaseNotFound)
+			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeRenderedReleaseNotFound)
 			return
 		}
 		logger.Error("Failed to get release", "error", err)
@@ -875,7 +875,7 @@ func (h *Handler) GetReleaseResourceTree(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tree, err := h.services.ComponentService.GetReleaseResourceTree(ctx, namespaceName, projectName,
+	tree, err := h.services.ComponentService.GetRenderedReleaseResourceTree(ctx, namespaceName, projectName,
 		componentName, environmentName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -893,9 +893,9 @@ func (h *Handler) GetReleaseResourceTree(w http.ResponseWriter, r *http.Request)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
-		if errors.Is(err, services.ErrReleaseNotFound) {
+		if errors.Is(err, services.ErrRenderedReleaseNotFound) {
 			logger.Warn("Release not found", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
-			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeReleaseNotFound)
+			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeRenderedReleaseNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrEnvironmentNotFound) {
@@ -960,9 +960,9 @@ func (h *Handler) GetResourceEvents(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
-		if errors.Is(err, services.ErrReleaseNotFound) {
+		if errors.Is(err, services.ErrRenderedReleaseNotFound) {
 			logger.Warn("Release not found")
-			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeReleaseNotFound)
+			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeRenderedReleaseNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrResourceNotFound) {
@@ -1047,9 +1047,9 @@ func (h *Handler) GetResourcePodLogs(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
-		if errors.Is(err, services.ErrReleaseNotFound) {
+		if errors.Is(err, services.ErrRenderedReleaseNotFound) {
 			logger.Warn("Release not found")
-			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeReleaseNotFound)
+			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeRenderedReleaseNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrResourceNotFound) {

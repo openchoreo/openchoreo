@@ -381,7 +381,7 @@ func releaseBindingDetail(rb *openchoreov1alpha1.ReleaseBinding) map[string]any 
 // Release
 // ---------------------------------------------------------------------------
 
-func releaseDetail(r *openchoreov1alpha1.Release) map[string]any {
+func releaseDetail(r *openchoreov1alpha1.RenderedRelease) map[string]any {
 	m := extractCommonMeta(r)
 	m["projectName"] = r.Spec.Owner.ProjectName
 	m["componentName"] = r.Spec.Owner.ComponentName

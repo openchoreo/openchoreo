@@ -88,7 +88,7 @@ func (r *Reconciler) hasOwnedReleases(ctx context.Context, releaseBinding *openc
 		labels.LabelKeyComponentName:   releaseBinding.Spec.Owner.ComponentName,
 		labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
 	}
-	releaseList := &openchoreov1alpha1.ReleaseList{}
+	releaseList := &openchoreov1alpha1.RenderedReleaseList{}
 	if err := r.List(ctx, releaseList,
 		client.InNamespace(releaseBinding.Namespace),
 		matchingLabels); err != nil {
@@ -101,7 +101,7 @@ func (r *Reconciler) hasOwnedReleases(ctx context.Context, releaseBinding *openc
 
 	// Delete all Releases owned by this ReleaseBinding
 	logger.Info("Deleting owned Releases", "count", len(releaseList.Items))
-	if err := r.DeleteAllOf(ctx, &openchoreov1alpha1.Release{},
+	if err := r.DeleteAllOf(ctx, &openchoreov1alpha1.RenderedRelease{},
 		client.InNamespace(releaseBinding.Namespace),
 		matchingLabels); err != nil {
 		return false, fmt.Errorf("failed to delete releases: %w", err)

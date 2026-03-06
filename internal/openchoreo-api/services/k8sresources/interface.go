@@ -15,7 +15,7 @@ type ReleaseResourceTree struct {
 	Name        string
 	TargetPlane string
 	Nodes       []models.ResourceNode
-	Release     *openchoreov1alpha1.Release // Full Release CR
+	Release     *openchoreov1alpha1.RenderedRelease // Full RenderedRelease CR
 }
 
 // K8sResourceTreeResult is the result of GetResourceTree.

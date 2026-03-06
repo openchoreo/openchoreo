@@ -38,7 +38,7 @@ func (h *Handler) ListReleases(
 		return gen.ListReleases500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	items, err := convertList[openchoreov1alpha1.Release, gen.Release](result.Items)
+	items, err := convertList[openchoreov1alpha1.RenderedRelease, gen.RenderedRelease](result.Items)
 	if err != nil {
 		h.logger.Error("Failed to convert releases", "error", err)
 		return gen.ListReleases500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -71,7 +71,7 @@ func (h *Handler) GetRelease(
 		return gen.GetRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	genRelease, err := convert[openchoreov1alpha1.Release, gen.Release](*r)
+	genRelease, err := convert[openchoreov1alpha1.RenderedRelease, gen.RenderedRelease](*r)
 	if err != nil {
 		h.logger.Error("Failed to convert release", "error", err)
 		return gen.GetRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

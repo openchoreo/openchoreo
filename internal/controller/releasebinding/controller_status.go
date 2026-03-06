@@ -66,7 +66,7 @@ type ResourceStatusSummary struct {
 func (r *Reconciler) setResourcesReadyStatus(
 	ctx context.Context,
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
-	release *openchoreov1alpha1.Release,
+	release *openchoreov1alpha1.RenderedRelease,
 	component *openchoreov1alpha1.Component,
 ) error {
 	logger := log.FromContext(ctx)

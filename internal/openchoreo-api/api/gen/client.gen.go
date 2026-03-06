@@ -15308,7 +15308,7 @@ func (r ListReleasesResp) StatusCode() int {
 type GetReleaseResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Release
+	JSON200      *RenderedRelease
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
@@ -24943,7 +24943,7 @@ func ParseGetReleaseResp(rsp *http.Response) (*GetReleaseResp, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Release
+		var dest RenderedRelease
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

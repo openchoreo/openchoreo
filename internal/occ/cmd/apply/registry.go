@@ -33,7 +33,7 @@ const (
 // readOnlyKinds are valid K8s CRD kinds that have no Create/Update endpoints.
 var readOnlyKinds = map[string]bool{
 	"ComponentRelease": true,
-	"Release":          true,
+	"RenderedRelease":  true,
 }
 
 // getFn checks if a resource exists. Returns the HTTP status code.

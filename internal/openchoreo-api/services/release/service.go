@@ -17,7 +17,7 @@ import (
 
 var releaseTypeMeta = metav1.TypeMeta{
 	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "Release",
+	Kind:       "RenderedRelease",
 }
 
 // releaseService handles release business logic without authorization checks.
@@ -37,10 +37,10 @@ func NewService(k8sClient client.Client, logger *slog.Logger) Service {
 	}
 }
 
-func (s *releaseService) ListReleases(ctx context.Context, namespaceName, componentName, environmentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Release], error) {
+func (s *releaseService) ListReleases(ctx context.Context, namespaceName, componentName, environmentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.RenderedRelease], error) {
 	s.logger.Debug("Listing releases", "namespace", namespaceName, "component", componentName, "environment", environmentName, "limit", opts.Limit, "cursor", opts.Cursor)
 
-	listFn := func(ctx context.Context, pageOpts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Release], error) {
+	listFn := func(ctx context.Context, pageOpts services.ListOptions) (*services.ListResult[openchoreov1alpha1.RenderedRelease], error) {
 		listOpts := []client.ListOption{
 			client.InNamespace(namespaceName),
 		}
@@ -51,7 +51,7 @@ func (s *releaseService) ListReleases(ctx context.Context, namespaceName, compon
 			listOpts = append(listOpts, client.Continue(pageOpts.Cursor))
 		}
 
-		var rList openchoreov1alpha1.ReleaseList
+		var rList openchoreov1alpha1.RenderedReleaseList
 		if err := s.k8sClient.List(ctx, &rList, listOpts...); err != nil {
 			s.logger.Error("Failed to list releases", "error", err)
 			return nil, fmt.Errorf("failed to list releases: %w", err)
@@ -61,7 +61,7 @@ func (s *releaseService) ListReleases(ctx context.Context, namespaceName, compon
 			rList.Items[i].TypeMeta = releaseTypeMeta
 		}
 
-		result := &services.ListResult[openchoreov1alpha1.Release]{
+		result := &services.ListResult[openchoreov1alpha1.RenderedRelease]{
 			Items:      rList.Items,
 			NextCursor: rList.Continue,
 		}
@@ -77,7 +77,7 @@ func (s *releaseService) ListReleases(ctx context.Context, namespaceName, compon
 	if needsFilter {
 		filteredFn := services.PreFilteredList(
 			listFn,
-			func(r openchoreov1alpha1.Release) bool {
+			func(r openchoreov1alpha1.RenderedRelease) bool {
 				if componentName != "" && r.Spec.Owner.ComponentName != componentName {
 					return false
 				}
@@ -93,10 +93,10 @@ func (s *releaseService) ListReleases(ctx context.Context, namespaceName, compon
 	return listFn(ctx, opts)
 }
 
-func (s *releaseService) GetRelease(ctx context.Context, namespaceName, releaseName string) (*openchoreov1alpha1.Release, error) {
+func (s *releaseService) GetRelease(ctx context.Context, namespaceName, releaseName string) (*openchoreov1alpha1.RenderedRelease, error) {
 	s.logger.Debug("Getting release", "namespace", namespaceName, "release", releaseName)
 
-	r := &openchoreov1alpha1.Release{}
+	r := &openchoreov1alpha1.RenderedRelease{}
 	key := client.ObjectKey{
 		Name:      releaseName,
 		Namespace: namespaceName,
