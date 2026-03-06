@@ -14,10 +14,13 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
@@ -68,10 +71,63 @@ var _ = BeforeSuite(func() {
 
 	// +kubebuilder:scaffold:scheme
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	// Create a manager with cache enabled for Environment (needed for field index queries
+	// used in deleteEnvironmentsAndWait). DataPlane reads bypass the cache so that
+	// assertions see updates immediately from the API server.
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&openchoreov1alpha1.Environment{}: {},
+			},
+			DefaultNamespaces: map[string]cache.Config{},
+		},
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{
+					&openchoreov1alpha1.DataPlane{},
+				},
+			},
+		},
+	})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
 
+	// Register the field index used by deleteEnvironmentsAndWait to find
+	// Environments that reference a specific DataPlane by name.
+	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Environment{},
+		dataplaneRefIndexKey, func(obj client.Object) []string {
+			environment, ok := obj.(*openchoreov1alpha1.Environment)
+			if !ok {
+				return nil
+			}
+			ref := environment.Spec.DataPlaneRef
+			if ref == nil {
+				return []string{"default"}
+			}
+			if ref.Kind == openchoreov1alpha1.DataPlaneRefKindClusterDataPlane {
+				return nil
+			}
+			return []string{ref.Name}
+		})
+	Expect(err).NotTo(HaveOccurred())
+
+	// Start the manager in a goroutine
+	go func() {
+		defer GinkgoRecover()
+		err := mgr.Start(ctx)
+		Expect(err).NotTo(HaveOccurred())
+	}()
+
+	// Wait for cache to sync before running tests
+	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+
+	// Use the manager's client which has field index support for Environment
+	// but reads directly from API server for DataPlane
+	k8sClient = mgr.GetClient()
+	Expect(k8sClient).NotTo(BeNil())
 })
 
 var _ = AfterSuite(func() {
