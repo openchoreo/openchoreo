@@ -139,6 +139,7 @@ func (s *workflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceNam
 		return nil, fmt.Errorf("failed to update workflow run: %w", err)
 	}
 
+	existing.TypeMeta = workflowRunTypeMeta
 	s.logger.Debug("Workflow run updated successfully", "namespace", namespaceName, "name", wfRun.Name)
 	return existing, nil
 }

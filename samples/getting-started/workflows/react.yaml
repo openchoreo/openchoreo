@@ -100,6 +100,8 @@ spec:
                   parameters:
                     - name: image
                       value: '{{steps.publish-image.outputs.parameters.image}}'
+                    - name: run-name
+                      value: '{{workflow.parameters.workflowrun-name}}'
       volumeClaimTemplates:
         - metadata:
             name: workspace
