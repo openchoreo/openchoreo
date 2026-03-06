@@ -119,11 +119,11 @@ spec:
   schema:
     parameters:
       aws:
-        region: string | default="us-east-1" description="AWS region where the CodeCommit repository will be created"
-        credentialsSecret: string | default="aws-credentials" description="Name of the Kubernetes Secret in the openchoreo-ci-<namespace> namespace containing 'accessKeyId' and 'secretAccessKey' keys"
+        region: string | description="AWS region where the CodeCommit repository will be created"
+        credentialsSecret: string | description="Name of the Kubernetes Secret containing 'accessKeyId' and 'secretAccessKey' keys"
       repo:
         name: string | description="Name of the CodeCommit repository to create"
-        description: string | default="" description="Short description of the repository"
+        description: string | default="" description="Workflow originated repository"
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1

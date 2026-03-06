@@ -50,7 +50,7 @@ kubectl create secret generic github-token \
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
 | `github.owner` | Yes | — | GitHub organization or user that will own the repository |
-| `github.tokenSecret` | No | `github-token` | Name of the Kubernetes Secret containing the PAT under the key `token` |
+| `github.tokenSecret` | Yes | — | Name of the Kubernetes Secret containing the PAT under the key `token` (e.g. `github-token`) |
 | `repo.name` | Yes | — | Name of the repository to create |
 | `repo.description` | No | `""` | Short description of the repository |
 | `repo.visibility` | No | `private` | Repository visibility: `public` or `private` |
@@ -149,8 +149,8 @@ kubectl create secret generic aws-credentials \
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `aws.region` | No | `us-east-1` | AWS region where the repository will be created |
-| `aws.credentialsSecret` | No | `aws-credentials` | Name of the Kubernetes Secret containing `accessKeyId` and `secretAccessKey` keys |
+| `aws.region` | Yes | — | AWS region where the repository will be created (e.g. `us-east-1`) |
+| `aws.credentialsSecret` | Yes | — | Name of the Kubernetes Secret containing `accessKeyId` and `secretAccessKey` keys (e.g. `aws-credentials`) |
 | `repo.name` | Yes | — | Name of the CodeCommit repository to create |
 | `repo.description` | No | `""` | Short description of the repository |
 

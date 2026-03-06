@@ -138,7 +138,7 @@ spec:
     parameters:
       github:
         owner: string | description="GitHub organization or user that will own the repository"
-        tokenSecret: string | default="github-token" description="Name of the Kubernetes Secret in the openchoreo-ci-<namespace> namespace containing the GitHub token under the key 'token'"
+        tokenSecret: string | description="Name of the Kubernetes Secret in the namespace containing the GitHub token under the key 'token'"
       repo:
         name: string | description="Name of the repository to create"
         description: string | default="" description="Short description of the repository"
