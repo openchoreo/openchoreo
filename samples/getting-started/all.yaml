@@ -1601,7 +1601,7 @@ spec:
 
   validations:
     - rule: "${(has(envOverrides.actions) && has(envOverrides.actions.notifications) && envOverrides.actions.notifications.channels.size() > 0) || (has(environment.defaultNotificationChannel) && environment.defaultNotificationChannel != '')}"
-      message: "A notification channel must be provided either in envOverrides.actions.notifications.channels or as the environment default."
+      message: "A notification channel is mandatory for alert rules (incident-only rules are not supported). Provide envOverrides.actions.notifications.channels or set environment.defaultNotificationChannel."
     - rule: "${!has(envOverrides.actions) || !has(envOverrides.actions.incident) || envOverrides.actions.incident.triggerAiRca == false || envOverrides.actions.incident.enabled == true}"
       message: "incident.enabled must be true when triggerAiRca is true. AI-powered root cause analysis requires incident creation to be enabled."
 
@@ -1635,7 +1635,6 @@ spec:
             threshold: ${parameters.condition.threshold}
           actions:
             notifications:
-              enabled: true
               channels: >-
                 ${(has(envOverrides.actions) && has(envOverrides.actions.notifications) && envOverrides.actions.notifications.channels.size() > 0)
                   ? envOverrides.actions.notifications.channels

@@ -841,7 +841,6 @@ func TestLoggingService_GetBuildLogs_SearchError(t *testing.T) {
 func TestLoggingService_EnrichAlertDetails_ActionsMapping(t *testing.T) {
 	service := newMockLoggingService()
 
-	notificationsEnabled := true
 	incidentEnabled := true
 	triggerAiRca := true
 
@@ -866,9 +865,8 @@ func TestLoggingService_EnrichAlertDetails_ActionsMapping(t *testing.T) {
 				Threshold: 10,
 			},
 			Actions: choreoapis.ObservabilityAlertActions{
-				Notifications: &choreoapis.ObservabilityAlertNotifications{
-					Enabled:  &notificationsEnabled,
-					Channels: []string{"chan-1", "chan-2"},
+				Notifications: choreoapis.ObservabilityAlertNotifications{
+					Channels: []choreoapis.NotificationChannelName{"chan-1", "chan-2"},
 				},
 				Incident: &choreoapis.ObservabilityAlertIncident{
 					Enabled:      &incidentEnabled,

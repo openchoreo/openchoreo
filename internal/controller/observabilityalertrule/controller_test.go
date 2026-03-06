@@ -6,6 +6,7 @@ package observabilityalertrule
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -42,6 +43,8 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 
 			// Set up a test HTTP server to mock the observer internal API
 			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer GinkgoRecover()
+
 				// GET /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}
 				if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, alertsV1alpha1BasePath+"/") {
 					// Simulate rule not found so POST path is exercised
@@ -50,6 +53,30 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 				}
 				// POST /api/v1alpha1/alerts/sources/{sourceType}/rules
 				if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/rules") {
+					body, err := io.ReadAll(r.Body)
+					Expect(err).NotTo(HaveOccurred())
+
+					var payload alertRuleRequest
+					Expect(json.Unmarshal(body, &payload)).To(Succeed())
+
+					Expect(payload.Metadata.Name).To(Equal(resourceName))
+					Expect(payload.Metadata.Namespace).To(Equal("default"))
+					Expect(payload.Metadata.ComponentUID).To(Equal("62b88e15-efc4-46da-86e3-cf19c6253118"))
+					Expect(payload.Metadata.ProjectUID).To(Equal("ba3de13e-ca40-44c6-9a30-02fc3db7c5a2"))
+					Expect(payload.Metadata.EnvironmentUID).To(Equal("b39a6cad-1b25-495a-a249-60d87275b60f"))
+					Expect(payload.Source.Type).To(Equal("log"))
+					Expect(payload.Source.Query).To(Equal("error"))
+					Expect(payload.Condition.Enabled).To(BeTrue())
+					Expect(payload.Condition.Operator).To(Equal("gt"))
+					Expect(payload.Condition.Threshold).To(Equal(10.0))
+					Expect(payload.Condition.Window).To(Equal("5m0s"))
+					Expect(payload.Condition.Interval).To(Equal("1m0s"))
+
+					var rawPayload map[string]interface{}
+					Expect(json.Unmarshal(body, &rawPayload)).To(Succeed())
+					_, hasActions := rawPayload["actions"]
+					Expect(hasActions).To(BeFalse(), "controller request payload contract should not include actions")
+
 					response := alertRuleSyncResponse{
 						Status:        "synced",
 						Action:        "created",
@@ -94,6 +121,11 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 							Interval:  metav1.Duration{Duration: 1 * time.Minute},
 							Operator:  openchoreov1alpha1.ObservabilityAlertConditionOperatorGt,
 							Threshold: 10,
+						},
+						Actions: openchoreov1alpha1.ObservabilityAlertActions{
+							Notifications: openchoreov1alpha1.ObservabilityAlertNotifications{
+								Channels: []openchoreov1alpha1.NotificationChannelName{"test-channel"},
+							},
 						},
 					},
 				}

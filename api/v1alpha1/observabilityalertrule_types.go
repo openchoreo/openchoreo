@@ -113,15 +113,15 @@ type ObservabilityAlertRuleSpec struct {
 	Condition ObservabilityAlertCondition `json:"condition"`
 
 	// Actions defines the actions to take when the alert rule is triggered.
-	// +optional
-	Actions ObservabilityAlertActions `json:"actions,omitempty"`
+	// +kubebuilder:validation:Required
+	Actions ObservabilityAlertActions `json:"actions"`
 }
 
 // ObservabilityAlertActions defines the actions to take when the alert rule is triggered.
 type ObservabilityAlertActions struct {
 	// Notifications defines the notifications to send when the alert rule is triggered.
-	// +optional
-	Notifications *ObservabilityAlertNotifications `json:"notifications,omitempty"`
+	// +kubebuilder:validation:Required
+	Notifications ObservabilityAlertNotifications `json:"notifications"`
 
 	// Incident defines the incident to trigger when the alert rule is triggered.
 	// +optional
@@ -130,14 +130,16 @@ type ObservabilityAlertActions struct {
 
 // ObservabilityAlertNotifications defines the notifications to send when the alert rule is triggered.
 type ObservabilityAlertNotifications struct {
-	// Enabled toggles whether notifications should be sent when the alert rule is triggered.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
-
 	// Channels defines the channels to send notifications to.
-	// +optional
-	Channels []string `json:"channels,omitempty"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +listType=set
+	Channels []NotificationChannelName `json:"channels"`
 }
+
+// NotificationChannelName defines a non-empty notification channel identifier.
+// +kubebuilder:validation:MinLength=1
+type NotificationChannelName string
 
 // ObservabilityAlertIncident defines the incident to trigger when the alert rule is triggered.
 // +kubebuilder:validation:XValidation:rule="self.triggerAiRca == true ? self.enabled == true : true",message="Incident must be enabled to trigger AI RCA"

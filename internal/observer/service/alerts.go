@@ -204,10 +204,10 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		Environment:      alertRule.Labels[labels.LabelKeyEnvironmentName],
 	}
 
-	// Populate notification channels from the Actions structure
-	if alertRule.Spec.Actions.Notifications != nil &&
-		(alertRule.Spec.Actions.Notifications.Enabled == nil || *alertRule.Spec.Actions.Notifications.Enabled) {
-		alertDetails.NotificationChannels = alertRule.Spec.Actions.Notifications.Channels
+	// Populate notification channels from the Actions structure.
+	alertDetails.NotificationChannels = make([]string, 0, len(alertRule.Spec.Actions.Notifications.Channels))
+	for _, ch := range alertRule.Spec.Actions.Notifications.Channels {
+		alertDetails.NotificationChannels = append(alertDetails.NotificationChannels, string(ch))
 	}
 
 	// Populate incident actions from the Actions structure
@@ -271,25 +271,12 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 // sendAlertNotification fetches the notification channel config from K8s and dispatches the notification.
 func (s *AlertService) sendAlertNotification(ctx context.Context, alertDetails *legacytypes.AlertDetails) error {
 	if len(alertDetails.NotificationChannels) == 0 {
-		s.logger.Warn("No notification channels configured in alert details, skipping notification",
+		s.logger.Warn("No notification channels configured in alert details; this rule is invalid, skipping notification",
 			"ruleName", alertDetails.AlertName)
 		return nil
 	}
 
-	var errs []error
-	for _, channel := range alertDetails.NotificationChannels {
-		channelConfig, err := s.getNotificationChannelConfig(ctx, channel)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to get notification channel config for %q: %w", channel, err))
-			continue
-		}
-
-		if err := notifications.SendAlertNotification(ctx, channelConfig, alertDetails, s.logger); err != nil {
-			errs = append(errs, fmt.Errorf("failed to send notification to channel %q: %w", channel, err))
-		}
-	}
-
-	return errors.Join(errs...)
+	return DispatchAlertNotifications(ctx, alertDetails, alertDetails.NotificationChannels, s.getNotificationChannelConfig, s.logger)
 }
 
 // getNotificationChannelConfig reads the K8s ConfigMap/Secret for the notification channel.

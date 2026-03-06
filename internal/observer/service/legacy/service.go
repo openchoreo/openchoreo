@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -30,6 +29,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/notifications"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
+	observerservice "github.com/openchoreo/openchoreo/internal/observer/service"
 	observertypes "github.com/openchoreo/openchoreo/internal/observer/types"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
@@ -1278,30 +1278,18 @@ func (s *LoggingService) GetComponentResourceMetrics(ctx context.Context, compon
 func (s *LoggingService) SendAlertNotification(ctx context.Context, alertDetails *observertypes.AlertDetails) error {
 	// If no notification channels are specified, log and skip
 	if len(alertDetails.NotificationChannels) == 0 {
-		s.logger.Warn("No notification channels configured in alert details, skipping notification",
+		s.logger.Warn("No notification channels configured in alert details; this rule is invalid, skipping notification",
 			"ruleName", alertDetails.AlertName)
 		return nil
 	}
 
-	var errs []error
-	for _, channel := range alertDetails.NotificationChannels {
-		// Fetch the notification channel configuration from Kubernetes
-		channelConfig, err := s.getNotificationChannelConfig(ctx, channel)
-		if err != nil {
-			s.logger.Error("Failed to get notification channel config",
-				"error", err,
-				"channelName", channel)
-			errs = append(errs, fmt.Errorf("failed to get notification channel config for %q: %w", channel, err))
-			continue
-		}
-
-		// Send notification using the notifications package
-		if err := notifications.SendAlertNotification(ctx, channelConfig, alertDetails, s.logger); err != nil {
-			errs = append(errs, fmt.Errorf("failed to send notification to channel %q: %w", channel, err))
-		}
-	}
-
-	return errors.Join(errs...)
+	return observerservice.DispatchAlertNotifications(
+		ctx,
+		alertDetails,
+		alertDetails.NotificationChannels,
+		s.getNotificationChannelConfig,
+		s.logger,
+	)
 }
 
 // getNotificationChannelConfig fetches the notification channel configuration from Kubernetes
@@ -1571,10 +1559,10 @@ func (s *LoggingService) EnrichAlertDetails(alertRule *choreoapis.ObservabilityA
 		Environment:      alertRule.Labels["openchoreo.dev/environment"],
 	}
 
-	// Populate notification channels from the Actions structure
-	if alertRule.Spec.Actions.Notifications != nil &&
-		(alertRule.Spec.Actions.Notifications.Enabled == nil || *alertRule.Spec.Actions.Notifications.Enabled) {
-		details.NotificationChannels = alertRule.Spec.Actions.Notifications.Channels
+	// Populate notification channels from the Actions structure.
+	details.NotificationChannels = make([]string, 0, len(alertRule.Spec.Actions.Notifications.Channels))
+	for _, ch := range alertRule.Spec.Actions.Notifications.Channels {
+		details.NotificationChannels = append(details.NotificationChannels, string(ch))
 	}
 
 	// Populate incident actions from the Actions structure

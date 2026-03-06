@@ -84,13 +84,18 @@ spec:
                         description: Channels defines the channels to send notifications
                           to.
                         items:
+                          description: NotificationChannelName defines a non-empty
+                            notification channel identifier.
+                          minLength: 1
                           type: string
+                        minItems: 1
                         type: array
-                      enabled:
-                        description: Enabled toggles whether notifications should
-                          be sent when the alert rule is triggered.
-                        type: boolean
+                        x-kubernetes-list-type: set
+                    required:
+                    - channels
                     type: object
+                required:
+                - notifications
                 type: object
               condition:
                 description: Condition controls how the rule should be evaluated against
@@ -161,6 +166,7 @@ spec:
                 - type
                 type: object
             required:
+            - actions
             - condition
             - name
             - source

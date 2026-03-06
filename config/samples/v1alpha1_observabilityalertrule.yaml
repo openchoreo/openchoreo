@@ -23,7 +23,6 @@ spec:
     threshold: 10
   actions:
     notifications:
-      enabled: true
       channels:
         - test-channel
     incident:
