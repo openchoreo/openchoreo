@@ -122,6 +122,7 @@ func (s *workflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceNam
 		// Only apply user-mutable fields to the existing object, preserving server-managed fields
 		existing.Labels = wfRun.Labels
 		existing.Annotations = wfRun.Annotations
+		existing.Spec = wfRun.Spec
 
 		return s.k8sClient.Update(ctx, existing)
 	})
