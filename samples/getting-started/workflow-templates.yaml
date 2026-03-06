@@ -102,9 +102,14 @@ spec:
             cp -f "${DESCRIPTOR_PATH}/workload-cr.yaml" "${OUTPUT_PATH}"
 
             # --- Step 2: Convert workload CR YAML to JSON (strip apiVersion and kind) ---
+            # Use yq to convert YAML to JSON, then jq -c to produce valid compact single-line JSON
              podman run --rm \
                -v /mnt/vol:/data:rw \
                mikefarah/yq -o=json 'del(.apiVersion) | del(.kind)' /data/workload-cr.yaml \
+               > /mnt/vol/workload-cr-raw.json
+             podman run --rm \
+               -v /mnt/vol:/data:rw \
+               ghcr.io/jqlang/jq:latest -c '.' /data/workload-cr-raw.json \
                > /mnt/vol/workload-cr.json
             echo "Generated workload JSON payload:"
             cat /mnt/vol/workload-cr.json
@@ -190,14 +195,15 @@ spec:
               exit 1
             fi
 
-            # Compact the workload CR JSON into a single-line string for the annotation value
-            WORKLOAD_ANNOTATION=$(cat /mnt/vol/workload-cr.json | podman run --rm -i mikefarah/yq -o=json -I=0 '.')
-
-            # Add the annotation to the WorkflowRun JSON
-            echo "${WF_RUN_BODY}" | podman run --rm -i \
-              -e WORKLOAD_ANNOTATION="${WORKLOAD_ANNOTATION}" \
-              mikefarah/yq -o=json \
-              '.metadata.annotations["openchoreo.dev/workload"] = env(WORKLOAD_ANNOTATION)' \
+            # Add the workload CR as a compact JSON string annotation on the WorkflowRun
+            # Use jq --rawfile to read the compact JSON as a raw string (no escape interpretation)
+            echo "${WF_RUN_BODY}" > /mnt/vol/workflowrun-get.json
+            podman run --rm \
+              -v /mnt/vol:/data:rw \
+              ghcr.io/jqlang/jq:latest \
+              --rawfile wl /data/workload-cr.json \
+              '.metadata.annotations["openchoreo.dev/workload"] = ($wl | rtrimstr("\n"))' \
+              /data/workflowrun-get.json \
               > /mnt/vol/workflowrun-updated.json
 
             echo "Updating WorkflowRun with workload annotation..."
