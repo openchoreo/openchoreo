@@ -20,7 +20,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/yaml"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -28,13 +27,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
-)
-
-const (
-	// generateWorkloadTaskName is the name of the task/template that generates a workload CR.
-	generateWorkloadTaskName = "generate-workload-cr"
-	// workloadCRParamName is the output parameter name that holds the workload CR YAML.
-	workloadCRParamName = "workload-cr"
 )
 
 // Reconciler reconciles a WorkflowRun object
@@ -107,7 +99,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		}
 	}()
 
-	if isWorkloadUpdated(workflowRun) {
+	// Set CompletedAt timestamp immediately upon workflow completion.
+	// The deferred status update in Reconcile will persist this change.
+	if isWorkflowCompleted(workflowRun) {
+		setCompletedAtIfNeeded(workflowRun)
 		return ctrl.Result{}, nil
 	}
 
@@ -164,11 +159,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			"buildplane", buildPlaneResult.GetName(),
 			"workflowrun", workflowRun.Name)
 		return ctrl.Result{Requeue: true}, nil
-	}
-
-	// Handle completed workflow (workload creation, timestamp setting)
-	if res, shouldReturn := r.handleCompletedWorkflow(ctx, workflowRun, bpClient); shouldReturn {
-		return res, nil
 	}
 
 	// Sync existing workflow run status
@@ -311,141 +301,6 @@ func (r *Reconciler) syncWorkflowRunStatus(
 	default:
 		return ctrl.Result{Requeue: true}
 	}
-}
-
-// handleCompletedWorkflow handles logic for completed workflows (workload creation, timestamp setting).
-// Returns (result, shouldReturn). If shouldReturn is true, the caller should return with the given result.
-func (r *Reconciler) handleCompletedWorkflow(
-	ctx context.Context,
-	workflowRun *openchoreodevv1alpha1.WorkflowRun,
-	bpClient client.Client,
-) (ctrl.Result, bool) {
-	if !isWorkflowCompleted(workflowRun) {
-		return ctrl.Result{}, false
-	}
-
-	// Set CompletedAt timestamp immediately upon workflow completion.
-	// The deferred status update in Reconcile will persist this change.
-	setCompletedAtIfNeeded(workflowRun)
-
-	if isWorkflowSucceeded(workflowRun) && hasGenerateWorkloadTask(workflowRun) {
-		return r.handleWorkloadCreation(ctx, workflowRun, bpClient), true
-	}
-
-	return ctrl.Result{}, true
-}
-
-func (r *Reconciler) handleWorkloadCreation(
-	ctx context.Context,
-	workflowRun *openchoreodevv1alpha1.WorkflowRun,
-	bpClient client.Client,
-) ctrl.Result {
-	logger := log.FromContext(ctx)
-
-	shouldRequeue, err := r.createWorkloadFromWorkflowRun(ctx, workflowRun, bpClient)
-	if err != nil {
-		logger.Error(err, "failed to create workload CR",
-			"workflowrun", workflowRun.Name,
-			"namespace", workflowRun.Namespace)
-		if shouldRequeue {
-			return ctrl.Result{Requeue: true}
-		}
-		setWorkloadUpdateFailedCondition(workflowRun)
-		return ctrl.Result{}
-	}
-
-	setWorkloadUpdatedCondition(workflowRun)
-
-	return ctrl.Result{}
-}
-
-func (r *Reconciler) createWorkloadFromWorkflowRun(
-	ctx context.Context,
-	workflowRun *openchoreodevv1alpha1.WorkflowRun,
-	bpClient client.Client,
-) (bool, error) {
-	logger := log.FromContext(ctx).WithValues("workflowrun", workflowRun.Name)
-
-	// Use the stored RunReference to retrieve the run resource
-	if workflowRun.Status.RunReference == nil || workflowRun.Status.RunReference.Name == "" || workflowRun.Status.RunReference.Namespace == "" {
-		err := fmt.Errorf("run resource reference not set in status")
-		logger.Error(err, "run resource reference not found in status", "namespace", workflowRun.Namespace)
-		return true, err
-	}
-
-	runRefName := workflowRun.Status.RunReference.Name
-	runRefNamespace := workflowRun.Status.RunReference.Namespace
-
-	runResource := &argoproj.Workflow{}
-	if err := bpClient.Get(ctx, types.NamespacedName{
-		Name:      runRefName,
-		Namespace: runRefNamespace,
-	}, runResource); err != nil {
-		if errors.IsNotFound(err) {
-			logger.Info("run resource not found, workload creation cannot proceed",
-				"runName", runRefName,
-				"runNamespace", runRefNamespace)
-			return false, fmt.Errorf("run resource %q in namespace %q not found: %w", runRefName, runRefNamespace, err)
-		}
-		return true, fmt.Errorf("failed to get run resource %q in namespace %q: %w", runRefName, runRefNamespace, err)
-	}
-
-	workloadCR := extractWorkloadCRFromRunResource(runResource)
-	if workloadCR == "" {
-		logger.Info("no workload CR found in run resource outputs",
-			"runName", runRefName,
-			"runNamespace", runRefNamespace)
-		return false, fmt.Errorf("no workload CR found in run resource %q outputs", runRefName)
-	}
-
-	workload := &openchoreodevv1alpha1.Workload{}
-	if err := yaml.Unmarshal([]byte(workloadCR), workload); err != nil {
-		return true, fmt.Errorf("failed to unmarshal workload CR from run resource %q: %w", runRefName, err)
-	}
-
-	if workload.Name == "" {
-		return false, fmt.Errorf("workload CR from run %q missing metadata.name; raw workload: %q", runRefName, workloadCR)
-	}
-
-	// Set the namespace to match the workflowrun
-	workload.Namespace = workflowRun.Namespace
-
-	if err := r.Patch(ctx, workload, client.Apply, client.FieldOwner("workflowrun-controller"), client.ForceOwnership); err != nil {
-		return true, fmt.Errorf("failed to apply workload %q in namespace %q: %w", workload.Name, workload.Namespace, err)
-	}
-
-	return false, nil
-}
-
-// extractWorkloadCRFromRunResource extracts workload CR from run resource outputs.
-func extractWorkloadCRFromRunResource(runResource *argoproj.Workflow) string {
-	for _, node := range runResource.Status.Nodes {
-		nodeTaskName := node.DisplayName
-		if nodeTaskName == "" {
-			nodeTaskName = extractTaskNameFromArgoNodeName(node.Name)
-		}
-
-		if nodeTaskName == generateWorkloadTaskName && node.Phase == argoproj.NodeSucceeded {
-			if node.Outputs != nil {
-				for _, param := range node.Outputs.Parameters {
-					if param.Name == workloadCRParamName && param.Value != nil {
-						return string(*param.Value)
-					}
-				}
-			}
-		}
-	}
-	return ""
-}
-
-// hasGenerateWorkloadTask checks if the generate-workload-cr task exists in the workflow tasks.
-func hasGenerateWorkloadTask(workflowRun *openchoreodevv1alpha1.WorkflowRun) bool {
-	for _, task := range workflowRun.Status.Tasks {
-		if task.Name == generateWorkloadTaskName {
-			return true
-		}
-	}
-	return false
 }
 
 func (r *Reconciler) applyRenderedRunResource(
