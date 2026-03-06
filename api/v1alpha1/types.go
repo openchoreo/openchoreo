@@ -159,6 +159,32 @@ type BuildPlaneRef struct {
 	Name string `json:"name"`
 }
 
+// ClusterBuildPlaneRefKind defines the kind for cluster-scoped build plane references.
+// Only ClusterBuildPlane is allowed since cluster-scoped resources can only reference
+// other cluster-scoped resources.
+// +kubebuilder:validation:Enum=ClusterBuildPlane
+type ClusterBuildPlaneRefKind string
+
+const (
+	// ClusterBuildPlaneRefKindClusterBuildPlane references a cluster-scoped ClusterBuildPlane
+	ClusterBuildPlaneRefKindClusterBuildPlane ClusterBuildPlaneRefKind = "ClusterBuildPlane"
+)
+
+// ClusterBuildPlaneRef represents a reference to a ClusterBuildPlane.
+// Used by cluster-scoped resources (ClusterWorkflow) that can only
+// reference cluster-scoped build planes.
+type ClusterBuildPlaneRef struct {
+	// Kind is the kind of build plane. Must be ClusterBuildPlane.
+	// +required
+	Kind ClusterBuildPlaneRefKind `json:"kind"`
+
+	// Name is the name of the ClusterBuildPlane resource
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name"`
+}
+
 // ObservabilityPlaneRefKind defines the kind of observability plane referenced
 // +kubebuilder:validation:Enum=ObservabilityPlane;ClusterObservabilityPlane
 type ObservabilityPlaneRefKind string
@@ -263,13 +289,15 @@ type ClusterTraitRef struct {
 }
 
 // WorkflowRefKind defines the kind for workflow references.
-// Currently only "Workflow" is supported.
-// +kubebuilder:validation:Enum=Workflow
+// +kubebuilder:validation:Enum=Workflow;ClusterWorkflow
 type WorkflowRefKind string
 
 const (
 	// WorkflowRefKindWorkflow references a namespace-scoped Workflow
 	WorkflowRefKindWorkflow WorkflowRefKind = "Workflow"
+
+	// WorkflowRefKindClusterWorkflow references a cluster-scoped ClusterWorkflow
+	WorkflowRefKindClusterWorkflow WorkflowRefKind = "ClusterWorkflow"
 )
 
 // WorkflowRef represents a reference to a Workflow resource.
@@ -280,6 +308,29 @@ type WorkflowRef struct {
 	Kind WorkflowRefKind `json:"kind,omitempty"`
 
 	// Name is the name of the workflow resource
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+}
+
+// ClusterWorkflowRefKind defines the kind for cluster-scoped workflow references.
+// +kubebuilder:validation:Enum=ClusterWorkflow
+type ClusterWorkflowRefKind string
+
+const (
+	// ClusterWorkflowRefKindClusterWorkflow references a cluster-scoped ClusterWorkflow
+	ClusterWorkflowRefKindClusterWorkflow ClusterWorkflowRefKind = "ClusterWorkflow"
+)
+
+// ClusterWorkflowRef represents a reference to a ClusterWorkflow resource.
+// Used by cluster-scoped resources (ClusterComponentType) that can only
+// reference cluster-scoped workflows.
+type ClusterWorkflowRef struct {
+	// Kind is the kind of workflow. Must be ClusterWorkflow.
+	// +required
+	Kind ClusterWorkflowRefKind `json:"kind"`
+
+	// Name is the name of the ClusterWorkflow resource
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`

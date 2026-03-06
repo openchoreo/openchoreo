@@ -672,9 +672,16 @@ func (s *componentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 				EnvOverrides: t.EnvOverrides,
 			}
 		}
+		allowedWorkflows := make([]openchoreov1alpha1.WorkflowRef, len(cct.Spec.AllowedWorkflows))
+		for i, ref := range cct.Spec.AllowedWorkflows {
+			allowedWorkflows[i] = openchoreov1alpha1.WorkflowRef{
+				Kind: openchoreov1alpha1.WorkflowRefKind(ref.Kind),
+				Name: ref.Name,
+			}
+		}
 		spec := openchoreov1alpha1.ComponentTypeSpec{
 			WorkloadType:     cct.Spec.WorkloadType,
-			AllowedWorkflows: cct.Spec.AllowedWorkflows,
+			AllowedWorkflows: allowedWorkflows,
 			Schema:           cct.Spec.Schema,
 			Traits:           traits,
 			AllowedTraits:    allowedTraits,
@@ -795,11 +802,18 @@ func (s *componentService) GetComponentSchema(ctx context.Context, namespaceName
 			}
 			return nil, fmt.Errorf("failed to get ClusterComponentType: %w", err)
 		}
+		allowedWfs := make([]openchoreov1alpha1.WorkflowRef, len(cct.Spec.AllowedWorkflows))
+		for i, ref := range cct.Spec.AllowedWorkflows {
+			allowedWfs[i] = openchoreov1alpha1.WorkflowRef{
+				Kind: openchoreov1alpha1.WorkflowRefKind(ref.Kind),
+				Name: ref.Name,
+			}
+		}
 		ct = openchoreov1alpha1.ComponentType{
 			ObjectMeta: cct.ObjectMeta,
 			Spec: openchoreov1alpha1.ComponentTypeSpec{
 				WorkloadType:     cct.Spec.WorkloadType,
-				AllowedWorkflows: cct.Spec.AllowedWorkflows,
+				AllowedWorkflows: allowedWfs,
 				Schema:           cct.Spec.Schema,
 				Resources:        cct.Spec.Resources,
 			},

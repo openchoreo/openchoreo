@@ -79,24 +79,26 @@ spec:
                 type: array
               allowedWorkflows:
                 description: |-
-                  AllowedWorkflows restricts which Workflow CRs developers can use
-                  for building components of this type. If empty, no Workflows are allowed.
-                  References must point to Workflow resources.
+                  AllowedWorkflows restricts which ClusterWorkflow CRs developers can use
+                  for building components of this type. If empty, no workflows are allowed.
+                  References must point to ClusterWorkflow resources.
                 items:
-                  description: WorkflowRef represents a reference to a Workflow resource.
+                  description: |-
+                    ClusterWorkflowRef represents a reference to a ClusterWorkflow resource.
+                    Used by cluster-scoped resources (ClusterComponentType) that can only
+                    reference cluster-scoped workflows.
                   properties:
                     kind:
-                      default: Workflow
-                      description: Kind is the kind of workflow. Currently only "Workflow"
-                        is supported.
+                      description: Kind is the kind of workflow. Must be ClusterWorkflow.
                       enum:
-                      - Workflow
+                      - ClusterWorkflow
                       type: string
                     name:
-                      description: Name is the name of the workflow resource
+                      description: Name is the name of the ClusterWorkflow resource
                       minLength: 1
                       type: string
                   required:
+                  - kind
                   - name
                   type: object
                 type: array

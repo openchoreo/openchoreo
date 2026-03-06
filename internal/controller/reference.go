@@ -518,3 +518,94 @@ func GetObservabilityPlaneOfDataPlane(ctx context.Context, c client.Client, data
 	// ClusterObservabilityPlane was found but caller expects ObservabilityPlane
 	return nil, fmt.Errorf("dataPlane '%s' references ClusterObservabilityPlane '%s', use GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane instead", dataPlane.Name, result.ClusterObservabilityPlane.Name)
 }
+
+// WorkflowResult contains either a Workflow or ClusterWorkflow
+type WorkflowResult struct {
+	Workflow        *openchoreov1alpha1.Workflow
+	ClusterWorkflow *openchoreov1alpha1.ClusterWorkflow
+}
+
+// GetName returns the name of the workflow
+func (r *WorkflowResult) GetName() string {
+	if r.Workflow != nil {
+		return r.Workflow.Name
+	}
+	if r.ClusterWorkflow != nil {
+		return r.ClusterWorkflow.Name
+	}
+	return ""
+}
+
+// GetNamespace returns the namespace (empty for ClusterWorkflow)
+func (r *WorkflowResult) GetNamespace() string {
+	if r.Workflow != nil {
+		return r.Workflow.Namespace
+	}
+	return ""
+}
+
+// GetWorkflowSpec converts the resolved workflow (either kind) to a unified WorkflowSpec.
+// For ClusterWorkflow, ClusterBuildPlaneRef is mapped to BuildPlaneRef with kind ClusterBuildPlane.
+// When ClusterWorkflow omits BuildPlaneRef, it defaults to ClusterBuildPlane "default" so that
+// downstream resolution never falls back to a namespace-scoped BuildPlane.
+func (r *WorkflowResult) GetWorkflowSpec() openchoreov1alpha1.WorkflowSpec {
+	if r.Workflow != nil {
+		return r.Workflow.Spec
+	}
+	if r.ClusterWorkflow != nil {
+		spec := openchoreov1alpha1.WorkflowSpec{
+			Schema:             r.ClusterWorkflow.Spec.Schema,
+			RunTemplate:        r.ClusterWorkflow.Spec.RunTemplate,
+			Resources:          r.ClusterWorkflow.Spec.Resources,
+			ExternalRefs:       r.ClusterWorkflow.Spec.ExternalRefs,
+			TTLAfterCompletion: r.ClusterWorkflow.Spec.TTLAfterCompletion,
+		}
+		if r.ClusterWorkflow.Spec.BuildPlaneRef != nil {
+			spec.BuildPlaneRef = &openchoreov1alpha1.BuildPlaneRef{
+				Kind: openchoreov1alpha1.BuildPlaneRefKind(r.ClusterWorkflow.Spec.BuildPlaneRef.Kind),
+				Name: r.ClusterWorkflow.Spec.BuildPlaneRef.Name,
+			}
+		} else {
+			// ClusterWorkflow must use ClusterBuildPlane, not namespace-scoped BuildPlane
+			spec.BuildPlaneRef = &openchoreov1alpha1.BuildPlaneRef{
+				Kind: openchoreov1alpha1.BuildPlaneRefKindClusterBuildPlane,
+				Name: DefaultPlaneName,
+			}
+		}
+		return spec
+	}
+	return openchoreov1alpha1.WorkflowSpec{}
+}
+
+// ResolveWorkflow resolves a Workflow or ClusterWorkflow by kind and name.
+func ResolveWorkflow(ctx context.Context, c client.Client, namespace string, kind openchoreov1alpha1.WorkflowRefKind, name string) (*WorkflowResult, error) {
+	switch kind {
+	case openchoreov1alpha1.WorkflowRefKindClusterWorkflow:
+		cw := &openchoreov1alpha1.ClusterWorkflow{}
+		key := client.ObjectKey{Name: name}
+
+		if err := c.Get(ctx, key, cw); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("clusterWorkflow '%s' not found: %w", name, err)
+			}
+			return nil, fmt.Errorf("failed to get clusterWorkflow '%s': %w", name, err)
+		}
+		return &WorkflowResult{ClusterWorkflow: cw}, nil
+
+	case openchoreov1alpha1.WorkflowRefKindWorkflow, "":
+		// Namespace-scoped Workflow (empty kind defaults to Workflow via CRD defaulting)
+		wf := &openchoreov1alpha1.Workflow{}
+		key := client.ObjectKey{Namespace: namespace, Name: name}
+
+		if err := c.Get(ctx, key, wf); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("workflow '%s' not found in namespace '%s': %w", name, namespace, err)
+			}
+			return nil, fmt.Errorf("failed to get workflow '%s': %w", name, err)
+		}
+		return &WorkflowResult{Workflow: wf}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported workflowRef kind '%s' for workflow '%s' in namespace '%s'", kind, name, namespace)
+	}
+}

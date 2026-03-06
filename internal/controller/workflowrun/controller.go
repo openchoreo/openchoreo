@@ -53,6 +53,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns/finalizers,verbs=update
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflows,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterworkflows,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
@@ -116,15 +117,30 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Fetch the Workflow to get its BuildPlaneRef for build plane resolution
-	workflow := &openchoreodevv1alpha1.Workflow{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      workflowRun.Spec.Workflow.Name,
-		Namespace: workflowRun.Namespace,
-	}, workflow); err != nil {
-		logger.Error(err, "failed to get Workflow",
+	// Resolve the Workflow or ClusterWorkflow based on WorkflowRunConfig.Kind
+	workflowResult, err := controller.ResolveWorkflow(ctx, r.Client, workflowRun.Namespace, workflowRun.Spec.Workflow.Kind, workflowRun.Spec.Workflow.Name)
+	if err != nil {
+		logger.Error(err, "failed to resolve Workflow",
+			"kind", workflowRun.Spec.Workflow.Kind,
 			"workflow", workflowRun.Spec.Workflow.Name)
-		return ctrl.Result{Requeue: true}, nil
+		if errors.IsNotFound(err) {
+			// Permanent failure: the referenced Workflow/ClusterWorkflow does not exist
+			setWorkflowNotFoundCondition(workflowRun)
+			return ctrl.Result{}, nil
+		}
+		// Transient failure: retry with backoff
+		setWorkflowResolutionFailedCondition(workflowRun, err)
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
+	// Convert to a unified Workflow object for downstream compatibility
+	workflowSpec := workflowResult.GetWorkflowSpec()
+	workflow := &openchoreodevv1alpha1.Workflow{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workflowResult.GetName(),
+			Namespace: workflowResult.GetNamespace(),
+		},
+		Spec: workflowSpec,
 	}
 
 	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, r.Client, workflowRun.Namespace, workflow.Spec.BuildPlaneRef)

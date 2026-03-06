@@ -153,7 +153,7 @@ func (s *ClusterComponentTypeService) toComponentTypeResponse(ct *openchoreov1al
 	for _, ref := range ct.Spec.AllowedWorkflows {
 		kind := string(ref.Kind)
 		if kind == "" {
-			kind = string(openchoreov1alpha1.WorkflowRefKindWorkflow)
+			kind = string(openchoreov1alpha1.ClusterWorkflowRefKindClusterWorkflow)
 		}
 		allowedWorkflows = append(allowedWorkflows, models.AllowedWorkflowResponse{
 			Kind: kind,

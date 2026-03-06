@@ -30,7 +30,12 @@ type WorkflowRunSpec struct {
 
 // WorkflowRunConfig defines the workflow configuration for execution.
 type WorkflowRunConfig struct {
-	// Name references the Workflow CR to use for this execution.
+	// Kind is the kind of workflow (Workflow or ClusterWorkflow).
+	// +optional
+	// +kubebuilder:default=Workflow
+	Kind WorkflowRefKind `json:"kind,omitempty"`
+
+	// Name references the Workflow or ClusterWorkflow CR to use for this execution.
 	// The Workflow CR contains the schema definition and resource template.
 	// +required
 	// +kubebuilder:validation:MinLength=1

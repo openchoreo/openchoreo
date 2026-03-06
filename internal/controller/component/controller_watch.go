@@ -55,7 +55,8 @@ func (r *Reconciler) setupTraitsRefIndex(ctx context.Context, mgr ctrl.Manager) 
 		})
 }
 
-// setupWorkflowRefIndex sets up the field index for workflow references
+// setupWorkflowRefIndex sets up the field index for workflow references.
+// Index key format: "{kind}:{name}" (e.g., "Workflow:docker", "ClusterWorkflow:docker")
 func (r *Reconciler) setupWorkflowRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Component{},
 		workflowIndex, func(obj client.Object) []string {
@@ -63,7 +64,11 @@ func (r *Reconciler) setupWorkflowRefIndex(ctx context.Context, mgr ctrl.Manager
 			if comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == "" {
 				return []string{}
 			}
-			return []string{comp.Spec.Workflow.Name}
+			kind := comp.Spec.Workflow.Kind
+			if kind == "" {
+				kind = openchoreov1alpha1.WorkflowRefKindWorkflow
+			}
+			return []string{string(kind) + ":" + comp.Spec.Workflow.Name}
 		})
 }
 
@@ -204,12 +209,38 @@ func (r *Reconciler) listComponentsUsingClusterTrait(ctx context.Context, obj cl
 func (r *Reconciler) listComponentsForWorkflow(ctx context.Context, obj client.Object) []reconcile.Request {
 	workflow := obj.(*openchoreov1alpha1.Workflow)
 
+	indexKey := string(openchoreov1alpha1.WorkflowRefKindWorkflow) + ":" + workflow.Name
 	var components openchoreov1alpha1.ComponentList
 	if err := r.List(ctx, &components,
 		client.InNamespace(workflow.Namespace),
-		client.MatchingFields{workflowIndex: workflow.Name}); err != nil {
+		client.MatchingFields{workflowIndex: indexKey}); err != nil {
 		logger := ctrl.LoggerFrom(ctx)
 		logger.Error(err, "Failed to list components for Workflow", "workflow", workflow.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, len(components.Items))
+	for i, comp := range components.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      comp.Name,
+				Namespace: comp.Namespace,
+			},
+		}
+	}
+	return requests
+}
+
+// listComponentsForClusterWorkflow returns reconcile requests for all Components using this ClusterWorkflow.
+func (r *Reconciler) listComponentsForClusterWorkflow(ctx context.Context, obj client.Object) []reconcile.Request {
+	clusterWorkflow := obj.(*openchoreov1alpha1.ClusterWorkflow)
+
+	indexKey := string(openchoreov1alpha1.WorkflowRefKindClusterWorkflow) + ":" + clusterWorkflow.Name
+	var components openchoreov1alpha1.ComponentList
+	if err := r.List(ctx, &components,
+		client.MatchingFields{workflowIndex: indexKey}); err != nil {
+		logger := ctrl.LoggerFrom(ctx)
+		logger.Error(err, "Failed to list components for ClusterWorkflow", "clusterWorkflow", clusterWorkflow.Name)
 		return nil
 	}
 

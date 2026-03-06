@@ -32,6 +32,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/clusterdataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterobservabilityplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clustertrait"
+	"github.com/openchoreo/openchoreo/internal/controller/clusterworkflow"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
@@ -230,6 +231,13 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&workflow.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&clusterworkflow.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

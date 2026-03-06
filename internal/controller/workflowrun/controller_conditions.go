@@ -26,6 +26,7 @@ const (
 	ReasonWorkflowFailed             controller.ConditionReason = "WorkflowFailed"
 	ReasonBuildPlaneNotFound         controller.ConditionReason = "BuildPlaneNotFound"
 	ReasonBuildPlaneResolutionFailed controller.ConditionReason = "BuildPlaneResolutionFailed"
+	ReasonWorkflowResolutionFailed   controller.ConditionReason = "WorkflowResolutionFailed"
 	ReasonWorkloadUpdated            controller.ConditionReason = "WorkloadUpdated"
 	ReasonWorkloadUpdateFailed       controller.ConditionReason = "WorkloadUpdateFailed"
 )
@@ -131,6 +132,16 @@ func setWorkflowNotFoundCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
 		Status:             metav1.ConditionTrue,
 		Reason:             string(ReasonWorkflowFailed),
 		Message:            "Workflow has been deleted from the cluster",
+		ObservedGeneration: workflowRun.Generation,
+	})
+}
+
+func setWorkflowResolutionFailedCondition(workflowRun *openchoreov1alpha1.WorkflowRun, err error) {
+	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowCompleted),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(ReasonWorkflowResolutionFailed),
+		Message:            "Failed to resolve workflow: " + err.Error(),
 		ObservedGeneration: workflowRun.Generation,
 	})
 }

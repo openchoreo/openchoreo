@@ -99,9 +99,16 @@ func (s *ComponentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 				EnvOverrides: t.EnvOverrides,
 			}
 		}
+		allowedWorkflows := make([]openchoreov1alpha1.WorkflowRef, len(cct.Spec.AllowedWorkflows))
+		for i, ref := range cct.Spec.AllowedWorkflows {
+			allowedWorkflows[i] = openchoreov1alpha1.WorkflowRef{
+				Kind: openchoreov1alpha1.WorkflowRefKind(ref.Kind),
+				Name: ref.Name,
+			}
+		}
 		spec := openchoreov1alpha1.ComponentTypeSpec{
 			WorkloadType:     cct.Spec.WorkloadType,
-			AllowedWorkflows: cct.Spec.AllowedWorkflows,
+			AllowedWorkflows: allowedWorkflows,
 			Schema:           cct.Spec.Schema,
 			Traits:           traits,
 			AllowedTraits:    allowedTraits,
@@ -699,11 +706,18 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 			s.logger.Error("Failed to get ClusterComponentType", "error", err)
 			return nil, fmt.Errorf("failed to get ClusterComponentType: %w", err)
 		}
+		allowedWfs := make([]openchoreov1alpha1.WorkflowRef, len(cct.Spec.AllowedWorkflows))
+		for i, ref := range cct.Spec.AllowedWorkflows {
+			allowedWfs[i] = openchoreov1alpha1.WorkflowRef{
+				Kind: openchoreov1alpha1.WorkflowRefKind(ref.Kind),
+				Name: ref.Name,
+			}
+		}
 		ct = openchoreov1alpha1.ComponentType{
 			ObjectMeta: cct.ObjectMeta,
 			Spec: openchoreov1alpha1.ComponentTypeSpec{
 				WorkloadType:     cct.Spec.WorkloadType,
-				AllowedWorkflows: cct.Spec.AllowedWorkflows,
+				AllowedWorkflows: allowedWfs,
 				Schema:           cct.Spec.Schema,
 				Resources:        cct.Spec.Resources,
 			},
@@ -2373,14 +2387,16 @@ func (s *ComponentService) GetBuildObserverURL(ctx context.Context, namespaceNam
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      componentName,
 		Namespace: namespaceName,
-	}, component); err == nil && component.Spec.Workflow != nil && component.Spec.Workflow.Name != "" {
-		workflow := &openchoreov1alpha1.Workflow{}
-		if err := s.k8sClient.Get(ctx, client.ObjectKey{
-			Name:      component.Spec.Workflow.Name,
-			Namespace: namespaceName,
-		}, workflow); err == nil {
-			buildPlaneRef = workflow.Spec.BuildPlaneRef
+	}, component); err != nil {
+		return nil, fmt.Errorf("failed to get component '%s' in namespace '%s': %w", componentName, namespaceName, err)
+	}
+	if component.Spec.Workflow != nil && component.Spec.Workflow.Name != "" {
+		workflowResult, err := controller.ResolveWorkflow(ctx, s.k8sClient, namespaceName, component.Spec.Workflow.Kind, component.Spec.Workflow.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve workflow '%s' (kind: %s) for component '%s' in namespace '%s': %w",
+				component.Spec.Workflow.Name, component.Spec.Workflow.Kind, componentName, namespaceName, err)
 		}
+		buildPlaneRef = workflowResult.GetWorkflowSpec().BuildPlaneRef
 	}
 
 	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, s.k8sClient, namespaceName, buildPlaneRef)
@@ -2631,9 +2647,9 @@ func (s *ComponentService) UpdateWorkflowParameters(ctx context.Context, namespa
 	// Update developer parameters if provided
 	if req.Parameters != nil {
 		// Validate the parameters against the Workflow CRD
-		if err := s.validateWorkflowParameters(ctx, namespaceName, component.Spec.Workflow.Name, req.Parameters); err != nil {
-			s.logger.Warn("Invalid workflow parameters", "error", err, "workflow", component.Spec.Workflow.Name)
-			return nil, ErrWorkflowSchemaInvalid
+		if err := s.validateWorkflowParameters(ctx, namespaceName, component.Spec.Workflow.Kind, component.Spec.Workflow.Name, req.Parameters); err != nil {
+			s.logger.Warn("Workflow parameter validation failed", "error", err, "workflow", component.Spec.Workflow.Name, "kind", component.Spec.Workflow.Kind)
+			return nil, err
 		}
 		component.Spec.Workflow.Parameters = req.Parameters
 	}
@@ -2702,9 +2718,9 @@ func (s *ComponentService) UpdateWorkflowSchema(ctx context.Context, namespaceNa
 	// Update developer parameters if provided
 	if req.Parameters != nil {
 		// Validate the parameters against the Workflow CRD
-		if err := s.validateWorkflowParameters(ctx, namespaceName, component.Spec.Workflow.Name, req.Parameters); err != nil {
-			s.logger.Warn("Invalid workflow parameters", "error", err, "workflow", component.Spec.Workflow.Name)
-			return nil, ErrWorkflowSchemaInvalid
+		if err := s.validateWorkflowParameters(ctx, namespaceName, component.Spec.Workflow.Kind, component.Spec.Workflow.Name, req.Parameters); err != nil {
+			s.logger.Warn("Workflow parameter validation failed", "error", err, "workflow", component.Spec.Workflow.Name, "kind", component.Spec.Workflow.Kind)
+			return nil, err
 		}
 		component.Spec.Workflow.Parameters = req.Parameters
 	}
@@ -2722,24 +2738,21 @@ func (s *ComponentService) UpdateWorkflowSchema(ctx context.Context, namespaceNa
 }
 
 // validateWorkflowParameters validates the provided parameters against the Workflow CRD's parameter schema
-func (s *ComponentService) validateWorkflowParameters(ctx context.Context, namespaceName, workflowName string, providedParameters *runtime.RawExtension) error {
-	// Fetch the Workflow CR
-	workflowKey := client.ObjectKey{
-		Name:      workflowName,
-		Namespace: namespaceName,
-	}
-	workflow := &openchoreov1alpha1.Workflow{}
-	if err := s.k8sClient.Get(ctx, workflowKey, workflow); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Workflow not found", "namespace", namespaceName, "workflow", workflowName)
-			return fmt.Errorf("workflow %s not found", workflowName)
+func (s *ComponentService) validateWorkflowParameters(ctx context.Context, namespaceName string, workflowKind openchoreov1alpha1.WorkflowRefKind, workflowName string, providedParameters *runtime.RawExtension) error {
+	// Resolve the Workflow or ClusterWorkflow
+	workflowResult, err := controller.ResolveWorkflow(ctx, s.k8sClient, namespaceName, workflowKind, workflowName)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			s.logger.Warn("Workflow not found", "namespace", namespaceName, "workflow", workflowName, "kind", workflowKind)
+			return fmt.Errorf("workflow %s not found: %w", workflowName, err)
 		}
-		s.logger.Error("Failed to get workflow", "error", err)
-		return fmt.Errorf("failed to get workflow: %w", err)
+		s.logger.Error("Failed to resolve workflow", "error", err, "namespace", namespaceName, "workflow", workflowName, "kind", workflowKind)
+		return fmt.Errorf("resolving workflow %s: %w", workflowName, err)
 	}
+	workflowSpec := workflowResult.GetWorkflowSpec()
 
 	// If workflow has no parameter schema defined, any parameters are valid
-	if workflow.Spec.Schema.Parameters == nil {
+	if workflowSpec.Schema == nil || workflowSpec.Schema.Parameters == nil {
 		return nil
 	}
 
@@ -2750,7 +2763,7 @@ func (s *ComponentService) validateWorkflowParameters(ctx context.Context, names
 
 	// Unmarshal the workflow's parameter schema definition
 	var parameterSchemaMap map[string]any
-	if err := json.Unmarshal(workflow.Spec.Schema.Parameters.Raw, &parameterSchemaMap); err != nil {
+	if err := json.Unmarshal(workflowSpec.Schema.Parameters.Raw, &parameterSchemaMap); err != nil {
 		s.logger.Error("Failed to unmarshal workflow parameter schema", "error", err)
 		return fmt.Errorf("failed to parse workflow parameter schema: %w", err)
 	}
@@ -2775,7 +2788,7 @@ func (s *ComponentService) validateWorkflowParameters(ctx context.Context, names
 
 	// Validate the provided values against the structural schema
 	if err := openchoreoschema.ValidateAgainstSchema(providedValues, structural); err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrWorkflowSchemaInvalid, err)
 	}
 
 	return nil

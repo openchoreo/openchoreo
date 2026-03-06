@@ -142,6 +142,7 @@ spec:
                             "Workflow" is supported.
                           enum:
                           - Workflow
+                          - ClusterWorkflow
                           type: string
                         name:
                           description: Name is the name of the workflow resource

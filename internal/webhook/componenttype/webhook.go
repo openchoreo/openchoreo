@@ -211,6 +211,7 @@ func validateAllowedTraits(ct *openchoreodevv1alpha1.ComponentType) field.ErrorL
 }
 
 // validateAllowedWorkflows validates the allowedWorkflows list in a ComponentType.
+// ComponentType can reference both Workflow and ClusterWorkflow.
 func validateAllowedWorkflows(ct *openchoreodevv1alpha1.ComponentType) field.ErrorList {
 	allErrs := field.ErrorList{}
 	allowedPath := field.NewPath("spec", "allowedWorkflows")
@@ -225,11 +226,16 @@ func validateAllowedWorkflows(ct *openchoreodevv1alpha1.ComponentType) field.Err
 			continue
 		}
 
-		// Check for duplicates by name
-		if seen[ref.Name] {
-			allErrs = append(allErrs, field.Duplicate(entryPath, ref.Name))
+		// Check for duplicates by kind:name composite key
+		refKind := ref.Kind
+		if refKind == "" {
+			refKind = openchoreodevv1alpha1.WorkflowRefKindWorkflow
 		}
-		seen[ref.Name] = true
+		compositeKey := string(refKind) + ":" + ref.Name
+		if seen[compositeKey] {
+			allErrs = append(allErrs, field.Duplicate(entryPath, compositeKey))
+		}
+		seen[compositeKey] = true
 	}
 
 	return allErrs

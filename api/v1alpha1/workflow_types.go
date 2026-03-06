@@ -132,6 +132,7 @@ type WorkflowResource struct {
 	// If empty, the resource is always included.
 	// Example: ${parameters.enableMetrics}
 	// +optional
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
 	IncludeWhen string `json:"includeWhen,omitempty"`
 
 	// Template contains the Kubernetes resource with CEL expressions.

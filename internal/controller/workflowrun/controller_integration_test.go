@@ -196,11 +196,20 @@ var _ = Describe("WorkflowRun Controller Integration", func() {
 
 		AfterEach(func() { forceDelete(ctx, nn) })
 
-		It("should requeue when Workflow cannot be found", func() {
+		It("should not requeue and set WorkflowNotFound condition when Workflow cannot be found", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeTrue())
+			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
+
+			// Verify the WorkflowNotFound condition is set
+			var wr openchoreodevv1alpha1.WorkflowRun
+			Expect(k8sClient.Get(ctx, nn, &wr)).To(Succeed())
+			cond := meta.FindStatusCondition(wr.Status.Conditions, string(ConditionWorkflowCompleted))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(string(ReasonWorkflowFailed)))
 		})
 	})
 

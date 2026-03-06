@@ -321,9 +321,9 @@ func TestClusterComponentTypeToResponse(t *testing.T) {
 				},
 				Spec: v1alpha1.ClusterComponentTypeSpec{
 					WorkloadType: "deployment",
-					AllowedWorkflows: []v1alpha1.WorkflowRef{
-						{Kind: v1alpha1.WorkflowRefKindWorkflow, Name: "docker-build"},
-						{Kind: v1alpha1.WorkflowRefKindWorkflow, Name: "buildpack-build"},
+					AllowedWorkflows: []v1alpha1.ClusterWorkflowRef{
+						{Kind: v1alpha1.ClusterWorkflowRefKindClusterWorkflow, Name: "docker-build"},
+						{Kind: v1alpha1.ClusterWorkflowRefKindClusterWorkflow, Name: "buildpack-build"},
 					},
 					AllowedTraits: []v1alpha1.ClusterTraitRef{
 						{Kind: v1alpha1.ClusterTraitRefKindClusterTrait, Name: "autoscaler"},
@@ -380,8 +380,8 @@ func TestClusterComponentTypeToResponse(t *testing.T) {
 				t.Errorf("AllowedTraits count = %d, want %d", len(result.AllowedTraits), tt.wantTraitCount)
 			}
 			for i, wf := range result.AllowedWorkflows {
-				if wf.Kind != string(v1alpha1.WorkflowRefKindWorkflow) {
-					t.Errorf("AllowedWorkflows[%d].Kind = %q, want %q", i, wf.Kind, v1alpha1.WorkflowRefKindWorkflow)
+				if wf.Kind != string(v1alpha1.ClusterWorkflowRefKindClusterWorkflow) {
+					t.Errorf("AllowedWorkflows[%d].Kind = %q, want %q", i, wf.Kind, v1alpha1.ClusterWorkflowRefKindClusterWorkflow)
 				}
 			}
 			for i, trait := range result.AllowedTraits {

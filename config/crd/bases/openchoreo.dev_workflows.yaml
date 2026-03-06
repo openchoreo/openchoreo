@@ -131,6 +131,7 @@ spec:
                         If the expression evaluates to false, the resource is skipped.
                         If empty, the resource is always included.
                         Example: ${parameters.enableMetrics}
+                      pattern: ^\$\{[\s\S]+\}\s*$
                       type: string
                     template:
                       description: |-

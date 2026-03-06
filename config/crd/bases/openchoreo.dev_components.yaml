@@ -147,9 +147,16 @@ spec:
                   This references a Workflow CR and provides parameter values.
                   The Workflow must be in the allowedWorkflows list of the ComponentType.
                 properties:
+                  kind:
+                    default: Workflow
+                    description: Kind is the kind of workflow (Workflow or ClusterWorkflow).
+                    enum:
+                    - Workflow
+                    - ClusterWorkflow
+                    type: string
                   name:
                     description: |-
-                      Name references the Workflow CR to use for this execution.
+                      Name references the Workflow or ClusterWorkflow CR to use for this execution.
                       The Workflow CR contains the schema definition and resource template.
                     minLength: 1
                     type: string

@@ -1281,3 +1281,199 @@ func TestBuildPlaneResult_GetObservabilityPlane_NeitherSet(t *testing.T) {
 	assert.Nil(t, obsResult)
 	assert.Contains(t, err.Error(), "no build plane set in result")
 }
+
+// ============================================================================
+// Tests for ResolveWorkflow
+// ============================================================================
+
+func TestResolveWorkflow_WithEmptyKind_ResolvesNamespaceScopedWorkflow(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	workflow := &openchoreov1alpha1.Workflow{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "docker",
+			Namespace: "test-namespace",
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(workflow).
+		Build()
+
+	// Empty kind should fall through to the default case and resolve a namespace-scoped Workflow
+	result, err := ResolveWorkflow(context.Background(), fakeClient, "test-namespace", "", "docker")
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.NotNil(t, result.Workflow)
+	assert.Nil(t, result.ClusterWorkflow)
+	assert.Equal(t, "docker", result.GetName())
+	assert.Equal(t, "test-namespace", result.GetNamespace())
+}
+
+func TestResolveWorkflow_WithExplicitWorkflowKind(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	workflow := &openchoreov1alpha1.Workflow{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "docker",
+			Namespace: "test-namespace",
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(workflow).
+		Build()
+
+	result, err := ResolveWorkflow(context.Background(), fakeClient, "test-namespace", openchoreov1alpha1.WorkflowRefKindWorkflow, "docker")
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.NotNil(t, result.Workflow)
+	assert.Nil(t, result.ClusterWorkflow)
+	assert.Equal(t, "docker", result.GetName())
+	assert.Equal(t, "test-namespace", result.GetNamespace())
+}
+
+func TestResolveWorkflow_WithClusterWorkflowKind(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	clusterWorkflow := &openchoreov1alpha1.ClusterWorkflow{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "docker",
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(clusterWorkflow).
+		Build()
+
+	result, err := ResolveWorkflow(context.Background(), fakeClient, "test-namespace", openchoreov1alpha1.WorkflowRefKindClusterWorkflow, "docker")
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Nil(t, result.Workflow)
+	assert.NotNil(t, result.ClusterWorkflow)
+	assert.Equal(t, "docker", result.GetName())
+	assert.Equal(t, "", result.GetNamespace()) // Cluster-scoped has no namespace
+}
+
+func TestResolveWorkflow_WorkflowNotFound(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		Build()
+
+	result, err := ResolveWorkflow(context.Background(), fakeClient, "test-namespace", openchoreov1alpha1.WorkflowRefKindWorkflow, "nonexistent")
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "workflow 'nonexistent' not found in namespace 'test-namespace'")
+}
+
+func TestResolveWorkflow_ClusterWorkflowNotFound(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		Build()
+
+	result, err := ResolveWorkflow(context.Background(), fakeClient, "test-namespace", openchoreov1alpha1.WorkflowRefKindClusterWorkflow, "nonexistent")
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "clusterWorkflow 'nonexistent' not found")
+}
+
+func TestResolveWorkflow_WithUnsupportedKind(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		Build()
+
+	result, err := ResolveWorkflow(context.Background(), fakeClient, "test-namespace", openchoreov1alpha1.WorkflowRefKind("UnsupportedKind"), "some-workflow")
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "unsupported workflowRef kind 'UnsupportedKind'")
+}
+
+// ============================================================================
+// Tests for WorkflowResult methods
+// ============================================================================
+
+func TestWorkflowResult_GetWorkflowSpec_FromWorkflow(t *testing.T) {
+	result := &WorkflowResult{
+		Workflow: &openchoreov1alpha1.Workflow{
+			ObjectMeta: metav1.ObjectMeta{Name: "wf"},
+			Spec: openchoreov1alpha1.WorkflowSpec{
+				TTLAfterCompletion: "1h",
+			},
+		},
+	}
+
+	spec := result.GetWorkflowSpec()
+	assert.Equal(t, "1h", spec.TTLAfterCompletion)
+}
+
+func TestWorkflowResult_GetWorkflowSpec_FromClusterWorkflow(t *testing.T) {
+	result := &WorkflowResult{
+		ClusterWorkflow: &openchoreov1alpha1.ClusterWorkflow{
+			ObjectMeta: metav1.ObjectMeta{Name: "cwf"},
+			Spec: openchoreov1alpha1.ClusterWorkflowSpec{
+				TTLAfterCompletion: "2h",
+				BuildPlaneRef: &openchoreov1alpha1.ClusterBuildPlaneRef{
+					Kind: openchoreov1alpha1.ClusterBuildPlaneRefKindClusterBuildPlane,
+					Name: "shared-bp",
+				},
+			},
+		},
+	}
+
+	spec := result.GetWorkflowSpec()
+	assert.Equal(t, "2h", spec.TTLAfterCompletion)
+	require.NotNil(t, spec.BuildPlaneRef)
+	assert.Equal(t, openchoreov1alpha1.BuildPlaneRefKind("ClusterBuildPlane"), spec.BuildPlaneRef.Kind)
+	assert.Equal(t, "shared-bp", spec.BuildPlaneRef.Name)
+}
+
+func TestWorkflowResult_GetWorkflowSpec_FromClusterWorkflow_NilBuildPlaneRef(t *testing.T) {
+	result := &WorkflowResult{
+		ClusterWorkflow: &openchoreov1alpha1.ClusterWorkflow{
+			ObjectMeta: metav1.ObjectMeta{Name: "cwf-no-bp"},
+			Spec: openchoreov1alpha1.ClusterWorkflowSpec{
+				TTLAfterCompletion: "1h",
+				// BuildPlaneRef is nil — should default to ClusterBuildPlane "default"
+			},
+		},
+	}
+
+	spec := result.GetWorkflowSpec()
+	assert.Equal(t, "1h", spec.TTLAfterCompletion)
+	require.NotNil(t, spec.BuildPlaneRef, "nil ClusterWorkflow BuildPlaneRef should inject ClusterBuildPlane default")
+	assert.Equal(t, openchoreov1alpha1.BuildPlaneRefKindClusterBuildPlane, spec.BuildPlaneRef.Kind)
+	assert.Equal(t, "default", spec.BuildPlaneRef.Name)
+}
+
+func TestWorkflowResult_GetWorkflowSpec_Empty(t *testing.T) {
+	result := &WorkflowResult{}
+	spec := result.GetWorkflowSpec()
+	assert.Equal(t, openchoreov1alpha1.WorkflowSpec{}, spec)
+}
+
+func TestWorkflowResult_GetName_Empty(t *testing.T) {
+	result := &WorkflowResult{}
+	assert.Equal(t, "", result.GetName())
+	assert.Equal(t, "", result.GetNamespace())
+}

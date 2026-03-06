@@ -41,6 +41,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentreleases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflows,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterworkflows,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=list;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
@@ -263,11 +264,19 @@ func (r *Reconciler) validateAndFetchComponentType(ctx context.Context, comp *op
 				EnvOverrides: t.EnvOverrides,
 			}
 		}
+		// Convert ClusterWorkflowRef to WorkflowRef
+		allowedWorkflows := make([]openchoreov1alpha1.WorkflowRef, len(cct.Spec.AllowedWorkflows))
+		for i, ref := range cct.Spec.AllowedWorkflows {
+			allowedWorkflows[i] = openchoreov1alpha1.WorkflowRef{
+				Kind: openchoreov1alpha1.WorkflowRefKind(ref.Kind),
+				Name: ref.Name,
+			}
+		}
 		ct := &openchoreov1alpha1.ComponentType{
 			ObjectMeta: cct.ObjectMeta,
 			Spec: openchoreov1alpha1.ComponentTypeSpec{
 				WorkloadType:     cct.Spec.WorkloadType,
-				AllowedWorkflows: cct.Spec.AllowedWorkflows,
+				AllowedWorkflows: allowedWorkflows,
 				Schema:           cct.Spec.Schema,
 				Traits:           traits,
 				AllowedTraits:    allowedTraits,
@@ -417,18 +426,27 @@ func (r *Reconciler) validateWorkflow(
 	}
 
 	workflowName := comp.Spec.Workflow.Name
+	workflowKind := comp.Spec.Workflow.Kind
+	if workflowKind == "" {
+		workflowKind = openchoreov1alpha1.WorkflowRefKindWorkflow
+	}
 
-	// Performance optimization: Check allowedWorkflows list first
+	// Performance optimization: Check allowedWorkflows list first using kind:name composite key.
 	// This avoids fetching the Workflow if it's not allowed.
 	if len(ct.Spec.AllowedWorkflows) > 0 {
+		compositeKey := string(workflowKind) + ":" + workflowName
 		allowedSet := make(map[string]bool, len(ct.Spec.AllowedWorkflows))
 		for _, ref := range ct.Spec.AllowedWorkflows {
-			allowedSet[ref.Name] = true
+			refKind := ref.Kind
+			if refKind == "" {
+				refKind = openchoreov1alpha1.WorkflowRefKindWorkflow
+			}
+			allowedSet[string(refKind)+":"+ref.Name] = true
 		}
 
-		if !allowedSet[workflowName] {
-			msg := fmt.Sprintf("Workflow %q is not allowed by ComponentType %q; allowed workflows: %v",
-				workflowName, ct.Name, ct.Spec.AllowedWorkflows)
+		if !allowedSet[compositeKey] {
+			msg := fmt.Sprintf("Workflow %q (kind %s) is not allowed by ComponentType %q; allowed workflows: %v",
+				workflowName, workflowKind, ct.Name, ct.Spec.AllowedWorkflows)
 			controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkflowNotAllowed, msg)
 			logger.Info(msg, "component", comp.Name)
 			return nil, nil
@@ -442,20 +460,27 @@ func (r *Reconciler) validateWorkflow(
 		return nil, nil
 	}
 
-	// Now check if the Workflow actually exists.
-	workflow := &openchoreov1alpha1.Workflow{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      workflowName,
-		Namespace: comp.Namespace,
-	}, workflow); err != nil {
+	// Resolve the Workflow or ClusterWorkflow by kind
+	result, err := controller.ResolveWorkflow(ctx, r.Client, comp.Namespace, workflowKind, workflowName)
+	if err != nil {
 		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("Workflow %q not found", workflowName)
+			msg := fmt.Sprintf("Workflow %q (kind %s) not found", workflowName, workflowKind)
 			controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkflowNotFound, msg)
 			logger.Info(msg, "component", comp.Name)
 			return nil, nil
 		}
-		logger.Error(err, "Failed to fetch Workflow", "name", workflowName)
+		logger.Error(err, "Failed to fetch Workflow", "kind", workflowKind, "name", workflowName)
 		return nil, err
+	}
+
+	// Convert to unified Workflow for downstream compatibility
+	workflowSpec := result.GetWorkflowSpec()
+	workflow := &openchoreov1alpha1.Workflow{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      result.GetName(),
+			Namespace: result.GetNamespace(),
+		},
+		Spec: workflowSpec,
 	}
 
 	return workflow, nil
@@ -977,6 +1002,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsUsingClusterTrait)).
 		Watches(&openchoreov1alpha1.Workflow{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForWorkflow)).
+		Watches(&openchoreov1alpha1.ClusterWorkflow{},
+			handler.EnqueueRequestsFromMapFunc(r.listComponentsForClusterWorkflow)).
 		Watches(&openchoreov1alpha1.Workload{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForWorkload)).
 		Watches(&openchoreov1alpha1.Project{},
