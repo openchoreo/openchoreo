@@ -2320,7 +2320,7 @@
       "description": "OpenSearch cluster post-install setup job configuration",
       "properties": {
         "alertingWebhookUrl": {
-          "default": "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch",
+          "default": "http://observer-internal.openchoreo-observability-plane:8081/api/v1alpha1/alerts/webhook",
           "description": "Alerting webhook URL for setup configuration",
           "title": "alertingWebhookUrl",
           "type": "string"
@@ -2846,7 +2846,7 @@
                                       "type": "boolean"
                                     },
                                     "url": {
-                                      "default": "http://observer.openchoreo-observability-plane.svc.cluster.local:8080/api/alerting/webhook/prometheus",
+                                      "default": "http://observer-internal.openchoreo-observability-plane:8081/api/v1alpha1/alerts/webhook",
                                       "title": "url",
                                       "type": "string"
                                     }

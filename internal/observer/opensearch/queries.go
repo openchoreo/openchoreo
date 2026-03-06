@@ -970,7 +970,7 @@ func buildWebhookMessageTemplate(params types.AlertingRuleRequest) string {
 
 	// Build the JSON template with Mustache variables
 	return fmt.Sprintf(
-		`{"ruleName":%s,"ruleNamespace":%s,"componentUid":%s,"projectUid":%s,"environmentUid":%s,"alertValue":{{ctx.results.0.hits.total.value}},"timestamp":"{{ctx.periodStart}}"}`,
+		`{"ruleName":%s,"ruleNamespace":%s,"componentUid":%s,"projectUid":%s,"environmentUid":%s,"alertValue":{{ctx.results.0.hits.total.value}},"alertTimestamp":"{{ctx.periodStart}}"}`,
 		string(ruleName),
 		string(ruleNamespace),
 		string(componentUID),

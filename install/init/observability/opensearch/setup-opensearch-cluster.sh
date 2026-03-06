@@ -216,7 +216,7 @@ echo -e "Index template creation complete\n"
 # 3. Add Channel for Notifications
 # Reference: https://opensearch.org/docs/latest/observing-your-data/notifications/api
 webhookName="openchoreo-observer-alerting-webhook"
-webhookUrl="${OBSERVER_ALERTING_WEBHOOK_URL:-http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch}"
+webhookUrl="${OBSERVER_ALERTING_WEBHOOK_URL:-http://observer-internal.openchoreo-observability-plane:8081/api/v1alpha1/alerts/webhook}"
 
 # Desired webhook configuration payload (used for both create and update operations).
 webhookConfig="{
@@ -429,8 +429,8 @@ for ((i=0; i<${#ismPolicies[@]}; i+=2)); do
         # Extract and normalize policy definitions for comparison
         # Remove OpenSearch-generated metadata fields that change on every update or are auto-added
         existingPolicy=$(echo "$responseBody" | jq -c -S '
-            .policy | 
-            del(.policy_id, .last_updated_time, .schema_version, .error_notification) | 
+            .policy |
+            del(.policy_id, .last_updated_time, .schema_version, .error_notification) |
             del(.ism_template[]?.last_updated_time) |
             walk(if type == "object" then del(.retry) else . end)
         ')

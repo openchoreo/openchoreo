@@ -1715,7 +1715,7 @@ prometheus:
       receivers:
         - name: 'openchoreo-alerts'
           webhook_configs:
-            - url: 'http://observer.openchoreo-observability-plane.svc.cluster.local:8080/api/alerting/webhook/prometheus'
+            - url: 'http://observer-internal.openchoreo-observability-plane:8081/api/v1alpha1/alerts/webhook'
               send_resolved: false
         - name: 'null'
 
@@ -2780,9 +2780,9 @@ openSearchClusterSetup:
   # @schema
   # type: string
   # description: Alerting webhook URL for setup configuration
-  # default: http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch
+  # default: http://observer-internal.openchoreo-observability-plane:8081/api/v1alpha1/alerts/webhook
   # @schema
-  alertingWebhookUrl: "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch"
+  alertingWebhookUrl: "http://observer-internal.openchoreo-observability-plane:8081/api/v1alpha1/alerts/webhook"
 
   # @schema
   # type: object
