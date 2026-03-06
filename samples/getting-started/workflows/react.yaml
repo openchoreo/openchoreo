@@ -41,6 +41,8 @@ spec:
             value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
             value: ${metadata.labels['openchoreo.dev/project']}
+          - name: workflowrun-name
+            value: ${metadata.workflowRunName}
           - name: namespace-name
             value: ${metadata.namespaceName}
           - name: git-repo

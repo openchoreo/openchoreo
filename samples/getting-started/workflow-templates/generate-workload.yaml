@@ -8,6 +8,7 @@ spec:
       inputs:
         parameters:
           - name: image
+          - name: run-name
           # --- IDP / OAuth Configuration ---
           # Update these when changing your identity provider or its public URL.
           - name: oauth-token-url
@@ -35,6 +36,7 @@ spec:
             set -e
 
             IMAGE={{inputs.parameters.image}}
+            RUN_NAME={{inputs.parameters.run-name}}
             PROJECT_NAME={{workflow.parameters.project-name}}
             COMPONENT_NAME={{workflow.parameters.component-name}}
             NAMESPACE_NAME={{workflow.parameters.namespace-name}}
@@ -85,9 +87,14 @@ spec:
             cp -f "${DESCRIPTOR_PATH}/workload-cr.yaml" "${OUTPUT_PATH}"
 
             # --- Step 2: Convert workload CR YAML to JSON (strip apiVersion and kind) ---
+            # Use yq to convert YAML to JSON, then jq -c to produce valid compact single-line JSON
              podman run --rm \
                -v /mnt/vol:/data:rw \
                mikefarah/yq -o=json 'del(.apiVersion) | del(.kind)' /data/workload-cr.yaml \
+               > /mnt/vol/workload-cr-raw.json
+             podman run --rm \
+               -v /mnt/vol:/data:rw \
+               ghcr.io/jqlang/jq:latest -c '.' /data/workload-cr-raw.json \
                > /mnt/vol/workload-cr.json
             echo "Generated workload JSON payload:"
             cat /mnt/vol/workload-cr.json
@@ -114,9 +121,12 @@ spec:
 
             echo "Successfully obtained access token"
 
-            # --- Step 4: Create workload via API server ---
+            # --- Step 4: Create or update workload via API server ---
             API_URL="{{inputs.parameters.api-server-url}}"
             API_HOST="{{inputs.parameters.api-server-host-header}}"
+
+            # Extract workload name from the JSON payload for potential update
+            WORKLOAD_NAME=$(podman run --rm -v /mnt/vol:/data:ro mikefarah/yq -r '.metadata.name' /data/workload-cr.json)
 
             echo "Creating workload via ${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads..."
             RESPONSE=$(curl -s -w "\n%{http_code}" \
@@ -131,8 +141,71 @@ spec:
 
             if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 300 ]; then
               echo "Workload created successfully (HTTP ${HTTP_CODE}): ${BODY}"
+            elif [ "${HTTP_CODE}" -eq 409 ]; then
+              echo "Workload already exists, updating via PUT..."
+              RESPONSE=$(curl -s -w "\n%{http_code}" \
+                -X PUT "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads/${WORKLOAD_NAME}" \
+                -H "Host: ${API_HOST}" \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                -d @/mnt/vol/workload-cr.json)
+
+              HTTP_CODE=$(echo "${RESPONSE}" | tail -1)
+              BODY=$(echo "${RESPONSE}" | sed '$d')
+
+              if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 300 ]; then
+                echo "Workload updated successfully (HTTP ${HTTP_CODE}): ${BODY}"
+              else
+                echo "Failed to update workload (HTTP ${HTTP_CODE}): ${BODY}"
+                exit 1
+              fi
             else
               echo "Failed to create workload (HTTP ${HTTP_CODE}): ${BODY}"
+              exit 1
+            fi
+
+            # --- Step 5: Annotate the WorkflowRun with the workload CR ---
+            # Get the current WorkflowRun
+            echo "Getting WorkflowRun ${RUN_NAME}..."
+            WF_RUN_RESPONSE=$(curl -s -w "\n%{http_code}" \
+              -X GET "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workflowruns/${RUN_NAME}" \
+              -H "Host: ${API_HOST}" \
+              -H "Authorization: Bearer ${ACCESS_TOKEN}")
+
+            WF_RUN_HTTP_CODE=$(echo "${WF_RUN_RESPONSE}" | tail -1)
+            WF_RUN_BODY=$(echo "${WF_RUN_RESPONSE}" | sed '$d')
+
+            if [ "${WF_RUN_HTTP_CODE}" -lt 200 ] || [ "${WF_RUN_HTTP_CODE}" -ge 300 ]; then
+              echo "Failed to get WorkflowRun (HTTP ${WF_RUN_HTTP_CODE}): ${WF_RUN_BODY}"
+              exit 1
+            fi
+
+            # Add the workload CR as a compact JSON string annotation on the WorkflowRun
+            # Use jq --rawfile to read the compact JSON as a raw string (no escape interpretation)
+            echo "${WF_RUN_BODY}" > /mnt/vol/workflowrun-get.json
+            podman run --rm \
+              -v /mnt/vol:/data:rw \
+              ghcr.io/jqlang/jq:latest \
+              --rawfile wl /data/workload-cr.json \
+              '.metadata.annotations["openchoreo.dev/workload"] = ($wl | rtrimstr("\n"))' \
+              /data/workflowrun-get.json \
+              > /mnt/vol/workflowrun-updated.json
+
+            echo "Updating WorkflowRun with workload annotation..."
+            UPDATE_RESPONSE=$(curl -s -w "\n%{http_code}" \
+              -X PUT "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workflowruns/${RUN_NAME}" \
+              -H "Host: ${API_HOST}" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+              -d @/mnt/vol/workflowrun-updated.json)
+
+            UPDATE_HTTP_CODE=$(echo "${UPDATE_RESPONSE}" | tail -1)
+            UPDATE_BODY=$(echo "${UPDATE_RESPONSE}" | sed '$d')
+
+            if [ "${UPDATE_HTTP_CODE}" -ge 200 ] && [ "${UPDATE_HTTP_CODE}" -lt 300 ]; then
+              echo "WorkflowRun annotated successfully (HTTP ${UPDATE_HTTP_CODE})"
+            else
+              echo "Failed to update WorkflowRun (HTTP ${UPDATE_HTTP_CODE}): ${UPDATE_BODY}"
               exit 1
             fi
         volumeMounts:
