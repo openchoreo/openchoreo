@@ -8,11 +8,17 @@ import (
 	"fmt"
 	"log/slog"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
+
+var releaseTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Release",
+}
 
 // releaseService handles release business logic without authorization checks.
 // Other services within this layer should use this directly to avoid double authz.
@@ -49,6 +55,10 @@ func (s *releaseService) ListReleases(ctx context.Context, namespaceName, compon
 		if err := s.k8sClient.List(ctx, &rList, listOpts...); err != nil {
 			s.logger.Error("Failed to list releases", "error", err)
 			return nil, fmt.Errorf("failed to list releases: %w", err)
+		}
+
+		for i := range rList.Items {
+			rList.Items[i].TypeMeta = releaseTypeMeta
 		}
 
 		result := &services.ListResult[openchoreov1alpha1.Release]{
@@ -101,5 +111,6 @@ func (s *releaseService) GetRelease(ctx context.Context, namespaceName, releaseN
 		return nil, fmt.Errorf("failed to get release: %w", err)
 	}
 
+	r.TypeMeta = releaseTypeMeta
 	return r, nil
 }

@@ -7,18 +7,11 @@ import (
 	"context"
 	"errors"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clusterdataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterdataplane"
 )
-
-var clusterDataPlaneTypeMeta = metav1.TypeMeta{
-	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "ClusterDataPlane",
-}
 
 // ListClusterDataPlanes returns a paginated list of cluster-scoped data planes.
 func (h *Handler) ListClusterDataPlanes(
@@ -36,10 +29,6 @@ func (h *Handler) ListClusterDataPlanes(
 		}
 		h.logger.Error("Failed to list cluster data planes", "error", err)
 		return gen.ListClusterDataPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	for i := range result.Items {
-		result.Items[i].TypeMeta = clusterDataPlaneTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.ClusterDataPlane, gen.ClusterDataPlane](result.Items)
@@ -70,8 +59,6 @@ func (h *Handler) CreateClusterDataPlane(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateClusterDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	cdpCR.Status = openchoreov1alpha1.ClusterDataPlaneStatus{}
-
 	created, err := h.services.ClusterDataPlaneService.CreateClusterDataPlane(ctx, &cdpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -83,8 +70,6 @@ func (h *Handler) CreateClusterDataPlane(
 		h.logger.Error("Failed to create cluster data plane", "error", err)
 		return gen.CreateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	created.TypeMeta = clusterDataPlaneTypeMeta
 
 	genCDP, err := convert[openchoreov1alpha1.ClusterDataPlane, gen.ClusterDataPlane](*created)
 	if err != nil {
@@ -115,8 +100,6 @@ func (h *Handler) GetClusterDataPlane(
 		return gen.GetClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	cdp.TypeMeta = clusterDataPlaneTypeMeta
-
 	genCDP, err := convert[openchoreov1alpha1.ClusterDataPlane, gen.ClusterDataPlane](*cdp)
 	if err != nil {
 		h.logger.Error("Failed to convert cluster data plane", "error", err)
@@ -142,8 +125,6 @@ func (h *Handler) UpdateClusterDataPlane(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateClusterDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	cdpCR.Status = openchoreov1alpha1.ClusterDataPlaneStatus{}
-
 	// Ensure the name from the URL path is used
 	cdpCR.Name = request.CdpName
 
@@ -158,8 +139,6 @@ func (h *Handler) UpdateClusterDataPlane(
 		h.logger.Error("Failed to update cluster data plane", "error", err)
 		return gen.UpdateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	updated.TypeMeta = clusterDataPlaneTypeMeta
 
 	genCDP, err := convert[openchoreov1alpha1.ClusterDataPlane, gen.ClusterDataPlane](*updated)
 	if err != nil {

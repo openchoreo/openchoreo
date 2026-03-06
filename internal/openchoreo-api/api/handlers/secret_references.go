@@ -7,18 +7,11 @@ import (
 	"context"
 	"errors"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	secretreferencesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference"
 )
-
-var secretReferenceTypeMeta = metav1.TypeMeta{
-	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "SecretReference",
-}
 
 // ListSecretReferences returns a paginated list of secret references within a namespace.
 func (h *Handler) ListSecretReferences(
@@ -33,10 +26,6 @@ func (h *Handler) ListSecretReferences(
 	if err != nil {
 		h.logger.Error("Failed to list secret references", "error", err)
 		return gen.ListSecretReferences500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	for i := range result.Items {
-		result.Items[i].TypeMeta = secretReferenceTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.SecretReference, gen.SecretReference](result.Items)
@@ -67,7 +56,6 @@ func (h *Handler) CreateSecretReference(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateSecretReference400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	srCR.Status = openchoreov1alpha1.SecretReferenceStatus{}
 
 	created, err := h.services.SecretReferenceService.CreateSecretReference(ctx, request.NamespaceName, &srCR)
 	if err != nil {
@@ -80,8 +68,6 @@ func (h *Handler) CreateSecretReference(
 		h.logger.Error("Failed to create secret reference", "error", err)
 		return gen.CreateSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	created.TypeMeta = secretReferenceTypeMeta
 
 	genSR, err := convert[openchoreov1alpha1.SecretReference, gen.SecretReference](*created)
 	if err != nil {
@@ -112,8 +98,6 @@ func (h *Handler) GetSecretReference(
 		return gen.GetSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	sr.TypeMeta = secretReferenceTypeMeta
-
 	genSR, err := convert[openchoreov1alpha1.SecretReference, gen.SecretReference](*sr)
 	if err != nil {
 		h.logger.Error("Failed to convert secret reference", "error", err)
@@ -139,7 +123,6 @@ func (h *Handler) UpdateSecretReference(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateSecretReference400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	srCR.Status = openchoreov1alpha1.SecretReferenceStatus{}
 
 	// Ensure the name from the URL path is used
 	srCR.Name = request.SecretReferenceName
@@ -155,8 +138,6 @@ func (h *Handler) UpdateSecretReference(
 		h.logger.Error("Failed to update secret reference", "error", err)
 		return gen.UpdateSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	updated.TypeMeta = secretReferenceTypeMeta
 
 	genSR, err := convert[openchoreov1alpha1.SecretReference, gen.SecretReference](*updated)
 	if err != nil {

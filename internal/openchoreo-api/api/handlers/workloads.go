@@ -7,18 +7,11 @@ import (
 	"context"
 	"errors"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
 )
-
-var workloadTypeMeta = metav1.TypeMeta{
-	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "Workload",
-}
 
 // ListWorkloads returns a paginated list of workloads within a namespace.
 func (h *Handler) ListWorkloads(
@@ -38,10 +31,6 @@ func (h *Handler) ListWorkloads(
 	if err != nil {
 		h.logger.Error("Failed to list workloads", "error", err)
 		return gen.ListWorkloads500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	for i := range result.Items {
-		result.Items[i].TypeMeta = workloadTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.Workload, gen.Workload](result.Items)
@@ -72,7 +61,6 @@ func (h *Handler) CreateWorkload(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateWorkload400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	wCR.Status = openchoreov1alpha1.WorkloadStatus{}
 
 	created, err := h.services.WorkloadService.CreateWorkload(ctx, request.NamespaceName, &wCR)
 	if err != nil {
@@ -88,8 +76,6 @@ func (h *Handler) CreateWorkload(
 		h.logger.Error("Failed to create workload", "error", err)
 		return gen.CreateWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	created.TypeMeta = workloadTypeMeta
 
 	genWorkload, err := convert[openchoreov1alpha1.Workload, gen.Workload](*created)
 	if err != nil {
@@ -120,8 +106,6 @@ func (h *Handler) GetWorkload(
 		return gen.GetWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	w.TypeMeta = workloadTypeMeta
-
 	genWorkload, err := convert[openchoreov1alpha1.Workload, gen.Workload](*w)
 	if err != nil {
 		h.logger.Error("Failed to convert workload", "error", err)
@@ -147,7 +131,6 @@ func (h *Handler) UpdateWorkload(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateWorkload400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	wCR.Status = openchoreov1alpha1.WorkloadStatus{}
 
 	// Ensure the name from the URL path is used
 	wCR.Name = request.WorkloadName
@@ -167,8 +150,6 @@ func (h *Handler) UpdateWorkload(
 		h.logger.Error("Failed to update workload", "error", err)
 		return gen.UpdateWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	updated.TypeMeta = workloadTypeMeta
 
 	genWorkload, err := convert[openchoreov1alpha1.Workload, gen.Workload](*updated)
 	if err != nil {

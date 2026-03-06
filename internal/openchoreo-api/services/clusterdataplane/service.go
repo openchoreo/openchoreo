@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -23,6 +24,11 @@ type clusterDataPlaneService struct {
 }
 
 var _ Service = (*clusterDataPlaneService)(nil)
+
+var clusterDataPlaneTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ClusterDataPlane",
+}
 
 // NewService creates a new cluster data plane service without authorization.
 func NewService(k8sClient client.Client, logger *slog.Logger) Service {
@@ -47,6 +53,10 @@ func (s *clusterDataPlaneService) ListClusterDataPlanes(ctx context.Context, opt
 	if err := s.k8sClient.List(ctx, &clusterDataPlaneList, listOpts...); err != nil {
 		s.logger.Error("Failed to list cluster data planes", "error", err)
 		return nil, fmt.Errorf("failed to list cluster data planes: %w", err)
+	}
+
+	for i := range clusterDataPlaneList.Items {
+		clusterDataPlaneList.Items[i].TypeMeta = clusterDataPlaneTypeMeta
 	}
 
 	result := &services.ListResult[openchoreov1alpha1.ClusterDataPlane]{
@@ -77,6 +87,7 @@ func (s *clusterDataPlaneService) GetClusterDataPlane(ctx context.Context, name 
 		return nil, fmt.Errorf("failed to get cluster data plane: %w", err)
 	}
 
+	cdp.TypeMeta = clusterDataPlaneTypeMeta
 	return cdp, nil
 }
 
@@ -98,6 +109,8 @@ func (s *clusterDataPlaneService) CreateClusterDataPlane(ctx context.Context, cd
 	}
 
 	// Set defaults
+	cdp.Status = openchoreov1alpha1.ClusterDataPlaneStatus{}
+
 	if err := s.k8sClient.Create(ctx, cdp); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			s.logger.Warn("Cluster data plane already exists", "clusterDataPlane", cdp.Name)
@@ -108,6 +121,7 @@ func (s *clusterDataPlaneService) CreateClusterDataPlane(ctx context.Context, cd
 	}
 
 	s.logger.Debug("Cluster data plane created successfully", "clusterDataPlane", cdp.Name)
+	cdp.TypeMeta = clusterDataPlaneTypeMeta
 	return cdp, nil
 }
 
@@ -128,6 +142,7 @@ func (s *clusterDataPlaneService) UpdateClusterDataPlane(ctx context.Context, cd
 	}
 
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	cdp.Status = openchoreov1alpha1.ClusterDataPlaneStatus{}
 	existing.Spec = cdp.Spec
 	existing.Labels = cdp.Labels
 	existing.Annotations = cdp.Annotations
@@ -138,6 +153,7 @@ func (s *clusterDataPlaneService) UpdateClusterDataPlane(ctx context.Context, cd
 	}
 
 	s.logger.Debug("Cluster data plane updated successfully", "clusterDataPlane", cdp.Name)
+	existing.TypeMeta = clusterDataPlaneTypeMeta
 	return existing, nil
 }
 

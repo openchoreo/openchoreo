@@ -10,6 +10,7 @@ import (
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -24,6 +25,11 @@ import (
 type traitService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+}
+
+var traitTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Trait",
 }
 
 var _ Service = (*traitService)(nil)
@@ -55,6 +61,7 @@ func (s *traitService) CreateTrait(ctx context.Context, namespaceName string, t 
 
 	// Set defaults
 	t.Namespace = namespaceName
+	t.Status = openchoreov1alpha1.TraitStatus{}
 	if err := s.k8sClient.Create(ctx, t); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			s.logger.Warn("Trait already exists", "namespace", namespaceName, "trait", t.Name)
@@ -65,6 +72,7 @@ func (s *traitService) CreateTrait(ctx context.Context, namespaceName string, t 
 	}
 
 	s.logger.Debug("Trait created successfully", "namespace", namespaceName, "trait", t.Name)
+	t.TypeMeta = traitTypeMeta
 	return t, nil
 }
 
@@ -85,6 +93,9 @@ func (s *traitService) UpdateTrait(ctx context.Context, namespaceName string, t 
 		return nil, fmt.Errorf("failed to get trait: %w", err)
 	}
 
+	// Clear status from user input — status is server-managed
+	t.Status = openchoreov1alpha1.TraitStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = t.Spec
 	existing.Labels = t.Labels
@@ -96,6 +107,7 @@ func (s *traitService) UpdateTrait(ctx context.Context, namespaceName string, t 
 	}
 
 	s.logger.Debug("Trait updated successfully", "namespace", namespaceName, "trait", t.Name)
+	existing.TypeMeta = traitTypeMeta
 	return existing, nil
 }
 
@@ -116,6 +128,10 @@ func (s *traitService) ListTraits(ctx context.Context, namespaceName string, opt
 	if err := s.k8sClient.List(ctx, &tList, listOpts...); err != nil {
 		s.logger.Error("Failed to list traits", "error", err)
 		return nil, fmt.Errorf("failed to list traits: %w", err)
+	}
+
+	for i := range tList.Items {
+		tList.Items[i].TypeMeta = traitTypeMeta
 	}
 
 	result := &services.ListResult[openchoreov1alpha1.Trait]{
@@ -149,6 +165,7 @@ func (s *traitService) GetTrait(ctx context.Context, namespaceName, traitName st
 		return nil, fmt.Errorf("failed to get trait: %w", err)
 	}
 
+	t.TypeMeta = traitTypeMeta
 	return t, nil
 }
 

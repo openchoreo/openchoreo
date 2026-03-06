@@ -10,6 +10,7 @@ import (
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -22,6 +23,11 @@ import (
 type workloadService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+}
+
+var workloadTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Workload",
 }
 
 var _ Service = (*workloadService)(nil)
@@ -58,6 +64,7 @@ func (s *workloadService) CreateWorkload(ctx context.Context, namespaceName stri
 
 	// Set defaults
 	w.Namespace = namespaceName
+	w.Status = openchoreov1alpha1.WorkloadStatus{}
 	if w.Labels == nil {
 		w.Labels = make(map[string]string)
 	}
@@ -74,6 +81,7 @@ func (s *workloadService) CreateWorkload(ctx context.Context, namespaceName stri
 	}
 
 	s.logger.Debug("Workload created successfully", "namespace", namespaceName, "workload", w.Name)
+	w.TypeMeta = workloadTypeMeta
 	return w, nil
 }
 
@@ -99,6 +107,9 @@ func (s *workloadService) UpdateWorkload(ctx context.Context, namespaceName stri
 		return nil, err
 	}
 
+	// Clear status from user input — status is server-managed
+	w.Status = openchoreov1alpha1.WorkloadStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = w.Spec
 	existing.Labels = w.Labels
@@ -121,6 +132,7 @@ func (s *workloadService) UpdateWorkload(ctx context.Context, namespaceName stri
 	}
 
 	s.logger.Debug("Workload updated successfully", "namespace", namespaceName, "workload", w.Name)
+	existing.TypeMeta = workloadTypeMeta
 	return existing, nil
 }
 
@@ -142,6 +154,10 @@ func (s *workloadService) ListWorkloads(ctx context.Context, namespaceName, comp
 		if err := s.k8sClient.List(ctx, &wList, listOpts...); err != nil {
 			s.logger.Error("Failed to list workloads", "error", err)
 			return nil, fmt.Errorf("failed to list workloads: %w", err)
+		}
+
+		for i := range wList.Items {
+			wList.Items[i].TypeMeta = workloadTypeMeta
 		}
 
 		result := &services.ListResult[openchoreov1alpha1.Workload]{
@@ -187,6 +203,7 @@ func (s *workloadService) GetWorkload(ctx context.Context, namespaceName, worklo
 		return nil, fmt.Errorf("failed to get workload: %w", err)
 	}
 
+	w.TypeMeta = workloadTypeMeta
 	return w, nil
 }
 

@@ -9,11 +9,17 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
+
+var observabilityPlaneTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ObservabilityPlane",
+}
 
 // observabilityPlaneService handles observability plane-related business logic without authorization checks.
 // Other services within this layer should use this directly to avoid double authz.
@@ -51,6 +57,10 @@ func (s *observabilityPlaneService) ListObservabilityPlanes(ctx context.Context,
 		return nil, fmt.Errorf("failed to list observability planes: %w", err)
 	}
 
+	for i := range opList.Items {
+		opList.Items[i].TypeMeta = observabilityPlaneTypeMeta
+	}
+
 	result := &services.ListResult[openchoreov1alpha1.ObservabilityPlane]{
 		Items:      opList.Items,
 		NextCursor: opList.Continue,
@@ -82,6 +92,7 @@ func (s *observabilityPlaneService) GetObservabilityPlane(ctx context.Context, n
 		return nil, fmt.Errorf("failed to get observability plane: %w", err)
 	}
 
+	op.TypeMeta = observabilityPlaneTypeMeta
 	return op, nil
 }
 
@@ -92,6 +103,7 @@ func (s *observabilityPlaneService) CreateObservabilityPlane(ctx context.Context
 	}
 	s.logger.Debug("Creating observability plane", "namespace", namespaceName, "observabilityPlane", op.Name)
 
+	op.Status = openchoreov1alpha1.ObservabilityPlaneStatus{}
 	op.Namespace = namespaceName
 	if err := s.k8sClient.Create(ctx, op); err != nil {
 		if apierrors.IsAlreadyExists(err) {
@@ -102,6 +114,7 @@ func (s *observabilityPlaneService) CreateObservabilityPlane(ctx context.Context
 	}
 
 	s.logger.Debug("Observability plane created successfully", "namespace", namespaceName, "observabilityPlane", op.Name)
+	op.TypeMeta = observabilityPlaneTypeMeta
 	return op, nil
 }
 
@@ -121,6 +134,9 @@ func (s *observabilityPlaneService) UpdateObservabilityPlane(ctx context.Context
 		return nil, fmt.Errorf("failed to get observability plane: %w", err)
 	}
 
+	// Clear status from user input — status is server-managed
+	op.Status = openchoreov1alpha1.ObservabilityPlaneStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = op.Spec
 	existing.Labels = op.Labels
@@ -132,6 +148,7 @@ func (s *observabilityPlaneService) UpdateObservabilityPlane(ctx context.Context
 	}
 
 	s.logger.Debug("Observability plane updated successfully", "namespace", namespaceName, "observabilityPlane", op.Name)
+	existing.TypeMeta = observabilityPlaneTypeMeta
 	return existing, nil
 }
 

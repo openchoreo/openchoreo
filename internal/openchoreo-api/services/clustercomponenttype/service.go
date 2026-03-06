@@ -10,6 +10,7 @@ import (
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -27,6 +28,11 @@ type clusterComponentTypeService struct {
 
 var _ Service = (*clusterComponentTypeService)(nil)
 
+var clusterComponentTypeTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ClusterComponentType",
+}
+
 // NewService creates a new cluster component type service without authorization.
 func NewService(k8sClient client.Client, logger *slog.Logger) Service {
 	return &clusterComponentTypeService{
@@ -43,6 +49,7 @@ func (s *clusterComponentTypeService) CreateClusterComponentType(ctx context.Con
 	s.logger.Debug("Creating cluster component type", "clusterComponentType", cct.Name)
 
 	// Set defaults
+	cct.Status = openchoreov1alpha1.ClusterComponentTypeStatus{}
 
 	if err := s.k8sClient.Create(ctx, cct); err != nil {
 		if apierrors.IsAlreadyExists(err) {
@@ -54,6 +61,7 @@ func (s *clusterComponentTypeService) CreateClusterComponentType(ctx context.Con
 	}
 
 	s.logger.Debug("Cluster component type created successfully", "clusterComponentType", cct.Name)
+	cct.TypeMeta = clusterComponentTypeTypeMeta
 	return cct, nil
 }
 
@@ -75,6 +83,7 @@ func (s *clusterComponentTypeService) UpdateClusterComponentType(ctx context.Con
 	}
 
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	cct.Status = openchoreov1alpha1.ClusterComponentTypeStatus{}
 	existing.Spec = cct.Spec
 	existing.Labels = cct.Labels
 	existing.Annotations = cct.Annotations
@@ -85,6 +94,7 @@ func (s *clusterComponentTypeService) UpdateClusterComponentType(ctx context.Con
 	}
 
 	s.logger.Debug("Cluster component type updated successfully", "clusterComponentType", cct.Name)
+	existing.TypeMeta = clusterComponentTypeTypeMeta
 	return existing, nil
 }
 
@@ -103,6 +113,10 @@ func (s *clusterComponentTypeService) ListClusterComponentTypes(ctx context.Cont
 	if err := s.k8sClient.List(ctx, &cctList, listOpts...); err != nil {
 		s.logger.Error("Failed to list cluster component types", "error", err)
 		return nil, fmt.Errorf("failed to list cluster component types: %w", err)
+	}
+
+	for i := range cctList.Items {
+		cctList.Items[i].TypeMeta = clusterComponentTypeTypeMeta
 	}
 
 	result := &services.ListResult[openchoreov1alpha1.ClusterComponentType]{
@@ -135,6 +149,7 @@ func (s *clusterComponentTypeService) GetClusterComponentType(ctx context.Contex
 		return nil, fmt.Errorf("failed to get cluster component type: %w", err)
 	}
 
+	cct.TypeMeta = clusterComponentTypeTypeMeta
 	return cct, nil
 }
 

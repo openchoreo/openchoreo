@@ -8,18 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 )
-
-var clusterComponentTypeTypeMeta = metav1.TypeMeta{
-	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "ClusterComponentType",
-}
 
 // ListClusterComponentTypes returns a paginated list of cluster-scoped component types.
 func (h *Handler) ListClusterComponentTypes(
@@ -37,10 +30,6 @@ func (h *Handler) ListClusterComponentTypes(
 		}
 		h.logger.Error("Failed to list cluster component types", "error", err)
 		return gen.ListClusterComponentTypes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	for i := range result.Items {
-		result.Items[i].TypeMeta = clusterComponentTypeTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.ClusterComponentType, gen.ClusterComponentType](result.Items)
@@ -71,8 +60,6 @@ func (h *Handler) CreateClusterComponentType(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateClusterComponentType400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	cctCR.Status = openchoreov1alpha1.ClusterComponentTypeStatus{}
-
 	created, err := h.services.ClusterComponentTypeService.CreateClusterComponentType(ctx, &cctCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -84,8 +71,6 @@ func (h *Handler) CreateClusterComponentType(
 		h.logger.Error("Failed to create cluster component type", "error", err)
 		return gen.CreateClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	created.TypeMeta = clusterComponentTypeTypeMeta
 
 	genCCT, err := convert[openchoreov1alpha1.ClusterComponentType, gen.ClusterComponentType](*created)
 	if err != nil {
@@ -113,8 +98,6 @@ func (h *Handler) UpdateClusterComponentType(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateClusterComponentType400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	cctCR.Status = openchoreov1alpha1.ClusterComponentTypeStatus{}
-
 	// Ensure the name from the URL path is used
 	cctCR.Name = request.CctName
 
@@ -129,8 +112,6 @@ func (h *Handler) UpdateClusterComponentType(
 		h.logger.Error("Failed to update cluster component type", "error", err)
 		return gen.UpdateClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	updated.TypeMeta = clusterComponentTypeTypeMeta
 
 	genCCT, err := convert[openchoreov1alpha1.ClusterComponentType, gen.ClusterComponentType](*updated)
 	if err != nil {
@@ -160,8 +141,6 @@ func (h *Handler) GetClusterComponentType(
 		h.logger.Error("Failed to get cluster component type", "error", err)
 		return gen.GetClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	cct.TypeMeta = clusterComponentTypeTypeMeta
 
 	genCCT, err := convert[openchoreov1alpha1.ClusterComponentType, gen.ClusterComponentType](*cct)
 	if err != nil {

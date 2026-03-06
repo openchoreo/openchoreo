@@ -7,18 +7,11 @@ import (
 	"context"
 	"errors"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	observabilityalertsnotificationchannelsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityalertsnotificationchannel"
 )
-
-var observabilityAlertsNotificationChannelTypeMeta = metav1.TypeMeta{
-	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "ObservabilityAlertsNotificationChannel",
-}
 
 // ListObservabilityAlertsNotificationChannels returns a paginated list of observability alerts notification channels within a namespace.
 func (h *Handler) ListObservabilityAlertsNotificationChannels(
@@ -33,10 +26,6 @@ func (h *Handler) ListObservabilityAlertsNotificationChannels(
 	if err != nil {
 		h.logger.Error("Failed to list observability alerts notification channels", "error", err)
 		return gen.ListObservabilityAlertsNotificationChannels500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	for i := range result.Items {
-		result.Items[i].TypeMeta = observabilityAlertsNotificationChannelTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](result.Items)
@@ -67,8 +56,6 @@ func (h *Handler) CreateObservabilityAlertsNotificationChannel(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateObservabilityAlertsNotificationChannel400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	ncCR.Status = openchoreov1alpha1.ObservabilityAlertsNotificationChannelStatus{}
-
 	created, err := h.services.ObservabilityAlertsNotificationChannelService.CreateObservabilityAlertsNotificationChannel(ctx, request.NamespaceName, &ncCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -80,8 +67,6 @@ func (h *Handler) CreateObservabilityAlertsNotificationChannel(
 		h.logger.Error("Failed to create observability alerts notification channel", "error", err)
 		return gen.CreateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	created.TypeMeta = observabilityAlertsNotificationChannelTypeMeta
 
 	genNC, err := convert[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](*created)
 	if err != nil {
@@ -112,8 +97,6 @@ func (h *Handler) GetObservabilityAlertsNotificationChannel(
 		return gen.GetObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	nc.TypeMeta = observabilityAlertsNotificationChannelTypeMeta
-
 	genNC, err := convert[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](*nc)
 	if err != nil {
 		h.logger.Error("Failed to convert observability alerts notification channel", "error", err)
@@ -139,8 +122,6 @@ func (h *Handler) UpdateObservabilityAlertsNotificationChannel(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateObservabilityAlertsNotificationChannel400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	ncCR.Status = openchoreov1alpha1.ObservabilityAlertsNotificationChannelStatus{}
-
 	// Ensure the name from the URL path is used
 	ncCR.Name = request.ObservabilityAlertsNotificationChannelName
 
@@ -155,8 +136,6 @@ func (h *Handler) UpdateObservabilityAlertsNotificationChannel(
 		h.logger.Error("Failed to update observability alerts notification channel", "error", err)
 		return gen.UpdateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	updated.TypeMeta = observabilityAlertsNotificationChannelTypeMeta
 
 	genNC, err := convert[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](*updated)
 	if err != nil {

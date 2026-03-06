@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
@@ -20,11 +19,6 @@ import (
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 )
-
-var componentTypeMeta = metav1.TypeMeta{
-	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "Component",
-}
 
 // ListComponents returns a paginated list of components within a namespace.
 func (h *Handler) ListComponents(
@@ -47,10 +41,6 @@ func (h *Handler) ListComponents(
 		}
 		h.logger.Error("Failed to list components", "error", err)
 		return gen.ListComponents500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	for i := range result.Items {
-		result.Items[i].TypeMeta = componentTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.Component, gen.Component](result.Items)
@@ -84,8 +74,6 @@ func (h *Handler) CreateComponent(
 	if componentCR.Namespace != "" && componentCR.Namespace != request.NamespaceName {
 		return gen.CreateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Namespace in body does not match path")}, nil
 	}
-	componentCR.Status = openchoreov1alpha1.ComponentStatus{}
-
 	created, err := h.services.ComponentService.CreateComponent(ctx, request.NamespaceName, &componentCR)
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
@@ -100,8 +88,6 @@ func (h *Handler) CreateComponent(
 		h.logger.Error("Failed to create component", "error", err)
 		return gen.CreateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	created.TypeMeta = componentTypeMeta
 
 	genComponent, err := convert[openchoreov1alpha1.Component, gen.Component](*created)
 	if err != nil {
@@ -204,8 +190,6 @@ func (h *Handler) GetComponent(
 		return gen.GetComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	component.TypeMeta = componentTypeMeta
-
 	genComponent, err := convert[openchoreov1alpha1.Component, gen.Component](*component)
 	if err != nil {
 		h.logger.Error("Failed to convert component", "error", err)
@@ -234,7 +218,6 @@ func (h *Handler) UpdateComponent(
 	if componentCR.Namespace != "" && componentCR.Namespace != request.NamespaceName {
 		return gen.UpdateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Namespace in body does not match path")}, nil
 	}
-	componentCR.Status = openchoreov1alpha1.ComponentStatus{}
 	componentCR.Name = request.ComponentName
 
 	updated, err := h.services.ComponentService.UpdateComponent(ctx, request.NamespaceName, &componentCR)
@@ -252,8 +235,6 @@ func (h *Handler) UpdateComponent(
 		h.logger.Error("Failed to update component", "error", err)
 		return gen.UpdateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	updated.TypeMeta = componentTypeMeta
 
 	genComponent, err := convert[openchoreov1alpha1.Component, gen.Component](*updated)
 	if err != nil {
@@ -514,8 +495,6 @@ func (h *Handler) DeployRelease(
 		return gen.DeployRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	binding.TypeMeta = releaseBindingTypeMeta
-
 	genBinding, err := convert[openchoreov1alpha1.ReleaseBinding, gen.ReleaseBinding](*binding)
 	if err != nil {
 		h.logger.Error("Failed to convert release binding", "error", err)
@@ -572,8 +551,6 @@ func (h *Handler) PromoteComponent(
 		return gen.PromoteComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	binding.TypeMeta = releaseBindingTypeMeta
-
 	genBinding, err := convert[openchoreov1alpha1.ReleaseBinding, gen.ReleaseBinding](*binding)
 	if err != nil {
 		h.logger.Error("Failed to convert release binding", "error", err)
@@ -619,8 +596,6 @@ func (h *Handler) GenerateRelease(
 		h.logger.Error("Failed to generate release", "error", err)
 		return gen.GenerateRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	release.TypeMeta = componentReleaseTypeMeta
 
 	genRelease, err := convert[openchoreov1alpha1.ComponentRelease, gen.ComponentRelease](*release)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -19,6 +20,11 @@ import (
 type componentReleaseService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+}
+
+var componentReleaseTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ComponentRelease",
 }
 
 var _ Service = (*componentReleaseService)(nil)
@@ -49,6 +55,10 @@ func (s *componentReleaseService) ListComponentReleases(ctx context.Context, nam
 		if err := s.k8sClient.List(ctx, &crList, listOpts...); err != nil {
 			s.logger.Error("Failed to list component releases", "error", err)
 			return nil, fmt.Errorf("failed to list component releases: %w", err)
+		}
+
+		for i := range crList.Items {
+			crList.Items[i].TypeMeta = componentReleaseTypeMeta
 		}
 
 		result := &services.ListResult[openchoreov1alpha1.ComponentRelease]{
@@ -94,5 +104,6 @@ func (s *componentReleaseService) GetComponentRelease(ctx context.Context, names
 		return nil, fmt.Errorf("failed to get component release: %w", err)
 	}
 
+	cr.TypeMeta = componentReleaseTypeMeta
 	return cr, nil
 }

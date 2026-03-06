@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -21,6 +22,11 @@ import (
 type releaseBindingService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+}
+
+var releaseBindingTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ReleaseBinding",
 }
 
 var _ Service = (*releaseBindingService)(nil)
@@ -57,6 +63,7 @@ func (s *releaseBindingService) CreateReleaseBinding(ctx context.Context, namesp
 
 	// Set defaults
 	rb.Namespace = namespaceName
+	rb.Status = openchoreov1alpha1.ReleaseBindingStatus{}
 	if rb.Labels == nil {
 		rb.Labels = make(map[string]string)
 	}
@@ -73,6 +80,7 @@ func (s *releaseBindingService) CreateReleaseBinding(ctx context.Context, namesp
 	}
 
 	s.logger.Debug("Release binding created successfully", "namespace", namespaceName, "releaseBinding", rb.Name)
+	rb.TypeMeta = releaseBindingTypeMeta
 	return rb, nil
 }
 
@@ -98,6 +106,9 @@ func (s *releaseBindingService) UpdateReleaseBinding(ctx context.Context, namesp
 		return nil, err
 	}
 
+	// Clear status from user input — status is server-managed
+	rb.Status = openchoreov1alpha1.ReleaseBindingStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = rb.Spec
 	existing.Labels = rb.Labels
@@ -120,6 +131,7 @@ func (s *releaseBindingService) UpdateReleaseBinding(ctx context.Context, namesp
 	}
 
 	s.logger.Debug("Release binding updated successfully", "namespace", namespaceName, "releaseBinding", rb.Name)
+	existing.TypeMeta = releaseBindingTypeMeta
 	return existing, nil
 }
 
@@ -141,6 +153,10 @@ func (s *releaseBindingService) ListReleaseBindings(ctx context.Context, namespa
 		if err := s.k8sClient.List(ctx, &rbList, listOpts...); err != nil {
 			s.logger.Error("Failed to list release bindings", "error", err)
 			return nil, fmt.Errorf("failed to list release bindings: %w", err)
+		}
+
+		for i := range rbList.Items {
+			rbList.Items[i].TypeMeta = releaseBindingTypeMeta
 		}
 
 		result := &services.ListResult[openchoreov1alpha1.ReleaseBinding]{
@@ -186,6 +202,7 @@ func (s *releaseBindingService) GetReleaseBinding(ctx context.Context, namespace
 		return nil, fmt.Errorf("failed to get release binding: %w", err)
 	}
 
+	rb.TypeMeta = releaseBindingTypeMeta
 	return rb, nil
 }
 

@@ -14,6 +14,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,6 +37,11 @@ type workflowRunService struct {
 }
 
 var _ Service = (*workflowRunService)(nil)
+
+var workflowRunTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "WorkflowRun",
+}
 
 // NewService creates a new workflow run service without authorization.
 func NewService(k8sClient client.Client, bpClientMgr *kubernetesClient.KubeMultiClientManager, gwClient *gatewayClient.Client, logger *slog.Logger) Service {
@@ -70,6 +76,7 @@ func (s *workflowRunService) CreateWorkflowRun(ctx context.Context, namespaceNam
 
 	// Ensure namespace is set
 	wfRun.Namespace = namespaceName
+	wfRun.Status = openchoreov1alpha1.WorkflowRunStatus{}
 
 	if err := s.k8sClient.Create(ctx, wfRun); err != nil {
 		if apierrors.IsAlreadyExists(err) {
@@ -80,6 +87,7 @@ func (s *workflowRunService) CreateWorkflowRun(ctx context.Context, namespaceNam
 		return nil, fmt.Errorf("failed to create workflow run: %w", err)
 	}
 
+	wfRun.TypeMeta = workflowRunTypeMeta
 	s.logger.Debug("Workflow run created successfully", "namespace", namespaceName, "name", wfRun.Name)
 	return wfRun, nil
 }
@@ -129,6 +137,10 @@ func (s *workflowRunService) listWorkflowRunsResource(namespaceName string) serv
 			return nil, fmt.Errorf("failed to list workflow runs: %w", err)
 		}
 
+		for i := range wfRunList.Items {
+			wfRunList.Items[i].TypeMeta = workflowRunTypeMeta
+		}
+
 		result := &services.ListResult[openchoreov1alpha1.WorkflowRun]{
 			Items:      wfRunList.Items,
 			NextCursor: wfRunList.Continue,
@@ -158,6 +170,7 @@ func (s *workflowRunService) GetWorkflowRun(ctx context.Context, namespaceName, 
 		return nil, fmt.Errorf("failed to get workflow run: %w", err)
 	}
 
+	wfRun.TypeMeta = workflowRunTypeMeta
 	return wfRun, nil
 }
 

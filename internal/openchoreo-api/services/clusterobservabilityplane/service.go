@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -22,6 +23,11 @@ type clusterObservabilityPlaneService struct {
 }
 
 var _ Service = (*clusterObservabilityPlaneService)(nil)
+
+var clusterObservabilityPlaneTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ClusterObservabilityPlane",
+}
 
 // NewService creates a new cluster observability plane service without authorization.
 func NewService(k8sClient client.Client, logger *slog.Logger) Service {
@@ -46,6 +52,10 @@ func (s *clusterObservabilityPlaneService) ListClusterObservabilityPlanes(ctx co
 	if err := s.k8sClient.List(ctx, &copList, listOpts...); err != nil {
 		s.logger.Error("Failed to list cluster observability planes", "error", err)
 		return nil, fmt.Errorf("failed to list cluster observability planes: %w", err)
+	}
+
+	for i := range copList.Items {
+		copList.Items[i].TypeMeta = clusterObservabilityPlaneTypeMeta
 	}
 
 	result := &services.ListResult[openchoreov1alpha1.ClusterObservabilityPlane]{
@@ -78,6 +88,7 @@ func (s *clusterObservabilityPlaneService) GetClusterObservabilityPlane(ctx cont
 		return nil, fmt.Errorf("failed to get cluster observability plane: %w", err)
 	}
 
+	cop.TypeMeta = clusterObservabilityPlaneTypeMeta
 	return cop, nil
 }
 
@@ -88,6 +99,8 @@ func (s *clusterObservabilityPlaneService) CreateClusterObservabilityPlane(ctx c
 	}
 	s.logger.Debug("Creating cluster observability plane", "clusterObservabilityPlane", cop.Name)
 
+	cop.Status = openchoreov1alpha1.ClusterObservabilityPlaneStatus{}
+
 	if err := s.k8sClient.Create(ctx, cop); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return nil, ErrClusterObservabilityPlaneAlreadyExists
@@ -97,6 +110,7 @@ func (s *clusterObservabilityPlaneService) CreateClusterObservabilityPlane(ctx c
 	}
 
 	s.logger.Debug("Cluster observability plane created successfully", "clusterObservabilityPlane", cop.Name)
+	cop.TypeMeta = clusterObservabilityPlaneTypeMeta
 	return cop, nil
 }
 
@@ -117,6 +131,7 @@ func (s *clusterObservabilityPlaneService) UpdateClusterObservabilityPlane(ctx c
 	}
 
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
+	cop.Status = openchoreov1alpha1.ClusterObservabilityPlaneStatus{}
 	existing.Spec = cop.Spec
 	existing.Labels = cop.Labels
 	existing.Annotations = cop.Annotations
@@ -127,6 +142,7 @@ func (s *clusterObservabilityPlaneService) UpdateClusterObservabilityPlane(ctx c
 	}
 
 	s.logger.Debug("Cluster observability plane updated successfully", "clusterObservabilityPlane", cop.Name)
+	existing.TypeMeta = clusterObservabilityPlaneTypeMeta
 	return existing, nil
 }
 

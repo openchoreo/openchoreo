@@ -7,18 +7,11 @@ import (
 	"context"
 	"errors"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	observabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityplane"
 )
-
-var observabilityPlaneTypeMeta = metav1.TypeMeta{
-	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "ObservabilityPlane",
-}
 
 // ListObservabilityPlanes returns a paginated list of observability planes within a namespace.
 func (h *Handler) ListObservabilityPlanes(
@@ -36,10 +29,6 @@ func (h *Handler) ListObservabilityPlanes(
 		}
 		h.logger.Error("Failed to list observability planes", "error", err)
 		return gen.ListObservabilityPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	for i := range result.Items {
-		result.Items[i].TypeMeta = observabilityPlaneTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.ObservabilityPlane, gen.ObservabilityPlane](result.Items)
@@ -73,8 +62,6 @@ func (h *Handler) GetObservabilityPlane(
 		return gen.GetObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	op.TypeMeta = observabilityPlaneTypeMeta
-
 	genOP, err := convert[openchoreov1alpha1.ObservabilityPlane, gen.ObservabilityPlane](*op)
 	if err != nil {
 		h.logger.Error("Failed to convert observability plane", "error", err)
@@ -100,8 +87,6 @@ func (h *Handler) CreateObservabilityPlane(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	opCR.Status = openchoreov1alpha1.ObservabilityPlaneStatus{}
-
 	created, err := h.services.ObservabilityPlaneService.CreateObservabilityPlane(ctx, request.NamespaceName, &opCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -113,8 +98,6 @@ func (h *Handler) CreateObservabilityPlane(
 		h.logger.Error("Failed to create observability plane", "error", err)
 		return gen.CreateObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	created.TypeMeta = observabilityPlaneTypeMeta
 
 	genOP, err := convert[openchoreov1alpha1.ObservabilityPlane, gen.ObservabilityPlane](*created)
 	if err != nil {
@@ -142,8 +125,6 @@ func (h *Handler) UpdateObservabilityPlane(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	opCR.Status = openchoreov1alpha1.ObservabilityPlaneStatus{}
-
 	// Ensure the name from the URL path is used
 	opCR.Name = request.ObservabilityPlaneName
 
@@ -158,8 +139,6 @@ func (h *Handler) UpdateObservabilityPlane(
 		h.logger.Error("Failed to update observability plane", "error", err)
 		return gen.UpdateObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	updated.TypeMeta = observabilityPlaneTypeMeta
 
 	genOP, err := convert[openchoreov1alpha1.ObservabilityPlane, gen.ObservabilityPlane](*updated)
 	if err != nil {

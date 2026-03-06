@@ -8,18 +8,11 @@ import (
 	"errors"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
 )
-
-var environmentTypeMeta = metav1.TypeMeta{
-	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "Environment",
-}
 
 // ListEnvironments returns a paginated list of environments within a namespace.
 func (h *Handler) ListEnvironments(
@@ -34,10 +27,6 @@ func (h *Handler) ListEnvironments(
 	if err != nil {
 		h.logger.Error("Failed to list environments", "error", err)
 		return gen.ListEnvironments500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	for i := range result.Items {
-		result.Items[i].TypeMeta = environmentTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.Environment, gen.Environment](result.Items)
@@ -72,8 +61,6 @@ func (h *Handler) CreateEnvironment(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	envCR.Status = openchoreov1alpha1.EnvironmentStatus{}
-
 	created, err := h.services.EnvironmentService.CreateEnvironment(ctx, request.NamespaceName, &envCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -88,8 +75,6 @@ func (h *Handler) CreateEnvironment(
 		h.logger.Error("Failed to create environment", "error", err)
 		return gen.CreateEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	created.TypeMeta = environmentTypeMeta
 
 	genEnv, err := convert[openchoreov1alpha1.Environment, gen.Environment](*created)
 	if err != nil {
@@ -120,8 +105,6 @@ func (h *Handler) GetEnvironment(
 		return gen.GetEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	environment.TypeMeta = environmentTypeMeta
-
 	genEnv, err := convert[openchoreov1alpha1.Environment, gen.Environment](*environment)
 	if err != nil {
 		h.logger.Error("Failed to convert environment", "error", err)
@@ -147,8 +130,6 @@ func (h *Handler) UpdateEnvironment(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	envCR.Status = openchoreov1alpha1.EnvironmentStatus{}
-
 	// Ensure the name from the URL path is used
 	envCR.Name = request.EnvName
 
@@ -167,8 +148,6 @@ func (h *Handler) UpdateEnvironment(
 		h.logger.Error("Failed to update environment", "error", err)
 		return gen.UpdateEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	updated.TypeMeta = environmentTypeMeta
 
 	genEnv, err := convert[openchoreov1alpha1.Environment, gen.Environment](*updated)
 	if err != nil {

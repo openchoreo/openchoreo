@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -20,6 +21,11 @@ import (
 type secretReferenceService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+}
+
+var secretReferenceTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "SecretReference",
 }
 
 var _ Service = (*secretReferenceService)(nil)
@@ -51,6 +57,7 @@ func (s *secretReferenceService) CreateSecretReference(ctx context.Context, name
 
 	// Set defaults
 	sr.Namespace = namespaceName
+	sr.Status = openchoreov1alpha1.SecretReferenceStatus{}
 	if err := s.k8sClient.Create(ctx, sr); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			s.logger.Warn("Secret reference already exists", "namespace", namespaceName, "secretReference", sr.Name)
@@ -61,6 +68,7 @@ func (s *secretReferenceService) CreateSecretReference(ctx context.Context, name
 	}
 
 	s.logger.Debug("Secret reference created successfully", "namespace", namespaceName, "secretReference", sr.Name)
+	sr.TypeMeta = secretReferenceTypeMeta
 	return sr, nil
 }
 
@@ -81,6 +89,9 @@ func (s *secretReferenceService) UpdateSecretReference(ctx context.Context, name
 		return nil, fmt.Errorf("failed to get secret reference: %w", err)
 	}
 
+	// Clear status from user input — status is server-managed
+	sr.Status = openchoreov1alpha1.SecretReferenceStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = sr.Spec
 	existing.Labels = sr.Labels
@@ -92,6 +103,7 @@ func (s *secretReferenceService) UpdateSecretReference(ctx context.Context, name
 	}
 
 	s.logger.Debug("Secret reference updated successfully", "namespace", namespaceName, "secretReference", sr.Name)
+	existing.TypeMeta = secretReferenceTypeMeta
 	return existing, nil
 }
 
@@ -112,6 +124,10 @@ func (s *secretReferenceService) ListSecretReferences(ctx context.Context, names
 	if err := s.k8sClient.List(ctx, &srList, listOpts...); err != nil {
 		s.logger.Error("Failed to list secret references", "error", err)
 		return nil, fmt.Errorf("failed to list secret references: %w", err)
+	}
+
+	for i := range srList.Items {
+		srList.Items[i].TypeMeta = secretReferenceTypeMeta
 	}
 
 	result := &services.ListResult[openchoreov1alpha1.SecretReference]{
@@ -145,6 +161,7 @@ func (s *secretReferenceService) GetSecretReference(ctx context.Context, namespa
 		return nil, fmt.Errorf("failed to get secret reference: %w", err)
 	}
 
+	sr.TypeMeta = secretReferenceTypeMeta
 	return sr, nil
 }
 

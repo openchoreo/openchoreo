@@ -10,6 +10,7 @@ import (
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -24,6 +25,11 @@ import (
 type componentTypeService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+}
+
+var componentTypeTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "ComponentType",
 }
 
 var _ Service = (*componentTypeService)(nil)
@@ -55,6 +61,7 @@ func (s *componentTypeService) CreateComponentType(ctx context.Context, namespac
 
 	// Set defaults
 	ct.Namespace = namespaceName
+	ct.Status = openchoreov1alpha1.ComponentTypeStatus{}
 	if err := s.k8sClient.Create(ctx, ct); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			s.logger.Warn("Component type already exists", "namespace", namespaceName, "componentType", ct.Name)
@@ -65,6 +72,7 @@ func (s *componentTypeService) CreateComponentType(ctx context.Context, namespac
 	}
 
 	s.logger.Debug("Component type created successfully", "namespace", namespaceName, "componentType", ct.Name)
+	ct.TypeMeta = componentTypeTypeMeta
 	return ct, nil
 }
 
@@ -85,6 +93,9 @@ func (s *componentTypeService) UpdateComponentType(ctx context.Context, namespac
 		return nil, fmt.Errorf("failed to get component type: %w", err)
 	}
 
+	// Clear status from user input — status is server-managed
+	ct.Status = openchoreov1alpha1.ComponentTypeStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = ct.Spec
 	existing.Labels = ct.Labels
@@ -96,6 +107,7 @@ func (s *componentTypeService) UpdateComponentType(ctx context.Context, namespac
 	}
 
 	s.logger.Debug("Component type updated successfully", "namespace", namespaceName, "componentType", ct.Name)
+	existing.TypeMeta = componentTypeTypeMeta
 	return existing, nil
 }
 
@@ -116,6 +128,10 @@ func (s *componentTypeService) ListComponentTypes(ctx context.Context, namespace
 	if err := s.k8sClient.List(ctx, &ctList, listOpts...); err != nil {
 		s.logger.Error("Failed to list component types", "error", err)
 		return nil, fmt.Errorf("failed to list component types: %w", err)
+	}
+
+	for i := range ctList.Items {
+		ctList.Items[i].TypeMeta = componentTypeTypeMeta
 	}
 
 	result := &services.ListResult[openchoreov1alpha1.ComponentType]{
@@ -149,6 +165,7 @@ func (s *componentTypeService) GetComponentType(ctx context.Context, namespaceNa
 		return nil, fmt.Errorf("failed to get component type: %w", err)
 	}
 
+	ct.TypeMeta = componentTypeTypeMeta
 	return ct, nil
 }
 

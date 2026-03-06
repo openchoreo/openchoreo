@@ -8,18 +8,11 @@ import (
 	"errors"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	dataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/dataplane"
 )
-
-var dataPlaneTypeMeta = metav1.TypeMeta{
-	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "DataPlane",
-}
 
 // ListDataPlanes returns a paginated list of data planes within a namespace.
 func (h *Handler) ListDataPlanes(
@@ -37,10 +30,6 @@ func (h *Handler) ListDataPlanes(
 		}
 		h.logger.Error("Failed to list data planes", "error", err)
 		return gen.ListDataPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	for i := range result.Items {
-		result.Items[i].TypeMeta = dataPlaneTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.DataPlane, gen.DataPlane](result.Items)
@@ -75,8 +64,6 @@ func (h *Handler) CreateDataPlane(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	dpCR.Status = openchoreov1alpha1.DataPlaneStatus{}
-
 	created, err := h.services.DataPlaneService.CreateDataPlane(ctx, request.NamespaceName, &dpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -88,8 +75,6 @@ func (h *Handler) CreateDataPlane(
 		h.logger.Error("Failed to create data plane", "error", err)
 		return gen.CreateDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	created.TypeMeta = dataPlaneTypeMeta
 
 	genDP, err := convert[openchoreov1alpha1.DataPlane, gen.DataPlane](*created)
 	if err != nil {
@@ -120,8 +105,6 @@ func (h *Handler) GetDataPlane(
 		return gen.GetDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	dataPlane.TypeMeta = dataPlaneTypeMeta
-
 	genDP, err := convert[openchoreov1alpha1.DataPlane, gen.DataPlane](*dataPlane)
 	if err != nil {
 		h.logger.Error("Failed to convert data plane", "error", err)
@@ -147,8 +130,6 @@ func (h *Handler) UpdateDataPlane(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	dpCR.Status = openchoreov1alpha1.DataPlaneStatus{}
-
 	// Ensure the name from the URL path is used
 	dpCR.Name = request.DpName
 
@@ -163,8 +144,6 @@ func (h *Handler) UpdateDataPlane(
 		h.logger.Error("Failed to update data plane", "error", err)
 		return gen.UpdateDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	updated.TypeMeta = dataPlaneTypeMeta
 
 	genDP, err := convert[openchoreov1alpha1.DataPlane, gen.DataPlane](*updated)
 	if err != nil {

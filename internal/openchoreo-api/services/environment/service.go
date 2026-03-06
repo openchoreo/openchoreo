@@ -9,12 +9,18 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
+
+var environmentTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "Environment",
+}
 
 // environmentService handles environment-related business logic without authorization checks.
 // Other services within this layer should use this directly to avoid double authz.
@@ -52,6 +58,10 @@ func (s *environmentService) ListEnvironments(ctx context.Context, namespaceName
 		return nil, fmt.Errorf("failed to list environments: %w", err)
 	}
 
+	for i := range envList.Items {
+		envList.Items[i].TypeMeta = environmentTypeMeta
+	}
+
 	result := &services.ListResult[openchoreov1alpha1.Environment]{
 		Items:      envList.Items,
 		NextCursor: envList.Continue,
@@ -83,6 +93,7 @@ func (s *environmentService) GetEnvironment(ctx context.Context, namespaceName, 
 		return nil, fmt.Errorf("failed to get environment: %w", err)
 	}
 
+	env.TypeMeta = environmentTypeMeta
 	return env, nil
 }
 
@@ -122,6 +133,7 @@ func (s *environmentService) CreateEnvironment(ctx context.Context, namespaceNam
 		env.Spec.DataPlaneRef.Kind = openchoreov1alpha1.DataPlaneRefKindDataPlane
 	}
 
+	env.Status = openchoreov1alpha1.EnvironmentStatus{}
 	env.Namespace = namespaceName
 
 	if err := s.k8sClient.Create(ctx, env); err != nil {
@@ -130,6 +142,7 @@ func (s *environmentService) CreateEnvironment(ctx context.Context, namespaceNam
 	}
 
 	s.logger.Debug("Environment created successfully", "namespace", namespaceName, "env", env.Name)
+	env.TypeMeta = environmentTypeMeta
 	return env, nil
 }
 
@@ -150,6 +163,9 @@ func (s *environmentService) UpdateEnvironment(ctx context.Context, namespaceNam
 		return nil, fmt.Errorf("failed to get environment: %w", err)
 	}
 
+	// Clear status from user input — status is server-managed
+	env.Status = openchoreov1alpha1.EnvironmentStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = env.Spec
 	existing.Labels = env.Labels
@@ -165,6 +181,7 @@ func (s *environmentService) UpdateEnvironment(ctx context.Context, namespaceNam
 	}
 
 	s.logger.Debug("Environment updated successfully", "namespace", namespaceName, "env", env.Name)
+	existing.TypeMeta = environmentTypeMeta
 	return existing, nil
 }
 

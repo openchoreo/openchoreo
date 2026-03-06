@@ -7,18 +7,11 @@ import (
 	"context"
 	"errors"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clusterbuildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterbuildplane"
 )
-
-var clusterBuildPlaneTypeMeta = metav1.TypeMeta{
-	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "ClusterBuildPlane",
-}
 
 // ListClusterBuildPlanes returns a paginated list of cluster-scoped build planes.
 func (h *Handler) ListClusterBuildPlanes(
@@ -33,10 +26,6 @@ func (h *Handler) ListClusterBuildPlanes(
 	if err != nil {
 		h.logger.Error("Failed to list cluster build planes", "error", err)
 		return gen.ListClusterBuildPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	for i := range result.Items {
-		result.Items[i].TypeMeta = clusterBuildPlaneTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.ClusterBuildPlane, gen.ClusterBuildPlane](result.Items)
@@ -70,8 +59,6 @@ func (h *Handler) GetClusterBuildPlane(
 		return gen.GetClusterBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	cbp.TypeMeta = clusterBuildPlaneTypeMeta
-
 	genCBP, err := convert[openchoreov1alpha1.ClusterBuildPlane, gen.ClusterBuildPlane](*cbp)
 	if err != nil {
 		h.logger.Error("Failed to convert cluster build plane", "error", err)
@@ -97,8 +84,6 @@ func (h *Handler) CreateClusterBuildPlane(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateClusterBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	cbpCR.Status = openchoreov1alpha1.ClusterBuildPlaneStatus{}
-
 	created, err := h.services.ClusterBuildPlaneService.CreateClusterBuildPlane(ctx, &cbpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -110,8 +95,6 @@ func (h *Handler) CreateClusterBuildPlane(
 		h.logger.Error("Failed to create cluster build plane", "error", err)
 		return gen.CreateClusterBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	created.TypeMeta = clusterBuildPlaneTypeMeta
 
 	genCBP, err := convert[openchoreov1alpha1.ClusterBuildPlane, gen.ClusterBuildPlane](*created)
 	if err != nil {
@@ -139,8 +122,6 @@ func (h *Handler) UpdateClusterBuildPlane(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateClusterBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	cbpCR.Status = openchoreov1alpha1.ClusterBuildPlaneStatus{}
-
 	// Ensure the name from the URL path is used
 	cbpCR.Name = request.ClusterBuildPlaneName
 
@@ -155,8 +136,6 @@ func (h *Handler) UpdateClusterBuildPlane(
 		h.logger.Error("Failed to update cluster build plane", "error", err)
 		return gen.UpdateClusterBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	updated.TypeMeta = clusterBuildPlaneTypeMeta
 
 	genCBP, err := convert[openchoreov1alpha1.ClusterBuildPlane, gen.ClusterBuildPlane](*updated)
 	if err != nil {

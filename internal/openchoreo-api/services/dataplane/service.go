@@ -9,11 +9,17 @@ import (
 	"log/slog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
+
+var dataPlaneTypeMeta = metav1.TypeMeta{
+	APIVersion: openchoreov1alpha1.GroupVersion.String(),
+	Kind:       "DataPlane",
+}
 
 // dataPlaneService handles data plane-related business logic without authorization checks.
 // Other services within this layer should use this directly to avoid double authz.
@@ -51,6 +57,10 @@ func (s *dataPlaneService) ListDataPlanes(ctx context.Context, namespaceName str
 		return nil, fmt.Errorf("failed to list data planes: %w", err)
 	}
 
+	for i := range dataPlaneList.Items {
+		dataPlaneList.Items[i].TypeMeta = dataPlaneTypeMeta
+	}
+
 	result := &services.ListResult[openchoreov1alpha1.DataPlane]{
 		Items:      dataPlaneList.Items,
 		NextCursor: dataPlaneList.Continue,
@@ -82,6 +92,7 @@ func (s *dataPlaneService) GetDataPlane(ctx context.Context, namespaceName, dpNa
 		return nil, fmt.Errorf("failed to get data plane: %w", err)
 	}
 
+	dataPlane.TypeMeta = dataPlaneTypeMeta
 	return dataPlane, nil
 }
 
@@ -103,6 +114,7 @@ func (s *dataPlaneService) CreateDataPlane(ctx context.Context, namespaceName st
 	}
 
 	// Set defaults
+	dp.Status = openchoreov1alpha1.DataPlaneStatus{}
 	dp.Namespace = namespaceName
 	if err := s.k8sClient.Create(ctx, dp); err != nil {
 		if apierrors.IsAlreadyExists(err) {
@@ -114,6 +126,7 @@ func (s *dataPlaneService) CreateDataPlane(ctx context.Context, namespaceName st
 	}
 
 	s.logger.Debug("Data plane created successfully", "namespace", namespaceName, "dataPlane", dp.Name)
+	dp.TypeMeta = dataPlaneTypeMeta
 	return dp, nil
 }
 
@@ -133,6 +146,9 @@ func (s *dataPlaneService) UpdateDataPlane(ctx context.Context, namespaceName st
 		return nil, fmt.Errorf("failed to get data plane: %w", err)
 	}
 
+	// Clear status from user input — status is server-managed
+	dp.Status = openchoreov1alpha1.DataPlaneStatus{}
+
 	// Only apply user-mutable fields to the existing object, preserving server-managed fields
 	existing.Spec = dp.Spec
 	existing.Labels = dp.Labels
@@ -144,6 +160,7 @@ func (s *dataPlaneService) UpdateDataPlane(ctx context.Context, namespaceName st
 	}
 
 	s.logger.Debug("Data plane updated successfully", "namespace", namespaceName, "dataPlane", dp.Name)
+	existing.TypeMeta = dataPlaneTypeMeta
 	return existing, nil
 }
 

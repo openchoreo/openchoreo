@@ -7,18 +7,11 @@ import (
 	"context"
 	"errors"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
 )
-
-var deploymentPipelineTypeMeta = metav1.TypeMeta{
-	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "DeploymentPipeline",
-}
 
 // ListDeploymentPipelines returns a paginated list of deployment pipelines within a namespace.
 func (h *Handler) ListDeploymentPipelines(
@@ -36,10 +29,6 @@ func (h *Handler) ListDeploymentPipelines(
 		}
 		h.logger.Error("Failed to list deployment pipelines", "error", err)
 		return gen.ListDeploymentPipelines500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	for i := range result.Items {
-		result.Items[i].TypeMeta = deploymentPipelineTypeMeta
 	}
 
 	items, err := convertList[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](result.Items)
@@ -70,8 +59,6 @@ func (h *Handler) CreateDeploymentPipeline(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateDeploymentPipeline400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	dpCR.Status = openchoreov1alpha1.DeploymentPipelineStatus{}
-
 	created, err := h.services.DeploymentPipelineService.CreateDeploymentPipeline(ctx, request.NamespaceName, &dpCR)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -83,8 +70,6 @@ func (h *Handler) CreateDeploymentPipeline(
 		h.logger.Error("Failed to create deployment pipeline", "error", err)
 		return gen.CreateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	created.TypeMeta = deploymentPipelineTypeMeta
 
 	genDP, err := convert[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](*created)
 	if err != nil {
@@ -115,8 +100,6 @@ func (h *Handler) GetDeploymentPipeline(
 		return gen.GetDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	dp.TypeMeta = deploymentPipelineTypeMeta
-
 	genDP, err := convert[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](*dp)
 	if err != nil {
 		h.logger.Error("Failed to convert deployment pipeline", "error", err)
@@ -142,8 +125,6 @@ func (h *Handler) UpdateDeploymentPipeline(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateDeploymentPipeline400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	dpCR.Status = openchoreov1alpha1.DeploymentPipelineStatus{}
-
 	// Ensure the name from the URL path is used
 	dpCR.Name = request.DeploymentPipelineName
 
@@ -158,8 +139,6 @@ func (h *Handler) UpdateDeploymentPipeline(
 		h.logger.Error("Failed to update deployment pipeline", "error", err)
 		return gen.UpdateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	updated.TypeMeta = deploymentPipelineTypeMeta
 
 	genDP, err := convert[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](*updated)
 	if err != nil {
