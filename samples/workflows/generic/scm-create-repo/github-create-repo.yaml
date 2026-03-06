@@ -1,0 +1,202 @@
+# ============================================================
+# ClusterWorkflowTemplate — Argo Workflows execution template
+# Deploy this to the Build Plane cluster
+# ============================================================
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: scm-github-create-repo
+spec:
+  entrypoint: pipeline
+  templates:
+    - name: pipeline
+      steps:
+        - - name: create
+            template: create-step
+        - - name: report
+            template: report-step
+
+    # Step 1: Create the repository via the GitHub API
+    - name: create-step
+      container:
+        image: curlimages/curl:8.8.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            OWNER="{{workflow.parameters.owner}}"
+            REPO_NAME="{{workflow.parameters.repo-name}}"
+            DESCRIPTION="{{workflow.parameters.description}}"
+            VISIBILITY="{{workflow.parameters.visibility}}"
+            AUTO_INIT="{{workflow.parameters.auto-init}}"
+            GITIGNORE_TEMPLATE="{{workflow.parameters.gitignore-template}}"
+            LICENSE_TEMPLATE="{{workflow.parameters.license-template}}"
+
+            IS_PRIVATE="false"
+            if [ "$VISIBILITY" = "private" ]; then
+              IS_PRIVATE="true"
+            fi
+
+            BODY="{\"name\":\"${REPO_NAME}\",\"description\":\"${DESCRIPTION}\",\"private\":${IS_PRIVATE},\"auto_init\":${AUTO_INIT}"
+
+            if [ -n "$GITIGNORE_TEMPLATE" ]; then
+              BODY="${BODY},\"gitignore_template\":\"${GITIGNORE_TEMPLATE}\""
+            fi
+            if [ -n "$LICENSE_TEMPLATE" ]; then
+              BODY="${BODY},\"license_template\":\"${LICENSE_TEMPLATE}\""
+            fi
+            BODY="${BODY}}"
+
+            echo "Creating repository ${OWNER}/${REPO_NAME} (visibility: ${VISIBILITY}) ..."
+            curl -sf \
+              -o /mnt/data/response.json \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              -H "Content-Type: application/json" \
+              -d "$BODY" \
+              "https://api.github.com/orgs/${OWNER}/repos"
+
+            echo "Repository creation request complete."
+        env:
+          - name: GITHUB_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.token-secret}}"
+                key: token
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+    # Step 2: Format and print the created repository details
+    - name: report-step
+      container:
+        image: alpine:3
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            apk add --no-cache jq -q
+
+            if ! jq -e '.html_url' /mnt/data/response.json > /dev/null 2>&1; then
+              echo "Repository creation failed. API response:"
+              jq . /mnt/data/response.json
+              exit 1
+            fi
+
+            jq -r '
+              "=================================",
+              "  GitHub Repository Created      ",
+              "=================================",
+              "Name:           \(.full_name)",
+              "URL:            \(.html_url)",
+              "Clone (HTTPS):  \(.clone_url)",
+              "Clone (SSH):    \(.ssh_url)",
+              "Visibility:     \(if .private then "private" else "public" end)",
+              "Default Branch: \(.default_branch)",
+              "Description:    \(.description // "N/A")",
+              "Created At:     \(.created_at)",
+              "================================="
+            ' /mnt/data/response.json
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Mi
+
+---
+# ============================================================
+# Workflow — OpenChoreo CR defining the parameter schema
+# Deploy this to the Control Plane cluster
+# ============================================================
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workflow
+metadata:
+  name: scm-github-create-repo
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Create a new GitHub repository with configurable visibility, initialization options, and metadata"
+spec:
+  # Template Variable Reference (processed by controller):
+  # ${metadata.workflowRunName}  - WorkflowRun CR name
+  # ${metadata.namespaceName}    - Namespace name
+  # ${parameters.*}              - Values from the schema below
+
+  # Time-to-live for completed workflow runs
+  ttlAfterCompletion: "1d"
+
+  schema:
+    parameters:
+      github:
+        owner: string | description="GitHub organization or user that will own the repository"
+        tokenSecret: string | default="github-token" description="Name of the Kubernetes Secret in the openchoreo-ci-<namespace> namespace containing the GitHub token under the key 'token'"
+      repo:
+        name: string | description="Name of the repository to create"
+        description: string | default="" description="Short description of the repository"
+        visibility: string | default="private" enum=public,private description="Repository visibility"
+        autoInit: string | default="true" enum=true,false description="Initialize the repository with a README"
+        gitignoreTemplate: string | default="" description="Gitignore template to apply (e.g. Go, Python, Node)"
+        licenseTemplate: string | default="" description="License template to apply (e.g. mit, apache-2.0)"
+
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.namespaceName}
+    spec:
+      arguments:
+        parameters:
+          - name: owner
+            value: ${parameters.github.owner}
+          - name: token-secret
+            value: ${parameters.github.tokenSecret}
+          - name: repo-name
+            value: ${parameters.repo.name}
+          - name: description
+            value: ${parameters.repo.description}
+          - name: visibility
+            value: ${parameters.repo.visibility}
+          - name: auto-init
+            value: ${parameters.repo.autoInit}
+          - name: gitignore-template
+            value: ${parameters.repo.gitignoreTemplate}
+          - name: license-template
+            value: ${parameters.repo.licenseTemplate}
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: scm-github-create-repo
+
+---
+# ============================================================
+# WorkflowRun — triggers a single execution
+# Edit the parameters below and apply to run the workflow
+# ============================================================
+apiVersion: openchoreo.dev/v1alpha1
+kind: WorkflowRun
+metadata:
+  name: scm-github-create-repo-run-01
+spec:
+  workflow:
+    name: scm-github-create-repo
+    parameters:
+      github:
+        owner: "my-org"
+        tokenSecret: "github-token"
+      repo:
+        name: "my-new-repo"
+        description: "My new repository created via OpenChoreo workflow"
+        visibility: "private"
+        autoInit: "true"
+        gitignoreTemplate: ""
+        licenseTemplate: ""

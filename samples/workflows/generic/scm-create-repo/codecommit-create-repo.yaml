@@ -1,0 +1,168 @@
+# ============================================================
+# ClusterWorkflowTemplate — Argo Workflows execution template
+# Deploy this to the Build Plane cluster
+# ============================================================
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: scm-codecommit-create-repo
+spec:
+  entrypoint: pipeline
+  templates:
+    - name: pipeline
+      steps:
+        - - name: create
+            template: create-step
+        - - name: report
+            template: report-step
+
+    # Step 1: Create the repository via the AWS CodeCommit API
+    - name: create-step
+      container:
+        image: amazon/aws-cli:2.15.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            REPO_NAME="{{workflow.parameters.repo-name}}"
+            DESCRIPTION="{{workflow.parameters.description}}"
+            REGION="{{workflow.parameters.region}}"
+
+            echo "Creating CodeCommit repository ${REPO_NAME} in region ${REGION} ..."
+            aws codecommit create-repository \
+              --repository-name "$REPO_NAME" \
+              --repository-description "$DESCRIPTION" \
+              --region "$REGION" \
+              --output json > /mnt/data/response.json
+
+            echo "Repository creation request complete."
+        env:
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: accessKeyId
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: secretAccessKey
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+    # Step 2: Format and print the created repository details
+    - name: report-step
+      container:
+        image: alpine:3
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            apk add --no-cache jq -q
+
+            if ! jq -e '.repositoryMetadata.repositoryId' /mnt/data/response.json > /dev/null 2>&1; then
+              echo "Repository creation failed. API response:"
+              jq . /mnt/data/response.json
+              exit 1
+            fi
+
+            jq -r '
+              .repositoryMetadata |
+              "=================================",
+              "  CodeCommit Repository Created  ",
+              "=================================",
+              "Name:          \(.repositoryName)",
+              "Description:   \(.repositoryDescription // "N/A")",
+              "Repository ID: \(.repositoryId)",
+              "ARN:           \(.Arn)",
+              "Clone (HTTPS): \(.cloneUrlHttp)",
+              "Clone (SSH):   \(.cloneUrlSsh)",
+              "Account ID:    \(.accountId)",
+              "================================="
+            ' /mnt/data/response.json
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Mi
+
+---
+# ============================================================
+# Workflow — OpenChoreo CR defining the parameter schema
+# Deploy this to the Control Plane cluster
+# ============================================================
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workflow
+metadata:
+  name: scm-codecommit-create-repo
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Create a new AWS CodeCommit repository in a specified region"
+spec:
+  # Template Variable Reference (processed by controller):
+  # ${metadata.workflowRunName}  - WorkflowRun CR name
+  # ${metadata.namespaceName}    - Namespace name
+  # ${parameters.*}              - Values from the schema below
+
+  # Time-to-live for completed workflow runs
+  ttlAfterCompletion: "1d"
+
+  schema:
+    parameters:
+      aws:
+        region: string | default="us-east-1" description="AWS region where the CodeCommit repository will be created"
+        credentialsSecret: string | default="aws-credentials" description="Name of the Kubernetes Secret in the openchoreo-ci-<namespace> namespace containing 'accessKeyId' and 'secretAccessKey' keys"
+      repo:
+        name: string | description="Name of the CodeCommit repository to create"
+        description: string | default="" description="Short description of the repository"
+
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.namespaceName}
+    spec:
+      arguments:
+        parameters:
+          - name: region
+            value: ${parameters.aws.region}
+          - name: credentials-secret
+            value: ${parameters.aws.credentialsSecret}
+          - name: repo-name
+            value: ${parameters.repo.name}
+          - name: description
+            value: ${parameters.repo.description}
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: scm-codecommit-create-repo
+
+---
+# ============================================================
+# WorkflowRun — triggers a single execution
+# Edit the parameters below and apply to run the workflow
+# ============================================================
+apiVersion: openchoreo.dev/v1alpha1
+kind: WorkflowRun
+metadata:
+  name: scm-codecommit-create-repo-run-01
+spec:
+  workflow:
+    name: scm-codecommit-create-repo
+    parameters:
+      aws:
+        region: "us-east-1"
+        credentialsSecret: "aws-credentials"
+      repo:
+        name: "my-new-repo"
+        description: "My new repository created via OpenChoreo workflow"

@@ -34,6 +34,7 @@ This directory contains Generic Workflow definitions — workflows that run inde
 | Directory | Description |
 |-----------|-------------|
 | [`github-stats-report/`](./github-stats-report/) | Fetch GitHub repository statistics, transform the data, and output a formatted report |
+| [`scm-create-repo/`](./scm-create-repo/) | Create a new source code repository on GitHub or AWS CodeCommit |
 
 ---
 
