@@ -500,12 +500,6 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 		gvkSet[gvk] = true
 	}
 
-	// Convert set to slice for iteration
-	gvks := make([]schema.GroupVersionKind, 0, len(gvkSet))
-	for gvk := range gvkSet {
-		gvks = append(gvks, gvk)
-	}
-
 	// Add well-known GVKs that are commonly managed by controllers
 	// This provides a safety net for resources that might be orphaned due to failed status updates
 	wellKnownGVKs := []schema.GroupVersionKind{
@@ -554,6 +548,12 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 	}
 	for _, gvk := range wellKnownGVKs {
 		gvkSet[gvk] = true
+	}
+
+	// Convert set to slice after all sources have been merged
+	gvks := make([]schema.GroupVersionKind, 0, len(gvkSet))
+	for gvk := range gvkSet {
+		gvks = append(gvks, gvk)
 	}
 
 	return gvks
