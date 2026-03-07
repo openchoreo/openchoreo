@@ -813,13 +813,7 @@ type ClusterComponentTypeSpec struct {
 	} `json:"traits,omitempty"`
 
 	// Validations CEL-based validation rules evaluated during rendering
-	Validations *[]struct {
-		// Message Error message shown when the rule evaluates to false
-		Message string `json:"message"`
-
-		// Rule CEL expression wrapped in ${...} that must evaluate to true
-		Rule string `json:"rule"`
-	} `json:"validations,omitempty"`
+	Validations *[]ValidationRule `json:"validations,omitempty"`
 
 	// WorkloadType Primary workload resource type for this component type
 	WorkloadType ClusterComponentTypeSpecWorkloadType `json:"workloadType"`
@@ -1071,6 +1065,9 @@ type ClusterTraitSpec struct {
 		// Types Reusable type definitions
 		Types *map[string]interface{} `json:"types,omitempty"`
 	} `json:"schema,omitempty"`
+
+	// Validations CEL-based validation rules evaluated during rendering
+	Validations *[]ValidationRule `json:"validations,omitempty"`
 }
 
 // ClusterTraitSpecCreatesTargetPlane Target plane for deployment
@@ -1360,13 +1357,7 @@ type ComponentTypeSpec struct {
 	} `json:"traits,omitempty"`
 
 	// Validations CEL-based validation rules evaluated during rendering
-	Validations *[]struct {
-		// Message Error message shown when the rule evaluates to false
-		Message string `json:"message"`
-
-		// Rule CEL expression wrapped in ${...} that must evaluate to true
-		Rule string `json:"rule"`
-	} `json:"validations,omitempty"`
+	Validations *[]ValidationRule `json:"validations,omitempty"`
 
 	// WorkloadType Primary workload resource type for this component type
 	WorkloadType ComponentTypeSpecWorkloadType `json:"workloadType"`
@@ -3085,13 +3076,7 @@ type TraitSpec struct {
 	} `json:"schema,omitempty"`
 
 	// Validations CEL-based validation rules evaluated during rendering
-	Validations *[]struct {
-		// Message Error message shown when the rule evaluates to false
-		Message string `json:"message"`
-
-		// Rule CEL expression wrapped in ${...} that must evaluate to true
-		Rule string `json:"rule"`
-	} `json:"validations,omitempty"`
+	Validations *[]ValidationRule `json:"validations,omitempty"`
 }
 
 // TraitSpecCreatesTargetPlane Target plane for deployment
@@ -3209,6 +3194,15 @@ type UserTypeConfig struct {
 
 	// Type User type identifier (e.g., "user", "service_account")
 	Type string `json:"type"`
+}
+
+// ValidationRule CEL-based validation rule evaluated during rendering
+type ValidationRule struct {
+	// Message Error message shown when the rule evaluates to false
+	Message string `json:"message"`
+
+	// Rule CEL expression wrapped in ${...} that must evaluate to true
+	Rule string `json:"rule"`
 }
 
 // ValueFrom Reference to a secret or inline value

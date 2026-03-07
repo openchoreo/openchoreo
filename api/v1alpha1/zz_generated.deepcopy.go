@@ -1068,6 +1068,11 @@ func (in *ClusterTraitRef) DeepCopy() *ClusterTraitRef {
 func (in *ClusterTraitSpec) DeepCopyInto(out *ClusterTraitSpec) {
 	*out = *in
 	in.Schema.DeepCopyInto(&out.Schema)
+	if in.Validations != nil {
+		in, out := &in.Validations, &out.Validations
+		*out = make([]ValidationRule, len(*in))
+		copy(*out, *in)
+	}
 	if in.Creates != nil {
 		in, out := &in.Creates, &out.Creates
 		*out = make([]TraitCreate, len(*in))

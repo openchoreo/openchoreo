@@ -13,6 +13,11 @@ type ClusterTraitSpec struct {
 	// +optional
 	Schema TraitSchema `json:"schema,omitempty"`
 
+	// Validations are CEL-based rules evaluated during rendering.
+	// All rules must evaluate to true for rendering to proceed.
+	// +optional
+	Validations []ValidationRule `json:"validations,omitempty"`
+
 	// Creates defines new Kubernetes resources to create when this trait is applied
 	// +optional
 	Creates []TraitCreate `json:"creates,omitempty"`

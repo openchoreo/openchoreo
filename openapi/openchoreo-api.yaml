@@ -6563,18 +6563,7 @@ components:
           type: array
           description: CEL-based validation rules evaluated during rendering
           items:
-            type: object
-            required:
-              - rule
-              - message
-            properties:
-              rule:
-                type: string
-                description: "CEL expression wrapped in ${...} that must evaluate to true"
-                pattern: '^\$\{[\s\S]+\}\s*$'
-              message:
-                type: string
-                description: Error message shown when the rule evaluates to false
+            $ref: '#/components/schemas/ValidationRule'
         resources:
           type: array
           description: Templates that generate Kubernetes resources dynamically
@@ -6677,6 +6666,11 @@ components:
               type: object
               description: Environment-specific overrides
               additionalProperties: true
+        validations:
+          type: array
+          description: CEL-based validation rules evaluated during rendering
+          items:
+            $ref: '#/components/schemas/ValidationRule'
         creates:
           type: array
           description: New Kubernetes resources to create when this trait is applied
@@ -6887,17 +6881,7 @@ components:
           type: array
           description: CEL-based validation rules evaluated during rendering
           items:
-            type: object
-            required:
-              - rule
-              - message
-            properties:
-              rule:
-                type: string
-                description: "CEL expression wrapped in ${...} that must evaluate to true"
-              message:
-                type: string
-                description: Error message shown when the rule evaluates to false
+            $ref: '#/components/schemas/ValidationRule'
         resources:
           type: array
           description: Templates that generate Kubernetes resources dynamically
@@ -7002,17 +6986,7 @@ components:
           type: array
           description: CEL-based validation rules evaluated during rendering
           items:
-            type: object
-            required:
-              - rule
-              - message
-            properties:
-              rule:
-                type: string
-                description: "CEL expression wrapped in ${...} that must evaluate to true"
-              message:
-                type: string
-                description: Error message shown when the rule evaluates to false
+            $ref: '#/components/schemas/ValidationRule'
         creates:
           type: array
           description: New Kubernetes resources to create when this trait is applied
@@ -7102,6 +7076,22 @@ components:
     TraitStatus:
       type: object
       description: Observed state of a Trait
+
+    ValidationRule:
+      type: object
+      description: CEL-based validation rule evaluated during rendering
+      required:
+        - rule
+        - message
+      properties:
+        rule:
+          type: string
+          description: "CEL expression wrapped in ${...} that must evaluate to true"
+          pattern: '^\$\{[\s\S]+\}\s*$'
+        message:
+          type: string
+          description: Error message shown when the rule evaluates to false
+          minLength: 1
 
     Trait:
       type: object

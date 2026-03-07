@@ -602,9 +602,10 @@ func (r *Reconciler) fetchAllTraits(ctx context.Context, ct *openchoreov1alpha1.
 			return &openchoreov1alpha1.Trait{
 				ObjectMeta: ct.ObjectMeta,
 				Spec: openchoreov1alpha1.TraitSpec{
-					Schema:  ct.Spec.Schema,
-					Creates: ct.Spec.Creates,
-					Patches: ct.Spec.Patches,
+					Schema:      ct.Spec.Schema,
+					Validations: ct.Spec.Validations,
+					Creates:     ct.Spec.Creates,
+					Patches:     ct.Spec.Patches,
 				},
 			}, nil
 		default:

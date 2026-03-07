@@ -69,8 +69,7 @@ func ValidateTraitCreatesAndPatchesWithSchema(
 	return allErrs
 }
 
-// ValidateClusterTraitCreatesAndPatchesWithSchema validates all creates and patches in a ClusterTrait with schema-aware type checking.
-// ClusterTraitSpec does not have Validations, so only creates and patches are validated.
+// ValidateClusterTraitCreatesAndPatchesWithSchema validates all creates, patches, and validations in a ClusterTrait with schema-aware type checking.
 func ValidateClusterTraitCreatesAndPatchesWithSchema(
 	ct *v1alpha1.ClusterTrait,
 	parametersSchema *apiextschema.Structural,
@@ -91,6 +90,13 @@ func ValidateClusterTraitCreatesAndPatchesWithSchema(
 	}
 
 	basePath := field.NewPath("spec")
+
+	// Validate validation rules
+	for i, rule := range ct.Spec.Validations {
+		rulePath := basePath.Child("validations").Index(i)
+		errs := ValidateValidationRule(rule, validator, rulePath)
+		allErrs = append(allErrs, errs...)
+	}
 
 	// Validate creates
 	for i, create := range ct.Spec.Creates {
