@@ -7,9 +7,9 @@ dependencies:
   version: 78.3.0
 - name: opentelemetry-collector
   repository: https://open-telemetry.github.io/opentelemetry-helm-charts
-  version: 0.140.0
+  version: 0.146.1
 - name: gateway-operator
   repository: oci://ghcr.io/wso2/api-platform/helm-charts
   version: 0.2.0
-digest: sha256:2dd7118df7d37abc5a342e8200387c12430455ea96a8bc8c1587c7c02b17ffc4
-generated: "2026-02-13T11:44:04.856724+05:30"
+digest: sha256:b27a08a1d7ff80aa2665ed9098271d37cb126ede7d7482cefaade49915da175f
+generated: "2026-03-07T12:17:19.959978559Z"
