@@ -38,7 +38,7 @@ rules:
   - observabilityplanes
   - projects
   - releasebindings
-  - releases
+  - renderedreleases
   - scheduledtaskbindings
   - scheduledtaskclasses
   - scheduledtasks
@@ -100,7 +100,7 @@ rules:
   - observabilityplanes/status
   - projects/status
   - releasebindings/status
-  - releases/status
+  - renderedreleases/status
   - scheduledtaskbindings/status
   - scheduledtaskclasses/status
   - scheduledtasks/status
