@@ -93,7 +93,6 @@ func setupControlPlaneControllers(
 	mgr ctrl.Manager,
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager,
 	clusterGatewayURL string,
-	enableLegacyCRDs bool,
 	enableNetworkPolicy bool,
 ) error {
 	// Create gateway client for plane lifecycle notifications
@@ -115,21 +114,20 @@ func setupControlPlaneControllers(
 		return err
 	}
 
-	if enableLegacyCRDs {
-		if err := (&environment.Reconciler{
-			Client:       mgr.GetClient(),
-			K8sClientMgr: k8sClientMgr,
-			Scheme:       mgr.GetScheme(),
-			GatewayURL:   clusterGatewayURL,
-		}).SetupWithManager(mgr); err != nil {
-			return err
-		}
-		if err := (&workload.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			return err
-		}
+	if err := (&workload.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&environment.Reconciler{
+		Client:       mgr.GetClient(),
+		K8sClientMgr: k8sClientMgr,
+		Scheme:       mgr.GetScheme(),
+		GatewayURL:   clusterGatewayURL,
+	}).SetupWithManager(mgr); err != nil {
+		return err
 	}
 
 	if err := (&dataplane.Reconciler{
@@ -322,7 +320,6 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
-	var enableLegacyCRDs bool
 	var enableNetworkPolicy bool
 	var clusterGatewayURL string
 	var clusterGatewayCACert string
@@ -351,8 +348,6 @@ func main() {
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.BoolVar(&enableLegacyCRDs, "enable-legacy-crds", false, // TODO <-- remove me
-		"If set, legacy CRDs will be enabled. This is only for the POC and will be removed in the future.")
 	flag.BoolVar(&enableNetworkPolicy, "enable-network-policies", false,
 		"Enable NetworkPolicy enforcement for endpoint visibility on the data plane.")
 	flag.StringVar(&deploymentPlane, "deployment-plane", deploymentPlaneControlPlane,
@@ -470,8 +465,7 @@ func main() {
 	switch deploymentPlane {
 	// Control plane controllers
 	case deploymentPlaneControlPlane:
-		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL,
-			enableLegacyCRDs, enableNetworkPolicy)
+		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL, enableNetworkPolicy)
 		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)
