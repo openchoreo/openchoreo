@@ -99,6 +99,11 @@ type ClientInterface interface {
 
 	QueryMetrics(ctx context.Context, body QueryMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// QueryAlertsWithBody request with any body
+	QueryAlertsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	QueryAlerts(ctx context.Context, body QueryAlertsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateAlertRuleWithBody request with any body
 	CreateAlertRuleWithBody(ctx context.Context, sourceType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -119,6 +124,11 @@ type ClientInterface interface {
 	HandleAlertWebhookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	HandleAlertWebhook(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryIncidentsWithBody request with any body
+	QueryIncidentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	QueryIncidents(ctx context.Context, body QueryIncidentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// QueryTracesWithBody request with any body
 	QueryTracesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -175,6 +185,30 @@ func (c *Client) QueryMetricsWithBody(ctx context.Context, contentType string, b
 
 func (c *Client) QueryMetrics(ctx context.Context, body QueryMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryMetricsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryAlertsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryAlertsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryAlerts(ctx context.Context, body QueryAlertsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryAlertsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -271,6 +305,30 @@ func (c *Client) HandleAlertWebhookWithBody(ctx context.Context, contentType str
 
 func (c *Client) HandleAlertWebhook(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewHandleAlertWebhookRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryIncidentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryIncidentsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryIncidents(ctx context.Context, body QueryIncidentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryIncidentsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -414,6 +472,46 @@ func NewQueryMetricsRequestWithBody(server string, contentType string, body io.R
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/metrics/query")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewQueryAlertsRequest calls the generic QueryAlerts builder with application/json body
+func NewQueryAlertsRequest(server string, body QueryAlertsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryAlertsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryAlertsRequestWithBody generates requests for QueryAlerts with any type of body
+func NewQueryAlertsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/alerts/query")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -656,6 +754,46 @@ func NewHandleAlertWebhookRequestWithBody(server string, contentType string, bod
 	return req, nil
 }
 
+// NewQueryIncidentsRequest calls the generic QueryIncidents builder with application/json body
+func NewQueryIncidentsRequest(server string, body QueryIncidentsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryIncidentsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryIncidentsRequestWithBody generates requests for QueryIncidents with any type of body
+func NewQueryIncidentsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/incidents/query")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewQueryTracesRequest calls the generic QueryTraces builder with application/json body
 func NewQueryTracesRequest(server string, body QueryTracesJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -864,6 +1002,11 @@ type ClientWithResponsesInterface interface {
 
 	QueryMetricsWithResponse(ctx context.Context, body QueryMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryMetricsResp, error)
 
+	// QueryAlertsWithBodyWithResponse request with any body
+	QueryAlertsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryAlertsResp, error)
+
+	QueryAlertsWithResponse(ctx context.Context, body QueryAlertsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryAlertsResp, error)
+
 	// CreateAlertRuleWithBodyWithResponse request with any body
 	CreateAlertRuleWithBodyWithResponse(ctx context.Context, sourceType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAlertRuleResp, error)
 
@@ -884,6 +1027,11 @@ type ClientWithResponsesInterface interface {
 	HandleAlertWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleAlertWebhookResp, error)
 
 	HandleAlertWebhookWithResponse(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleAlertWebhookResp, error)
+
+	// QueryIncidentsWithBodyWithResponse request with any body
+	QueryIncidentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryIncidentsResp, error)
+
+	QueryIncidentsWithResponse(ctx context.Context, body QueryIncidentsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryIncidentsResp, error)
 
 	// QueryTracesWithBodyWithResponse request with any body
 	QueryTracesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryTracesResp, error)
@@ -948,6 +1096,32 @@ func (r QueryMetricsResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r QueryMetricsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type QueryAlertsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AlertsQueryResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryAlertsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryAlertsResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1071,6 +1245,32 @@ func (r HandleAlertWebhookResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r HandleAlertWebhookResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type QueryIncidentsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *IncidentsQueryResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryIncidentsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryIncidentsResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1217,6 +1417,23 @@ func (c *ClientWithResponses) QueryMetricsWithResponse(ctx context.Context, body
 	return ParseQueryMetricsResp(rsp)
 }
 
+// QueryAlertsWithBodyWithResponse request with arbitrary body returning *QueryAlertsResp
+func (c *ClientWithResponses) QueryAlertsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryAlertsResp, error) {
+	rsp, err := c.QueryAlertsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryAlertsResp(rsp)
+}
+
+func (c *ClientWithResponses) QueryAlertsWithResponse(ctx context.Context, body QueryAlertsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryAlertsResp, error) {
+	rsp, err := c.QueryAlerts(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryAlertsResp(rsp)
+}
+
 // CreateAlertRuleWithBodyWithResponse request with arbitrary body returning *CreateAlertRuleResp
 func (c *ClientWithResponses) CreateAlertRuleWithBodyWithResponse(ctx context.Context, sourceType string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAlertRuleResp, error) {
 	rsp, err := c.CreateAlertRuleWithBody(ctx, sourceType, contentType, body, reqEditors...)
@@ -1284,6 +1501,23 @@ func (c *ClientWithResponses) HandleAlertWebhookWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseHandleAlertWebhookResp(rsp)
+}
+
+// QueryIncidentsWithBodyWithResponse request with arbitrary body returning *QueryIncidentsResp
+func (c *ClientWithResponses) QueryIncidentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryIncidentsResp, error) {
+	rsp, err := c.QueryIncidentsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryIncidentsResp(rsp)
+}
+
+func (c *ClientWithResponses) QueryIncidentsWithResponse(ctx context.Context, body QueryIncidentsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryIncidentsResp, error) {
+	rsp, err := c.QueryIncidents(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryIncidentsResp(rsp)
 }
 
 // QueryTracesWithBodyWithResponse request with arbitrary body returning *QueryTracesResp
@@ -1408,6 +1642,60 @@ func ParseQueryMetricsResp(rsp *http.Response) (*QueryMetricsResp, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest MetricsQueryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryAlertsResp parses an HTTP response from a QueryAlertsWithResponse call
+func ParseQueryAlertsResp(rsp *http.Response) (*QueryAlertsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryAlertsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AlertsQueryResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1654,6 +1942,60 @@ func ParseHandleAlertWebhookResp(rsp *http.Response) (*HandleAlertWebhookResp, e
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryIncidentsResp parses an HTTP response from a QueryIncidentsWithResponse call
+func ParseQueryIncidentsResp(rsp *http.Response) (*QueryIncidentsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryIncidentsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IncidentsQueryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

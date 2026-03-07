@@ -10,7 +10,7 @@ type TracesQueryRequest struct {
 	StartTime   time.Time
 	EndTime     time.Time
 	Limit       int
-	Sort        string
+	SortOrder   string
 	SearchScope ComponentSearchScope
 }
 
