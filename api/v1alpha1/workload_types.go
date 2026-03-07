@@ -216,6 +216,14 @@ type ConnectionEnvBindings struct {
 	BasePath string `json:"basePath,omitempty"`
 }
 
+// WorkloadDependencies defines the dependencies of a workload on other components' endpoints.
+type WorkloadDependencies struct {
+	// Endpoints define how this workload consumes endpoints from other components.
+	// +optional
+	// +kubebuilder:validation:MaxItems=50
+	Endpoints []WorkloadConnection `json:"endpoints,omitempty"`
+}
+
 // WorkloadTemplateSpec defines the desired state of Workload.
 type WorkloadTemplateSpec struct {
 	// Container defines the container specification for this workload.
@@ -227,10 +235,17 @@ type WorkloadTemplateSpec struct {
 	// +optional
 	Endpoints map[string]WorkloadEndpoint `json:"endpoints,omitempty"`
 
-	// Connections define how this workload consumes endpoints from other components.
+	// Dependencies define the dependencies of this workload on other components.
 	// +optional
-	// +kubebuilder:validation:MaxItems=50
-	Connections []WorkloadConnection `json:"connections,omitempty"`
+	Dependencies *WorkloadDependencies `json:"dependencies,omitempty"`
+}
+
+// GetDependencyEndpoints returns the endpoint connections from dependencies, or nil if none.
+func (w *WorkloadTemplateSpec) GetDependencyEndpoints() []WorkloadConnection {
+	if w.Dependencies == nil {
+		return nil
+	}
+	return w.Dependencies.Endpoints
 }
 
 type WorkloadOwner struct {

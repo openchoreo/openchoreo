@@ -142,12 +142,13 @@ func (w *Workload) GetEndpoints() map[string]interface{} {
 
 // GetConnections returns the connections definition as a slice for template processing.
 func (w *Workload) GetConnections() []interface{} {
-	if len(w.Spec.Connections) == 0 {
+	deps := w.Spec.GetDependencyEndpoints()
+	if len(deps) == 0 {
 		return nil
 	}
 
-	connections := make([]interface{}, len(w.Spec.Connections))
-	for i, conn := range w.Spec.Connections {
+	connections := make([]interface{}, len(deps))
+	for i, conn := range deps {
 		connMap := map[string]interface{}{
 			"component":  conn.Component,
 			"endpoint":   conn.Endpoint,

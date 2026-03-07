@@ -276,7 +276,7 @@ func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descrip
 		return
 	}
 
-	workload.Spec.Connections = make([]openchoreov1alpha1.WorkloadConnection, 0, len(descriptor.Connections))
+	connections := make([]openchoreov1alpha1.WorkloadConnection, 0, len(descriptor.Connections))
 	for _, dc := range descriptor.Connections {
 		connection := openchoreov1alpha1.WorkloadConnection{
 			Project:    dc.Project,
@@ -290,8 +290,12 @@ func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descrip
 				BasePath: dc.EnvBindings.BasePath,
 			},
 		}
-		workload.Spec.Connections = append(workload.Spec.Connections, connection)
+		connections = append(connections, connection)
 	}
+	if workload.Spec.Dependencies == nil {
+		workload.Spec.Dependencies = &openchoreov1alpha1.WorkloadDependencies{}
+	}
+	workload.Spec.Dependencies.Endpoints = connections
 }
 
 // addConfigurationsFromDescriptor adds configurations (env vars and files) from the descriptor to the workload
@@ -396,10 +400,10 @@ func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, err
 			Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 		} `json:"metadata" yaml:"metadata"`
 		Spec struct {
-			Owner       openchoreov1alpha1.WorkloadOwner               `json:"owner" yaml:"owner"`
-			Container   openchoreov1alpha1.Container                   `json:"container" yaml:"container"`
-			Endpoints   map[string]openchoreov1alpha1.WorkloadEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
-			Connections []openchoreov1alpha1.WorkloadConnection        `json:"connections,omitempty" yaml:"connections,omitempty"`
+			Owner        openchoreov1alpha1.WorkloadOwner               `json:"owner" yaml:"owner"`
+			Container    openchoreov1alpha1.Container                   `json:"container" yaml:"container"`
+			Endpoints    map[string]openchoreov1alpha1.WorkloadEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
+			Dependencies *openchoreov1alpha1.WorkloadDependencies       `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
 		} `json:"spec" yaml:"spec"`
 	}
 
@@ -413,7 +417,7 @@ func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, err
 	ordered.Spec.Owner = workload.Spec.Owner
 	ordered.Spec.Container = workload.Spec.Container
 	ordered.Spec.Endpoints = workload.Spec.Endpoints
-	ordered.Spec.Connections = workload.Spec.Connections
+	ordered.Spec.Dependencies = workload.Spec.Dependencies
 
 	// Marshal with sigs.k8s.io/yaml for JSON tag support
 	return yaml.Marshal(ordered)

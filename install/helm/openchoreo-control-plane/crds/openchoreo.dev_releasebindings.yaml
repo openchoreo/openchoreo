@@ -284,8 +284,7 @@ spec:
                     environment:
                       description: |-
                         Environment is the resolved target environment name for this connection.
-                        For project/namespace visibility, this matches the consumer's environment.
-                        For internal visibility, this may differ based on environmentMapping.
+                        This matches the consumer's environment.
                       type: string
                     namespace:
                       description: Namespace is the control plane namespace of the
