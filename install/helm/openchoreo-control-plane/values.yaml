@@ -1048,6 +1048,10 @@ openchoreoApi:
           #     namespace:
           #       type: string
           #       description: Namespace for role (empty string for cluster-scoped)
+          #     system:
+          #       type: boolean
+          #       description: Whether this is a system-managed role (adds openchoreo.io/system label when true, omitted when false)
+          #       default: false
           #     actions:
           #       type: array
           #       items:
@@ -1058,11 +1062,13 @@ openchoreoApi:
           roles:
             # Super admin role with full permissions to all resources
             - name: super-admin
+              system: true
               actions:
                 - "*"
 
             # Backstage catalog provider role for reading catalog data from the control plane
             - name: backstage-catalog-reader
+              system: true
               actions:
                 - "component:view"
                 - "componenttype:view"
@@ -1084,6 +1090,7 @@ openchoreoApi:
 
             # Root Cause Analysis (RCA) agent role for troubleshooting and debugging
             - name: rca-agent
+              system: true
               actions:
                 - "component:view"
                 - "project:view"
@@ -1101,6 +1108,7 @@ openchoreoApi:
 
             # Workload publisher role for creating workloads from CI workflows
             - name: workload-publisher
+              system: true
               actions:
                 - "workload:create"
                 - "workload:update"
@@ -1109,6 +1117,7 @@ openchoreoApi:
 
             # Observer service role for resolving resource UIDs
             - name: observer
+              system: true
               actions:
                 - "component:view"
                 - "project:view"
@@ -1124,6 +1133,10 @@ openchoreoApi:
           #     name:
           #       type: string
           #       description: Binding name
+          #     system:
+          #       type: boolean
+          #       description: Whether this is a system-managed binding (adds openchoreo.io/system label when true, omitted when false)
+          #       default: false
           #     roleRef:
           #       type: object
           #       description: Reference to the role
@@ -1165,6 +1178,7 @@ openchoreoApi:
           mappings:
             # Super admin mapping - grants admins group full access
             - name: super-admin-binding
+              system: true
               roleRef:
                 name: super-admin
               entitlement:
@@ -1174,6 +1188,7 @@ openchoreoApi:
 
             # Backstage catalog reader mapping - grants backstage service account read access
             - name: backstage-catalog-reader-binding
+              system: true
               roleRef:
                 name: backstage-catalog-reader
               entitlement:
@@ -1183,6 +1198,7 @@ openchoreoApi:
 
             # RCA agent mapping - grants RCA service account troubleshooting access
             - name: rca-agent-binding
+              system: true
               roleRef:
                 name: rca-agent
               entitlement:
@@ -1192,6 +1208,7 @@ openchoreoApi:
 
             # Workload publisher mapping - grants workload publisher service account workload creation access
             - name: workload-publisher-binding
+              system: true
               roleRef:
                 name: workload-publisher
               entitlement:
@@ -1201,6 +1218,7 @@ openchoreoApi:
 
             # Observer mapping - grants observer service account resource UID resolver access
             - name: observer-binding
+              system: true
               roleRef:
                 name: observer
               entitlement:
@@ -1210,6 +1228,7 @@ openchoreoApi:
 
             # MCP tryout client mapping - grants MCP tryout client full access
             - name: mcp-tryout-client-binding
+              system: true
               roleRef:
                 name: super-admin
               entitlement:

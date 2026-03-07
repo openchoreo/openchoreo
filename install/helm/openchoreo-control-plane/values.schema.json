@@ -2639,6 +2639,11 @@
                                 },
                                 "required": [],
                                 "type": "object"
+                              },
+                              "system": {
+                                "default": false,
+                                "description": "Whether this is a system-managed binding (adds openchoreo.io/system label when true, omitted when false)",
+                                "type": "boolean"
                               }
                             },
                             "required": [],
@@ -2666,6 +2671,11 @@
                               "namespace": {
                                 "description": "Namespace for role (empty string for cluster-scoped)",
                                 "type": "string"
+                              },
+                              "system": {
+                                "default": false,
+                                "description": "Whether this is a system-managed role (adds openchoreo.io/system label when true, omitted when false)",
+                                "type": "boolean"
                               }
                             },
                             "required": [],
