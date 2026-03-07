@@ -77,4 +77,3 @@ func (r *Reconciler) findEnvironmentsForDeploymentPipeline(ctx context.Context, 
 
 	return requests
 }
-
