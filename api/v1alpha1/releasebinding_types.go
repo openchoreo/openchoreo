@@ -35,8 +35,7 @@ type ConnectionTarget struct {
 	Visibility EndpointVisibility `json:"visibility"`
 
 	// Environment is the resolved target environment name for this connection.
-	// For project/namespace visibility, this matches the consumer's environment.
-	// For internal visibility, this may differ based on environmentMapping.
+	// This matches the consumer's environment.
 	// +optional
 	Environment string `json:"environment,omitempty"`
 }

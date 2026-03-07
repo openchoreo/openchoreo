@@ -251,15 +251,10 @@ func TestGetConnections(t *testing.T) {
 			name: "Connection with all optional fields",
 			connections: []v1alpha1.WorkloadConnection{
 				{
-					Namespace:  "other-ns",
 					Project:    "other-project",
 					Component:  "redis",
 					Endpoint:   "tcp",
-					Visibility: v1alpha1.EndpointVisibilityInternal,
-					EnvironmentMapping: v1alpha1.EnvironmentMapping{
-						"dev":     "staging",
-						"staging": "prod",
-					},
+					Visibility: v1alpha1.EndpointVisibilityNamespace,
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address:  "REDIS_URL",
 						Host:     "REDIS_HOST",
@@ -271,22 +266,11 @@ func TestGetConnections(t *testing.T) {
 			wantLen: 1,
 			validate: func(t *testing.T, result []interface{}) {
 				conn := result[0].(map[string]interface{})
-				if conn["namespace"] != "other-ns" {
-					t.Errorf("namespace = %v, want other-ns", conn["namespace"])
-				}
 				if conn["project"] != "other-project" {
 					t.Errorf("project = %v, want other-project", conn["project"])
 				}
-				if conn["visibility"] != "internal" {
-					t.Errorf("visibility = %v, want internal", conn["visibility"])
-				}
-
-				envMapping := conn["environmentMapping"].(map[string]interface{})
-				if len(envMapping) != 2 {
-					t.Fatalf("environmentMapping length = %d, want 2", len(envMapping))
-				}
-				if envMapping["dev"] != "staging" {
-					t.Errorf("environmentMapping[dev] = %v, want staging", envMapping["dev"])
+				if conn["visibility"] != "namespace" {
+					t.Errorf("visibility = %v, want namespace", conn["visibility"])
 				}
 
 				envBindings := conn["envBindings"].(map[string]interface{})

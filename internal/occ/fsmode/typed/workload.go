@@ -153,18 +153,8 @@ func (w *Workload) GetConnections() []interface{} {
 			"endpoint":   conn.Endpoint,
 			"visibility": string(conn.Visibility),
 		}
-		if conn.Namespace != "" {
-			connMap["namespace"] = conn.Namespace
-		}
 		if conn.Project != "" {
 			connMap["project"] = conn.Project
-		}
-		if len(conn.EnvironmentMapping) > 0 {
-			envMapping := make(map[string]interface{}, len(conn.EnvironmentMapping))
-			for k, v := range conn.EnvironmentMapping {
-				envMapping[k] = v
-			}
-			connMap["environmentMapping"] = envMapping
 		}
 
 		envBindings := map[string]interface{}{}
