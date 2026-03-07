@@ -1,5 +1,14 @@
 # Helm values for OpenChoreo Observability Plane in k3d single-cluster setup
 
+observability-logs-opensearch:
+  enabled: true
+
+observability-metrics-prometheus:
+  enabled: true
+
+observability-tracing-opensearch:
+  enabled: true
+
 # Use standalone OpenSearch (not operator-managed cluster)
 openSearch:
   enabled: false

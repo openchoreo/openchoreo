@@ -17,5 +17,14 @@ dependencies:
 - name: opensearch-dashboards
   repository: https://opensearch-project.github.io/helm-charts/
   version: 3.3.0
-digest: sha256:1d57eda2881ed0d2be479caab959a82d6b87f3de4af23995bedc49d8045e3cda
-generated: "2026-02-14T17:38:58.767705+05:30"
+- name: observability-logs-opensearch
+  repository: oci://ghcr.io/openchoreo/charts
+  version: 0.3.2
+- name: observability-metrics-prometheus
+  repository: oci://ghcr.io/openchoreo/charts
+  version: 0.2.2
+- name: observability-tracing-opensearch
+  repository: oci://ghcr.io/openchoreo/charts
+  version: 0.3.3
+digest: sha256:5d920df68bbfd9b031fb9628eafd7de345dfec45e9a48743d54466a9ed97cded
+generated: "2026-03-07T11:24:36.413336+05:30"
