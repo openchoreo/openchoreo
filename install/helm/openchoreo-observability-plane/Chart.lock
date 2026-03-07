@@ -4,16 +4,16 @@ dependencies:
   version: 0.3.1
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
-  version: 0.54.0
+  version: 0.56.0
 - name: kube-prometheus-stack
   repository: https://prometheus-community.github.io/helm-charts
-  version: 78.3.0
+  version: 81.6.3
 - name: opensearch
   repository: https://opensearch-project.github.io/helm-charts/
   version: 3.3.0
 - name: opentelemetry-collector
   repository: https://open-telemetry.github.io/opentelemetry-helm-charts
-  version: 0.140.0
+  version: 0.146.1
 - name: opensearch-dashboards
   repository: https://opensearch-project.github.io/helm-charts/
   version: 3.3.0
@@ -26,5 +26,5 @@ dependencies:
 - name: observability-tracing-opensearch
   repository: oci://ghcr.io/openchoreo/charts
   version: 0.3.3
-digest: sha256:5d920df68bbfd9b031fb9628eafd7de345dfec45e9a48743d54466a9ed97cded
-generated: "2026-03-07T11:24:36.413336+05:30"
+digest: sha256:f0f4f855a814641040ee5562c1915e6fd13ed2d4de094674ac541d2e07ea49e1
+generated: "2026-03-07T16:37:05.613629+05:30"
