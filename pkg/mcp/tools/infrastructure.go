@@ -755,3 +755,57 @@ func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server) {
 		return handleToolResult(result, err)
 	})
 }
+
+// RegisterListClusterWorkflows registers the "list_cluster_workflows" MCP tool
+// which lists all cluster-scoped workflows.
+func (t *Toolsets) RegisterListClusterWorkflows(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_cluster_workflows",
+		Description: "List all cluster-scoped workflows. These are shared workflow definitions managed by platform " +
+			"admins that can be referenced by components across all namespaces via ClusterComponentType. " +
+			"Supports pagination via limit and cursor.",
+		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		Limit  int    `json:"limit,omitempty"`
+		Cursor string `json:"cursor,omitempty"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.ListClusterWorkflows(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		return handleToolResult(result, err)
+	})
+}
+
+// RegisterGetClusterWorkflow registers the "get_cluster_workflow" MCP tool
+// which returns detailed information about a specific cluster-scoped workflow.
+func (t *Toolsets) RegisterGetClusterWorkflow(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_cluster_workflow",
+		Description: "Get detailed information about a cluster-scoped workflow including its name, " +
+			"display name, and description.",
+		InputSchema: createSchema(map[string]any{
+			"cwf_name": stringProperty("Cluster workflow name. Use list_cluster_workflows to discover valid names"),
+		}, []string{"cwf_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		CwfName string `json:"cwf_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.GetClusterWorkflow(ctx, args.CwfName)
+		return handleToolResult(result, err)
+	})
+}
+
+// RegisterGetClusterWorkflowSchema registers the "get_cluster_workflow_schema" MCP tool
+// which returns the JSON schema for a specific cluster-scoped workflow.
+func (t *Toolsets) RegisterGetClusterWorkflowSchema(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_cluster_workflow_schema",
+		Description: "Get the schema definition for a cluster-scoped workflow. Returns the JSON schema " +
+			"showing workflow configuration options and parameters.",
+		InputSchema: createSchema(map[string]any{
+			"cwf_name": stringProperty("Cluster workflow name. Use list_cluster_workflows to discover valid names"),
+		}, []string{"cwf_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		CwfName string `json:"cwf_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.GetClusterWorkflowSchema(ctx, args.CwfName)
+		return handleToolResult(result, err)
+	})
+}

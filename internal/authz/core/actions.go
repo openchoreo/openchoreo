@@ -108,6 +108,12 @@ var systemActions = []Action{
 	{Name: "clustertrait:update", IsInternal: false},
 	{Name: "clustertrait:delete", IsInternal: false},
 
+	// ClusterWorkflow
+	{Name: "clusterworkflow:view", IsInternal: false},
+	{Name: "clusterworkflow:create", IsInternal: false},
+	{Name: "clusterworkflow:update", IsInternal: false},
+	{Name: "clusterworkflow:delete", IsInternal: false},
+
 	// ClusterDataPlane
 	{Name: "clusterdataplane:view", IsInternal: false},
 	{Name: "clusterdataplane:create", IsInternal: false},

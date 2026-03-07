@@ -22,6 +22,7 @@ func componentToolSpecs() []toolTestSpec {
 	specs = append(specs, componentWorkflowSpecs()...)
 	specs = append(specs, componentClusterComponentTypeSpecs()...)
 	specs = append(specs, componentClusterTraitSpecs()...)
+	specs = append(specs, componentClusterWorkflowSpecs()...)
 	return specs
 }
 
@@ -672,52 +673,90 @@ func componentClusterComponentTypeSpecs() []toolTestSpec {
 	}
 }
 
-// componentClusterTraitSpecs returns cluster trait operation specs
-func componentClusterTraitSpecs() []toolTestSpec {
+// clusterResourceTrioSpecs generates the standard list/get/get-schema trio of tool specs
+// for a cluster-scoped resource (e.g., ClusterTrait, ClusterWorkflow).
+type clusterResourceTrioConfig struct {
+	resourceKeyword string // e.g., "trait", "workflow"
+	listToolName    string // e.g., "list_cluster_traits"
+	getToolName     string // e.g., "get_cluster_trait"
+	schemaToolName  string // e.g., "get_cluster_trait_schema"
+	paramName       string // e.g., "ct_name", "cwf_name"
+	testValue       string // e.g., "autoscaler", "build-go"
+	listMethod      string // e.g., "ListClusterTraits"
+	getMethod       string // e.g., "GetClusterTrait"
+	schemaMethod    string // e.g., "GetClusterTraitSchema"
+}
+
+func clusterResourceTrioSpecs(cfg clusterResourceTrioConfig) []toolTestSpec {
 	return []toolTestSpec{
 		{
-			name:                "list_cluster_traits",
+			name:                cfg.listToolName,
 			toolset:             "component",
-			descriptionKeywords: []string{"cluster", "trait"},
+			descriptionKeywords: []string{"cluster", cfg.resourceKeyword},
 			descriptionMinLen:   10,
 			optionalParams:      []string{"limit", "cursor"},
 			testArgs:            map[string]any{},
-			expectedMethod:      "ListClusterTraits",
+			expectedMethod:      cfg.listMethod,
 			validateCall: func(t *testing.T, args []interface{}) {
 				// Only ListOpts argument
 			},
 		},
 		{
-			name:                "get_cluster_trait",
+			name:                cfg.getToolName,
 			toolset:             "component",
-			descriptionKeywords: []string{"cluster", "trait"},
+			descriptionKeywords: []string{"cluster", cfg.resourceKeyword},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"ct_name"},
-			testArgs: map[string]any{
-				"ct_name": "autoscaler",
-			},
-			expectedMethod: "GetClusterTrait",
+			requiredParams:      []string{cfg.paramName},
+			testArgs:            map[string]any{cfg.paramName: cfg.testValue},
+			expectedMethod:      cfg.getMethod,
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != "autoscaler" {
-					t.Errorf("Expected ct_name %q, got %v", "autoscaler", args[0])
+				if args[0] != cfg.testValue {
+					t.Errorf("Expected %s %q, got %v", cfg.paramName, cfg.testValue, args[0])
 				}
 			},
 		},
 		{
-			name:                "get_cluster_trait_schema",
+			name:                cfg.schemaToolName,
 			toolset:             "component",
-			descriptionKeywords: []string{"cluster", "trait", "schema"},
+			descriptionKeywords: []string{"cluster", cfg.resourceKeyword, "schema"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"ct_name"},
-			testArgs: map[string]any{
-				"ct_name": "autoscaler",
-			},
-			expectedMethod: "GetClusterTraitSchema",
+			requiredParams:      []string{cfg.paramName},
+			testArgs:            map[string]any{cfg.paramName: cfg.testValue},
+			expectedMethod:      cfg.schemaMethod,
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != "autoscaler" {
-					t.Errorf("Expected ct_name %q, got %v", "autoscaler", args[0])
+				if args[0] != cfg.testValue {
+					t.Errorf("Expected %s %q, got %v", cfg.paramName, cfg.testValue, args[0])
 				}
 			},
 		},
 	}
+}
+
+// componentClusterTraitSpecs returns cluster trait operation specs
+func componentClusterTraitSpecs() []toolTestSpec {
+	return clusterResourceTrioSpecs(clusterResourceTrioConfig{
+		resourceKeyword: "trait",
+		listToolName:    "list_cluster_traits",
+		getToolName:     "get_cluster_trait",
+		schemaToolName:  "get_cluster_trait_schema",
+		paramName:       "ct_name",
+		testValue:       "autoscaler",
+		listMethod:      "ListClusterTraits",
+		getMethod:       "GetClusterTrait",
+		schemaMethod:    "GetClusterTraitSchema",
+	})
+}
+
+func componentClusterWorkflowSpecs() []toolTestSpec {
+	return clusterResourceTrioSpecs(clusterResourceTrioConfig{
+		resourceKeyword: "workflow",
+		listToolName:    "list_cluster_workflows",
+		getToolName:     "get_cluster_workflow",
+		schemaToolName:  "get_cluster_workflow_schema",
+		paramName:       "cwf_name",
+		testValue:       "build-go",
+		listMethod:      "ListClusterWorkflows",
+		getMethod:       "GetClusterWorkflow",
+		schemaMethod:    "GetClusterWorkflowSchema",
+	})
 }

@@ -501,6 +501,28 @@ func (h *MCPHandler) GetClusterTraitSchema(ctx context.Context, ctName string) (
 	return h.services.ClusterTraitService.GetClusterTraitSchema(ctx, ctName)
 }
 
+// ClusterWorkflow operations
+
+func (h *MCPHandler) ListClusterWorkflows(ctx context.Context, opts tools.ListOpts) (any, error) {
+	result, err := h.services.ClusterWorkflowService.ListClusterWorkflows(ctx, toServiceListOptions(opts))
+	if err != nil {
+		return nil, err
+	}
+	return wrapTransformedList("cluster_workflows", result.Items, result.NextCursor, clusterWorkflowSummary), nil
+}
+
+func (h *MCPHandler) GetClusterWorkflow(ctx context.Context, cwfName string) (any, error) {
+	cwf, err := h.services.ClusterWorkflowService.GetClusterWorkflow(ctx, cwfName)
+	if err != nil {
+		return nil, err
+	}
+	return clusterWorkflowDetail(cwf), nil
+}
+
+func (h *MCPHandler) GetClusterWorkflowSchema(ctx context.Context, cwfName string) (any, error) {
+	return h.services.ClusterWorkflowService.GetClusterWorkflowSchema(ctx, cwfName)
+}
+
 // Workflow operations
 
 func (h *MCPHandler) ListWorkflows(ctx context.Context, namespaceName string, opts tools.ListOpts) (any, error) {

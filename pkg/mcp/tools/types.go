@@ -179,6 +179,11 @@ type ComponentToolsetHandler interface {
 	GetClusterTrait(ctx context.Context, ctName string) (any, error)
 	GetClusterTraitSchema(ctx context.Context, ctName string) (any, error)
 
+	// ClusterWorkflow operations
+	ListClusterWorkflows(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterWorkflow(ctx context.Context, cwfName string) (any, error)
+	GetClusterWorkflowSchema(ctx context.Context, cwfName string) (any, error)
+
 	// Workflow operations
 	ListWorkflows(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error)

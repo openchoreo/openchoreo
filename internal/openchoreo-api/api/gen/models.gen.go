@@ -39,6 +39,11 @@ const (
 	BuildPlaneRefKindClusterBuildPlane BuildPlaneRefKind = "ClusterBuildPlane"
 )
 
+// Defines values for ClusterBuildPlaneRefKind.
+const (
+	ClusterBuildPlaneRefKindClusterBuildPlane ClusterBuildPlaneRefKind = "ClusterBuildPlane"
+)
+
 // Defines values for ClusterComponentTypeSpecAllowedTraitsKind.
 const (
 	ClusterComponentTypeSpecAllowedTraitsKindClusterTrait ClusterComponentTypeSpecAllowedTraitsKind = "ClusterTrait"
@@ -46,7 +51,7 @@ const (
 
 // Defines values for ClusterComponentTypeSpecAllowedWorkflowsKind.
 const (
-	ClusterComponentTypeSpecAllowedWorkflowsKindWorkflow ClusterComponentTypeSpecAllowedWorkflowsKind = "Workflow"
+	ClusterComponentTypeSpecAllowedWorkflowsKindClusterWorkflow ClusterComponentTypeSpecAllowedWorkflowsKind = "ClusterWorkflow"
 )
 
 // Defines values for ClusterComponentTypeSpecResourcesTargetPlane.
@@ -686,6 +691,18 @@ type ClusterBuildPlaneList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
+// ClusterBuildPlaneRef Reference to a ClusterBuildPlane
+type ClusterBuildPlaneRef struct {
+	// Kind Kind of build plane (must be ClusterBuildPlane)
+	Kind ClusterBuildPlaneRefKind `json:"kind"`
+
+	// Name Name of the cluster build plane resource
+	Name string `json:"name"`
+}
+
+// ClusterBuildPlaneRefKind Kind of build plane (must be ClusterBuildPlane)
+type ClusterBuildPlaneRefKind string
+
 // ClusterBuildPlaneSpec Desired state of a ClusterBuildPlane
 type ClusterBuildPlaneSpec struct {
 	// ClusterAgent Configuration for cluster agent-based communication
@@ -752,12 +769,12 @@ type ClusterComponentTypeSpec struct {
 		Name string `json:"name"`
 	} `json:"allowedTraits,omitempty"`
 
-	// AllowedWorkflows List of allowed Workflow references for this component type
+	// AllowedWorkflows List of allowed ClusterWorkflow references for this component type
 	AllowedWorkflows *[]struct {
-		// Kind Kind of the workflow reference. Currently only "Workflow" is supported.
-		Kind *ClusterComponentTypeSpecAllowedWorkflowsKind `json:"kind,omitempty"`
+		// Kind Kind of the workflow reference. Must be "ClusterWorkflow".
+		Kind ClusterComponentTypeSpecAllowedWorkflowsKind `json:"kind"`
 
-		// Name Name of the workflow resource
+		// Name Name of the ClusterWorkflow resource
 		Name string `json:"name"`
 	} `json:"allowedWorkflows,omitempty"`
 
@@ -822,7 +839,7 @@ type ClusterComponentTypeSpec struct {
 // ClusterComponentTypeSpecAllowedTraitsKind Kind of trait reference (must be ClusterTrait)
 type ClusterComponentTypeSpecAllowedTraitsKind string
 
-// ClusterComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference. Currently only "Workflow" is supported.
+// ClusterComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference. Must be "ClusterWorkflow".
 type ClusterComponentTypeSpecAllowedWorkflowsKind string
 
 // ClusterComponentTypeSpecResourcesTargetPlane Target plane for deployment
@@ -1081,6 +1098,60 @@ type ClusterTraitSpecPatchesTargetPlane string
 
 // ClusterTraitStatus Observed state of a ClusterTrait
 type ClusterTraitStatus = map[string]interface{}
+
+// ClusterWorkflow ClusterWorkflow resource.
+// Cluster-scoped version of Workflow that can be referenced by Components across all namespaces.
+type ClusterWorkflow struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a ClusterWorkflow
+	Spec   *ClusterWorkflowSpec   `json:"spec,omitempty"`
+	Status *ClusterWorkflowStatus `json:"status,omitempty"`
+}
+
+// ClusterWorkflowList Paginated list of cluster-scoped workflows
+type ClusterWorkflowList struct {
+	Items []ClusterWorkflow `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ClusterWorkflowSpec Desired state of a ClusterWorkflow
+type ClusterWorkflowSpec struct {
+	// BuildPlaneRef Reference to the ClusterBuildPlane for this workflow's build operations. Defaults to the ClusterBuildPlane named "default" when omitted.
+	BuildPlaneRef *ClusterBuildPlaneRef `json:"buildPlaneRef,omitempty"`
+
+	// ExternalRefs External CR references resolved and injected into the CEL context under their id.
+	ExternalRefs *[]ExternalRef `json:"externalRefs,omitempty"`
+
+	// Resources Additional resource templates to render and apply alongside the workflow run.
+	Resources *[]WorkflowResource `json:"resources,omitempty"`
+
+	// RunTemplate Kubernetes resource template to render and apply for this workflow run.
+	RunTemplate map[string]interface{} `json:"runTemplate"`
+
+	// Schema Developer-facing schema definition for workflow parameters
+	Schema *WorkflowSchema `json:"schema,omitempty"`
+
+	// TtlAfterCompletion Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
+	TtlAfterCompletion *string `json:"ttlAfterCompletion,omitempty"`
+}
+
+// ClusterWorkflowStatus Observed state of a ClusterWorkflow
+type ClusterWorkflowStatus struct {
+	// Conditions Kubernetes-style conditions
+	Conditions *[]Condition `json:"conditions,omitempty"`
+}
 
 // Component Component resource.
 // Components group source code and deployment configuration within a project.
@@ -3597,6 +3668,9 @@ type ClusterObservabilityPlaneNameParam = string
 // ClusterTraitNameParam defines model for ClusterTraitNameParam.
 type ClusterTraitNameParam = string
 
+// ClusterWorkflowNameParam defines model for ClusterWorkflowNameParam.
+type ClusterWorkflowNameParam = string
+
 // ComponentEnvironmentNameParam defines model for ComponentEnvironmentNameParam.
 type ComponentEnvironmentNameParam = string
 
@@ -3773,6 +3847,16 @@ type ListClusterRolesParams struct {
 
 // ListClusterTraitsParams defines parameters for ListClusterTraits.
 type ListClusterTraitsParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListClusterWorkflowsParams defines parameters for ListClusterWorkflows.
+type ListClusterWorkflowsParams struct {
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -4130,6 +4214,12 @@ type CreateClusterTraitJSONRequestBody = ClusterTrait
 
 // UpdateClusterTraitJSONRequestBody defines body for UpdateClusterTrait for application/json ContentType.
 type UpdateClusterTraitJSONRequestBody = ClusterTrait
+
+// CreateClusterWorkflowJSONRequestBody defines body for CreateClusterWorkflow for application/json ContentType.
+type CreateClusterWorkflowJSONRequestBody = ClusterWorkflow
+
+// UpdateClusterWorkflowJSONRequestBody defines body for UpdateClusterWorkflow for application/json ContentType.
+type UpdateClusterWorkflowJSONRequestBody = ClusterWorkflow
 
 // CreateNamespaceJSONRequestBody defines body for CreateNamespace for application/json ContentType.
 type CreateNamespaceJSONRequestBody = Namespace

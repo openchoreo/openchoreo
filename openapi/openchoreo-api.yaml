@@ -2112,6 +2112,162 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # ClusterWorkflow Endpoints
+  # =============================================================================
+
+  /api/v1/clusterworkflows:
+    get:
+      operationId: listClusterWorkflows
+      summary: List cluster workflows
+      description: Returns a list of cluster-scoped workflows.
+      tags: [ClusterWorkflows]
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of cluster workflows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterWorkflowList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createClusterWorkflow
+      summary: Create cluster workflow
+      description: Creates a new cluster-scoped workflow.
+      tags: [ClusterWorkflows]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterWorkflow'
+      responses:
+        '201':
+          description: Cluster workflow created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterWorkflow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterworkflows/{clusterWorkflowName}:
+    get:
+      operationId: getClusterWorkflow
+      summary: Get a cluster workflow
+      description: Returns details of a specific cluster-scoped workflow.
+      tags: [ClusterWorkflows]
+      parameters:
+        - $ref: '#/components/parameters/ClusterWorkflowNameParam'
+      responses:
+        '200':
+          description: Cluster workflow details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterWorkflow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateClusterWorkflow
+      summary: Update cluster workflow
+      description: Replaces an existing cluster-scoped workflow (full update).
+      tags: [ClusterWorkflows]
+      parameters:
+        - $ref: '#/components/parameters/ClusterWorkflowNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterWorkflow'
+      responses:
+        '200':
+          description: Cluster workflow updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterWorkflow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteClusterWorkflow
+      summary: Delete cluster workflow
+      description: Deletes a cluster-scoped workflow by name.
+      tags: [ClusterWorkflows]
+      parameters:
+        - $ref: '#/components/parameters/ClusterWorkflowNameParam'
+      responses:
+        '204':
+          description: ClusterWorkflow deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterworkflows/{clusterWorkflowName}/schema:
+    get:
+      operationId: getClusterWorkflowSchema
+      summary: Get cluster workflow schema
+      description: Returns the parameter schema for a specific cluster-scoped workflow.
+      tags: [ClusterWorkflows]
+      parameters:
+        - $ref: '#/components/parameters/ClusterWorkflowNameParam'
+      responses:
+        '200':
+          description: Cluster workflow schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # Workflow Endpoints (Generic Workflows)
   # =============================================================================
 
@@ -4780,6 +4936,15 @@ components:
         type: string
         example: autoscaler
 
+    ClusterWorkflowNameParam:
+      name: clusterWorkflowName
+      in: path
+      required: true
+      description: ClusterWorkflow name
+      schema:
+        type: string
+        example: docker-build
+
     TraitNameParam:
       name: traitName
       in: path
@@ -6504,25 +6669,25 @@ components:
           example: deployment
         allowedWorkflows:
           type: array
-          description: List of allowed Workflow references for this component type
+          description: List of allowed ClusterWorkflow references for this component type
           items:
             type: object
             required:
+              - kind
               - name
             properties:
               kind:
                 type: string
-                description: Kind of the workflow reference. Currently only "Workflow" is supported.
-                enum: [Workflow]
-                default: Workflow
+                description: Kind of the workflow reference. Must be "ClusterWorkflow".
+                enum: [ClusterWorkflow]
               name:
                 type: string
-                description: Name of the workflow resource
+                description: Name of the ClusterWorkflow resource
                 minLength: 1
           example:
-            - kind: Workflow
+            - kind: ClusterWorkflow
               name: docker-build
-            - kind: Workflow
+            - kind: ClusterWorkflow
               name: buildpack-build
         schema:
           type: object
@@ -7315,6 +7480,107 @@ components:
     WorkflowStatus:
       type: object
       description: Observed state of a Workflow
+      properties:
+        conditions:
+          type: array
+          description: Kubernetes-style conditions
+          items:
+            $ref: '#/components/schemas/Condition'
+
+    # -------------------------------------------------------------------------
+    # ClusterWorkflows
+    # -------------------------------------------------------------------------
+    ClusterWorkflowList:
+      type: object
+      description: Paginated list of cluster-scoped workflows
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterWorkflow'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ClusterWorkflow:
+      type: object
+      description: |
+        ClusterWorkflow resource.
+        Cluster-scoped version of Workflow that can be referenced by Components across all namespaces.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ClusterWorkflow
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ClusterWorkflowSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ClusterWorkflowStatus'
+
+    ClusterWorkflowSpec:
+      type: object
+      description: Desired state of a ClusterWorkflow
+      required:
+        - runTemplate
+      properties:
+        buildPlaneRef:
+          description: Reference to the ClusterBuildPlane for this workflow's build operations. Defaults to the ClusterBuildPlane named "default" when omitted.
+          allOf:
+            - $ref: '#/components/schemas/ClusterBuildPlaneRef'
+        schema:
+          $ref: '#/components/schemas/WorkflowSchema'
+        runTemplate:
+          type: object
+          description: Kubernetes resource template to render and apply for this workflow run.
+          additionalProperties: true
+        resources:
+          type: array
+          description: Additional resource templates to render and apply alongside the workflow run.
+          items:
+            $ref: '#/components/schemas/WorkflowResource'
+        externalRefs:
+          type: array
+          description: External CR references resolved and injected into the CEL context under their id.
+          items:
+            $ref: '#/components/schemas/ExternalRef'
+        ttlAfterCompletion:
+          type: string
+          description: Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
+
+    ClusterBuildPlaneRef:
+      type: object
+      description: Reference to a ClusterBuildPlane
+      required:
+        - kind
+        - name
+      properties:
+        kind:
+          type: string
+          description: Kind of build plane (must be ClusterBuildPlane)
+          enum: [ClusterBuildPlane]
+          example: ClusterBuildPlane
+        name:
+          type: string
+          description: Name of the cluster build plane resource
+          example: default
+
+    ClusterWorkflowStatus:
+      type: object
+      description: Observed state of a ClusterWorkflow
       properties:
         conditions:
           type: array

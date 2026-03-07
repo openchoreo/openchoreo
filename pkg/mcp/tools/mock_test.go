@@ -404,3 +404,18 @@ func (m *MockCoreToolsetHandler) ListClusterObservabilityPlanes(ctx context.Cont
 	m.recordCall("ListClusterObservabilityPlanes", opts)
 	return `[{"name":"cop1"}]`, nil
 }
+
+func (m *MockCoreToolsetHandler) ListClusterWorkflows(ctx context.Context, opts ListOpts) (any, error) {
+	m.recordCall("ListClusterWorkflows", opts)
+	return `[{"name":"cluster-workflow-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterWorkflow(ctx context.Context, cwfName string) (any, error) {
+	m.recordCall("GetClusterWorkflow", cwfName)
+	return `{"name":"cluster-workflow-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterWorkflowSchema(ctx context.Context, cwfName string) (any, error) {
+	m.recordCall("GetClusterWorkflowSchema", cwfName)
+	return emptyObjectSchema, nil
+}

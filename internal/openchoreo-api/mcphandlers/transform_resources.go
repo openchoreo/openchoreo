@@ -641,6 +641,18 @@ func clusterTraitDetail(ct *openchoreov1alpha1.ClusterTrait) map[string]any {
 }
 
 // ---------------------------------------------------------------------------
+// ClusterWorkflow
+// ---------------------------------------------------------------------------
+
+func clusterWorkflowSummary(cwf openchoreov1alpha1.ClusterWorkflow) map[string]any {
+	return extractCommonMeta(&cwf)
+}
+
+func clusterWorkflowDetail(cwf *openchoreov1alpha1.ClusterWorkflow) map[string]any {
+	return extractCommonMeta(cwf)
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
