@@ -58,6 +58,8 @@ var systemActions = []Action{
 	// Workflow
 	{Name: "workflow:view", IsInternal: false},
 	{Name: "workflow:create", IsInternal: false},
+	{Name: "workflow:update", IsInternal: false},
+	{Name: "workflow:delete", IsInternal: false},
 
 	// WorkflowRun
 	{Name: "workflowrun:view", IsInternal: false},
@@ -73,6 +75,8 @@ var systemActions = []Action{
 	// Environment
 	{Name: "environment:view", IsInternal: false},
 	{Name: "environment:create", IsInternal: false},
+	{Name: "environment:update", IsInternal: false},
+	{Name: "environment:delete", IsInternal: false},
 
 	// DataPlane
 	{Name: "dataplane:view", IsInternal: false},
