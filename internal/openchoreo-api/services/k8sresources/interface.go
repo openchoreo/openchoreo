@@ -20,7 +20,7 @@ type ReleaseResourceTree struct {
 
 // K8sResourceTreeResult is the result of GetResourceTree.
 type K8sResourceTreeResult struct {
-	Releases []ReleaseResourceTree
+	RenderedReleases []ReleaseResourceTree
 }
 
 // Service defines the k8s resources service interface for release bindings.

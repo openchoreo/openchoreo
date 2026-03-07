@@ -2103,10 +2103,10 @@ type HealthInfo struct {
 	Status string `json:"status"`
 }
 
-// K8sResourceTreeResponse Response containing resource trees for all releases owned by a release binding
+// K8sResourceTreeResponse Response containing resource trees for all rendered releases owned by a release binding
 type K8sResourceTreeResponse struct {
-	// Releases Resource trees per release (dataplane and/or observabilityplane)
-	Releases []ReleaseResourceTree `json:"releases"`
+	// RenderedReleases Resource trees per rendered release (dataplane and/or observabilityplane)
+	RenderedReleases []ReleaseResourceTree `json:"renderedReleases"`
 }
 
 // MessageResponse Simple message response

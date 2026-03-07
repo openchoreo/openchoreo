@@ -77,10 +77,10 @@ func (s *k8sResourcesService) GetResourceTree(ctx context.Context, namespaceName
 		return nil, err
 	}
 
-	releases := make([]ReleaseResourceTree, 0, len(releaseContexts))
+	renderedReleases := make([]ReleaseResourceTree, 0, len(releaseContexts))
 	for _, rc := range releaseContexts {
 		nodes := s.buildResourceTreeNodes(ctx, &rc)
-		releases = append(releases, ReleaseResourceTree{
+		renderedReleases = append(renderedReleases, ReleaseResourceTree{
 			Name:        rc.release.Name,
 			TargetPlane: rc.release.Spec.TargetPlane,
 			Nodes:       nodes,
@@ -88,7 +88,7 @@ func (s *k8sResourcesService) GetResourceTree(ctx context.Context, namespaceName
 		})
 	}
 
-	return &K8sResourceTreeResult{Releases: releases}, nil
+	return &K8sResourceTreeResult{RenderedReleases: renderedReleases}, nil
 }
 
 // GetResourceEvents returns Kubernetes events for a specific resource in the release binding's resource tree.

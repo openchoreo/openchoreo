@@ -29,8 +29,8 @@ func (h *Handler) GetReleaseBindingK8sResourceTree(
 		return h.handleK8sResourceTreeError(err)
 	}
 
-	genReleases := make([]gen.ReleaseResourceTree, 0, len(result.Releases))
-	for _, r := range result.Releases {
+	genReleases := make([]gen.ReleaseResourceTree, 0, len(result.RenderedReleases))
+	for _, r := range result.RenderedReleases {
 		nodes, err := convertList[models.ResourceNode, gen.ResourceNode](r.Nodes)
 		if err != nil {
 			h.logger.Error("Failed to convert resource nodes", "error", err)
@@ -55,7 +55,7 @@ func (h *Handler) GetReleaseBindingK8sResourceTree(
 	}
 
 	return gen.GetReleaseBindingK8sResourceTree200JSONResponse{
-		Releases: genReleases,
+		RenderedReleases: genReleases,
 	}, nil
 }
 
