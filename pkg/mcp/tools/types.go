@@ -128,10 +128,6 @@ type ComponentToolsetHandler interface {
 	GetWorkloadSchema(ctx context.Context) (any, error)
 	// Schema operations
 	GetComponentSchema(ctx context.Context, namespaceName, componentName string) (any, error)
-	// Release operations
-	GetEnvironmentRelease(
-		ctx context.Context, namespaceName, componentName, environmentName string,
-	) (any, error)
 	// Component patch operations
 	PatchComponent(
 		ctx context.Context, namespaceName, componentName string, req *gen.PatchComponentRequest,
@@ -178,6 +174,11 @@ type ComponentToolsetHandler interface {
 	ListClusterTraits(ctx context.Context, opts ListOpts) (any, error)
 	GetClusterTrait(ctx context.Context, ctName string) (any, error)
 	GetClusterTraitSchema(ctx context.Context, ctName string) (any, error)
+
+	// ClusterWorkflow operations
+	ListClusterWorkflows(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterWorkflow(ctx context.Context, cwfName string) (any, error)
+	GetClusterWorkflowSchema(ctx context.Context, cwfName string) (any, error)
 
 	// Workflow operations
 	ListWorkflows(ctx context.Context, namespaceName string, opts ListOpts) (any, error)

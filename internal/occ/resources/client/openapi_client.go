@@ -723,6 +723,45 @@ func (c *Client) DeleteClusterTrait(ctx context.Context, clusterTraitName string
 	return nil
 }
 
+// ListClusterWorkflows retrieves all cluster-scoped workflows
+func (c *Client) ListClusterWorkflows(ctx context.Context, params *gen.ListClusterWorkflowsParams) (*gen.ClusterWorkflowList, error) {
+	if params == nil {
+		params = &gen.ListClusterWorkflowsParams{}
+	}
+	resp, err := c.client.ListClusterWorkflowsWithResponse(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster workflows: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// GetClusterWorkflow retrieves a specific cluster workflow
+func (c *Client) GetClusterWorkflow(ctx context.Context, clusterWorkflowName string) (*gen.ClusterWorkflow, error) {
+	resp, err := c.client.GetClusterWorkflowWithResponse(ctx, clusterWorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster workflow: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteClusterWorkflow deletes a cluster workflow
+func (c *Client) DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName string) error {
+	resp, err := c.client.DeleteClusterWorkflowWithResponse(ctx, clusterWorkflowName)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster workflow: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
 // GetSecretReference retrieves a specific secret reference
 func (c *Client) GetSecretReference(ctx context.Context, namespaceName, secretReferenceName string) (*gen.SecretReference, error) {
 	resp, err := c.client.GetSecretReferenceWithResponse(ctx, namespaceName, secretReferenceName)

@@ -40,9 +40,6 @@ var systemActions = []Action{
 	{Name: "componentrelease:view", IsInternal: false},
 	{Name: "componentrelease:create", IsInternal: false},
 
-	// Release
-	{Name: "release:view", IsInternal: false},
-
 	// ReleaseBinding
 	{Name: "releasebinding:view", IsInternal: false},
 	{Name: "releasebinding:create", IsInternal: false},
@@ -58,10 +55,13 @@ var systemActions = []Action{
 	// Workflow
 	{Name: "workflow:view", IsInternal: false},
 	{Name: "workflow:create", IsInternal: false},
+	{Name: "workflow:update", IsInternal: false},
+	{Name: "workflow:delete", IsInternal: false},
 
 	// WorkflowRun
 	{Name: "workflowrun:view", IsInternal: false},
 	{Name: "workflowrun:create", IsInternal: false},
+	{Name: "workflowrun:update", IsInternal: false},
 
 	// Trait
 	{Name: "trait:view", IsInternal: false},
@@ -72,6 +72,8 @@ var systemActions = []Action{
 	// Environment
 	{Name: "environment:view", IsInternal: false},
 	{Name: "environment:create", IsInternal: false},
+	{Name: "environment:update", IsInternal: false},
+	{Name: "environment:delete", IsInternal: false},
 
 	// DataPlane
 	{Name: "dataplane:view", IsInternal: false},
@@ -102,6 +104,12 @@ var systemActions = []Action{
 	{Name: "clustertrait:create", IsInternal: false},
 	{Name: "clustertrait:update", IsInternal: false},
 	{Name: "clustertrait:delete", IsInternal: false},
+
+	// ClusterWorkflow
+	{Name: "clusterworkflow:view", IsInternal: false},
+	{Name: "clusterworkflow:create", IsInternal: false},
+	{Name: "clusterworkflow:update", IsInternal: false},
+	{Name: "clusterworkflow:delete", IsInternal: false},
 
 	// ClusterDataPlane
 	{Name: "clusterdataplane:view", IsInternal: false},

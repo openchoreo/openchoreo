@@ -324,6 +324,55 @@ func (h *Handler) GetWorkflowRun(
 	return gen.GetWorkflowRun200JSONResponse(genWfRun), nil
 }
 
+// UpdateWorkflowRun replaces an existing workflow run (full update).
+func (h *Handler) UpdateWorkflowRun(
+	ctx context.Context,
+	request gen.UpdateWorkflowRunRequestObject,
+) (gen.UpdateWorkflowRunResponseObject, error) {
+	h.logger.Info("UpdateWorkflowRun called",
+		"namespace", request.NamespaceName,
+		"runName", request.RunName)
+
+	if request.Body == nil {
+		return gen.UpdateWorkflowRun400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	wfRunCR, err := convert[gen.WorkflowRun, openchoreov1alpha1.WorkflowRun](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateWorkflowRun400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	wfRunCR.Status = openchoreov1alpha1.WorkflowRunStatus{}
+
+	// Ensure the name from the URL path is used
+	wfRunCR.Name = request.RunName
+
+	updated, err := h.services.WorkflowRunService.UpdateWorkflowRun(ctx, request.NamespaceName, &wfRunCR)
+	if err != nil {
+		if errors.Is(err, svcerrors.ErrForbidden) {
+			return gen.UpdateWorkflowRun403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, workflowrunsvc.ErrWorkflowRunNotFound) {
+			return gen.UpdateWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
+		}
+		var valErr *svcerrors.ValidationError
+		if errors.As(err, &valErr) {
+			return gen.UpdateWorkflowRun400JSONResponse{BadRequestJSONResponse: badRequest(valErr.Error())}, nil
+		}
+		h.logger.Error("Failed to update workflow run", "error", err)
+		return gen.UpdateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genWfRun, err := convert[openchoreov1alpha1.WorkflowRun, gen.WorkflowRun](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated workflow run", "error", err)
+		return gen.UpdateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("WorkflowRun updated successfully", "namespaceName", request.NamespaceName, "workflowRun", updated.Name)
+	return gen.UpdateWorkflowRun200JSONResponse(genWfRun), nil
+}
+
 // GetWorkflowRunStatus returns the status and per-step details of a specific workflow run
 func (h *Handler) GetWorkflowRunStatus(
 	ctx context.Context,

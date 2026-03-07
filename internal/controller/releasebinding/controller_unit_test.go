@@ -1248,7 +1248,7 @@ func testContext() context.Context {
 func TestSetResourcesReadyStatus_NoResources_Progressing(t *testing.T) {
 	r := newTestReconciler()
 	rb := makeReleaseBindingForConditions()
-	release := &openchoreov1alpha1.Release{
+	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		// Status.Resources is empty
 	}
@@ -1278,9 +1278,9 @@ func TestSetResourcesReadyStatus_NoResources_Progressing(t *testing.T) {
 func TestSetResourcesReadyStatus_DeploymentHealthy(t *testing.T) {
 	r := newTestReconciler()
 	rb := makeReleaseBindingForConditions()
-	release := &openchoreov1alpha1.Release{
+	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
-		Status: openchoreov1alpha1.ReleaseStatus{
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
 			Resources: []openchoreov1alpha1.ResourceStatus{
 				{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
@@ -1312,9 +1312,9 @@ func TestSetResourcesReadyStatus_DeploymentHealthy(t *testing.T) {
 func TestSetResourcesReadyStatus_StatefulSetDegraded(t *testing.T) {
 	r := newTestReconciler()
 	rb := makeReleaseBindingForConditions()
-	release := &openchoreov1alpha1.Release{
+	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
-		Status: openchoreov1alpha1.ReleaseStatus{
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
 			Resources: []openchoreov1alpha1.ResourceStatus{
 				{Group: "apps", Version: "v1", Kind: "StatefulSet", Name: "db", HealthStatus: openchoreov1alpha1.HealthStatusDegraded},
 			},
@@ -1346,9 +1346,9 @@ func TestSetResourcesReadyStatus_StatefulSetDegraded(t *testing.T) {
 func TestSetResourcesReadyStatus_CronJobScheduled(t *testing.T) {
 	r := newTestReconciler()
 	rb := makeReleaseBindingForConditions()
-	release := &openchoreov1alpha1.Release{
+	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
-		Status: openchoreov1alpha1.ReleaseStatus{
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
 			Resources: []openchoreov1alpha1.ResourceStatus{
 				{Group: "batch", Version: "v1", Kind: "CronJob", Name: "nightly", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
@@ -1380,9 +1380,9 @@ func TestSetResourcesReadyStatus_CronJobScheduled(t *testing.T) {
 func TestSetResourcesReadyStatus_JobCompleted(t *testing.T) {
 	r := newTestReconciler()
 	rb := makeReleaseBindingForConditions()
-	release := &openchoreov1alpha1.Release{
+	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
-		Status: openchoreov1alpha1.ReleaseStatus{
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
 			Resources: []openchoreov1alpha1.ResourceStatus{
 				{Group: "batch", Version: "v1", Kind: "Job", Name: "migration", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
@@ -1414,9 +1414,9 @@ func TestSetResourcesReadyStatus_JobCompleted(t *testing.T) {
 func TestSetResourcesReadyStatus_ProxyGenericEvaluation(t *testing.T) {
 	r := newTestReconciler()
 	rb := makeReleaseBindingForConditions()
-	release := &openchoreov1alpha1.Release{
+	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
-		Status: openchoreov1alpha1.ReleaseStatus{
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
 			Resources: []openchoreov1alpha1.ResourceStatus{
 				{Group: "", Version: "v1", Kind: "Service", Name: "proxy-svc", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
@@ -1445,9 +1445,9 @@ func TestSetResourcesReadyStatus_ProxyGenericEvaluation(t *testing.T) {
 func TestSetResourcesReadyStatus_UnknownWorkloadType(t *testing.T) {
 	r := newTestReconciler()
 	rb := makeReleaseBindingForConditions()
-	release := &openchoreov1alpha1.Release{
+	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
-		Status: openchoreov1alpha1.ReleaseStatus{
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
 			Resources: []openchoreov1alpha1.ResourceStatus{
 				{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},

@@ -349,20 +349,6 @@ func TestConditionFunctions(t *testing.T) {
 			t.Errorf("expected message to contain 'test error', got %q", cond.Message)
 		}
 	})
-
-	t.Run("setWorkloadUpdatedCondition", func(t *testing.T) {
-		wfr := newWFRun()
-		setWorkloadUpdatedCondition(wfr)
-		assertConditionCount(t, wfr, 1)
-		assertCondition(t, wfr, string(ConditionWorkloadUpdated), metav1.ConditionTrue, string(ReasonWorkloadUpdated))
-	})
-
-	t.Run("setWorkloadUpdateFailedCondition", func(t *testing.T) {
-		wfr := newWFRun()
-		setWorkloadUpdateFailedCondition(wfr)
-		assertConditionCount(t, wfr, 1)
-		assertCondition(t, wfr, string(ConditionWorkloadUpdated), metav1.ConditionFalse, string(ReasonWorkloadUpdateFailed))
-	})
 }
 
 func TestIsWorkflowInitiated(t *testing.T) {
@@ -429,29 +415,6 @@ func TestIsWorkflowSucceeded(t *testing.T) {
 	})
 }
 
-func TestIsWorkloadUpdated(t *testing.T) {
-	t.Run("false when no condition", func(t *testing.T) {
-		wfr := &openchoreodevv1alpha1.WorkflowRun{}
-		if isWorkloadUpdated(wfr) {
-			t.Error("expected false")
-		}
-	})
-	t.Run("true after setWorkloadUpdatedCondition", func(t *testing.T) {
-		wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
-		setWorkloadUpdatedCondition(wfr)
-		if !isWorkloadUpdated(wfr) {
-			t.Error("expected true")
-		}
-	})
-	t.Run("false after setWorkloadUpdateFailedCondition", func(t *testing.T) {
-		wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
-		setWorkloadUpdateFailedCondition(wfr)
-		if isWorkloadUpdated(wfr) {
-			t.Error("expected false")
-		}
-	})
-}
-
 // ---------------------------------------------------------------------------
 // setStartedAtIfNeeded / setCompletedAtIfNeeded
 // ---------------------------------------------------------------------------
@@ -494,35 +457,6 @@ func TestSetCompletedAtIfNeeded(t *testing.T) {
 			t.Error("expected CompletedAt to remain unchanged")
 		}
 	})
-}
-
-// ---------------------------------------------------------------------------
-// hasGenerateWorkloadTask
-// ---------------------------------------------------------------------------
-
-func TestHasGenerateWorkloadTask(t *testing.T) {
-	tests := []struct {
-		name  string
-		tasks []openchoreodevv1alpha1.WorkflowTask
-		want  bool
-	}{
-		{"empty tasks", nil, false},
-		{"no matching task", []openchoreodevv1alpha1.WorkflowTask{{Name: "build"}}, false},
-		{"has generate-workload-cr task", []openchoreodevv1alpha1.WorkflowTask{
-			{Name: "build"},
-			{Name: generateWorkloadTaskName},
-		}, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			wfr := &openchoreodevv1alpha1.WorkflowRun{
-				Status: openchoreodevv1alpha1.WorkflowRunStatus{Tasks: tt.tasks},
-			}
-			if got := hasGenerateWorkloadTask(wfr); got != tt.want {
-				t.Errorf("expected %v, got %v", tt.want, got)
-			}
-		})
-	}
 }
 
 // ---------------------------------------------------------------------------
@@ -583,129 +517,6 @@ func TestHasResourcesInStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := hasResourcesInStatus(tt.wfr); got != tt.want {
 				t.Errorf("expected %v, got %v", tt.want, got)
-			}
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// extractWorkloadCRFromRunResource
-// ---------------------------------------------------------------------------
-
-func TestExtractWorkloadCRFromRunResource(t *testing.T) {
-	workloadYAML := "apiVersion: openchoreo.dev/v1alpha1\nkind: Workload\nmetadata:\n  name: my-workload"
-	anyStr := argoproj.AnyString(workloadYAML)
-
-	tests := []struct {
-		name  string
-		nodes argoproj.Nodes
-		want  string
-	}{
-		{
-			name:  "no nodes",
-			nodes: nil,
-			want:  "",
-		},
-		{
-			name: "node with DisplayName matching, Succeeded, has output param",
-			nodes: argoproj.Nodes{
-				"node1": {
-					DisplayName: generateWorkloadTaskName,
-					Phase:       argoproj.NodeSucceeded,
-					Type:        argoproj.NodeTypePod,
-					Outputs: &argoproj.Outputs{
-						Parameters: []argoproj.Parameter{
-							{Name: workloadCRParamName, Value: &anyStr},
-						},
-					},
-				},
-			},
-			want: workloadYAML,
-		},
-		{
-			name: "node with parsed name matching (no DisplayName)",
-			nodes: argoproj.Nodes{
-				"node1": {
-					Name:  "my-workflow[0]." + generateWorkloadTaskName,
-					Phase: argoproj.NodeSucceeded,
-					Type:  argoproj.NodeTypePod,
-					Outputs: &argoproj.Outputs{
-						Parameters: []argoproj.Parameter{
-							{Name: workloadCRParamName, Value: &anyStr},
-						},
-					},
-				},
-			},
-			want: workloadYAML,
-		},
-		{
-			name: "node with correct name but Phase != Succeeded",
-			nodes: argoproj.Nodes{
-				"node1": {
-					DisplayName: generateWorkloadTaskName,
-					Phase:       argoproj.NodeFailed,
-					Type:        argoproj.NodeTypePod,
-					Outputs: &argoproj.Outputs{
-						Parameters: []argoproj.Parameter{
-							{Name: workloadCRParamName, Value: &anyStr},
-						},
-					},
-				},
-			},
-			want: "",
-		},
-		{
-			name: "node with correct name and phase but no outputs",
-			nodes: argoproj.Nodes{
-				"node1": {
-					DisplayName: generateWorkloadTaskName,
-					Phase:       argoproj.NodeSucceeded,
-					Type:        argoproj.NodeTypePod,
-				},
-			},
-			want: "",
-		},
-		{
-			name: "node with correct name and phase but wrong param name",
-			nodes: argoproj.Nodes{
-				"node1": {
-					DisplayName: generateWorkloadTaskName,
-					Phase:       argoproj.NodeSucceeded,
-					Type:        argoproj.NodeTypePod,
-					Outputs: &argoproj.Outputs{
-						Parameters: []argoproj.Parameter{
-							{Name: "other-param", Value: &anyStr},
-						},
-					},
-				},
-			},
-			want: "",
-		},
-		{
-			name: "node with correct name and phase but param value is nil",
-			nodes: argoproj.Nodes{
-				"node1": {
-					DisplayName: generateWorkloadTaskName,
-					Phase:       argoproj.NodeSucceeded,
-					Type:        argoproj.NodeTypePod,
-					Outputs: &argoproj.Outputs{
-						Parameters: []argoproj.Parameter{
-							{Name: workloadCRParamName, Value: nil},
-						},
-					},
-				},
-			},
-			want: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			runResource := &argoproj.Workflow{}
-			runResource.Status.Nodes = tt.nodes
-			got := extractWorkloadCRFromRunResource(runResource)
-			if got != tt.want {
-				t.Errorf("expected %q, got %q", tt.want, got)
 			}
 		})
 	}

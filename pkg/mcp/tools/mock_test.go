@@ -184,13 +184,6 @@ func (m *MockCoreToolsetHandler) GetComponentSchema(
 	return emptyObjectSchema, nil
 }
 
-func (m *MockCoreToolsetHandler) GetEnvironmentRelease(
-	ctx context.Context, namespaceName, componentName, environmentName string,
-) (any, error) {
-	m.recordCall("GetEnvironmentRelease", namespaceName, componentName, environmentName)
-	return `{"spec":{"resources":[]},"status":{"phase":"Ready"}}`, nil
-}
-
 func (m *MockCoreToolsetHandler) PatchComponent(
 	ctx context.Context, namespaceName, componentName string, req *gen.PatchComponentRequest,
 ) (any, error) {
@@ -403,4 +396,19 @@ func (m *MockCoreToolsetHandler) ListClusterBuildPlanes(ctx context.Context, opt
 func (m *MockCoreToolsetHandler) ListClusterObservabilityPlanes(ctx context.Context, opts ListOpts) (any, error) {
 	m.recordCall("ListClusterObservabilityPlanes", opts)
 	return `[{"name":"cop1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) ListClusterWorkflows(ctx context.Context, opts ListOpts) (any, error) {
+	m.recordCall("ListClusterWorkflows", opts)
+	return `[{"name":"cluster-workflow-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterWorkflow(ctx context.Context, cwfName string) (any, error) {
+	m.recordCall("GetClusterWorkflow", cwfName)
+	return `{"name":"cluster-workflow-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterWorkflowSchema(ctx context.Context, cwfName string) (any, error) {
+	m.recordCall("GetClusterWorkflowSchema", cwfName)
+	return emptyObjectSchema, nil
 }

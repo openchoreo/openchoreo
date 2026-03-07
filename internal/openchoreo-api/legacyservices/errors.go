@@ -36,7 +36,7 @@ var (
 	ErrComponentReleaseNotFound      = errors.New("component release not found")
 	ErrReleaseBindingNotFound        = errors.New("release binding not found")
 	ErrWorkflowSchemaInvalid         = errors.New("workflow schema is invalid")
-	ErrReleaseNotFound               = errors.New("release not found")
+	ErrRenderedReleaseNotFound       = errors.New("rendered release not found")
 	ErrResourceNotFound              = errors.New("resource not found in release")
 	ErrInvalidCommitSHA              = errors.New("invalid commit SHA format")
 	ErrForbidden                     = errors.New("insufficient permissions to perform this action")
@@ -89,7 +89,7 @@ const (
 	CodeWorkloadNotFound             = "WORKLOAD_NOT_FOUND"
 	CodeComponentReleaseNotFound     = "COMPONENT_RELEASE_NOT_FOUND"
 	CodeReleaseBindingNotFound       = "RELEASE_BINDING_NOT_FOUND"
-	CodeReleaseNotFound              = "RELEASE_NOT_FOUND"
+	CodeRenderedReleaseNotFound      = "RENDERED_RELEASE_NOT_FOUND"
 	CodeResourceNotFound             = "RESOURCE_NOT_FOUND"
 	CodeInvalidInput                 = "INVALID_INPUT"
 	CodeConflict                     = "CONFLICT"

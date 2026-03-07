@@ -58,8 +58,8 @@ resources:
   - componentrelease_viewer_role.yaml
   - secretreference_editor_role.yaml
   - secretreference_viewer_role.yaml
-  - release_editor_role.yaml
-  - release_viewer_role.yaml
+  - renderedrelease_editor_role.yaml
+  - renderedrelease_viewer_role.yaml
 
   - buildplane_admin_role.yaml
   - buildplane_editor_role.yaml
@@ -99,6 +99,9 @@ resources:
   - workflow_admin_role.yaml
   - workflow_editor_role.yaml
   - workflow_viewer_role.yaml
+  - clusterworkflow_admin_role.yaml
+  - clusterworkflow_editor_role.yaml
+  - clusterworkflow_viewer_role.yaml
   - workflowrun_admin_role.yaml
   - workflowrun_editor_role.yaml
   - workflowrun_viewer_role.yaml

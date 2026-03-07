@@ -1,5 +1,5 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: Release
+kind: RenderedRelease
 metadata:
   labels:
     app.kubernetes.io/name: openchoreo

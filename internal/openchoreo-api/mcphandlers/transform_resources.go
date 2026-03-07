@@ -378,37 +378,6 @@ func releaseBindingDetail(rb *openchoreov1alpha1.ReleaseBinding) map[string]any 
 }
 
 // ---------------------------------------------------------------------------
-// Release
-// ---------------------------------------------------------------------------
-
-func releaseDetail(r *openchoreov1alpha1.Release) map[string]any {
-	m := extractCommonMeta(r)
-	m["projectName"] = r.Spec.Owner.ProjectName
-	m["componentName"] = r.Spec.Owner.ComponentName
-	m["environmentName"] = r.Spec.EnvironmentName
-	setIfNotEmpty(m, "status", readyStatus(r.Status.Conditions))
-	if len(r.Status.Resources) > 0 {
-		m["resourceHealth"] = resourceHealthSummary(r.Status.Resources)
-	}
-	if conds := conditionsSummary(r.Status.Conditions); conds != nil {
-		m["conditions"] = conds
-	}
-	return m
-}
-
-func resourceHealthSummary(resources []openchoreov1alpha1.ResourceStatus) map[string]int {
-	counts := make(map[string]int)
-	for i := range resources {
-		status := string(resources[i].HealthStatus)
-		if status == "" {
-			status = "Unknown"
-		}
-		counts[status]++
-	}
-	return counts
-}
-
-// ---------------------------------------------------------------------------
 // WorkflowRun
 // ---------------------------------------------------------------------------
 
@@ -638,6 +607,18 @@ func clusterTraitSummary(ct openchoreov1alpha1.ClusterTrait) map[string]any {
 
 func clusterTraitDetail(ct *openchoreov1alpha1.ClusterTrait) map[string]any {
 	return extractCommonMeta(ct)
+}
+
+// ---------------------------------------------------------------------------
+// ClusterWorkflow
+// ---------------------------------------------------------------------------
+
+func clusterWorkflowSummary(cwf openchoreov1alpha1.ClusterWorkflow) map[string]any {
+	return extractCommonMeta(&cwf)
+}
+
+func clusterWorkflowDetail(cwf *openchoreov1alpha1.ClusterWorkflow) map[string]any {
+	return extractCommonMeta(cwf)
 }
 
 // ---------------------------------------------------------------------------

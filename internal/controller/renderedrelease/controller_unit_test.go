@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package release
+package renderedrelease
 
 import (
 	"fmt"
@@ -73,7 +73,7 @@ func TestAddJitter(t *testing.T) {
 
 func TestGetStableRequeueInterval(t *testing.T) {
 	t.Run("nil interval defaults to 5m with jitter", func(t *testing.T) {
-		release := &openchoreov1alpha1.Release{}
+		release := &openchoreov1alpha1.RenderedRelease{}
 		result := getStableRequeueInterval(release)
 		if result < 5*time.Minute || result >= 6*time.Minute {
 			t.Errorf("expected result in [5m, 6m), got %v", result)
@@ -81,8 +81,8 @@ func TestGetStableRequeueInterval(t *testing.T) {
 	})
 
 	t.Run("interval set to 0 returns zero", func(t *testing.T) {
-		release := &openchoreov1alpha1.Release{
-			Spec: openchoreov1alpha1.ReleaseSpec{
+		release := &openchoreov1alpha1.RenderedRelease{
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{
 				Interval: &metav1.Duration{Duration: 0},
 			},
 		}
@@ -93,8 +93,8 @@ func TestGetStableRequeueInterval(t *testing.T) {
 	})
 
 	t.Run("custom interval uses it as base with 20pct jitter", func(t *testing.T) {
-		release := &openchoreov1alpha1.Release{
-			Spec: openchoreov1alpha1.ReleaseSpec{
+		release := &openchoreov1alpha1.RenderedRelease{
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{
 				Interval: &metav1.Duration{Duration: 10 * time.Minute},
 			},
 		}
@@ -112,7 +112,7 @@ func TestGetStableRequeueInterval(t *testing.T) {
 
 func TestGetProgressingRequeueInterval(t *testing.T) {
 	t.Run("nil interval defaults to 10s with jitter", func(t *testing.T) {
-		release := &openchoreov1alpha1.Release{}
+		release := &openchoreov1alpha1.RenderedRelease{}
 		result := getProgressingRequeueInterval(release)
 		if result < 10*time.Second || result >= 12*time.Second {
 			t.Errorf("expected result in [10s, 12s), got %v", result)
@@ -120,8 +120,8 @@ func TestGetProgressingRequeueInterval(t *testing.T) {
 	})
 
 	t.Run("interval set to 0 returns zero", func(t *testing.T) {
-		release := &openchoreov1alpha1.Release{
-			Spec: openchoreov1alpha1.ReleaseSpec{
+		release := &openchoreov1alpha1.RenderedRelease{
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{
 				ProgressingInterval: &metav1.Duration{Duration: 0},
 			},
 		}
@@ -132,8 +132,8 @@ func TestGetProgressingRequeueInterval(t *testing.T) {
 	})
 
 	t.Run("custom interval uses it as base with 20pct jitter", func(t *testing.T) {
-		release := &openchoreov1alpha1.Release{
-			Spec: openchoreov1alpha1.ReleaseSpec{
+		release := &openchoreov1alpha1.RenderedRelease{
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{
 				ProgressingInterval: &metav1.Duration{Duration: 30 * time.Second},
 			},
 		}
@@ -154,7 +154,7 @@ func TestFindStaleResources(t *testing.T) {
 
 	makeObj := func(resourceID string) *unstructured.Unstructured {
 		obj := &unstructured.Unstructured{}
-		obj.SetLabels(map[string]string{labels.LabelKeyReleaseResourceID: resourceID})
+		obj.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: resourceID})
 		return obj
 	}
 
@@ -172,7 +172,7 @@ func TestFindStaleResources(t *testing.T) {
 		if len(stale) != 1 {
 			t.Fatalf("expected 1 stale, got %d", len(stale))
 		}
-		if stale[0].GetLabels()[labels.LabelKeyReleaseResourceID] != "res-1" {
+		if stale[0].GetLabels()[labels.LabelKeyRenderedReleaseResourceID] != "res-1" {
 			t.Error("wrong stale resource returned")
 		}
 	})
@@ -202,7 +202,7 @@ func TestFindStaleResources(t *testing.T) {
 		if len(stale) != 1 {
 			t.Fatalf("expected 1 stale, got %d", len(stale))
 		}
-		if stale[0].GetLabels()[labels.LabelKeyReleaseResourceID] != "remove" {
+		if stale[0].GetLabels()[labels.LabelKeyRenderedReleaseResourceID] != "remove" {
 			t.Error("wrong stale resource")
 		}
 	})
@@ -904,7 +904,7 @@ func TestMakeDesiredResources(t *testing.T) {
 	r := &Reconciler{}
 
 	t.Run("empty resources returns empty slice", func(t *testing.T) {
-		release := &openchoreov1alpha1.Release{
+		release := &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{Name: "r1", Namespace: "default", UID: "uid-1"},
 		}
 		result, err := r.makeDesiredResources(release)
@@ -917,9 +917,9 @@ func TestMakeDesiredResources(t *testing.T) {
 	})
 
 	t.Run("resource with valid JSON gets tracking labels", func(t *testing.T) {
-		release := &openchoreov1alpha1.Release{
+		release := &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{Name: "my-release", Namespace: "cp-ns", UID: "release-uid-abc"},
-			Spec: openchoreov1alpha1.ReleaseSpec{
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{
 				Resources: []openchoreov1alpha1.Resource{
 					{
 						ID:     "res-configmap",
@@ -938,11 +938,11 @@ func TestMakeDesiredResources(t *testing.T) {
 
 		lbls := result[0].GetLabels()
 		checks := map[string]string{
-			labels.LabelKeyManagedBy:         ControllerName,
-			labels.LabelKeyReleaseResourceID: "res-configmap",
-			labels.LabelKeyReleaseUID:        "release-uid-abc",
-			labels.LabelKeyReleaseName:       "my-release",
-			labels.LabelKeyReleaseNamespace:  "cp-ns",
+			labels.LabelKeyManagedBy:                 ControllerName,
+			labels.LabelKeyRenderedReleaseResourceID: "res-configmap",
+			labels.LabelKeyRenderedReleaseUID:        "release-uid-abc",
+			labels.LabelKeyRenderedReleaseName:       "my-release",
+			labels.LabelKeyRenderedReleaseNamespace:  "cp-ns",
 		}
 		for key, want := range checks {
 			if got := lbls[key]; got != want {
@@ -952,9 +952,9 @@ func TestMakeDesiredResources(t *testing.T) {
 	})
 
 	t.Run("existing labels in resource are preserved", func(t *testing.T) {
-		release := &openchoreov1alpha1.Release{
+		release := &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{Name: "r2", Namespace: "ns", UID: "uid-2"},
-			Spec: openchoreov1alpha1.ReleaseSpec{
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{
 				Resources: []openchoreov1alpha1.Resource{
 					{
 						ID:     "res-x",
@@ -976,8 +976,8 @@ func TestMakeDesiredResources(t *testing.T) {
 	})
 
 	t.Run("resource with invalid JSON returns error", func(t *testing.T) {
-		release := &openchoreov1alpha1.Release{
-			Spec: openchoreov1alpha1.ReleaseSpec{
+		release := &openchoreov1alpha1.RenderedRelease{
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{
 				Resources: []openchoreov1alpha1.Resource{
 					{
 						ID:     "bad",
@@ -993,9 +993,9 @@ func TestMakeDesiredResources(t *testing.T) {
 	})
 
 	t.Run("multiple resources all get tracking labels", func(t *testing.T) {
-		release := &openchoreov1alpha1.Release{
+		release := &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{Name: "r3", Namespace: "ns3", UID: "uid-3"},
-			Spec: openchoreov1alpha1.ReleaseSpec{
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{
 				Resources: []openchoreov1alpha1.Resource{
 					{ID: "a", Object: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"a"}}`)}},
 					{ID: "b", Object: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"b"}}`)}},
@@ -1023,11 +1023,11 @@ func TestMakeDesiredResources(t *testing.T) {
 
 func TestMakeDesiredNamespaces(t *testing.T) {
 	r := &Reconciler{}
-	release := &openchoreov1alpha1.Release{
+	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-release", Namespace: "cp-ns", UID: "uid-xyz"},
-		Spec: openchoreov1alpha1.ReleaseSpec{
+		Spec: openchoreov1alpha1.RenderedReleaseSpec{
 			EnvironmentName: "prod-env",
-			Owner:           openchoreov1alpha1.ReleaseOwner{ProjectName: "proj-alpha"},
+			Owner:           openchoreov1alpha1.RenderedReleaseOwner{ProjectName: "proj-alpha"},
 		},
 	}
 
@@ -1059,13 +1059,13 @@ func TestMakeDesiredNamespaces(t *testing.T) {
 			t.Errorf("expected namespace name dp-target-ns, got %s", ns.Name)
 		}
 		checkLabels := map[string]string{
-			labels.LabelKeyCreatedBy:             ControllerName,
-			labels.LabelKeyReleaseName:           "my-release",
-			labels.LabelKeyReleaseNamespace:      "cp-ns",
-			labels.LabelKeyReleaseUID:            "uid-xyz",
-			labels.LabelKeyControlPlaneNamespace: "cp-ns",
-			labels.LabelKeyEnvironmentName:       "prod-env",
-			labels.LabelKeyProjectName:           "proj-alpha",
+			labels.LabelKeyCreatedBy:                ControllerName,
+			labels.LabelKeyRenderedReleaseName:      "my-release",
+			labels.LabelKeyRenderedReleaseNamespace: "cp-ns",
+			labels.LabelKeyRenderedReleaseUID:       "uid-xyz",
+			labels.LabelKeyControlPlaneNamespace:    "cp-ns",
+			labels.LabelKeyEnvironmentName:          "prod-env",
+			labels.LabelKeyProjectName:              "proj-alpha",
 		}
 		for key, want := range checkLabels {
 			if got := ns.Labels[key]; got != want {
@@ -1098,11 +1098,11 @@ func TestMakeDesiredNamespaces(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// NewReleaseFinalizingCondition / NewReleaseCleanupFailedCondition
+// NewRenderedReleaseFinalizingCondition / NewRenderedReleaseCleanupFailedCondition
 // ─────────────────────────────────────────────────────────────
 
-func TestNewReleaseFinalizingCondition(t *testing.T) {
-	cond := NewReleaseFinalizingCondition(42)
+func TestNewRenderedReleaseFinalizingCondition(t *testing.T) {
+	cond := NewRenderedReleaseFinalizingCondition(42)
 
 	if cond.Type != string(ConditionFinalizing) {
 		t.Errorf("expected type %s, got %s", ConditionFinalizing, cond.Type)
@@ -1118,9 +1118,9 @@ func TestNewReleaseFinalizingCondition(t *testing.T) {
 	}
 }
 
-func TestNewReleaseCleanupFailedCondition(t *testing.T) {
+func TestNewRenderedReleaseCleanupFailedCondition(t *testing.T) {
 	testErr := fmt.Errorf("connection refused")
-	cond := NewReleaseCleanupFailedCondition(7, testErr)
+	cond := NewRenderedReleaseCleanupFailedCondition(7, testErr)
 
 	if cond.Type != string(ConditionFinalizing) {
 		t.Errorf("expected type %s, got %s", ConditionFinalizing, cond.Type)

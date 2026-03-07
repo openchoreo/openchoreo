@@ -654,6 +654,37 @@ This command allows you to:
   occ clustertrait delete ingress`,
 	}
 
+	ClusterWorkflow = Command{
+		Use:     "clusterworkflow",
+		Aliases: []string{"clusterworkflows"},
+		Short:   "Manage cluster workflows",
+		Long:    `Manage cluster-scoped workflows for OpenChoreo.`,
+	}
+
+	ListClusterWorkflow = Command{
+		Use:   "list",
+		Short: "List cluster workflows",
+		Long:  `List all cluster-scoped workflows available across the cluster.`,
+		Example: `  # List all cluster workflows
+  occ clusterworkflow list`,
+	}
+
+	GetClusterWorkflow = Command{
+		Use:   "get [CLUSTER_WORKFLOW_NAME]",
+		Short: "Get a cluster workflow",
+		Long:  `Get a cluster workflow and display its details in YAML format.`,
+		Example: `  # Get a cluster workflow
+  occ clusterworkflow get build-go`,
+	}
+
+	DeleteClusterWorkflow = Command{
+		Use:   "delete [CLUSTER_WORKFLOW_NAME]",
+		Short: "Delete a cluster workflow",
+		Long:  `Delete a cluster workflow by name.`,
+		Example: `  # Delete a cluster workflow
+  occ clusterworkflow delete build-go`,
+	}
+
 	ListWorkflow = Command{
 		Use:   "list",
 		Short: "List workflows",

@@ -154,8 +154,8 @@ func projectFixture(name string) *openchoreov1alpha1.Project {
 
 // releaseFixture returns a Release pre-labeled so that hasOwnedReleases
 // will match it for the given ReleaseBinding owner fields.
-func releaseFixture(name, namespace, project, component, envName string, extraFinalizers ...string) *openchoreov1alpha1.Release {
-	rel := &openchoreov1alpha1.Release{
+func releaseFixture(name, namespace, project, component, envName string, extraFinalizers ...string) *openchoreov1alpha1.RenderedRelease {
+	rel := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -165,8 +165,8 @@ func releaseFixture(name, namespace, project, component, envName string, extraFi
 				labels.LabelKeyEnvironmentName: envName,
 			},
 		},
-		Spec: openchoreov1alpha1.ReleaseSpec{
-			Owner: openchoreov1alpha1.ReleaseOwner{
+		Spec: openchoreov1alpha1.RenderedReleaseSpec{
+			Owner: openchoreov1alpha1.RenderedReleaseOwner{
 				ProjectName:   project,
 				ComponentName: component,
 			},
@@ -243,7 +243,7 @@ func forceDelete(name string) {
 
 // forceDeleteRelease strips all finalizers from a Release and then deletes it.
 func forceDeleteRelease(name string) {
-	rel := &openchoreov1alpha1.Release{}
+	rel := &openchoreov1alpha1.RenderedRelease{}
 	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: name}, rel); err != nil {
 		return
 	}
@@ -632,7 +632,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 				"first reconcile should request a requeue after creating the Release")
 
 			By("Verifying the dataplane Release object was created with the expected name")
-			createdRelease := &openchoreov1alpha1.Release{}
+			createdRelease := &openchoreov1alpha1.RenderedRelease{}
 			Expect(k8sClient.Get(ctx,
 				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
 				createdRelease,
@@ -796,7 +796,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 
 			By("Verifying the Release is marked for deletion")
 			Eventually(func() bool {
-				existing := &openchoreov1alpha1.Release{}
+				existing := &openchoreov1alpha1.RenderedRelease{}
 				if err := k8sClient.Get(ctx,
 					types.NamespacedName{Namespace: ns, Name: releaseName},
 					existing,
@@ -824,7 +824,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx,
 					types.NamespacedName{Namespace: ns, Name: releaseName},
-					&openchoreov1alpha1.Release{},
+					&openchoreov1alpha1.RenderedRelease{},
 				)
 				return apierrors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue(), "Release should be deleted")
@@ -957,7 +957,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 
 			By("Verifying the Release is marked for deletion but blocked by its finalizer")
 			Eventually(func(g Gomega) {
-				blockedRelease := &openchoreov1alpha1.Release{}
+				blockedRelease := &openchoreov1alpha1.RenderedRelease{}
 				g.Expect(k8sClient.Get(ctx,
 					types.NamespacedName{Namespace: ns, Name: releaseName},
 					blockedRelease,
@@ -987,7 +987,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			}
 
 			By("Simulating the external process removing the Release's blocking finalizer")
-			blockedRelease := &openchoreov1alpha1.Release{}
+			blockedRelease := &openchoreov1alpha1.RenderedRelease{}
 			Expect(k8sClient.Get(ctx,
 				types.NamespacedName{Namespace: ns, Name: releaseName},
 				blockedRelease,
@@ -999,7 +999,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx,
 					types.NamespacedName{Namespace: ns, Name: releaseName},
-					&openchoreov1alpha1.Release{},
+					&openchoreov1alpha1.RenderedRelease{},
 				)
 				return apierrors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
@@ -1064,14 +1064,14 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			By("Pre-creating a Release with the expected name but NO owner reference")
 			// The Release has no ownerReferences → HasOwnerReference will return false
 			// → controller returns "not owned by this ReleaseBinding" error
-			Expect(k8sClient.Create(ctx, &openchoreov1alpha1.Release{
+			Expect(k8sClient.Create(ctx, &openchoreov1alpha1.RenderedRelease{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      releaseName,
 					Namespace: ns,
 					// Deliberately NO owner reference set
 				},
-				Spec: openchoreov1alpha1.ReleaseSpec{
-					Owner: openchoreov1alpha1.ReleaseOwner{
+				Spec: openchoreov1alpha1.RenderedReleaseSpec{
+					Owner: openchoreov1alpha1.RenderedReleaseOwner{
 						ProjectName:   project,
 						ComponentName: compName,
 					},

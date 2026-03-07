@@ -321,19 +321,6 @@ func (h *MCPHandler) GetComponentSchema(
 	return h.services.ComponentService.GetComponentSchema(ctx, namespaceName, componentName)
 }
 
-func (h *MCPHandler) GetEnvironmentRelease(
-	ctx context.Context, namespaceName, componentName, environmentName string,
-) (any, error) {
-	result, err := h.services.ReleaseService.ListReleases(ctx, namespaceName, componentName, environmentName, services.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	if len(result.Items) == 0 {
-		return nil, nil
-	}
-	return releaseDetail(&result.Items[0]), nil
-}
-
 func (h *MCPHandler) PatchComponent(
 	ctx context.Context, namespaceName, componentName string, req *gen.PatchComponentRequest,
 ) (any, error) {
@@ -499,6 +486,28 @@ func (h *MCPHandler) GetClusterTrait(ctx context.Context, ctName string) (any, e
 
 func (h *MCPHandler) GetClusterTraitSchema(ctx context.Context, ctName string) (any, error) {
 	return h.services.ClusterTraitService.GetClusterTraitSchema(ctx, ctName)
+}
+
+// ClusterWorkflow operations
+
+func (h *MCPHandler) ListClusterWorkflows(ctx context.Context, opts tools.ListOpts) (any, error) {
+	result, err := h.services.ClusterWorkflowService.ListClusterWorkflows(ctx, toServiceListOptions(opts))
+	if err != nil {
+		return nil, err
+	}
+	return wrapTransformedList("cluster_workflows", result.Items, result.NextCursor, clusterWorkflowSummary), nil
+}
+
+func (h *MCPHandler) GetClusterWorkflow(ctx context.Context, cwfName string) (any, error) {
+	cwf, err := h.services.ClusterWorkflowService.GetClusterWorkflow(ctx, cwfName)
+	if err != nil {
+		return nil, err
+	}
+	return clusterWorkflowDetail(cwf), nil
+}
+
+func (h *MCPHandler) GetClusterWorkflowSchema(ctx context.Context, cwfName string) (any, error) {
+	return h.services.ClusterWorkflowService.GetClusterWorkflowSchema(ctx, cwfName)
 }
 
 // Workflow operations

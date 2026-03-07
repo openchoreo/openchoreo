@@ -372,10 +372,10 @@ type ReleaseBindingResponse struct {
 	Status                    string                 `json:"status,omitempty"`
 }
 
-// ReleaseResponse represents a Release in API responses
+// ReleaseResponse represents a RenderedRelease in API responses
 type ReleaseResponse struct {
-	Spec   openchoreov1alpha1.ReleaseSpec   `json:"spec"`
-	Status openchoreov1alpha1.ReleaseStatus `json:"status"`
+	Spec   openchoreov1alpha1.RenderedReleaseSpec   `json:"spec"`
+	Status openchoreov1alpha1.RenderedReleaseStatus `json:"status"`
 }
 
 // ResourceRef identifies a parent resource in the resource tree

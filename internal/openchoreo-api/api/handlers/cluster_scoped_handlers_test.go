@@ -19,6 +19,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	clustertraitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait"
+	clusterworkflowsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterworkflow"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
@@ -310,6 +311,294 @@ func TestGetClusterTraitSchemaHandler(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if _, ok := resp.(gen.GetClusterTraitSchema403JSONResponse); !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+	})
+}
+
+// --- ClusterWorkflow handler helpers and tests ---
+
+func newClusterWorkflowService(t *testing.T, objects []client.Object, pdp authzcore.PDP) clusterworkflowsvc.Service {
+	t.Helper()
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(newTestScheme(t)).
+		WithObjects(objects...).
+		Build()
+	return clusterworkflowsvc.NewServiceWithAuthz(fakeClient, pdp, slog.Default())
+}
+
+func newHandlerWithClusterWorkflowService(cwfSvc clusterworkflowsvc.Service) *Handler {
+	return &Handler{
+		services: &handlerservices.Services{ClusterWorkflowService: cwfSvc},
+		logger:   slog.Default(),
+	}
+}
+
+func TestListClusterWorkflowsHandler(t *testing.T) {
+	ctx := testContext()
+	cwf := &openchoreov1alpha1.ClusterWorkflow{
+		ObjectMeta: metav1.ObjectMeta{Name: "build-go"},
+		Spec: openchoreov1alpha1.ClusterWorkflowSpec{
+			RunTemplate: &runtime.RawExtension{Raw: []byte(`{"kind":"Workflow"}`)},
+		},
+	}
+
+	t.Run("returns items when authorized", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, []client.Object{cwf}, &allowAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		resp, err := h.ListClusterWorkflows(ctx, gen.ListClusterWorkflowsRequestObject{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		typed, ok := resp.(gen.ListClusterWorkflows200JSONResponse)
+		if !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+		if len(typed.Items) != 1 {
+			t.Fatalf("expected 1 item, got %d", len(typed.Items))
+		}
+	})
+
+	t.Run("filters unauthorized items", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, []client.Object{cwf}, &denyAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		resp, err := h.ListClusterWorkflows(ctx, gen.ListClusterWorkflowsRequestObject{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		typed, ok := resp.(gen.ListClusterWorkflows200JSONResponse)
+		if !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+		if len(typed.Items) != 0 {
+			t.Fatalf("expected 0 items, got %d", len(typed.Items))
+		}
+	})
+}
+
+func TestGetClusterWorkflowHandler(t *testing.T) {
+	ctx := testContext()
+	cwf := &openchoreov1alpha1.ClusterWorkflow{
+		ObjectMeta: metav1.ObjectMeta{Name: "build-go"},
+		Spec: openchoreov1alpha1.ClusterWorkflowSpec{
+			RunTemplate: &runtime.RawExtension{Raw: []byte(`{"kind":"Workflow"}`)},
+		},
+	}
+
+	t.Run("returns workflow when authorized", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, []client.Object{cwf}, &allowAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		resp, err := h.GetClusterWorkflow(ctx, gen.GetClusterWorkflowRequestObject{ClusterWorkflowName: "build-go"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.GetClusterWorkflow200JSONResponse); !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+	})
+
+	t.Run("returns 404 when not found", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		resp, err := h.GetClusterWorkflow(ctx, gen.GetClusterWorkflowRequestObject{ClusterWorkflowName: "missing"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.GetClusterWorkflow404JSONResponse); !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+	})
+
+	t.Run("returns 403 when forbidden", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, []client.Object{cwf}, &denyAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		resp, err := h.GetClusterWorkflow(ctx, gen.GetClusterWorkflowRequestObject{ClusterWorkflowName: "build-go"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.GetClusterWorkflow403JSONResponse); !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+	})
+}
+
+func TestCreateClusterWorkflowHandler(t *testing.T) {
+	ctx := testContext()
+
+	t.Run("creates successfully when authorized", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		body := gen.ClusterWorkflow{}
+		bodyBytes, _ := json.Marshal(map[string]any{
+			"apiVersion": "openchoreo.dev/v1alpha1",
+			"kind":       "ClusterWorkflow",
+			"metadata":   map[string]any{"name": "build-go"},
+			"spec": map[string]any{
+				"runTemplate": map[string]any{"kind": "Workflow"},
+			},
+		})
+		_ = json.Unmarshal(bodyBytes, &body)
+
+		resp, err := h.CreateClusterWorkflow(ctx, gen.CreateClusterWorkflowRequestObject{Body: &body})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.CreateClusterWorkflow201JSONResponse); !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+	})
+
+	t.Run("returns 400 when body is nil", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		resp, err := h.CreateClusterWorkflow(ctx, gen.CreateClusterWorkflowRequestObject{Body: nil})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.CreateClusterWorkflow400JSONResponse); !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+	})
+
+	t.Run("returns 403 when forbidden", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, nil, &denyAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		body := gen.ClusterWorkflow{}
+		bodyBytes, _ := json.Marshal(map[string]any{
+			"apiVersion": "openchoreo.dev/v1alpha1",
+			"kind":       "ClusterWorkflow",
+			"metadata":   map[string]any{"name": "build-go"},
+			"spec": map[string]any{
+				"runTemplate": map[string]any{"kind": "Workflow"},
+			},
+		})
+		_ = json.Unmarshal(bodyBytes, &body)
+
+		resp, err := h.CreateClusterWorkflow(ctx, gen.CreateClusterWorkflowRequestObject{Body: &body})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.CreateClusterWorkflow403JSONResponse); !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+	})
+}
+
+func TestDeleteClusterWorkflowHandler(t *testing.T) {
+	ctx := testContext()
+	cwf := &openchoreov1alpha1.ClusterWorkflow{
+		ObjectMeta: metav1.ObjectMeta{Name: "build-go"},
+		Spec: openchoreov1alpha1.ClusterWorkflowSpec{
+			RunTemplate: &runtime.RawExtension{Raw: []byte(`{"kind":"Workflow"}`)},
+		},
+	}
+
+	t.Run("deletes successfully when authorized", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, []client.Object{cwf}, &allowAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		resp, err := h.DeleteClusterWorkflow(ctx, gen.DeleteClusterWorkflowRequestObject{ClusterWorkflowName: "build-go"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.DeleteClusterWorkflow204Response); !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+	})
+
+	t.Run("returns 404 when not found", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		resp, err := h.DeleteClusterWorkflow(ctx, gen.DeleteClusterWorkflowRequestObject{ClusterWorkflowName: "missing"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.DeleteClusterWorkflow404JSONResponse); !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+	})
+
+	t.Run("returns 403 when forbidden", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, []client.Object{cwf}, &denyAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		resp, err := h.DeleteClusterWorkflow(ctx, gen.DeleteClusterWorkflowRequestObject{ClusterWorkflowName: "build-go"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.DeleteClusterWorkflow403JSONResponse); !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+	})
+}
+
+func TestGetClusterWorkflowSchemaHandler(t *testing.T) {
+	ctx := testContext()
+	paramsRaw, _ := json.Marshal(map[string]any{
+		"dockerContext": "string",
+	})
+
+	cwf := &openchoreov1alpha1.ClusterWorkflow{
+		ObjectMeta: metav1.ObjectMeta{Name: "build-go"},
+		Spec: openchoreov1alpha1.ClusterWorkflowSpec{
+			RunTemplate: &runtime.RawExtension{Raw: []byte(`{"kind":"Workflow"}`)},
+			Schema: &openchoreov1alpha1.WorkflowSchema{
+				Parameters: &runtime.RawExtension{Raw: paramsRaw},
+			},
+		},
+	}
+
+	t.Run("returns schema when authorized", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, []client.Object{cwf}, &allowAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		resp, err := h.GetClusterWorkflowSchema(ctx, gen.GetClusterWorkflowSchemaRequestObject{ClusterWorkflowName: "build-go"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		typed, ok := resp.(gen.GetClusterWorkflowSchema200JSONResponse)
+		if !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+		if len(typed) == 0 {
+			t.Fatalf("expected non-empty schema response")
+		}
+	})
+
+	t.Run("returns 404 when not found", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		resp, err := h.GetClusterWorkflowSchema(ctx, gen.GetClusterWorkflowSchemaRequestObject{ClusterWorkflowName: "missing"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.GetClusterWorkflowSchema404JSONResponse); !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+	})
+
+	t.Run("returns 403 when forbidden", func(t *testing.T) {
+		svc := newClusterWorkflowService(t, []client.Object{cwf}, &denyAllPDP{})
+		h := newHandlerWithClusterWorkflowService(svc)
+
+		resp, err := h.GetClusterWorkflowSchema(ctx, gen.GetClusterWorkflowSchemaRequestObject{ClusterWorkflowName: "build-go"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.GetClusterWorkflowSchema403JSONResponse); !ok {
 			t.Fatalf("unexpected response type: %T", resp)
 		}
 	})

@@ -285,50 +285,6 @@ var _ = Describe("WorkflowRun Controller Integration", func() {
 	})
 
 	// ---------------------------------------------------------------------------
-	// Reconcile: isWorkloadUpdated short-circuits
-	// ---------------------------------------------------------------------------
-
-	Context("WorkloadUpdated condition causes early return", func() {
-		const resourceName = "int-test-workload-updated"
-		nn := types.NamespacedName{Name: resourceName, Namespace: "default"}
-
-		BeforeEach(func() {
-			wfr := &openchoreodevv1alpha1.WorkflowRun{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       resourceName,
-					Namespace:  "default",
-					Finalizers: []string{WorkflowRunCleanupFinalizer},
-				},
-				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
-					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "test-workflow"},
-				},
-			}
-			Expect(k8sClient.Create(ctx, wfr)).To(Succeed())
-
-			By("Setting WorkloadUpdated condition via status update")
-			resource := &openchoreodevv1alpha1.WorkflowRun{}
-			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
-			meta.SetStatusCondition(&resource.Status.Conditions, metav1.Condition{
-				Type:               string(ConditionWorkloadUpdated),
-				Status:             metav1.ConditionTrue,
-				Reason:             string(ReasonWorkloadUpdated),
-				Message:            "Workload CR created/updated successfully",
-				ObservedGeneration: resource.Generation,
-			})
-			Expect(k8sClient.Status().Update(ctx, resource)).To(Succeed())
-		})
-
-		AfterEach(func() { forceDelete(ctx, nn) })
-
-		It("should return empty result without further processing", func() {
-			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
-			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(Equal(reconcile.Result{}))
-		})
-	})
-
-	// ---------------------------------------------------------------------------
 	// Finalizer lifecycle: add and remove
 	// ---------------------------------------------------------------------------
 

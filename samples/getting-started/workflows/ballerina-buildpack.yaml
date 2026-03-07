@@ -40,6 +40,10 @@ spec:
             value: ${metadata.labels['openchoreo.dev/component']}
           - name: project-name
             value: ${metadata.labels['openchoreo.dev/project']}
+          - name: workflowrun-name
+            value: ${metadata.workflowRunName}
+          - name: namespace-name
+            value: ${metadata.namespaceName}
           - name: git-repo
             value: ${parameters.repository.url}
           - name: branch
@@ -93,6 +97,8 @@ spec:
                   parameters:
                     - name: image
                       value: '{{steps.publish-image.outputs.parameters.image}}'
+                    - name: run-name
+                      value: '{{workflow.parameters.workflowrun-name}}'
       volumeClaimTemplates:
         - metadata:
             name: workspace

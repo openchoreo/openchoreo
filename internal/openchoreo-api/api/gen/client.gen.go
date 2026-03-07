@@ -242,6 +242,28 @@ type ClientInterface interface {
 	// GetClusterTraitSchema request
 	GetClusterTraitSchema(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListClusterWorkflows request
+	ListClusterWorkflows(ctx context.Context, params *ListClusterWorkflowsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateClusterWorkflowWithBody request with any body
+	CreateClusterWorkflowWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateClusterWorkflow(ctx context.Context, body CreateClusterWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteClusterWorkflow request
+	DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetClusterWorkflow request
+	GetClusterWorkflow(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateClusterWorkflowWithBody request with any body
+	UpdateClusterWorkflowWithBody(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateClusterWorkflow(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, body UpdateClusterWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetClusterWorkflowSchema request
+	GetClusterWorkflowSchema(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListNamespaces request
 	ListNamespaces(ctx context.Context, params *ListNamespacesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -496,12 +518,6 @@ type ClientInterface interface {
 	// GetReleaseBindingK8sResourceTree request
 	GetReleaseBindingK8sResourceTree(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListReleases request
-	ListReleases(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetRelease request
-	GetRelease(ctx context.Context, namespaceName NamespaceNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListNamespaceRoleBindings request
 	ListNamespaceRoleBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -591,6 +607,11 @@ type ClientInterface interface {
 
 	// GetWorkflowRun request
 	GetWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateWorkflowRunWithBody request with any body
+	UpdateWorkflowRunWithBody(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, body UpdateWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetWorkflowRunEvents request
 	GetWorkflowRunEvents(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, params *GetWorkflowRunEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1336,6 +1357,102 @@ func (c *Client) UpdateClusterTrait(ctx context.Context, clusterTraitName Cluste
 
 func (c *Client) GetClusterTraitSchema(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetClusterTraitSchemaRequest(c.Server, clusterTraitName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListClusterWorkflows(ctx context.Context, params *ListClusterWorkflowsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListClusterWorkflowsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterWorkflowWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterWorkflowRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterWorkflow(ctx context.Context, body CreateClusterWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterWorkflowRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteClusterWorkflowRequest(c.Server, clusterWorkflowName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetClusterWorkflow(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterWorkflowRequest(c.Server, clusterWorkflowName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterWorkflowWithBody(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterWorkflowRequestWithBody(c.Server, clusterWorkflowName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterWorkflow(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, body UpdateClusterWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterWorkflowRequest(c.Server, clusterWorkflowName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetClusterWorkflowSchema(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterWorkflowSchemaRequest(c.Server, clusterWorkflowName)
 	if err != nil {
 		return nil, err
 	}
@@ -2462,30 +2579,6 @@ func (c *Client) GetReleaseBindingK8sResourceTree(ctx context.Context, namespace
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListReleases(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListReleasesRequest(c.Server, namespaceName, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetRelease(ctx context.Context, namespaceName NamespaceNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetReleaseRequest(c.Server, namespaceName, releaseName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) ListNamespaceRoleBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListNamespaceRoleBindingsRequest(c.Server, namespaceName, params)
 	if err != nil {
@@ -2872,6 +2965,30 @@ func (c *Client) CreateWorkflowRun(ctx context.Context, namespaceName NamespaceN
 
 func (c *Client) GetWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWorkflowRunRequest(c.Server, namespaceName, runName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateWorkflowRunWithBody(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateWorkflowRunRequestWithBody(c.Server, namespaceName, runName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, body UpdateWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateWorkflowRunRequest(c.Server, namespaceName, runName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4996,6 +5113,260 @@ func NewGetClusterTraitSchemaRequest(server string, clusterTraitName ClusterTrai
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/clustertraits/%s/schema", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListClusterWorkflowsRequest generates requests for ListClusterWorkflows
+func NewListClusterWorkflowsRequest(server string, params *ListClusterWorkflowsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterworkflows")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateClusterWorkflowRequest calls the generic CreateClusterWorkflow builder with application/json body
+func NewCreateClusterWorkflowRequest(server string, body CreateClusterWorkflowJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateClusterWorkflowRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateClusterWorkflowRequestWithBody generates requests for CreateClusterWorkflow with any type of body
+func NewCreateClusterWorkflowRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterworkflows")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteClusterWorkflowRequest generates requests for DeleteClusterWorkflow
+func NewDeleteClusterWorkflowRequest(server string, clusterWorkflowName ClusterWorkflowNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "clusterWorkflowName", runtime.ParamLocationPath, clusterWorkflowName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterworkflows/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetClusterWorkflowRequest generates requests for GetClusterWorkflow
+func NewGetClusterWorkflowRequest(server string, clusterWorkflowName ClusterWorkflowNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "clusterWorkflowName", runtime.ParamLocationPath, clusterWorkflowName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterworkflows/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateClusterWorkflowRequest calls the generic UpdateClusterWorkflow builder with application/json body
+func NewUpdateClusterWorkflowRequest(server string, clusterWorkflowName ClusterWorkflowNameParam, body UpdateClusterWorkflowJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateClusterWorkflowRequestWithBody(server, clusterWorkflowName, "application/json", bodyReader)
+}
+
+// NewUpdateClusterWorkflowRequestWithBody generates requests for UpdateClusterWorkflow with any type of body
+func NewUpdateClusterWorkflowRequestWithBody(server string, clusterWorkflowName ClusterWorkflowNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "clusterWorkflowName", runtime.ParamLocationPath, clusterWorkflowName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterworkflows/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetClusterWorkflowSchemaRequest generates requests for GetClusterWorkflowSchema
+func NewGetClusterWorkflowSchemaRequest(server string, clusterWorkflowName ClusterWorkflowNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "clusterWorkflowName", runtime.ParamLocationPath, clusterWorkflowName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterworkflows/%s/schema", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -8692,151 +9063,6 @@ func NewGetReleaseBindingK8sResourceTreeRequest(server string, namespaceName Nam
 	return req, nil
 }
 
-// NewListReleasesRequest generates requests for ListReleases
-func NewListReleasesRequest(server string, namespaceName NamespaceNameParam, params *ListReleasesParams) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/releases", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Component != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "component", runtime.ParamLocationQuery, *params.Component); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Environment != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "environment", runtime.ParamLocationQuery, *params.Environment); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Cursor != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetReleaseRequest generates requests for GetRelease
-func NewGetReleaseRequest(server string, namespaceName NamespaceNameParam, releaseName ReleaseNameParam) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "releaseName", runtime.ParamLocationPath, releaseName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/releases/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewListNamespaceRoleBindingsRequest generates requests for ListNamespaceRoleBindings
 func NewListNamespaceRoleBindingsRequest(server string, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams) (*http.Request, error) {
 	var err error
@@ -10070,6 +10296,60 @@ func NewGetWorkflowRunRequest(server string, namespaceName NamespaceNameParam, r
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUpdateWorkflowRunRequest calls the generic UpdateWorkflowRun builder with application/json body
+func NewUpdateWorkflowRunRequest(server string, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, body UpdateWorkflowRunJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateWorkflowRunRequestWithBody(server, namespaceName, runName, "application/json", bodyReader)
+}
+
+// NewUpdateWorkflowRunRequestWithBody generates requests for UpdateWorkflowRun with any type of body
+func NewUpdateWorkflowRunRequestWithBody(server string, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "runName", runtime.ParamLocationPath, runName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflowruns/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -11354,6 +11634,28 @@ type ClientWithResponsesInterface interface {
 	// GetClusterTraitSchemaWithResponse request
 	GetClusterTraitSchemaWithResponse(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*GetClusterTraitSchemaResp, error)
 
+	// ListClusterWorkflowsWithResponse request
+	ListClusterWorkflowsWithResponse(ctx context.Context, params *ListClusterWorkflowsParams, reqEditors ...RequestEditorFn) (*ListClusterWorkflowsResp, error)
+
+	// CreateClusterWorkflowWithBodyWithResponse request with any body
+	CreateClusterWorkflowWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterWorkflowResp, error)
+
+	CreateClusterWorkflowWithResponse(ctx context.Context, body CreateClusterWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterWorkflowResp, error)
+
+	// DeleteClusterWorkflowWithResponse request
+	DeleteClusterWorkflowWithResponse(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterWorkflowResp, error)
+
+	// GetClusterWorkflowWithResponse request
+	GetClusterWorkflowWithResponse(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, reqEditors ...RequestEditorFn) (*GetClusterWorkflowResp, error)
+
+	// UpdateClusterWorkflowWithBodyWithResponse request with any body
+	UpdateClusterWorkflowWithBodyWithResponse(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterWorkflowResp, error)
+
+	UpdateClusterWorkflowWithResponse(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, body UpdateClusterWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterWorkflowResp, error)
+
+	// GetClusterWorkflowSchemaWithResponse request
+	GetClusterWorkflowSchemaWithResponse(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, reqEditors ...RequestEditorFn) (*GetClusterWorkflowSchemaResp, error)
+
 	// ListNamespacesWithResponse request
 	ListNamespacesWithResponse(ctx context.Context, params *ListNamespacesParams, reqEditors ...RequestEditorFn) (*ListNamespacesResp, error)
 
@@ -11608,12 +11910,6 @@ type ClientWithResponsesInterface interface {
 	// GetReleaseBindingK8sResourceTreeWithResponse request
 	GetReleaseBindingK8sResourceTreeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*GetReleaseBindingK8sResourceTreeResp, error)
 
-	// ListReleasesWithResponse request
-	ListReleasesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleasesParams, reqEditors ...RequestEditorFn) (*ListReleasesResp, error)
-
-	// GetReleaseWithResponse request
-	GetReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*GetReleaseResp, error)
-
 	// ListNamespaceRoleBindingsWithResponse request
 	ListNamespaceRoleBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListNamespaceRoleBindingsResp, error)
 
@@ -11703,6 +11999,11 @@ type ClientWithResponsesInterface interface {
 
 	// GetWorkflowRunWithResponse request
 	GetWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*GetWorkflowRunResp, error)
+
+	// UpdateWorkflowRunWithBodyWithResponse request with any body
+	UpdateWorkflowRunWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWorkflowRunResp, error)
+
+	UpdateWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, body UpdateWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateWorkflowRunResp, error)
 
 	// GetWorkflowRunEventsWithResponse request
 	GetWorkflowRunEventsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, params *GetWorkflowRunEventsParams, reqEditors ...RequestEditorFn) (*GetWorkflowRunEventsResp, error)
@@ -12848,6 +13149,163 @@ func (r GetClusterTraitSchemaResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetClusterTraitSchemaResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListClusterWorkflowsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterWorkflowList
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListClusterWorkflowsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListClusterWorkflowsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateClusterWorkflowResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ClusterWorkflow
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateClusterWorkflowResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateClusterWorkflowResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteClusterWorkflowResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteClusterWorkflowResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteClusterWorkflowResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetClusterWorkflowResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterWorkflow
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetClusterWorkflowResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetClusterWorkflowResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateClusterWorkflowResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterWorkflow
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateClusterWorkflowResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateClusterWorkflowResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetClusterWorkflowSchemaResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SchemaResponse
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetClusterWorkflowSchemaResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetClusterWorkflowSchemaResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -14640,58 +15098,6 @@ func (r GetReleaseBindingK8sResourceTreeResp) StatusCode() int {
 	return 0
 }
 
-type ListReleasesResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ReleaseList
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r ListReleasesResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListReleasesResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetReleaseResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *Release
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetReleaseResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetReleaseResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ListNamespaceRoleBindingsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -15319,6 +15725,33 @@ func (r GetWorkflowRunResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetWorkflowRunResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateWorkflowRunResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *WorkflowRun
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateWorkflowRunResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateWorkflowRunResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -16391,6 +16824,76 @@ func (c *ClientWithResponses) GetClusterTraitSchemaWithResponse(ctx context.Cont
 	return ParseGetClusterTraitSchemaResp(rsp)
 }
 
+// ListClusterWorkflowsWithResponse request returning *ListClusterWorkflowsResp
+func (c *ClientWithResponses) ListClusterWorkflowsWithResponse(ctx context.Context, params *ListClusterWorkflowsParams, reqEditors ...RequestEditorFn) (*ListClusterWorkflowsResp, error) {
+	rsp, err := c.ListClusterWorkflows(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListClusterWorkflowsResp(rsp)
+}
+
+// CreateClusterWorkflowWithBodyWithResponse request with arbitrary body returning *CreateClusterWorkflowResp
+func (c *ClientWithResponses) CreateClusterWorkflowWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterWorkflowResp, error) {
+	rsp, err := c.CreateClusterWorkflowWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterWorkflowResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateClusterWorkflowWithResponse(ctx context.Context, body CreateClusterWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterWorkflowResp, error) {
+	rsp, err := c.CreateClusterWorkflow(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterWorkflowResp(rsp)
+}
+
+// DeleteClusterWorkflowWithResponse request returning *DeleteClusterWorkflowResp
+func (c *ClientWithResponses) DeleteClusterWorkflowWithResponse(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterWorkflowResp, error) {
+	rsp, err := c.DeleteClusterWorkflow(ctx, clusterWorkflowName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteClusterWorkflowResp(rsp)
+}
+
+// GetClusterWorkflowWithResponse request returning *GetClusterWorkflowResp
+func (c *ClientWithResponses) GetClusterWorkflowWithResponse(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, reqEditors ...RequestEditorFn) (*GetClusterWorkflowResp, error) {
+	rsp, err := c.GetClusterWorkflow(ctx, clusterWorkflowName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetClusterWorkflowResp(rsp)
+}
+
+// UpdateClusterWorkflowWithBodyWithResponse request with arbitrary body returning *UpdateClusterWorkflowResp
+func (c *ClientWithResponses) UpdateClusterWorkflowWithBodyWithResponse(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterWorkflowResp, error) {
+	rsp, err := c.UpdateClusterWorkflowWithBody(ctx, clusterWorkflowName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterWorkflowResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateClusterWorkflowWithResponse(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, body UpdateClusterWorkflowJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterWorkflowResp, error) {
+	rsp, err := c.UpdateClusterWorkflow(ctx, clusterWorkflowName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterWorkflowResp(rsp)
+}
+
+// GetClusterWorkflowSchemaWithResponse request returning *GetClusterWorkflowSchemaResp
+func (c *ClientWithResponses) GetClusterWorkflowSchemaWithResponse(ctx context.Context, clusterWorkflowName ClusterWorkflowNameParam, reqEditors ...RequestEditorFn) (*GetClusterWorkflowSchemaResp, error) {
+	rsp, err := c.GetClusterWorkflowSchema(ctx, clusterWorkflowName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetClusterWorkflowSchemaResp(rsp)
+}
+
 // ListNamespacesWithResponse request returning *ListNamespacesResp
 func (c *ClientWithResponses) ListNamespacesWithResponse(ctx context.Context, params *ListNamespacesParams, reqEditors ...RequestEditorFn) (*ListNamespacesResp, error) {
 	rsp, err := c.ListNamespaces(ctx, params, reqEditors...)
@@ -17203,24 +17706,6 @@ func (c *ClientWithResponses) GetReleaseBindingK8sResourceTreeWithResponse(ctx c
 	return ParseGetReleaseBindingK8sResourceTreeResp(rsp)
 }
 
-// ListReleasesWithResponse request returning *ListReleasesResp
-func (c *ClientWithResponses) ListReleasesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleasesParams, reqEditors ...RequestEditorFn) (*ListReleasesResp, error) {
-	rsp, err := c.ListReleases(ctx, namespaceName, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListReleasesResp(rsp)
-}
-
-// GetReleaseWithResponse request returning *GetReleaseResp
-func (c *ClientWithResponses) GetReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*GetReleaseResp, error) {
-	rsp, err := c.GetRelease(ctx, namespaceName, releaseName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetReleaseResp(rsp)
-}
-
 // ListNamespaceRoleBindingsWithResponse request returning *ListNamespaceRoleBindingsResp
 func (c *ClientWithResponses) ListNamespaceRoleBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListNamespaceRoleBindingsResp, error) {
 	rsp, err := c.ListNamespaceRoleBindings(ctx, namespaceName, params, reqEditors...)
@@ -17507,6 +17992,23 @@ func (c *ClientWithResponses) GetWorkflowRunWithResponse(ctx context.Context, na
 		return nil, err
 	}
 	return ParseGetWorkflowRunResp(rsp)
+}
+
+// UpdateWorkflowRunWithBodyWithResponse request with arbitrary body returning *UpdateWorkflowRunResp
+func (c *ClientWithResponses) UpdateWorkflowRunWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWorkflowRunResp, error) {
+	rsp, err := c.UpdateWorkflowRunWithBody(ctx, namespaceName, runName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateWorkflowRunResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, body UpdateWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateWorkflowRunResp, error) {
+	rsp, err := c.UpdateWorkflowRun(ctx, namespaceName, runName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateWorkflowRunResp(rsp)
 }
 
 // GetWorkflowRunEventsWithResponse request returning *GetWorkflowRunEventsResp
@@ -19947,6 +20449,337 @@ func ParseGetClusterTraitSchemaResp(rsp *http.Response) (*GetClusterTraitSchemaR
 	}
 
 	response := &GetClusterTraitSchemaResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SchemaResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListClusterWorkflowsResp parses an HTTP response from a ListClusterWorkflowsWithResponse call
+func ParseListClusterWorkflowsResp(rsp *http.Response) (*ListClusterWorkflowsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListClusterWorkflowsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterWorkflowList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateClusterWorkflowResp parses an HTTP response from a CreateClusterWorkflowWithResponse call
+func ParseCreateClusterWorkflowResp(rsp *http.Response) (*CreateClusterWorkflowResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateClusterWorkflowResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ClusterWorkflow
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteClusterWorkflowResp parses an HTTP response from a DeleteClusterWorkflowWithResponse call
+func ParseDeleteClusterWorkflowResp(rsp *http.Response) (*DeleteClusterWorkflowResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteClusterWorkflowResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetClusterWorkflowResp parses an HTTP response from a GetClusterWorkflowWithResponse call
+func ParseGetClusterWorkflowResp(rsp *http.Response) (*GetClusterWorkflowResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetClusterWorkflowResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterWorkflow
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateClusterWorkflowResp parses an HTTP response from a UpdateClusterWorkflowWithResponse call
+func ParseUpdateClusterWorkflowResp(rsp *http.Response) (*UpdateClusterWorkflowResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateClusterWorkflowResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterWorkflow
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetClusterWorkflowSchemaResp parses an HTTP response from a GetClusterWorkflowSchemaWithResponse call
+func ParseGetClusterWorkflowSchemaResp(rsp *http.Response) (*GetClusterWorkflowSchemaResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetClusterWorkflowSchemaResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -23790,114 +24623,6 @@ func ParseGetReleaseBindingK8sResourceTreeResp(rsp *http.Response) (*GetReleaseB
 	return response, nil
 }
 
-// ParseListReleasesResp parses an HTTP response from a ListReleasesWithResponse call
-func ParseListReleasesResp(rsp *http.Response) (*ListReleasesResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListReleasesResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ReleaseList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetReleaseResp parses an HTTP response from a GetReleaseWithResponse call
-func ParseGetReleaseResp(rsp *http.Response) (*GetReleaseResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetReleaseResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Release
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseListNamespaceRoleBindingsResp parses an HTTP response from a ListNamespaceRoleBindingsWithResponse call
 func ParseListNamespaceRoleBindingsResp(rsp *http.Response) (*ListNamespaceRoleBindingsResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -25223,6 +25948,67 @@ func ParseGetWorkflowRunResp(rsp *http.Response) (*GetWorkflowRunResp, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateWorkflowRunResp parses an HTTP response from a UpdateWorkflowRunWithResponse call
+func ParseUpdateWorkflowRunResp(rsp *http.Response) (*UpdateWorkflowRunResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateWorkflowRunResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized

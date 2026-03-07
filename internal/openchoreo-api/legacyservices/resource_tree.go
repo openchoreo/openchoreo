@@ -20,7 +20,7 @@ import (
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	releasecontroller "github.com/openchoreo/openchoreo/internal/controller/release"
+	renderedreleasecontroller "github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
@@ -30,11 +30,11 @@ const (
 	maxResponseBytes   = 10 * 1024 * 1024 // 10MB
 )
 
-// GetReleaseResourceTree returns a hierarchical view of all live Kubernetes resources
-// deployed by a Release, including child resources (ReplicaSets, Pods, Jobs).
-func (s *ComponentService) GetReleaseResourceTree(ctx context.Context, namespaceName, projectName, componentName,
+// GetRenderedReleaseResourceTree returns a hierarchical view of all live Kubernetes resources
+// deployed by a RenderedRelease, including child resources (ReplicaSets, Pods, Jobs).
+func (s *ComponentService) GetRenderedReleaseResourceTree(ctx context.Context, namespaceName, projectName, componentName,
 	environmentName string) (*models.ResourceTreeResponse, error) {
-	s.logger.Debug("Getting release resource tree", "namespace", namespaceName, "project", projectName,
+	s.logger.Debug("Getting rendered release resource tree", "namespace", namespaceName, "project", projectName,
 		"component", componentName, "environment", environmentName)
 
 	// Authorization check
@@ -47,7 +47,7 @@ func (s *ComponentService) GetReleaseResourceTree(ctx context.Context, namespace
 		return nil, fmt.Errorf("gateway client is not configured")
 	}
 
-	// 1. Get the Release (reuse pattern from GetEnvironmentRelease)
+	// 1. Get the RenderedRelease
 	componentKey := client.ObjectKey{
 		Namespace: namespaceName,
 		Name:      componentName,
@@ -64,7 +64,7 @@ func (s *ComponentService) GetReleaseResourceTree(ctx context.Context, namespace
 		return nil, ErrComponentNotFound
 	}
 
-	var releaseList openchoreov1alpha1.ReleaseList
+	var releaseList openchoreov1alpha1.RenderedReleaseList
 	listOpts := []client.ListOption{
 		client.InNamespace(namespaceName),
 		client.MatchingLabels{
@@ -76,15 +76,15 @@ func (s *ComponentService) GetReleaseResourceTree(ctx context.Context, namespace
 	}
 
 	if err := s.k8sClient.List(ctx, &releaseList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list releases: %w", err)
+		return nil, fmt.Errorf("failed to list rendered releases: %w", err)
 	}
 
 	if len(releaseList.Items) == 0 {
-		return nil, ErrReleaseNotFound
+		return nil, ErrRenderedReleaseNotFound
 	}
 
 	if len(releaseList.Items) > 1 {
-		return nil, fmt.Errorf("expected 1 release for component/environment, found %d", len(releaseList.Items))
+		return nil, fmt.Errorf("expected 1 rendered release for component/environment, found %d", len(releaseList.Items))
 	}
 
 	release := &releaseList.Items[0]
@@ -178,8 +178,8 @@ func (s *ComponentService) GetResourceEvents(ctx context.Context, namespaceName,
 		return nil, ErrComponentNotFound
 	}
 
-	// Fetch the active release for this component/environment
-	var releaseList openchoreov1alpha1.ReleaseList
+	// Fetch the active rendered release for this component/environment
+	var releaseList openchoreov1alpha1.RenderedReleaseList
 	listOpts := []client.ListOption{
 		client.InNamespace(namespaceName),
 		client.MatchingLabels{
@@ -191,20 +191,20 @@ func (s *ComponentService) GetResourceEvents(ctx context.Context, namespaceName,
 	}
 
 	if err := s.k8sClient.List(ctx, &releaseList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list releases: %w", err)
+		return nil, fmt.Errorf("failed to list rendered releases: %w", err)
 	}
 
 	if len(releaseList.Items) == 0 {
-		return nil, ErrReleaseNotFound
+		return nil, ErrRenderedReleaseNotFound
 	}
 
 	if len(releaseList.Items) > 1 {
-		return nil, fmt.Errorf("expected 1 release for component/environment, found %d", len(releaseList.Items))
+		return nil, fmt.Errorf("expected 1 rendered release for component/environment, found %d", len(releaseList.Items))
 	}
 
 	release := &releaseList.Items[0]
 
-	// Validate that the requested resource belongs to the release's resource tree.
+	// Validate that the requested resource belongs to the rendered release's resource tree.
 	// Resources can be either direct entries in release.Status.Resources or child
 	// resources (Pods, Jobs, ReplicaSets) that are dynamically discovered via owner
 	// references from a parent resource in the release.
@@ -324,8 +324,8 @@ func (s *ComponentService) GetResourcePodLogs(ctx context.Context, namespaceName
 		return nil, ErrComponentNotFound
 	}
 
-	// Fetch the active release for this component/environment
-	var releaseList openchoreov1alpha1.ReleaseList
+	// Fetch the active rendered release for this component/environment
+	var releaseList openchoreov1alpha1.RenderedReleaseList
 	listOpts := []client.ListOption{
 		client.InNamespace(namespaceName),
 		client.MatchingLabels{
@@ -337,20 +337,20 @@ func (s *ComponentService) GetResourcePodLogs(ctx context.Context, namespaceName
 	}
 
 	if err := s.k8sClient.List(ctx, &releaseList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list releases: %w", err)
+		return nil, fmt.Errorf("failed to list rendered releases: %w", err)
 	}
 
 	if len(releaseList.Items) == 0 {
-		return nil, ErrReleaseNotFound
+		return nil, ErrRenderedReleaseNotFound
 	}
 
 	if len(releaseList.Items) > 1 {
-		return nil, fmt.Errorf("expected 1 release for component/environment, found %d", len(releaseList.Items))
+		return nil, fmt.Errorf("expected 1 rendered release for component/environment, found %d", len(releaseList.Items))
 	}
 
 	release := &releaseList.Items[0]
 
-	// Validate that a parent resource for the Pod exists in the release
+	// Validate that a parent resource for the Pod exists in the rendered release
 	if !hasParentResourceInRelease("Pod", release.Status.Resources) {
 		return nil, ErrResourceNotFound
 	}
@@ -725,7 +725,7 @@ func buildResourceNode(obj map[string]any, parentRef *models.ResourceRef,
 // using the release controller's health check logic.
 func computeHealthFromObject(obj map[string]any, group, kind string) *models.HealthInfo {
 	gvk := schema.GroupVersionKind{Group: group, Kind: kind}
-	healthCheckFunc := releasecontroller.GetHealthCheckFunc(gvk)
+	healthCheckFunc := renderedreleasecontroller.GetHealthCheckFunc(gvk)
 	if healthCheckFunc == nil {
 		return nil
 	}

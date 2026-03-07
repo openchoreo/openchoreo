@@ -39,6 +39,11 @@ const (
 	BuildPlaneRefKindClusterBuildPlane BuildPlaneRefKind = "ClusterBuildPlane"
 )
 
+// Defines values for ClusterBuildPlaneRefKind.
+const (
+	ClusterBuildPlaneRefKindClusterBuildPlane ClusterBuildPlaneRefKind = "ClusterBuildPlane"
+)
+
 // Defines values for ClusterComponentTypeSpecAllowedTraitsKind.
 const (
 	ClusterComponentTypeSpecAllowedTraitsKindClusterTrait ClusterComponentTypeSpecAllowedTraitsKind = "ClusterTrait"
@@ -46,7 +51,7 @@ const (
 
 // Defines values for ClusterComponentTypeSpecAllowedWorkflowsKind.
 const (
-	ClusterComponentTypeSpecAllowedWorkflowsKindWorkflow ClusterComponentTypeSpecAllowedWorkflowsKind = "Workflow"
+	ClusterComponentTypeSpecAllowedWorkflowsKindClusterWorkflow ClusterComponentTypeSpecAllowedWorkflowsKind = "ClusterWorkflow"
 )
 
 // Defines values for ClusterComponentTypeSpecResourcesTargetPlane.
@@ -231,19 +236,19 @@ const (
 	ReleaseResourceTreeTargetPlaneObservabilityplane ReleaseResourceTreeTargetPlane = "observabilityplane"
 )
 
-// Defines values for ReleaseSpecTargetPlane.
+// Defines values for RenderedReleaseSpecTargetPlane.
 const (
-	ReleaseSpecTargetPlaneDataplane          ReleaseSpecTargetPlane = "dataplane"
-	ReleaseSpecTargetPlaneObservabilityplane ReleaseSpecTargetPlane = "observabilityplane"
+	RenderedReleaseSpecTargetPlaneDataplane          RenderedReleaseSpecTargetPlane = "dataplane"
+	RenderedReleaseSpecTargetPlaneObservabilityplane RenderedReleaseSpecTargetPlane = "observabilityplane"
 )
 
-// Defines values for ReleaseStatusResourcesHealthStatus.
+// Defines values for RenderedReleaseStatusResourcesHealthStatus.
 const (
-	ReleaseStatusResourcesHealthStatusDegraded    ReleaseStatusResourcesHealthStatus = "Degraded"
-	ReleaseStatusResourcesHealthStatusHealthy     ReleaseStatusResourcesHealthStatus = "Healthy"
-	ReleaseStatusResourcesHealthStatusProgressing ReleaseStatusResourcesHealthStatus = "Progressing"
-	ReleaseStatusResourcesHealthStatusSuspended   ReleaseStatusResourcesHealthStatus = "Suspended"
-	ReleaseStatusResourcesHealthStatusUnknown     ReleaseStatusResourcesHealthStatus = "Unknown"
+	RenderedReleaseStatusResourcesHealthStatusDegraded    RenderedReleaseStatusResourcesHealthStatus = "Degraded"
+	RenderedReleaseStatusResourcesHealthStatusHealthy     RenderedReleaseStatusResourcesHealthStatus = "Healthy"
+	RenderedReleaseStatusResourcesHealthStatusProgressing RenderedReleaseStatusResourcesHealthStatus = "Progressing"
+	RenderedReleaseStatusResourcesHealthStatusSuspended   RenderedReleaseStatusResourcesHealthStatus = "Suspended"
+	RenderedReleaseStatusResourcesHealthStatusUnknown     RenderedReleaseStatusResourcesHealthStatus = "Unknown"
 )
 
 // Defines values for RoleEntitlementMappingEffect.
@@ -686,6 +691,18 @@ type ClusterBuildPlaneList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
+// ClusterBuildPlaneRef Reference to a ClusterBuildPlane
+type ClusterBuildPlaneRef struct {
+	// Kind Kind of build plane (must be ClusterBuildPlane)
+	Kind ClusterBuildPlaneRefKind `json:"kind"`
+
+	// Name Name of the cluster build plane resource
+	Name string `json:"name"`
+}
+
+// ClusterBuildPlaneRefKind Kind of build plane (must be ClusterBuildPlane)
+type ClusterBuildPlaneRefKind string
+
 // ClusterBuildPlaneSpec Desired state of a ClusterBuildPlane
 type ClusterBuildPlaneSpec struct {
 	// ClusterAgent Configuration for cluster agent-based communication
@@ -752,12 +769,12 @@ type ClusterComponentTypeSpec struct {
 		Name string `json:"name"`
 	} `json:"allowedTraits,omitempty"`
 
-	// AllowedWorkflows List of allowed Workflow references for this component type
+	// AllowedWorkflows List of allowed ClusterWorkflow references for this component type
 	AllowedWorkflows *[]struct {
-		// Kind Kind of the workflow reference. Currently only "Workflow" is supported.
-		Kind *ClusterComponentTypeSpecAllowedWorkflowsKind `json:"kind,omitempty"`
+		// Kind Kind of the workflow reference. Must be "ClusterWorkflow".
+		Kind ClusterComponentTypeSpecAllowedWorkflowsKind `json:"kind"`
 
-		// Name Name of the workflow resource
+		// Name Name of the ClusterWorkflow resource
 		Name string `json:"name"`
 	} `json:"allowedWorkflows,omitempty"`
 
@@ -822,7 +839,7 @@ type ClusterComponentTypeSpec struct {
 // ClusterComponentTypeSpecAllowedTraitsKind Kind of trait reference (must be ClusterTrait)
 type ClusterComponentTypeSpecAllowedTraitsKind string
 
-// ClusterComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference. Currently only "Workflow" is supported.
+// ClusterComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference. Must be "ClusterWorkflow".
 type ClusterComponentTypeSpecAllowedWorkflowsKind string
 
 // ClusterComponentTypeSpecResourcesTargetPlane Target plane for deployment
@@ -1081,6 +1098,60 @@ type ClusterTraitSpecPatchesTargetPlane string
 
 // ClusterTraitStatus Observed state of a ClusterTrait
 type ClusterTraitStatus = map[string]interface{}
+
+// ClusterWorkflow ClusterWorkflow resource.
+// Cluster-scoped version of Workflow that can be referenced by Components across all namespaces.
+type ClusterWorkflow struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a ClusterWorkflow
+	Spec   *ClusterWorkflowSpec   `json:"spec,omitempty"`
+	Status *ClusterWorkflowStatus `json:"status,omitempty"`
+}
+
+// ClusterWorkflowList Paginated list of cluster-scoped workflows
+type ClusterWorkflowList struct {
+	Items []ClusterWorkflow `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ClusterWorkflowSpec Desired state of a ClusterWorkflow
+type ClusterWorkflowSpec struct {
+	// BuildPlaneRef Reference to the ClusterBuildPlane for this workflow's build operations. Defaults to the ClusterBuildPlane named "default" when omitted.
+	BuildPlaneRef *ClusterBuildPlaneRef `json:"buildPlaneRef,omitempty"`
+
+	// ExternalRefs External CR references resolved and injected into the CEL context under their id.
+	ExternalRefs *[]ExternalRef `json:"externalRefs,omitempty"`
+
+	// Resources Additional resource templates to render and apply alongside the workflow run.
+	Resources *[]WorkflowResource `json:"resources,omitempty"`
+
+	// RunTemplate Kubernetes resource template to render and apply for this workflow run.
+	RunTemplate map[string]interface{} `json:"runTemplate"`
+
+	// Schema Developer-facing schema definition for workflow parameters
+	Schema *WorkflowSchema `json:"schema,omitempty"`
+
+	// TtlAfterCompletion Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
+	TtlAfterCompletion *string `json:"ttlAfterCompletion,omitempty"`
+}
+
+// ClusterWorkflowStatus Observed state of a ClusterWorkflow
+type ClusterWorkflowStatus struct {
+	// Conditions Kubernetes-style conditions
+	Conditions *[]Condition `json:"conditions,omitempty"`
+}
 
 // Component Component resource.
 // Components group source code and deployment configuration within a project.
@@ -2032,10 +2103,10 @@ type HealthInfo struct {
 	Status string `json:"status"`
 }
 
-// K8sResourceTreeResponse Response containing resource trees for all releases owned by a release binding
+// K8sResourceTreeResponse Response containing resource trees for all rendered releases owned by a release binding
 type K8sResourceTreeResponse struct {
-	// Releases Resource trees per release (dataplane and/or observabilityplane)
-	Releases []ReleaseResourceTree `json:"releases"`
+	// RenderedReleases Resource trees per rendered release (dataplane and/or observabilityplane)
+	RenderedReleases []ReleaseResourceTree `json:"renderedReleases"`
 }
 
 // MessageResponse Simple message response
@@ -2447,24 +2518,6 @@ type PromotionPath struct {
 	TargetEnvironmentRefs []TargetEnvironmentRef `json:"targetEnvironmentRefs"`
 }
 
-// Release Release resource.
-// Contains the final Kubernetes manifests deployed to data plane clusters.
-type Release struct {
-	// ApiVersion API version of the resource
-	ApiVersion *string `json:"apiVersion,omitempty"`
-
-	// Kind Kind of the resource
-	Kind *string `json:"kind,omitempty"`
-
-	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
-	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
-	Metadata ObjectMeta `json:"metadata"`
-
-	// Spec Desired state of a Release
-	Spec   *ReleaseSpec   `json:"spec,omitempty"`
-	Status *ReleaseStatus `json:"status,omitempty"`
-}
-
 // ReleaseBinding ReleaseBinding resource.
 // Binds a ComponentRelease to a specific environment.
 type ReleaseBinding struct {
@@ -2540,15 +2593,6 @@ type ReleaseBindingStatus struct {
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
-// ReleaseList Paginated list of releases
-type ReleaseList struct {
-	Items []Release `json:"items"`
-
-	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
-	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
-}
-
 // ReleaseResourceTree Resource tree for a single release
 type ReleaseResourceTree struct {
 	// Name Name of the release
@@ -2557,8 +2601,8 @@ type ReleaseResourceTree struct {
 	// Nodes All resource nodes in the tree
 	Nodes []ResourceNode `json:"nodes"`
 
-	// Release Full Release CR (metadata + spec + status). Same structure as returned by GET /releases/{releaseName}.
-	Release *Release `json:"release,omitempty"`
+	// RenderedRelease Full RenderedRelease CR (metadata + spec + status).
+	RenderedRelease *RenderedRelease `json:"renderedRelease,omitempty"`
 
 	// TargetPlane Target plane of the release
 	TargetPlane ReleaseResourceTreeTargetPlane `json:"targetPlane"`
@@ -2567,15 +2611,45 @@ type ReleaseResourceTree struct {
 // ReleaseResourceTreeTargetPlane Target plane of the release
 type ReleaseResourceTreeTargetPlane string
 
-// ReleaseSpec Desired state of a Release
-type ReleaseSpec struct {
-	// EnvironmentName Target environment for this release
+// RemoteReference Points to a secret in an external secret store
+type RemoteReference struct {
+	// Key Path in the external secret store
+	Key string `json:"key"`
+
+	// Property Specific field within the secret
+	Property *string `json:"property,omitempty"`
+
+	// Version Version of the secret to fetch
+	Version *string `json:"version,omitempty"`
+}
+
+// RenderedRelease RenderedRelease resource.
+// Contains the final rendered Kubernetes manifests deployed to data plane clusters.
+type RenderedRelease struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a RenderedRelease
+	Spec   *RenderedReleaseSpec   `json:"spec,omitempty"`
+	Status *RenderedReleaseStatus `json:"status,omitempty"`
+}
+
+// RenderedReleaseSpec Desired state of a RenderedRelease
+type RenderedReleaseSpec struct {
+	// EnvironmentName Target environment for this rendered release
 	EnvironmentName string `json:"environmentName"`
 
-	// Interval Watch interval for stable release resources (e.g. 5m, 30s)
+	// Interval Watch interval for stable rendered release resources (e.g. 5m, 30s)
 	Interval *string `json:"interval,omitempty"`
 
-	// Owner Owner identifies the component and project this Release belongs to
+	// Owner Owner identifies the component and project this RenderedRelease belongs to
 	Owner struct {
 		// ComponentName Name of the component
 		ComponentName string `json:"componentName"`
@@ -2584,7 +2658,7 @@ type ReleaseSpec struct {
 		ProjectName string `json:"projectName"`
 	} `json:"owner"`
 
-	// ProgressingInterval Watch interval for transitioning release resources (e.g. 10s)
+	// ProgressingInterval Watch interval for transitioning rendered release resources (e.g. 10s)
 	ProgressingInterval *string `json:"progressingInterval,omitempty"`
 
 	// Resources Kubernetes resource templates to apply to the data plane
@@ -2597,15 +2671,15 @@ type ReleaseSpec struct {
 	} `json:"resources,omitempty"`
 
 	// TargetPlane Target plane for deployment
-	TargetPlane *ReleaseSpecTargetPlane `json:"targetPlane,omitempty"`
+	TargetPlane *RenderedReleaseSpecTargetPlane `json:"targetPlane,omitempty"`
 }
 
-// ReleaseSpecTargetPlane Target plane for deployment
-type ReleaseSpecTargetPlane string
+// RenderedReleaseSpecTargetPlane Target plane for deployment
+type RenderedReleaseSpecTargetPlane string
 
-// ReleaseStatus Observed state of a Release
-type ReleaseStatus struct {
-	// Conditions Latest available observations of the Release's current state
+// RenderedReleaseStatus Observed state of a RenderedRelease
+type RenderedReleaseStatus struct {
+	// Conditions Latest available observations of the RenderedRelease's current state
 	Conditions *[]Condition `json:"conditions,omitempty"`
 
 	// Resources Resources applied to the data plane with their observed status
@@ -2614,7 +2688,7 @@ type ReleaseStatus struct {
 		Group *string `json:"group,omitempty"`
 
 		// HealthStatus Health status of the resource
-		HealthStatus *ReleaseStatusResourcesHealthStatus `json:"healthStatus,omitempty"`
+		HealthStatus *RenderedReleaseStatusResourcesHealthStatus `json:"healthStatus,omitempty"`
 
 		// Id Resource identifier matching spec.resources
 		Id *string `json:"id,omitempty"`
@@ -2636,20 +2710,8 @@ type ReleaseStatus struct {
 	} `json:"resources,omitempty"`
 }
 
-// ReleaseStatusResourcesHealthStatus Health status of the resource
-type ReleaseStatusResourcesHealthStatus string
-
-// RemoteReference Points to a secret in an external secret store
-type RemoteReference struct {
-	// Key Path in the external secret store
-	Key string `json:"key"`
-
-	// Property Specific field within the secret
-	Property *string `json:"property,omitempty"`
-
-	// Version Version of the secret to fetch
-	Version *string `json:"version,omitempty"`
-}
+// RenderedReleaseStatusResourcesHealthStatus Health status of the resource
+type RenderedReleaseStatusResourcesHealthStatus string
 
 // Resource Resource for authorization evaluation
 type Resource struct {
@@ -3597,6 +3659,9 @@ type ClusterObservabilityPlaneNameParam = string
 // ClusterTraitNameParam defines model for ClusterTraitNameParam.
 type ClusterTraitNameParam = string
 
+// ClusterWorkflowNameParam defines model for ClusterWorkflowNameParam.
+type ClusterWorkflowNameParam = string
+
 // ComponentEnvironmentNameParam defines model for ComponentEnvironmentNameParam.
 type ComponentEnvironmentNameParam = string
 
@@ -3653,9 +3718,6 @@ type ProjectQueryParam = string
 
 // ReleaseBindingNameParam defines model for ReleaseBindingNameParam.
 type ReleaseBindingNameParam = string
-
-// ReleaseNameParam defines model for ReleaseNameParam.
-type ReleaseNameParam = string
 
 // RoleNameParam defines model for RoleNameParam.
 type RoleNameParam = string
@@ -3773,6 +3835,16 @@ type ListClusterRolesParams struct {
 
 // ListClusterTraitsParams defines parameters for ListClusterTraits.
 type ListClusterTraitsParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListClusterWorkflowsParams defines parameters for ListClusterWorkflows.
+type ListClusterWorkflowsParams struct {
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3964,22 +4036,6 @@ type GetReleaseBindingK8sResourceLogsParams struct {
 	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
 }
 
-// ListReleasesParams defines parameters for ListReleases.
-type ListReleasesParams struct {
-	// Component Filter resources by component name
-	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
-
-	// Environment Filter resources by environment name
-	Environment *EnvironmentQueryParam `form:"environment,omitempty" json:"environment,omitempty"`
-
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
 // ListNamespaceRoleBindingsParams defines parameters for ListNamespaceRoleBindings.
 type ListNamespaceRoleBindingsParams struct {
 	// Limit Maximum number of items to return per page
@@ -4131,6 +4187,12 @@ type CreateClusterTraitJSONRequestBody = ClusterTrait
 // UpdateClusterTraitJSONRequestBody defines body for UpdateClusterTrait for application/json ContentType.
 type UpdateClusterTraitJSONRequestBody = ClusterTrait
 
+// CreateClusterWorkflowJSONRequestBody defines body for CreateClusterWorkflow for application/json ContentType.
+type CreateClusterWorkflowJSONRequestBody = ClusterWorkflow
+
+// UpdateClusterWorkflowJSONRequestBody defines body for UpdateClusterWorkflow for application/json ContentType.
+type UpdateClusterWorkflowJSONRequestBody = ClusterWorkflow
+
 // CreateNamespaceJSONRequestBody defines body for CreateNamespace for application/json ContentType.
 type CreateNamespaceJSONRequestBody = Namespace
 
@@ -4232,6 +4294,9 @@ type UpdateTraitJSONRequestBody = Trait
 
 // CreateWorkflowRunJSONRequestBody defines body for CreateWorkflowRun for application/json ContentType.
 type CreateWorkflowRunJSONRequestBody = WorkflowRun
+
+// UpdateWorkflowRunJSONRequestBody defines body for UpdateWorkflowRun for application/json ContentType.
+type UpdateWorkflowRunJSONRequestBody = WorkflowRun
 
 // CreateWorkflowJSONRequestBody defines body for CreateWorkflow for application/json ContentType.
 type CreateWorkflowJSONRequestBody = Workflow

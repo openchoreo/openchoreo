@@ -21,7 +21,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
-func TestGetReleaseResourceTree(t *testing.T) {
+func TestGetRenderedReleaseResourceTree(t *testing.T) {
 	const (
 		namespace   = "test-ns"
 		project     = "test-project"
@@ -45,12 +45,12 @@ func TestGetReleaseResourceTree(t *testing.T) {
 		}
 	}
 
-	// newRelease creates a Release with given resource statuses.
-	newRelease := func(
+	// newRenderedRelease creates a RenderedRelease with given resource statuses.
+	newRenderedRelease := func(
 		ns, proj, comp, env string,
 		resources []openchoreov1alpha1.ResourceStatus,
-	) *openchoreov1alpha1.Release {
-		return &openchoreov1alpha1.Release{
+	) *openchoreov1alpha1.RenderedRelease {
+		return &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: ns,
 				Name:      comp + "-" + env + "-release",
@@ -61,7 +61,7 @@ func TestGetReleaseResourceTree(t *testing.T) {
 					labels.LabelKeyEnvironmentName: env,
 				},
 			},
-			Status: openchoreov1alpha1.ReleaseStatus{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
 				Resources: resources,
 			},
 		}
@@ -135,7 +135,7 @@ func TestGetReleaseResourceTree(t *testing.T) {
 			WithRESTMapper(newTestRESTMapper()).
 			WithObjects(
 				newComponent(namespace, component, project),
-				newRelease(namespace, project, component, environment, resources),
+				newRenderedRelease(namespace, project, component, environment, resources),
 				newEnvironment(namespace, environment),
 				newDataPlane(namespace, dpName),
 			).
@@ -169,7 +169,7 @@ func TestGetReleaseResourceTree(t *testing.T) {
 			gatewayClient: gatewayClient.NewClient(serverMux.URL),
 		}
 
-		resp, err := svc.GetReleaseResourceTree(
+		resp, err := svc.GetRenderedReleaseResourceTree(
 			context.Background(), namespace, project, component, environment,
 		)
 		if err != nil {
@@ -205,7 +205,7 @@ func TestGetReleaseResourceTree(t *testing.T) {
 			gatewayClient: gatewayClient.NewClient("http://unused"),
 		}
 
-		_, err := svc.GetReleaseResourceTree(
+		_, err := svc.GetRenderedReleaseResourceTree(
 			context.Background(), namespace, project, component, environment,
 		)
 		if !errors.Is(err, ErrComponentNotFound) {
@@ -229,7 +229,7 @@ func TestGetReleaseResourceTree(t *testing.T) {
 			gatewayClient: gatewayClient.NewClient("http://unused"),
 		}
 
-		_, err := svc.GetReleaseResourceTree(
+		_, err := svc.GetRenderedReleaseResourceTree(
 			context.Background(), namespace, project, component, environment,
 		)
 		if !errors.Is(err, ErrComponentNotFound) {
@@ -237,7 +237,7 @@ func TestGetReleaseResourceTree(t *testing.T) {
 		}
 	})
 
-	t.Run("empty release list returns ErrReleaseNotFound", func(t *testing.T) {
+	t.Run("empty rendered release list returns ErrRenderedReleaseNotFound", func(t *testing.T) {
 		k8s := fake.NewClientBuilder().
 			WithScheme(newTestScheme(t)).
 			WithObjects(
@@ -253,11 +253,11 @@ func TestGetReleaseResourceTree(t *testing.T) {
 			gatewayClient: gatewayClient.NewClient("http://unused"),
 		}
 
-		_, err := svc.GetReleaseResourceTree(
+		_, err := svc.GetRenderedReleaseResourceTree(
 			context.Background(), namespace, project, component, environment,
 		)
-		if !errors.Is(err, ErrReleaseNotFound) {
-			t.Errorf("expected ErrReleaseNotFound, got %v", err)
+		if !errors.Is(err, ErrRenderedReleaseNotFound) {
+			t.Errorf("expected ErrRenderedReleaseNotFound, got %v", err)
 		}
 	})
 
@@ -275,7 +275,7 @@ func TestGetReleaseResourceTree(t *testing.T) {
 			WithScheme(newTestScheme(t)).
 			WithObjects(
 				newComponent(namespace, component, project),
-				newRelease(namespace, project, component, environment, resources),
+				newRenderedRelease(namespace, project, component, environment, resources),
 				// No environment created.
 			).
 			Build()
@@ -287,7 +287,7 @@ func TestGetReleaseResourceTree(t *testing.T) {
 			gatewayClient: gatewayClient.NewClient("http://unused"),
 		}
 
-		_, err := svc.GetReleaseResourceTree(
+		_, err := svc.GetRenderedReleaseResourceTree(
 			context.Background(), namespace, project, component, environment,
 		)
 		if !errors.Is(err, ErrEnvironmentNotFound) {
@@ -350,7 +350,7 @@ func TestGetReleaseResourceTree(t *testing.T) {
 			WithRESTMapper(newTestRESTMapper()).
 			WithObjects(
 				newComponent(namespace, component, project),
-				newRelease(namespace, project, component, environment, resources),
+				newRenderedRelease(namespace, project, component, environment, resources),
 				newEnvironment(namespace, environment),
 				newDataPlane(namespace, dpName),
 			).
@@ -363,7 +363,7 @@ func TestGetReleaseResourceTree(t *testing.T) {
 			gatewayClient: gatewayClient.NewClient(server.URL),
 		}
 
-		resp, err := svc.GetReleaseResourceTree(
+		resp, err := svc.GetRenderedReleaseResourceTree(
 			context.Background(), namespace, project, component, environment,
 		)
 		if err != nil {
@@ -397,7 +397,7 @@ func TestGetReleaseResourceTree(t *testing.T) {
 			gatewayClient: gatewayClient.NewClient("http://unused"),
 		}
 
-		_, err := svc.GetReleaseResourceTree(
+		_, err := svc.GetRenderedReleaseResourceTree(
 			context.Background(), namespace, project, component, environment,
 		)
 		if !errors.Is(err, ErrForbidden) {
@@ -420,7 +420,7 @@ func TestGetReleaseResourceTree(t *testing.T) {
 			gatewayClient: nil,
 		}
 
-		_, err := svc.GetReleaseResourceTree(
+		_, err := svc.GetRenderedReleaseResourceTree(
 			context.Background(), namespace, project, component, environment,
 		)
 		if err == nil {
@@ -452,11 +452,11 @@ func TestGetResourceEvents(t *testing.T) {
 		}
 	}
 
-	newRelease := func(
+	newRenderedRelease := func(
 		ns, proj, comp, env string,
 		resources []openchoreov1alpha1.ResourceStatus,
-	) *openchoreov1alpha1.Release {
-		return &openchoreov1alpha1.Release{
+	) *openchoreov1alpha1.RenderedRelease {
+		return &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: ns,
 				Name:      comp + "-" + env + "-release",
@@ -467,7 +467,7 @@ func TestGetResourceEvents(t *testing.T) {
 					labels.LabelKeyEnvironmentName: env,
 				},
 			},
-			Status: openchoreov1alpha1.ReleaseStatus{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
 				Resources: resources,
 			},
 		}
@@ -533,7 +533,7 @@ func TestGetResourceEvents(t *testing.T) {
 			WithScheme(newTestScheme(t)).
 			WithObjects(
 				newComponent(namespace, component, project),
-				newRelease(namespace, project, component, environment, deployResources),
+				newRenderedRelease(namespace, project, component, environment, deployResources),
 				newEnvironment(namespace, environment),
 				newDataPlane(namespace, dpName),
 			).
@@ -584,7 +584,7 @@ func TestGetResourceEvents(t *testing.T) {
 			WithScheme(newTestScheme(t)).
 			WithObjects(
 				newComponent(namespace, component, project),
-				newRelease(namespace, project, component, environment, deployResources),
+				newRenderedRelease(namespace, project, component, environment, deployResources),
 				newEnvironment(namespace, environment),
 				newDataPlane(namespace, dpName),
 			).
@@ -625,7 +625,7 @@ func TestGetResourceEvents(t *testing.T) {
 			WithScheme(newTestScheme(t)).
 			WithObjects(
 				newComponent(namespace, component, project),
-				newRelease(namespace, project, component, environment, deployResources),
+				newRenderedRelease(namespace, project, component, environment, deployResources),
 				newEnvironment(namespace, environment),
 				newDataPlane(namespace, dpName),
 			).
@@ -665,7 +665,7 @@ func TestGetResourceEvents(t *testing.T) {
 			WithScheme(newTestScheme(t)).
 			WithObjects(
 				newComponent(namespace, component, project),
-				newRelease(namespace, project, component, environment, emptyResources),
+				newRenderedRelease(namespace, project, component, environment, emptyResources),
 			).
 			Build()
 
@@ -772,7 +772,7 @@ func TestGetResourceEvents(t *testing.T) {
 		}
 	})
 
-	t.Run("no release returns ErrReleaseNotFound", func(t *testing.T) {
+	t.Run("no rendered release returns ErrRenderedReleaseNotFound", func(t *testing.T) {
 		k8s := fake.NewClientBuilder().
 			WithScheme(newTestScheme(t)).
 			WithObjects(
@@ -791,8 +791,8 @@ func TestGetResourceEvents(t *testing.T) {
 			context.Background(), namespace, project, component, environment,
 			"Deployment", "my-deploy", "", "",
 		)
-		if !errors.Is(err, ErrReleaseNotFound) {
-			t.Errorf("expected ErrReleaseNotFound, got %v", err)
+		if !errors.Is(err, ErrRenderedReleaseNotFound) {
+			t.Errorf("expected ErrRenderedReleaseNotFound, got %v", err)
 		}
 	})
 
@@ -801,7 +801,7 @@ func TestGetResourceEvents(t *testing.T) {
 			WithScheme(newTestScheme(t)).
 			WithObjects(
 				newComponent(namespace, component, project),
-				newRelease(namespace, project, component, environment, deployResources),
+				newRenderedRelease(namespace, project, component, environment, deployResources),
 			).
 			Build()
 
@@ -826,7 +826,7 @@ func TestGetResourceEvents(t *testing.T) {
 			WithScheme(newTestScheme(t)).
 			WithObjects(
 				newComponent(namespace, component, project),
-				newRelease(namespace, project, component, environment, deployResources),
+				newRenderedRelease(namespace, project, component, environment, deployResources),
 				// No environment.
 			).
 			Build()
@@ -853,7 +853,7 @@ func TestGetResourceEvents(t *testing.T) {
 			WithScheme(newTestScheme(t)).
 			WithObjects(
 				newComponent(namespace, component, project),
-				newRelease(namespace, project, component, environment, deployResources),
+				newRenderedRelease(namespace, project, component, environment, deployResources),
 				newEnvironment(namespace, environment),
 				// No data plane.
 			).
@@ -889,7 +889,7 @@ func TestGetResourceEvents(t *testing.T) {
 			WithScheme(newTestScheme(t)).
 			WithObjects(
 				newComponent(namespace, component, project),
-				newRelease(namespace, project, component, environment, deployResources),
+				newRenderedRelease(namespace, project, component, environment, deployResources),
 				newEnvironment(namespace, environment),
 				newDataPlane(namespace, dpName),
 			).
@@ -924,7 +924,7 @@ func TestGetResourceEvents(t *testing.T) {
 			WithScheme(newTestScheme(t)).
 			WithObjects(
 				newComponent(namespace, component, project),
-				newRelease(namespace, project, component, environment, deployResources),
+				newRenderedRelease(namespace, project, component, environment, deployResources),
 				newEnvironment(namespace, environment),
 				newDataPlane(namespace, dpName),
 			).

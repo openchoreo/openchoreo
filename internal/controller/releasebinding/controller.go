@@ -61,7 +61,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterobservabilityplanes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete;deletecollection
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=renderedreleases,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
@@ -515,7 +515,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 
 	// Create or update dataplane Release
 	dpReleaseName := makeDataPlaneReleaseName(componentRelease, releaseBinding)
-	dataPlaneRelease := &openchoreov1alpha1.Release{
+	dataPlaneRelease := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpReleaseName,
 			Namespace: releaseBinding.Namespace,
@@ -541,8 +541,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
 		}
 
-		dataPlaneRelease.Spec = openchoreov1alpha1.ReleaseSpec{
-			Owner: openchoreov1alpha1.ReleaseOwner{
+		dataPlaneRelease.Spec = openchoreov1alpha1.RenderedReleaseSpec{
+			Owner: openchoreov1alpha1.RenderedReleaseOwner{
 				ProjectName:   releaseBinding.Spec.Owner.ProjectName,
 				ComponentName: releaseBinding.Spec.Owner.ComponentName,
 			},
@@ -655,7 +655,7 @@ func (r *Reconciler) handleUndeploy(ctx context.Context,
 	deletionPending := false
 
 	// Try to delete dataplane Release
-	dataPlaneRelease := &openchoreov1alpha1.Release{}
+	dataPlaneRelease := &openchoreov1alpha1.RenderedRelease{}
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      dpReleaseName,
 		Namespace: releaseBinding.Namespace,
@@ -678,7 +678,7 @@ func (r *Reconciler) handleUndeploy(ctx context.Context,
 	}
 
 	// Try to delete observability Release
-	observabilityRelease := &openchoreov1alpha1.Release{}
+	observabilityRelease := &openchoreov1alpha1.RenderedRelease{}
 	err = r.Get(ctx, types.NamespacedName{
 		Name:      obsReleaseName,
 		Namespace: releaseBinding.Namespace,
@@ -767,7 +767,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 
 	if shouldManage {
 		// Create or update observability plane Release
-		observabilityRelease := &openchoreov1alpha1.Release{
+		observabilityRelease := &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      releaseName,
 				Namespace: releaseBinding.Namespace,
@@ -793,8 +793,8 @@ func (r *Reconciler) reconcileObservabilityRelease(
 				labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
 			}
 
-			observabilityRelease.Spec = openchoreov1alpha1.ReleaseSpec{
-				Owner: openchoreov1alpha1.ReleaseOwner{
+			observabilityRelease.Spec = openchoreov1alpha1.RenderedReleaseSpec{
+				Owner: openchoreov1alpha1.RenderedReleaseOwner{
 					ProjectName:   releaseBinding.Spec.Owner.ProjectName,
 					ComponentName: releaseBinding.Spec.Owner.ComponentName,
 				},
@@ -831,7 +831,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 
 	// Clean up existing observability Release if it exists but we no longer need it
 	// (e.g., ObservabilityPlaneRef was removed or no more observability resources)
-	existingObsRelease := &openchoreov1alpha1.Release{}
+	existingObsRelease := &openchoreov1alpha1.RenderedRelease{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      releaseName,
 		Namespace: releaseBinding.Namespace,
@@ -1296,7 +1296,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ReleaseBinding{}).
-		Owns(&openchoreov1alpha1.Release{}).
+		Owns(&openchoreov1alpha1.RenderedRelease{}).
 		Watches(&openchoreov1alpha1.Component{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForComponent)).
 		Watches(

@@ -50,7 +50,7 @@ var _ = Describe("Platform Health", Ordered, func() {
 			"deploymentpipelines.openchoreo.dev",
 			"componentreleases.openchoreo.dev",
 			"releasebindings.openchoreo.dev",
-			"releases.openchoreo.dev",
+			"renderedreleases.openchoreo.dev",
 			"workloads.openchoreo.dev",
 		}
 

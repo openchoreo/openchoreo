@@ -6,6 +6,7 @@ package workflowrun
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -17,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -93,6 +95,53 @@ func (s *workflowRunService) CreateWorkflowRun(ctx context.Context, namespaceNam
 	wfRun.TypeMeta = workflowRunTypeMeta
 	s.logger.Debug("Workflow run created successfully", "namespace", namespaceName, "name", wfRun.Name)
 	return wfRun, nil
+}
+
+func (s *workflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
+	if wfRun == nil {
+		return nil, fmt.Errorf("workflow run cannot be nil")
+	}
+
+	s.logger.Debug("Updating workflow run", "namespace", namespaceName, "name", wfRun.Name)
+
+	// Retry on conflict because the controller constantly updates the status subresource,
+	// which bumps resourceVersion and can cause optimistic concurrency failures.
+	var existing *openchoreov1alpha1.WorkflowRun
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		existing = &openchoreov1alpha1.WorkflowRun{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      wfRun.Name,
+			Namespace: namespaceName,
+		}, existing); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				return ErrWorkflowRunNotFound
+			}
+			return fmt.Errorf("failed to get workflow run: %w", err)
+		}
+
+		// Only apply user-mutable fields to the existing object, preserving server-managed fields
+		existing.Labels = wfRun.Labels
+		existing.Annotations = wfRun.Annotations
+		existing.Spec = wfRun.Spec
+
+		return s.k8sClient.Update(ctx, existing)
+	})
+	if err != nil {
+		if errors.Is(err, ErrWorkflowRunNotFound) {
+			s.logger.Warn("Workflow run not found", "namespace", namespaceName, "name", wfRun.Name)
+			return nil, ErrWorkflowRunNotFound
+		}
+		if apierrors.IsInvalid(err) {
+			s.logger.Error("Workflow run update rejected by validation", "error", err)
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
+		s.logger.Error("Failed to update workflow run", "error", err)
+		return nil, fmt.Errorf("failed to update workflow run: %w", err)
+	}
+
+	existing.TypeMeta = workflowRunTypeMeta
+	s.logger.Debug("Workflow run updated successfully", "namespace", namespaceName, "name", wfRun.Name)
+	return existing, nil
 }
 
 func (s *workflowRunService) ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName, workflowName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.WorkflowRun], error) {
