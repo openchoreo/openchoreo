@@ -1155,13 +1155,13 @@ openchoreoApi:
           # default: []
           # @schema
           mappings:
-            # Super admin mapping - grants platformEngineer group full access
+            # Super admin mapping - grants admins group full access
             - name: super-admin-binding
               roleRef:
                 name: super-admin
               entitlement:
                 claim: groups
-                value: platformEngineer
+                value: admins
               effect: allow
 
             # Backstage catalog reader mapping - grants backstage service account read access

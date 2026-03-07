@@ -18,7 +18,7 @@ openchoreoApi:
                 name: super-admin
               entitlement:
                 claim: groups
-                value: platformEngineer
+                value: admins
               effect: allow
             - name: backstage-catalog-reader-binding
               roleRef:

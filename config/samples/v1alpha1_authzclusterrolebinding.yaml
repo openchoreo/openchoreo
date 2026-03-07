@@ -9,7 +9,7 @@ metadata:
 spec:
   entitlement:
     claim: groups
-    value: platformEngineer
+    value: admins
   roleRef:
     kind: AuthzClusterRole
     name: platform-admin
