@@ -62,14 +62,14 @@ type Reconciler struct {
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	// Fetch the Release instance
+	// Fetch the RenderedRelease instance
 	release := &openchoreov1alpha1.RenderedRelease{}
 	if err := r.Get(ctx, req.NamespacedName, release); err != nil {
 		if apierrors.IsNotFound(err) {
-			logger.Info("Release resource not found. Ignoring since it must be deleted.")
+			logger.Info("RenderedRelease resource not found. Ignoring since it must be deleted.")
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Failed to get Release")
+		logger.Error(err, "Failed to get RenderedRelease")
 		return ctrl.Result{}, err
 	}
 

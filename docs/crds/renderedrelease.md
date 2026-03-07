@@ -20,7 +20,7 @@ graph TD
     C --> F[ScheduledTaskBinding]
     D --> G[WebApplicationBinding]
     
-    E --> H[Release]
+    E --> H[RenderedRelease]
     F --> H
     G --> H
     
@@ -56,8 +56,8 @@ graph TD
 1. **Component Definition**: Developers create Component resources that define the type and ownership of their applications
 2. **Component Types**: Based on the component definition, specific component-type resources are created (Service, ScheduledTask, WebApplication)
 3. **Environment Bindings**: For each target environment, binding controllers create environment-specific binding resources (ServiceBinding, ScheduledTaskBinding, WebApplicationBinding)
-4. **Release Generation**: Binding controllers render complete Kubernetes manifests and create RenderedRelease resources containing all the necessary deployment artifacts
-5. **Data Plane Deployment**: The RenderedRelease controller takes the rendered resources from Release CRDs and applies them to the target data plane clusters
+4. **RenderedRelease Generation**: Binding controllers render complete Kubernetes manifests and create RenderedRelease resources containing all the necessary deployment artifacts
+5. **Data Plane Deployment**: The RenderedRelease controller takes the rendered resources from RenderedRelease CRDs and applies them to the target data plane clusters
 
 ## RenderedRelease Controller Process
 
@@ -65,7 +65,7 @@ The RenderedRelease controller implements a reconciliation process that ensures 
 
 ```mermaid
 graph TD
-    A[Release Reconciliation Triggered] --> B{Release Being Deleted?}
+    A[RenderedRelease Reconciliation Triggered] --> B{RenderedRelease Being Deleted?}
     B -->|Yes| C[Run Finalizer Logic]
     B -->|No| D[Ensure Finalizer Added]
     
@@ -78,14 +78,14 @@ graph TD
     I --> J[Find Stale Resources]
     J --> K[Delete Stale Resources]
     
-    K --> L[Update Release Status]
+    K --> L[Update RenderedRelease Status]
     L --> M{Resources Transitioning?}
     M -->|Yes| N[Requeue with ProgressingInterval]
     M -->|No| O[Requeue with Interval]
     
     C --> P[Cleanup All Resources]
     P --> Q[Remove Finalizer]
-    Q --> R[Release Deleted]
+    Q --> R[RenderedRelease Deleted]
     
     style G fill:#e1f5fe
     style H fill:#e3f2fd
@@ -102,11 +102,11 @@ graph TD
 
 2. **Resource Application**: The controller converts the raw resource definitions into Kubernetes objects, adds tracking labels for ownership and lifecycle management, and applies them to the target data plane cluster using server-side apply.
 
-3. **Live Resource Discovery**: The controller queries the data plane to discover all resources currently managed by this Release. It uses GroupVersionKind (GVK) discovery to find resources across different API groups, ensuring complete inventory tracking.
+3. **Live Resource Discovery**: The controller queries the data plane to discover all resources currently managed by this RenderedRelease. It uses GroupVersionKind (GVK) discovery to find resources across different API groups, ensuring complete inventory tracking.
 
 4. **Stale Resource Cleanup**: The controller identifies any resources that exist in the data plane but are no longer present in the current RenderedRelease specification. These orphaned resources are safely deleted to prevent resource accumulation and drift.
 
-5. **Status Update**: Finally, the controller updates the RenderedRenderedRelease status with a complete inventory of all applied resources, maintaining accurate tracking information for future reconciliation cycles and providing visibility into the deployment state.
+5. **Status Update**: Finally, the controller updates the RenderedRelease status with a complete inventory of all applied resources, maintaining accurate tracking information for future reconciliation cycles and providing visibility into the deployment state.
 
 ## Key Features
 
@@ -127,12 +127,12 @@ graph TD
 
 ## CRD Structure
 
-### ReleaseSpec
+### RenderedReleaseSpec
 
 ```go
-type ReleaseSpec struct {
+type RenderedReleaseSpec struct {
     // Owner identifies the component that owns this release
-    Owner ReleaseOwner `json:"owner"`
+    Owner RenderedReleaseOwner `json:"owner"`
     
     // EnvironmentName is the target environment for deployment
     EnvironmentName string `json:"environmentName"`
@@ -149,7 +149,7 @@ type ReleaseSpec struct {
     ProgressingInterval *metav1.Duration `json:"progressingInterval,omitempty"`
 }
 
-type ReleaseOwner struct {
+type RenderedReleaseOwner struct {
     // ProjectName is the project containing the component
     ProjectName string `json:"projectName"`
     
@@ -166,10 +166,10 @@ type Resource struct {
 }
 ```
 
-### ReleaseStatus
+### RenderedReleaseStatus
 
 ```go
-type ReleaseStatus struct {
+type RenderedReleaseStatus struct {
     // Resources tracks successfully applied resources
     Resources []ResourceStatus `json:"resources,omitempty"`
     
@@ -206,14 +206,14 @@ The RenderedRelease controller implements a reconciliation process:
 - Converts raw resource definitions to unstructured objects
 - Adds tracking labels to all resources:
   - `openchoreo.dev/managed-by`: "renderedrelease-controller"
-  - `openchoreo.dev/release-resource-id`: Resource ID from spec
-  - `openchoreo.dev/release-uid`: Release UID for ownership tracking
-  - `openchoreo.dev/release-name`: Name of the RenderedRelease that manages the resource
-  - `openchoreo.dev/release-namespace`: Namespace of the RenderedRelease that manages the resource
+  - `openchoreo.dev/rendered-release-resource-id`: Resource ID from spec
+  - `openchoreo.dev/rendered-release-uid`: RenderedRelease UID for ownership tracking
+  - `openchoreo.dev/rendered-release-name`: Name of the RenderedRelease that manages the resource
+  - `openchoreo.dev/rendered-release-namespace`: Namespace of the RenderedRelease that manages the resource
 - Applies resources to data plane using server-side apply
 
 ### Live Resource Discovery
-- Queries data plane for all resources managed by this Release
+- Queries data plane for all resources managed by this RenderedRelease
 - Uses GVK (GroupVersionKind) discovery combining:
   - Current desired resources (from spec)
   - Previously applied resources (from status)
@@ -229,9 +229,9 @@ The RenderedRelease controller implements a reconciliation process:
 - Identifies all namespaces referenced by resources before deployment
 - Create namespaces with tracking labels:
   - `openchoreo.dev/created-by`: "renderedrelease-controller" (audit trail)
-  - `openchoreo.dev/release-name`: Name of the creating Release
-  - `openchoreo.dev/release-namespace`: Namespace of the creating Release
-  - `openchoreo.dev/release-uid`: UID of the creating Release
+  - `openchoreo.dev/rendered-release-name`: Name of the creating RenderedRelease
+  - `openchoreo.dev/rendered-release-namespace`: Namespace of the creating RenderedRelease
+  - `openchoreo.dev/rendered-release-uid`: UID of the creating RenderedRelease
   - `openchoreo.dev/environment`: Target environment name
   - `openchoreo.dev/project`: Project name from the RenderedRelease owner
 - Create-only: namespaces are never deleted by renderedrelease controller
@@ -265,7 +265,7 @@ The RenderedRelease controller serves as the deployment target for all binding c
 
 Binding controllers are expected to:
 1. **Render Manifests**: Create complete Kubernetes manifests from binding + class templates
-2. **Create Release**: Generate RenderedRelease resources with rendered manifests
+2. **Create RenderedRelease**: Generate RenderedRelease resources with rendered manifests
 3. **Set Owner References**: Establish proper garbage collection relationships
 4. **Delegate Deployment**: Let the RenderedRelease controller handle all data plane interactions
 
@@ -293,7 +293,7 @@ The RenderedRelease controller implements cleanup through finalizers:
 
 ## Example Usage
 
-### Basic Release Resource
+### Basic RenderedRelease Resource
 
 ```yaml
 apiVersion: openchoreo.dev/v1alpha1
@@ -344,7 +344,7 @@ spec:
               targetPort: 8080
 ```
 
-### Release with Complex Resources
+### RenderedRelease with Complex Resources
 
 ```yaml
 apiVersion: openchoreo.dev/v1alpha1
@@ -413,10 +413,10 @@ spec:
 ## Implementation Details
 
 ### Controller Location
-- **Main Controller**: [`internal/controller/release/controller.go`](../../internal/controller/release/controller.go)
-- **Finalization**: [`internal/controller/release/controller_finalize.go`](../../internal/controller/release/controller_finalize.go)
-- **Status Tracking**: [`internal/controller/release/controller_status.go`](../../internal/controller/release/controller_status.go)
-- **CRD Definition**: [`api/v1alpha1/release_types.go`](../../api/v1alpha1/release_types.go)
+- **Main Controller**: [`internal/controller/renderedrelease/controller.go`](../../internal/controller/renderedrelease/controller.go)
+- **Finalization**: [`internal/controller/renderedrelease/controller_finalize.go`](../../internal/controller/renderedrelease/controller_finalize.go)
+- **Status Tracking**: [`internal/controller/renderedrelease/controller_status.go`](../../internal/controller/renderedrelease/controller_status.go)
+- **CRD Definition**: [`api/v1alpha1/renderedrelease_types.go`](../../api/v1alpha1/renderedrelease_types.go)
 
 ### Key Dependencies
 - **Environment/DataPlane**: For target cluster configuration
@@ -426,7 +426,7 @@ spec:
 ### Configuration
 - **Finalizer**: `openchoreo.dev/dataplane-cleanup`
 - **Manager Labels**: `openchoreo.dev/managed-by=renderedrelease-controller`
-- **Resource ID Labels**: `openchoreo.dev/release-resource-id`
-- **Release UID Labels**: `openchoreo.dev/release-uid`
-- **Release Name Labels**: `openchoreo.dev/release-name`
-- **Release Namespace Labels**: `openchoreo.dev/release-namespace`
+- **Resource ID Labels**: `openchoreo.dev/rendered-release-resource-id`
+- **RenderedRelease UID Labels**: `openchoreo.dev/rendered-release-uid`
+- **RenderedRelease Name Labels**: `openchoreo.dev/rendered-release-name`
+- **RenderedRelease Namespace Labels**: `openchoreo.dev/rendered-release-namespace`

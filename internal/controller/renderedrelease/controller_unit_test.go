@@ -938,7 +938,7 @@ func TestMakeDesiredResources(t *testing.T) {
 
 		lbls := result[0].GetLabels()
 		checks := map[string]string{
-			labels.LabelKeyManagedBy:         ControllerName,
+			labels.LabelKeyManagedBy:                 ControllerName,
 			labels.LabelKeyRenderedReleaseResourceID: "res-configmap",
 			labels.LabelKeyRenderedReleaseUID:        "release-uid-abc",
 			labels.LabelKeyRenderedReleaseName:       "my-release",
@@ -1059,13 +1059,13 @@ func TestMakeDesiredNamespaces(t *testing.T) {
 			t.Errorf("expected namespace name dp-target-ns, got %s", ns.Name)
 		}
 		checkLabels := map[string]string{
-			labels.LabelKeyCreatedBy:             ControllerName,
-			labels.LabelKeyRenderedReleaseName:           "my-release",
-			labels.LabelKeyRenderedReleaseNamespace:      "cp-ns",
-			labels.LabelKeyRenderedReleaseUID:            "uid-xyz",
-			labels.LabelKeyControlPlaneNamespace: "cp-ns",
-			labels.LabelKeyEnvironmentName:       "prod-env",
-			labels.LabelKeyProjectName:           "proj-alpha",
+			labels.LabelKeyCreatedBy:                ControllerName,
+			labels.LabelKeyRenderedReleaseName:      "my-release",
+			labels.LabelKeyRenderedReleaseNamespace: "cp-ns",
+			labels.LabelKeyRenderedReleaseUID:       "uid-xyz",
+			labels.LabelKeyControlPlaneNamespace:    "cp-ns",
+			labels.LabelKeyEnvironmentName:          "prod-env",
+			labels.LabelKeyProjectName:              "proj-alpha",
 		}
 		for key, want := range checkLabels {
 			if got := ns.Labels[key]; got != want {

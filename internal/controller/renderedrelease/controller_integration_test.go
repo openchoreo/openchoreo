@@ -33,7 +33,7 @@ func forceDelete(ctx context.Context, nn types.NamespacedName) {
 }
 
 // makeMinimalRelease returns a RenderedRelease with the minimum required spec fields.
-func makeMinimalRelease(name, envName string) *openchoreov1alpha1.RenderedRelease{
+func makeMinimalRelease(name, envName string) *openchoreov1alpha1.RenderedRelease {
 	return &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
