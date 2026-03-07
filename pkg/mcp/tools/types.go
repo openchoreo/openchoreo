@@ -128,10 +128,6 @@ type ComponentToolsetHandler interface {
 	GetWorkloadSchema(ctx context.Context) (any, error)
 	// Schema operations
 	GetComponentSchema(ctx context.Context, namespaceName, componentName string) (any, error)
-	// Release operations
-	GetEnvironmentRelease(
-		ctx context.Context, namespaceName, componentName, environmentName string,
-	) (any, error)
 	// Component patch operations
 	PatchComponent(
 		ctx context.Context, namespaceName, componentName string, req *gen.PatchComponentRequest,

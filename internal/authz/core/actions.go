@@ -40,9 +40,6 @@ var systemActions = []Action{
 	{Name: "componentrelease:view", IsInternal: false},
 	{Name: "componentrelease:create", IsInternal: false},
 
-	// Release
-	{Name: "release:view", IsInternal: false},
-
 	// ReleaseBinding
 	{Name: "releasebinding:view", IsInternal: false},
 	{Name: "releasebinding:create", IsInternal: false},

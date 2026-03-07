@@ -381,26 +381,6 @@ func TestReleaseBindingSummary(t *testing.T) {
 	assertEqual(t, "status", m["status"], "Progressing")
 }
 
-func TestResourceHealthSummary(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
-		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
-		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
-		{HealthStatus: openchoreov1alpha1.HealthStatusProgressing},
-		{},
-	}
-
-	counts := resourceHealthSummary(resources)
-	if counts["Healthy"] != 2 {
-		t.Errorf("expected 2 Healthy, got %d", counts["Healthy"])
-	}
-	if counts["Progressing"] != 1 {
-		t.Errorf("expected 1 Progressing, got %d", counts["Progressing"])
-	}
-	if counts["Unknown"] != 1 {
-		t.Errorf("expected 1 Unknown, got %d", counts["Unknown"])
-	}
-}
-
 func assertEqual(t *testing.T, field string, got, want any) {
 	t.Helper()
 	if got != want {

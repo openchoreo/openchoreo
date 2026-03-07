@@ -45,7 +45,6 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterCreateWorkload,
 		t.RegisterUpdateWorkload,
 		t.RegisterGetWorkloadSchema,
-		t.RegisterGetEnvironmentRelease,
 		t.RegisterUpdateReleaseBindingState,
 		t.RegisterGetComponentReleaseSchema,
 		t.RegisterTriggerWorkflowRun,

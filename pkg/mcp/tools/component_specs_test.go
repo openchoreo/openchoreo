@@ -388,25 +388,6 @@ func componentSchemaSpecs() []toolTestSpec {
 			},
 		},
 		{
-			name:                "get_environment_release",
-			toolset:             "component",
-			descriptionKeywords: []string{"release", "environment"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "component_name", "environment_name"},
-			testArgs: map[string]any{
-				"namespace_name":   testNamespaceName,
-				"component_name":   testComponentName,
-				"environment_name": testEnvName,
-			},
-			expectedMethod: "GetEnvironmentRelease",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testComponentName || args[2] != testEnvName {
-					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
-						testNamespaceName, testComponentName, testEnvName, args[0], args[1], args[2])
-				}
-			},
-		},
-		{
 			name:                "update_release_binding_state",
 			toolset:             "component",
 			descriptionKeywords: []string{"state", "binding"},

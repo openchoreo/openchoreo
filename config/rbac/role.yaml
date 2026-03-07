@@ -86,7 +86,6 @@ rules:
   - observabilityplanes
   - projects
   - releasebindings
-  - renderedreleases
   - secretreferences
   - traits
   - workflowruns
@@ -163,7 +162,7 @@ rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - releases
+  - renderedreleases
   verbs:
   - create
   - delete

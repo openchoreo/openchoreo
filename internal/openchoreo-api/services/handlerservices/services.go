@@ -32,7 +32,6 @@ import (
 	observabilityalertsnotificationchannelsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityalertsnotificationchannel"
 	observabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityplane"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
-	releasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/release"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
 	secretreferencesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
@@ -63,7 +62,6 @@ type Services struct {
 	GitSecretService                              gitsecretsvc.Service
 	ObservabilityAlertsNotificationChannelService observabilityalertsnotificationchannelsvc.Service
 	ObservabilityPlaneService                     observabilityplanesvc.Service
-	ReleaseService                                releasesvc.Service
 	K8sResourcesService                           k8sresourcessvc.Service
 	ReleaseBindingService                         releasebindingsvc.Service
 	SecretReferenceService                        secretreferencesvc.Service
@@ -96,7 +94,6 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		GitSecretService:                              gitsecretsvc.NewServiceWithAuthz(k8sClient, bpClientMgr, pdp, logger.With("component", "gitsecret-service"), gatewayURL),
 		ObservabilityAlertsNotificationChannelService: observabilityalertsnotificationchannelsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "observabilityalertsnotificationchannel-service")),
 		ObservabilityPlaneService:                     observabilityplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "observabilityplane-service")),
-		ReleaseService:                                releasesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "release-service")),
 		K8sResourcesService:                           k8sresourcessvc.NewServiceWithAuthz(k8sClient, gwClient, pdp, logger.With("component", "k8sresources-service")),
 		ReleaseBindingService:                         releasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "releasebinding-service")),
 		SecretReferenceService:                        secretreferencesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "secretreference-service")),

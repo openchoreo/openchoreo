@@ -639,29 +639,6 @@ func (t *Toolsets) RegisterUpdateComponentTraits(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetEnvironmentRelease(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_environment_release",
-		Description: "Get the Release spec and status for a component deployed in a specific environment. " +
-			"Returns the complete Release resource including all Kubernetes manifests and deployment status.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name":   defaultStringProperty(),
-			"project_name":     defaultStringProperty(),
-			"component_name":   stringProperty("Use list_components to discover valid names"),
-			"environment_name": stringProperty("Use list_environments to discover valid names"),
-		}, []string{"namespace_name", "project_name", "component_name", "environment_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName   string `json:"namespace_name"`
-		ProjectName     string `json:"project_name"`
-		ComponentName   string `json:"component_name"`
-		EnvironmentName string `json:"environment_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetEnvironmentRelease(
-			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.EnvironmentName)
-		return handleToolResult(result, err)
-	})
-}
-
 func (t *Toolsets) RegisterPatchComponent(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "patch_component",

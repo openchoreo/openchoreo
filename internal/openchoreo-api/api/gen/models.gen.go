@@ -2593,15 +2593,6 @@ type ReleaseBindingStatus struct {
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
-// ReleaseList Paginated list of releases
-type ReleaseList struct {
-	Items []RenderedRelease `json:"items"`
-
-	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
-	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
-}
-
 // ReleaseResourceTree Resource tree for a single release
 type ReleaseResourceTree struct {
 	// Name Name of the release
@@ -3728,9 +3719,6 @@ type ProjectQueryParam = string
 // ReleaseBindingNameParam defines model for ReleaseBindingNameParam.
 type ReleaseBindingNameParam = string
 
-// ReleaseNameParam defines model for ReleaseNameParam.
-type ReleaseNameParam = string
-
 // RoleNameParam defines model for RoleNameParam.
 type RoleNameParam = string
 
@@ -4046,22 +4034,6 @@ type GetReleaseBindingK8sResourceLogsParams struct {
 
 	// SinceSeconds Number of seconds since which to show logs
 	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
-}
-
-// ListReleasesParams defines parameters for ListReleases.
-type ListReleasesParams struct {
-	// Component Filter resources by component name
-	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
-
-	// Environment Filter resources by environment name
-	Environment *EnvironmentQueryParam `form:"environment,omitempty" json:"environment,omitempty"`
-
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // ListNamespaceRoleBindingsParams defines parameters for ListNamespaceRoleBindings.

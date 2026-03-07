@@ -321,19 +321,6 @@ func (h *MCPHandler) GetComponentSchema(
 	return h.services.ComponentService.GetComponentSchema(ctx, namespaceName, componentName)
 }
 
-func (h *MCPHandler) GetEnvironmentRelease(
-	ctx context.Context, namespaceName, componentName, environmentName string,
-) (any, error) {
-	result, err := h.services.ReleaseService.ListReleases(ctx, namespaceName, componentName, environmentName, services.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	if len(result.Items) == 0 {
-		return nil, nil
-	}
-	return releaseDetail(&result.Items[0]), nil
-}
-
 func (h *MCPHandler) PatchComponent(
 	ctx context.Context, namespaceName, componentName string, req *gen.PatchComponentRequest,
 ) (any, error) {

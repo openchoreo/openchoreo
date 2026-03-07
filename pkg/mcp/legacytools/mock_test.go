@@ -276,13 +276,6 @@ func (m *MockCoreToolsetHandler) UpdateComponentTraits(
 	return `[{"name":"autoscaling","instanceName":"hpa-1","parameters":{"minReplicas":2,"maxReplicas":20}}]`, nil
 }
 
-func (m *MockCoreToolsetHandler) GetEnvironmentRelease(
-	ctx context.Context, namespaceName, projectName, componentName, environmentName string,
-) (any, error) {
-	m.recordCall("GetEnvironmentRelease", namespaceName, projectName, componentName, environmentName)
-	return `{"spec":{"resources":[]},"status":{"phase":"Ready"}}`, nil
-}
-
 func (m *MockCoreToolsetHandler) PatchComponent(
 	ctx context.Context, namespaceName, projectName, componentName string, req *models.PatchComponentRequest,
 ) (any, error) {

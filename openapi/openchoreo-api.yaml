@@ -4097,63 +4097,6 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
-  # Release Endpoints
-  # =============================================================================
-
-  /api/v1/namespaces/{namespaceName}/releases:
-    get:
-      operationId: listReleases
-      summary: List releases
-      description: Returns a paginated list of releases within a namespace, optionally filtered by component and environment.
-      tags: [Releases]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ComponentQueryParam'
-        - $ref: '#/components/parameters/EnvironmentQueryParam'
-        - $ref: '#/components/parameters/LimitParam'
-        - $ref: '#/components/parameters/CursorParam'
-      responses:
-        '200':
-          description: List of releases
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReleaseList'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/namespaces/{namespaceName}/releases/{releaseName}:
-    get:
-      operationId: getRelease
-      summary: Get release
-      description: Returns details of a specific release.
-      tags: [Releases]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ReleaseNameParam'
-      responses:
-        '200':
-          description: Release details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RenderedRelease'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  # =============================================================================
   # Release Binding Endpoints
   # =============================================================================
 
@@ -5023,15 +4966,6 @@ components:
       schema:
         type: string
         example: api-service-v1.0.0
-
-    ReleaseNameParam:
-      name: releaseName
-      in: path
-      required: true
-      description: Release name
-      schema:
-        type: string
-        example: v1.0.0
 
     RoleNameParam:
       name: roleName
@@ -8210,20 +8144,6 @@ components:
           description: File content
         valueFrom:
           $ref: '#/components/schemas/EnvVarValueFrom'
-
-    ReleaseList:
-      type: object
-      description: Paginated list of releases
-      required:
-        - items
-        - pagination
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/RenderedRelease'
-        pagination:
-          $ref: '#/components/schemas/Pagination'
 
     # -------------------------------------------------------------------------
     # RenderedRelease

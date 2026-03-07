@@ -184,13 +184,6 @@ func (m *MockCoreToolsetHandler) GetComponentSchema(
 	return emptyObjectSchema, nil
 }
 
-func (m *MockCoreToolsetHandler) GetEnvironmentRelease(
-	ctx context.Context, namespaceName, componentName, environmentName string,
-) (any, error) {
-	m.recordCall("GetEnvironmentRelease", namespaceName, componentName, environmentName)
-	return `{"spec":{"resources":[]},"status":{"phase":"Ready"}}`, nil
-}
-
 func (m *MockCoreToolsetHandler) PatchComponent(
 	ctx context.Context, namespaceName, componentName string, req *gen.PatchComponentRequest,
 ) (any, error) {
