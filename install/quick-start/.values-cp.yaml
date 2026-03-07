@@ -41,6 +41,13 @@ openchoreoApi:
                 claim: sub
                 value: openchoreo-cli-quickstart
               effect: allow
+            - name: workflow-binding
+              roleRef:
+                name: workflow
+              entitlement:
+                claim: sub
+                value: openchoreo-workflow-client
+              effect: allow
             - name: observer-binding
               roleRef:
                 name: observer
