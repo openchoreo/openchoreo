@@ -14,6 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/buildplane"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clustertrait"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clusterworkflow"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/component"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componentrelease"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componenttype"
@@ -67,6 +68,7 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		clustercomponenttype.NewClusterComponentTypeCmd(),
 		trait.NewTraitCmd(),
 		clustertrait.NewClusterTraitCmd(),
+		clusterworkflow.NewClusterWorkflowCmd(),
 		authzclusterrole.NewAuthzClusterRoleCmd(),
 		authzclusterrolebinding.NewAuthzClusterRoleBindingCmd(),
 		authzrole.NewAuthzRoleCmd(),

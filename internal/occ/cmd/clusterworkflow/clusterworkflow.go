@@ -1,0 +1,119 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package clusterworkflow
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"text/tabwriter"
+
+	"sigs.k8s.io/yaml"
+
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+)
+
+// ClusterWorkflow implements cluster workflow operations
+type ClusterWorkflow struct{}
+
+// New creates a new cluster workflow implementation
+func New() *ClusterWorkflow {
+	return &ClusterWorkflow{}
+}
+
+// List lists all cluster-scoped workflows
+func (c *ClusterWorkflow) List() error {
+	ctx := context.Background()
+
+	cl, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ClusterWorkflow, string, error) {
+		p := &gen.ListClusterWorkflowsParams{}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		result, err := cl.ListClusterWorkflows(ctx, p)
+		if err != nil {
+			return nil, "", err
+		}
+		next := ""
+		if result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
+		}
+		return result.Items, next, nil
+	})
+	if err != nil {
+		return err
+	}
+	return printList(items)
+}
+
+// Get retrieves a single cluster workflow and outputs it as YAML
+func (c *ClusterWorkflow) Get(params GetParams) error {
+	ctx := context.Background()
+
+	cl, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := cl.GetClusterWorkflow(ctx, params.ClusterWorkflowName)
+	if err != nil {
+		return err
+	}
+
+	data, err := yaml.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("failed to marshal cluster workflow to YAML: %w", err)
+	}
+
+	fmt.Print(string(data))
+	return nil
+}
+
+// Delete deletes a single cluster workflow
+func (c *ClusterWorkflow) Delete(params DeleteParams) error {
+	ctx := context.Background()
+
+	cl, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := cl.DeleteClusterWorkflow(ctx, params.ClusterWorkflowName); err != nil {
+		return err
+	}
+
+	fmt.Printf("ClusterWorkflow '%s' deleted\n", params.ClusterWorkflowName)
+	return nil
+}
+
+func printList(items []gen.ClusterWorkflow) error {
+	if len(items) == 0 {
+		fmt.Println("No cluster workflows found")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "NAME\tAGE")
+
+	for _, wf := range items {
+		age := ""
+		if wf.Metadata.CreationTimestamp != nil {
+			age = utils.FormatAge(*wf.Metadata.CreationTimestamp)
+		}
+		fmt.Fprintf(w, "%s\t%s\n",
+			wf.Metadata.Name,
+			age)
+	}
+
+	return w.Flush()
+}
