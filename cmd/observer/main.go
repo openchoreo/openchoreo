@@ -24,6 +24,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	apiconfig "github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
@@ -161,10 +162,28 @@ func main() {
 		os.Exit(1)
 	}
 
+	alertEntryStore, err := alertentry.New(
+		cfg.Alerting.AlertStoreBackend,
+		cfg.Alerting.AlertStoreDSN,
+		logger.With("component", "alert-entry-store"),
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize alert entry store: %v", err)
+	}
+	if err := alertEntryStore.Initialize(context.Background()); err != nil {
+		log.Fatalf("Failed to initialize alert entry store schema: %v", err)
+	}
+	defer func() {
+		if closeErr := alertEntryStore.Close(); closeErr != nil {
+			logger.Error("Failed to close alert entry store", "error", closeErr)
+		}
+	}()
+
 	// Initialize alert service for the internal v1alpha1 API
 	alertService := service.NewAlertService(
 		osClient,
 		opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
+		alertEntryStore,
 		k8sClient,
 		cfg,
 		logger.With("component", "alert-service"),
