@@ -306,7 +306,7 @@ func populateConnections(workload *openchoreov1alpha1.Workload, connections []co
 		wc := openchoreov1alpha1.WorkloadConnection{
 			Project:    conn.project,
 			Component:  conn.component,
-			Endpoint:   conn.endpoint,
+			Name:       conn.endpoint,
 			Visibility: openchoreov1alpha1.EndpointVisibility(conn.visibility),
 			EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
 				Address: conn.envURL,

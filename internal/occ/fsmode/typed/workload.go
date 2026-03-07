@@ -151,7 +151,7 @@ func (w *Workload) GetConnections() []interface{} {
 	for i, conn := range deps {
 		connMap := map[string]interface{}{
 			"component":  conn.Component,
-			"endpoint":   conn.Endpoint,
+			"name":       conn.Name,
 			"visibility": string(conn.Visibility),
 		}
 		if conn.Project != "" {

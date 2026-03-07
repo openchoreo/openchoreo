@@ -47,8 +47,8 @@ type WorkloadDescriptorConnection struct {
 	Project string `yaml:"project,omitempty"`
 	// Component is the target component name.
 	Component string `yaml:"component"`
-	// Endpoint is the target endpoint name.
-	Endpoint string `yaml:"endpoint"`
+	// Name is the target endpoint name.
+	Name string `yaml:"name"`
 	// Visibility is the visibility level for the connection.
 	Visibility string `yaml:"visibility"`
 	// EnvBindings maps connection address components to env var names.
@@ -281,7 +281,7 @@ func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descrip
 		connection := openchoreov1alpha1.WorkloadConnection{
 			Project:    dc.Project,
 			Component:  dc.Component,
-			Endpoint:   dc.Endpoint,
+			Name:       dc.Name,
 			Visibility: openchoreov1alpha1.EndpointVisibility(dc.Visibility),
 			EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
 				Address:  dc.EnvBindings.Address,

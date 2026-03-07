@@ -211,7 +211,7 @@ func TestGetConnections(t *testing.T) {
 			connections: []v1alpha1.WorkloadConnection{
 				{
 					Component:  "postgres",
-					Endpoint:   "tcp",
+					Name:       "tcp",
 					Visibility: v1alpha1.EndpointVisibilityProject,
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address: "DATABASE_URL",
@@ -224,8 +224,8 @@ func TestGetConnections(t *testing.T) {
 				if conn["component"] != "postgres" {
 					t.Errorf("component = %v, want postgres", conn["component"])
 				}
-				if conn["endpoint"] != "tcp" {
-					t.Errorf("endpoint = %v, want tcp", conn["endpoint"])
+				if conn["name"] != "tcp" {
+					t.Errorf("name = %v, want tcp", conn["name"])
 				}
 				if conn["visibility"] != "project" {
 					t.Errorf("visibility = %v, want project", conn["visibility"])
@@ -253,7 +253,7 @@ func TestGetConnections(t *testing.T) {
 				{
 					Project:    "other-project",
 					Component:  "redis",
-					Endpoint:   "tcp",
+					Name:       "tcp",
 					Visibility: v1alpha1.EndpointVisibilityNamespace,
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address:  "REDIS_URL",
@@ -293,7 +293,7 @@ func TestGetConnections(t *testing.T) {
 			connections: []v1alpha1.WorkloadConnection{
 				{
 					Component:  "postgres",
-					Endpoint:   "tcp",
+					Name:       "tcp",
 					Visibility: v1alpha1.EndpointVisibilityProject,
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address: "DB_URL",
@@ -301,7 +301,7 @@ func TestGetConnections(t *testing.T) {
 				},
 				{
 					Component:  "nats",
-					Endpoint:   "tcp",
+					Name:       "tcp",
 					Visibility: v1alpha1.EndpointVisibilityProject,
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address: "NATS_URL",

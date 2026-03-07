@@ -391,13 +391,13 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 	connectionSchema := extv1.JSONSchemaProps{
 		Type:        objectType,
 		Description: "Connection to another component's endpoint.",
-		Required:    []string{"component", "endpoint", "visibility"},
+		Required:    []string{"component", "name", "visibility"},
 		Properties: map[string]extv1.JSONSchemaProps{
 			"component": {
 				Type:        stringType,
 				Description: "Target component name.",
 			},
-			"endpoint": {
+			"name": {
 				Type:        stringType,
 				Description: "Target endpoint name on the target component.",
 			},

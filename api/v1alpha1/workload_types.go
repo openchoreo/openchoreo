@@ -180,10 +180,10 @@ type WorkloadConnection struct {
 	// +kubebuilder:validation:MinLength=1
 	Component string `json:"component"`
 
-	// Endpoint is the target endpoint name on the target component.
+	// Name is the target endpoint name on the target component.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
-	Endpoint string `json:"endpoint"`
+	Name string `json:"name"`
 
 	// Visibility is the visibility level at which this connection consumes the endpoint.
 	// +kubebuilder:validation:Required

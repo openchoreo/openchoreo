@@ -31,7 +31,7 @@ spec:
     endpoints:
       - project: gcp-microservice-demo
         component: redis
-        endpoint: redis
+        name: redis
         visibility: project
         envBindings:
           address: REDIS_ADDR
