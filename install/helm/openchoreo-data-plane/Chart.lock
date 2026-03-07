@@ -4,12 +4,12 @@ dependencies:
   version: 0.54.0
 - name: kube-prometheus-stack
   repository: https://prometheus-community.github.io/helm-charts
-  version: 78.3.0
+  version: 82.10.1
 - name: opentelemetry-collector
   repository: https://open-telemetry.github.io/opentelemetry-helm-charts
   version: 0.140.0
 - name: gateway-operator
   repository: oci://ghcr.io/wso2/api-platform/helm-charts
   version: 0.2.0
-digest: sha256:2dd7118df7d37abc5a342e8200387c12430455ea96a8bc8c1587c7c02b17ffc4
-generated: "2026-02-13T11:44:04.856724+05:30"
+digest: sha256:a967d0f97a00d08d34a4dacee81b2628662be3dc35214ef83151f9948d57f403
+generated: "2026-03-07T12:17:23.76136456Z"
