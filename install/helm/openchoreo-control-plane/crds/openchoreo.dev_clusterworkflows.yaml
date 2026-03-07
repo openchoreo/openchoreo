@@ -173,7 +173,6 @@ spec:
                         x-kubernetes-preserve-unknown-fields: true
                     type: object
                 type: object
-                x-kubernetes-preserve-unknown-fields: true
               ttlAfterCompletion:
                 description: TTLAfterCompletion defines the time-to-live for WorkflowRun
                   instances after completion.

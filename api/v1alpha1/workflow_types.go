@@ -25,26 +25,24 @@ type WorkflowSpec struct {
 
 	// Schema defines the developer-facing parameters that can be configured
 	// when creating a WorkflowRun instance. Uses the same shorthand schema syntax
-	// as ComponentType.
+	// as ComponentType. Fields are nested under schema.ocSchema.
 	//
 	// Schema format: nested maps where keys are field names and values are either
 	// nested maps or type definition strings.
 	// Type definition format: "type | default=value minimum=2 enum=val1,val2"
 	//
 	// Example:
-	//   repository:
-	//     url: string | description="Git repository URL"
-	//     revision:
-	//       branch: string | default=main description="Git branch to checkout"
-	//       commit: string | default=HEAD description="Git commit SHA or reference"
-	//     appPath: string | default=. description="Path to the application directory"
-	//     credentialsRef: string | enum=checkout-repo-credentials-dev,payments-repo-credentials-dev description="Repository credentials secret reference"
-	//   version: integer | default=1 description="Build version number"
-	//   testMode: string | enum=unit,integration,none default=unit description="Test mode to execute"
+	//   ocSchema:
+	//     parameters:
+	//       repository:
+	//         url: string | description="Git repository URL"
+	//         revision:
+	//           branch: string | default=main description="Git branch to checkout"
+	//           commit: string | default=HEAD description="Git commit SHA or reference"
+	//         appPath: string | default=. description="Path to the application directory"
+	//       version: integer | default=1 description="Build version number"
 	//
 	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Type=object
 	Schema *WorkflowSchema `json:"schema,omitempty"`
 
 	// RunTemplate is the Kubernetes resource template to be rendered and applied to the cluster.

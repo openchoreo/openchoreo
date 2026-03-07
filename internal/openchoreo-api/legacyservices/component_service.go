@@ -609,7 +609,7 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 	var componentTypeEnvOverrides map[string]any
 	if envRaw := release.Spec.ComponentType.Schema.GetEnvOverrides(); envRaw != nil && envRaw.Raw != nil {
 		if err := json.Unmarshal(envRaw.Raw, &componentTypeEnvOverrides); err != nil {
-			return nil, fmt.Errorf("failed to extract parameters: %w", err)
+			return nil, fmt.Errorf("failed to extract envOverrides: %w", err)
 		}
 	}
 

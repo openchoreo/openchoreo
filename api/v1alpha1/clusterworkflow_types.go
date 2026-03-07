@@ -20,8 +20,6 @@ type ClusterWorkflowSpec struct {
 	// Schema defines the developer-facing parameters that can be configured
 	// when creating a WorkflowRun instance.
 	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Type=object
 	Schema *WorkflowSchema `json:"schema,omitempty"`
 
 	// RunTemplate is the Kubernetes resource template to be rendered and applied to the cluster.
