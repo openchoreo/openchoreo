@@ -8457,13 +8457,13 @@ components:
 
     K8sResourceTreeResponse:
       type: object
-      description: Response containing resource trees for all releases owned by a release binding
+      description: Response containing resource trees for all rendered releases owned by a release binding
       required:
-        - releases
+        - renderedReleases
       properties:
-        releases:
+        renderedReleases:
           type: array
-          description: Resource trees per release (dataplane and/or observabilityplane)
+          description: Resource trees per rendered release (dataplane and/or observabilityplane)
           items:
             $ref: '#/components/schemas/ReleaseResourceTree'
 
