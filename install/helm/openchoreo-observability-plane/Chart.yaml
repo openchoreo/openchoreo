@@ -39,7 +39,7 @@ dependencies:
   - name: kube-prometheus-stack
     alias: prometheus
     repository: https://prometheus-community.github.io/helm-charts
-    version: 78.3.0
+    version: 82.10.1
     condition: prometheus.enabled
   - name: opensearch
     alias: openSearch
