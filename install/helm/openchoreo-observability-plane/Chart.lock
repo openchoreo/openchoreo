@@ -7,7 +7,7 @@ dependencies:
   version: 0.54.0
 - name: kube-prometheus-stack
   repository: https://prometheus-community.github.io/helm-charts
-  version: 78.3.0
+  version: 82.10.1
 - name: opensearch
   repository: https://opensearch-project.github.io/helm-charts/
   version: 3.3.0
@@ -26,5 +26,5 @@ dependencies:
 - name: observability-tracing-opensearch
   repository: oci://ghcr.io/openchoreo/charts
   version: 0.3.3
-digest: sha256:5d920df68bbfd9b031fb9628eafd7de345dfec45e9a48743d54466a9ed97cded
-generated: "2026-03-07T11:24:36.413336+05:30"
+digest: sha256:4c2eb83456e0b941be9225258cb9b8a5b55b061e2ebc0c9a36002d5a250342e7
+generated: "2026-03-07T12:17:23.698556489Z"
