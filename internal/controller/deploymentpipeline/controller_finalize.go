@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -33,13 +34,26 @@ func (r *Reconciler) finalize(ctx context.Context, pipeline *openchoreov1alpha1.
 		return ctrl.Result{}, nil
 	}
 
-	hasRefs, err := r.hasReferencingProjects(ctx, pipeline)
+	refCount, err := r.countReferencingProjects(ctx, pipeline)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to check referencing projects: %w", err)
 	}
 
-	if hasRefs {
-		logger.Info("Waiting for referencing Projects to be deleted before removing finalizer")
+	if refCount > 0 {
+		msg := fmt.Sprintf("Deletion blocked: deployment pipeline is still referenced by %d project(s)", refCount)
+		logger.Info(msg)
+		if err := controller.UpdateCondition(
+			ctx,
+			r.Status(),
+			pipeline,
+			&pipeline.Status.Conditions,
+			controller.TypeAvailable,
+			metav1.ConditionFalse,
+			"DeletionBlocked",
+			msg,
+		); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update status condition: %w", err)
+		}
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
@@ -53,15 +67,15 @@ func (r *Reconciler) finalize(ctx context.Context, pipeline *openchoreov1alpha1.
 	return ctrl.Result{}, nil
 }
 
-// hasReferencingProjects checks if any Projects in the same namespace reference this DeploymentPipeline.
-func (r *Reconciler) hasReferencingProjects(ctx context.Context, pipeline *openchoreov1alpha1.DeploymentPipeline) (bool, error) {
+// countReferencingProjects returns the number of Projects in the same namespace that reference this DeploymentPipeline.
+func (r *Reconciler) countReferencingProjects(ctx context.Context, pipeline *openchoreov1alpha1.DeploymentPipeline) (int, error) {
 	projectList := &openchoreov1alpha1.ProjectList{}
 	if err := r.List(ctx, projectList,
 		client.InNamespace(pipeline.Namespace),
 		client.MatchingFields{controller.IndexKeyProjectDeploymentPipelineRef: pipeline.Name},
 	); err != nil {
-		return false, fmt.Errorf("failed to list projects: %w", err)
+		return 0, fmt.Errorf("failed to list projects: %w", err)
 	}
 
-	return len(projectList.Items) > 0, nil
+	return len(projectList.Items), nil
 }
