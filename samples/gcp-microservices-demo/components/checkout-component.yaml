@@ -31,37 +31,37 @@ spec:
     endpoints:
       - project: gcp-microservice-demo
         component: productcatalog
-        endpoint: grpc
+        name: grpc
         visibility: project
         envBindings:
           address: PRODUCT_CATALOG_SERVICE_ADDR
       - project: gcp-microservice-demo
         component: shipping
-        endpoint: grpc
+        name: grpc
         visibility: project
         envBindings:
           address: SHIPPING_SERVICE_ADDR
       - project: gcp-microservice-demo
         component: payment
-        endpoint: grpc
+        name: grpc
         visibility: project
         envBindings:
           address: PAYMENT_SERVICE_ADDR
       - project: gcp-microservice-demo
         component: email
-        endpoint: grpc
+        name: grpc
         visibility: project
         envBindings:
           address: EMAIL_SERVICE_ADDR
       - project: gcp-microservice-demo
         component: currency
-        endpoint: grpc
+        name: grpc
         visibility: project
         envBindings:
           address: CURRENCY_SERVICE_ADDR
       - project: gcp-microservice-demo
         component: cart
-        endpoint: grpc
+        name: grpc
         visibility: project
         envBindings:
           address: CART_SERVICE_ADDR

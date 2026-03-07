@@ -148,7 +148,7 @@ func workloadDetail(w *openchoreov1alpha1.Workload) map[string]any {
 		for _, conn := range deps {
 			c := map[string]any{
 				"component":  conn.Component,
-				"endpoint":   conn.Endpoint,
+				"name":       conn.Name,
 				"visibility": string(conn.Visibility),
 			}
 			if conn.Project != "" {

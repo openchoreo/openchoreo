@@ -217,7 +217,7 @@ func TestGenerateRelease_WorkloadConnectionsIncluded(t *testing.T) {
 				"endpoints": []any{
 					map[string]any{
 						"component":  "postgres",
-						"endpoint":   "tcp",
+						"name":       "tcp",
 						"visibility": "project",
 						"envBindings": map[string]any{
 							"address": "DATABASE_URL",
@@ -225,7 +225,7 @@ func TestGenerateRelease_WorkloadConnectionsIncluded(t *testing.T) {
 					},
 					map[string]any{
 						"component":  "nats",
-						"endpoint":   "tcp",
+						"name":       "tcp",
 						"visibility": "project",
 						"envBindings": map[string]any{
 							"address": "NATS_URL",

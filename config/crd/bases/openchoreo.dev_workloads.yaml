@@ -162,11 +162,6 @@ spec:
                           description: Component is the target component name.
                           minLength: 1
                           type: string
-                        endpoint:
-                          description: Endpoint is the target endpoint name on the
-                            target component.
-                          minLength: 1
-                          type: string
                         envBindings:
                           description: EnvBindings maps semantic URL components to
                             environment variable names.
@@ -190,6 +185,11 @@ spec:
                                 the port number.
                               type: string
                           type: object
+                        name:
+                          description: Name is the target endpoint name on the target
+                            component.
+                          minLength: 1
+                          type: string
                         project:
                           description: |-
                             Project is the target component's project name.
@@ -211,8 +211,8 @@ spec:
                           type: string
                       required:
                       - component
-                      - endpoint
                       - envBindings
+                      - name
                       - visibility
                       type: object
                     maxItems: 50

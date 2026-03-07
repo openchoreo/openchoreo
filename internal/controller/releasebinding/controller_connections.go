@@ -35,7 +35,7 @@ func buildConnectionTargets(
 			Namespace:   releaseBinding.Namespace,
 			Project:     project,
 			Component:   conn.Component,
-			Endpoint:    conn.Endpoint,
+			Endpoint:    conn.Name,
 			Visibility:  conn.Visibility,
 			Environment: releaseBinding.Spec.Environment,
 		})
@@ -206,11 +206,11 @@ func buildConnectionItems(
 			Namespace:  releaseBinding.Namespace,
 			Project:    project,
 			Component:  conn.Component,
-			Endpoint:   conn.Endpoint,
+			Endpoint:   conn.Name,
 			Visibility: string(conn.Visibility),
 		}
 
-		key := connectionKey(releaseBinding.Namespace, project, conn.Component, conn.Endpoint, string(conn.Visibility))
+		key := connectionKey(releaseBinding.Namespace, project, conn.Component, conn.Name, string(conn.Visibility))
 		if rc, ok := resolved[key]; ok {
 			item.EnvVars = buildEnvVarsForConnection(conn, rc)
 		}
@@ -318,7 +318,7 @@ func allConnectionsResolved(
 		if project == "" {
 			project = releaseBinding.Spec.Owner.ProjectName
 		}
-		if _, ok := resolved[connectionKey(releaseBinding.Namespace, project, conn.Component, conn.Endpoint, string(conn.Visibility))]; !ok {
+		if _, ok := resolved[connectionKey(releaseBinding.Namespace, project, conn.Component, conn.Name, string(conn.Visibility))]; !ok {
 			return false
 		}
 	}
