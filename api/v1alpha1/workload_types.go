@@ -88,6 +88,7 @@ type Container struct {
 }
 
 // EndpointType defines the different API technologies supported by the endpoint
+// +kubebuilder:validation:Enum=HTTP;REST;gRPC;GraphQL;Websocket;TCP;UDP
 type EndpointType string
 
 const (
@@ -133,7 +134,6 @@ type WorkloadEndpoint struct {
 
 	// Type indicates the protocol/technology of the endpoint.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=HTTP;REST;gRPC;GraphQL;Websocket;TCP;UDP
 	Type EndpointType `json:"type"`
 
 	// Port exposed by the endpoint. If targetPort is not set, platform defaults to port for both.

@@ -201,11 +201,11 @@ type EndpointGatewayURLs struct {
 // EndpointURLStatus holds the resolved URLs for a single named workload endpoint.
 type EndpointURLStatus struct {
 	// Name is the endpoint name as defined in the Workload spec.
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
 	// Type is the endpoint type (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP).
-	// +optional
-	Type EndpointType `json:"type,omitempty"`
+	Type EndpointType `json:"type"`
 
 	// ServiceURL is the in-cluster service URL for this endpoint.
 	// +optional
