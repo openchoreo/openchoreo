@@ -24,10 +24,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
-	observerlabels "github.com/openchoreo/openchoreo/internal/observer/labels"
 	"github.com/openchoreo/openchoreo/internal/observer/notifications"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
+	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
+	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 	legacytypes "github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
@@ -49,24 +50,27 @@ type AlertOpenSearchClient interface {
 	CreateMonitor(ctx context.Context, monitor map[string]interface{}) (id string, lastUpdateTime int64, err error)
 	UpdateMonitor(ctx context.Context, monitorID string, monitor map[string]interface{}) (lastUpdateTime int64, err error)
 	DeleteMonitor(ctx context.Context, monitorID string) error
-	WriteAlertEntry(ctx context.Context, entry map[string]interface{}) (string, error)
 }
 
 // AlertService provides CRUD operations for alert rules, backing the v1alpha1 API.
 type AlertService struct {
-	osClient      AlertOpenSearchClient
-	queryBuilder  *opensearch.QueryBuilder
-	k8sClient     client.Client
-	config        *config.Config
-	logger        *slog.Logger
-	rcaServiceURL string
-	aiRCAEnabled  bool
+	osClient           AlertOpenSearchClient
+	queryBuilder       *opensearch.QueryBuilder
+	alertEntryStore    alertentry.AlertEntryStore
+	incidentEntryStore incidententry.IncidentEntryStore
+	k8sClient          client.Client
+	config             *config.Config
+	logger             *slog.Logger
+	rcaServiceURL      string
+	aiRCAEnabled       bool
 }
 
 // NewAlertService creates a new AlertService.
 func NewAlertService(
 	osClient AlertOpenSearchClient,
 	queryBuilder *opensearch.QueryBuilder,
+	alertEntryStore alertentry.AlertEntryStore,
+	incidentEntryStore incidententry.IncidentEntryStore,
 	k8sClient client.Client,
 	cfg *config.Config,
 	logger *slog.Logger,
@@ -74,13 +78,15 @@ func NewAlertService(
 	aiRCAEnabled bool,
 ) *AlertService {
 	return &AlertService{
-		osClient:      osClient,
-		queryBuilder:  queryBuilder,
-		k8sClient:     k8sClient,
-		config:        cfg,
-		logger:        logger,
-		rcaServiceURL: rcaServiceURL,
-		aiRCAEnabled:  aiRCAEnabled,
+		osClient:           osClient,
+		queryBuilder:       queryBuilder,
+		alertEntryStore:    alertEntryStore,
+		incidentEntryStore: incidentEntryStore,
+		k8sClient:          k8sClient,
+		config:             cfg,
+		logger:             logger,
+		rcaServiceURL:      rcaServiceURL,
+		aiRCAEnabled:       aiRCAEnabled,
 	}
 }
 
@@ -220,28 +226,51 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		}
 	}
 
-	// Store alert entry in OpenSearch
-	// TODO: Use a dedicated storage for alert entries
-	alertEntry := map[string]interface{}{
-		"@timestamp":      alertDetails.AlertTimestamp,
-		"alert_rule_name": alertDetails.AlertName,
-		"alert_value":     alertDetails.AlertValue,
-		"labels": map[string]interface{}{
-			observerlabels.NamespaceName:   alertDetails.Namespace,
-			observerlabels.ComponentName:   alertDetails.Component,
-			observerlabels.EnvironmentName: alertDetails.Environment,
-			observerlabels.ProjectName:     alertDetails.Project,
-			observerlabels.ComponentID:     alertDetails.ComponentID,
-			observerlabels.EnvironmentID:   alertDetails.EnvironmentID,
-			observerlabels.ProjectID:       alertDetails.ProjectID,
-		},
-		"incident_enabled": alertDetails.IncidentEnabled,
-		"trigger_ai_rca":   alertDetails.TriggerAiRca,
+	if s.alertEntryStore == nil {
+		return nil, fmt.Errorf("alert entry store is not initialized")
 	}
 
-	alertID, err := s.osClient.WriteAlertEntry(ctx, alertEntry)
+	alertID, err := s.alertEntryStore.WriteAlertEntry(ctx, &alertentry.AlertEntry{
+		Timestamp:            alertDetails.AlertTimestamp,
+		AlertRuleName:        alertDetails.AlertName,
+		AlertRuleCRName:      ruleName,
+		AlertRuleCRNamespace: ruleNamespace,
+		AlertValue:           alertDetails.AlertValue,
+		NamespaceName:        alertDetails.Namespace,
+		ComponentName:        alertDetails.Component,
+		EnvironmentName:      alertDetails.Environment,
+		ProjectName:          alertDetails.Project,
+		ComponentID:          alertDetails.ComponentID,
+		EnvironmentID:        alertDetails.EnvironmentID,
+		ProjectID:            alertDetails.ProjectID,
+		IncidentEnabled:      alertDetails.IncidentEnabled,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to store alert entry: %w", err)
+	}
+
+	if alertDetails.IncidentEnabled {
+		if s.incidentEntryStore == nil {
+			return nil, fmt.Errorf("incident entry store is not initialized")
+		}
+
+		if _, err := s.incidentEntryStore.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
+			AlertID:         alertID,
+			Timestamp:       alertDetails.AlertTimestamp,
+			Status:          incidententry.StatusTriggered,
+			TriggerAiRca:    alertDetails.TriggerAiRca,
+			TriggeredAt:     alertDetails.AlertTimestamp,
+			Description:     alertDetails.AlertDescription,
+			NamespaceName:   alertDetails.Namespace,
+			ComponentName:   alertDetails.Component,
+			EnvironmentName: alertDetails.Environment,
+			ProjectName:     alertDetails.Project,
+			ComponentID:     alertDetails.ComponentID,
+			EnvironmentID:   alertDetails.EnvironmentID,
+			ProjectID:       alertDetails.ProjectID,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to store incident entry: %w", err)
+		}
 	}
 
 	s.logger.Debug("Alert entry stored", "alertID", alertID, "ruleName", ruleName)
