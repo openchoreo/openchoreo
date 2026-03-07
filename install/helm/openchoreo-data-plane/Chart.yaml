@@ -32,7 +32,7 @@ dependencies:
     condition: fluent-bit.enabled
   - name: kube-prometheus-stack
     repository: https://prometheus-community.github.io/helm-charts
-    version: 78.3.0
+    version: 82.10.1
     condition: kube-prometheus-stack.enabled
   - name: opentelemetry-collector
     repository: https://open-telemetry.github.io/opentelemetry-helm-charts
