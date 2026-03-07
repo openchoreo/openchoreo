@@ -349,7 +349,6 @@ func TestConditionFunctions(t *testing.T) {
 			t.Errorf("expected message to contain 'test error', got %q", cond.Message)
 		}
 	})
-
 }
 
 func TestIsWorkflowInitiated(t *testing.T) {
