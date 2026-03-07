@@ -92,11 +92,81 @@ func TestConditionReasonConstants(t *testing.T) {
 	}{
 		{name: "ReasonDeploymentReady", reason: string(ReasonDeploymentReady), want: "EnvironmentReady"},
 		{name: "ReasonEnvironmentFinalizing", reason: string(ReasonEnvironmentFinalizing), want: "EnvironmentFinalizing"},
+		{name: "ReasonDeletionBlocked", reason: string(ReasonDeletionBlocked), want: "DeletionBlocked"},
+		{name: "ReasonReleaseBindingsPending", reason: string(ReasonReleaseBindingsPending), want: "ReleaseBindingsPending"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.reason != tt.want {
 				t.Errorf("expected %q, got %q", tt.want, tt.reason)
+			}
+		})
+	}
+}
+
+func TestNewDeletionBlockedCondition(t *testing.T) {
+	tests := []struct {
+		name       string
+		generation int64
+		message    string
+	}{
+		{name: "generation 1", generation: 1, message: "blocked by pipeline foo"},
+		{name: "generation 5", generation: 5, message: "blocked by pipeline bar"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cond := NewDeletionBlockedCondition(tt.generation, tt.message)
+			if cond.Type != ConditionReady.String() {
+				t.Errorf("expected type %q, got %q", ConditionReady.String(), cond.Type)
+			}
+			if cond.Status != metav1.ConditionFalse {
+				t.Errorf("expected status %q, got %q", metav1.ConditionFalse, cond.Status)
+			}
+			if cond.Reason != string(ReasonDeletionBlocked) {
+				t.Errorf("expected reason %q, got %q", ReasonDeletionBlocked, cond.Reason)
+			}
+			if cond.Message != tt.message {
+				t.Errorf("expected message %q, got %q", tt.message, cond.Message)
+			}
+			if cond.ObservedGeneration != tt.generation {
+				t.Errorf("expected observedGeneration %d, got %d", tt.generation, cond.ObservedGeneration)
+			}
+			if cond.LastTransitionTime.IsZero() {
+				t.Error("expected LastTransitionTime to be set")
+			}
+		})
+	}
+}
+
+func TestNewReleaseBindingsPendingCondition(t *testing.T) {
+	tests := []struct {
+		name       string
+		generation int64
+		message    string
+	}{
+		{name: "generation 1", generation: 1, message: "Waiting for release bindings to be removed"},
+		{name: "generation 3", generation: 3, message: "2 release bindings still exist"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cond := NewReleaseBindingsPendingCondition(tt.generation, tt.message)
+			if cond.Type != ConditionReady.String() {
+				t.Errorf("expected type %q, got %q", ConditionReady.String(), cond.Type)
+			}
+			if cond.Status != metav1.ConditionFalse {
+				t.Errorf("expected status %q, got %q", metav1.ConditionFalse, cond.Status)
+			}
+			if cond.Reason != string(ReasonReleaseBindingsPending) {
+				t.Errorf("expected reason %q, got %q", ReasonReleaseBindingsPending, cond.Reason)
+			}
+			if cond.Message != tt.message {
+				t.Errorf("expected message %q, got %q", tt.message, cond.Message)
+			}
+			if cond.ObservedGeneration != tt.generation {
+				t.Errorf("expected observedGeneration %d, got %d", tt.generation, cond.ObservedGeneration)
+			}
+			if cond.LastTransitionTime.IsZero() {
+				t.Error("expected LastTransitionTime to be set")
 			}
 		})
 	}
