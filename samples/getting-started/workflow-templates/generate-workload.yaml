@@ -16,10 +16,10 @@ spec:
           - name: oauth-host-header
             default: "thunder.openchoreo.localhost"
           - name: oauth-client-id
-            default: "openchoreo-workflow-client"
+            default: "openchoreo-workload-publisher-client"
           # TODO: Mount the client secret from a Kubernetes secret instead of using a default value.
           - name: oauth-client-secret
-            default: "openchoreo-workflow-secret"
+            default: "openchoreo-workload-publisher-secret"
           # --- OpenChoreo API Server Configuration ---
           # Update these when the API server URL or host changes.
           - name: api-server-url

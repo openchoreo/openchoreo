@@ -1099,8 +1099,8 @@ openchoreoApi:
                 - "alerts:view"
                 - "traces:view"
 
-            # Workflow role for creating workloads from CI workflows
-            - name: workflow
+            # Workload publisher role for creating workloads from CI workflows
+            - name: workload-publisher
               actions:
                 - "workload:create"
                 - "workload:update"
@@ -1190,13 +1190,13 @@ openchoreoApi:
                 value: openchoreo-rca-agent
               effect: allow
 
-            # Workflow mapping - grants workflow service account workload creation access
-            - name: workflow-binding
+            # Workload publisher mapping - grants workload publisher service account workload creation access
+            - name: workload-publisher-binding
               roleRef:
-                name: workflow
+                name: workload-publisher
               entitlement:
                 claim: sub
-                value: openchoreo-workflow-client
+                value: openchoreo-workload-publisher-client
               effect: allow
 
             # Observer mapping - grants observer service account resource UID resolver access

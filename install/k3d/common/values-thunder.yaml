@@ -723,26 +723,26 @@ bootstrap:
         log_info "Service MCP App application created successfully"
       fi
 
-    58-workflow-app.sh: |
+    58-workload-publisher-app.sh: |
       #!/bin/bash
       set -e
 
       THUNDER_URL="http://localhost:8090"
 
-      log_info "Checking if Workflow application already exists..."
+      log_info "Checking if Workload Publisher application already exists..."
       existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
 
-      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"client_id":"openchoreo-workflow-client"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"openchoreo-workflow-client"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"client_id":"openchoreo-workload-publisher-client"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"openchoreo-workload-publisher-client"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
       APP_PAYLOAD='{
-        "name": "Workflow",
-        "description": "OpenChoreo Workflow Client for creating workloads from CI workflows",
+        "name": "Workload Publisher",
+        "description": "OpenChoreo Workload Publisher Client for creating workloads from CI workflows",
         "inbound_auth_config": [
           {
             "type": "oauth2",
             "config": {
-              "client_id": "openchoreo-workflow-client",
-              "client_secret": "openchoreo-workflow-secret",
+              "client_id": "openchoreo-workload-publisher-client",
+              "client_secret": "openchoreo-workload-publisher-secret",
               "grant_types": [
                 "client_credentials"
               ],
@@ -760,7 +760,7 @@ bootstrap:
       }'
 
       if [ -n "$app_id" ]; then
-        log_info "Workflow application already exists (id: $app_id), updating..."
+        log_info "Workload Publisher application already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
           --data "$APP_PAYLOAD" \
@@ -769,9 +769,9 @@ bootstrap:
           --retry 3 \
           --retry-delay 5
 
-        log_info "Workflow application updated successfully"
+        log_info "Workload Publisher application updated successfully"
       else
-        log_info "Workflow application does not exist, creating..."
+        log_info "Workload Publisher application does not exist, creating..."
         curl --location "${THUNDER_URL}/applications" \
           --header 'Content-Type: application/json' \
           --data "$APP_PAYLOAD" \
@@ -780,7 +780,7 @@ bootstrap:
           --retry 3 \
           --retry-delay 5
 
-        log_info "Workflow application created successfully"
+        log_info "Workload Publisher application created successfully"
       fi
 
     59-openchoreo-observer-app.sh: |
