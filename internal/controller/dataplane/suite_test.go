@@ -23,6 +23,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -105,7 +106,7 @@ var _ = BeforeSuite(func() {
 			}
 			ref := environment.Spec.DataPlaneRef
 			if ref == nil {
-				return []string{"default"}
+				return []string{controller.DefaultPlaneName}
 			}
 			if ref.Kind == openchoreov1alpha1.DataPlaneRefKindClusterDataPlane {
 				return nil
