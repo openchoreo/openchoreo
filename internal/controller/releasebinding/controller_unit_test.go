@@ -1706,7 +1706,6 @@ func TestBuildConnectionTargets(t *testing.T) {
 			t.Errorf("expected project %s, got %s", testProjectName, targets[0].Project)
 		}
 	})
-
 }
 
 func TestAllConnectionsResolved(t *testing.T) {
