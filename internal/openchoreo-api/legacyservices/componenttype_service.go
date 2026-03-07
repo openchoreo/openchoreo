@@ -128,8 +128,8 @@ func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, names
 
 	// Extract types from RawExtension
 	var types map[string]any
-	if ct.Spec.Schema.Types != nil && ct.Spec.Schema.Types.Raw != nil {
-		if err := yaml.Unmarshal(ct.Spec.Schema.Types.Raw, &types); err != nil {
+	if typesRaw := ct.Spec.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
+		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
 			return nil, fmt.Errorf("failed to extract types: %w", err)
 		}
 	}
@@ -143,9 +143,9 @@ func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, names
 	}
 
 	// Extract parameters schema from RawExtension
-	if ct.Spec.Schema.Parameters != nil && ct.Spec.Schema.Parameters.Raw != nil {
+	if paramsRaw := ct.Spec.Schema.GetParameters(); paramsRaw != nil && paramsRaw.Raw != nil {
 		var params map[string]any
-		if err := yaml.Unmarshal(ct.Spec.Schema.Parameters.Raw, &params); err != nil {
+		if err := yaml.Unmarshal(paramsRaw.Raw, &params); err != nil {
 			return nil, fmt.Errorf("failed to extract parameters: %w", err)
 		}
 		def.Schemas = []map[string]any{params}

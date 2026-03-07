@@ -835,8 +835,8 @@ func (s *componentService) GetComponentSchema(ctx context.Context, namespaceName
 	}
 
 	var types map[string]any
-	if ct.Spec.Schema.Types != nil && ct.Spec.Schema.Types.Raw != nil {
-		if err := yaml.Unmarshal(ct.Spec.Schema.Types.Raw, &types); err != nil {
+	if typesRaw := ct.Spec.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
+		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
 			return nil, fmt.Errorf("failed to extract types: %w", err)
 		}
 	}
@@ -846,8 +846,8 @@ func (s *componentService) GetComponentSchema(ctx context.Context, namespaceName
 	}
 
 	var envOverrides map[string]any
-	if ct.Spec.Schema.EnvOverrides != nil && ct.Spec.Schema.EnvOverrides.Raw != nil {
-		if err := json.Unmarshal(ct.Spec.Schema.EnvOverrides.Raw, &envOverrides); err != nil {
+	if envRaw := ct.Spec.Schema.GetEnvOverrides(); envRaw != nil && envRaw.Raw != nil {
+		if err := json.Unmarshal(envRaw.Raw, &envOverrides); err != nil {
 			return nil, fmt.Errorf("failed to extract envOverrides: %w", err)
 		}
 	}
@@ -929,8 +929,8 @@ func (s *componentService) GetComponentReleaseSchema(ctx context.Context, namesp
 	}
 
 	var types map[string]any
-	if release.Spec.ComponentType.Schema.Types != nil && release.Spec.ComponentType.Schema.Types.Raw != nil {
-		if err := yaml.Unmarshal(release.Spec.ComponentType.Schema.Types.Raw, &types); err != nil {
+	if typesRaw := release.Spec.ComponentType.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
+		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
 			return nil, fmt.Errorf("failed to extract types: %w", err)
 		}
 	}
@@ -940,8 +940,8 @@ func (s *componentService) GetComponentReleaseSchema(ctx context.Context, namesp
 	}
 
 	var envOverrides map[string]any
-	if release.Spec.ComponentType.Schema.EnvOverrides != nil && release.Spec.ComponentType.Schema.EnvOverrides.Raw != nil {
-		if err := json.Unmarshal(release.Spec.ComponentType.Schema.EnvOverrides.Raw, &envOverrides); err != nil {
+	if envRaw := release.Spec.ComponentType.Schema.GetEnvOverrides(); envRaw != nil && envRaw.Raw != nil {
+		if err := json.Unmarshal(envRaw.Raw, &envOverrides); err != nil {
 			return nil, fmt.Errorf("failed to extract envOverrides: %w", err)
 		}
 	}
@@ -996,8 +996,8 @@ func (s *componentService) GetComponentReleaseSchema(ctx context.Context, namesp
 // Returns nil if the trait has no envOverrides.
 func buildTraitEnvOverridesSchema(traitSpec openchoreov1alpha1.TraitSpec, traitName string) (*extv1.JSONSchemaProps, error) {
 	var traitEnvOverrides map[string]any
-	if traitSpec.Schema.EnvOverrides != nil && traitSpec.Schema.EnvOverrides.Raw != nil {
-		if err := json.Unmarshal(traitSpec.Schema.EnvOverrides.Raw, &traitEnvOverrides); err != nil {
+	if envRaw := traitSpec.Schema.GetEnvOverrides(); envRaw != nil && envRaw.Raw != nil {
+		if err := json.Unmarshal(envRaw.Raw, &traitEnvOverrides); err != nil {
 			return nil, fmt.Errorf("failed to extract envOverrides for trait %s: %w", traitName, err)
 		}
 	}
@@ -1007,8 +1007,8 @@ func buildTraitEnvOverridesSchema(traitSpec openchoreov1alpha1.TraitSpec, traitN
 	}
 
 	var traitTypes map[string]any
-	if traitSpec.Schema.Types != nil && traitSpec.Schema.Types.Raw != nil {
-		if err := yaml.Unmarshal(traitSpec.Schema.Types.Raw, &traitTypes); err != nil {
+	if typesRaw := traitSpec.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
+		if err := yaml.Unmarshal(typesRaw.Raw, &traitTypes); err != nil {
 			return nil, fmt.Errorf("failed to extract types for trait %s: %w", traitName, err)
 		}
 	}

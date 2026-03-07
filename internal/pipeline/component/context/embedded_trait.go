@@ -176,9 +176,9 @@ func processEmbeddedTraitParameters(input *EmbeddedTraitContextInput) (map[strin
 	if parametersBundle == nil || envOverridesBundle == nil {
 		var err error
 		parametersBundle, envOverridesBundle, err = BuildStructuralSchemas(&SchemaInput{
-			Types:              input.Trait.Spec.Schema.Types,
-			ParametersSchema:   input.Trait.Spec.Schema.Parameters,
-			EnvOverridesSchema: input.Trait.Spec.Schema.EnvOverrides,
+			Types:              input.Trait.Spec.Schema.GetTypes(),
+			ParametersSchema:   input.Trait.Spec.Schema.GetParameters(),
+			EnvOverridesSchema: input.Trait.Spec.Schema.GetEnvOverrides(),
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to build trait schemas: %w", err)

@@ -243,8 +243,10 @@ func componentTypeYAML(cpNamespace string) string {
 				Message: "e2e-conn-service must have at least one endpoint.",
 			}},
 			Schema: openchoreov1alpha1.ComponentTypeSchema{
-				Parameters:   mustRawExtension(map[string]any{}),
-				EnvOverrides: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
+				OCSchema: &openchoreov1alpha1.ComponentTypeOCSchema{
+					Parameters:   mustRawExtension(map[string]any{}),
+					EnvOverrides: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
+				},
 			},
 			Resources: []openchoreov1alpha1.ResourceTemplate{
 				{ID: "deployment", Template: mustRawExtension(deploymentTemplate)},

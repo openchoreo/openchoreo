@@ -111,8 +111,8 @@ func (s *ClusterTraitService) GetClusterTraitSchema(ctx context.Context, name st
 
 	// Extract types from RawExtension
 	var types map[string]any
-	if trait.Spec.Schema.Types != nil && trait.Spec.Schema.Types.Raw != nil {
-		if err := yaml.Unmarshal(trait.Spec.Schema.Types.Raw, &types); err != nil {
+	if typesRaw := trait.Spec.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
+		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
 			return nil, fmt.Errorf("failed to extract types: %w", err)
 		}
 	}
@@ -126,9 +126,9 @@ func (s *ClusterTraitService) GetClusterTraitSchema(ctx context.Context, name st
 	}
 
 	// Extract parameters schema from RawExtension
-	if trait.Spec.Schema.Parameters != nil && trait.Spec.Schema.Parameters.Raw != nil {
+	if paramsRaw := trait.Spec.Schema.GetParameters(); paramsRaw != nil && paramsRaw.Raw != nil {
 		var params map[string]any
-		if err := yaml.Unmarshal(trait.Spec.Schema.Parameters.Raw, &params); err != nil {
+		if err := yaml.Unmarshal(paramsRaw.Raw, &params); err != nil {
 			return nil, fmt.Errorf("failed to extract parameters: %w", err)
 		}
 		def.Schemas = []map[string]any{params}

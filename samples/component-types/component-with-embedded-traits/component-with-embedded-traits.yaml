@@ -22,15 +22,16 @@ metadata:
   namespace: default
 spec:
   schema:
-    parameters:
-      enabled: "boolean | default=false"
-      minReplicas: "integer | default=2 | minimum=1"
-      maxReplicas: "integer | default=10 | minimum=1"
-      targetCPUUtilizationPercentage: "integer | default=80 | minimum=1 | maximum=100"
+    ocSchema:
+      parameters:
+        enabled: "boolean | default=false"
+        minReplicas: "integer | default=2 | minimum=1"
+        maxReplicas: "integer | default=10 | minimum=1"
+        targetCPUUtilizationPercentage: "integer | default=80 | minimum=1 | maximum=100"
 
-    envOverrides:
-      minReplicas: "integer | minimum=1"
-      maxReplicas: "integer | minimum=1"
+      envOverrides:
+        minReplicas: "integer | minimum=1"
+        maxReplicas: "integer | minimum=1"
 
   creates:
     - includeWhen: ${parameters.enabled}
@@ -67,14 +68,15 @@ metadata:
   namespace: default
 spec:
   schema:
-    parameters:
-      volumeName: "string"
-      mountPath: "string"
-      containerName: "string | default=main"
+    ocSchema:
+      parameters:
+        volumeName: "string"
+        mountPath: "string"
+        containerName: "string | default=main"
 
-    envOverrides:
-      size: "string | default=10Gi"
-      storageClass: "string | default=local-path"
+      envOverrides:
+        size: "string | default=10Gi"
+        storageClass: "string | default=local-path"
 
   creates:
     - template:
@@ -144,31 +146,32 @@ spec:
       message: "Service components must have at least one endpoint. Use 'deployment/worker' for components without endpoints."
 
   schema:
-    types:
-      ResourceRequirements:
-        requests: "ResourceQuantity | default={}"
-        limits: "ResourceQuantity | default={}"
-      ResourceQuantity:
-        cpu: "string | default=100m"
-        memory: "string | default=256Mi"
+    ocSchema:
+      types:
+        ResourceRequirements:
+          requests: "ResourceQuantity | default={}"
+          limits: "ResourceQuantity | default={}"
+        ResourceQuantity:
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
 
-    parameters:
-      # Autoscaling parameters - wired to embedded HPA trait
-      # Developers can configure min/max replicas; CPU threshold is locked by PE
-      autoscaling:
-        enabled: "boolean | default=false"
-        minReplicas: "integer | default=2 | minimum=1"
-        maxReplicas: "integer | default=10 | minimum=1"
+      parameters:
+        # Autoscaling parameters - wired to embedded HPA trait
+        # Developers can configure min/max replicas; CPU threshold is locked by PE
+        autoscaling:
+          enabled: "boolean | default=false"
+          minReplicas: "integer | default=2 | minimum=1"
+          maxReplicas: "integer | default=10 | minimum=1"
 
-    envOverrides:
-      replicas: "integer | default=1"
-      resources: "ResourceRequirements | default={}"
-      imagePullPolicy: "string | default=IfNotPresent"
-      # Environment-specific autoscaling overrides - allows tuning replica bounds per environment
-      # Note: targetCPUUtilizationPercentage is locked by PE at 75%, not overridable
-      autoscaling:
-        minReplicas: "integer | minimum=1"
-        maxReplicas: "integer | minimum=1"
+      envOverrides:
+        replicas: "integer | default=1"
+        resources: "ResourceRequirements | default={}"
+        imagePullPolicy: "string | default=IfNotPresent"
+        # Environment-specific autoscaling overrides - allows tuning replica bounds per environment
+        # Note: targetCPUUtilizationPercentage is locked by PE at 75%, not overridable
+        autoscaling:
+          minReplicas: "integer | minimum=1"
+          maxReplicas: "integer | minimum=1"
 
   # Embedded traits - automatically applied to all Components of this type
   traits:

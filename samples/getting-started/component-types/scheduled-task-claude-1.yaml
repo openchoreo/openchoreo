@@ -17,27 +17,61 @@ spec:
   allowedTraits: []
 
   schema:
-    ocSchema:
-      types:
-        ResourceRequirements:
-          requests: "ResourceQuantity | default={}"
-          limits: "ResourceQuantity | default={}"
+    openAPIV3Schema:
+      $defs:
         ResourceQuantity:
-          cpu: "string | default=100m"
-          memory: "string | default=128Mi"
+          type: object
+          properties:
+            cpu:
+              type: string
+              default: "100m"
+            memory:
+              type: string
+              default: "128Mi"
+        ResourceRequirements:
+          type: object
+          properties:
+            requests:
+              $ref: "#/$defs/ResourceQuantity"
+              default: {}
+            limits:
+              $ref: "#/$defs/ResourceQuantity"
+              default: {}
 
       parameters:
-        successfulJobsHistoryLimit: "integer | default=3"
-        failedJobsHistoryLimit: "integer | default=1"
-        concurrencyPolicy: "string | default=Forbid"
-        backoffLimit: "integer | default=3"
-        activeDeadlineSeconds: "integer | default=300"
-        restartPolicy: "string | default=OnFailure"
+        type: object
+        properties:
+          successfulJobsHistoryLimit:
+            type: integer
+            default: 3
+          failedJobsHistoryLimit:
+            type: integer
+            default: 1
+          concurrencyPolicy:
+            type: string
+            default: Forbid
+          backoffLimit:
+            type: integer
+            default: 3
+          activeDeadlineSeconds:
+            type: integer
+            default: 300
+          restartPolicy:
+            type: string
+            default: OnFailure
 
       envOverrides:
-        schedule: 'string | default="0 0 31 2 *"'
-        resources: "ResourceRequirements | default={}"
-        imagePullPolicy: "string | default=IfNotPresent"
+        type: object
+        properties:
+          schedule:
+            type: string
+            default: "0 0 31 2 *"
+          resources:
+            $ref: "#/$defs/ResourceRequirements"
+            default: {}
+          imagePullPolicy:
+            type: string
+            default: IfNotPresent
 
   resources:
     - id: cronjob

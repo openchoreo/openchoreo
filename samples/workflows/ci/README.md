@@ -394,22 +394,23 @@ Types are defined at the schema level and can represent objects, arrays, or nest
 
 ```yaml
 schema:
-  types:
-    # Object type for endpoint configuration
-    Endpoint:
-      name: "string"
-      port: "integer"
-      type: "string | enum=REST,HTTP,TCP,UDP"
-      schemaFile: "string | description='Path to the schema file'"
+  ocSchema:
+    types:
+      # Object type for endpoint configuration
+      Endpoint:
+        name: "string"
+        port: "integer"
+        type: "string | enum=REST,HTTP,TCP,UDP"
+        schemaFile: "string | description='Path to the schema file'"
 
-    # Nested object type for resource configuration
-    ResourceRequirements:
-      requests: "ResourceQuantity | default={}"
-      limits: "ResourceQuantity | default={}"
+      # Nested object type for resource configuration
+      ResourceRequirements:
+        requests: "ResourceQuantity | default={}"
+        limits: "ResourceQuantity | default={}"
 
-    ResourceQuantity:
-      cpu: "string | default=100m"
-      memory: "string | default=256Mi"
+      ResourceQuantity:
+        cpu: "string | default=100m"
+        memory: "string | default=256Mi"
 ```
 
 ### Using Types in Parameters
@@ -418,21 +419,22 @@ Once defined, types can be referenced in parameters using the type name:
 
 ```yaml
 schema:
-  types:
-    Endpoint:
-      name: "string"
-      port: "integer"
-      type: "string | enum=REST,HTTP,TCP,UDP"
+  ocSchema:
+    types:
+      Endpoint:
+        name: "string"
+        port: "integer"
+        type: "string | enum=REST,HTTP,TCP,UDP"
 
-  parameters:
-    # Reference type as an array
-    endpoints: '[]Endpoint | default=[] description="List of service endpoints"'
+    parameters:
+      # Reference type as an array
+      endpoints: '[]Endpoint | default=[] description="List of service endpoints"'
 
-    # Reference type as a single object
-    resources: "ResourceRequirements | default={}"
+      # Reference type as a single object
+      resources: "ResourceRequirements | default={}"
 
-    # Use built-in array types
-    tags: '[]string | default=["latest"] description="Image tags"'
+      # Use built-in array types
+      tags: '[]string | default=["latest"] description="Image tags"'
 ```
 
 ### Type Reference Syntax

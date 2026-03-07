@@ -230,7 +230,9 @@ func TestMCPGetClusterTraitSchema(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "autoscaler"},
 					Spec: v1alpha1.ClusterTraitSpec{
 						Schema: v1alpha1.TraitSchema{
-							Parameters: &runtime.RawExtension{Raw: paramsRaw},
+							OCSchema: &v1alpha1.TraitOCSchema{
+								Parameters: &runtime.RawExtension{Raw: paramsRaw},
+							},
 						},
 					},
 				},

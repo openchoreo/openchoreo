@@ -1,16 +1,18 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentType
 metadata:
-  name: web-application
+  name: service
   namespace: default
   annotations:
-    openchoreo.dev/description: "Component type for web applications"
+    openchoreo.dev/description: "Component type for backend services that expose HTTP endpoints"
 spec:
   workloadType: deployment
 
   allowedWorkflows:
     - kind: Workflow
-      name: react
+      name: google-cloud-buildpacks
+    - kind: Workflow
+      name: ballerina-buildpack
     - kind: Workflow
       name: docker
 
@@ -19,25 +21,47 @@ spec:
     - name: observability-alert-rule
 
   validations:
-    - rule: "${workload.endpoints.exists(name, endpoint, endpoint.type == 'HTTP')}"
-      message: "Web-application components must have at least one HTTP."
+    - rule: "${size(workload.endpoints) > 0}"
+      message: "Service components must have at least one endpoint. Use 'deployment/worker' for components without endpoints."
 
   schema:
-    ocSchema:
-      types:
-        ResourceRequirements:
-          requests: "ResourceQuantity | default={}"
-          limits: "ResourceQuantity | default={}"
+    openAPIV3Schema:
+      $defs:
         ResourceQuantity:
-          cpu: "string | default=100m"
-          memory: "string | default=256Mi"
+          type: object
+          properties:
+            cpu:
+              type: string
+              default: "100m"
+            memory:
+              type: string
+              default: "256Mi"
+        ResourceRequirements:
+          type: object
+          properties:
+            requests:
+              $ref: "#/$defs/ResourceQuantity"
+              default: {}
+            limits:
+              $ref: "#/$defs/ResourceQuantity"
+              default: {}
 
-      parameters: {}
+      parameters:
+        type: object
+        properties: {}
 
       envOverrides:
-        replicas: "integer | default=1"
-        resources: "ResourceRequirements | default={}"
-        imagePullPolicy: "string | default=IfNotPresent"
+        type: object
+        properties:
+          replicas:
+            type: integer
+            default: 1
+          resources:
+            $ref: "#/$defs/ResourceRequirements"
+            default: {}
+          imagePullPolicy:
+            type: string
+            default: IfNotPresent
 
   resources:
     - id: deployment
@@ -89,7 +113,6 @@ spec:
           type: ClusterIP
           selector: ${metadata.podSelectors}
           ports: ${workload.toServicePorts()}
-
     - id: httproute-external
       forEach: '${workload.endpoints.transformList(name, ep, ("external" in ep.visibility && ep.type in ["HTTP", "REST", "GraphQL", "Websocket"]) ? [name] : []).flatten()}'
       var: endpoint
@@ -107,9 +130,19 @@ spec:
           hostnames: |
             ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, oc_dns_label(endpoint, metadata.componentName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
+              .map(h, metadata.environmentName + "-" + metadata.componentNamespace + "." + h)}
           rules:
-          - backendRefs:
+          - matches:
+            - path:
+                type: PathPrefix
+                value: /${metadata.componentName}-${endpoint}
+            filters:
+              - type: URLRewrite
+                urlRewrite:
+                  path:
+                    type: ReplacePrefixMatch
+                    replacePrefixMatch: '${workload.endpoints[endpoint].?basePath.orValue("") != "" ? workload.endpoints[endpoint].?basePath.orValue("") : "/"}'
+            backendRefs:
             - name: ${metadata.componentName}
               port: ${workload.endpoints[endpoint].port}
     - id: httproute-internal
@@ -129,9 +162,19 @@ spec:
           hostnames: |
             ${[gateway.ingress.internal.?http, gateway.ingress.internal.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, oc_dns_label(endpoint, metadata.componentName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
+              .map(h, metadata.environmentName + "-" + metadata.componentNamespace + "." + h)}
           rules:
-          - backendRefs:
+          - matches:
+            - path:
+                type: PathPrefix
+                value: /${metadata.componentName}-${endpoint}
+            filters:
+              - type: URLRewrite
+                urlRewrite:
+                  path:
+                    type: ReplacePrefixMatch
+                    replacePrefixMatch: '${workload.endpoints[endpoint].?basePath.orValue("") != "" ? workload.endpoints[endpoint].?basePath.orValue("") : "/"}'
+            backendRefs:
             - name: ${metadata.componentName}
               port: ${workload.endpoints[endpoint].port}
     - id: env-config

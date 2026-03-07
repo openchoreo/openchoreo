@@ -11,5 +11,6 @@ metadata:
 spec:
   workloadType: deployment
   schema:
-    parameters:
-      port: 'integer | description="Container port"'
+    ocSchema:
+      parameters:
+        port: 'integer | description="Container port"'

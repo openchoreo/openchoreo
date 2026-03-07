@@ -64,51 +64,63 @@ type TraitCreate struct {
 	Template *runtime.RawExtension `json:"template"`
 }
 
-// TraitSchema defines the configurable parameters for a trait
-// Uses the same nested map structure and inline schema syntax as ComponentTypeSchema
-//
-// Example:
-//
-//	parameters:
-//	  volumeName: "string"
-//	  mountPath: "string"
-//	  containerName: "string | default=app"
-//	envOverrides:
-//	  size: "string | default=10Gi"
-//	  storageClass: "string | default=standard"
-type TraitSchema struct {
+// TraitOCSchema holds the OpenChoreo simple schema fields for a Trait.
+type TraitOCSchema struct {
 	// Types defines reusable type definitions that can be referenced in schema fields
-	// This is a nested map structure where keys are type names and values are type definitions
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
 	Types *runtime.RawExtension `json:"types,omitempty"`
 
 	// Parameters are developer-facing configuration options.
-	// This is a nested map structure where keys are field names and values
-	// are either nested maps or type definition strings.
-	// Type definition format: "type | default=value | enum=val1,val2"
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
 	// EnvOverrides can be overridden per environment via ReleaseBinding.
-	// Same nested map structure and type definition format as Parameters.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
 	EnvOverrides *runtime.RawExtension `json:"envOverrides,omitempty"`
 }
 
+// TraitSchema defines the configurable parameters for a trait.
+// Uses the ocSchema sub-struct for OpenChoreo simple schema format.
+type TraitSchema struct {
+	// OCSchema defines the schema using OpenChoreo's simple schema format.
+	// +optional
+	OCSchema *TraitOCSchema `json:"ocSchema,omitempty"`
+}
+
 // GetTypes returns the types raw extension.
-func (s *TraitSchema) GetTypes() *runtime.RawExtension { return s.Types }
+func (s *TraitSchema) GetTypes() *runtime.RawExtension {
+	if s.OCSchema != nil {
+		return s.OCSchema.Types
+	}
+	return nil
+}
 
 // GetParameters returns the parameters raw extension.
-func (s *TraitSchema) GetParameters() *runtime.RawExtension { return s.Parameters }
+func (s *TraitSchema) GetParameters() *runtime.RawExtension {
+	if s.OCSchema != nil {
+		return s.OCSchema.Parameters
+	}
+	return nil
+}
 
 // GetEnvOverrides returns the envOverrides raw extension.
-func (s *TraitSchema) GetEnvOverrides() *runtime.RawExtension { return s.EnvOverrides }
+func (s *TraitSchema) GetEnvOverrides() *runtime.RawExtension {
+	if s.OCSchema != nil {
+		return s.OCSchema.EnvOverrides
+	}
+	return nil
+}
+
+// IsOpenAPIV3 returns true if the schema uses OpenAPI V3 Schema format.
+func (s *TraitSchema) IsOpenAPIV3() bool {
+	return false
+}
 
 // TraitPatch defines a modification to an existing resource
 // +kubebuilder:validation:XValidation:rule="!has(self.forEach) || has(self.var)",message="var is required when forEach is specified"

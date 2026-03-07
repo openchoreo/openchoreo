@@ -78,9 +78,9 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 func processComponentParameters(input *ComponentContextInput) (map[string]any, map[string]any, error) {
 	// Build both schema bundles in one call to share types unmarshaling
 	parametersBundle, envOverridesBundle, err := BuildStructuralSchemas(&SchemaInput{
-		Types:              input.ComponentType.Spec.Schema.Types,
-		ParametersSchema:   input.ComponentType.Spec.Schema.Parameters,
-		EnvOverridesSchema: input.ComponentType.Spec.Schema.EnvOverrides,
+		Types:              input.ComponentType.Spec.Schema.GetTypes(),
+		ParametersSchema:   input.ComponentType.Spec.Schema.GetParameters(),
+		EnvOverridesSchema: input.ComponentType.Spec.Schema.GetEnvOverrides(),
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build schemas: %w", err)

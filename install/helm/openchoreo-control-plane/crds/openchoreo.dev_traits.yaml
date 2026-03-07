@@ -197,26 +197,26 @@ spec:
               schema:
                 description: Schema defines trait parameters
                 properties:
-                  envOverrides:
-                    description: |-
-                      EnvOverrides can be overridden per environment via ReleaseBinding.
-                      Same nested map structure and type definition format as Parameters.
+                  ocSchema:
+                    description: OCSchema defines the schema using OpenChoreo's simple
+                      schema format.
+                    properties:
+                      envOverrides:
+                        description: EnvOverrides can be overridden per environment
+                          via ReleaseBinding.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      parameters:
+                        description: Parameters are developer-facing configuration
+                          options.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      types:
+                        description: Types defines reusable type definitions that
+                          can be referenced in schema fields
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
                     type: object
-                    x-kubernetes-preserve-unknown-fields: true
-                  parameters:
-                    description: |-
-                      Parameters are developer-facing configuration options.
-                      This is a nested map structure where keys are field names and values
-                      are either nested maps or type definition strings.
-                      Type definition format: "type | default=value | enum=val1,val2"
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
-                  types:
-                    description: |-
-                      Types defines reusable type definitions that can be referenced in schema fields
-                      This is a nested map structure where keys are type names and values are type definitions
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
                 type: object
               validations:
                 description: |-

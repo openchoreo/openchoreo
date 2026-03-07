@@ -48,8 +48,10 @@ var _ = Describe("ComponentType Webhook", func() {
 		It("should admit valid ComponentType with parameters and matching workload resource", func() {
 			obj.Spec.WorkloadType = workloadTypeDeployment
 			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"replicas": "integer | default=1"}`),
+				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"replicas": "integer | default=1"}`),
+					},
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -66,11 +68,13 @@ var _ = Describe("ComponentType Webhook", func() {
 		It("should admit valid ComponentType with parameters and envOverrides", func() {
 			obj.Spec.WorkloadType = workloadTypeDeployment
 			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"replicas": "integer | default=1"}`),
-				},
-				EnvOverrides: &runtime.RawExtension{
-					Raw: []byte(`{"image": "string"}`),
+				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"replicas": "integer | default=1"}`),
+					},
+					EnvOverrides: &runtime.RawExtension{
+						Raw: []byte(`{"image": "string"}`),
+					},
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -97,8 +101,10 @@ var _ = Describe("ComponentType Webhook", func() {
 			// Set up valid newObj
 			obj.Spec.WorkloadType = workloadTypeDeployment
 			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"replicas": "integer | default=2"}`),
+				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"replicas": "integer | default=2"}`),
+					},
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -127,8 +133,10 @@ var _ = Describe("ComponentType Webhook", func() {
 
 		It("should reject invalid JSON in spec.schema.types", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				Types: &runtime.RawExtension{
-					Raw: []byte(`{malformed json`),
+				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
+					Types: &runtime.RawExtension{
+						Raw: []byte(`{malformed json`),
+					},
 				},
 			}
 
@@ -139,8 +147,10 @@ var _ = Describe("ComponentType Webhook", func() {
 
 		It("should reject invalid JSON in spec.schema.parameters", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{malformed`),
+				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{malformed`),
+					},
 				},
 			}
 
@@ -151,8 +161,10 @@ var _ = Describe("ComponentType Webhook", func() {
 
 		It("should reject invalid JSON in spec.schema.envOverrides", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				EnvOverrides: &runtime.RawExtension{
-					Raw: []byte(`not valid yaml`),
+				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
+					EnvOverrides: &runtime.RawExtension{
+						Raw: []byte(`not valid yaml`),
+					},
 				},
 			}
 
@@ -175,8 +187,10 @@ var _ = Describe("ComponentType Webhook", func() {
 
 		It("should reject unknown shorthand type in parameters", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"field": "unknown-type"}`),
+				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"field": "unknown-type"}`),
+					},
 				},
 			}
 
@@ -187,11 +201,13 @@ var _ = Describe("ComponentType Webhook", func() {
 
 		It("should reject invalid type reference in parameters", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				Types: &runtime.RawExtension{
-					Raw: []byte(`{"Database": {"host": "string", "port": "integer"}}`),
-				},
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"db": "NonExistent"}`),
+				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
+					Types: &runtime.RawExtension{
+						Raw: []byte(`{"Database": {"host": "string", "port": "integer"}}`),
+					},
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"db": "NonExistent"}`),
+					},
 				},
 			}
 
@@ -272,8 +288,10 @@ var _ = Describe("ComponentType Webhook", func() {
 		// Schema-aware validation catches forEach with non-iterable types at validation time
 		It("should reject forEach with non-iterable expression", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"replicas": "integer"}`),
+				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"replicas": "integer"}`),
+					},
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -588,8 +606,10 @@ var _ = Describe("ComponentType Webhook", func() {
 
 		It("should reject non-boolean CEL expression in validation rule", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"name": "string | default=app"}`),
+				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"name": "string | default=app"}`),
+					},
 				},
 			}
 			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
@@ -603,8 +623,10 @@ var _ = Describe("ComponentType Webhook", func() {
 
 		It("should admit valid boolean validation rules", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"replicas": "integer | default=1"}`),
+				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"replicas": "integer | default=1"}`),
+					},
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{

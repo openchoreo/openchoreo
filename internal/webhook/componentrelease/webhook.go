@@ -184,8 +184,8 @@ func validateComponentParameters(release *openchoreodevv1alpha1.ComponentRelease
 
 	// Build the schema definition from ComponentType snapshot
 	var types map[string]any
-	if release.Spec.ComponentType.Schema.Types != nil && len(release.Spec.ComponentType.Schema.Types.Raw) > 0 {
-		if err := yaml.Unmarshal(release.Spec.ComponentType.Schema.Types.Raw, &types); err != nil {
+	if typesRaw := release.Spec.ComponentType.Schema.GetTypes(); typesRaw != nil && len(typesRaw.Raw) > 0 {
+		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec", "componentType", "schema", "types"),
 				omitValue,
@@ -196,9 +196,9 @@ func validateComponentParameters(release *openchoreodevv1alpha1.ComponentRelease
 
 	// Extract parameters schema
 	var schemas []map[string]any
-	if release.Spec.ComponentType.Schema.Parameters != nil && len(release.Spec.ComponentType.Schema.Parameters.Raw) > 0 {
+	if paramsRaw := release.Spec.ComponentType.Schema.GetParameters(); paramsRaw != nil && len(paramsRaw.Raw) > 0 {
 		var paramsSchema map[string]any
-		if err := yaml.Unmarshal(release.Spec.ComponentType.Schema.Parameters.Raw, &paramsSchema); err != nil {
+		if err := yaml.Unmarshal(paramsRaw.Raw, &paramsSchema); err != nil {
 			allErrs = append(allErrs, field.Invalid(
 				field.NewPath("spec", "componentType", "schema", "parameters"),
 				omitValue,
@@ -277,8 +277,8 @@ func validateTraitInstanceParameters(release *openchoreodevv1alpha1.ComponentRel
 
 		// Build the schema definition from Trait snapshot
 		var types map[string]any
-		if traitSpec.Schema.Types != nil && len(traitSpec.Schema.Types.Raw) > 0 {
-			if err := yaml.Unmarshal(traitSpec.Schema.Types.Raw, &types); err != nil {
+		if typesRaw := traitSpec.Schema.GetTypes(); typesRaw != nil && len(typesRaw.Raw) > 0 {
+			if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
 				allErrs = append(allErrs, field.Invalid(
 					traitPath.Child("name"),
 					traitInstance.Name,
@@ -289,9 +289,9 @@ func validateTraitInstanceParameters(release *openchoreodevv1alpha1.ComponentRel
 
 		// Extract parameters schema from the trait
 		var schemas []map[string]any
-		if traitSpec.Schema.Parameters != nil && len(traitSpec.Schema.Parameters.Raw) > 0 {
+		if paramsRaw := traitSpec.Schema.GetParameters(); paramsRaw != nil && len(paramsRaw.Raw) > 0 {
 			var paramsSchema map[string]any
-			if err := yaml.Unmarshal(traitSpec.Schema.Parameters.Raw, &paramsSchema); err != nil {
+			if err := yaml.Unmarshal(paramsRaw.Raw, &paramsSchema); err != nil {
 				allErrs = append(allErrs, field.Invalid(
 					traitPath.Child("name"),
 					traitInstance.Name,

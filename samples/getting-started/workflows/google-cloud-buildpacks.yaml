@@ -18,14 +18,15 @@ spec:
     name: default
   ttlAfterCompletion: "1d"
   schema:
-    parameters:
-      repository:
-        url: string | description="Git repository URL"
-        secretRef: string | default="" description="Secret reference name for Git credentials"
-        revision:
-          branch: string | default=main description="Git branch to checkout"
-          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
-        appPath: string | default=. description="Path to the application directory within the repository"
+    ocSchema:
+      parameters:
+        repository:
+          url: string | description="Git repository URL"
+          secretRef: string | default="" description="Secret reference name for Git credentials"
+          revision:
+            branch: string | default=main description="Git branch to checkout"
+            commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
+          appPath: string | default=. description="Path to the application directory within the repository"
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1

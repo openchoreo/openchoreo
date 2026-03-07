@@ -183,11 +183,15 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 func TestBuildEmbeddedTraitContext(t *testing.T) {
 	baseTrait := &v1alpha1.Trait{}
 	baseTrait.Name = "storage"
-	baseTrait.Spec.Schema.Parameters = &runtime.RawExtension{
-		Raw: mustMarshalJSON(t, map[string]any{
-			"mountPath": "string",
-			"size":      "string | default=\"5Gi\"",
-		}),
+	baseTrait.Spec.Schema = v1alpha1.TraitSchema{
+		OCSchema: &v1alpha1.TraitOCSchema{
+			Parameters: &runtime.RawExtension{
+				Raw: mustMarshalJSON(t, map[string]any{
+					"mountPath": "string",
+					"size":      "string | default=\"5Gi\"",
+				}),
+			},
+		},
 	}
 
 	baseDataPlane := &v1alpha1.DataPlane{}
@@ -244,15 +248,19 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 				Trait: func() *v1alpha1.Trait {
 					t := &v1alpha1.Trait{}
 					t.Name = "logging"
-					t.Spec.Schema.Parameters = &runtime.RawExtension{
-						Raw: mustMarshalJSON(nil, map[string]any{
-							"format": "string | default=\"json\"",
-						}),
-					}
-					t.Spec.Schema.EnvOverrides = &runtime.RawExtension{
-						Raw: mustMarshalJSON(nil, map[string]any{
-							"logLevel": "string | default=\"info\"",
-						}),
+					t.Spec.Schema = v1alpha1.TraitSchema{
+						OCSchema: &v1alpha1.TraitOCSchema{
+							Parameters: &runtime.RawExtension{
+								Raw: mustMarshalJSON(nil, map[string]any{
+									"format": "string | default=\"json\"",
+								}),
+							},
+							EnvOverrides: &runtime.RawExtension{
+								Raw: mustMarshalJSON(nil, map[string]any{
+									"logLevel": "string | default=\"info\"",
+								}),
+							},
+						},
 					}
 					return t
 				}(),
@@ -280,10 +288,14 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 				Trait: func() *v1alpha1.Trait {
 					t := &v1alpha1.Trait{}
 					t.Name = "logging"
-					t.Spec.Schema.EnvOverrides = &runtime.RawExtension{
-						Raw: mustMarshalJSON(nil, map[string]any{
-							"logLevel": "string | default=\"info\"",
-						}),
+					t.Spec.Schema = v1alpha1.TraitSchema{
+						OCSchema: &v1alpha1.TraitOCSchema{
+							EnvOverrides: &runtime.RawExtension{
+								Raw: mustMarshalJSON(nil, map[string]any{
+									"logLevel": "string | default=\"info\"",
+								}),
+							},
+						},
 					}
 					return t
 				}(),
@@ -306,11 +318,15 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 				Trait: func() *v1alpha1.Trait {
 					t := &v1alpha1.Trait{}
 					t.Name = "optional-config"
-					t.Spec.Schema.Parameters = &runtime.RawExtension{
-						Raw: mustMarshalJSON(nil, map[string]any{
-							"timeout": "string | default=\"30s\"",
-							"retries": "number | default=3",
-						}),
+					t.Spec.Schema = v1alpha1.TraitSchema{
+						OCSchema: &v1alpha1.TraitOCSchema{
+							Parameters: &runtime.RawExtension{
+								Raw: mustMarshalJSON(nil, map[string]any{
+									"timeout": "string | default=\"30s\"",
+									"retries": "number | default=3",
+								}),
+							},
+						},
 					}
 					return t
 				}(),

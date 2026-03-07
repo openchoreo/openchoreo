@@ -801,14 +801,17 @@ type ClusterComponentTypeSpec struct {
 
 	// Schema Developer-configurable schema definition
 	Schema *struct {
-		// EnvOverrides Environment-specific overrides for platform engineers
-		EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
+		// OcSchema Schema using OpenChoreo's simple schema format
+		OcSchema *struct {
+			// EnvOverrides Environment-specific overrides for platform engineers
+			EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
 
-		// Parameters Static developer configuration parameters
-		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+			// Parameters Static developer configuration parameters
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-		// Types Reusable type definitions
-		Types *map[string]interface{} `json:"types,omitempty"`
+			// Types Reusable type definitions
+			Types *map[string]interface{} `json:"types,omitempty"`
+		} `json:"ocSchema,omitempty"`
 	} `json:"schema,omitempty"`
 
 	// Traits Pre-configured trait instances embedded in this component type
@@ -1073,14 +1076,17 @@ type ClusterTraitSpec struct {
 
 	// Schema Trait parameter schema definition
 	Schema *struct {
-		// EnvOverrides Environment-specific overrides
-		EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
+		// OcSchema Schema using OpenChoreo's simple schema format
+		OcSchema *struct {
+			// EnvOverrides Environment-specific overrides
+			EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
 
-		// Parameters Developer-facing configuration options
-		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+			// Parameters Developer-facing configuration options
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-		// Types Reusable type definitions
-		Types *map[string]interface{} `json:"types,omitempty"`
+			// Types Reusable type definitions
+			Types *map[string]interface{} `json:"types,omitempty"`
+		} `json:"ocSchema,omitempty"`
 	} `json:"schema,omitempty"`
 
 	// Validations CEL-based validation rules evaluated during rendering
@@ -1399,14 +1405,17 @@ type ComponentTypeSpec struct {
 
 	// Schema Developer-configurable schema definition
 	Schema *struct {
-		// EnvOverrides Environment-specific overrides for platform engineers
-		EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
+		// OcSchema Schema using OpenChoreo's simple schema format
+		OcSchema *struct {
+			// EnvOverrides Environment-specific overrides for platform engineers
+			EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
 
-		// Parameters Static developer configuration parameters
-		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+			// Parameters Static developer configuration parameters
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-		// Types Reusable type definitions
-		Types *map[string]interface{} `json:"types,omitempty"`
+			// Types Reusable type definitions
+			Types *map[string]interface{} `json:"types,omitempty"`
+		} `json:"ocSchema,omitempty"`
 	} `json:"schema,omitempty"`
 
 	// Traits Pre-configured trait instances embedded in this component type
@@ -3127,14 +3136,17 @@ type TraitSpec struct {
 
 	// Schema Trait parameter schema definition
 	Schema *struct {
-		// EnvOverrides Environment-specific overrides
-		EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
+		// OcSchema Schema using OpenChoreo's simple schema format
+		OcSchema *struct {
+			// EnvOverrides Environment-specific overrides
+			EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
 
-		// Parameters Developer-facing configuration options
-		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+			// Parameters Developer-facing configuration options
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-		// Types Reusable type definitions
-		Types *map[string]interface{} `json:"types,omitempty"`
+			// Types Reusable type definitions
+			Types *map[string]interface{} `json:"types,omitempty"`
+		} `json:"ocSchema,omitempty"`
 	} `json:"schema,omitempty"`
 
 	// Validations CEL-based validation rules evaluated during rendering
@@ -3452,11 +3464,14 @@ type WorkflowRunStatusResponseStatus string
 
 // WorkflowSchema Developer-facing schema definition for workflow parameters
 type WorkflowSchema struct {
-	// Parameters Developer-facing configuration options
-	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+	// OcSchema Schema using OpenChoreo's simple schema format
+	OcSchema *struct {
+		// Parameters Developer-facing configuration options
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-	// Types Reusable type definitions
-	Types *map[string]interface{} `json:"types,omitempty"`
+		// Types Reusable type definitions
+		Types *map[string]interface{} `json:"types,omitempty"`
+	} `json:"ocSchema,omitempty"`
 }
 
 // WorkflowSpec Desired state of a Workflow

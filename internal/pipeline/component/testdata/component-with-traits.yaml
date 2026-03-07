@@ -7,20 +7,21 @@ spec:
   workloadType: deployment
 
   schema:
-    types:
-      Resources:
-        cpu: "string | default=100m"
-        memory: "string | default=256Mi"
+    ocSchema:
+      types:
+        Resources:
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
 
-    parameters:
-      replicas: "integer | default=1"
-      imagePullPolicy: "string | default=IfNotPresent"
-      port: "integer | default=8080"
+      parameters:
+        replicas: "integer | default=1"
+        imagePullPolicy: "string | default=IfNotPresent"
+        port: "integer | default=8080"
 
-    envOverrides:
-      resources:
-        requests: Resources
-        limits: Resources
+      envOverrides:
+        resources:
+          requests: Resources
+          limits: Resources
 
   resources:
     - id: deployment
@@ -79,14 +80,15 @@ metadata:
   namespace: default
 spec:
   schema:
-    parameters:
-      volumeName: "string"
-      mountPath: "string"
-      containerName: "string | default=app"
+    ocSchema:
+      parameters:
+        volumeName: "string"
+        mountPath: "string"
+        containerName: "string | default=app"
 
-    envOverrides:
-      size: "string | default=10Gi"
-      storageClass: "string | default=standard"
+      envOverrides:
+        size: "string | default=10Gi"
+        storageClass: "string | default=standard"
 
   creates:
     - template:
@@ -134,21 +136,22 @@ metadata:
   name: emptydir-volume
 spec:
   schema:
-    # Define custom type for mount configuration
-    types:
-      MountConfig:
-        containerName: string
-        mountPath: string
-        readOnly: boolean | default=false
-        subPath: string | default=""
+    ocSchema:
+      # Define custom type for mount configuration
+      types:
+        MountConfig:
+          containerName: string
+          mountPath: string
+          readOnly: boolean | default=false
+          subPath: string | default=""
 
-    parameters:
-      volumeName: string
-      mounts: "[]MountConfig | minItems=1"
+      parameters:
+        volumeName: string
+        mounts: "[]MountConfig | minItems=1"
 
-    envOverrides:
-      sizeLimit: string | default=""
-      medium: string | default="" # "" for disk, "Memory" for tmpfs
+      envOverrides:
+        sizeLimit: string | default=""
+        medium: string | default="" # "" for disk, "Memory" for tmpfs
 
   # Patch the Deployment to add emptyDir volume
   patches:

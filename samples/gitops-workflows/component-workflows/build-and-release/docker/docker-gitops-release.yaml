@@ -16,26 +16,27 @@ spec:
 
   # Schema definition for component workflows
   schema:
-    # System parameters - Required structured parameters for component workflows
-    systemParameters:
-      repository:
-        url: string | description="Git repository URL"
-        revision:
-          branch: string | default=main description="Git branch to checkout"
-          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
-        appPath: string | default=. description="Path to the application directory within the repository"
+    ocSchema:
+      # System parameters - Required structured parameters for component workflows
+      systemParameters:
+        repository:
+          url: string | description="Git repository URL"
+          revision:
+            branch: string | default=main description="Git branch to checkout"
+            commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+          appPath: string | default=. description="Path to the application directory within the repository"
 
-    # Developer-configurable parameters
-    parameters:
-      docker:
-        context: string | default=. description="Docker build context path relative to the repository root"
-        filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
-      gitops:
-        repositoryUrl: string | description="GitOps repository URL"
-        branch: string | default=main description="GitOps repository branch"
-        targetEnvironment: string | default=development description="Target environment name for deployment"
-        deploymentPipeline: string | description="Deployment pipeline name for the target environment"
-      workloadDescriptorPath: string | default=workload.yaml description="Path to workload descriptor file relative to appPath"
+      # Developer-configurable parameters
+      parameters:
+        docker:
+          context: string | default=. description="Docker build context path relative to the repository root"
+          filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
+        gitops:
+          repositoryUrl: string | description="GitOps repository URL"
+          branch: string | default=main description="GitOps repository branch"
+          targetEnvironment: string | default=development description="Target environment name for deployment"
+          deploymentPipeline: string | description="Deployment pipeline name for the target environment"
+        workloadDescriptorPath: string | default=workload.yaml description="Path to workload descriptor file relative to appPath"
 
   # Rendered workflow resource for ComponentWorkflowRun executions
   runTemplate:

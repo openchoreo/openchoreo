@@ -6625,18 +6625,22 @@ components:
           type: object
           description: Developer-configurable schema definition
           properties:
-            types:
+            ocSchema:
               type: object
-              description: Reusable type definitions
-              additionalProperties: true
-            parameters:
-              type: object
-              description: Static developer configuration parameters
-              additionalProperties: true
-            envOverrides:
-              type: object
-              description: Environment-specific overrides for platform engineers
-              additionalProperties: true
+              description: Schema using OpenChoreo's simple schema format
+              properties:
+                types:
+                  type: object
+                  description: Reusable type definitions
+                  additionalProperties: true
+                parameters:
+                  type: object
+                  description: Static developer configuration parameters
+                  additionalProperties: true
+                envOverrides:
+                  type: object
+                  description: Environment-specific overrides for platform engineers
+                  additionalProperties: true
         traits:
           type: array
           description: Pre-configured trait instances embedded in this component type
@@ -6783,18 +6787,22 @@ components:
           type: object
           description: Trait parameter schema definition
           properties:
-            types:
+            ocSchema:
               type: object
-              description: Reusable type definitions
-              additionalProperties: true
-            parameters:
-              type: object
-              description: Developer-facing configuration options
-              additionalProperties: true
-            envOverrides:
-              type: object
-              description: Environment-specific overrides
-              additionalProperties: true
+              description: Schema using OpenChoreo's simple schema format
+              properties:
+                types:
+                  type: object
+                  description: Reusable type definitions
+                  additionalProperties: true
+                parameters:
+                  type: object
+                  description: Developer-facing configuration options
+                  additionalProperties: true
+                envOverrides:
+                  type: object
+                  description: Environment-specific overrides
+                  additionalProperties: true
         validations:
           type: array
           description: CEL-based validation rules evaluated during rendering
@@ -6945,18 +6953,22 @@ components:
           type: object
           description: Developer-configurable schema definition
           properties:
-            types:
+            ocSchema:
               type: object
-              description: Reusable type definitions
-              additionalProperties: true
-            parameters:
-              type: object
-              description: Static developer configuration parameters
-              additionalProperties: true
-            envOverrides:
-              type: object
-              description: Environment-specific overrides for platform engineers
-              additionalProperties: true
+              description: Schema using OpenChoreo's simple schema format
+              properties:
+                types:
+                  type: object
+                  description: Reusable type definitions
+                  additionalProperties: true
+                parameters:
+                  type: object
+                  description: Static developer configuration parameters
+                  additionalProperties: true
+                envOverrides:
+                  type: object
+                  description: Environment-specific overrides for platform engineers
+                  additionalProperties: true
         traits:
           type: array
           description: Pre-configured trait instances embedded in this component type
@@ -7099,18 +7111,22 @@ components:
           type: object
           description: Trait parameter schema definition
           properties:
-            types:
+            ocSchema:
               type: object
-              description: Reusable type definitions
-              additionalProperties: true
-            parameters:
-              type: object
-              description: Developer-facing configuration options
-              additionalProperties: true
-            envOverrides:
-              type: object
-              description: Environment-specific overrides
-              additionalProperties: true
+              description: Schema using OpenChoreo's simple schema format
+              properties:
+                types:
+                  type: object
+                  description: Reusable type definitions
+                  additionalProperties: true
+                parameters:
+                  type: object
+                  description: Developer-facing configuration options
+                  additionalProperties: true
+                envOverrides:
+                  type: object
+                  description: Environment-specific overrides
+                  additionalProperties: true
         validations:
           type: array
           description: CEL-based validation rules evaluated during rendering
@@ -7356,14 +7372,18 @@ components:
       type: object
       description: Developer-facing schema definition for workflow parameters
       properties:
-        types:
+        ocSchema:
           type: object
-          description: Reusable type definitions
-          additionalProperties: true
-        parameters:
-          type: object
-          description: Developer-facing configuration options
-          additionalProperties: true
+          description: Schema using OpenChoreo's simple schema format
+          properties:
+            types:
+              type: object
+              description: Reusable type definitions
+              additionalProperties: true
+            parameters:
+              type: object
+              description: Developer-facing configuration options
+              additionalProperties: true
 
     WorkflowResource:
       type: object

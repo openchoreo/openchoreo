@@ -16,26 +16,27 @@ spec:
 
   # Schema definition for component workflows
   schema:
-    # System parameters - Required structured parameters for component workflows
-    systemParameters:
-      repository:
-        url: string | description="Git repository URL"
-        revision:
-          branch: string | default=main description="Git branch to checkout"
-          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
-        appPath: string | default=. description="Path to the application directory within the repository"
+    ocSchema:
+      # System parameters - Required structured parameters for component workflows
+      systemParameters:
+        repository:
+          url: string | description="Git repository URL"
+          revision:
+            branch: string | default=main description="Git branch to checkout"
+            commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+          appPath: string | default=. description="Path to the application directory within the repository"
 
-    # Developer-configurable parameters
-    parameters:
-      buildpacks:
-        builderImage: string | default="gcr.io/buildpacks/builder:v1" description="Buildpacks builder image to use"
-        env: '[]string | default=[] description="Environment variables for the build (KEY=VALUE format)"'
-      gitops:
-        repositoryUrl: string | description="GitOps repository URL"
-        branch: string | default=main description="GitOps repository branch"
-        targetEnvironment: string | default=development description="Target environment name for deployment"
-        deploymentPipeline: string | description="Deployment pipeline name for the target environment"
-      workloadDescriptorPath: string | default=workload.yaml description="Path to workload descriptor file relative to appPath"
+      # Developer-configurable parameters
+      parameters:
+        buildpacks:
+          builderImage: string | default="gcr.io/buildpacks/builder:v1" description="Buildpacks builder image to use"
+          env: '[]string | default=[] description="Environment variables for the build (KEY=VALUE format)"'
+        gitops:
+          repositoryUrl: string | description="GitOps repository URL"
+          branch: string | default=main description="GitOps repository branch"
+          targetEnvironment: string | default=development description="Target environment name for deployment"
+          deploymentPipeline: string | description="Deployment pipeline name for the target environment"
+        workloadDescriptorPath: string | default=workload.yaml description="Path to workload descriptor file relative to appPath"
 
   # Rendered workflow resource for ComponentWorkflowRun executions
   runTemplate:

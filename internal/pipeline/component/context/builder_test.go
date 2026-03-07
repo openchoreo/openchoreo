@@ -45,9 +45,10 @@ metadata:
   name: service
 spec:
   schema:
-    parameters:
-      replicas: "integer | default=1"
-      image: "string"
+    ocSchema:
+      parameters:
+        replicas: "integer | default=1"
+        image: "string"
 `,
 			envSettingsYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -123,10 +124,11 @@ metadata:
   name: service
 spec:
   schema:
-    parameters:
-      cpu: "string | default=100m"
-    envOverrides:
-      replicas: "integer | default=1"
+    ocSchema:
+      parameters:
+        cpu: "string | default=100m"
+      envOverrides:
+        replicas: "integer | default=1"
 `,
 			envSettingsYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -204,7 +206,8 @@ metadata:
   name: service
 spec:
   schema:
-    parameters: {}
+    ocSchema:
+      parameters: {}
 `,
 			workloadYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -386,8 +389,9 @@ metadata:
   name: mysql-trait
 spec:
   schema:
-    parameters:
-      database: "string"
+    ocSchema:
+      parameters:
+        database: "string"
 `,
 			componentYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -476,10 +480,11 @@ metadata:
   name: mysql-trait
 spec:
   schema:
-    parameters:
-      database: "string"
-    envOverrides:
-      size: "string | default=small"
+    ocSchema:
+      parameters:
+        database: "string"
+      envOverrides:
+        size: "string | default=small"
 `,
 			componentYAML: `
 apiVersion: choreo.dev/v1alpha1

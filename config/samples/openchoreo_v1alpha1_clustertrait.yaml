@@ -7,14 +7,15 @@ metadata:
   name: clustertrait-sample
 spec:
   schema:
-    parameters:
-      volumeName: "string"
-      mountPath: "string"
-      containerName: "string | default=app"
+    ocSchema:
+      parameters:
+        volumeName: "string"
+        mountPath: "string"
+        containerName: "string | default=app"
 
-    envOverrides:
-      size: "string | default=10Gi"
-      storageClass: "string | default=standard"
+      envOverrides:
+        size: "string | default=10Gi"
+        storageClass: "string | default=standard"
 
   creates:
     - targetPlane: dataplane

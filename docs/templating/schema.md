@@ -55,7 +55,7 @@ database:
 
 ## Custom Types
 
-Define reusable types in the `schema.types` section of ComponentType. Use custom types when the object structure is reused in multiple places or when you want a self-documenting type name (e.g., `DatabaseConfig`, `Resources`).
+Define reusable types in the `schema.ocSchema.types` section of ComponentType. Use custom types when the object structure is reused in multiple places or when you want a self-documenting type name (e.g., `DatabaseConfig`, `Resources`).
 
 ```yaml
 apiVersion: v1alpha1
@@ -64,23 +64,24 @@ metadata:
   name: web-app
 spec:
   schema:
-    types:
-      MountConfig:
-        path: "string"
-        subPath: "string | default=''"
-        readOnly: "boolean | default=false"
+    ocSchema:
+      types:
+        MountConfig:
+          path: "string"
+          subPath: "string | default=''"
+          readOnly: "boolean | default=false"
 
-      DatabaseConfig:
-        host: "string"
-        port: "integer | default=5432 minimum=1 maximum=65535"
-        database: "string"
-        username: "string"
-        password: "string"
+        DatabaseConfig:
+          host: "string"
+          port: "integer | default=5432 minimum=1 maximum=65535"
+          database: "string"
+          username: "string"
+          password: "string"
 
-    parameters:
-      volumes: "[]MountConfig"
-      database: DatabaseConfig
-      replicas: "integer | default=1 minimum=1"
+      parameters:
+        volumes: "[]MountConfig"
+        database: DatabaseConfig
+        replicas: "integer | default=1 minimum=1"
 ```
 
 ## Defaults
@@ -114,28 +115,29 @@ Define a custom type, then specify the default when using it with the `default=`
 ```yaml
 spec:
   schema:
-    types:
-      Monitoring:
-        enabled: "boolean | default=false"
-        port: "integer | default=9090"
+    ocSchema:
+      types:
+        Monitoring:
+          enabled: "boolean | default=false"
+          port: "integer | default=9090"
 
-      Database:
-        host: string
-        port: "integer | default=5432"
+        Database:
+          host: string
+          port: "integer | default=5432"
 
-    parameters:
-      # Valid: All fields in Monitoring have defaults, so {} is valid
-      monitoring: "Monitoring | default={}"
+      parameters:
+        # Valid: All fields in Monitoring have defaults, so {} is valid
+        monitoring: "Monitoring | default={}"
 
-      # Valid: Default provides the required host field
-      database: "Database | default={\"host\":\"localhost\"}"
+        # Valid: Default provides the required host field
+        database: "Database | default={\"host\":\"localhost\"}"
 
-      # Different defaults for same type
-      primaryDB: "Database | default={\"host\":\"primary\"}"
-      replicaDB: "Database | default={\"host\":\"replica\"}"
+        # Different defaults for same type
+        primaryDB: "Database | default={\"host\":\"primary\"}"
+        replicaDB: "Database | default={\"host\":\"replica\"}"
 
-      # INVALID: Empty default doesn't provide required host
-      # cache: "Database | default={}"   # ERROR: host is required
+        # INVALID: Empty default doesn't provide required host
+        # cache: "Database | default={}"   # ERROR: host is required
 ```
 
 **Approach 2: Default in the Definition**
@@ -146,36 +148,37 @@ Use the `$default` key directly in the object definition. This works for both in
 # In ComponentType spec:
 spec:
   schema:
-    parameters:
-      # Inline object with empty default
-      monitoring:
-        $default: {}  # Valid because all fields have defaults
-        enabled: "boolean | default=false"
-        port: "integer | default=9090"
+    ocSchema:
+      parameters:
+        # Inline object with empty default
+        monitoring:
+          $default: {}  # Valid because all fields have defaults
+          enabled: "boolean | default=false"
+          port: "integer | default=9090"
 
-      # Inline object with non-empty default (block style)
-      database:
-        $default:
-          host: "localhost"
-        host: string  # Provided by default
-        port: "integer | default=5432"  # Has field-level default
+        # Inline object with non-empty default (block style)
+        database:
+          $default:
+            host: "localhost"
+          host: string  # Provided by default
+          port: "integer | default=5432"  # Has field-level default
 
-      # Inline object with non-empty default (flow style)
-      cache:
-        $default: {"host": "localhost"}
-        host: string
-        ttl: "integer | default=300"  # Has field-level default
+        # Inline object with non-empty default (flow style)
+        cache:
+          $default: {"host": "localhost"}
+          host: string
+          ttl: "integer | default=300"  # Has field-level default
 
-      # Multiple inline objects each with defaults
-      resources:
-        requests:
-          $default: {}
-          cpu: "string | default=100m"
-          memory: "string | default=256Mi"
-        limits:
-          $default: {}
-          cpu: "string | default=1000m"
-          memory: "string | default=1Gi"
+        # Multiple inline objects each with defaults
+        resources:
+          requests:
+            $default: {}
+            cpu: "string | default=100m"
+            memory: "string | default=256Mi"
+          limits:
+            $default: {}
+            cpu: "string | default=1000m"
+            memory: "string | default=1Gi"
 ```
 
 **How defaults are applied:**
@@ -394,7 +397,7 @@ All default-related rules are covered in the [Defaults](#defaults) section (fiel
 
 - **Map keys must be strings**: `ports: "map<integer>"` (values are integers, keys always strings)
 - **No generic object type**: Use `map<string>` for dynamic keys or define structure explicitly
-- **Custom types must be defined**: Reference only types defined in `schema.types` section
+- **Custom types must be defined**: Reference only types defined in `schema.ocSchema.types` section
 
 ## Escaping and Special Characters
 

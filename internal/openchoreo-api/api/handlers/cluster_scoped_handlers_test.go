@@ -162,7 +162,9 @@ func TestGetClusterComponentTypeSchemaHandler(t *testing.T) {
 			WorkloadType: "deployment",
 			Resources:    []openchoreov1alpha1.ResourceTemplate{{ID: "deployment"}},
 			Schema: openchoreov1alpha1.ComponentTypeSchema{
-				Parameters: &runtime.RawExtension{Raw: paramsRaw},
+				OCSchema: &openchoreov1alpha1.ComponentTypeOCSchema{
+					Parameters: &runtime.RawExtension{Raw: paramsRaw},
+				},
 			},
 		},
 	}
@@ -266,7 +268,9 @@ func TestGetClusterTraitSchemaHandler(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "autoscaler"},
 		Spec: openchoreov1alpha1.ClusterTraitSpec{
 			Schema: openchoreov1alpha1.TraitSchema{
-				Parameters: &runtime.RawExtension{Raw: paramsRaw},
+				OCSchema: &openchoreov1alpha1.TraitOCSchema{
+					Parameters: &runtime.RawExtension{Raw: paramsRaw},
+				},
 			},
 		},
 	}
@@ -554,7 +558,9 @@ func TestGetClusterWorkflowSchemaHandler(t *testing.T) {
 		Spec: openchoreov1alpha1.ClusterWorkflowSpec{
 			RunTemplate: &runtime.RawExtension{Raw: []byte(`{"kind":"Workflow"}`)},
 			Schema: &openchoreov1alpha1.WorkflowSchema{
-				Parameters: &runtime.RawExtension{Raw: paramsRaw},
+				OCSchema: &openchoreov1alpha1.WorkflowOCSchema{
+					Parameters: &runtime.RawExtension{Raw: paramsRaw},
+				},
 			},
 		},
 	}
