@@ -95,6 +95,10 @@ func (h *Handler) CreateObservabilityPlane(
 		if errors.Is(err, observabilityplanesvc.ErrObservabilityPlaneAlreadyExists) {
 			return gen.CreateObservabilityPlane409JSONResponse{ConflictJSONResponse: conflict("ObservabilityPlane already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create observability plane", "error", err)
 		return gen.CreateObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -135,6 +139,10 @@ func (h *Handler) UpdateObservabilityPlane(
 		}
 		if errors.Is(err, observabilityplanesvc.ErrObservabilityPlaneNotFound) {
 			return gen.UpdateObservabilityPlane404JSONResponse{NotFoundJSONResponse: notFound("ObservabilityPlane")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update observability plane", "error", err)
 		return gen.UpdateObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

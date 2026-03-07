@@ -92,6 +92,10 @@ func (h *Handler) CreateClusterObservabilityPlane(
 		if errors.Is(err, clusterobservabilityplanesvc.ErrClusterObservabilityPlaneAlreadyExists) {
 			return gen.CreateClusterObservabilityPlane409JSONResponse{ConflictJSONResponse: conflict("ClusterObservabilityPlane already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateClusterObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create cluster observability plane", "error", err)
 		return gen.CreateClusterObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -132,6 +136,10 @@ func (h *Handler) UpdateClusterObservabilityPlane(
 		}
 		if errors.Is(err, clusterobservabilityplanesvc.ErrClusterObservabilityPlaneNotFound) {
 			return gen.UpdateClusterObservabilityPlane404JSONResponse{NotFoundJSONResponse: notFound("ClusterObservabilityPlane")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateClusterObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update cluster observability plane", "error", err)
 		return gen.UpdateClusterObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

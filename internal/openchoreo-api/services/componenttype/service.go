@@ -67,6 +67,9 @@ func (s *componentTypeService) CreateComponentType(ctx context.Context, namespac
 			s.logger.Warn("Component type already exists", "namespace", namespaceName, "componentType", ct.Name)
 			return nil, ErrComponentTypeAlreadyExists
 		}
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to create component type CR", "error", err)
 		return nil, fmt.Errorf("failed to create component type: %w", err)
 	}
@@ -102,6 +105,9 @@ func (s *componentTypeService) UpdateComponentType(ctx context.Context, namespac
 	existing.Annotations = ct.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to update component type CR", "error", err)
 		return nil, fmt.Errorf("failed to update component type: %w", err)
 	}

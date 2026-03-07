@@ -66,6 +66,10 @@ func (h *Handler) CreateTrait(
 		if errors.Is(err, traitsvc.ErrTraitAlreadyExists) {
 			return gen.CreateTrait409JSONResponse{ConflictJSONResponse: conflict("Trait already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateTrait400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create trait", "error", err)
 		return gen.CreateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -135,6 +139,10 @@ func (h *Handler) UpdateTrait(
 		}
 		if errors.Is(err, traitsvc.ErrTraitNotFound) {
 			return gen.UpdateTrait404JSONResponse{NotFoundJSONResponse: notFound("Trait")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateTrait400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update trait", "error", err)
 		return gen.UpdateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

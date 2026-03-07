@@ -65,6 +65,10 @@ func (h *Handler) CreateProject(
 		if errors.Is(err, projectsvc.ErrProjectAlreadyExists) {
 			return gen.CreateProject409JSONResponse{ConflictJSONResponse: conflict("Project already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateProject400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create project", "error", err)
 		return gen.CreateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -134,6 +138,10 @@ func (h *Handler) UpdateProject(
 		}
 		if errors.Is(err, projectsvc.ErrProjectNotFound) {
 			return gen.UpdateProject404JSONResponse{NotFoundJSONResponse: notFound("Project")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateProject400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update project", "error", err)
 		return gen.UpdateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

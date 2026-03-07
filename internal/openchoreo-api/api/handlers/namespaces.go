@@ -97,6 +97,10 @@ func (h *Handler) CreateNamespace(
 		if errors.Is(err, namespacesvc.ErrNamespaceAlreadyExists) {
 			return gen.CreateNamespace409JSONResponse{ConflictJSONResponse: conflict("Namespace already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateNamespace400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create namespace", "error", err)
 		return gen.CreateNamespace500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -138,6 +142,10 @@ func (h *Handler) UpdateNamespace(
 		}
 		if errors.Is(err, namespacesvc.ErrNamespaceNotFound) {
 			return gen.UpdateNamespace404JSONResponse{NotFoundJSONResponse: notFound("Namespace")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateNamespace400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update namespace", "error", err)
 		return gen.UpdateNamespace500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

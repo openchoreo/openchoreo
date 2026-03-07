@@ -68,6 +68,10 @@ func (h *Handler) CreateClusterComponentType(
 		if errors.Is(err, clustercomponenttypesvc.ErrClusterComponentTypeAlreadyExists) {
 			return gen.CreateClusterComponentType409JSONResponse{ConflictJSONResponse: conflict("Cluster component type already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateClusterComponentType400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create cluster component type", "error", err)
 		return gen.CreateClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -108,6 +112,10 @@ func (h *Handler) UpdateClusterComponentType(
 		}
 		if errors.Is(err, clustercomponenttypesvc.ErrClusterComponentTypeNotFound) {
 			return gen.UpdateClusterComponentType404JSONResponse{NotFoundJSONResponse: notFound("ClusterComponentType")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateClusterComponentType400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update cluster component type", "error", err)
 		return gen.UpdateClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

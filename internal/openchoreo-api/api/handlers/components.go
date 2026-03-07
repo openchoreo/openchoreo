@@ -85,6 +85,10 @@ func (h *Handler) CreateComponent(
 		if errors.Is(err, componentsvc.ErrComponentAlreadyExists) {
 			return gen.CreateComponent409JSONResponse{ConflictJSONResponse: conflict("Component already exists")}, nil
 		}
+		var validationErr *svcerrors.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateComponent400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create component", "error", err)
 		return gen.CreateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

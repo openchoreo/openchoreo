@@ -121,6 +121,9 @@ func (s *dataPlaneService) CreateDataPlane(ctx context.Context, namespaceName st
 			s.logger.Warn("Data plane already exists", "namespace", namespaceName, "dataPlane", dp.Name)
 			return nil, ErrDataPlaneAlreadyExists
 		}
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to create data plane CR", "error", err)
 		return nil, fmt.Errorf("failed to create data plane: %w", err)
 	}
@@ -155,6 +158,9 @@ func (s *dataPlaneService) UpdateDataPlane(ctx context.Context, namespaceName st
 	existing.Annotations = dp.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to update data plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update data plane: %w", err)
 	}

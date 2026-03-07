@@ -67,6 +67,10 @@ func (h *Handler) CreateDeploymentPipeline(
 		if errors.Is(err, deploymentpipelinesvc.ErrDeploymentPipelineAlreadyExists) {
 			return gen.CreateDeploymentPipeline409JSONResponse{ConflictJSONResponse: conflict("Deployment pipeline already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateDeploymentPipeline400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create deployment pipeline", "error", err)
 		return gen.CreateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -135,6 +139,10 @@ func (h *Handler) UpdateDeploymentPipeline(
 		}
 		if errors.Is(err, deploymentpipelinesvc.ErrDeploymentPipelineNotFound) {
 			return gen.UpdateDeploymentPipeline404JSONResponse{NotFoundJSONResponse: notFound("DeploymentPipeline")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateDeploymentPipeline400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update deployment pipeline", "error", err)
 		return gen.UpdateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

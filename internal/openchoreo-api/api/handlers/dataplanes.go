@@ -72,6 +72,10 @@ func (h *Handler) CreateDataPlane(
 		if errors.Is(err, dataplanesvc.ErrDataPlaneAlreadyExists) {
 			return gen.CreateDataPlane409JSONResponse{ConflictJSONResponse: conflict("DataPlane already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateDataPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create data plane", "error", err)
 		return gen.CreateDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -140,6 +144,10 @@ func (h *Handler) UpdateDataPlane(
 		}
 		if errors.Is(err, dataplanesvc.ErrDataPlaneNotFound) {
 			return gen.UpdateDataPlane404JSONResponse{NotFoundJSONResponse: notFound("DataPlane")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateDataPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update data plane", "error", err)
 		return gen.UpdateDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

@@ -68,6 +68,10 @@ func (h *Handler) CreateWorkflow(
 		if errors.Is(err, workflowsvc.ErrWorkflowAlreadyExists) {
 			return gen.CreateWorkflow409JSONResponse{ConflictJSONResponse: conflict("Workflow already exists")}, nil
 		}
+		var validationErr *svcerrors.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateWorkflow400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create workflow", "error", err)
 		return gen.CreateWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -136,6 +140,10 @@ func (h *Handler) UpdateWorkflow(
 		}
 		if errors.Is(err, workflowsvc.ErrWorkflowNotFound) {
 			return gen.UpdateWorkflow404JSONResponse{NotFoundJSONResponse: notFound("Workflow")}, nil
+		}
+		var validationErr *svcerrors.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateWorkflow400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update workflow", "error", err)
 		return gen.UpdateWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -267,6 +275,10 @@ func (h *Handler) CreateWorkflowRun(
 		}
 		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.CreateWorkflowRun403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		var validationErr *svcerrors.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateWorkflowRun400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create workflow run", "error", err)
 		return gen.CreateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

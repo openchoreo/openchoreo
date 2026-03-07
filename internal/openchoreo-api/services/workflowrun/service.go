@@ -83,6 +83,9 @@ func (s *workflowRunService) CreateWorkflowRun(ctx context.Context, namespaceNam
 			s.logger.Warn("Workflow run already exists", "namespace", namespaceName, "name", wfRun.Name)
 			return nil, ErrWorkflowRunAlreadyExists
 		}
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to create workflow run", "error", err)
 		return nil, fmt.Errorf("failed to create workflow run: %w", err)
 	}

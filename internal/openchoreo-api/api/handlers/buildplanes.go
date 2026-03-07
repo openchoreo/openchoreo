@@ -92,6 +92,10 @@ func (h *Handler) CreateBuildPlane(
 		if errors.Is(err, buildplanesvc.ErrBuildPlaneAlreadyExists) {
 			return gen.CreateBuildPlane409JSONResponse{ConflictJSONResponse: conflict("BuildPlane already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create build plane", "error", err)
 		return gen.CreateBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -132,6 +136,10 @@ func (h *Handler) UpdateBuildPlane(
 		}
 		if errors.Is(err, buildplanesvc.ErrBuildPlaneNotFound) {
 			return gen.UpdateBuildPlane404JSONResponse{NotFoundJSONResponse: notFound("BuildPlane")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update build plane", "error", err)
 		return gen.UpdateBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

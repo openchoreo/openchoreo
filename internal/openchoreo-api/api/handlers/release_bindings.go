@@ -85,6 +85,10 @@ func (h *Handler) CreateReleaseBinding(
 		if errors.Is(err, releasebindingsvc.ErrComponentNotFound) {
 			return gen.CreateReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest("Referenced component not found")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create release binding", "error", err)
 		return gen.CreateReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

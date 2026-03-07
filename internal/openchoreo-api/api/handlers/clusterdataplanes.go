@@ -67,6 +67,10 @@ func (h *Handler) CreateClusterDataPlane(
 		if errors.Is(err, clusterdataplanesvc.ErrClusterDataPlaneAlreadyExists) {
 			return gen.CreateClusterDataPlane409JSONResponse{ConflictJSONResponse: conflict("ClusterDataPlane already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateClusterDataPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create cluster data plane", "error", err)
 		return gen.CreateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -135,6 +139,10 @@ func (h *Handler) UpdateClusterDataPlane(
 		}
 		if errors.Is(err, clusterdataplanesvc.ErrClusterDataPlaneNotFound) {
 			return gen.UpdateClusterDataPlane404JSONResponse{NotFoundJSONResponse: notFound("ClusterDataPlane")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateClusterDataPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update cluster data plane", "error", err)
 		return gen.UpdateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

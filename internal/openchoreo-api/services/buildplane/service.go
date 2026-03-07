@@ -114,6 +114,9 @@ func (s *buildPlaneService) CreateBuildPlane(ctx context.Context, namespaceName 
 		if apierrors.IsAlreadyExists(err) {
 			return nil, ErrBuildPlaneAlreadyExists
 		}
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to create build plane CR", "error", err)
 		return nil, fmt.Errorf("failed to create build plane: %w", err)
 	}
@@ -149,6 +152,9 @@ func (s *buildPlaneService) UpdateBuildPlane(ctx context.Context, namespaceName 
 	existing.Annotations = bp.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to update build plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update build plane: %w", err)
 	}

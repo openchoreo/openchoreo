@@ -105,6 +105,9 @@ func (s *clusterBuildPlaneService) CreateClusterBuildPlane(ctx context.Context, 
 		if apierrors.IsAlreadyExists(err) {
 			return nil, ErrClusterBuildPlaneAlreadyExists
 		}
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to create cluster build plane CR", "error", err)
 		return nil, fmt.Errorf("failed to create cluster build plane: %w", err)
 	}
@@ -138,6 +141,9 @@ func (s *clusterBuildPlaneService) UpdateClusterBuildPlane(ctx context.Context, 
 	existing.Annotations = cbp.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to update cluster build plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update cluster build plane: %w", err)
 	}

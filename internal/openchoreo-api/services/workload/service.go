@@ -76,6 +76,9 @@ func (s *workloadService) CreateWorkload(ctx context.Context, namespaceName stri
 			s.logger.Warn("Workload already exists", "namespace", namespaceName, "workload", w.Name)
 			return nil, ErrWorkloadAlreadyExists
 		}
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to create workload CR", "error", err)
 		return nil, fmt.Errorf("failed to create workload: %w", err)
 	}

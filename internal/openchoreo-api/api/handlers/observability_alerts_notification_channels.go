@@ -64,6 +64,10 @@ func (h *Handler) CreateObservabilityAlertsNotificationChannel(
 		if errors.Is(err, observabilityalertsnotificationchannelsvc.ErrObservabilityAlertsNotificationChannelAlreadyExists) {
 			return gen.CreateObservabilityAlertsNotificationChannel409JSONResponse{ConflictJSONResponse: conflict("Observability alerts notification channel already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateObservabilityAlertsNotificationChannel400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create observability alerts notification channel", "error", err)
 		return gen.CreateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -132,6 +136,10 @@ func (h *Handler) UpdateObservabilityAlertsNotificationChannel(
 		}
 		if errors.Is(err, observabilityalertsnotificationchannelsvc.ErrObservabilityAlertsNotificationChannelNotFound) {
 			return gen.UpdateObservabilityAlertsNotificationChannel404JSONResponse{NotFoundJSONResponse: notFound("ObservabilityAlertsNotificationChannel")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateObservabilityAlertsNotificationChannel400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update observability alerts notification channel", "error", err)
 		return gen.UpdateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

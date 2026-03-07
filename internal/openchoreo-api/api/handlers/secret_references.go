@@ -65,6 +65,10 @@ func (h *Handler) CreateSecretReference(
 		if errors.Is(err, secretreferencesvc.ErrSecretReferenceAlreadyExists) {
 			return gen.CreateSecretReference409JSONResponse{ConflictJSONResponse: conflict("Secret reference already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateSecretReference400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create secret reference", "error", err)
 		return gen.CreateSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -134,6 +138,10 @@ func (h *Handler) UpdateSecretReference(
 		}
 		if errors.Is(err, secretreferencesvc.ErrSecretReferenceNotFound) {
 			return gen.UpdateSecretReference404JSONResponse{NotFoundJSONResponse: notFound("SecretReference")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateSecretReference400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update secret reference", "error", err)
 		return gen.UpdateSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

@@ -75,6 +75,9 @@ func (s *releaseBindingService) CreateReleaseBinding(ctx context.Context, namesp
 			s.logger.Warn("Release binding already exists", "namespace", namespaceName, "releaseBinding", rb.Name)
 			return nil, ErrReleaseBindingAlreadyExists
 		}
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to create release binding CR", "error", err)
 		return nil, fmt.Errorf("failed to create release binding: %w", err)
 	}

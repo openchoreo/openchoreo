@@ -137,6 +137,9 @@ func (s *environmentService) CreateEnvironment(ctx context.Context, namespaceNam
 	env.Namespace = namespaceName
 
 	if err := s.k8sClient.Create(ctx, env); err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to create environment CR", "error", err)
 		return nil, fmt.Errorf("failed to create environment: %w", err)
 	}

@@ -72,6 +72,10 @@ func (h *Handler) CreateEnvironment(
 		if errors.Is(err, environmentsvc.ErrDataPlaneNotFound) {
 			return gen.CreateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest("DataPlane not found")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create environment", "error", err)
 		return gen.CreateEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

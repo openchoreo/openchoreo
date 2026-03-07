@@ -94,6 +94,9 @@ func (s *componentService) CreateComponent(ctx context.Context, namespaceName st
 			s.logger.Warn("Component already exists", "namespace", namespaceName, "component", component.Name)
 			return nil, ErrComponentAlreadyExists
 		}
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to create component CR", "error", err)
 		return nil, fmt.Errorf("failed to create component: %w", err)
 	}

@@ -73,6 +73,10 @@ func (h *Handler) CreateWorkload(
 		if errors.Is(err, workloadsvc.ErrComponentNotFound) {
 			return gen.CreateWorkload400JSONResponse{BadRequestJSONResponse: badRequest("Referenced component not found")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateWorkload400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create workload", "error", err)
 		return gen.CreateWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

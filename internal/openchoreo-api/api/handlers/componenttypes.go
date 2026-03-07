@@ -66,6 +66,10 @@ func (h *Handler) CreateComponentType(
 		if errors.Is(err, componenttypesvc.ErrComponentTypeAlreadyExists) {
 			return gen.CreateComponentType409JSONResponse{ConflictJSONResponse: conflict("Component type already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateComponentType400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create component type", "error", err)
 		return gen.CreateComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -135,6 +139,10 @@ func (h *Handler) UpdateComponentType(
 		}
 		if errors.Is(err, componenttypesvc.ErrComponentTypeNotFound) {
 			return gen.UpdateComponentType404JSONResponse{NotFoundJSONResponse: notFound("Component type")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateComponentType400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update component type", "error", err)
 		return gen.UpdateComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

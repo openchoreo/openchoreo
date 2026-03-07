@@ -68,6 +68,10 @@ func (h *Handler) CreateClusterTrait(
 		if errors.Is(err, clustertraitsvc.ErrClusterTraitAlreadyExists) {
 			return gen.CreateClusterTrait409JSONResponse{ConflictJSONResponse: conflict("Cluster trait already exists")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateClusterTrait400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create cluster trait", "error", err)
 		return gen.CreateClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -108,6 +112,10 @@ func (h *Handler) UpdateClusterTrait(
 		}
 		if errors.Is(err, clustertraitsvc.ErrClusterTraitNotFound) {
 			return gen.UpdateClusterTrait404JSONResponse{NotFoundJSONResponse: notFound("ClusterTrait")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateClusterTrait400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update cluster trait", "error", err)
 		return gen.UpdateClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

@@ -56,6 +56,9 @@ func (s *clusterComponentTypeService) CreateClusterComponentType(ctx context.Con
 			s.logger.Warn("Cluster component type already exists", "clusterComponentType", cct.Name)
 			return nil, ErrClusterComponentTypeAlreadyExists
 		}
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to create cluster component type CR", "error", err)
 		return nil, fmt.Errorf("failed to create cluster component type: %w", err)
 	}
@@ -89,6 +92,9 @@ func (s *clusterComponentTypeService) UpdateClusterComponentType(ctx context.Con
 	existing.Annotations = cct.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		s.logger.Error("Failed to update cluster component type CR", "error", err)
 		return nil, fmt.Errorf("failed to update cluster component type: %w", err)
 	}
