@@ -891,6 +891,38 @@ observer:
   replicas: 1
 
   # @schema
+  # description: Alert entry storage backend for fired alerts
+  # enum: [sqlite, postgresql]
+  # default: sqlite
+  # @schema
+  alertStoreBackend: sqlite
+
+  # @schema
+  # type: object
+  # description: Existing Secret reference for PostgreSQL DSN used by alert entry storage
+  # @schema
+  alertStoreSecret:
+    # @schema
+    # type: string
+    # description: Secret name that contains the alert store DSN
+    # default: ""
+    # @schema
+    name: ""
+    # @schema
+    # type: string
+    # description: Secret key that contains the alert store DSN value
+    # default: dsn
+    # @schema
+    key: dsn
+
+  # @schema
+  # type: string
+  # description: PVC size for SQLite alert entry storage
+  # default: 128Mi
+  # @schema
+  alertStoreSqliteSize: 128Mi
+
+  # @schema
   # type: object
   # description: Security configuration for Observer authentication
   # @schema

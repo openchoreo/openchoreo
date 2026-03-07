@@ -1555,6 +1555,43 @@
       "additionalProperties": true,
       "description": "OpenChoreo Observer service configuration - REST API that abstracts OpenSearch for logging, metrics, and tracing",
       "properties": {
+        "alertStoreBackend": {
+          "default": "sqlite",
+          "description": "Alert entry storage backend for fired alerts",
+          "enum": [
+            "sqlite",
+            "postgresql"
+          ],
+          "required": [],
+          "title": "alertStoreBackend"
+        },
+        "alertStoreSecret": {
+          "additionalProperties": false,
+          "description": "Existing Secret reference for PostgreSQL DSN used by alert entry storage",
+          "properties": {
+            "key": {
+              "default": "dsn",
+              "description": "Secret key that contains the alert store DSN value",
+              "title": "key",
+              "type": "string"
+            },
+            "name": {
+              "default": "",
+              "description": "Secret name that contains the alert store DSN",
+              "title": "name",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "alertStoreSecret",
+          "type": "object"
+        },
+        "alertStoreSqliteSize": {
+          "default": "128Mi",
+          "description": "PVC size for SQLite alert entry storage",
+          "title": "alertStoreSqliteSize",
+          "type": "string"
+        },
         "authzTlsInsecureSkipVerify": {
           "default": false,
           "description": "Skip TLS certificate verification when calling the control plane authz service (use for self-signed certs)",

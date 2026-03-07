@@ -108,6 +108,11 @@ type AlertingConfig struct {
 	// ObservabilityNamespace is the Kubernetes namespace where openchoreo-observability-plane is deployed.
 	// Used for creating/listing PrometheusRule CRs for metric-based alerting.
 	ObservabilityNamespace string `koanf:"observability.namespace"`
+	// AlertStoreBackend controls where fired alert entries are persisted.
+	// Supported values: sqlite (default), postgresql.
+	AlertStoreBackend string `koanf:"alert.store.backend"`
+	// AlertStoreDSN is the SQL connection string for alert entry storage.
+	AlertStoreDSN string `koanf:"alert.store.dsn"`
 }
 
 // UIDResolverConfig holds configuration for the resource UID resolver
@@ -190,6 +195,8 @@ func Load() (*Config, error) {
 		"RCA_SERVICE_URL":                       "alerting.rca.service.url",
 		"AI_RCA_ENABLED":                        "alerting.ai.rca.enabled",
 		"OBSERVABILITY_NAMESPACE":               "alerting.observability.namespace",
+		"ALERT_STORE_BACKEND":                   "alerting.alert.store.backend",
+		"ALERT_STORE_DSN":                       "alerting.alert.store.dsn",
 		"LOG_LEVEL":                             "loglevel",
 		"PORT":                                  "server.port",           // Common alias
 		"INTERNAL_PORT":                         "server.internal.port",  // Common alias
@@ -339,6 +346,8 @@ func getDefaults() map[string]interface{} {
 			"rca.service.url":         "http://ai-rca-agent:8080",
 			"ai.rca.enabled":          false,
 			"observability.namespace": "openchoreo-observability-plane",
+			"alert.store.backend":     "sqlite",
+			"alert.store.dsn":         "file:/data/alerts.db?_journal=WAL",
 		},
 		"adapters": map[string]interface{}{
 			"logs.adapter.enabled":    false,
@@ -414,6 +423,21 @@ func (c *Config) validate() error {
 	}
 	if c.UIDResolver.Timeout <= 0 {
 		return fmt.Errorf("uid resolver timeout must be positive")
+	}
+
+	c.Alerting.AlertStoreBackend = strings.ToLower(strings.TrimSpace(c.Alerting.AlertStoreBackend))
+	switch c.Alerting.AlertStoreBackend {
+	case "", "sqlite":
+		c.Alerting.AlertStoreBackend = "sqlite"
+		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
+			c.Alerting.AlertStoreDSN = "file:/data/alerts.db?_journal=WAL"
+		}
+	case "postgresql":
+		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
+			return fmt.Errorf("alert.store.dsn is required when alert.store.backend=postgresql")
+		}
+	default:
+		return fmt.Errorf("alert.store.backend must be 'sqlite' or 'postgresql'")
 	}
 
 	return nil
