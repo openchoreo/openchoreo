@@ -13,7 +13,7 @@ dependencies:
   version: 3.3.0
 - name: opentelemetry-collector
   repository: https://open-telemetry.github.io/opentelemetry-helm-charts
-  version: 0.140.0
+  version: 0.146.1
 - name: opensearch-dashboards
   repository: https://opensearch-project.github.io/helm-charts/
   version: 3.3.0
@@ -26,5 +26,5 @@ dependencies:
 - name: observability-tracing-opensearch
   repository: oci://ghcr.io/openchoreo/charts
   version: 0.3.3
-digest: sha256:5d920df68bbfd9b031fb9628eafd7de345dfec45e9a48743d54466a9ed97cded
-generated: "2026-03-07T11:24:36.413336+05:30"
+digest: sha256:e84e87c4ef5b7a0bbd8b8396de7cb4d20260cdae8dd0bc743df1322dc999f460
+generated: "2026-03-07T12:17:25.754704129Z"
