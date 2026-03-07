@@ -21,6 +21,10 @@ const (
 	ReasonDeploymentReady controller.ConditionReason = "EnvironmentReady"
 	// ReasonEnvironmentFinalizing the deployment is progressing
 	ReasonEnvironmentFinalizing controller.ConditionReason = "EnvironmentFinalizing"
+	// ReasonDeletionBlocked the environment deletion is blocked
+	ReasonDeletionBlocked controller.ConditionReason = "DeletionBlocked"
+	// ReasonReleaseBindingsPending the environment is waiting for release bindings to be removed
+	ReasonReleaseBindingsPending controller.ConditionReason = "ReleaseBindingsPending"
 )
 
 func NewEnvironmentReadyCondition(generation int64) metav1.Condition {
@@ -39,6 +43,26 @@ func NewEnvironmentFinalizingCondition(generation int64) metav1.Condition {
 		metav1.ConditionFalse,
 		ReasonEnvironmentFinalizing,
 		"Environment is finalizing",
+		generation,
+	)
+}
+
+func NewReleaseBindingsPendingCondition(generation int64, message string) metav1.Condition {
+	return controller.NewCondition(
+		ConditionReady,
+		metav1.ConditionFalse,
+		ReasonReleaseBindingsPending,
+		message,
+		generation,
+	)
+}
+
+func NewDeletionBlockedCondition(generation int64, message string) metav1.Condition {
+	return controller.NewCondition(
+		ConditionReady,
+		metav1.ConditionFalse,
+		ReasonDeletionBlocked,
+		message,
 		generation,
 	)
 }

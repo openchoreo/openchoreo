@@ -4,6 +4,8 @@
 package environment
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -250,7 +252,213 @@ var _ = Describe("Environment Controller", func() {
 	// -------------------------------------------------------------------------
 	Describe("Finalization", func() {
 
-		Context("first reconcile after deletion (Finalizing condition not yet set)", func() {
+		Context("deletion blocked by deployment pipeline (source ref)", func() {
+			var nn types.NamespacedName
+			var pipelineNN types.NamespacedName
+
+			BeforeEach(func() {
+				nn = types.NamespacedName{Namespace: ns, Name: "env-blocked-src"}
+				env := &openchoreov1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       nn.Name,
+						Namespace:  ns,
+						Finalizers: []string{EnvCleanupFinalizer},
+					},
+					Spec: openchoreov1alpha1.EnvironmentSpec{IsProduction: false},
+				}
+				Expect(k8sClient.Create(ctx, env)).To(Succeed())
+
+				pipelineNN = types.NamespacedName{Namespace: ns, Name: "pipeline-src-ref"}
+				pipeline := &openchoreov1alpha1.DeploymentPipeline{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      pipelineNN.Name,
+						Namespace: ns,
+					},
+					Spec: openchoreov1alpha1.DeploymentPipelineSpec{
+						PromotionPaths: []openchoreov1alpha1.PromotionPath{
+							{
+								SourceEnvironmentRef: nn.Name,
+								TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
+									{Name: "production"},
+								},
+							},
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, pipeline)).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				forceDeleteEnv(nn)
+				_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DeploymentPipeline{
+					ObjectMeta: metav1.ObjectMeta{Name: pipelineNN.Name, Namespace: ns},
+				})
+			})
+
+			It("should set DeletionBlocked condition and requeue", func() {
+				r := newTestReconciler()
+				result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.RequeueAfter).To(Equal(30 * time.Second))
+
+				env := &openchoreov1alpha1.Environment{}
+				Expect(k8sClient.Get(ctx, nn, env)).To(Succeed())
+
+				cond := apimeta.FindStatusCondition(env.Status.Conditions, ConditionReady.String())
+				Expect(cond).NotTo(BeNil())
+				Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				Expect(cond.Reason).To(Equal(string(ReasonDeletionBlocked)))
+				Expect(cond.Message).To(ContainSubstring(pipelineNN.Name))
+			})
+		})
+
+		Context("deletion blocked by deployment pipeline (target ref)", func() {
+			var nn types.NamespacedName
+			var pipelineNN types.NamespacedName
+
+			BeforeEach(func() {
+				nn = types.NamespacedName{Namespace: ns, Name: "env-blocked-tgt"}
+				env := &openchoreov1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       nn.Name,
+						Namespace:  ns,
+						Finalizers: []string{EnvCleanupFinalizer},
+					},
+					Spec: openchoreov1alpha1.EnvironmentSpec{IsProduction: false},
+				}
+				Expect(k8sClient.Create(ctx, env)).To(Succeed())
+
+				pipelineNN = types.NamespacedName{Namespace: ns, Name: "pipeline-tgt-ref"}
+				pipeline := &openchoreov1alpha1.DeploymentPipeline{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      pipelineNN.Name,
+						Namespace: ns,
+					},
+					Spec: openchoreov1alpha1.DeploymentPipelineSpec{
+						PromotionPaths: []openchoreov1alpha1.PromotionPath{
+							{
+								SourceEnvironmentRef: "development",
+								TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
+									{Name: nn.Name},
+								},
+							},
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, pipeline)).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				forceDeleteEnv(nn)
+				_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DeploymentPipeline{
+					ObjectMeta: metav1.ObjectMeta{Name: pipelineNN.Name, Namespace: ns},
+				})
+			})
+
+			It("should set DeletionBlocked condition and requeue", func() {
+				r := newTestReconciler()
+				result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.RequeueAfter).To(Equal(30 * time.Second))
+
+				env := &openchoreov1alpha1.Environment{}
+				Expect(k8sClient.Get(ctx, nn, env)).To(Succeed())
+
+				cond := apimeta.FindStatusCondition(env.Status.Conditions, ConditionReady.String())
+				Expect(cond).NotTo(BeNil())
+				Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				Expect(cond.Reason).To(Equal(string(ReasonDeletionBlocked)))
+				Expect(cond.Message).To(ContainSubstring(pipelineNN.Name))
+			})
+		})
+
+		Context("deletion unblocked after pipeline reference removed", func() {
+			var nn types.NamespacedName
+			var pipelineNN types.NamespacedName
+
+			BeforeEach(func() {
+				nn = types.NamespacedName{Namespace: ns, Name: "env-unblock"}
+				env := &openchoreov1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       nn.Name,
+						Namespace:  ns,
+						Finalizers: []string{EnvCleanupFinalizer},
+					},
+					Spec: openchoreov1alpha1.EnvironmentSpec{IsProduction: false},
+				}
+				Expect(k8sClient.Create(ctx, env)).To(Succeed())
+
+				pipelineNN = types.NamespacedName{Namespace: ns, Name: "pipeline-unblock"}
+				pipeline := &openchoreov1alpha1.DeploymentPipeline{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      pipelineNN.Name,
+						Namespace: ns,
+					},
+					Spec: openchoreov1alpha1.DeploymentPipelineSpec{
+						PromotionPaths: []openchoreov1alpha1.PromotionPath{
+							{
+								SourceEnvironmentRef: nn.Name,
+								TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
+									{Name: "production"},
+								},
+							},
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, pipeline)).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				forceDeleteEnv(nn)
+				_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DeploymentPipeline{
+					ObjectMeta: metav1.ObjectMeta{Name: pipelineNN.Name, Namespace: ns},
+				})
+			})
+
+			It("should transition from DeletionBlocked to Finalizing after pipeline is removed", func() {
+				r := newTestReconciler()
+
+				By("first reconcile — blocked")
+				result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.RequeueAfter).To(Equal(30 * time.Second))
+
+				env := &openchoreov1alpha1.Environment{}
+				Expect(k8sClient.Get(ctx, nn, env)).To(Succeed())
+				cond := apimeta.FindStatusCondition(env.Status.Conditions, ConditionReady.String())
+				Expect(cond).NotTo(BeNil())
+				Expect(cond.Reason).To(Equal(string(ReasonDeletionBlocked)))
+
+				By("removing the pipeline reference")
+				pipeline := &openchoreov1alpha1.DeploymentPipeline{}
+				Expect(k8sClient.Get(ctx, pipelineNN, pipeline)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, pipeline)).To(Succeed())
+				Eventually(func() bool {
+					return apierrors.IsNotFound(k8sClient.Get(ctx, pipelineNN, &openchoreov1alpha1.DeploymentPipeline{}))
+				}, "5s", "100ms").Should(BeTrue())
+
+				By("second reconcile — sets Finalizing condition")
+				result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
+				Expect(result.RequeueAfter).To(BeZero())
+
+				Expect(k8sClient.Get(ctx, nn, env)).To(Succeed())
+				cond = apimeta.FindStatusCondition(env.Status.Conditions, ConditionReady.String())
+				Expect(cond).NotTo(BeNil())
+				Expect(cond.Reason).To(Equal(string(ReasonEnvironmentFinalizing)))
+			})
+		})
+
+		Context("first reconcile after deletion with no pipeline references", func() {
 			var nn types.NamespacedName
 
 			BeforeEach(func() {
@@ -264,7 +472,6 @@ var _ = Describe("Environment Controller", func() {
 					Spec: openchoreov1alpha1.EnvironmentSpec{IsProduction: false},
 				}
 				Expect(k8sClient.Create(ctx, env)).To(Succeed())
-				// Deletion sets DeletionTimestamp but resource stays because of finalizer.
 				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
 			})
 
@@ -289,11 +496,119 @@ var _ = Describe("Environment Controller", func() {
 			})
 		})
 
-		Context("repeated reconciles after deletion", func() {
+		Context("waiting for release bindings during finalization", func() {
+			var nn types.NamespacedName
+			var rbNN types.NamespacedName
+
+			BeforeEach(func() {
+				nn = types.NamespacedName{Namespace: ns, Name: "env-rb-cleanup"}
+				env := &openchoreov1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       nn.Name,
+						Namespace:  ns,
+						Finalizers: []string{EnvCleanupFinalizer},
+					},
+					Spec: openchoreov1alpha1.EnvironmentSpec{IsProduction: false},
+				}
+				Expect(k8sClient.Create(ctx, env)).To(Succeed())
+
+				rbNN = types.NamespacedName{Namespace: ns, Name: "rb-for-env-cleanup"}
+				rb := &openchoreov1alpha1.ReleaseBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      rbNN.Name,
+						Namespace: ns,
+					},
+					Spec: openchoreov1alpha1.ReleaseBindingSpec{
+						Owner: openchoreov1alpha1.ReleaseBindingOwner{
+							ProjectName:   "test-project",
+							ComponentName: "test-component",
+						},
+						Environment: nn.Name,
+					},
+				}
+				Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				forceDeleteEnv(nn)
+				// Clean up ReleaseBinding if it still exists
+				rb := &openchoreov1alpha1.ReleaseBinding{}
+				if err := k8sClient.Get(ctx, rbNN, rb); err == nil {
+					controllerutil.RemoveFinalizer(rb, "openchoreo.dev/releasebinding-cleanup")
+					_ = k8sClient.Update(ctx, rb)
+					_ = k8sClient.Delete(ctx, rb)
+				}
+			})
+
+			It("should wait for release bindings without deleting them and requeue", func() {
+				r := newTestReconciler()
+
+				By("first reconcile — sets Finalizing condition")
+				result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
+
+				By("second reconcile — detects release binding and requeues")
+				result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.RequeueAfter).To(Equal(5 * time.Second))
+
+				By("verifying the release binding is NOT deleted (controller only waits)")
+				rb := &openchoreov1alpha1.ReleaseBinding{}
+				Expect(k8sClient.Get(ctx, rbNN, rb)).To(Succeed())
+				Expect(rb.DeletionTimestamp).To(BeNil())
+
+				By("verifying the ReleaseBindingsPending condition is set")
+				env := &openchoreov1alpha1.Environment{}
+				Expect(k8sClient.Get(ctx, nn, env)).To(Succeed())
+				cond := apimeta.FindStatusCondition(env.Status.Conditions, ConditionReady.String())
+				Expect(cond).NotTo(BeNil())
+				Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				Expect(cond.Reason).To(Equal(string(ReasonReleaseBindingsPending)))
+			})
+
+			It("should proceed with finalization after release bindings are externally removed", func() {
+				r := newTestReconciler()
+
+				By("first reconcile — sets Finalizing condition")
+				_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("second reconcile — waits for release bindings")
+				result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.RequeueAfter).To(Equal(5 * time.Second))
+
+				By("externally removing the release binding")
+				Expect(k8sClient.Delete(ctx, &openchoreov1alpha1.ReleaseBinding{
+					ObjectMeta: metav1.ObjectMeta{Name: rbNN.Name, Namespace: ns},
+				})).To(Succeed())
+				Eventually(func() bool {
+					return apierrors.IsNotFound(k8sClient.Get(ctx, rbNN, &openchoreov1alpha1.ReleaseBinding{}))
+				}, "5s", "100ms").Should(BeTrue())
+
+				By("third reconcile — no release bindings, re-sets Finalizing condition")
+				_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("fourth reconcile — proceeds to namespace cleanup (DataPlane not found, removes finalizer)")
+				_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("verifying the environment is gone")
+				Eventually(func() bool {
+					return apierrors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.Environment{}))
+				}, "5s", "100ms").Should(BeTrue())
+			})
+		})
+
+		Context("full finalization without DataPlane (skips namespace cleanup)", func() {
 			var nn types.NamespacedName
 
 			BeforeEach(func() {
-				nn = types.NamespacedName{Namespace: ns, Name: "env-finalize-repeat"}
+				nn = types.NamespacedName{Namespace: ns, Name: "env-finalize-no-dp"}
 				env := &openchoreov1alpha1.Environment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       nn.Name,
@@ -306,34 +621,86 @@ var _ = Describe("Environment Controller", func() {
 				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
 			})
 
-			AfterEach(func() { forceDeleteEnv(nn) })
+			// No AfterEach needed — the environment should be fully deleted.
 
-			It("should keep the Finalizing condition set across multiple reconciles", func() {
+			It("should complete finalization by removing the finalizer", func() {
 				r := newTestReconciler()
 
-				By("first reconcile after deletion sets Finalizing condition")
+				By("first reconcile — sets Finalizing condition")
+				result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
+
+				By("second reconcile — no release bindings, DataPlane not found, removes finalizer")
+				result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("verifying the environment is gone (finalizer removed, K8s garbage collects)")
+				Eventually(func() bool {
+					return apierrors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.Environment{}))
+				}, "5s", "100ms").Should(BeTrue())
+			})
+		})
+
+		Context("release bindings for other environments are not deleted", func() {
+			var nn types.NamespacedName
+			var otherRBNN types.NamespacedName
+
+			BeforeEach(func() {
+				nn = types.NamespacedName{Namespace: ns, Name: "env-rb-isolation"}
+				env := &openchoreov1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       nn.Name,
+						Namespace:  ns,
+						Finalizers: []string{EnvCleanupFinalizer},
+					},
+					Spec: openchoreov1alpha1.EnvironmentSpec{IsProduction: false},
+				}
+				Expect(k8sClient.Create(ctx, env)).To(Succeed())
+
+				// ReleaseBinding for a DIFFERENT environment
+				otherRBNN = types.NamespacedName{Namespace: ns, Name: "rb-other-env"}
+				rb := &openchoreov1alpha1.ReleaseBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      otherRBNN.Name,
+						Namespace: ns,
+					},
+					Spec: openchoreov1alpha1.ReleaseBindingSpec{
+						Owner: openchoreov1alpha1.ReleaseBindingOwner{
+							ProjectName:   "test-project",
+							ComponentName: "test-component",
+						},
+						Environment: "some-other-environment",
+					},
+				}
+				Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				forceDeleteEnv(nn)
+				_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ReleaseBinding{
+					ObjectMeta: metav1.ObjectMeta{Name: otherRBNN.Name, Namespace: ns},
+				})
+			})
+
+			It("should not delete release bindings belonging to other environments", func() {
+				r := newTestReconciler()
+
+				By("first reconcile — sets Finalizing condition")
 				_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 				Expect(err).NotTo(HaveOccurred())
 
-				env := &openchoreov1alpha1.Environment{}
-				Expect(k8sClient.Get(ctx, nn, env)).To(Succeed())
-				cond := apimeta.FindStatusCondition(env.Status.Conditions, ConditionReady.String())
-				Expect(cond).NotTo(BeNil())
-				Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-				Expect(cond.Reason).To(Equal(string(ReasonEnvironmentFinalizing)))
-
-				By("second reconcile is idempotent — Finalizing condition remains set")
+				By("second reconcile — no matching release bindings, proceeds to namespace cleanup")
 				_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
-				// The second reconcile either returns nil (condition already set and DataPlane
-				// lookup fails gracefully) or returns an error (DataPlane not found). Either
-				// way the Finalizing condition must still be present.
+				// May error on DataPlane lookup — that's expected
 				_ = err
 
-				Expect(k8sClient.Get(ctx, nn, env)).To(Succeed())
-				cond = apimeta.FindStatusCondition(env.Status.Conditions, ConditionReady.String())
-				Expect(cond).NotTo(BeNil())
-				Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-				Expect(cond.Reason).To(Equal(string(ReasonEnvironmentFinalizing)))
+				By("verifying the other environment's release binding is untouched")
+				rb := &openchoreov1alpha1.ReleaseBinding{}
+				Expect(k8sClient.Get(ctx, otherRBNN, rb)).To(Succeed())
+				Expect(rb.DeletionTimestamp).To(BeNil())
 			})
 		})
 	})
