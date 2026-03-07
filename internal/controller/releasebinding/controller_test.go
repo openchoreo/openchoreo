@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
 )
@@ -1094,6 +1095,138 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(string(ReasonReleaseOwnershipConflict)))
+		})
+	})
+
+	// ── Apply failure: generation-aware condition propagation ─────────────────
+	//
+	// Exercises the branch at controller.go:621-631 that checks
+	// ConditionResourcesApplied on the dataplane Release.
+
+	Context("when the dataplane Release has ConditionResourcesApplied=False", func() {
+		const (
+			project  = "apply-fail-proj"
+			compName = "apply-fail-comp"
+			envName  = "apply-fail-env"
+			dpName   = "apply-fail-dp"
+			rbName   = "rb-apply-fail"
+			crName   = "cr-apply-fail"
+		)
+		expectedReleaseName := compName + "-" + envName
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(expectedReleaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		// createDepsAndRelease creates all dependencies, reconciles twice so the
+		// Release is created and the ReleaseBinding reaches the steady state, then
+		// returns the current Release generation.
+		createDepsAndRelease := func(r *Reconciler) int64 {
+			GinkgoHelper()
+			Expect(k8sClient.Create(ctx, crFixture(crName, project, compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, project, compName, envName, crName, true),
+			)).To(Succeed())
+
+			// First reconcile creates the Release (requeue=true).
+			result := mustReconcile(r, req)
+			Expect(result.Requeue).To(BeTrue())
+
+			// Read back the Release to get its generation.
+			rel := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				rel,
+			)).To(Succeed())
+			return rel.Generation
+		}
+
+		It("sets ResourcesReady=False/ResourceApplyFailed when ObservedGeneration matches Release.Generation", func() {
+			r := testReconcilerWithPipeline()
+			gen := createDepsAndRelease(r)
+
+			By("Setting ConditionResourcesApplied=False on the Release with matching ObservedGeneration")
+			rel := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				rel,
+			)).To(Succeed())
+			apimeta.SetStatusCondition(&rel.Status.Conditions, metav1.Condition{
+				Type:               renderedrelease.ConditionResourcesApplied,
+				Status:             metav1.ConditionFalse,
+				Reason:             renderedrelease.ReasonApplyFailed,
+				Message:            "failed to apply Deployment: admission webhook denied",
+				ObservedGeneration: gen,
+			})
+			Expect(k8sClient.Status().Update(ctx, rel)).To(Succeed())
+
+			By("Reconciling — the apply failure should be surfaced on the ReleaseBinding")
+			mustReconcile(r, req)
+
+			By("Verifying ResourcesReady=False with ReasonResourceApplyFailed")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionResourcesReady))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonResourceApplyFailed)))
+			Expect(cond.Message).To(ContainSubstring("admission webhook denied"))
+
+			By("Verifying Ready=False (aggregated from ResourcesReady)")
+			readyCond := conditionFor(rb, string(ConditionReady))
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+		})
+
+		It("ignores ConditionResourcesApplied=False when ObservedGeneration is stale", func() {
+			r := testReconcilerWithPipeline()
+			gen := createDepsAndRelease(r)
+
+			By("Setting ConditionResourcesApplied=False with a stale (older) ObservedGeneration")
+			rel := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				rel,
+			)).To(Succeed())
+			apimeta.SetStatusCondition(&rel.Status.Conditions, metav1.Condition{
+				Type:               renderedrelease.ConditionResourcesApplied,
+				Status:             metav1.ConditionFalse,
+				Reason:             renderedrelease.ReasonApplyFailed,
+				Message:            "stale error from previous revision",
+				ObservedGeneration: gen - 1, // stale generation
+			})
+			Expect(k8sClient.Status().Update(ctx, rel)).To(Succeed())
+
+			By("Reconciling — stale condition should be ignored")
+			mustReconcile(r, req)
+
+			By("Verifying ResourcesReady is NOT set to ResourceApplyFailed")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionResourcesReady))
+			if cond != nil {
+				Expect(cond.Reason).NotTo(Equal(string(ReasonResourceApplyFailed)),
+					"stale apply failure should not be propagated to ResourcesReady")
+			}
 		})
 	})
 

@@ -81,6 +81,8 @@ const (
 
 	// Resource readiness issues (Status=False)
 
+	// ReasonResourceApplyFailed indicates one or more resources failed to apply to the target plane
+	ReasonResourceApplyFailed controller.ConditionReason = "ResourceApplyFailed"
 	// ReasonResourcesNotReady indicates one or more resources are not ready
 	ReasonResourcesNotReady controller.ConditionReason = "ResourcesNotReady"
 	// ReasonResourcesProgressing indicates resources are being created/updated

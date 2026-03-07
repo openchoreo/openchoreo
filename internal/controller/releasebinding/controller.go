@@ -12,6 +12,7 @@ import (
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,6 +27,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/networkpolicy"
@@ -615,6 +617,19 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 
 	// Set ReleaseSynced condition based on operation results.
 	r.setReleaseSyncedCondition(releaseBinding, dataPlaneRelease.Name, dpOp, len(dataPlaneReleaseResources), obsResult)
+
+	// Check if the Release controller recorded a resource apply failure.
+	// Only act on the condition when it matches the current Release generation
+	// to avoid surfacing stale errors from a previous spec revision.
+	applyCond := meta.FindStatusCondition(dataPlaneRelease.Status.Conditions, renderedrelease.ConditionResourcesApplied)
+	if applyCond != nil && applyCond.Status == metav1.ConditionFalse &&
+		applyCond.ObservedGeneration == dataPlaneRelease.Generation {
+		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
+			ReasonResourceApplyFailed, applyCond.Message)
+		r.setReadyCondition(releaseBinding)
+		return ctrl.Result{}, nil
+	}
+
 	if dpOp == controllerutil.OperationResultCreated || dpOp == controllerutil.OperationResultUpdated {
 		logger.Info("Releases reconciled",
 			"dataplaneReleaseOp", dpOp,
