@@ -1056,8 +1056,8 @@ openchoreoApi:
           # default: []
           # @schema
           roles:
-            # Super admin role with full permissions to all resources
-            - name: super-admin
+            # Admin role with full permissions to all resources
+            - name: admin
               actions:
                 - "*"
 
@@ -1098,6 +1098,127 @@ openchoreoApi:
                 - "metrics:view"
                 - "alerts:view"
                 - "traces:view"
+
+            # Developer role - engineers who build, deploy, and iterate on components
+            - name: developer
+              actions:
+                - "namespace:view"
+                - "project:view"
+                - "component:view"
+                - "component:create"
+                - "component:update"
+                - "component:deploy"
+                - "component:delete"
+                - "componentrelease:view"
+                - "componentrelease:create"
+                - "releasebinding:view"
+                - "releasebinding:update"
+                - "workflowrun:view"
+                - "workflowrun:create"
+                - "workflow:view"
+                - "componenttype:view"
+                - "trait:view"
+                - "environment:view"
+                - "dataplane:view"
+                - "buildplane:view"
+                - "observabilityplane:view"
+                - "deploymentpipeline:view"
+                - "secretreference:view"
+                - "secretreference:create"
+                - "secretreference:delete"
+                - "workload:view"
+                - "workload:create"
+                - "logs:view"
+                - "metrics:view"
+                - "traces:view"
+                - "alerts:view"
+                - "rcareport:view"
+
+            # SRE role - operations engineers focused on reliability and incident response
+            - name: sre
+              actions:
+                - "namespace:view"
+                - "project:view"
+                - "component:view"
+                - "componentrelease:view"
+                - "releasebinding:view"
+                - "releasebinding:update"
+                - "workflowrun:view"
+                - "workflow:view"
+                - "componenttype:view"
+                - "trait:view"
+                - "environment:view"
+                - "deploymentpipeline:view"
+                - "dataplane:view"
+                - "buildplane:view"
+                - "observabilityplane:view"
+                - "dataplaneresource:view"
+                - "buildplaneresource:view"
+                - "observabilityplaneresource:view"
+                - "workload:view"
+                - "workload:create"
+                - "secretreference:view"
+                - "logs:view"
+                - "metrics:view"
+                - "traces:view"
+                - "alerts:view"
+                - "rcareport:view"
+                - "rcareport:update"
+                - "rcareport:delete"
+                - "observabilityalertsnotificationchannel:view"
+
+            # Platform engineer role - engineers managing the OpenChoreo platform infrastructure
+            - name: platform-engineer
+              actions:
+                - "namespace:view"
+                - "namespace:create"
+                - "project:view"
+                - "project:create"
+                - "project:delete"
+                - "component:view"
+                - "componentrelease:view"
+                - "releasebinding:view"
+                - "environment:view"
+                - "environment:create"
+                - "dataplane:view"
+                - "dataplane:create"
+                - "buildplane:view"
+                - "observabilityplane:view"
+                - "componenttype:view"
+                - "componenttype:create"
+                - "trait:view"
+                - "trait:create"
+                - "workflow:view"
+                - "workflow:create"
+                - "workflowrun:view"
+                - "deploymentpipeline:view"
+                - "secretreference:view"
+                - "secretreference:create"
+                - "secretreference:delete"
+                - "workload:view"
+                - "workload:create"
+                - "dataplaneresource:view"
+                - "buildplaneresource:view"
+                - "observabilityplaneresource:view"
+                - "logs:view"
+                - "metrics:view"
+                - "traces:view"
+                - "alerts:view"
+                - "rcareport:view"
+                - "rcareport:update"
+                - "rcareport:delete"
+                - "observabilityalertsnotificationchannel:view"
+                - "observabilityalertsnotificationchannel:create"
+                - "observabilityalertsnotificationchannel:update"
+                - "observabilityalertsnotificationchannel:delete"
+                - "role:view"
+                - "role:create"
+                - "role:update"
+                - "role:delete"
+                - "rolemapping:view"
+                - "rolemapping:create"
+                - "rolemapping:update"
+                - "rolemapping:delete"
 
             # Observer service role for resolving resource UIDs
             - name: observer
@@ -1155,10 +1276,10 @@ openchoreoApi:
           # default: []
           # @schema
           mappings:
-            # Super admin mapping - grants platformEngineer group full access
-            - name: super-admin-binding
+            # Admin mapping - grants platformEngineer group full access
+            - name: admin-binding
               roleRef:
-                name: super-admin
+                name: admin
               entitlement:
                 claim: groups
                 value: platformEngineer
@@ -1194,7 +1315,7 @@ openchoreoApi:
             # MCP tryout client mapping - grants MCP tryout client full access
             - name: mcp-tryout-client-binding
               roleRef:
-                name: super-admin
+                name: admin
               entitlement:
                 claim: sub
                 value: service_mcp_client
