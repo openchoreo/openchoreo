@@ -23,7 +23,6 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -73,7 +72,8 @@ var _ = BeforeSuite(func() {
 	// +kubebuilder:scaffold:scheme
 
 	// Create a manager with cache enabled for Environment (needed for field index queries
-	// in the DataPlane finalizer). All other types bypass cache.
+	// used in deleteEnvironmentsAndWait). DataPlane reads bypass the cache so that
+	// assertions see updates immediately from the API server.
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
 		Metrics: metricsserver.Options{
@@ -89,15 +89,14 @@ var _ = BeforeSuite(func() {
 			Cache: &client.CacheOptions{
 				DisableFor: []client.Object{
 					&openchoreov1alpha1.DataPlane{},
-					&openchoreov1alpha1.Project{},
-					&openchoreov1alpha1.DeploymentPipeline{},
 				},
 			},
 		},
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	// Register the field index used by the DataPlane finalizer to find referencing Environments
+	// Register the field index used by deleteEnvironmentsAndWait to find
+	// Environments that reference a specific DataPlane by name.
 	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Environment{},
 		dataplaneRefIndexKey, func(obj client.Object) []string {
 			environment, ok := obj.(*openchoreov1alpha1.Environment)
@@ -106,7 +105,7 @@ var _ = BeforeSuite(func() {
 			}
 			ref := environment.Spec.DataPlaneRef
 			if ref == nil {
-				return []string{controller.DefaultPlaneName}
+				return []string{"default"}
 			}
 			if ref.Kind == openchoreov1alpha1.DataPlaneRefKindClusterDataPlane {
 				return nil
@@ -126,10 +125,9 @@ var _ = BeforeSuite(func() {
 	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 
 	// Use the manager's client which has field index support for Environment
-	// but reads directly from API server for other types
+	// but reads directly from API server for DataPlane
 	k8sClient = mgr.GetClient()
 	Expect(k8sClient).NotTo(BeNil())
-
 })
 
 var _ = AfterSuite(func() {
