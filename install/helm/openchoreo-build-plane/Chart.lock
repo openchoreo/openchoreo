@@ -1,9 +1,9 @@
 dependencies:
 - name: argo-workflows
   repository: https://argoproj.github.io/argo-helm
-  version: 0.45.2
+  version: 0.47.4
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
   version: 0.54.0
-digest: sha256:ece4dedcb632317df39fdccb0973d4eeba065a003f6bac51e2983393287b78c6
-generated: "2026-02-26T18:49:07.444749+05:30"
+digest: sha256:836f91cc9bb2f1315936f5966bc6ef051f80b30b335d94d37b4e05655eaacc44
+generated: "2026-03-07T12:17:19.468656541Z"
