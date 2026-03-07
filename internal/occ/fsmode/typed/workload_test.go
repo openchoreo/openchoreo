@@ -324,13 +324,18 @@ func TestGetConnections(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			spec := v1alpha1.WorkloadTemplateSpec{
+				Container: v1alpha1.Container{Image: "test:latest"},
+			}
+			if len(tt.connections) > 0 {
+				spec.Dependencies = &v1alpha1.WorkloadDependencies{
+					Endpoints: tt.connections,
+				}
+			}
 			wl := &Workload{
 				Workload: &v1alpha1.Workload{
 					Spec: v1alpha1.WorkloadSpec{
-						WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
-							Container:   v1alpha1.Container{Image: "test:latest"},
-							Connections: tt.connections,
-						},
+						WorkloadTemplateSpec: spec,
 					},
 				},
 			}

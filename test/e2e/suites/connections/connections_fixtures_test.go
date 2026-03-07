@@ -303,7 +303,7 @@ func populateConnections(workload *openchoreov1alpha1.Workload, connections []co
 	if len(connections) == 0 {
 		return
 	}
-	workload.Spec.Connections = make([]openchoreov1alpha1.WorkloadConnection, 0, len(connections))
+	endpointConns := make([]openchoreov1alpha1.WorkloadConnection, 0, len(connections))
 	for _, conn := range connections {
 		wc := openchoreov1alpha1.WorkloadConnection{
 			Project:    conn.project,
@@ -316,7 +316,10 @@ func populateConnections(workload *openchoreov1alpha1.Workload, connections []co
 				Port:    conn.envPort,
 			},
 		}
-		workload.Spec.Connections = append(workload.Spec.Connections, wc)
+		endpointConns = append(endpointConns, wc)
+	}
+	workload.Spec.Dependencies = &openchoreov1alpha1.WorkloadDependencies{
+		Endpoints: endpointConns,
 	}
 }
 
