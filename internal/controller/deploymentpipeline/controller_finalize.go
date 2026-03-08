@@ -24,6 +24,14 @@ const (
 	// the DeploymentPipeline to resolve environment names and compute data plane
 	// namespace names during their own cleanup.
 	PipelineCleanupFinalizer = "openchoreo.dev/deployment-pipeline-cleanup"
+
+	// ReasonDeletionBlocked is the reason used when a deployment pipeline cannot be
+	// deleted because it is still referenced by projects.
+	ReasonDeletionBlocked controller.ConditionReason = "DeletionBlocked"
+
+	// DeletionBlockedRequeueInterval is the interval at which the controller re-checks
+	// whether referencing projects have been removed.
+	DeletionBlockedRequeueInterval = 5 * time.Second
 )
 
 // finalize removes the finalizer once no Projects reference this DeploymentPipeline.
@@ -49,12 +57,12 @@ func (r *Reconciler) finalize(ctx context.Context, pipeline *openchoreov1alpha1.
 			&pipeline.Status.Conditions,
 			controller.TypeAvailable,
 			metav1.ConditionFalse,
-			"DeletionBlocked",
+			string(ReasonDeletionBlocked),
 			msg,
 		); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update status condition: %w", err)
 		}
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: DeletionBlockedRequeueInterval}, nil
 	}
 
 	if controllerutil.RemoveFinalizer(pipeline, PipelineCleanupFinalizer) {

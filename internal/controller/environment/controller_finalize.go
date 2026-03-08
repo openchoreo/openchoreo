@@ -97,6 +97,11 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *openchoreov
 	envCtx, err := r.makeEnvironmentContext(ctx, environment)
 	if err != nil {
 		if isDataPlaneNotFoundError(err) {
+			if skip, skipErr := r.shouldSkipCleanupForMissingDataPlane(ctx, environment); skipErr != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to verify ClusterDataPlane during finalization: %w", skipErr)
+			} else if !skip {
+				return ctrl.Result{}, fmt.Errorf("failed to make environment context for ClusterDataPlane-backed environment: %w", err)
+			}
 			logger.Info("DataPlane not found during finalization, skipping namespace cleanup")
 			return r.removeFinalizer(ctx, environment)
 		}
@@ -106,6 +111,11 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *openchoreov
 	dpClient, err := r.getDPClient(ctx, envCtx.Environment)
 	if err != nil {
 		if isDataPlaneNotFoundError(err) {
+			if skip, skipErr := r.shouldSkipCleanupForMissingDataPlane(ctx, environment); skipErr != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to verify ClusterDataPlane during finalization: %w", skipErr)
+			} else if !skip {
+				return ctrl.Result{}, fmt.Errorf("failed to get DP client for ClusterDataPlane-backed environment: %w", err)
+			}
 			logger.Info("DataPlane not found during finalization, skipping namespace cleanup")
 			return r.removeFinalizer(ctx, environment)
 		}
@@ -148,6 +158,38 @@ func (r *Reconciler) removeFinalizer(ctx context.Context, environment *openchore
 		}
 	}
 	return ctrl.Result{}, nil
+}
+
+// shouldSkipCleanupForMissingDataPlane determines whether namespace cleanup can be
+// safely skipped when the DataPlane lookup has already failed with a not-found error.
+//
+// For environments referencing a namespaced DataPlane, cleanup can always be skipped
+// because the DataPlane is truly gone along with its namespaces.
+//
+// For environments referencing a ClusterDataPlane, we must verify the cluster-scoped
+// resource is also gone — GetDataPlaneByEnvironment returns HierarchyNotFoundError
+// for ClusterDataPlane refs even when the ClusterDataPlane exists, because it only
+// handles namespaced DataPlanes. Skipping cleanup in that case would leak namespaces.
+//
+// Returns (true, nil) if cleanup can be skipped, (false, nil) if ClusterDataPlane
+// still exists, or (false, err) if the lookup itself failed.
+func (r *Reconciler) shouldSkipCleanupForMissingDataPlane(ctx context.Context, env *openchoreov1alpha1.Environment) (bool, error) {
+	// Non-ClusterDataPlane refs: the DataPlane is genuinely gone, safe to skip.
+	if env.Spec.DataPlaneRef == nil ||
+		env.Spec.DataPlaneRef.Kind != openchoreov1alpha1.DataPlaneRefKindClusterDataPlane {
+		return true, nil
+	}
+
+	// ClusterDataPlane ref: verify the cluster-scoped resource is also missing.
+	cdp := &openchoreov1alpha1.ClusterDataPlane{}
+	if err := r.Get(ctx, client.ObjectKey{Name: env.Spec.DataPlaneRef.Name}, cdp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, fmt.Errorf("failed to look up ClusterDataPlane %q: %w", env.Spec.DataPlaneRef.Name, err)
+	}
+	// ClusterDataPlane exists — do not skip cleanup.
+	return false, nil
 }
 
 // isDataPlaneNotFoundError checks if the error is due to the DataPlane not being found.

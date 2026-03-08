@@ -50,11 +50,11 @@ func (r *Reconciler) findEnvironmentsForDeploymentPipeline(ctx context.Context, 
 	); err != nil {
 		logger.Error(err, "Failed to list environments for DeploymentPipeline watch",
 			"deploymentPipeline", pipeline.Name)
-		return nil
-	}
-	for i := range envList.Items {
-		if !envList.Items[i].DeletionTimestamp.IsZero() {
-			envNames[envList.Items[i].Name] = struct{}{}
+	} else {
+		for i := range envList.Items {
+			if !envList.Items[i].DeletionTimestamp.IsZero() {
+				envNames[envList.Items[i].Name] = struct{}{}
+			}
 		}
 	}
 

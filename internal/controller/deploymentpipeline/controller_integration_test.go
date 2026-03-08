@@ -4,8 +4,6 @@
 package deploymentpipeline
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -234,14 +232,14 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 			r := testReconciler()
 			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: pipelineNN})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(5 * time.Second))
+			Expect(result.RequeueAfter).To(Equal(DeletionBlockedRequeueInterval))
 
 			fresh := &openchoreov1alpha1.DeploymentPipeline{}
 			Expect(k8sClient.Get(ctx, pipelineNN, fresh)).To(Succeed())
 			cond := apimeta.FindStatusCondition(fresh.Status.Conditions, controller.TypeAvailable)
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(cond.Reason).To(Equal("DeletionBlocked"))
+			Expect(cond.Reason).To(Equal(string(ReasonDeletionBlocked)))
 			Expect(cond.Message).To(ContainSubstring("1 project(s)"))
 		})
 
@@ -255,7 +253,7 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 			By("first reconcile — blocked by referencing project")
 			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: pipelineNN})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(5 * time.Second))
+			Expect(result.RequeueAfter).To(Equal(DeletionBlockedRequeueInterval))
 
 			By("removing the referencing project")
 			project := &openchoreov1alpha1.Project{}

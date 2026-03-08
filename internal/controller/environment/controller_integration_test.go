@@ -286,6 +286,10 @@ var _ = Describe("Environment Controller", func() {
 					},
 				}
 				Expect(k8sClient.Create(ctx, pipeline)).To(Succeed())
+				// Wait for the DeploymentPipeline to be reflected in the manager cache
+				Eventually(func() error {
+					return k8sClient.Get(ctx, pipelineNN, &openchoreov1alpha1.DeploymentPipeline{})
+				}, "5s", "100ms").Should(Succeed())
 
 				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
 			})
@@ -349,6 +353,10 @@ var _ = Describe("Environment Controller", func() {
 					},
 				}
 				Expect(k8sClient.Create(ctx, pipeline)).To(Succeed())
+				// Wait for the DeploymentPipeline to be reflected in the manager cache
+				Eventually(func() error {
+					return k8sClient.Get(ctx, pipelineNN, &openchoreov1alpha1.DeploymentPipeline{})
+				}, "5s", "100ms").Should(Succeed())
 
 				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
 			})
@@ -412,6 +420,10 @@ var _ = Describe("Environment Controller", func() {
 					},
 				}
 				Expect(k8sClient.Create(ctx, pipeline)).To(Succeed())
+				// Wait for the DeploymentPipeline to be reflected in the manager cache
+				Eventually(func() error {
+					return k8sClient.Get(ctx, pipelineNN, &openchoreov1alpha1.DeploymentPipeline{})
+				}, "5s", "100ms").Should(Succeed())
 
 				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
 			})
@@ -694,8 +706,7 @@ var _ = Describe("Environment Controller", func() {
 
 				By("second reconcile — no matching release bindings, proceeds to namespace cleanup")
 				_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
-				// May error on DataPlane lookup — that's expected
-				_ = err
+				Expect(err).NotTo(HaveOccurred())
 
 				By("verifying the other environment's release binding is untouched")
 				rb := &openchoreov1alpha1.ReleaseBinding{}

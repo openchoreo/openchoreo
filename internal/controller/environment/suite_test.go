@@ -35,6 +35,7 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var ctx context.Context
 var cancel context.CancelFunc
+var mgrDone chan struct{}
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -121,8 +122,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	// Start the manager in a goroutine
+	mgrDone = make(chan struct{})
 	go func() {
 		defer GinkgoRecover()
+		defer close(mgrDone)
 		err := mgr.Start(ctx)
 		Expect(err).NotTo(HaveOccurred())
 	}()
@@ -140,6 +143,7 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	cancel()
+	<-mgrDone
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
