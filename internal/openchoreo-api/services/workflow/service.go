@@ -107,6 +107,13 @@ func (s *workflowService) GetWorkflowSchema(ctx context.Context, namespaceName, 
 		return nil, err
 	}
 
+	var types map[string]any
+	if typesRaw := wf.Spec.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
+		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
+			return nil, fmt.Errorf("failed to extract types: %w", err)
+		}
+	}
+
 	var schemaMap map[string]any
 	if paramsRaw := wf.Spec.Schema.GetParameters(); paramsRaw != nil {
 		if err := yaml.Unmarshal(paramsRaw.Raw, &schemaMap); err != nil {
@@ -115,6 +122,7 @@ func (s *workflowService) GetWorkflowSchema(ctx context.Context, namespaceName, 
 	}
 
 	def := schema.Definition{
+		Types:   types,
 		Schemas: []map[string]any{schemaMap},
 		Options: extractor.Options{
 			SkipDefaultValidation: true,
