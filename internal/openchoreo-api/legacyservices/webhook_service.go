@@ -115,8 +115,8 @@ func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.
 			continue
 		}
 
-		// Get repository URL from component workflow via Workflow CR annotation
-		repoURL, appPath, err := s.extractRepoInfoFromComponent(ctx, comp)
+		// Get repository URL, appPath, and branch from component workflow via Workflow CR annotation
+		repoURL, appPath, branch, err := s.extractRepoInfoFromComponent(ctx, comp)
 		if err != nil {
 			logger.V(1).Info("Failed to extract repo info from component",
 				"component", comp.Name,
@@ -129,12 +129,23 @@ func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.
 			continue
 		}
 
+		// Check if the webhook branch matches the component's configured branch.
+		// If the component has no branch configured, all branches trigger builds.
+		if branch != "" && branch != event.Branch {
+			logger.V(1).Info("Skipping component: branch mismatch",
+				"component", comp.Name,
+				"componentBranch", branch,
+				"webhookBranch", event.Branch)
+			continue
+		}
+
 		// Check if modified paths affect this component
 		// If no modified paths (e.g., Bitbucket), trigger all components for the repo
 		if len(event.ModifiedPaths) == 0 || s.isComponentAffected(appPath, event.ModifiedPaths) {
 			logger.Info("Component is affected by webhook event",
 				"component", comp.Name,
 				"appPath", appPath,
+				"branch", branch,
 				"modifiedPaths", len(event.ModifiedPaths))
 			affected = append(affected, comp)
 		}
@@ -143,11 +154,11 @@ func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.
 	return affected, nil
 }
 
-// extractRepoInfoFromComponent extracts repository URL and appPath from a component's workflow parameters
+// extractRepoInfoFromComponent extracts repository URL, appPath, and branch from a component's workflow parameters
 // by looking up the Workflow CR annotation to find the parameter paths.
-func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp *v1alpha1.Component) (repoURL string, appPath string, err error) {
+func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp *v1alpha1.Component) (repoURL string, appPath string, branch string, err error) {
 	if comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == "" {
-		return "", "", fmt.Errorf("component has no workflow configuration")
+		return "", "", "", fmt.Errorf("component has no workflow configuration")
 	}
 
 	// Fetch the Workflow CR to get the annotation mapping
@@ -156,7 +167,7 @@ func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp 
 		Name:      comp.Spec.Workflow.Name,
 		Namespace: comp.Namespace,
 	}, workflow); err != nil {
-		return "", "", fmt.Errorf("failed to get workflow %s: %w", comp.Spec.Workflow.Name, err)
+		return "", "", "", fmt.Errorf("failed to get workflow %s: %w", comp.Spec.Workflow.Name, err)
 	}
 
 	// Parse the annotation that maps logical keys to parameter paths
@@ -166,16 +177,16 @@ func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp 
 	// Get repoUrl path from the annotation
 	repoURLPath, ok := paramMap["repoUrl"]
 	if !ok {
-		return "", "", fmt.Errorf("workflow %s annotation missing repoUrl mapping", comp.Spec.Workflow.Name)
+		return "", "", "", fmt.Errorf("workflow %s annotation missing repoUrl mapping", comp.Spec.Workflow.Name)
 	}
 
 	repoURL, err = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, repoURLPath)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to extract repoUrl from parameters: %w", err)
+		return "", "", "", fmt.Errorf("failed to extract repoUrl from parameters: %w", err)
 	}
 
 	if repoURL == "" {
-		return "", "", fmt.Errorf("repository URL is empty in component parameters")
+		return "", "", "", fmt.Errorf("repository URL is empty in component parameters")
 	}
 
 	// Get appPath (optional - not all workflows may have it)
@@ -183,7 +194,17 @@ func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp 
 		appPath, _ = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, appPathPath)
 	}
 
-	return repoURL, appPath, nil
+	// Get branch (optional - if not configured, all branches trigger builds).
+	// If the annotation maps a branch path but extraction fails, return an error so
+	// the component is not unintentionally treated as unscoped (all-branch).
+	if branchPath, ok := paramMap["branch"]; ok {
+		branch, err = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, branchPath)
+		if err != nil {
+			return "", "", "", fmt.Errorf("extracting branch for component %s: %w", comp.Name, err)
+		}
+	}
+
+	return repoURL, appPath, branch, nil
 }
 
 // getNestedStringFromRawExtension navigates a runtime.RawExtension JSON blob using a dotted path
