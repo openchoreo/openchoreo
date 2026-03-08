@@ -33,8 +33,15 @@ jobs:
         run: |
           echo "GIT_SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> $GITHUB_ENV
           echo "GIT_SHA_LONG=$(git rev-parse HEAD)" >> $GITHUB_ENV
-          echo "RELEASE_TAG=$(echo ${GITHUB_REF##*/})" >> $GITHUB_ENV
+          RELEASE_TAG=$(echo ${GITHUB_REF##*/})
+          echo "RELEASE_TAG=${RELEASE_TAG}" >> $GITHUB_ENV
           echo "RELEASE_TAG_WITHOUT_V=$(echo ${GITHUB_REF##*/v})" >> $GITHUB_ENV
+          # Detect prerelease versions (SemVer tags containing a hyphen, e.g., v1.0.0-rc.1)
+          if [[ "${RELEASE_TAG}" == *-* ]]; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_ENV
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_ENV
+          fi
 
       - name: Set Latest Flag
         run: |
@@ -162,6 +169,7 @@ jobs:
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           draft: true
+          prerelease: ${{ env.IS_PRERELEASE == 'true' }}
           generate_release_notes: true
           tag_name: ${{ env.RELEASE_TAG }}
           files: |
