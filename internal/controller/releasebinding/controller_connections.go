@@ -27,43 +27,20 @@ func buildConnectionTargets(
 	}
 	targets := make([]openchoreov1alpha1.ConnectionTarget, 0, len(connections))
 	for _, conn := range connections {
-		namespace := conn.Namespace
-		if namespace == "" {
-			namespace = releaseBinding.Namespace
-		}
 		project := conn.Project
 		if project == "" {
 			project = releaseBinding.Spec.Owner.ProjectName
 		}
-		targetEnv := resolveTargetEnvironment(releaseBinding.Spec.Environment, conn)
 		targets = append(targets, openchoreov1alpha1.ConnectionTarget{
-			Namespace:   namespace,
+			Namespace:   releaseBinding.Namespace,
 			Project:     project,
 			Component:   conn.Component,
-			Endpoint:    conn.Endpoint,
+			Endpoint:    conn.Name,
 			Visibility:  conn.Visibility,
-			Environment: targetEnv,
+			Environment: releaseBinding.Spec.Environment,
 		})
 	}
 	return targets
-}
-
-// resolveTargetEnvironment determines the target environment for a connection.
-// For project and namespace visibility, the target environment always matches the source
-// since these visibilities operate within the same environment boundary.
-// For internal visibility, it checks the environmentMapping for an override.
-func resolveTargetEnvironment(sourceEnv string, conn openchoreov1alpha1.WorkloadConnection) string {
-	switch conn.Visibility {
-	case openchoreov1alpha1.EndpointVisibilityProject, openchoreov1alpha1.EndpointVisibilityNamespace:
-		return sourceEnv
-	case openchoreov1alpha1.EndpointVisibilityInternal:
-		if targetEnv, ok := conn.EnvironmentMapping[sourceEnv]; ok {
-			return targetEnv
-		}
-		return sourceEnv
-	default:
-		return sourceEnv
-	}
 }
 
 // resolveConnections resolves all connection targets by looking up dependency
@@ -184,19 +161,6 @@ func resolveURLForVisibility(
 	switch visibility {
 	case openchoreov1alpha1.EndpointVisibilityProject, openchoreov1alpha1.EndpointVisibilityNamespace:
 		return ep.ServiceURL
-	case openchoreov1alpha1.EndpointVisibilityInternal:
-		if ep.InternalURLs != nil {
-			if ep.InternalURLs.HTTPS != nil {
-				return ep.InternalURLs.HTTPS
-			}
-			if ep.InternalURLs.HTTP != nil {
-				return ep.InternalURLs.HTTP
-			}
-			if ep.InternalURLs.TLS != nil {
-				return ep.InternalURLs.TLS
-			}
-		}
-		return nil
 	case openchoreov1alpha1.EndpointVisibilityExternal:
 		if ep.ExternalURLs != nil {
 			if ep.ExternalURLs.HTTPS != nil {
@@ -233,24 +197,20 @@ func buildConnectionItems(
 
 	items := make([]pipelinecontext.ConnectionItem, 0, len(connections))
 	for _, conn := range connections {
-		namespace := conn.Namespace
-		if namespace == "" {
-			namespace = releaseBinding.Namespace
-		}
 		project := conn.Project
 		if project == "" {
 			project = releaseBinding.Spec.Owner.ProjectName
 		}
 
 		item := pipelinecontext.ConnectionItem{
-			Namespace:  namespace,
+			Namespace:  releaseBinding.Namespace,
 			Project:    project,
 			Component:  conn.Component,
-			Endpoint:   conn.Endpoint,
+			Endpoint:   conn.Name,
 			Visibility: string(conn.Visibility),
 		}
 
-		key := connectionKey(namespace, project, conn.Component, conn.Endpoint, string(conn.Visibility))
+		key := connectionKey(releaseBinding.Namespace, project, conn.Component, conn.Name, string(conn.Visibility))
 		if rc, ok := resolved[key]; ok {
 			item.EnvVars = buildEnvVarsForConnection(conn, rc)
 		}
@@ -354,15 +314,11 @@ func allConnectionsResolved(
 		resolved[connectionKey(rc.Namespace, rc.Project, rc.Component, rc.Endpoint, string(rc.Visibility))] = struct{}{}
 	}
 	for _, conn := range connections {
-		namespace := conn.Namespace
-		if namespace == "" {
-			namespace = releaseBinding.Namespace
-		}
 		project := conn.Project
 		if project == "" {
 			project = releaseBinding.Spec.Owner.ProjectName
 		}
-		if _, ok := resolved[connectionKey(namespace, project, conn.Component, conn.Endpoint, string(conn.Visibility))]; !ok {
+		if _, ok := resolved[connectionKey(releaseBinding.Namespace, project, conn.Component, conn.Name, string(conn.Visibility))]; !ok {
 			return false
 		}
 	}

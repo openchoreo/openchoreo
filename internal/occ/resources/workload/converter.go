@@ -47,8 +47,8 @@ type WorkloadDescriptorConnection struct {
 	Project string `yaml:"project,omitempty"`
 	// Component is the target component name.
 	Component string `yaml:"component"`
-	// Endpoint is the target endpoint name.
-	Endpoint string `yaml:"endpoint"`
+	// Name is the target endpoint name.
+	Name string `yaml:"name"`
 	// Visibility is the visibility level for the connection.
 	Visibility string `yaml:"visibility"`
 	// EnvBindings maps connection address components to env var names.
@@ -276,12 +276,12 @@ func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descrip
 		return
 	}
 
-	workload.Spec.Connections = make([]openchoreov1alpha1.WorkloadConnection, 0, len(descriptor.Connections))
+	connections := make([]openchoreov1alpha1.WorkloadConnection, 0, len(descriptor.Connections))
 	for _, dc := range descriptor.Connections {
 		connection := openchoreov1alpha1.WorkloadConnection{
 			Project:    dc.Project,
 			Component:  dc.Component,
-			Endpoint:   dc.Endpoint,
+			Name:       dc.Name,
 			Visibility: openchoreov1alpha1.EndpointVisibility(dc.Visibility),
 			EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
 				Address:  dc.EnvBindings.Address,
@@ -290,8 +290,12 @@ func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descrip
 				BasePath: dc.EnvBindings.BasePath,
 			},
 		}
-		workload.Spec.Connections = append(workload.Spec.Connections, connection)
+		connections = append(connections, connection)
 	}
+	if workload.Spec.Dependencies == nil {
+		workload.Spec.Dependencies = &openchoreov1alpha1.WorkloadDependencies{}
+	}
+	workload.Spec.Dependencies.Endpoints = connections
 }
 
 // addConfigurationsFromDescriptor adds configurations (env vars and files) from the descriptor to the workload
@@ -396,10 +400,10 @@ func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, err
 			Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 		} `json:"metadata" yaml:"metadata"`
 		Spec struct {
-			Owner       openchoreov1alpha1.WorkloadOwner               `json:"owner" yaml:"owner"`
-			Container   openchoreov1alpha1.Container                   `json:"container" yaml:"container"`
-			Endpoints   map[string]openchoreov1alpha1.WorkloadEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
-			Connections []openchoreov1alpha1.WorkloadConnection        `json:"connections,omitempty" yaml:"connections,omitempty"`
+			Owner        openchoreov1alpha1.WorkloadOwner               `json:"owner" yaml:"owner"`
+			Container    openchoreov1alpha1.Container                   `json:"container" yaml:"container"`
+			Endpoints    map[string]openchoreov1alpha1.WorkloadEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
+			Dependencies *openchoreov1alpha1.WorkloadDependencies       `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
 		} `json:"spec" yaml:"spec"`
 	}
 
@@ -413,7 +417,7 @@ func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, err
 	ordered.Spec.Owner = workload.Spec.Owner
 	ordered.Spec.Container = workload.Spec.Container
 	ordered.Spec.Endpoints = workload.Spec.Endpoints
-	ordered.Spec.Connections = workload.Spec.Connections
+	ordered.Spec.Dependencies = workload.Spec.Dependencies
 
 	// Marshal with sigs.k8s.io/yaml for JSON tag support
 	return yaml.Marshal(ordered)

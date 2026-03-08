@@ -17,8 +17,7 @@ import (
 )
 
 var (
-	dpNs  string // data plane namespace for cpNs/proj1/development
-	dpNs2 string // data plane namespace for cpNs2/proj2/development
+	dpNs string // data plane namespace for cpNs/proj1/development
 )
 
 var _ = Describe("Connection Resolution", Ordered, func() {
@@ -169,13 +168,13 @@ var _ = Describe("Connection Resolution", Ordered, func() {
 		output, err = framework.KubectlApplyLiteral(kubeContext, componentTypeYAML(cpNs))
 		Expect(err).NotTo(HaveOccurred(), "failed to apply ComponentType: %s", output)
 
-		By("deploying provider-a (HTTP:8080, project+namespace+internal visibility)")
+		By("deploying provider-a (HTTP:8080, project+namespace visibility)")
 		output, err = framework.KubectlApplyLiteral(kubeContext, componentWithConnectionsYAML(
 			cpNs, "proj1", "provider-a", "deployment/e2e-conn-service",
 			"hashicorp/http-echo",
 			[]string{"-text=provider-a", "-listen=:8080"},
 			map[string]endpointDef{
-				"api": {epType: "HTTP", port: 8080, visibility: []string{"project", "namespace", "internal"}},
+				"api": {epType: "HTTP", port: 8080, visibility: []string{"project", "namespace"}},
 			},
 			nil,
 		))
@@ -230,49 +229,6 @@ var _ = Describe("Connection Resolution", Ordered, func() {
 		))
 		Expect(err).NotTo(HaveOccurred(), "failed to create consumer: %s", output)
 
-		// --- Second namespace (cpNs2): cross-namespace provider ---
-		By("creating second control plane namespace for cross-namespace tests")
-		ns2 := fmt.Sprintf(
-			`apiVersion: v1
-kind: Namespace
-metadata:
-  name: %s
-  labels:
-    openchoreo.dev/controlplane-namespace: "true"`, cpNs2)
-		output, err = framework.KubectlApplyLiteral(kubeContext, ns2)
-		Expect(err).NotTo(HaveOccurred(), "failed to create second CP namespace: %s", output)
-
-		By("applying platform resources in second namespace")
-		output, err = framework.KubectlApplyLiteral(kubeContext,
-			platformResourcesYAML(cpNs2, []string{"development", "staging"}, []string{"proj2"}))
-		Expect(err).NotTo(HaveOccurred(), "failed to apply platform resources in %s: %s", cpNs2, output)
-
-		By("applying ComponentType in second namespace")
-		output, err = framework.KubectlApplyLiteral(kubeContext, componentTypeYAML(cpNs2))
-		Expect(err).NotTo(HaveOccurred(), "failed to apply ComponentType in %s: %s", cpNs2, output)
-
-		By("deploying cross-ns-provider in second namespace (HTTP:7070, internal visibility)")
-		output, err = framework.KubectlApplyLiteral(kubeContext, componentWithConnectionsYAML(
-			cpNs2, "proj2", "cross-ns-provider", "deployment/e2e-conn-service",
-			"hashicorp/http-echo",
-			[]string{"-text=cross-ns-provider", "-listen=:7070"},
-			map[string]endpointDef{
-				"api": {epType: "HTTP", port: 7070, visibility: []string{"project", "internal"}},
-			},
-			nil,
-		))
-		Expect(err).NotTo(HaveOccurred(), "failed to create cross-ns-provider: %s", output)
-
-		By("waiting for dp namespace for proj2/development")
-		Eventually(func() error {
-			var discoverErr error
-			dpNs2, discoverErr = framework.GetDPNamespace(kubeContext, cpNs2, "proj2", "development")
-			return discoverErr
-		}, 3*time.Minute, 5*time.Second).Should(Succeed())
-		fmt.Fprintf(GinkgoWriter, "discovered dp namespace for ns2: %s\n", dpNs2)
-
-		By("waiting for cross-ns-provider to be Ready")
-		assertRBConditionInNs(cpNs2, "cross-ns-provider-development", "Ready", "True", "Ready")
 	})
 
 	AfterAll(func() {
@@ -282,15 +238,12 @@ metadata:
 		}
 
 		By("cleaning up data plane namespaces")
-		for _, ns := range []string{dpNs, dpNs2} {
-			if ns != "" {
-				_, _ = framework.Kubectl(kubeContext, "delete", "namespace", ns, "--ignore-not-found", "--wait=false")
-			}
+		if dpNs != "" {
+			_, _ = framework.Kubectl(kubeContext, "delete", "namespace", dpNs, "--ignore-not-found", "--wait=false")
 		}
 
 		By("cleaning up control plane namespaces")
 		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", cpNs, "--ignore-not-found", "--wait=false")
-		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", cpNs2, "--ignore-not-found", "--wait=false")
 	})
 
 	// --- Project/namespace visibility tests ---
@@ -436,166 +389,6 @@ metadata:
 		})
 	})
 
-	// --- Internal visibility tests ---
-
-	Context("internal visibility", func() {
-		It("resolves internal visibility connection within same namespace", func() {
-			By("deploying internal-consumer with internal connection to provider-a")
-			output, err := framework.KubectlApplyLiteral(kubeContext, componentWithConnectionsYAML(
-				cpNs, "proj1", "internal-consumer", "deployment/e2e-conn-service",
-				"hashicorp/http-echo",
-				[]string{"-text=internal-consumer", "-listen=:3001"},
-				map[string]endpointDef{
-					"web": {epType: "HTTP", port: 3001, visibility: []string{"project"}},
-				},
-				[]connectionDef{
-					{
-						component:  "provider-a",
-						endpoint:   "api",
-						visibility: "internal",
-						envURL:     "INTERNAL_PROVIDER_A_URL",
-					},
-				},
-			))
-			Expect(err).NotTo(HaveOccurred(), "failed to create internal-consumer: %s", output)
-
-			By("provider-a should have internalURLs for api endpoint")
-			Eventually(func(g Gomega) {
-				status := getReleaseBindingStatus(g, "provider-a-development")
-				var apiEP *openchoreov1alpha1.EndpointURLStatus
-				for i := range status.Endpoints {
-					if status.Endpoints[i].Name == "api" {
-						apiEP = &status.Endpoints[i]
-						break
-					}
-				}
-				g.Expect(apiEP).NotTo(BeNil(), "api endpoint not found in provider-a status")
-				g.Expect(apiEP.InternalURLs).NotTo(BeNil(), "internalURLs should be populated for internal-visible endpoint")
-				g.Expect(apiEP.InternalURLs.HTTP).NotTo(BeNil(), "internalURLs.http should be populated")
-				g.Expect(apiEP.InternalURLs.HTTP.Host).To(ContainSubstring("e2e-dp-internal.local"))
-				g.Expect(apiEP.InternalURLs.HTTP.Port).To(Equal(int32(18080)))
-			}, 3*time.Minute, 2*time.Second).Should(Succeed())
-
-			By("internal-consumer should resolve the internal connection")
-			assertRBCondition("internal-consumer-development", "ConnectionsResolved", "True", "AllConnectionsResolved")
-
-			By("resolved connection URL should use internal gateway")
-			Eventually(func(g Gomega) {
-				status := getReleaseBindingStatus(g, "internal-consumer-development")
-				g.Expect(status.ResolvedConnections).To(HaveLen(1))
-				rc := status.ResolvedConnections[0]
-				g.Expect(string(rc.Visibility)).To(Equal("internal"))
-				g.Expect(rc.URL.Host).To(ContainSubstring("e2e-dp-internal.local"))
-				g.Expect(rc.URL.Port).To(Equal(int32(18080)))
-				g.Expect(rc.URL.Scheme).To(Equal("http"))
-			}, 3*time.Minute, 2*time.Second).Should(Succeed())
-		})
-
-		It("resolves cross-namespace internal visibility connection", func() {
-			By("deploying cross-ns-consumer with connection to second namespace")
-			output, err := framework.KubectlApplyLiteral(kubeContext, componentWithConnectionsYAML(
-				cpNs, "proj1", "cross-ns-consumer", "deployment/e2e-conn-service",
-				"hashicorp/http-echo",
-				[]string{"-text=cross-ns-consumer", "-listen=:3002"},
-				map[string]endpointDef{
-					"web": {epType: "HTTP", port: 3002, visibility: []string{"project"}},
-				},
-				[]connectionDef{
-					{
-						namespace:  cpNs2,
-						project:    "proj2",
-						component:  "cross-ns-provider",
-						endpoint:   "api",
-						visibility: "internal",
-						envURL:     "CROSS_NS_PROVIDER_URL",
-					},
-				},
-			))
-			Expect(err).NotTo(HaveOccurred(), "failed to create cross-ns-consumer: %s", output)
-
-			By("cross-ns-consumer should resolve the cross-namespace connection")
-			assertRBCondition("cross-ns-consumer-development", "ConnectionsResolved", "True", "AllConnectionsResolved")
-
-			By("verifying connection target and resolved URL")
-			Eventually(func(g Gomega) {
-				status := getReleaseBindingStatus(g, "cross-ns-consumer-development")
-				g.Expect(status.ConnectionTargets).To(HaveLen(1))
-				g.Expect(status.ConnectionTargets[0].Namespace).To(Equal(cpNs2))
-				g.Expect(status.ConnectionTargets[0].Project).To(Equal("proj2"))
-				g.Expect(status.ConnectionTargets[0].Component).To(Equal("cross-ns-provider"))
-				g.Expect(status.ConnectionTargets[0].Environment).To(Equal("development"))
-
-				g.Expect(status.ResolvedConnections).To(HaveLen(1))
-				rc := status.ResolvedConnections[0]
-				g.Expect(rc.Namespace).To(Equal(cpNs2))
-				g.Expect(rc.URL.Host).To(ContainSubstring("e2e-dp-internal.local"))
-				g.Expect(rc.URL.Port).To(Equal(int32(18080)))
-			}, 3*time.Minute, 2*time.Second).Should(Succeed())
-		})
-
-		It("resolves cross-namespace connection with environment mapping", func() {
-			By("deploying mapped-consumer with environment mapping")
-			output, err := framework.KubectlApplyLiteral(kubeContext, componentWithConnectionsYAML(
-				cpNs, "proj1", "mapped-consumer", "deployment/e2e-conn-service",
-				"hashicorp/http-echo",
-				[]string{"-text=mapped-consumer", "-listen=:3003"},
-				map[string]endpointDef{
-					"web": {epType: "HTTP", port: 3003, visibility: []string{"project"}},
-				},
-				[]connectionDef{
-					{
-						namespace:  cpNs2,
-						project:    "proj2",
-						component:  "cross-ns-provider",
-						endpoint:   "api",
-						visibility: "internal",
-						envURL:     "MAPPED_PROVIDER_URL",
-						environmentMapping: map[string]string{
-							"development": "development",
-							"staging":     "development",
-						},
-					},
-				},
-			))
-			Expect(err).NotTo(HaveOccurred(), "failed to create mapped-consumer: %s", output)
-
-			By("mapped-consumer should resolve the connection using environment mapping")
-			assertRBCondition("mapped-consumer-development", "ConnectionsResolved", "True", "AllConnectionsResolved")
-
-			By("verifying connection target has mapped environment")
-			Eventually(func(g Gomega) {
-				status := getReleaseBindingStatusInNs(g, cpNs, "mapped-consumer-development")
-				g.Expect(status.ConnectionTargets).To(HaveLen(1))
-				g.Expect(status.ConnectionTargets[0].Environment).To(Equal("development"))
-			}, 3*time.Minute, 2*time.Second).Should(Succeed())
-		})
-
-		It("keeps cross-namespace connection pending when target does not exist", func() {
-			By("deploying consumer with connection to nonexistent namespace")
-			output, err := framework.KubectlApplyLiteral(kubeContext, componentWithConnectionsYAML(
-				cpNs, "proj1", "bad-cross-ns", "deployment/e2e-conn-service",
-				"hashicorp/http-echo",
-				[]string{"-text=bad-cross-ns", "-listen=:3004"},
-				map[string]endpointDef{
-					"web": {epType: "HTTP", port: 3004, visibility: []string{"project"}},
-				},
-				[]connectionDef{
-					{
-						namespace:  "nonexistent-ns",
-						project:    "nonexistent-proj",
-						component:  "nonexistent-comp",
-						endpoint:   "api",
-						visibility: "internal",
-						envURL:     "BAD_CROSS_NS_URL",
-					},
-				},
-			))
-			Expect(err).NotTo(HaveOccurred(), "failed to create bad-cross-ns: %s", output)
-
-			By("bad-cross-ns should have pending connections")
-			assertRBCondition("bad-cross-ns-development", "ConnectionsResolved", "False", "ConnectionsPending")
-		})
-	})
 })
 
 // getReleaseBindingStatus fetches a ReleaseBinding as full JSON and returns its typed status.

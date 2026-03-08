@@ -391,13 +391,13 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 	connectionSchema := extv1.JSONSchemaProps{
 		Type:        objectType,
 		Description: "Connection to another component's endpoint.",
-		Required:    []string{"component", "endpoint", "visibility"},
+		Required:    []string{"component", "name", "visibility"},
 		Properties: map[string]extv1.JSONSchemaProps{
 			"component": {
 				Type:        stringType,
 				Description: "Target component name.",
 			},
-			"endpoint": {
+			"name": {
 				Type:        stringType,
 				Description: "Target endpoint name on the target component.",
 			},
@@ -476,10 +476,16 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 				Description:          "Network endpoints for port exposure. Keys are endpoint names.",
 				AdditionalProperties: &extv1.JSONSchemaPropsOrBool{Schema: &endpointSchema},
 			},
-			"connections": {
-				Type:                 objectType,
-				Description:          "Connections to internal and external resources. Keys are connection names.",
-				AdditionalProperties: &extv1.JSONSchemaPropsOrBool{Schema: &connectionSchema},
+			"dependencies": {
+				Type:        objectType,
+				Description: "Dependencies on other components' endpoints.",
+				Properties: map[string]extv1.JSONSchemaProps{
+					"endpoints": {
+						Type:        "array",
+						Description: "Endpoint connections to other components.",
+						Items:       &extv1.JSONSchemaPropsOrArray{Schema: &connectionSchema},
+					},
+				},
 			},
 		},
 	}

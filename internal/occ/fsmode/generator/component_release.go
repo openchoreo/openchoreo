@@ -140,7 +140,9 @@ func (g *ReleaseGenerator) buildWorkloadData(wl *typed2.Workload) map[string]int
 		workloadMap["endpoints"] = endpoints
 	}
 	if connections := wl.GetConnections(); len(connections) > 0 {
-		workloadMap["connections"] = connections
+		workloadMap["dependencies"] = map[string]interface{}{
+			"endpoints": connections,
+		}
 	}
 	return workloadMap
 }

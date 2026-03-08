@@ -211,7 +211,7 @@ func TestGetConnections(t *testing.T) {
 			connections: []v1alpha1.WorkloadConnection{
 				{
 					Component:  "postgres",
-					Endpoint:   "tcp",
+					Name:       "tcp",
 					Visibility: v1alpha1.EndpointVisibilityProject,
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address: "DATABASE_URL",
@@ -224,8 +224,8 @@ func TestGetConnections(t *testing.T) {
 				if conn["component"] != "postgres" {
 					t.Errorf("component = %v, want postgres", conn["component"])
 				}
-				if conn["endpoint"] != "tcp" {
-					t.Errorf("endpoint = %v, want tcp", conn["endpoint"])
+				if conn["name"] != "tcp" {
+					t.Errorf("name = %v, want tcp", conn["name"])
 				}
 				if conn["visibility"] != "project" {
 					t.Errorf("visibility = %v, want project", conn["visibility"])
@@ -251,15 +251,10 @@ func TestGetConnections(t *testing.T) {
 			name: "Connection with all optional fields",
 			connections: []v1alpha1.WorkloadConnection{
 				{
-					Namespace:  "other-ns",
 					Project:    "other-project",
 					Component:  "redis",
-					Endpoint:   "tcp",
-					Visibility: v1alpha1.EndpointVisibilityInternal,
-					EnvironmentMapping: v1alpha1.EnvironmentMapping{
-						"dev":     "staging",
-						"staging": "prod",
-					},
+					Name:       "tcp",
+					Visibility: v1alpha1.EndpointVisibilityNamespace,
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address:  "REDIS_URL",
 						Host:     "REDIS_HOST",
@@ -271,22 +266,11 @@ func TestGetConnections(t *testing.T) {
 			wantLen: 1,
 			validate: func(t *testing.T, result []interface{}) {
 				conn := result[0].(map[string]interface{})
-				if conn["namespace"] != "other-ns" {
-					t.Errorf("namespace = %v, want other-ns", conn["namespace"])
-				}
 				if conn["project"] != "other-project" {
 					t.Errorf("project = %v, want other-project", conn["project"])
 				}
-				if conn["visibility"] != "internal" {
-					t.Errorf("visibility = %v, want internal", conn["visibility"])
-				}
-
-				envMapping := conn["environmentMapping"].(map[string]interface{})
-				if len(envMapping) != 2 {
-					t.Fatalf("environmentMapping length = %d, want 2", len(envMapping))
-				}
-				if envMapping["dev"] != "staging" {
-					t.Errorf("environmentMapping[dev] = %v, want staging", envMapping["dev"])
+				if conn["visibility"] != "namespace" {
+					t.Errorf("visibility = %v, want namespace", conn["visibility"])
 				}
 
 				envBindings := conn["envBindings"].(map[string]interface{})
@@ -309,7 +293,7 @@ func TestGetConnections(t *testing.T) {
 			connections: []v1alpha1.WorkloadConnection{
 				{
 					Component:  "postgres",
-					Endpoint:   "tcp",
+					Name:       "tcp",
 					Visibility: v1alpha1.EndpointVisibilityProject,
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address: "DB_URL",
@@ -317,7 +301,7 @@ func TestGetConnections(t *testing.T) {
 				},
 				{
 					Component:  "nats",
-					Endpoint:   "tcp",
+					Name:       "tcp",
 					Visibility: v1alpha1.EndpointVisibilityProject,
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address: "NATS_URL",
@@ -340,13 +324,18 @@ func TestGetConnections(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			spec := v1alpha1.WorkloadTemplateSpec{
+				Container: v1alpha1.Container{Image: "test:latest"},
+			}
+			if len(tt.connections) > 0 {
+				spec.Dependencies = &v1alpha1.WorkloadDependencies{
+					Endpoints: tt.connections,
+				}
+			}
 			wl := &Workload{
 				Workload: &v1alpha1.Workload{
 					Spec: v1alpha1.WorkloadSpec{
-						WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
-							Container:   v1alpha1.Container{Image: "test:latest"},
-							Connections: tt.connections,
-						},
+						WorkloadTemplateSpec: spec,
 					},
 				},
 			}

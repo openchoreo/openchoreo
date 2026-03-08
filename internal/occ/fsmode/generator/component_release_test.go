@@ -213,21 +213,23 @@ func TestGenerateRelease_WorkloadConnectionsIncluded(t *testing.T) {
 					"port": int64(8080),
 				},
 			},
-			"connections": []any{
-				map[string]any{
-					"component":  "postgres",
-					"endpoint":   "tcp",
-					"visibility": "project",
-					"envBindings": map[string]any{
-						"address": "DATABASE_URL",
+			"dependencies": map[string]any{
+				"endpoints": []any{
+					map[string]any{
+						"component":  "postgres",
+						"name":       "tcp",
+						"visibility": "project",
+						"envBindings": map[string]any{
+							"address": "DATABASE_URL",
+						},
 					},
-				},
-				map[string]any{
-					"component":  "nats",
-					"endpoint":   "tcp",
-					"visibility": "project",
-					"envBindings": map[string]any{
-						"address": "NATS_URL",
+					map[string]any{
+						"component":  "nats",
+						"name":       "tcp",
+						"visibility": "project",
+						"envBindings": map[string]any{
+							"address": "NATS_URL",
+						},
 					},
 				},
 			},
@@ -247,20 +249,25 @@ func TestGenerateRelease_WorkloadConnectionsIncluded(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify connections are present
+	// Verify dependencies.endpoints are present
 	workload, _, _ := unstructured.NestedMap(release.Object, "spec", "workload")
-	connections, ok := workload["connections"]
-	if !ok || connections == nil {
-		t.Fatal("expected spec.workload.connections to exist — this was the bug: connections were dropped during ComponentRelease generation")
+	dependencies, ok := workload["dependencies"]
+	if !ok || dependencies == nil {
+		t.Fatal("expected spec.workload.dependencies to exist — this was the bug: connections were dropped during ComponentRelease generation")
 	}
 
-	connSlice, ok := connections.([]interface{})
+	depsMap, ok := dependencies.(map[string]interface{})
 	if !ok {
-		t.Fatalf("expected connections to be a slice, got %T", connections)
+		t.Fatalf("expected dependencies to be a map, got %T", dependencies)
+	}
+
+	connSlice, ok := depsMap["endpoints"].([]interface{})
+	if !ok {
+		t.Fatalf("expected dependencies.endpoints to be a slice, got %T", depsMap["endpoints"])
 	}
 
 	if len(connSlice) != 2 {
-		t.Fatalf("expected 2 connections, got %d", len(connSlice))
+		t.Fatalf("expected 2 endpoint connections, got %d", len(connSlice))
 	}
 
 	first := connSlice[0].(map[string]interface{})

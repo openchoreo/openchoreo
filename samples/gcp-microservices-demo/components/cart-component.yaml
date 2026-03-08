@@ -27,13 +27,14 @@ spec:
     grpc:
       type: gRPC
       port: 7070
-  connections:
-    - project: gcp-microservice-demo
-      component: redis
-      endpoint: redis
-      visibility: project
-      envBindings:
-        address: REDIS_ADDR
+  dependencies:
+    endpoints:
+      - project: gcp-microservice-demo
+        component: redis
+        name: redis
+        visibility: project
+        envBindings:
+          address: REDIS_ADDR
   container:
     image: us-central1-docker.pkg.dev/google-samples/microservices-demo/cartservice:v0.10.3
     env:
