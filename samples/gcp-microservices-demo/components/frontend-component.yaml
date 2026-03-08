@@ -28,55 +28,56 @@ spec:
       type: HTTP
       port: 8080
       visibility: [external]
-  connections:
-    - project: gcp-microservice-demo
-      component: ad
-      endpoint: grpc
-      visibility: project
-      envBindings:
-        address: AD_SERVICE_ADDR
-    - project: gcp-microservice-demo
-      component: cart
-      endpoint: grpc
-      visibility: project
-      envBindings:
-        address: CART_SERVICE_ADDR
-    - project: gcp-microservice-demo
-      component: checkout
-      endpoint: grpc
-      visibility: project
-      envBindings:
-        address: CHECKOUT_SERVICE_ADDR
-    - project: gcp-microservice-demo
-      component: currency
-      endpoint: grpc
-      visibility: project
-      envBindings:
-        address: CURRENCY_SERVICE_ADDR
-    - project: gcp-microservice-demo
-      component: payment
-      endpoint: grpc
-      visibility: project
-      envBindings:
-        address: PAYMENT_SERVICE_ADDR
-    - project: gcp-microservice-demo
-      component: recommendation
-      endpoint: grpc
-      visibility: project
-      envBindings:
-        address: RECOMMENDATION_SERVICE_ADDR
-    - project: gcp-microservice-demo
-      component: shipping
-      endpoint: grpc
-      visibility: project
-      envBindings:
-        address: SHIPPING_SERVICE_ADDR
-    - project: gcp-microservice-demo
-      component: productcatalog
-      endpoint: grpc
-      visibility: project
-      envBindings:
-        address: PRODUCT_CATALOG_SERVICE_ADDR
+  dependencies:
+    endpoints:
+      - project: gcp-microservice-demo
+        component: ad
+        name: grpc
+        visibility: project
+        envBindings:
+          address: AD_SERVICE_ADDR
+      - project: gcp-microservice-demo
+        component: cart
+        name: grpc
+        visibility: project
+        envBindings:
+          address: CART_SERVICE_ADDR
+      - project: gcp-microservice-demo
+        component: checkout
+        name: grpc
+        visibility: project
+        envBindings:
+          address: CHECKOUT_SERVICE_ADDR
+      - project: gcp-microservice-demo
+        component: currency
+        name: grpc
+        visibility: project
+        envBindings:
+          address: CURRENCY_SERVICE_ADDR
+      - project: gcp-microservice-demo
+        component: payment
+        name: grpc
+        visibility: project
+        envBindings:
+          address: PAYMENT_SERVICE_ADDR
+      - project: gcp-microservice-demo
+        component: recommendation
+        name: grpc
+        visibility: project
+        envBindings:
+          address: RECOMMENDATION_SERVICE_ADDR
+      - project: gcp-microservice-demo
+        component: shipping
+        name: grpc
+        visibility: project
+        envBindings:
+          address: SHIPPING_SERVICE_ADDR
+      - project: gcp-microservice-demo
+        component: productcatalog
+        name: grpc
+        visibility: project
+        envBindings:
+          address: PRODUCT_CATALOG_SERVICE_ADDR
   container:
     image: us-central1-docker.pkg.dev/google-samples/microservices-demo/frontend:v0.10.3
     env:

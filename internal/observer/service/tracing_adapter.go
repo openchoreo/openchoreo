@@ -53,8 +53,8 @@ func (t *TracingAdapter) GetTraces(ctx context.Context, params observability.Tra
 		reqBody.Limit = &params.Limit
 	}
 	if params.SortOrder != "" {
-		sort := gen.TracesQueryRequestSort(params.SortOrder)
-		reqBody.Sort = &sort
+		sort := gen.TracesQueryRequestSortOrder(params.SortOrder)
+		reqBody.SortOrder = &sort
 	}
 	if params.ProjectID != "" {
 		reqBody.SearchScope.Project = &params.ProjectID
@@ -96,8 +96,8 @@ func (t *TracingAdapter) GetSpans(ctx context.Context, traceID string, params ob
 		reqBody.Limit = &params.Limit
 	}
 	if params.SortOrder != "" {
-		sort := gen.TracesQueryRequestSort(params.SortOrder)
-		reqBody.Sort = &sort
+		sort := gen.TracesQueryRequestSortOrder(params.SortOrder)
+		reqBody.SortOrder = &sort
 	}
 	if params.ProjectID != "" {
 		reqBody.SearchScope.Project = &params.ProjectID

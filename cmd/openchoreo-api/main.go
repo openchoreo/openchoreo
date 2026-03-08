@@ -167,7 +167,7 @@ func main() {
 	)
 
 	// Initialize legacy HTTP handlers with unified config
-	legacyHandler := handlers.New(legacySvc, &cfg, logger.With("component", "legacy-handlers"), services.AutoBuildService)
+	legacyHandler := handlers.New(legacySvc, &cfg, logger.With("component", "legacy-handlers"))
 	legacyRoutes := legacyHandler.Routes()
 
 	// Initialize OpenAPI handlers

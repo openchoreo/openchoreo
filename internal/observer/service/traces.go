@@ -82,7 +82,7 @@ func (s *TracesService) QueryTraces(ctx context.Context, req *types.TracesQueryR
 		ComponentID:   componentUID,
 		EnvironmentID: environmentUID,
 		Limit:         req.Limit,
-		SortOrder:     req.Sort,
+		SortOrder:     req.SortOrder,
 	}
 
 	// Route to tracing adapter or OpenSearch
@@ -171,7 +171,7 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 		EnvironmentID: environmentUID,
 		TraceID:       traceID,
 		Limit:         req.Limit,
-		SortOrder:     req.Sort,
+		SortOrder:     req.SortOrder,
 	}
 
 	// Route to tracing adapter or OpenSearch

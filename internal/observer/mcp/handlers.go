@@ -150,7 +150,7 @@ func (h *MCPHandler) QueryTraces(ctx context.Context, namespace, project, compon
 		StartTime: start,
 		EndTime:   end,
 		Limit:     limit,
-		Sort:      sortOrder,
+		SortOrder: sortOrder,
 		SearchScope: types.ComponentSearchScope{
 			Namespace:   namespace,
 			Project:     project,
@@ -176,7 +176,7 @@ func (h *MCPHandler) QueryTraceSpans(ctx context.Context, traceID, namespace, pr
 		StartTime: start,
 		EndTime:   end,
 		Limit:     limit,
-		Sort:      sortOrder,
+		SortOrder: sortOrder,
 		SearchScope: types.ComponentSearchScope{
 			Namespace:   namespace,
 			Project:     project,

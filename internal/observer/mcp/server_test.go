@@ -505,8 +505,8 @@ var allToolSpecs = []toolTestSpec{
 			if req.Limit != 25 {
 				t.Errorf("Expected limit 25, got %d", req.Limit)
 			}
-			if req.Sort != "asc" {
-				t.Errorf("Expected sort 'asc', got %q", req.Sort)
+			if req.SortOrder != "asc" {
+				t.Errorf("Expected sort 'asc', got %q", req.SortOrder)
 			}
 		},
 	},
@@ -546,8 +546,8 @@ var allToolSpecs = []toolTestSpec{
 			if req.Limit != 200 {
 				t.Errorf("Expected limit 200, got %d", req.Limit)
 			}
-			if req.Sort != sortOrderDesc {
-				t.Errorf("Expected sort %q, got %q", sortOrderDesc, req.Sort)
+			if req.SortOrder != sortOrderDesc {
+				t.Errorf("Expected sort %q, got %q", sortOrderDesc, req.SortOrder)
 			}
 		},
 	},
@@ -1233,8 +1233,8 @@ func TestOptionalParametersDefaults(t *testing.T) {
 				if req.Limit != 100 {
 					t.Errorf("Expected default limit 100, got %d", req.Limit)
 				}
-				if req.Sort != sortOrderDesc {
-					t.Errorf("Expected default sort %q, got %q", sortOrderDesc, req.Sort)
+				if req.SortOrder != sortOrderDesc {
+					t.Errorf("Expected default sort %q, got %q", sortOrderDesc, req.SortOrder)
 				}
 			},
 		},

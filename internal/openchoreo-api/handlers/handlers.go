@@ -13,7 +13,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacymcphandlers"
 	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
@@ -26,19 +25,17 @@ import (
 
 // Handler holds the services and provides HTTP handlers
 type Handler struct {
-	services         *services.Services
-	autoBuildService autobuildsvc.Service
-	config           *config.Config
-	logger           *slog.Logger
+	services *services.Services
+	config   *config.Config
+	logger   *slog.Logger
 }
 
 // New creates a new Handler instance
-func New(services *services.Services, cfg *config.Config, logger *slog.Logger, autoBuildService autobuildsvc.Service) *Handler {
+func New(services *services.Services, cfg *config.Config, logger *slog.Logger) *Handler {
 	return &Handler{
-		services:         services,
-		autoBuildService: autoBuildService,
-		config:           cfg,
-		logger:           logger,
+		services: services,
+		config:   cfg,
+		logger:   logger,
 	}
 }
 
@@ -66,10 +63,6 @@ func (h *Handler) Routes() http.Handler {
 
 	// OAuth Protected Resource Metadata endpoint
 	routes.HandleFunc("GET /.well-known/oauth-protected-resource", h.OAuthProtectedResourceMetadata)
-
-	// AutoBuild endpoint (public - called by Git providers, provider detected from headers)
-	v1alpha1 := "/api/v1alpha1"
-	routes.HandleFunc("POST "+v1alpha1+"/autobuild", h.HandleAutoBuild)
 
 	// ===== Protected API Routes (JWT Authentication Required) =====
 
