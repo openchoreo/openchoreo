@@ -15,10 +15,12 @@ import (
 type ToolsetType string
 
 const (
-	ToolsetNamespace ToolsetType = "namespace"
-	ToolsetProject   ToolsetType = "project"
-	ToolsetComponent ToolsetType = "component"
-	ToolsetPE        ToolsetType = "pe"
+	ToolsetNamespace  ToolsetType = "namespace"
+	ToolsetProject    ToolsetType = "project"
+	ToolsetComponent  ToolsetType = "component"
+	ToolsetDeployment ToolsetType = "deployment"
+	ToolsetBuild      ToolsetType = "build"
+	ToolsetPE         ToolsetType = "pe"
 )
 
 // DefaultPageSize is the default number of items per page for MCP list operations.
@@ -42,10 +44,12 @@ func (o ListOpts) EffectiveLimit() int {
 }
 
 type Toolsets struct {
-	NamespaceToolset NamespaceToolsetHandler
-	ProjectToolset   ProjectToolsetHandler
-	ComponentToolset ComponentToolsetHandler
-	PEToolset        PEToolsetHandler
+	NamespaceToolset  NamespaceToolsetHandler
+	ProjectToolset    ProjectToolsetHandler
+	ComponentToolset  ComponentToolsetHandler
+	DeploymentToolset DeploymentToolsetHandler
+	BuildToolset      BuildToolsetHandler
+	PEToolset         PEToolsetHandler
 }
 
 // PEToolsetHandler handles platform engineering operations on openchoreo
@@ -57,7 +61,8 @@ type PEToolsetHandler interface {
 	DeleteEnvironment(ctx context.Context, namespaceName, envName string) (any, error)
 
 	// DeploymentPipeline operations
-	CreateDeploymentPipeline(ctx context.Context, namespaceName string, req *gen.CreateDeploymentPipelineJSONRequestBody) (any, error)
+	CreateDeploymentPipeline(ctx context.Context, namespaceName string,
+		req *gen.CreateDeploymentPipelineJSONRequestBody) (any, error)
 
 	// DataPlane operations
 	ListDataPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
@@ -81,7 +86,7 @@ type PEToolsetHandler interface {
 	// ClusterObservabilityPlane operations
 	ListClusterObservabilityPlanes(ctx context.Context, opts ListOpts) (any, error)
 
-	// Platform standards (read-only)
+	// Platform standards (read-only, namespace-scoped)
 	ListComponentTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (any, error)
 	ListTraits(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
@@ -89,9 +94,19 @@ type PEToolsetHandler interface {
 	ListWorkflows(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error)
 
+	// Platform standards (read-only, cluster-scoped)
+	ListClusterComponentTypes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterComponentType(ctx context.Context, cctName string) (any, error)
+	GetClusterComponentTypeSchema(ctx context.Context, cctName string) (any, error)
+	ListClusterTraits(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterTrait(ctx context.Context, ctName string) (any, error)
+	GetClusterTraitSchema(ctx context.Context, ctName string) (any, error)
+
 	// Diagnostics
-	GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName, group, version, kind, name string) (any, error)
-	GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName, podName string, sinceSeconds *int64) (any, error)
+	GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName,
+		group, version, kind, name string) (any, error)
+	GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName,
+		podName string, sinceSeconds *int64) (any, error)
 }
 
 // NamespaceToolsetHandler handles namespace operations
@@ -108,34 +123,18 @@ type ProjectToolsetHandler interface {
 	CreateProject(ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody) (any, error)
 }
 
-// ComponentToolsetHandler handles component operations
+// ComponentToolsetHandler handles component definition and configuration operations
 type ComponentToolsetHandler interface {
 	CreateComponent(
 		ctx context.Context, namespaceName, projectName string, req *gen.CreateComponentRequest,
 	) (any, error)
 	ListComponents(ctx context.Context, namespaceName, projectName string, opts ListOpts) (any, error)
 	GetComponent(ctx context.Context, namespaceName, componentName string) (any, error)
+	PatchComponent(
+		ctx context.Context, namespaceName, componentName string, req *gen.PatchComponentRequest,
+	) (any, error)
 	ListWorkloads(ctx context.Context, namespaceName, componentName string) (any, error)
 	GetWorkload(ctx context.Context, namespaceName, workloadName string) (any, error)
-	// Component release operations
-	ListComponentReleases(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
-	CreateComponentRelease(ctx context.Context, namespaceName, componentName, releaseName string) (any, error)
-	GetComponentRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
-	// Release binding operations
-	ListReleaseBindings(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
-	GetReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
-	PatchReleaseBinding(
-		ctx context.Context, namespaceName, bindingName string,
-		req *gen.ReleaseBindingSpec,
-	) (any, error)
-	// Deployment operations
-	DeployRelease(
-		ctx context.Context, namespaceName, componentName string, req *gen.DeployReleaseRequest,
-	) (any, error)
-	PromoteComponent(
-		ctx context.Context, namespaceName, componentName string, req *gen.PromoteComponentRequest,
-	) (any, error)
-	// Workload operations
 	CreateWorkload(
 		ctx context.Context, namespaceName, componentName string, workloadSpec interface{},
 	) (any, error)
@@ -143,35 +142,57 @@ type ComponentToolsetHandler interface {
 		ctx context.Context, namespaceName, workloadName string, workloadSpec interface{},
 	) (any, error)
 	GetWorkloadSchema(ctx context.Context) (any, error)
-	// Schema operations
 	GetComponentSchema(ctx context.Context, namespaceName, componentName string) (any, error)
-	// Component patch operations
-	PatchComponent(
-		ctx context.Context, namespaceName, componentName string, req *gen.PatchComponentRequest,
+
+	// Platform standards (read-only, namespace-scoped)
+	ListComponentTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (any, error)
+	ListTraits(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error)
+
+	// Platform standards (read-only, cluster-scoped)
+	ListClusterComponentTypes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterComponentType(ctx context.Context, cctName string) (any, error)
+	GetClusterComponentTypeSchema(ctx context.Context, cctName string) (any, error)
+	ListClusterTraits(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterTrait(ctx context.Context, ctName string) (any, error)
+	GetClusterTraitSchema(ctx context.Context, ctName string) (any, error)
+}
+
+// DeploymentToolsetHandler handles release, deployment, and promotion operations
+type DeploymentToolsetHandler interface {
+	ListComponentReleases(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
+	CreateComponentRelease(ctx context.Context, namespaceName, componentName, releaseName string) (any, error)
+	GetComponentRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
+	GetComponentReleaseSchema(
+		ctx context.Context, namespaceName, componentName, releaseName string,
 	) (any, error)
-	// Release binding state operations
+	ListReleaseBindings(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
+	GetReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
+	PatchReleaseBinding(
+		ctx context.Context, namespaceName, bindingName string,
+		req *gen.ReleaseBindingSpec,
+	) (any, error)
 	UpdateReleaseBindingState(
 		ctx context.Context, namespaceName, bindingName string,
 		state *gen.ReleaseBindingSpecState,
 	) (any, error)
-	// Component release schema
-	GetComponentReleaseSchema(
-		ctx context.Context, namespaceName, componentName, releaseName string,
+	DeployRelease(
+		ctx context.Context, namespaceName, componentName string, req *gen.DeployReleaseRequest,
 	) (any, error)
-	// Workflow run operations scoped by component
+	PromoteComponent(
+		ctx context.Context, namespaceName, componentName string, req *gen.PromoteComponentRequest,
+	) (any, error)
+	ListDeploymentPipelines(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetDeploymentPipeline(ctx context.Context, namespaceName, pipelineName string) (any, error)
+	ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+}
+
+// BuildToolsetHandler handles workflow and CI/CD operations
+type BuildToolsetHandler interface {
 	TriggerWorkflowRun(
 		ctx context.Context, namespaceName, projectName, componentName, commit string,
 	) (any, error)
-
-	// ComponentType operations
-	ListComponentTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-	GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (any, error)
-
-	// Trait operations
-	ListTraits(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-	GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error)
-
-	// WorkflowRun operations
 	CreateWorkflowRun(
 		ctx context.Context, namespaceName, workflowName string,
 		parameters map[string]interface{},
@@ -181,32 +202,11 @@ type ComponentToolsetHandler interface {
 		opts ListOpts,
 	) (any, error)
 	GetWorkflowRun(ctx context.Context, namespaceName, runName string) (any, error)
-
-	// ClusterComponentType operations
-	ListClusterComponentTypes(ctx context.Context, opts ListOpts) (any, error)
-	GetClusterComponentType(ctx context.Context, cctName string) (any, error)
-	GetClusterComponentTypeSchema(ctx context.Context, cctName string) (any, error)
-
-	// ClusterTrait operations
-	ListClusterTraits(ctx context.Context, opts ListOpts) (any, error)
-	GetClusterTrait(ctx context.Context, ctName string) (any, error)
-	GetClusterTraitSchema(ctx context.Context, ctName string) (any, error)
-
-	// ClusterWorkflow operations
+	ListWorkflows(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error)
 	ListClusterWorkflows(ctx context.Context, opts ListOpts) (any, error)
 	GetClusterWorkflow(ctx context.Context, cwfName string) (any, error)
 	GetClusterWorkflowSchema(ctx context.Context, cwfName string) (any, error)
-
-	// Workflow operations
-	ListWorkflows(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error)
-
-	// DeploymentPipeline operations (developer-facing)
-	ListDeploymentPipelines(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-	GetDeploymentPipeline(ctx context.Context, namespaceName, pipelineName string) (any, error)
-
-	// Environment operations (developer-facing read)
-	ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 }
 
 // RegisterFunc is a function type for registering MCP tools

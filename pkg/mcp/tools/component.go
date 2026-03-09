@@ -100,7 +100,7 @@ func (t *Toolsets) RegisterGetReleaseBinding(s *mcp.Server) {
 		NamespaceName string `json:"namespace_name"`
 		BindingName   string `json:"binding_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetReleaseBinding(ctx, args.NamespaceName, args.BindingName)
+		result, err := t.DeploymentToolset.GetReleaseBinding(ctx, args.NamespaceName, args.BindingName)
 		return handleToolResult(result, err)
 	})
 }
@@ -225,7 +225,7 @@ func (t *Toolsets) RegisterListComponentReleases(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListComponentReleases(
+		result, err := t.DeploymentToolset.ListComponentReleases(
 			ctx, args.NamespaceName, args.ComponentName,
 			ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
@@ -249,7 +249,7 @@ func (t *Toolsets) RegisterCreateComponentRelease(s *mcp.Server) {
 		ComponentName string `json:"component_name"`
 		ReleaseName   string `json:"release_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.CreateComponentRelease(
+		result, err := t.DeploymentToolset.CreateComponentRelease(
 			ctx, args.NamespaceName, args.ComponentName, args.ReleaseName)
 		return handleToolResult(result, err)
 	})
@@ -268,7 +268,7 @@ func (t *Toolsets) RegisterGetComponentRelease(s *mcp.Server) {
 		NamespaceName string `json:"namespace_name"`
 		ReleaseName   string `json:"release_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetComponentRelease(ctx, args.NamespaceName, args.ReleaseName)
+		result, err := t.DeploymentToolset.GetComponentRelease(ctx, args.NamespaceName, args.ReleaseName)
 		return handleToolResult(result, err)
 	})
 }
@@ -288,7 +288,7 @@ func (t *Toolsets) RegisterListReleaseBindings(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListReleaseBindings(
+		result, err := t.DeploymentToolset.ListReleaseBindings(
 			ctx, args.NamespaceName, args.ComponentName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
@@ -305,7 +305,7 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 			"binding_name":   defaultStringProperty(),
 			"release_name":   stringProperty("Optional: update the release associated with this binding"),
 			"environment":    stringProperty("Optional: update the target environment"),
-			"component_type_environment_configs": map[string]any{
+			"component_type_env_overrides": map[string]any{
 				"type":        "object",
 				"description": "Optional: environment-specific overrides for component type parameters",
 			},
@@ -323,7 +323,7 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 		BindingName                     string                 `json:"binding_name"`
 		ReleaseName                     string                 `json:"release_name"`
 		Environment                     string                 `json:"environment"`
-		ComponentTypeEnvironmentConfigs map[string]interface{} `json:"component_type_environment_configs"`
+		ComponentTypeEnvironmentConfigs map[string]interface{} `json:"component_type_env_overrides"`
 		TraitOverrides                  map[string]interface{} `json:"trait_overrides"`
 		WorkloadOverrides               map[string]interface{} `json:"workload_overrides"`
 	}) (*mcp.CallToolResult, any, error) {
@@ -351,7 +351,7 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 			}
 			patchReq.WorkloadOverrides = workloadOverrides
 		}
-		result, err := t.ComponentToolset.PatchReleaseBinding(
+		result, err := t.DeploymentToolset.PatchReleaseBinding(
 			ctx, args.NamespaceName, args.BindingName, patchReq)
 		return handleToolResult(result, err)
 	})
@@ -492,7 +492,7 @@ func (t *Toolsets) RegisterDeployRelease(s *mcp.Server) {
 		deployReq := &gen.DeployReleaseRequest{
 			ReleaseName: args.ReleaseName,
 		}
-		result, err := t.ComponentToolset.DeployRelease(
+		result, err := t.DeploymentToolset.DeployRelease(
 			ctx, args.NamespaceName, args.ComponentName, deployReq,
 		)
 		return handleToolResult(result, err)
@@ -520,7 +520,7 @@ func (t *Toolsets) RegisterPromoteComponent(s *mcp.Server) {
 			SourceEnv: args.SourceEnv,
 			TargetEnv: args.TargetEnv,
 		}
-		result, err := t.ComponentToolset.PromoteComponent(
+		result, err := t.DeploymentToolset.PromoteComponent(
 			ctx, args.NamespaceName, args.ComponentName, promoteReq)
 		return handleToolResult(result, err)
 	})
@@ -641,7 +641,7 @@ func (t *Toolsets) RegisterUpdateReleaseBindingState(s *mcp.Server) {
 			return nil, nil, fmt.Errorf("releaseState must be one of: Active, Undeploy")
 		}
 		state := gen.ReleaseBindingSpecState(args.ReleaseState)
-		result, err := t.ComponentToolset.UpdateReleaseBindingState(
+		result, err := t.DeploymentToolset.UpdateReleaseBindingState(
 			ctx, args.NamespaceName, args.BindingName, &state)
 		return handleToolResult(result, err)
 	})
@@ -662,7 +662,7 @@ func (t *Toolsets) RegisterGetComponentReleaseSchema(s *mcp.Server) {
 		ComponentName string `json:"component_name"`
 		ReleaseName   string `json:"release_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetComponentReleaseSchema(
+		result, err := t.DeploymentToolset.GetComponentReleaseSchema(
 			ctx, args.NamespaceName, args.ComponentName, args.ReleaseName)
 		return handleToolResult(result, err)
 	})
@@ -685,7 +685,7 @@ func (t *Toolsets) RegisterTriggerWorkflowRun(s *mcp.Server) {
 		ComponentName string `json:"component_name"`
 		Commit        string `json:"commit"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.TriggerWorkflowRun(
+		result, err := t.BuildToolset.TriggerWorkflowRun(
 			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, args.Commit)
 		return handleToolResult(result, err)
 	})

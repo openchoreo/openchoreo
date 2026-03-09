@@ -13,6 +13,7 @@ func peToolSpecs() []toolTestSpec {
 	specs = append(specs, peBuildPlaneSpecs()...)
 	specs = append(specs, peObservabilityPlaneSpecs()...)
 	specs = append(specs, peClusterSpecs()...)
+	specs = append(specs, peClusterPlatformStandardsSpecs()...)
 	specs = append(specs, pePlatformStandardsSpecs()...)
 	specs = append(specs, peDiagnosticsSpecs()...)
 	return specs
@@ -121,120 +122,27 @@ func pePipelineSpecs() []toolTestSpec {
 }
 
 func peDataPlaneSpecs() []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                "list_dataplanes",
-			toolset:             "pe",
-			descriptionKeywords: []string{"list", "data", "plane"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name"},
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-			},
-			expectedMethod: "ListDataPlanes",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName {
-					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
-				}
-			},
-		},
-		{
-			name:                "get_dataplane",
-			toolset:             "pe",
-			descriptionKeywords: []string{"data", "plane"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "dp_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"dp_name":        "dp1",
-			},
-			expectedMethod: "GetDataPlane",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "dp1" {
-					t.Errorf("Expected (%s, dp1), got (%v, %v)", testNamespaceName, args[0], args[1])
-				}
-			},
-		},
-	}
+	return makeNamespacedListGetSpecs(
+		"pe", "list_dataplanes", "get_dataplane",
+		[]string{"list", "data", "plane"}, []string{"data", "plane"},
+		"dp_name", "dp1", "ListDataPlanes", "GetDataPlane",
+	)
 }
 
 func peBuildPlaneSpecs() []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                "list_buildplanes",
-			toolset:             "pe",
-			descriptionKeywords: []string{"list", "build", "plane"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name"},
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-			},
-			expectedMethod: "ListBuildPlanes",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName {
-					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
-				}
-			},
-		},
-		{
-			name:                "get_buildplane",
-			toolset:             "pe",
-			descriptionKeywords: []string{"build", "plane"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "bp_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"bp_name":        "bp1",
-			},
-			expectedMethod: "GetBuildPlane",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "bp1" {
-					t.Errorf("Expected (%s, bp1), got (%v, %v)", testNamespaceName, args[0], args[1])
-				}
-			},
-		},
-	}
+	return makeNamespacedListGetSpecs(
+		"pe", "list_buildplanes", "get_buildplane",
+		[]string{"list", "build", "plane"}, []string{"build", "plane"},
+		"bp_name", "bp1", "ListBuildPlanes", "GetBuildPlane",
+	)
 }
 
 func peObservabilityPlaneSpecs() []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                "list_observability_planes",
-			toolset:             "pe",
-			descriptionKeywords: []string{"list", "observability", "plane"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name"},
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-			},
-			expectedMethod: "ListObservabilityPlanes",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName {
-					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
-				}
-			},
-		},
-		{
-			name:                "get_observability_plane",
-			toolset:             "pe",
-			descriptionKeywords: []string{"observability", "plane"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "op_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"op_name":        "observability-plane-1",
-			},
-			expectedMethod: "GetObservabilityPlane",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "observability-plane-1" {
-					t.Errorf("Expected (%s, observability-plane-1), got (%v, %v)", testNamespaceName, args[0], args[1])
-				}
-			},
-		},
-	}
+	return makeNamespacedListGetSpecs(
+		"pe", "list_observability_planes", "get_observability_plane",
+		[]string{"list", "observability", "plane"}, []string{"observability", "plane"},
+		"op_name", "observability-plane-1", "ListObservabilityPlanes", "GetObservabilityPlane",
+	)
 }
 
 func peClusterSpecs() []toolTestSpec {
@@ -289,6 +197,99 @@ func peClusterSpecs() []toolTestSpec {
 			expectedMethod:      "ListClusterObservabilityPlanes",
 			validateCall: func(t *testing.T, args []interface{}) {
 				// Only ListOpts argument
+			},
+		},
+	}
+}
+
+func peClusterPlatformStandardsSpecs() []toolTestSpec {
+	return []toolTestSpec{
+		{
+			name:                "list_cluster_component_types",
+			toolset:             "pe",
+			descriptionKeywords: []string{"cluster", "component", "type"},
+			descriptionMinLen:   10,
+			optionalParams:      []string{"limit", "cursor"},
+			testArgs:            map[string]any{},
+			expectedMethod:      "ListClusterComponentTypes",
+			validateCall: func(t *testing.T, args []interface{}) {
+				// Only ListOpts argument
+			},
+		},
+		{
+			name:                "get_cluster_component_type",
+			toolset:             "pe",
+			descriptionKeywords: []string{"cluster", "component", "type"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"cct_name"},
+			testArgs: map[string]any{
+				"cct_name": testGoServiceName,
+			},
+			expectedMethod: "GetClusterComponentType",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testGoServiceName {
+					t.Errorf("Expected cct_name %q, got %v", testGoServiceName, args[0])
+				}
+			},
+		},
+		{
+			name:                "get_cluster_component_type_schema",
+			toolset:             "pe",
+			descriptionKeywords: []string{"cluster", "component", "type", "schema"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"cct_name"},
+			testArgs: map[string]any{
+				"cct_name": testGoServiceName,
+			},
+			expectedMethod: "GetClusterComponentTypeSchema",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testGoServiceName {
+					t.Errorf("Expected cct_name %q, got %v", testGoServiceName, args[0])
+				}
+			},
+		},
+		{
+			name:                "list_cluster_traits",
+			toolset:             "pe",
+			descriptionKeywords: []string{"cluster", "trait"},
+			descriptionMinLen:   10,
+			optionalParams:      []string{"limit", "cursor"},
+			testArgs:            map[string]any{},
+			expectedMethod:      "ListClusterTraits",
+			validateCall: func(t *testing.T, args []interface{}) {
+				// Only ListOpts argument
+			},
+		},
+		{
+			name:                "get_cluster_trait",
+			toolset:             "pe",
+			descriptionKeywords: []string{"cluster", "trait"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"ct_name"},
+			testArgs: map[string]any{
+				"ct_name": testAutoscalerName,
+			},
+			expectedMethod: "GetClusterTrait",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testAutoscalerName {
+					t.Errorf("Expected ct_name %q, got %v", testAutoscalerName, args[0])
+				}
+			},
+		},
+		{
+			name:                "get_cluster_trait_schema",
+			toolset:             "pe",
+			descriptionKeywords: []string{"cluster", "trait", "schema"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"ct_name"},
+			testArgs: map[string]any{
+				"ct_name": testAutoscalerName,
+			},
+			expectedMethod: "GetClusterTraitSchema",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testAutoscalerName {
+					t.Errorf("Expected ct_name %q, got %v", testAutoscalerName, args[0])
+				}
 			},
 		},
 	}
@@ -389,11 +390,11 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "workflow_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"workflow_name":  "build-workflow",
+				"workflow_name":  testBuildWorkflow,
 			},
 			expectedMethod: "GetWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "build-workflow" {
+				if args[0] != testNamespaceName || args[1] != testBuildWorkflow {
 					t.Errorf("Expected (%s, build-workflow), got (%v, %v)", testNamespaceName, args[0], args[1])
 				}
 			},
