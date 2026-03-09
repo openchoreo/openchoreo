@@ -5,9 +5,11 @@ package incidententry
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -62,7 +64,8 @@ func TestSQLiteInitializeAndWriteIncidentEntry(t *testing.T) {
 func TestWriteIncidentEntryWithNilEntry(t *testing.T) {
 	t.Parallel()
 
-	store, err := New(BackendSQLite, "file::memory:?cache=shared", slog.Default())
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	store, err := New(BackendSQLite, dsn, slog.Default())
 	if err != nil {
 		t.Fatalf("failed to create store: %v", err)
 	}
@@ -85,7 +88,8 @@ func TestWriteIncidentEntryWithNilEntry(t *testing.T) {
 func TestWriteIncidentEntryWithMissingAlertID(t *testing.T) {
 	t.Parallel()
 
-	store, err := New(BackendSQLite, "file::memory:?cache=shared", slog.Default())
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	store, err := New(BackendSQLite, dsn, slog.Default())
 	if err != nil {
 		t.Fatalf("failed to create store: %v", err)
 	}

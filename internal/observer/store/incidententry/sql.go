@@ -81,6 +81,12 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 	timestamp := strings.TrimSpace(entry.Timestamp)
 	if timestamp == "" {
 		timestamp = time.Now().UTC().Format(time.RFC3339Nano)
+	} else {
+		normalizedTimestamp, err := normalizeTimestamp(timestamp)
+		if err != nil {
+			return "", fmt.Errorf("invalid incident timestamp %q: %w", entry.Timestamp, err)
+		}
+		timestamp = normalizedTimestamp
 	}
 
 	status := strings.TrimSpace(entry.Status)
@@ -91,9 +97,22 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 		return "", fmt.Errorf("unsupported incident status %q", status)
 	}
 
-	triggeredAt := strings.TrimSpace(entry.TriggeredAt)
+	triggeredAt, err := normalizeTimestamp(entry.TriggeredAt)
+	if err != nil {
+		return "", fmt.Errorf("invalid incident triggeredAt %q: %w", entry.TriggeredAt, err)
+	}
 	if triggeredAt == "" {
 		triggeredAt = timestamp
+	}
+
+	acknowledgedAt, err := normalizeTimestamp(entry.AcknowledgedAt)
+	if err != nil {
+		return "", fmt.Errorf("invalid incident acknowledgedAt %q: %w", entry.AcknowledgedAt, err)
+	}
+
+	resolvedAt, err := normalizeTimestamp(entry.ResolvedAt)
+	if err != nil {
+		return "", fmt.Errorf("invalid incident resolvedAt %q: %w", entry.ResolvedAt, err)
 	}
 
 	var query string
@@ -107,8 +126,8 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 			status,
 			entry.TriggerAiRca,
 			triggeredAt,
-			nullableString(entry.AcknowledgedAt),
-			nullableString(entry.ResolvedAt),
+			nullableString(acknowledgedAt),
+			nullableString(resolvedAt),
 			nullableString(entry.Notes),
 			nullableString(entry.Description),
 			entry.NamespaceName,
@@ -128,8 +147,8 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 			status,
 			entry.TriggerAiRca,
 			triggeredAt,
-			nullableString(entry.AcknowledgedAt),
-			nullableString(entry.ResolvedAt),
+			nullableString(acknowledgedAt),
+			nullableString(resolvedAt),
 			nullableString(entry.Notes),
 			nullableString(entry.Description),
 			entry.NamespaceName,
@@ -174,6 +193,25 @@ func nullableString(value string) any {
 		return nil
 	}
 	return trimmed
+}
+
+func normalizeTimestamp(input string) (string, error) {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	parsed, err := time.Parse(time.RFC3339Nano, trimmed)
+	if err == nil {
+		return parsed.UTC().Format(time.RFC3339Nano), nil
+	}
+
+	parsed, err = time.Parse(time.RFC3339, trimmed)
+	if err == nil {
+		return parsed.UTC().Format(time.RFC3339Nano), nil
+	}
+
+	return "", err
 }
 
 const createTableQuery = `

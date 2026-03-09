@@ -77,7 +77,7 @@ spec:
           value: {{ .Values.rca.enabled | default false | quote }}
         - name: ALERT_STORE_BACKEND
           value: {{ .Values.observer.alertStoreBackend | default "sqlite" | quote }}
-        {{- if .Values.observer.alertStoreSecret.name }}
+        {{- if and (eq (.Values.observer.alertStoreBackend | default "sqlite") "postgresql") .Values.observer.alertStoreSecret.name }}
         - name: ALERT_STORE_DSN
           valueFrom:
             secretKeyRef:

@@ -5,9 +5,11 @@ package alertentry
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -62,7 +64,8 @@ func TestSQLiteInitializeAndWriteAlertEntry(t *testing.T) {
 func TestWriteAlertEntryWithNilEntry(t *testing.T) {
 	t.Parallel()
 
-	store, err := New(BackendSQLite, "file::memory:?cache=shared", slog.Default())
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	store, err := New(BackendSQLite, dsn, slog.Default())
 	if err != nil {
 		t.Fatalf("failed to create store: %v", err)
 	}

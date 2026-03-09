@@ -4,8 +4,6 @@ kind: PersistentVolumeClaim
 metadata:
   name: observer-alerts-data
   namespace: {{ .Release.Namespace }}
-  annotations:
-    "helm.sh/resource-policy": keep
   labels:
     {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer") | nindent 4 }}
 spec:

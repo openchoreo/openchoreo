@@ -75,6 +75,12 @@ func (s *sqlStore) WriteAlertEntry(ctx context.Context, entry *AlertEntry) (stri
 	timestamp := strings.TrimSpace(entry.Timestamp)
 	if timestamp == "" {
 		timestamp = time.Now().UTC().Format(time.RFC3339Nano)
+	} else {
+		normalizedTimestamp, err := normalizeTimestamp(timestamp)
+		if err != nil {
+			return "", fmt.Errorf("invalid alert timestamp %q: %w", entry.Timestamp, err)
+		}
+		timestamp = normalizedTimestamp
 	}
 
 	var query string
@@ -121,6 +127,20 @@ func (s *sqlStore) WriteAlertEntry(ctx context.Context, entry *AlertEntry) (stri
 		return "", fmt.Errorf("failed to insert alert entry: %w", err)
 	}
 	return id, nil
+}
+
+func normalizeTimestamp(value string) (string, error) {
+	parsed, err := time.Parse(time.RFC3339Nano, value)
+	if err == nil {
+		return parsed.UTC().Format(time.RFC3339Nano), nil
+	}
+
+	parsed, err = time.Parse(time.RFC3339, value)
+	if err == nil {
+		return parsed.UTC().Format(time.RFC3339Nano), nil
+	}
+
+	return "", err
 }
 
 func (s *sqlStore) Close() error {

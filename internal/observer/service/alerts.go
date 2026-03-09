@@ -230,6 +230,10 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		return nil, fmt.Errorf("alert entry store is not initialized")
 	}
 
+	if alertDetails.AlertTimestamp == "" {
+		alertDetails.AlertTimestamp = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+
 	alertID, err := s.alertEntryStore.WriteAlertEntry(ctx, &alertentry.AlertEntry{
 		Timestamp:            alertDetails.AlertTimestamp,
 		AlertRuleName:        alertDetails.AlertName,
@@ -249,31 +253,38 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		return nil, fmt.Errorf("failed to store alert entry: %w", err)
 	}
 
-	if alertDetails.IncidentEnabled {
-		if s.incidentEntryStore == nil {
-			return nil, fmt.Errorf("incident entry store is not initialized")
-		}
-
-		if _, err := s.incidentEntryStore.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
-			AlertID:         alertID,
-			Timestamp:       alertDetails.AlertTimestamp,
-			Status:          incidententry.StatusTriggered,
-			TriggerAiRca:    alertDetails.TriggerAiRca,
-			TriggeredAt:     alertDetails.AlertTimestamp,
-			Description:     alertDetails.AlertDescription,
-			NamespaceName:   alertDetails.Namespace,
-			ComponentName:   alertDetails.Component,
-			EnvironmentName: alertDetails.Environment,
-			ProjectName:     alertDetails.Project,
-			ComponentID:     alertDetails.ComponentID,
-			EnvironmentID:   alertDetails.EnvironmentID,
-			ProjectID:       alertDetails.ProjectID,
-		}); err != nil {
-			return nil, fmt.Errorf("failed to store incident entry: %w", err)
-		}
-	}
-
 	s.logger.Debug("Alert entry stored", "alertID", alertID, "ruleName", ruleName)
+
+	// Store incident entry in background to avoid retry-induced duplicate alerts.
+	if alertDetails.IncidentEnabled {
+		go func() {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			if s.incidentEntryStore == nil {
+				s.logger.Warn("Incident entry store is not initialized", "alertID", alertID)
+				return
+			}
+
+			if _, err := s.incidentEntryStore.WriteIncidentEntry(bgCtx, &incidententry.IncidentEntry{
+				AlertID:         alertID,
+				Timestamp:       alertDetails.AlertTimestamp,
+				Status:          incidententry.StatusTriggered,
+				TriggerAiRca:    alertDetails.TriggerAiRca,
+				TriggeredAt:     alertDetails.AlertTimestamp,
+				Description:     alertDetails.AlertDescription,
+				NamespaceName:   alertDetails.Namespace,
+				ComponentName:   alertDetails.Component,
+				EnvironmentName: alertDetails.Environment,
+				ProjectName:     alertDetails.Project,
+				ComponentID:     alertDetails.ComponentID,
+				EnvironmentID:   alertDetails.EnvironmentID,
+				ProjectID:       alertDetails.ProjectID,
+			}); err != nil {
+				s.logger.Warn("Failed to store incident entry", "error", err, "alertID", alertID)
+			}
+		}()
+	}
 
 	// Send notification in background
 	go func() {
