@@ -1,3 +1,9 @@
+{{- if and (eq (.Values.observer.alertStoreBackend | default "sqlite") "sqlite") (gt (.Values.observer.replicas | int) 1) }}
+{{- fail "observer.replicas must be 1 when observer.alertStoreBackend=sqlite (ReadWriteOnce PVC). Set observer.replicas=1 or use observer.alertStoreBackend=postgresql." }}
+{{- end }}
+{{- if and (eq (.Values.observer.alertStoreBackend | default "sqlite") "postgresql") (not .Values.observer.alertStoreSecret.name) }}
+{{- fail "observer.alertStoreSecret.name is required when observer.alertStoreBackend=postgresql." }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -69,6 +75,15 @@ spec:
               key: password
         - name: AI_RCA_ENABLED
           value: {{ .Values.rca.enabled | default false | quote }}
+        - name: ALERT_STORE_BACKEND
+          value: {{ .Values.observer.alertStoreBackend | default "sqlite" | quote }}
+        {{- if and (eq (.Values.observer.alertStoreBackend | default "sqlite") "postgresql") .Values.observer.alertStoreSecret.name }}
+        - name: ALERT_STORE_DSN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.observer.alertStoreSecret.name }}
+              key: {{ .Values.observer.alertStoreSecret.key | default "dsn" }}
+        {{- end }}
         - name: OBSERVER_AUTH_CONFIG_PATH
           value: /etc/openchoreo/auth-config.yaml
         - name: AUTHZ_SERVICE_URL
@@ -117,6 +132,10 @@ spec:
         - name: auth-config
           mountPath: /etc/openchoreo
           readOnly: true
+        {{- if eq (.Values.observer.alertStoreBackend | default "sqlite") "sqlite" }}
+        - name: alert-store-data
+          mountPath: /data
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /health
@@ -156,3 +175,8 @@ spec:
       - name: auth-config
         configMap:
           name: observer-auth-config
+      {{- if eq (.Values.observer.alertStoreBackend | default "sqlite") "sqlite" }}
+      - name: alert-store-data
+        persistentVolumeClaim:
+          claimName: observer-alerts-data
+      {{- end }}
