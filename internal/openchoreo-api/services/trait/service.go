@@ -12,7 +12,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
@@ -201,18 +200,8 @@ func (s *traitService) GetTraitSchema(ctx context.Context, namespaceName, traitN
 		return nil, err
 	}
 
-	// Build schema definition from parameters blob
-	var def schema.Definition
-	if paramsRaw := t.Spec.Parameters.GetRaw(); paramsRaw != nil && paramsRaw.Raw != nil {
-		var params map[string]any
-		if err := yaml.Unmarshal(paramsRaw.Raw, &params); err != nil {
-			return nil, fmt.Errorf("failed to extract parameters: %w", err)
-		}
-		def.Schemas = []map[string]any{params}
-	}
-
-	// Convert to JSON Schema
-	jsonSchema, err := schema.ToJSONSchema(def)
+	// Convert to JSON Schema (handles both ocSchema and openAPIV3Schema)
+	jsonSchema, err := schema.SectionToJSONSchema(t.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}

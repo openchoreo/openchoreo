@@ -11,7 +11,6 @@ import (
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -126,16 +125,8 @@ func (s *WorkflowService) GetWorkflowSchema(ctx context.Context, namespaceName, 
 		return nil, fmt.Errorf("failed to get Workflow: %w", err)
 	}
 
-	var def schema.Definition
-	if paramsRaw := wf.Spec.Parameters.GetRaw(); paramsRaw != nil && paramsRaw.Raw != nil {
-		var schemaMap map[string]any
-		if err := yaml.Unmarshal(paramsRaw.Raw, &schemaMap); err != nil {
-			return nil, fmt.Errorf("failed to extract schema: %w", err)
-		}
-		def.Schemas = []map[string]any{schemaMap}
-	}
-
-	jsonSchema, err := schema.ToJSONSchema(def)
+	// Convert to JSON Schema (handles both ocSchema and openAPIV3Schema)
+	jsonSchema, err := schema.SectionToJSONSchema(wf.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}

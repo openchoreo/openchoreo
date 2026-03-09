@@ -5,7 +5,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -188,7 +187,7 @@ func (h *Handler) GetComponentTypeSchema(
 ) (gen.GetComponentTypeSchemaResponseObject, error) {
 	h.logger.Debug("GetComponentTypeSchema called", "namespaceName", request.NamespaceName, "ctName", request.CtName)
 
-	jsonSchema, err := h.services.ComponentTypeService.GetComponentTypeSchema(ctx, request.NamespaceName, request.CtName)
+	rawSchema, err := h.services.ComponentTypeService.GetComponentTypeSchema(ctx, request.NamespaceName, request.CtName)
 	if err != nil {
 		if errors.Is(err, componenttypesvc.ErrComponentTypeNotFound) {
 			return gen.GetComponentTypeSchema404JSONResponse{NotFoundJSONResponse: notFound("Component type")}, nil
@@ -200,18 +199,5 @@ func (h *Handler) GetComponentTypeSchema(
 		return gen.GetComponentTypeSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert JSONSchemaProps to SchemaResponse (map[string]interface{})
-	data, err := json.Marshal(jsonSchema)
-	if err != nil {
-		h.logger.Error("Failed to marshal schema", "error", err)
-		return gen.GetComponentTypeSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	var schemaResp gen.SchemaResponse
-	if err := json.Unmarshal(data, &schemaResp); err != nil {
-		h.logger.Error("Failed to unmarshal schema response", "error", err)
-		return gen.GetComponentTypeSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	return gen.GetComponentTypeSchema200JSONResponse(schemaResp), nil
+	return gen.GetComponentTypeSchema200JSONResponse(rawSchema), nil
 }

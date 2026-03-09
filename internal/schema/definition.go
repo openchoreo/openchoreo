@@ -41,6 +41,10 @@ func ResolveSectionToStructural(section *v1alpha1.SchemaSection) (*apiextschema.
 		return nil, err
 	}
 
+	if section.IsOpenAPIV3() {
+		return OpenAPIV3ToStructural(fields)
+	}
+
 	return ToStructural(Definition{Schemas: []map[string]any{fields}})
 }
 
@@ -57,7 +61,34 @@ func ResolveSectionToBundle(section *v1alpha1.SchemaSection) (*apiextschema.Stru
 		return nil, nil, err
 	}
 
+	if section.IsOpenAPIV3() {
+		return OpenAPIV3ToStructuralAndJSONSchema(fields)
+	}
+
 	return ToStructuralAndJSONSchema(Definition{Schemas: []map[string]any{fields}})
+}
+
+// SectionToJSONSchema converts a SchemaSection to JSON Schema for API responses.
+// Handles both ocSchema (via extractor) and openAPIV3Schema (via ref resolution).
+func SectionToJSONSchema(section *v1alpha1.SchemaSection) (*extv1.JSONSchemaProps, error) {
+	raw := sectionRaw(section)
+	if raw == nil || len(raw.Raw) == 0 {
+		return &extv1.JSONSchemaProps{
+			Type:       "object",
+			Properties: map[string]extv1.JSONSchemaProps{},
+		}, nil
+	}
+
+	fields, err := unmarshalSection(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	if section.IsOpenAPIV3() {
+		return OpenAPIV3ToJSONSchema(fields)
+	}
+
+	return ToJSONSchema(Definition{Schemas: []map[string]any{fields}})
 }
 
 // sectionRaw returns the raw extension from a SchemaSection, or nil if empty.

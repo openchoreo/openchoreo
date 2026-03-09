@@ -11,7 +11,6 @@ import (
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -108,18 +107,8 @@ func (s *ClusterTraitService) GetClusterTraitSchema(ctx context.Context, name st
 		return nil, fmt.Errorf("failed to get ClusterTrait: %w", err)
 	}
 
-	// Build schema definition from parameters blob
-	var def schema.Definition
-	if paramsRaw := trait.Spec.Parameters.GetRaw(); paramsRaw != nil && paramsRaw.Raw != nil {
-		var params map[string]any
-		if err := yaml.Unmarshal(paramsRaw.Raw, &params); err != nil {
-			return nil, fmt.Errorf("failed to extract parameters: %w", err)
-		}
-		def.Schemas = []map[string]any{params}
-	}
-
-	// Convert to JSON Schema
-	jsonSchema, err := schema.ToJSONSchema(def)
+	// Convert to JSON Schema (handles both ocSchema and openAPIV3Schema)
+	jsonSchema, err := schema.SectionToJSONSchema(trait.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
