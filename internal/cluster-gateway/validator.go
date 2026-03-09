@@ -6,6 +6,7 @@ package clustergateway
 import (
 	"fmt"
 	"net/http"
+	"path"
 	"strings"
 )
 
@@ -50,7 +51,7 @@ func NewRequestValidator() *RequestValidator {
 	}
 }
 
-func (v *RequestValidator) ValidateRequest(r *http.Request, target, path string) error {
+func (v *RequestValidator) ValidateRequest(r *http.Request, target, requestPath string) error {
 	if !v.allowedMethods[r.Method] {
 		return &ValidationError{
 			Code:    http.StatusMethodNotAllowed,
@@ -65,15 +66,6 @@ func (v *RequestValidator) ValidateRequest(r *http.Request, target, path string)
 		}
 	}
 
-	for _, blockedPath := range v.blockedPaths {
-		if strings.Contains(path, blockedPath) {
-			return &ValidationError{
-				Code:    http.StatusForbidden,
-				Message: fmt.Sprintf("Access to path is blocked: %s", path),
-			}
-		}
-	}
-
 	if r.ContentLength > v.maxRequestBodySize {
 		return &ValidationError{
 			Code:    http.StatusRequestEntityTooLarge,
@@ -81,17 +73,32 @@ func (v *RequestValidator) ValidateRequest(r *http.Request, target, path string)
 		}
 	}
 
-	if strings.Contains(path, "..") {
+	if strings.Contains(requestPath, "..") {
 		return &ValidationError{
 			Code:    http.StatusBadRequest,
 			Message: "Path contains directory traversal",
 		}
 	}
 
-	if strings.Contains(path, "\x00") {
+	if strings.Contains(requestPath, "\x00") {
 		return &ValidationError{
 			Code:    http.StatusBadRequest,
 			Message: "Path contains null bytes",
+		}
+	}
+
+	// Normalize the path before checking blocked paths to prevent bypass via
+	// double slashes or other path irregularities
+	cleanPath := path.Clean(requestPath)
+	for _, blockedPath := range v.blockedPaths {
+		// Normalize both sides so that irregularities in either the request
+		// path or the configured blocked path cannot cause a bypass.
+		cleanBlocked := path.Clean(blockedPath)
+		if cleanPath == cleanBlocked || strings.HasPrefix(cleanPath, cleanBlocked+"/") {
+			return &ValidationError{
+				Code:    http.StatusForbidden,
+				Message: fmt.Sprintf("Access to path is blocked: %s", requestPath),
+			}
 		}
 	}
 

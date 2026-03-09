@@ -6,6 +6,7 @@ package clustergateway
 import (
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -17,6 +18,9 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
+
+// ErrNoAuthorizedAgents is returned when no agents are authorized for a specific CR.
+var ErrNoAuthorizedAgents = errors.New("no agents authorized for CR")
 
 // AgentConnection represents an active agent connection
 // Multiple agent replicas for the same plane can share the same PlaneIdentifier for HA
@@ -73,14 +77,7 @@ func (ac *AgentConnection) AddValidCR(crKey string) {
 func (ac *AgentConnection) RemoveValidCR(crKey string) {
 	ac.mu.Lock()
 	defer ac.mu.Unlock()
-
-	newValidCRs := []string{}
-	for _, validCR := range ac.ValidCRs {
-		if validCR != crKey {
-			newValidCRs = append(newValidCRs, validCR)
-		}
-	}
-	ac.ValidCRs = newValidCRs
+	ac.removeValidCRUnsafe(crKey)
 }
 
 // removeValidCRUnsafe removes a CR from the ValidCRs list
@@ -300,7 +297,7 @@ func (cm *ConnectionManager) GetForCR(planeIdentifier, crKey string) (*AgentConn
 			"requestedCR", crKey,
 			"totalAgents", len(conns),
 		)
-		return nil, fmt.Errorf("no agents authorized for CR %s", crKey)
+		return nil, fmt.Errorf("%w: %s", ErrNoAuthorizedAgents, crKey)
 	}
 
 	// Round-robin among valid connections only

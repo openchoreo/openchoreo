@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -33,6 +34,16 @@ const (
 	planeTypeWorkflowPlane      = "workflowplane"
 	planeTypeObservabilityPlane = "observabilityplane"
 )
+
+var supportedPlaneTypes = []string{
+	planeTypeDataPlane,
+	planeTypeWorkflowPlane,
+	planeTypeObservabilityPlane,
+}
+
+func isValidPlaneType(planeType string) bool {
+	return slices.Contains(supportedPlaneTypes, planeType)
+}
 
 type Server struct {
 	config              *Config
@@ -217,7 +228,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if planeType != planeTypeDataPlane && planeType != planeTypeWorkflowPlane && planeType != planeTypeObservabilityPlane {
+	if !isValidPlaneType(planeType) {
 		s.logger.Warn("connection rejected: invalid planeType",
 			"planeType", planeType,
 		)
@@ -248,7 +259,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			"planeID", planeID,
 			"error", err,
 		)
-		http.Error(w, fmt.Sprintf("client certificate verification failed: %v", err), http.StatusUnauthorized)
+		http.Error(w, "client certificate verification failed", http.StatusUnauthorized)
 		return
 	}
 
@@ -374,27 +385,31 @@ func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 	requestID := getOrGenerateRequestID(r)
 	logger := s.logger.With("requestId", requestID)
 
-	// Parse URL
-	path := strings.TrimPrefix(r.URL.Path, "/api/proxy/")
-	parts := strings.Split(path, "/")
-
-	var planeType, planeID, crNamespace, crName, target, targetPath string
+	// Parse URL: split into routing segments and target path
+	rawPath := strings.TrimPrefix(r.URL.Path, "/api/proxy/")
+	parts := strings.SplitN(rawPath, "/", 6)
 
 	// Expected format: /api/proxy/{planeType}/{planeID}/{namespace}/{crName}/{target}/{path...}
-	// Minimum 6 parts required
-	if len(parts) >= 6 {
-		planeType = parts[0]
-		planeID = parts[1]
-		crNamespace = parts[2]
-		crName = parts[3]
-		target = parts[4]
-		targetPath = "/" + strings.Join(parts[5:], "/")
-	} else {
+	if len(parts) < 6 || slices.Contains(parts[:5], "") {
 		logger.Warn("invalid proxy URL format",
 			"path", r.URL.Path,
 			"expected", "/api/proxy/{planeType}/{planeID}/{namespace}/{crName}/{target}/{path}",
 		)
 		http.Error(w, "invalid proxy URL format: /api/proxy/{planeType}/{planeID}/{namespace}/{crName}/{target}/{path}", http.StatusBadRequest)
+		return
+	}
+
+	planeType := parts[0]
+	planeID := parts[1]
+	crNamespace := parts[2]
+	crName := parts[3]
+	target := parts[4]
+	// Preserve the original target path including trailing slashes
+	targetPath := "/" + parts[5]
+
+	if !isValidPlaneType(planeType) {
+		logger.Warn("invalid planeType in proxy request", "planeType", planeType)
+		http.Error(w, "invalid planeType: must be 'dataplane', 'workflowplane', or 'observabilityplane'", http.StatusBadRequest)
 		return
 	}
 
@@ -464,14 +479,13 @@ func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 	// Route request to agent authorized for this specific CR
 	response, err := s.SendHTTPTunnelRequestForCR(planeIdentifier, crKey, tunnelReq, 30*time.Second)
 	if err != nil {
-		// Check if authorization error (no agents authorized for CR)
-		if strings.Contains(err.Error(), "no agents authorized for CR") {
+		if errors.Is(err, ErrNoAuthorizedAgents) {
 			logger.Warn("CR authorization failed",
 				"plane", planeIdentifier,
 				"cr", crKey,
 				"error", err,
 			)
-			http.Error(w, fmt.Sprintf("Forbidden: Agent not authorized for CR %s", crKey), http.StatusForbidden)
+			http.Error(w, fmt.Sprintf("no authorized agent available for CR %s", crKey), http.StatusForbidden)
 			return
 		}
 
