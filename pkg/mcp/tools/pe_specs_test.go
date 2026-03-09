@@ -475,9 +475,17 @@ func TestComponentToolsetClosuresInPEFile(t *testing.T) {
 		expectedMethod string
 	}{
 		{"list_component_types", map[string]any{"namespace_name": testNamespaceName}, "ListComponentTypes"},
-		{"get_component_type_schema", map[string]any{"namespace_name": testNamespaceName, "ct_name": "WebApplication"}, "GetComponentTypeSchema"},
+		{
+			"get_component_type_schema",
+			map[string]any{"namespace_name": testNamespaceName, "ct_name": "WebApplication"},
+			"GetComponentTypeSchema",
+		},
 		{"list_traits", map[string]any{"namespace_name": testNamespaceName}, "ListTraits"},
-		{"get_trait_schema", map[string]any{"namespace_name": testNamespaceName, "trait_name": "autoscaling"}, "GetTraitSchema"},
+		{
+			"get_trait_schema",
+			map[string]any{"namespace_name": testNamespaceName, "trait_name": "autoscaling"},
+			"GetTraitSchema",
+		},
 		{"list_cluster_component_types", map[string]any{}, "ListClusterComponentTypes"},
 		{"get_cluster_component_type", map[string]any{"cct_name": testGoServiceName}, "GetClusterComponentType"},
 		{"get_cluster_component_type_schema", map[string]any{"cct_name": testGoServiceName}, "GetClusterComponentTypeSchema"},
@@ -524,7 +532,11 @@ func TestBuildToolsetClosuresInPEFile(t *testing.T) {
 		expectedMethod string
 	}{
 		{"list_workflows", map[string]any{"namespace_name": testNamespaceName}, "ListWorkflows"},
-		{"get_workflow_schema", map[string]any{"namespace_name": testNamespaceName, "workflow_name": testBuildWorkflow}, "GetWorkflowSchema"},
+		{
+			"get_workflow_schema",
+			map[string]any{"namespace_name": testNamespaceName, "workflow_name": testBuildWorkflow},
+			"GetWorkflowSchema",
+		},
 	}
 
 	for _, tt := range tests {

@@ -7,7 +7,10 @@ import (
 	"testing"
 )
 
-const testReleaseName = "release-1"
+const (
+	testReleaseName = "release-1"
+	testBindingName = "binding-1"
+)
 
 // componentToolSpecs returns test specs for component toolset (definition & configuration)
 func componentToolSpecs() []toolTestSpec {
@@ -258,14 +261,14 @@ func componentBindingSpecs() []toolTestSpec {
 			},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"binding_name":   "binding-1",
+				"binding_name":   testBindingName,
 				"release_name":   testReleaseName,
 			},
 			expectedMethod: "PatchReleaseBinding",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "binding-1" {
-					t.Errorf("Expected (%s, binding-1), got (%v, %v)",
-						testNamespaceName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != testBindingName {
+					t.Errorf("Expected (%s, %s), got (%v, %v)",
+						testNamespaceName, testBindingName, args[0], args[1])
 				}
 			},
 		},
