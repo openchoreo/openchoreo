@@ -259,6 +259,12 @@ func (h *MCPHandler) PromoteComponent(
 func (h *MCPHandler) CreateWorkload(
 	ctx context.Context, namespaceName, componentName string, workloadSpec any,
 ) (any, error) {
+	// Look up the component to get the project name
+	component, err := h.services.ComponentService.GetComponent(ctx, namespaceName, componentName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate component: %w", err)
+	}
+
 	specBytes, err := json.Marshal(workloadSpec)
 	if err != nil {
 		return nil, err
@@ -269,8 +275,15 @@ func (h *MCPHandler) CreateWorkload(
 		return nil, err
 	}
 
+	// Set the owner from the component
+	spec.Owner = openchoreov1alpha1.WorkloadOwner{
+		ProjectName:   component.Spec.Owner.ProjectName,
+		ComponentName: componentName,
+	}
+
 	workload := &openchoreov1alpha1.Workload{
 		ObjectMeta: metav1.ObjectMeta{
+			Name:      componentName + "-workload",
 			Namespace: namespaceName,
 		},
 		Spec: spec,
@@ -302,7 +315,11 @@ func (h *MCPHandler) UpdateWorkload(
 		return nil, err
 	}
 
+	// Preserve the owner from the existing workload since it is immutable
+	// and the incoming spec from MCP tools typically does not include it.
+	owner := existing.Spec.Owner
 	existing.Spec = spec
+	existing.Spec.Owner = owner
 
 	updated, err := h.services.WorkloadService.UpdateWorkload(ctx, namespaceName, existing)
 	if err != nil {

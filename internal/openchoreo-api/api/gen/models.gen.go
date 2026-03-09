@@ -3041,6 +3041,21 @@ type SubjectContext struct {
 // SubjectContextType Subject type
 type SubjectContextType string
 
+// SubjectTypeConfig Configuration for a subject type used in authentication and authorization
+type SubjectTypeConfig struct {
+	// AuthMechanisms Supported authentication mechanisms for this subject type
+	AuthMechanisms []AuthMechanismConfig `json:"authMechanisms"`
+
+	// DisplayName Human-readable name for the subject type
+	DisplayName string `json:"displayName"`
+
+	// Priority Check order for subject type detection (lower = higher priority)
+	Priority int `json:"priority"`
+
+	// Type Subject type identifier (e.g., "user", "service_account")
+	Type string `json:"type"`
+}
+
 // TargetEnvironmentRef Target environment reference with approval settings
 type TargetEnvironmentRef struct {
 	// IsManualApprovalRequired Whether manual approval is required
@@ -3267,21 +3282,6 @@ type UserCapabilitiesResponse struct {
 
 	// User Authenticated subject context
 	User *SubjectContext `json:"user,omitempty"`
-}
-
-// UserTypeConfig Configuration for a user type used in authentication and authorization
-type UserTypeConfig struct {
-	// AuthMechanisms Supported authentication mechanisms for this user type
-	AuthMechanisms []AuthMechanismConfig `json:"authMechanisms"`
-
-	// DisplayName Human-readable name for the user type
-	DisplayName string `json:"displayName"`
-
-	// Priority Check order for user type detection (lower = higher priority)
-	Priority int `json:"priority"`
-
-	// Type User type identifier (e.g., "user", "service_account")
-	Type string `json:"type"`
 }
 
 // ValidationRule CEL-based validation rule evaluated during rendering
