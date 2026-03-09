@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/schema"
 	"github.com/openchoreo/openchoreo/internal/validation/component"
 	"github.com/openchoreo/openchoreo/internal/validation/schemautil"
 )
@@ -96,15 +97,20 @@ func validateClusterComponentType(cct *openchoreodevv1alpha1.ClusterComponentTyp
 	allErrs := field.ErrorList{}
 
 	// Extract and validate schemas, getting structural schemas for CEL validation
-	basePath := field.NewPath("spec", "schema")
-	parametersSchema, envOverridesSchema, schemaErrs := schemautil.ExtractStructuralSchemas(&cct.Spec.Schema, basePath)
+	basePath := field.NewPath("spec")
+	source := &schema.SimpleSource{
+		Parameters:         cct.Spec.Parameters.GetRaw(),
+		EnvironmentConfigs: cct.Spec.EnvironmentConfigs.GetRaw(),
+		OpenAPIV3:          cct.Spec.Parameters.IsOpenAPIV3(),
+	}
+	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(source, basePath)
 	allErrs = append(allErrs, schemaErrs...)
 
 	// Validate CEL expressions with schema-aware type checking
 	celErrs := component.ValidateClusterComponentTypeResourcesWithSchema(
 		cct,
 		parametersSchema,
-		envOverridesSchema,
+		envConfigsSchema,
 	)
 	allErrs = append(allErrs, celErrs...)
 

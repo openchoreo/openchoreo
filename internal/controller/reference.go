@@ -554,7 +554,7 @@ func (r *WorkflowResult) GetWorkflowSpec() openchoreov1alpha1.WorkflowSpec {
 	}
 	if r.ClusterWorkflow != nil {
 		spec := openchoreov1alpha1.WorkflowSpec{
-			Schema:             r.ClusterWorkflow.Spec.Schema,
+			Parameters:         r.ClusterWorkflow.Spec.Parameters,
 			RunTemplate:        r.ClusterWorkflow.Spec.RunTemplate,
 			Resources:          r.ClusterWorkflow.Spec.Resources,
 			ExternalRefs:       r.ClusterWorkflow.Spec.ExternalRefs,

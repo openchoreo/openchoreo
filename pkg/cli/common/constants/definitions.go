@@ -956,7 +956,7 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
   %[1]s component deploy api-service --to staging
 
   # Deploy with overrides
-  %[1]s component deploy api-service --set spec.componentTypeEnvOverrides.replicas=3`, messages.DefaultCLIName),
+  %[1]s component deploy api-service --set spec.componentTypeEnvironmentConfigs.replicas=3`, messages.DefaultCLIName),
 	}
 
 	StartComponentWorkflow = Command{

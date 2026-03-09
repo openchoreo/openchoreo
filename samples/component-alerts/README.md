@@ -102,8 +102,8 @@ kubectl apply -f samples/component-alerts/components-with-alert-rules.yaml
 This step creates `ReleaseBinding`s that:
 - **Misconfigure resources** to trigger alerts:
   - `frontend`: Override `PRODUCT_CATALOG_SERVICE_ADDR` to `http://localhost:8080` (invalid endpoint) via `workloadOverrides`
-  - `recommendation`: Lower CPU limits to `10m` (very restrictive) via `componentTypeEnvOverrides`
-  - `cart`: Lower memory requests to `100Mi` and limits to `150Mi` (restrictive) via `componentTypeEnvOverrides`
+  - `recommendation`: Lower CPU limits to `10m` (very restrictive) via `componentTypeEnvironmentConfigs`
+  - `cart`: Lower memory requests to `100Mi` and limits to `150Mi` (restrictive) via `componentTypeEnvironmentConfigs`
 - **Configure alert rule behavior per environment** via `traitOverrides`:
   - **Frontend alert** (`frontend-rpc-unavailable-error-log-alert`):
     - `enabled: true` - Alert rule is enabled (default is `true`)

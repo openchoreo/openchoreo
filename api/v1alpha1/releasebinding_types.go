@@ -122,11 +122,11 @@ type ReleaseBindingSpec struct {
 	// +optional
 	ReleaseName string `json:"releaseName,omitempty"`
 
-	// ComponentTypeEnvOverrides for ComponentType envOverrides parameters
+	// ComponentTypeEnvironmentConfigs for ComponentType environmentConfigs parameters
 	// These values override the defaults defined in the Component for this specific environment
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
-	ComponentTypeEnvOverrides *runtime.RawExtension `json:"componentTypeEnvOverrides,omitempty"`
+	ComponentTypeEnvironmentConfigs *runtime.RawExtension `json:"componentTypeEnvironmentConfigs,omitempty"`
 
 	// TraitOverrides provides environment-specific overrides for trait configurations
 	// Keyed by instanceName (which must be unique across all traits in the component)

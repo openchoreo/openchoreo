@@ -121,7 +121,7 @@ Example schedules:
 - `0 9 * * 1-5` - Every weekday at 9 AM
 - `0 0 */3 * *` - Every 3 days at midnight
 
-You can also override the schedule for specific environments by modifying the `ReleaseBinding` resource and adding schedule to the `componentTypeEnvOverrides` section (as shown in the sample YAML where the development environment overrides the schedule to run every 5 minutes).
+You can also override the schedule for specific environments by modifying the `ReleaseBinding` resource and adding the schedule to the `componentTypeEnvironmentConfigs` section (as shown in the sample YAML where the development environment overrides the schedule to run every 5 minutes).
 
 ## Clean Up
 

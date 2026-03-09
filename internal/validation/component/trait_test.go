@@ -434,7 +434,7 @@ func TestValidateClusterTraitCreatesAndPatchesWithSchema(t *testing.T) {
 		},
 	}
 
-	envOverridesSchema := &apiextschema.Structural{
+	environmentConfigsSchema := &apiextschema.Structural{
 		Generic: apiextschema.Generic{Type: "object"},
 		Properties: map[string]apiextschema.Structural{
 			"size": {Generic: apiextschema.Generic{Type: "string"}},
@@ -447,14 +447,14 @@ func TestValidateClusterTraitCreatesAndPatchesWithSchema(t *testing.T) {
 				Creates: []v1alpha1.TraitCreate{
 					{
 						Template: &runtime.RawExtension{
-							Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "${metadata.name}-pvc"}, "spec": {"resources": {"requests": {"storage": "${envOverrides.size}"}}}}`),
+							Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "${metadata.name}-pvc"}, "spec": {"resources": {"requests": {"storage": "${environmentConfigs.size}"}}}}`),
 						},
 					},
 				},
 			},
 		}
 
-		errs := ValidateClusterTraitCreatesAndPatchesWithSchema(ct, parametersSchema, envOverridesSchema)
+		errs := ValidateClusterTraitCreatesAndPatchesWithSchema(ct, parametersSchema, environmentConfigsSchema)
 		assert.Empty(t, errs, "unexpected validation errors: %v", errs)
 	})
 

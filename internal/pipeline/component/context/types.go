@@ -153,7 +153,7 @@ type TraitContextInput struct {
 	// SchemaCache is an optional cache for schema bundles, keyed by trait name with suffix.
 	// Used to avoid rebuilding schemas for the same trait used multiple times.
 	// BuildTraitContext will check this cache before building and populate it after.
-	// Cache keys use format "{traitName}:parameters" and "{traitName}:envOverrides".
+	// Cache keys use format "{traitName}:parameters" and "{traitName}:environmentConfigs".
 	SchemaCache map[string]*SchemaBundle
 
 	// DataPlane contains the data plane configuration.
@@ -171,14 +171,11 @@ type TraitContextInput struct {
 
 // SchemaInput contains schema information for building structural and JSON schemas.
 type SchemaInput struct {
-	// Types defines reusable type definitions.
-	Types *runtime.RawExtension
-
-	// ParametersSchema is the parameters schema definition.
+	// ParametersSchema is the parameters schema definition (may contain inline $types).
 	ParametersSchema *runtime.RawExtension
 
-	// EnvOverridesSchema is the envOverrides schema definition.
-	EnvOverridesSchema *runtime.RawExtension
+	// EnvironmentConfigsSchema is the environmentConfigs schema definition (may contain inline $types).
+	EnvironmentConfigsSchema *runtime.RawExtension
 }
 
 // ComponentContext represents the evaluated context for rendering component resources.
@@ -202,13 +199,13 @@ type ComponentContext struct {
 	// Accessed via ${gateway.ingress.external.https.host}, etc.
 	Gateway *GatewayData `json:"gateway,omitempty"`
 
-	// Parameters from Component.Spec.Parameters, pruned to ComponentType.Schema.Parameters.
+	// Parameters from Component.Spec.Parameters, pruned to ComponentType.Spec.Parameters schema.
 	// Accessed via ${parameters.*}
 	Parameters map[string]any `json:"parameters"`
 
-	// EnvOverrides from ReleaseBinding.Spec.ComponentTypeEnvOverrides, pruned to ComponentType.Schema.EnvOverrides.
-	// Accessed via ${envOverrides.*}
-	EnvOverrides map[string]any `json:"envOverrides"`
+	// EnvironmentConfigs from ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs, pruned to ComponentType.Spec.EnvironmentConfigs schema.
+	// Accessed via ${environmentConfigs.*}
+	EnvironmentConfigs map[string]any `json:"environmentConfigs"`
 
 	// Workload contains workload specification (container, endpoints, connections).
 	// Accessed via ${workload.container}, ${workload.endpoints}, etc.
@@ -396,13 +393,13 @@ type TraitContext struct {
 	// Accessed via ${trait.name}, ${trait.instanceName}
 	Trait TraitMetadata `json:"trait"`
 
-	// Parameters from TraitInstance.Parameters, pruned to Trait.Schema.Parameters.
+	// Parameters from TraitInstance.Parameters, pruned to Trait.Spec.Parameters schema.
 	// Accessed via ${parameters.*}
 	Parameters map[string]any `json:"parameters"`
 
-	// EnvOverrides from ReleaseBinding.Spec.TraitOverrides[instanceName], pruned to Trait.Schema.EnvOverrides.
-	// Accessed via ${envOverrides.*}
-	EnvOverrides map[string]any `json:"envOverrides"`
+	// EnvironmentConfigs from ReleaseBinding.Spec.TraitOverrides[instanceName], pruned to Trait.Spec.EnvironmentConfigs schema.
+	// Accessed via ${environmentConfigs.*}
+	EnvironmentConfigs map[string]any `json:"environmentConfigs"`
 
 	// DataPlane provides data plane configuration.
 	// Accessed via ${dataplane.secretStore}, ${dataplane.gateway.ingress.external.https.host}, etc.

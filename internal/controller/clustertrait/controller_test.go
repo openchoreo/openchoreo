@@ -188,14 +188,14 @@ var _ = Describe("ClusterTrait Controller", func() {
 			defer cleanupClusterTrait(name)
 
 			ct := createClusterTrait(name, openchoreov1alpha1.ClusterTraitSpec{
-				Schema: openchoreov1alpha1.TraitSchema{
-					OCSchema: &openchoreov1alpha1.TraitOCSchema{
-						Parameters: &runtime.RawExtension{
-							Raw: []byte(`{"mountPath": "string"}`),
-						},
-						EnvOverrides: &runtime.RawExtension{
-							Raw: []byte(`{"size": "string"}`),
-						},
+				Parameters: &openchoreov1alpha1.SchemaSection{
+					OCSchema: &runtime.RawExtension{
+						Raw: []byte(`{"mountPath": "string"}`),
+					},
+				},
+				EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
+					OCSchema: &runtime.RawExtension{
+						Raw: []byte(`{"size": "string"}`),
 					},
 				},
 			})
@@ -251,11 +251,9 @@ var _ = Describe("ClusterTrait Controller", func() {
 			defer cleanupClusterTrait(name)
 
 			ct := createClusterTrait(name, openchoreov1alpha1.ClusterTraitSpec{
-				Schema: openchoreov1alpha1.TraitSchema{
-					OCSchema: &openchoreov1alpha1.TraitOCSchema{
-						Parameters: &runtime.RawExtension{
-							Raw: []byte(`{"volumeName": "string", "mountPath": "string"}`),
-						},
+				Parameters: &openchoreov1alpha1.SchemaSection{
+					OCSchema: &runtime.RawExtension{
+						Raw: []byte(`{"volumeName": "string", "mountPath": "string"}`),
 					},
 				},
 				Creates: []openchoreov1alpha1.TraitCreate{
@@ -440,14 +438,9 @@ var _ = Describe("ClusterTrait Controller", func() {
 			defer cleanupClusterTrait(name)
 
 			ct := createClusterTrait(name, openchoreov1alpha1.ClusterTraitSpec{
-				Schema: openchoreov1alpha1.TraitSchema{
-					OCSchema: &openchoreov1alpha1.TraitOCSchema{
-						Types: &runtime.RawExtension{
-							Raw: []byte(`{"VolumeConfig": {"name": "string", "size": "string"}}`),
-						},
-						Parameters: &runtime.RawExtension{
-							Raw: []byte(`{"volume": "VolumeConfig"}`),
-						},
+				Parameters: &openchoreov1alpha1.SchemaSection{
+					OCSchema: &runtime.RawExtension{
+						Raw: []byte(`{"$types": {"VolumeConfig": {"name": "string", "size": "string"}}, "volume": "VolumeConfig"}`),
 					},
 				},
 			})
@@ -902,11 +895,9 @@ var _ = Describe("ClusterTrait Controller", func() {
 
 			// Create a ClusterTrait with all three available fields
 			ct := createClusterTrait(name, openchoreov1alpha1.ClusterTraitSpec{
-				Schema: openchoreov1alpha1.TraitSchema{
-					OCSchema: &openchoreov1alpha1.TraitOCSchema{
-						Parameters: &runtime.RawExtension{
-							Raw: []byte(`{"key": "string"}`),
-						},
+				Parameters: &openchoreov1alpha1.SchemaSection{
+					OCSchema: &runtime.RawExtension{
+						Raw: []byte(`{"key": "string"}`),
 					},
 				},
 				Creates: []openchoreov1alpha1.TraitCreate{
@@ -939,7 +930,7 @@ var _ = Describe("ClusterTrait Controller", func() {
 
 			fetched := &openchoreov1alpha1.ClusterTrait{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: name}, fetched)).To(Succeed())
-			Expect(fetched.Spec.Schema.GetParameters()).NotTo(BeNil())
+			Expect(fetched.Spec.Parameters.GetRaw()).NotTo(BeNil())
 			Expect(fetched.Spec.Creates).To(HaveLen(1))
 			Expect(fetched.Spec.Patches).To(HaveLen(1))
 		})

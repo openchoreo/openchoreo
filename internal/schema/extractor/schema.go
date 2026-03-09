@@ -61,12 +61,39 @@ type Options struct {
 //   - Custom types: database: "DatabaseConfig" (references types parameter)
 //
 // The types parameter provides custom type definitions that can be referenced in field schemas.
+// If the fields map contains a "$types" key, those definitions are extracted and merged with
+// the externally provided types (external types take precedence on conflict).
 //
 // Schema behavior:
 //   - Fields are required by default unless they have a default value
 //   - Unknown markers cause errors unless they have an allowedUnknownMarkerPrefixes prefix (reserved for custom annotations)
 //   - The "required" marker is not allowed (use defaults to make fields optional)
 func ExtractSchema(fields map[string]any, types map[string]any, opts Options) (*apiextensions.JSONSchemaProps, error) {
+	// Extract inline $types from fields if present
+	if inlineTypes, ok := fields["$types"].(map[string]any); ok {
+		if types == nil {
+			types = inlineTypes
+		} else {
+			// Merge: external types take precedence over inline $types
+			merged := make(map[string]any, len(inlineTypes)+len(types))
+			for k, v := range inlineTypes {
+				merged[k] = v
+			}
+			for k, v := range types {
+				merged[k] = v
+			}
+			types = merged
+		}
+		// Remove $types from fields before processing
+		cleanFields := make(map[string]any, len(fields)-1)
+		for k, v := range fields {
+			if k != "$types" {
+				cleanFields[k] = v
+			}
+		}
+		fields = cleanFields
+	}
+
 	c := &converter{
 		types:     types,
 		typeCache: map[string]*apiextensions.JSONSchemaProps{},

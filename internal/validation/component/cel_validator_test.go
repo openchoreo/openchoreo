@@ -61,24 +61,24 @@ func TestCELValidator_SchemaAwareValidation_NestedFields(t *testing.T) {
 	}
 
 	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
-		EnvOverridesSchema: structural,
+		EnvironmentConfigsSchema: structural,
 	})
 	require.NoError(t, err)
 
 	// Valid nested access
-	err = validator.ValidateExpression("envOverrides.resources.limits.cpu")
+	err = validator.ValidateExpression("environmentConfigs.resources.limits.cpu")
 	assert.NoError(t, err)
 
-	err = validator.ValidateExpression("envOverrides.resources.requests.memory")
+	err = validator.ValidateExpression("environmentConfigs.resources.requests.memory")
 	assert.NoError(t, err)
 
 	// Invalid nested field
-	err = validator.ValidateExpression("envOverrides.resources.limits.invalid")
+	err = validator.ValidateExpression("environmentConfigs.resources.limits.invalid")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "undefined field")
 
 	// Invalid intermediate field
-	err = validator.ValidateExpression("envOverrides.resources.invalid.cpu")
+	err = validator.ValidateExpression("environmentConfigs.resources.invalid.cpu")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "undefined field")
 }
@@ -93,7 +93,7 @@ func TestCELValidator_BackwardCompatibility_NilSchema(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "undefined field")
 
-	err = validator.ValidateExpression("envOverrides.anyField")
+	err = validator.ValidateExpression("environmentConfigs.anyField")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "undefined field")
 }
@@ -289,11 +289,11 @@ func TestCELValidator_ComponentTypeResource_AllVariables(t *testing.T) {
 }
 
 func TestCELValidator_WithoutSchema(t *testing.T) {
-	// Without schemas, parameters and envOverrides are empty objects
+	// Without schemas, parameters and environmentConfigs are empty objects
 	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{})
 	require.NoError(t, err)
 
-	// Without schemas, parameters and envOverrides are empty objects
+	// Without schemas, parameters and environmentConfigs are empty objects
 	err = validator.ValidateExpression("parameters.anyField")
 	assert.Error(t, err)
 

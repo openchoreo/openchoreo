@@ -57,7 +57,7 @@ spec:
                   parameters:
                     description: |-
                       Parameters from ComponentType (oneOf schema based on componentType)
-                      This is the merged schema of parameters + envOverrides from the ComponentType
+                      This is the merged schema of parameters + environmentConfigs from the ComponentType
                     x-kubernetes-preserve-unknown-fields: true
                   traits:
                     description: |-
@@ -88,7 +88,7 @@ spec:
                         parameters:
                           description: |-
                             Parameters contains the trait parameter values
-                            The schema for this config is defined in the Trait's schema.ocSchema.parameters and schema.ocSchema.envOverrides
+                            The schema for this config is defined in the Trait's parameters.ocSchema and environmentConfigs.ocSchema
                           x-kubernetes-preserve-unknown-fields: true
                       required:
                       - instanceName
@@ -153,6 +153,38 @@ spec:
                       - name
                       type: object
                     type: array
+                  environmentConfigs:
+                    description: EnvironmentConfigs defines per-environment overrides
+                      developers can set via ReleaseBinding.
+                    properties:
+                      ocSchema:
+                        description: |-
+                          OCSchema defines the schema using OpenChoreo's simple schema format.
+                          The blob may contain a "$types" key for reusable type definitions scoped to this section.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      openAPIV3Schema:
+                        description: OpenAPIV3Schema defines the schema using standard
+                          OpenAPI V3 / JSON Schema format.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    type: object
+                  parameters:
+                    description: Parameters defines what developers can configure
+                      when creating components of this type.
+                    properties:
+                      ocSchema:
+                        description: |-
+                          OCSchema defines the schema using OpenChoreo's simple schema format.
+                          The blob may contain a "$types" key for reusable type definitions scoped to this section.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      openAPIV3Schema:
+                        description: OpenAPIV3Schema defines the schema using standard
+                          OpenAPI V3 / JSON Schema format.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    type: object
                   resources:
                     description: |-
                       Resources are templates that generate Kubernetes resources dynamically.
@@ -212,31 +244,6 @@ spec:
                         rule: '!has(self.forEach) || has(self.var)'
                     minItems: 1
                     type: array
-                  schema:
-                    description: Schema defines what developers can configure when
-                      creating components of this type
-                    properties:
-                      ocSchema:
-                        description: OCSchema defines the schema using OpenChoreo's
-                          simple schema format.
-                        properties:
-                          envOverrides:
-                            description: EnvOverrides can be overridden per environment
-                              via ReleaseBinding
-                            type: object
-                            x-kubernetes-preserve-unknown-fields: true
-                          parameters:
-                            description: Parameters are static across environments
-                              and exposed as inputs to developers
-                            type: object
-                            x-kubernetes-preserve-unknown-fields: true
-                          types:
-                            description: Types defines reusable type definitions that
-                              can be referenced in schema fields
-                            type: object
-                            x-kubernetes-preserve-unknown-fields: true
-                        type: object
-                    type: object
                   traits:
                     description: |-
                       Traits are pre-configured trait instances embedded in the ComponentType.
@@ -249,12 +256,12 @@ spec:
                         The PE binds trait parameters using concrete values (locked) or CEL expressions
                         referencing the ComponentType schema (wired to developer-configurable fields).
                       properties:
-                        envOverrides:
+                        environmentConfigs:
                           description: |-
-                            EnvOverrides contains trait environment override bindings.
+                            EnvironmentConfigs contains trait environment config bindings.
                             Values can be concrete (locked by PE) or CEL expressions referencing
                             the ComponentType schema using ${...} syntax.
-                            Example: "${envOverrides.storage.size}" or "local-path" (locked)
+                            Example: "${environmentConfigs.storage.size}" or "local-path" (locked)
                           x-kubernetes-preserve-unknown-fields: true
                         instanceName:
                           description: |-
@@ -407,6 +414,38 @@ spec:
                         - message: var is required when forEach is specified
                           rule: '!has(self.forEach) || has(self.var)'
                       type: array
+                    environmentConfigs:
+                      description: EnvironmentConfigs defines per-environment configurations
+                        for this trait via ReleaseBinding.
+                      properties:
+                        ocSchema:
+                          description: |-
+                            OCSchema defines the schema using OpenChoreo's simple schema format.
+                            The blob may contain a "$types" key for reusable type definitions scoped to this section.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        openAPIV3Schema:
+                          description: OpenAPIV3Schema defines the schema using standard
+                            OpenAPI V3 / JSON Schema format.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                    parameters:
+                      description: Parameters defines developer-facing configuration
+                        options for this trait.
+                      properties:
+                        ocSchema:
+                          description: |-
+                            OCSchema defines the schema using OpenChoreo's simple schema format.
+                            The blob may contain a "$types" key for reusable type definitions scoped to this section.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                        openAPIV3Schema:
+                          description: OpenAPIV3Schema defines the schema using standard
+                            OpenAPI V3 / JSON Schema format.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
                     patches:
                       description: Patches defines modifications to existing resources
                         generated by the ComponentType
@@ -509,30 +548,6 @@ spec:
                         - message: var is required when forEach is specified
                           rule: '!has(self.forEach) || has(self.var)'
                       type: array
-                    schema:
-                      description: Schema defines trait parameters
-                      properties:
-                        ocSchema:
-                          description: OCSchema defines the schema using OpenChoreo's
-                            simple schema format.
-                          properties:
-                            envOverrides:
-                              description: EnvOverrides can be overridden per environment
-                                via ReleaseBinding.
-                              type: object
-                              x-kubernetes-preserve-unknown-fields: true
-                            parameters:
-                              description: Parameters are developer-facing configuration
-                                options.
-                              type: object
-                              x-kubernetes-preserve-unknown-fields: true
-                            types:
-                              description: Types defines reusable type definitions
-                                that can be referenced in schema fields
-                              type: object
-                              x-kubernetes-preserve-unknown-fields: true
-                          type: object
-                      type: object
                     validations:
                       description: |-
                         Validations are CEL-based rules evaluated during rendering.

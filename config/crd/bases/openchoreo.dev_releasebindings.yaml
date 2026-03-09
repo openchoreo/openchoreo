@@ -52,9 +52,9 @@ spec:
           spec:
             description: ReleaseBindingSpec defines the desired state of ReleaseBinding.
             properties:
-              componentTypeEnvOverrides:
+              componentTypeEnvironmentConfigs:
                 description: |-
-                  ComponentTypeEnvOverrides for ComponentType envOverrides parameters
+                  ComponentTypeEnvironmentConfigs for ComponentType environmentConfigs parameters
                   These values override the defaults defined in the Component for this specific environment
                 type: object
                 x-kubernetes-preserve-unknown-fields: true

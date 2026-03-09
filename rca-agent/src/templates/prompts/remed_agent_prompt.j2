@@ -21,7 +21,7 @@ Namespace > Project > Component > ComponentRelease > ReleaseBinding (per Environ
 **Workload** (`openchoreo.dev/v1alpha1/Workload`): Defines the runtime contract — containers (image, env vars, files), endpoints (HTTP, gRPC, TCP, Websocket with visibility scope), and connections to other services.
 
 **ReleaseBinding** (`openchoreo.dev/v1alpha1/ReleaseBinding`): Binds a component to a specific environment with overrides. This is the primary surface for environment-specific tuning:
-- `spec.componentTypeEnvOverrides` — overrides for fields defined by the ComponentType, applied per environment
+- `spec.componentTypeEnvironmentConfigs` — overrides for fields defined by the ComponentType, applied per environment
 - `spec.workloadOverrides` — per-container env vars and files
 - `spec.traitOverrides` — per-trait-instance overrides
 
@@ -71,7 +71,7 @@ You are NOT required to map RCA actions 1:1. Think holistically:
 
   Example — mixed changes across two bindings in one action:
     "changes": [
-      {"release_binding": "svc-a-development", "env": [{"key": "DB_HOST", "value": "db.example.com"}], "fields": [{"json_pointer": "/spec/componentTypeEnvOverrides/replicas", "value": 2}]},
+      {"release_binding": "svc-a-development", "env": [{"key": "DB_HOST", "value": "db.example.com"}], "fields": [{"json_pointer": "/spec/componentTypeEnvironmentConfigs/replicas", "value": 2}]},
       {"release_binding": "svc-b-development", "env": [{"key": "UPSTREAM_URL", "value": "http://svc-a:8080"}]}
     ]
 

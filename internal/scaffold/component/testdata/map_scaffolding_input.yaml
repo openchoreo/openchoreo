@@ -10,9 +10,9 @@ metadata:
   name: web-app
 spec:
   workloadType: deployment
-  schema:
+  parameters:
     ocSchema:
-      types:
+      $types:
         # Custom type for testing map<CustomType>
         ServiceConfig:
           endpoint: string
@@ -20,21 +20,20 @@ spec:
           enabled: 'boolean | default=true'
           timeout: 'integer | default=30 minimum=1'
 
-      parameters:
-        # Map with string values (required)
-        labels: 'map<string> | description="Resource labels"'
+      # Map with string values (required)
+      labels: 'map<string> | description="Resource labels"'
 
-        # Map with integer values (required)
-        ports: 'map<integer> | description="Named port mappings"'
+      # Map with integer values (required)
+      ports: 'map<integer> | description="Named port mappings"'
 
-        # Map with boolean values (required)
-        featureFlags: 'map<boolean> | description="Feature toggle flags"'
+      # Map with boolean values (required)
+      featureFlags: 'map<boolean> | description="Feature toggle flags"'
 
-        # Map with custom type values (required)
-        services: 'map<ServiceConfig> | description="Service configurations"'
+      # Map with custom type values (required)
+      services: 'map<ServiceConfig> | description="Service configurations"'
 
-        # Optional map with default
-        annotations: 'map<string> | default={"app.kubernetes.io/name": "my-app"}'
+      # Optional map with default
+      annotations: 'map<string> | default={"app.kubernetes.io/name": "my-app"}'
 
-        # Optional map with empty default
-        customMetadata: 'map<string> | default={}'
+      # Optional map with empty default
+      customMetadata: 'map<string> | default={}'

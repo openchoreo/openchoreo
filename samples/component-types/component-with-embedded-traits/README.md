@@ -29,7 +29,7 @@ Key features:
 - `enabled` parameter controls HPA creation
 - `minReplicas`, `maxReplicas` for controlling autoscaling bounds
 - `targetCPUUtilizationPercentage` for CPU-based scaling threshold
-- Environment overrides via `envOverrides.minReplicas` and `envOverrides.maxReplicas`
+- Environment overrides via `environmentConfigs.minReplicas` and `environmentConfigs.maxReplicas`
 
 ### Trait (`persistent-volume`)
 
@@ -56,7 +56,7 @@ Key features:
 - **Embedded trait parameters demonstrate three patterns:**
   - **Locked**: `targetCPUUtilizationPercentage: 75` - PE enforces a fixed value (platform policy)
   - **Developer-configurable**: `minReplicas`, `maxReplicas` - Developers set scaling bounds via parameters
-  - **Environment-tunable**: Platform teams can override replica bounds per environment via componentTypeEnvOverrides
+  - **Environment-tunable**: Platform teams can override replica bounds per environment via componentTypeEnvironmentConfigs
 
 ### Component (`demo-app-with-embedded-traits`)
 
@@ -79,8 +79,8 @@ Represents the build output with:
 Defines deployment settings for the `development` environment:
 
 - Sets replicas to 3 for adequate redundancy
-- Reduces resource requests/limits for cost savings via `componentTypeEnvOverrides.resources`
-- Overrides autoscaling replica bounds to 1-5 via `componentTypeEnvOverrides.autoscaling` (environment-tunable)
+- Reduces resource requests/limits for cost savings via `componentTypeEnvironmentConfigs.resources`
+- Overrides autoscaling replica bounds to 1-5 via `componentTypeEnvironmentConfigs.autoscaling` (environment-tunable)
 - Note: `targetCPUUtilizationPercentage` is locked by PE at 75% and cannot be changed per environment
 - Overrides PVC size to 10Mi via `traitOverrides.data-storage`
 
@@ -148,7 +148,7 @@ Hello, Alice!
 
 - **Locked**: `targetCPUUtilizationPercentage: 75` - Concrete values controlled by PE (platform policy)
 - **Wired**: `${parameters.autoscaling.minReplicas}` - References ComponentType schema (developer-configurable)
-- **Environment-tunable**: `${envOverrides.autoscaling.maxReplicas}` - Per-environment overrides
+- **Environment-tunable**: `${environmentConfigs.autoscaling.maxReplicas}` - Per-environment overrides
 
 ### 4. Allowed Traits
 
@@ -157,7 +157,7 @@ Hello, Alice!
 
 ### 5. Environment Overrides
 
-- **Environment-tunable overrides**: Use `componentTypeEnvOverrides` to override replica bounds per environment (e.g., `autoscaling.minReplicas`, `autoscaling.maxReplicas`)
+- **Environment-tunable overrides**: Use `componentTypeEnvironmentConfigs` to override replica bounds per environment (e.g., `autoscaling.minReplicas`, `autoscaling.maxReplicas`)
 - **Locked parameters**: Set by PE in embedded trait, cannot be changed per environment (e.g., `targetCPUUtilizationPercentage: 75`)
 - **Developer trait overrides**: Use `traitOverrides[instanceName]` to override developer-added traits (e.g., `data-storage.size`)
 

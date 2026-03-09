@@ -305,7 +305,7 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 			"binding_name":   defaultStringProperty(),
 			"release_name":   stringProperty("Optional: update the release associated with this binding"),
 			"environment":    stringProperty("Optional: update the target environment"),
-			"component_type_env_overrides": map[string]any{
+			"component_type_environment_configs": map[string]any{
 				"type":        "object",
 				"description": "Optional: environment-specific overrides for component type parameters",
 			},
@@ -319,13 +319,13 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 			},
 		}, []string{"namespace_name", "binding_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName             string                 `json:"namespace_name"`
-		BindingName               string                 `json:"binding_name"`
-		ReleaseName               string                 `json:"release_name"`
-		Environment               string                 `json:"environment"`
-		ComponentTypeEnvOverrides map[string]interface{} `json:"component_type_env_overrides"`
-		TraitOverrides            map[string]interface{} `json:"trait_overrides"`
-		WorkloadOverrides         map[string]interface{} `json:"workload_overrides"`
+		NamespaceName                   string                 `json:"namespace_name"`
+		BindingName                     string                 `json:"binding_name"`
+		ReleaseName                     string                 `json:"release_name"`
+		Environment                     string                 `json:"environment"`
+		ComponentTypeEnvironmentConfigs map[string]interface{} `json:"component_type_environment_configs"`
+		TraitOverrides                  map[string]interface{} `json:"trait_overrides"`
+		WorkloadOverrides               map[string]interface{} `json:"workload_overrides"`
 	}) (*mcp.CallToolResult, any, error) {
 		patchReq := &gen.ReleaseBindingSpec{}
 		if args.Environment != "" {
@@ -334,8 +334,8 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 		if args.ReleaseName != "" {
 			patchReq.ReleaseName = &args.ReleaseName
 		}
-		if args.ComponentTypeEnvOverrides != nil {
-			patchReq.ComponentTypeEnvOverrides = &args.ComponentTypeEnvOverrides
+		if args.ComponentTypeEnvironmentConfigs != nil {
+			patchReq.ComponentTypeEnvironmentConfigs = &args.ComponentTypeEnvironmentConfigs
 		}
 		if args.TraitOverrides != nil {
 			traitOverrides := make(map[string]interface{}, len(args.TraitOverrides))

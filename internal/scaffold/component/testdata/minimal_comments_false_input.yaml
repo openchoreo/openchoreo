@@ -10,7 +10,6 @@ metadata:
   name: web-app
 spec:
   workloadType: deployment
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        port: 'integer | description="Container port"'
+      port: 'integer | description="Container port"'

@@ -22,22 +22,18 @@ spec:
     - rule: "${size(workload.endpoints) > 0}"
       message: "Service components must have at least one endpoint. Use 'deployment/worker' for components without endpoints."
 
-  schema:
+  environmentConfigs:
     ocSchema:
-      types:
+      $types:
         ResourceRequirements:
           requests: "ResourceQuantity | default={}"
           limits: "ResourceQuantity | default={}"
         ResourceQuantity:
           cpu: "string | default=100m"
           memory: "string | default=256Mi"
-
-      parameters: {}
-
-      envOverrides:
-        replicas: "integer | default=1"
-        resources: "ResourceRequirements | default={}"
-        imagePullPolicy: "string | default=IfNotPresent"
+      replicas: "integer | default=1"
+      resources: "ResourceRequirements | default={}"
+      imagePullPolicy: "string | default=IfNotPresent"
 
   resources:
     - id: deployment
@@ -49,7 +45,7 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
-          replicas: ${envOverrides.replicas}
+          replicas: ${environmentConfigs.replicas}
           selector:
             matchLabels: ${metadata.podSelectors}
           template:
@@ -59,18 +55,18 @@ spec:
               containers:
                 - name: main
                   image: ${workload.container.image}
-                  imagePullPolicy: ${envOverrides.imagePullPolicy}
+                  imagePullPolicy: ${environmentConfigs.imagePullPolicy}
                   command: |
                     ${has(workload.container.command) ? workload.container.command : oc_omit()}
                   args: |
                     ${has(workload.container.args) ? workload.container.args : oc_omit()}
                   resources:
                     requests:
-                      cpu: ${envOverrides.resources.requests.cpu}
-                      memory: ${envOverrides.resources.requests.memory}
+                      cpu: ${environmentConfigs.resources.requests.cpu}
+                      memory: ${environmentConfigs.resources.requests.memory}
                     limits:
-                      cpu: ${envOverrides.resources.limits.cpu}
-                      memory: ${envOverrides.resources.limits.memory}
+                      cpu: ${environmentConfigs.resources.limits.cpu}
+                      memory: ${environmentConfigs.resources.limits.memory}
                   envFrom: ${configurations.toContainerEnvFrom()}
                   volumeMounts: ${configurations.toContainerVolumeMounts()}
               volumes: ${configurations.toVolumes()}
@@ -320,7 +316,7 @@ spec:
     componentName: demo-app
     projectName: default
 
-  componentTypeEnvOverrides:
+  componentTypeEnvironmentConfigs:
     replicas: 2
     resources:
       requests:

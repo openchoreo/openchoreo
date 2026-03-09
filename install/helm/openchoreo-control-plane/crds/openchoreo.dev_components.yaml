@@ -102,7 +102,7 @@ spec:
               parameters:
                 description: |-
                   Parameters from ComponentType (oneOf schema based on componentType)
-                  This is the merged schema of parameters + envOverrides from the ComponentType
+                  This is the merged schema of parameters + environmentConfigs from the ComponentType
                 x-kubernetes-preserve-unknown-fields: true
               traits:
                 description: |-
@@ -133,7 +133,7 @@ spec:
                     parameters:
                       description: |-
                         Parameters contains the trait parameter values
-                        The schema for this config is defined in the Trait's schema.ocSchema.parameters and schema.ocSchema.envOverrides
+                        The schema for this config is defined in the Trait's parameters.ocSchema and environmentConfigs.ocSchema
                       x-kubernetes-preserve-unknown-fields: true
                   required:
                   - instanceName

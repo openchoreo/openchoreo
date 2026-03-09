@@ -192,8 +192,8 @@ func NewGenerator(
 	opts *Options,
 ) (*Generator, error) {
 	componentSchema, err := extractAndConvertSchema(
-		componentType.Spec.Schema.GetParameters(),
-		componentType.Spec.Schema.GetTypes(),
+		componentType.Spec.Parameters.GetRaw(),
+		nil,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("processing component schema: %w", err)
@@ -202,8 +202,8 @@ func NewGenerator(
 	traitSchemas := make(map[string]*extv1.JSONSchemaProps)
 	for _, trait := range traits {
 		schema, err := extractAndConvertSchema(
-			trait.Spec.Schema.GetParameters(),
-			trait.Spec.Schema.GetTypes(),
+			trait.Spec.Parameters.GetRaw(),
+			nil,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("processing trait %s schema: %w", trait.Name, err)
@@ -215,10 +215,10 @@ func NewGenerator(
 	var workflowName string
 	if workflow != nil {
 		workflowName = workflow.Name
-		if workflow.Spec.Schema.GetParameters() != nil {
+		if workflow.Spec.Parameters.GetRaw() != nil {
 			schema, err := extractAndConvertSchema(
-				workflow.Spec.Schema.GetParameters(),
-				workflow.Spec.Schema.GetTypes(),
+				workflow.Spec.Parameters.GetRaw(),
+				nil,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("processing workflow schema: %w", err)

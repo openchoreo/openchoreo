@@ -150,11 +150,11 @@ func TestPatchReleaseBinding_RequestParsing(t *testing.T) {
 	}{
 		{
 			name:        "Valid request with component type overrides",
-			requestBody: `{"componentTypeEnvOverrides": {"replicas": 3}}`,
+			requestBody: `{"componentTypeEnvironmentConfigs": {"replicas": 3}}`,
 			wantErr:     false,
 			checkFunc: func(t *testing.T, req *models.PatchReleaseBindingRequest) {
-				if req.ComponentTypeEnvOverrides == nil {
-					t.Error("Expected componentTypeEnvOverrides to be set")
+				if req.ComponentTypeEnvironmentConfigs == nil {
+					t.Error("Expected componentTypeEnvironmentConfigs to be set")
 				}
 			},
 		},
@@ -170,7 +170,7 @@ func TestPatchReleaseBinding_RequestParsing(t *testing.T) {
 		},
 		{
 			name:        "Valid request for creating new binding",
-			requestBody: `{"releaseName": "myapp-v1", "environment": "dev", "componentTypeEnvOverrides": {"replicas": 3}}`,
+			requestBody: `{"releaseName": "myapp-v1", "environment": "dev", "componentTypeEnvironmentConfigs": {"replicas": 3}}`,
 			wantErr:     false,
 			checkFunc: func(t *testing.T, req *models.PatchReleaseBindingRequest) {
 				if req.ReleaseName != "myapp-v1" {
@@ -179,14 +179,14 @@ func TestPatchReleaseBinding_RequestParsing(t *testing.T) {
 				if req.Environment != "dev" {
 					t.Errorf("Expected environment 'dev', got %s", req.Environment)
 				}
-				if req.ComponentTypeEnvOverrides == nil {
-					t.Error("Expected componentTypeEnvOverrides to be set")
+				if req.ComponentTypeEnvironmentConfigs == nil {
+					t.Error("Expected componentTypeEnvironmentConfigs to be set")
 				}
 			},
 		},
 		{
 			name:        "Invalid JSON",
-			requestBody: `{"componentTypeEnvOverrides": }`,
+			requestBody: `{"componentTypeEnvironmentConfigs": }`,
 			wantErr:     true,
 		},
 	}

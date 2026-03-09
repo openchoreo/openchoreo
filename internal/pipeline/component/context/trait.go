@@ -17,12 +17,12 @@ import (
 // BuildTraitContext builds a CEL evaluation context for rendering trait resources.
 //
 // The context includes:
-//   - parameters: From TraitInstance.Parameters (pruned to Trait.Schema.Parameters) - access via ${parameters.*}
-//   - envOverrides: From ReleaseBinding.Spec.TraitOverrides[instanceName] (pruned to Trait.Schema.EnvOverrides) - access via ${envOverrides.*}
+//   - parameters: From TraitInstance.Parameters (pruned to Trait.Spec.Parameters schema) - access via ${parameters.*}
+//   - environmentConfigs: From ReleaseBinding.Spec.TraitOverrides[instanceName] (pruned to Trait.Spec.EnvironmentConfigs schema) - access via ${environmentConfigs.*}
 //   - trait: Trait metadata (name, instanceName) - access via ${trait.*}
 //   - metadata: Structured naming and labeling information - access via ${metadata.*}
 //
-// Schema defaults are applied to both parameters and envOverrides sections.
+// Schema defaults are applied to both parameters and environmentConfigs sections.
 //
 // Note: TraitOverrides is keyed by instanceName (not traitName), as instanceNames
 // must be unique across all traits in a component.
@@ -36,8 +36,8 @@ func BuildTraitContext(input *TraitContextInput) (*TraitContext, error) {
 		return nil, fmt.Errorf("trait instance name is required")
 	}
 
-	// Process parameters and envOverrides separately
-	parameters, envOverrides, err := processTraitParameters(input)
+	// Process parameters and environmentConfigs separately
+	parameters, envConfigs, err := processTraitParameters(input)
 	if err != nil {
 		return nil, err
 	}
@@ -55,9 +55,9 @@ func BuildTraitContext(input *TraitContextInput) (*TraitContext, error) {
 	}
 
 	ctx := &TraitContext{
-		Parameters:   parameters,
-		EnvOverrides: envOverrides,
-		Metadata:     metadata,
+		Parameters:         parameters,
+		EnvironmentConfigs: envConfigs,
+		Metadata:           metadata,
 		Trait: TraitMetadata{
 			Name:         input.Trait.Name,
 			InstanceName: input.Instance.InstanceName,
@@ -84,31 +84,30 @@ func (t *TraitContext) ToMap() map[string]any {
 	return result
 }
 
-// processTraitParameters processes trait parameters and envOverrides separately,
+// processTraitParameters processes trait parameters and environmentConfigs separately,
 // validates each against their respective schemas, and returns them as separate maps.
 // Parameters come from TraitInstance.Parameters only.
-// EnvOverrides come from ReleaseBinding.Spec.TraitOverrides[instanceName] only.
+// EnvironmentConfigs come from ReleaseBinding.Spec.TraitOverrides[instanceName] only.
 func processTraitParameters(input *TraitContextInput) (map[string]any, map[string]any, error) {
 	traitName := input.Trait.Name
 
-	// Build or retrieve separate schema bundles for parameters and envOverrides
-	// Use cache keys with suffixes to distinguish between parameters and envOverrides schemas
+	// Build or retrieve separate schema bundles for parameters and environmentConfigs
+	// Use cache keys with suffixes to distinguish between parameters and environmentConfigs schemas
 	parametersBundle := getCachedSchemaBundle(input.SchemaCache, traitName+":parameters")
-	envOverridesBundle := getCachedSchemaBundle(input.SchemaCache, traitName+":envOverrides")
+	envConfigsBundle := getCachedSchemaBundle(input.SchemaCache, traitName+":environmentConfigs")
 
 	// If either bundle is missing, build both in one call to share types unmarshaling
-	if parametersBundle == nil || envOverridesBundle == nil {
+	if parametersBundle == nil || envConfigsBundle == nil {
 		var err error
-		parametersBundle, envOverridesBundle, err = BuildStructuralSchemas(&SchemaInput{
-			Types:              input.Trait.Spec.Schema.GetTypes(),
-			ParametersSchema:   input.Trait.Spec.Schema.GetParameters(),
-			EnvOverridesSchema: input.Trait.Spec.Schema.GetEnvOverrides(),
+		parametersBundle, envConfigsBundle, err = BuildStructuralSchemas(&SchemaInput{
+			ParametersSchema:         input.Trait.Spec.Parameters.GetRaw(),
+			EnvironmentConfigsSchema: input.Trait.Spec.EnvironmentConfigs.GetRaw(),
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to build trait schemas: %w", err)
 		}
 		setCachedSchemaBundle(input.SchemaCache, traitName+":parameters", parametersBundle)
-		setCachedSchemaBundle(input.SchemaCache, traitName+":envOverrides", envOverridesBundle)
+		setCachedSchemaBundle(input.SchemaCache, traitName+":environmentConfigs", envConfigsBundle)
 	}
 
 	// Extract trait instance parameters (for parameters section only)
@@ -132,35 +131,35 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, map[strin
 		parameters = make(map[string]any)
 	}
 
-	// Process envOverrides: ONLY from ReleaseBinding (no merging with trait instance)
-	var envOverrides map[string]any
+	// Process environmentConfigs: ONLY from ReleaseBinding (no merging with trait instance)
+	var envConfigs map[string]any
 	instanceName := input.Instance.InstanceName
 	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.TraitOverrides != nil {
 		if instanceOverride, ok := input.ReleaseBinding.Spec.TraitOverrides[instanceName]; ok {
-			envOverrides, err = extractParameters(&instanceOverride)
+			envConfigs, err = extractParameters(&instanceOverride)
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to extract trait environment overrides: %w", err)
+				return nil, nil, fmt.Errorf("failed to extract trait environment configs: %w", err)
 			}
 		} else {
-			envOverrides = make(map[string]any)
+			envConfigs = make(map[string]any)
 		}
 	} else {
-		envOverrides = make(map[string]any)
+		envConfigs = make(map[string]any)
 	}
 
 	// Prune against schema, apply defaults, and validate
-	if envOverridesBundle != nil {
-		pruning.Prune(envOverrides, envOverridesBundle.Structural, false)
-		envOverrides = schema.ApplyDefaults(envOverrides, envOverridesBundle.Structural)
-		if err := schema.ValidateWithJSONSchema(envOverrides, envOverridesBundle.JSONSchema); err != nil {
-			return nil, nil, fmt.Errorf("envOverrides validation failed: %w", err)
+	if envConfigsBundle != nil {
+		pruning.Prune(envConfigs, envConfigsBundle.Structural, false)
+		envConfigs = schema.ApplyDefaults(envConfigs, envConfigsBundle.Structural)
+		if err := schema.ValidateWithJSONSchema(envConfigs, envConfigsBundle.JSONSchema); err != nil {
+			return nil, nil, fmt.Errorf("environmentConfigs validation failed: %w", err)
 		}
 	} else {
-		// No envOverrides schema defined - discard all envOverrides
-		envOverrides = make(map[string]any)
+		// No environmentConfigs schema defined - discard all environmentConfigs
+		envConfigs = make(map[string]any)
 	}
 
-	return parameters, envOverrides, nil
+	return parameters, envConfigs, nil
 }
 
 // getCachedSchemaBundle retrieves a schema bundle from the cache

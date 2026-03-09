@@ -5,14 +5,18 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime" //nolint:staticcheck // runtime is used by TraitCreate, TraitPatch, JSONPatchOperation
 )
 
 // TraitSpec defines the desired state of Trait.
 type TraitSpec struct {
-	// Schema defines trait parameters
+	// Parameters defines developer-facing configuration options for this trait.
 	// +optional
-	Schema TraitSchema `json:"schema,omitempty"`
+	Parameters *SchemaSection `json:"parameters,omitempty"`
+
+	// EnvironmentConfigs defines per-environment configurations for this trait via ReleaseBinding.
+	// +optional
+	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
 
 	// Validations are CEL-based rules evaluated during rendering.
 	// All rules must evaluate to true for rendering to proceed.
@@ -62,64 +66,6 @@ type TraitCreate struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Template *runtime.RawExtension `json:"template"`
-}
-
-// TraitOCSchema holds the OpenChoreo simple schema fields for a Trait.
-type TraitOCSchema struct {
-	// Types defines reusable type definitions that can be referenced in schema fields
-	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Type=object
-	Types *runtime.RawExtension `json:"types,omitempty"`
-
-	// Parameters are developer-facing configuration options.
-	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Type=object
-	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
-
-	// EnvOverrides can be overridden per environment via ReleaseBinding.
-	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Type=object
-	EnvOverrides *runtime.RawExtension `json:"envOverrides,omitempty"`
-}
-
-// TraitSchema defines the configurable parameters for a trait.
-// Uses the ocSchema sub-struct for OpenChoreo simple schema format.
-type TraitSchema struct {
-	// OCSchema defines the schema using OpenChoreo's simple schema format.
-	// +optional
-	OCSchema *TraitOCSchema `json:"ocSchema,omitempty"`
-}
-
-// GetTypes returns the types raw extension.
-func (s *TraitSchema) GetTypes() *runtime.RawExtension {
-	if s.OCSchema != nil {
-		return s.OCSchema.Types
-	}
-	return nil
-}
-
-// GetParameters returns the parameters raw extension.
-func (s *TraitSchema) GetParameters() *runtime.RawExtension {
-	if s.OCSchema != nil {
-		return s.OCSchema.Parameters
-	}
-	return nil
-}
-
-// GetEnvOverrides returns the envOverrides raw extension.
-func (s *TraitSchema) GetEnvOverrides() *runtime.RawExtension {
-	if s.OCSchema != nil {
-		return s.OCSchema.EnvOverrides
-	}
-	return nil
-}
-
-// IsOpenAPIV3 returns true if the schema uses OpenAPI V3 Schema format.
-func (s *TraitSchema) IsOpenAPIV3() bool {
-	return false
 }
 
 // TraitPatch defines a modification to an existing resource

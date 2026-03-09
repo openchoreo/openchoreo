@@ -84,7 +84,7 @@ spec:
 
   environment: development
 
-  componentTypeEnvOverrides:
+  componentTypeEnvironmentConfigs:
     schedule: "*/5 * * * *"  # Run every 5 minutes in development
     resources:
       requests:

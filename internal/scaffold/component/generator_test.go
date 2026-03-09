@@ -211,27 +211,18 @@ func validateGeneratedOutput(t *testing.T, generated string, componentType *core
 func validateComponentParameters(t *testing.T, params map[string]any, componentType *corev1alpha1.ComponentType) {
 	t.Helper()
 
-	if componentType.Spec.Schema.GetParameters() == nil {
+	if componentType.Spec.Parameters.GetRaw() == nil {
 		return
 	}
 
 	// Convert schema to JSONSchema
-	paramsMap, err := rawExtensionToMap(componentType.Spec.Schema.GetParameters())
+	paramsMap, err := rawExtensionToMap(componentType.Spec.Parameters.GetRaw())
 	if err != nil {
 		t.Fatalf("failed to convert ComponentType parameters: %v", err)
 	}
 
-	var typesMap map[string]any
-	if componentType.Spec.Schema.GetTypes() != nil {
-		typesMap, err = rawExtensionToMap(componentType.Spec.Schema.GetTypes())
-		if err != nil {
-			t.Fatalf("failed to convert ComponentType types: %v", err)
-		}
-	}
-
 	def := schema.Definition{
 		Schemas: []map[string]any{paramsMap},
-		Types:   typesMap,
 	}
 
 	jsonSchema, err := schema.ToJSONSchema(def)
@@ -265,7 +256,7 @@ func validateTraitParameters(t *testing.T, traitsSection []any, traits []*corev1
 
 		traitName, _ := traitInstance["name"].(string)
 		trait, exists := traitMap[traitName]
-		if !exists || trait.Spec.Schema.GetParameters() == nil {
+		if !exists || trait.Spec.Parameters.GetRaw() == nil {
 			continue
 		}
 
@@ -275,22 +266,13 @@ func validateTraitParameters(t *testing.T, traitsSection []any, traits []*corev1
 		}
 
 		// Convert trait schema to JSONSchema
-		paramsMap, err := rawExtensionToMap(trait.Spec.Schema.GetParameters())
+		paramsMap, err := rawExtensionToMap(trait.Spec.Parameters.GetRaw())
 		if err != nil {
 			t.Fatalf("failed to convert Trait %s parameters: %v", traitName, err)
 		}
 
-		var typesMap map[string]any
-		if trait.Spec.Schema.GetTypes() != nil {
-			typesMap, err = rawExtensionToMap(trait.Spec.Schema.GetTypes())
-			if err != nil {
-				t.Fatalf("failed to convert Trait %s types: %v", traitName, err)
-			}
-		}
-
 		def := schema.Definition{
 			Schemas: []map[string]any{paramsMap},
-			Types:   typesMap,
 		}
 
 		jsonSchema, err := schema.ToJSONSchema(def)
@@ -310,7 +292,7 @@ func validateTraitParameters(t *testing.T, traitsSection []any, traits []*corev1
 func validateWorkflowParameters(t *testing.T, workflowSection map[string]any, workflow *corev1alpha1.Workflow) {
 	t.Helper()
 
-	if workflow.Spec.Schema.GetParameters() == nil {
+	if workflow.Spec.Parameters.GetRaw() == nil {
 		return
 	}
 
@@ -320,22 +302,13 @@ func validateWorkflowParameters(t *testing.T, workflowSection map[string]any, wo
 	}
 
 	// Convert workflow schema to JSONSchema
-	paramsMap, err := rawExtensionToMap(workflow.Spec.Schema.GetParameters())
+	paramsMap, err := rawExtensionToMap(workflow.Spec.Parameters.GetRaw())
 	if err != nil {
 		t.Fatalf("failed to convert Workflow parameters: %v", err)
 	}
 
-	var typesMap map[string]any
-	if workflow.Spec.Schema.GetTypes() != nil {
-		typesMap, err = rawExtensionToMap(workflow.Spec.Schema.GetTypes())
-		if err != nil {
-			t.Fatalf("failed to convert Workflow types: %v", err)
-		}
-	}
-
 	def := schema.Definition{
 		Schemas: []map[string]any{paramsMap},
-		Types:   typesMap,
 	}
 
 	jsonSchema, err := schema.ToJSONSchema(def)

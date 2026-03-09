@@ -21,9 +21,9 @@ import (
 func ValidateComponentTypeResourcesWithSchema(
 	ct *v1alpha1.ComponentType,
 	parametersSchema *apiextschema.Structural,
-	envOverridesSchema *apiextschema.Structural,
+	environmentConfigsSchema *apiextschema.Structural,
 ) field.ErrorList {
-	return validateResourcesWithSchema(ct.Spec.Resources, ct.Spec.Validations, parametersSchema, envOverridesSchema)
+	return validateResourcesWithSchema(ct.Spec.Resources, ct.Spec.Validations, parametersSchema, environmentConfigsSchema)
 }
 
 // ValidateResourceTemplate validates a single resource template including forEach handling
@@ -269,9 +269,9 @@ func containsCELExpression(str string) bool {
 func ValidateClusterComponentTypeResourcesWithSchema(
 	cct *v1alpha1.ClusterComponentType,
 	parametersSchema *apiextschema.Structural,
-	envOverridesSchema *apiextschema.Structural,
+	environmentConfigsSchema *apiextschema.Structural,
 ) field.ErrorList {
-	return validateResourcesWithSchema(cct.Spec.Resources, cct.Spec.Validations, parametersSchema, envOverridesSchema)
+	return validateResourcesWithSchema(cct.Spec.Resources, cct.Spec.Validations, parametersSchema, environmentConfigsSchema)
 }
 
 // validateResourcesWithSchema validates resource templates and validation rules with schema-aware CEL type checking.
@@ -280,19 +280,19 @@ func ValidateClusterComponentTypeResourcesWithSchema(
 //   - resources: Resource templates to validate
 //   - validations: CEL validation rules to validate (may be nil)
 //   - parametersSchema: Structural schema for parameters (nil uses DynType)
-//   - envOverridesSchema: Structural schema for envOverrides (nil uses DynType)
+//   - environmentConfigsSchema: Structural schema for environmentConfigs (nil uses DynType)
 func validateResourcesWithSchema(
 	resources []v1alpha1.ResourceTemplate,
 	validations []v1alpha1.ValidationRule,
 	parametersSchema *apiextschema.Structural,
-	envOverridesSchema *apiextschema.Structural,
+	environmentConfigsSchema *apiextschema.Structural,
 ) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Create schema-aware validator for component context
 	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
-		ParametersSchema:   parametersSchema,
-		EnvOverridesSchema: envOverridesSchema,
+		ParametersSchema:         parametersSchema,
+		EnvironmentConfigsSchema: environmentConfigsSchema,
 	})
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(

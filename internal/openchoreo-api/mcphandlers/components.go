@@ -189,12 +189,12 @@ func (h *MCPHandler) PatchReleaseBinding(
 	if req.Environment != "" && req.Environment != rb.Spec.Environment {
 		return nil, fmt.Errorf("release binding environment is immutable")
 	}
-	if req.ComponentTypeEnvOverrides != nil {
-		overrideBytes, err := json.Marshal(*req.ComponentTypeEnvOverrides)
+	if req.ComponentTypeEnvironmentConfigs != nil {
+		overrideBytes, err := json.Marshal(*req.ComponentTypeEnvironmentConfigs)
 		if err != nil {
 			return nil, err
 		}
-		rb.Spec.ComponentTypeEnvOverrides = &runtime.RawExtension{Raw: overrideBytes}
+		rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: overrideBytes}
 	}
 	if req.TraitOverrides != nil {
 		traitOverrides := make(map[string]runtime.RawExtension, len(*req.TraitOverrides))

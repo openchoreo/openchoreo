@@ -19,22 +19,22 @@ import (
 //
 // Parameters:
 //   - trait: The Trait to validate
-//   - parametersSchema: Structural schema for parameters (from Trait.Schema.Parameters)
-//   - envOverridesSchema: Structural schema for envOverrides (from Trait.Schema.EnvOverrides)
+//   - parametersSchema: Structural schema for parameters (from Trait.Spec.Parameters schema)
+//   - environmentConfigsSchema: Structural schema for environmentConfigs (from Trait.Spec.EnvironmentConfigs schema)
 //
 // If schemas are nil, DynType will be used for those variables (no static type checking).
 // This provides better error messages by catching type errors at validation time.
 func ValidateTraitCreatesAndPatchesWithSchema(
 	trait *v1alpha1.Trait,
 	parametersSchema *apiextschema.Structural,
-	envOverridesSchema *apiextschema.Structural,
+	environmentConfigsSchema *apiextschema.Structural,
 ) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Create schema-aware validator for trait context
 	validator, err := NewCELValidator(TraitResource, SchemaOptions{
-		ParametersSchema:   parametersSchema,
-		EnvOverridesSchema: envOverridesSchema,
+		ParametersSchema:         parametersSchema,
+		EnvironmentConfigsSchema: environmentConfigsSchema,
 	})
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(
@@ -73,14 +73,14 @@ func ValidateTraitCreatesAndPatchesWithSchema(
 func ValidateClusterTraitCreatesAndPatchesWithSchema(
 	ct *v1alpha1.ClusterTrait,
 	parametersSchema *apiextschema.Structural,
-	envOverridesSchema *apiextschema.Structural,
+	environmentConfigsSchema *apiextschema.Structural,
 ) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Create schema-aware validator for trait context
 	validator, err := NewCELValidator(TraitResource, SchemaOptions{
-		ParametersSchema:   parametersSchema,
-		EnvOverridesSchema: envOverridesSchema,
+		ParametersSchema:         parametersSchema,
+		EnvironmentConfigsSchema: environmentConfigsSchema,
 	})
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(

@@ -96,6 +96,38 @@ spec:
                   - name
                   type: object
                 type: array
+              environmentConfigs:
+                description: EnvironmentConfigs defines per-environment overrides
+                  developers can set via ReleaseBinding.
+                properties:
+                  ocSchema:
+                    description: |-
+                      OCSchema defines the schema using OpenChoreo's simple schema format.
+                      The blob may contain a "$types" key for reusable type definitions scoped to this section.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  openAPIV3Schema:
+                    description: OpenAPIV3Schema defines the schema using standard
+                      OpenAPI V3 / JSON Schema format.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
+              parameters:
+                description: Parameters defines what developers can configure when
+                  creating components of this type.
+                properties:
+                  ocSchema:
+                    description: |-
+                      OCSchema defines the schema using OpenChoreo's simple schema format.
+                      The blob may contain a "$types" key for reusable type definitions scoped to this section.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  openAPIV3Schema:
+                    description: OpenAPIV3Schema defines the schema using standard
+                      OpenAPI V3 / JSON Schema format.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
               resources:
                 description: |-
                   Resources are templates that generate Kubernetes resources dynamically.
@@ -155,31 +187,6 @@ spec:
                     rule: '!has(self.forEach) || has(self.var)'
                 minItems: 1
                 type: array
-              schema:
-                description: Schema defines what developers can configure when creating
-                  components of this type
-                properties:
-                  ocSchema:
-                    description: OCSchema defines the schema using OpenChoreo's simple
-                      schema format.
-                    properties:
-                      envOverrides:
-                        description: EnvOverrides can be overridden per environment
-                          via ReleaseBinding
-                        type: object
-                        x-kubernetes-preserve-unknown-fields: true
-                      parameters:
-                        description: Parameters are static across environments and
-                          exposed as inputs to developers
-                        type: object
-                        x-kubernetes-preserve-unknown-fields: true
-                      types:
-                        description: Types defines reusable type definitions that
-                          can be referenced in schema fields
-                        type: object
-                        x-kubernetes-preserve-unknown-fields: true
-                    type: object
-                type: object
               traits:
                 description: |-
                   Traits are pre-configured trait instances embedded in the ComponentType.
@@ -192,12 +199,12 @@ spec:
                     The PE binds trait parameters using concrete values (locked) or CEL expressions
                     referencing the ComponentType schema (wired to developer-configurable fields).
                   properties:
-                    envOverrides:
+                    environmentConfigs:
                       description: |-
-                        EnvOverrides contains trait environment override bindings.
+                        EnvironmentConfigs contains trait environment config bindings.
                         Values can be concrete (locked by PE) or CEL expressions referencing
                         the ComponentType schema using ${...} syntax.
-                        Example: "${envOverrides.storage.size}" or "local-path" (locked)
+                        Example: "${environmentConfigs.storage.size}" or "local-path" (locked)
                       x-kubernetes-preserve-unknown-fields: true
                     instanceName:
                       description: |-

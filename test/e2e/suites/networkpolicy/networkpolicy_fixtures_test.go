@@ -242,7 +242,7 @@ func componentTypesYAML(cpNamespace string) string {
 			"labels":    "${metadata.labels}",
 		},
 		"spec": map[string]any{
-			"replicas": "${envOverrides.replicas}",
+			"replicas": "${environmentConfigs.replicas}",
 			"selector": map[string]any{
 				"matchLabels": "${metadata.podSelectors}",
 			},
@@ -289,11 +289,11 @@ func componentTypesYAML(cpNamespace string) string {
 				Rule:    "${size(workload.endpoints) > 0}",
 				Message: "e2e-service must have at least one endpoint.",
 			}},
-			Schema: openchoreov1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreov1alpha1.ComponentTypeOCSchema{
-					Parameters:   mustRawExtension(map[string]any{}),
-					EnvOverrides: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
-				},
+			Parameters: &openchoreov1alpha1.SchemaSection{
+				OCSchema: mustRawExtension(map[string]any{}),
+			},
+			EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
+				OCSchema: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
 			},
 			Resources: []openchoreov1alpha1.ResourceTemplate{
 				{ID: "deployment", Template: mustRawExtension(deploymentTemplate)},
@@ -314,11 +314,11 @@ func componentTypesYAML(cpNamespace string) string {
 				Rule:    "${size(workload.endpoints) == 0}",
 				Message: "e2e-worker must not have endpoints.",
 			}},
-			Schema: openchoreov1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreov1alpha1.ComponentTypeOCSchema{
-					Parameters:   mustRawExtension(map[string]any{}),
-					EnvOverrides: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
-				},
+			Parameters: &openchoreov1alpha1.SchemaSection{
+				OCSchema: mustRawExtension(map[string]any{}),
+			},
+			EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
+				OCSchema: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
 			},
 			Resources: []openchoreov1alpha1.ResourceTemplate{
 				{ID: "deployment", Template: mustRawExtension(deploymentTemplate)},

@@ -146,7 +146,7 @@ def create_list_release_bindings_tool(auth: httpx.Auth) -> StructuredTool:
         description=(
             "List release bindings for a component. Returns the full binding spec "
             "including current workloadOverrides, traitOverrides, and "
-            "componentTypeEnvOverrides."
+            "componentTypeEnvironmentConfigs."
         ),
         args_schema=_ListReleaseBindingsInput,
     )

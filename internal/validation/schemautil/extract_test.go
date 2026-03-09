@@ -10,30 +10,30 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-// mockSchemaSource is a test implementation of schema.SchemaSource
+// mockSchemaSource is a test implementation of schema.Source
 type mockSchemaSource struct {
-	types        *runtime.RawExtension
-	parameters   *runtime.RawExtension
-	envOverrides *runtime.RawExtension
+	parameters         *runtime.RawExtension
+	environmentConfigs *runtime.RawExtension
+	openAPIV3          bool
 }
 
-func (m *mockSchemaSource) GetTypes() *runtime.RawExtension      { return m.types }
 func (m *mockSchemaSource) GetParameters() *runtime.RawExtension { return m.parameters }
-func (m *mockSchemaSource) GetEnvOverrides() *runtime.RawExtension {
-	return m.envOverrides
+func (m *mockSchemaSource) GetEnvironmentConfigs() *runtime.RawExtension {
+	return m.environmentConfigs
 }
+func (m *mockSchemaSource) IsOpenAPIV3() bool { return m.openAPIV3 }
 
 func TestExtractStructuralSchemas_ValidSchemas(t *testing.T) {
 	source := &mockSchemaSource{
 		parameters: &runtime.RawExtension{
 			Raw: []byte(`{"replicas": "integer | default=1", "name": "string"}`),
 		},
-		envOverrides: &runtime.RawExtension{
+		environmentConfigs: &runtime.RawExtension{
 			Raw: []byte(`{"environment": "string | default=dev"}`),
 		},
 	}
 
-	basePath := field.NewPath("spec", "schema")
+	basePath := field.NewPath("spec")
 	paramsSchema, envSchema, errs := ExtractStructuralSchemas(source, basePath)
 
 	if len(errs) != 0 {
@@ -43,7 +43,7 @@ func TestExtractStructuralSchemas_ValidSchemas(t *testing.T) {
 		t.Fatal("expected parameters schema to be non-nil")
 	}
 	if envSchema == nil {
-		t.Fatal("expected envOverrides schema to be non-nil")
+		t.Fatal("expected environmentConfigs schema to be non-nil")
 	}
 
 	// Verify parameters schema has the expected properties
@@ -54,23 +54,20 @@ func TestExtractStructuralSchemas_ValidSchemas(t *testing.T) {
 		t.Error("expected name property in parameters schema")
 	}
 
-	// Verify envOverrides schema has the expected properties
+	// Verify environmentConfigs schema has the expected properties
 	if _, ok := envSchema.Properties["environment"]; !ok {
-		t.Error("expected environment property in envOverrides schema")
+		t.Error("expected environment property in environmentConfigs schema")
 	}
 }
 
 func TestExtractStructuralSchemas_WithTypes(t *testing.T) {
 	source := &mockSchemaSource{
-		types: &runtime.RawExtension{
-			Raw: []byte(`{"Port": {"containerPort": "integer", "protocol": "string | default=TCP"}}`),
-		},
 		parameters: &runtime.RawExtension{
-			Raw: []byte(`{"ports": "[]Port"}`),
+			Raw: []byte(`{"$types": {"Port": {"containerPort": "integer", "protocol": "string | default=TCP"}}, "ports": "[]Port"}`),
 		},
 	}
 
-	basePath := field.NewPath("spec", "schema")
+	basePath := field.NewPath("spec")
 	paramsSchema, envSchema, errs := ExtractStructuralSchemas(source, basePath)
 
 	if len(errs) != 0 {
@@ -80,7 +77,7 @@ func TestExtractStructuralSchemas_WithTypes(t *testing.T) {
 		t.Fatal("expected parameters schema to be non-nil")
 	}
 	if envSchema != nil {
-		t.Fatal("expected envOverrides schema to be nil when not provided")
+		t.Fatal("expected environmentConfigs schema to be nil when not provided")
 	}
 
 	// Verify ports array property exists
@@ -92,7 +89,7 @@ func TestExtractStructuralSchemas_WithTypes(t *testing.T) {
 func TestExtractStructuralSchemas_EmptySchemas(t *testing.T) {
 	source := &mockSchemaSource{}
 
-	basePath := field.NewPath("spec", "schema")
+	basePath := field.NewPath("spec")
 	paramsSchema, envSchema, errs := ExtractStructuralSchemas(source, basePath)
 
 	if len(errs) != 0 {
@@ -102,7 +99,7 @@ func TestExtractStructuralSchemas_EmptySchemas(t *testing.T) {
 		t.Fatal("expected parameters schema to be nil when not provided")
 	}
 	if envSchema != nil {
-		t.Fatal("expected envOverrides schema to be nil when not provided")
+		t.Fatal("expected environmentConfigs schema to be nil when not provided")
 	}
 }
 
@@ -113,37 +110,28 @@ func TestExtractStructuralSchemas_InvalidYAML(t *testing.T) {
 		wantPath string
 	}{
 		{
-			name: "invalid types YAML",
-			source: &mockSchemaSource{
-				types: &runtime.RawExtension{
-					Raw: []byte(`{invalid yaml`),
-				},
-			},
-			wantPath: "spec.schema.types",
-		},
-		{
 			name: "invalid parameters YAML",
 			source: &mockSchemaSource{
 				parameters: &runtime.RawExtension{
 					Raw: []byte(`{invalid yaml`),
 				},
 			},
-			wantPath: "spec.schema.parameters",
+			wantPath: "spec.parameters",
 		},
 		{
-			name: "invalid envOverrides YAML",
+			name: "invalid environmentConfigs YAML",
 			source: &mockSchemaSource{
-				envOverrides: &runtime.RawExtension{
+				environmentConfigs: &runtime.RawExtension{
 					Raw: []byte(`{invalid yaml`),
 				},
 			},
-			wantPath: "spec.schema.envOverrides",
+			wantPath: "spec.environmentConfigs",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			basePath := field.NewPath("spec", "schema")
+			basePath := field.NewPath("spec")
 			_, _, errs := ExtractStructuralSchemas(tc.source, basePath)
 
 			if len(errs) == 0 {

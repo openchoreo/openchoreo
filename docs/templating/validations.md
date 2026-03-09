@@ -18,7 +18,7 @@ Validation rules are defined in the `spec.validations` field of ComponentTypes a
 validations:
   - rule: "${size(workload.endpoints) > 0}"
     message: "must expose at least one endpoint"
-  - rule: "${envOverrides.maxReplicas >= envOverrides.minReplicas}"
+  - rule: "${environmentConfigs.maxReplicas >= environmentConfigs.minReplicas}"
     message: "maxReplicas must be greater than or equal to minReplicas"
 ```
 
@@ -35,8 +35,8 @@ Validation rules have access to the same context variables as resource templates
 
 | CRD | Context Type | Available Variables |
 |-----|-------------|---------------------|
-| ComponentType | ComponentContext | `metadata`, `parameters`, `envOverrides`, `dataplane`, `workload`, `configurations` |
-| Trait | TraitContext | `metadata`, `parameters`, `envOverrides`, `dataplane`, `trait`, `workload`, `configurations` |
+| ComponentType | ComponentContext | `metadata`, `parameters`, `environmentConfigs`, `dataplane`, `workload`, `configurations` |
+| Trait | TraitContext | `metadata`, `parameters`, `environmentConfigs`, `dataplane`, `trait`, `workload`, `configurations` |
 
 See [Template Context Variables](./context.md) for full documentation of each variable.
 
@@ -88,10 +88,11 @@ kind: Trait
 metadata:
   name: websocket-config
 spec:
-  schema:
-    parameters:
+  parameters:
+    ocSchema:
       endpointName: "string"
-    envOverrides:
+  environmentConfigs:
+    ocSchema:
       maxConnectionsPerPod: "integer | default=1000"
   validations:
     - rule: "${parameters.endpointName in workload.endpoints && workload.endpoints[parameters.endpointName].type == 'Websocket'}"
@@ -110,10 +111,10 @@ spec:
   validations:
     - rule: "${size(workload.endpoints) > 0}"
       message: "Must expose at least one endpoint."
-    - rule: "${envOverrides.maxReplicas >= envOverrides.minReplicas}"
+    - rule: "${environmentConfigs.maxReplicas >= environmentConfigs.minReplicas}"
       message: "maxReplicas must be greater than or equal to minReplicas."
-  schema:
-    envOverrides:
+  environmentConfigs:
+    ocSchema:
       minReplicas: "integer | default=1 | minimum=1"
       maxReplicas: "integer | default=3 | minimum=1"
 ```
@@ -136,11 +137,11 @@ Multiple failures from the same `validations` list are joined with `; `.
 
 ## Evaluation Order
 
-1. Schema defaults are applied to parameters and envOverrides
+1. Schema defaults are applied to parameters and environmentConfigs
 2. **ComponentType validation rules** are evaluated using the full ComponentContext
 3. Base resources are rendered from ComponentType templates
 4. For each trait:
-   a. Trait context is built with trait-specific parameters and envOverrides
+   a. Trait context is built with trait-specific parameters and environmentConfigs
    b. **Trait validation rules** are evaluated using the TraitContext
    c. Trait creates and patches are processed
 

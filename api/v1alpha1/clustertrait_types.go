@@ -9,9 +9,13 @@ import (
 
 // ClusterTraitSpec defines the desired state of ClusterTrait.
 type ClusterTraitSpec struct {
-	// Schema defines trait parameters
+	// Parameters defines developer-facing configuration options for this trait.
 	// +optional
-	Schema TraitSchema `json:"schema,omitempty"`
+	Parameters *SchemaSection `json:"parameters,omitempty"`
+
+	// EnvironmentConfigs defines per-environment configurations for this trait via ReleaseBinding.
+	// +optional
+	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
 
 	// Validations are CEL-based rules evaluated during rendering.
 	// All rules must evaluate to true for rendering to proceed.

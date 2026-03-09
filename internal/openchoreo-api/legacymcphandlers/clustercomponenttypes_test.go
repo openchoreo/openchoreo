@@ -221,10 +221,8 @@ func TestMCPGetClusterComponentTypeSchema(t *testing.T) {
 					Spec: v1alpha1.ClusterComponentTypeSpec{
 						WorkloadType: "deployment",
 						Resources:    []v1alpha1.ResourceTemplate{{ID: "deployment"}},
-						Schema: v1alpha1.ComponentTypeSchema{
-							OCSchema: &v1alpha1.ComponentTypeOCSchema{
-								Parameters: &runtime.RawExtension{Raw: paramsRaw},
-							},
+						Parameters: &v1alpha1.SchemaSection{
+							OCSchema: &runtime.RawExtension{Raw: paramsRaw},
 						},
 					},
 				},

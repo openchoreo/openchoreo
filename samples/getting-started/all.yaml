@@ -122,22 +122,18 @@ spec:
     - rule: "${size(workload.endpoints) == 0}"
       message: "Worker components must not have endpoints. Use 'deployment/service' for components with endpoints."
 
-  schema:
+  environmentConfigs:
     ocSchema:
-      types:
+      $types:
         ResourceRequirements:
           requests: "ResourceQuantity | default={}"
           limits: "ResourceQuantity | default={}"
         ResourceQuantity:
           cpu: "string | default=100m"
           memory: "string | default=256Mi"
-
-      parameters: {}
-
-      envOverrides:
-        replicas: "integer | default=1"
-        resources: "ResourceRequirements | default={}"
-        imagePullPolicy: "string | default=IfNotPresent"
+      replicas: "integer | default=1"
+      resources: "ResourceRequirements | default={}"
+      imagePullPolicy: "string | default=IfNotPresent"
 
   resources:
     - id: deployment
@@ -149,7 +145,7 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
-          replicas: ${envOverrides.replicas}
+          replicas: ${environmentConfigs.replicas}
           selector:
             matchLabels: ${metadata.podSelectors}
           template:
@@ -159,18 +155,18 @@ spec:
               containers:
                 - name: main
                   image: ${workload.container.image}
-                  imagePullPolicy: ${envOverrides.imagePullPolicy}
+                  imagePullPolicy: ${environmentConfigs.imagePullPolicy}
                   command: |
                     ${has(workload.container.command) ? workload.container.command : oc_omit()}
                   args: |
                     ${has(workload.container.args) ? workload.container.args : oc_omit()}
                   resources:
                     requests:
-                      cpu: ${envOverrides.resources.requests.cpu}
-                      memory: ${envOverrides.resources.requests.memory}
+                      cpu: ${environmentConfigs.resources.requests.cpu}
+                      memory: ${environmentConfigs.resources.requests.memory}
                     limits:
-                      cpu: ${envOverrides.resources.limits.cpu}
-                      memory: ${envOverrides.resources.limits.memory}
+                      cpu: ${environmentConfigs.resources.limits.cpu}
+                      memory: ${environmentConfigs.resources.limits.memory}
                   env: ${connections.toContainerEnv()}
                   envFrom: ${configurations.toContainerEnvFrom()}
                   volumeMounts: ${configurations.toContainerVolumeMounts()}
@@ -275,22 +271,18 @@ spec:
     - rule: "${size(workload.endpoints) > 0}"
       message: "Service components must have at least one endpoint. Use 'deployment/worker' for components without endpoints."
 
-  schema:
+  environmentConfigs:
     ocSchema:
-      types:
+      $types:
         ResourceRequirements:
           requests: "ResourceQuantity | default={}"
           limits: "ResourceQuantity | default={}"
         ResourceQuantity:
           cpu: "string | default=100m"
           memory: "string | default=256Mi"
-
-      parameters: {}
-
-      envOverrides:
-        replicas: "integer | default=1"
-        resources: "ResourceRequirements | default={}"
-        imagePullPolicy: "string | default=IfNotPresent"
+      replicas: "integer | default=1"
+      resources: "ResourceRequirements | default={}"
+      imagePullPolicy: "string | default=IfNotPresent"
 
   resources:
     - id: deployment
@@ -302,7 +294,7 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
-          replicas: ${envOverrides.replicas}
+          replicas: ${environmentConfigs.replicas}
           selector:
             matchLabels: ${metadata.podSelectors}
           template:
@@ -312,18 +304,18 @@ spec:
               containers:
                 - name: main
                   image: ${workload.container.image}
-                  imagePullPolicy: ${envOverrides.imagePullPolicy}
+                  imagePullPolicy: ${environmentConfigs.imagePullPolicy}
                   command: |
                     ${has(workload.container.command) ? workload.container.command : oc_omit()}
                   args: |
                     ${has(workload.container.args) ? workload.container.args : oc_omit()}
                   resources:
                     requests:
-                      cpu: ${envOverrides.resources.requests.cpu}
-                      memory: ${envOverrides.resources.requests.memory}
+                      cpu: ${environmentConfigs.resources.requests.cpu}
+                      memory: ${environmentConfigs.resources.requests.memory}
                     limits:
-                      cpu: ${envOverrides.resources.limits.cpu}
-                      memory: ${envOverrides.resources.limits.memory}
+                      cpu: ${environmentConfigs.resources.limits.cpu}
+                      memory: ${environmentConfigs.resources.limits.memory}
                   env: ${connections.toContainerEnv()}
                   envFrom: ${configurations.toContainerEnvFrom()}
                   volumeMounts: ${configurations.toContainerVolumeMounts()}
@@ -503,22 +495,18 @@ spec:
     - rule: "${workload.endpoints.exists(name, endpoint, endpoint.type == 'HTTP')}"
       message: "Web-application components must have at least one HTTP."
 
-  schema:
+  environmentConfigs:
     ocSchema:
-      types:
+      $types:
         ResourceRequirements:
           requests: "ResourceQuantity | default={}"
           limits: "ResourceQuantity | default={}"
         ResourceQuantity:
           cpu: "string | default=100m"
           memory: "string | default=256Mi"
-
-      parameters: {}
-
-      envOverrides:
-        replicas: "integer | default=1"
-        resources: "ResourceRequirements | default={}"
-        imagePullPolicy: "string | default=IfNotPresent"
+      replicas: "integer | default=1"
+      resources: "ResourceRequirements | default={}"
+      imagePullPolicy: "string | default=IfNotPresent"
 
   resources:
     - id: deployment
@@ -530,7 +518,7 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
-          replicas: ${envOverrides.replicas}
+          replicas: ${environmentConfigs.replicas}
           selector:
             matchLabels: ${metadata.podSelectors}
           template:
@@ -540,18 +528,18 @@ spec:
               containers:
                 - name: main
                   image: ${workload.container.image}
-                  imagePullPolicy: ${envOverrides.imagePullPolicy}
+                  imagePullPolicy: ${environmentConfigs.imagePullPolicy}
                   command: |
                     ${has(workload.container.command) ? workload.container.command : oc_omit()}
                   args: |
                     ${has(workload.container.args) ? workload.container.args : oc_omit()}
                   resources:
                     requests:
-                      cpu: ${envOverrides.resources.requests.cpu}
-                      memory: ${envOverrides.resources.requests.memory}
+                      cpu: ${environmentConfigs.resources.requests.cpu}
+                      memory: ${environmentConfigs.resources.requests.memory}
                     limits:
-                      cpu: ${envOverrides.resources.limits.cpu}
-                      memory: ${envOverrides.resources.limits.memory}
+                      cpu: ${environmentConfigs.resources.limits.cpu}
+                      memory: ${environmentConfigs.resources.limits.memory}
                   env: ${connections.toContainerEnv()}
                   envFrom: ${configurations.toContainerEnvFrom()}
                   volumeMounts: ${configurations.toContainerVolumeMounts()}
@@ -706,28 +694,27 @@ spec:
 
   allowedTraits: []
 
-  schema:
+  parameters:
     ocSchema:
-      types:
+      successfulJobsHistoryLimit: "integer | default=3"
+      failedJobsHistoryLimit: "integer | default=1"
+      concurrencyPolicy: "string | default=Forbid"
+      backoffLimit: "integer | default=3"
+      activeDeadlineSeconds: "integer | default=300"
+      restartPolicy: "string | default=OnFailure"
+
+  environmentConfigs:
+    ocSchema:
+      $types:
         ResourceRequirements:
           requests: "ResourceQuantity | default={}"
           limits: "ResourceQuantity | default={}"
         ResourceQuantity:
           cpu: "string | default=100m"
           memory: "string | default=128Mi"
-
-      parameters:
-        successfulJobsHistoryLimit: "integer | default=3"
-        failedJobsHistoryLimit: "integer | default=1"
-        concurrencyPolicy: "string | default=Forbid"
-        backoffLimit: "integer | default=3"
-        activeDeadlineSeconds: "integer | default=300"
-        restartPolicy: "string | default=OnFailure"
-
-      envOverrides:
-        schedule: 'string | default="0 0 31 2 *"'
-        resources: "ResourceRequirements | default={}"
-        imagePullPolicy: "string | default=IfNotPresent"
+      schedule: 'string | default="0 0 31 2 *"'
+      resources: "ResourceRequirements | default={}"
+      imagePullPolicy: "string | default=IfNotPresent"
 
   resources:
     - id: cronjob
@@ -739,7 +726,7 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
-          schedule: ${envOverrides.schedule}
+          schedule: ${environmentConfigs.schedule}
           successfulJobsHistoryLimit: ${parameters.successfulJobsHistoryLimit}
           failedJobsHistoryLimit: ${parameters.failedJobsHistoryLimit}
           concurrencyPolicy: ${parameters.concurrencyPolicy}
@@ -757,18 +744,18 @@ spec:
                   containers:
                     - name: main
                       image: ${workload.container.image}
-                      imagePullPolicy: ${envOverrides.imagePullPolicy}
+                      imagePullPolicy: ${environmentConfigs.imagePullPolicy}
                       command: |
                         ${has(workload.container.command) ? workload.container.command : oc_omit()}
                       args: |
                         ${has(workload.container.args) ? workload.container.args : oc_omit()}
                       resources:
                         requests:
-                          cpu: ${envOverrides.resources.requests.cpu}
-                          memory: ${envOverrides.resources.requests.memory}
+                          cpu: ${environmentConfigs.resources.requests.cpu}
+                          memory: ${environmentConfigs.resources.requests.memory}
                         limits:
-                          cpu: ${envOverrides.resources.limits.cpu}
-                          memory: ${envOverrides.resources.limits.memory}
+                          cpu: ${environmentConfigs.resources.limits.cpu}
+                          memory: ${environmentConfigs.resources.limits.memory}
                       env: ${connections.toContainerEnv()}
                       envFrom: ${configurations.toContainerEnvFrom()}
                       volumeMounts: ${configurations.toContainerVolumeMounts()}
@@ -866,19 +853,18 @@ spec:
     kind: BuildPlane
     name: default
   ttlAfterCompletion: "1d"
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        repository:
-          url: string | description="Git repository URL"
-          secretRef: string | default="" description="Secret reference name for Git credentials"
-          revision:
-            branch: string | default=main description="Git branch to checkout"
-            commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
-          appPath: string | default=. description="Path to the application directory within the repository"
-        docker:
-          context: string | default=. description="Docker build context path relative to the repository root"
-          filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
+      repository:
+        url: string | description="Git repository URL"
+        secretRef: string | default="" description="Secret reference name for Git credentials"
+        revision:
+          branch: string | default=main description="Git branch to checkout"
+          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
+        appPath: string | default=. description="Path to the application directory within the repository"
+      docker:
+        context: string | default=. description="Docker build context path relative to the repository root"
+        filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -1041,17 +1027,16 @@ spec:
     kind: BuildPlane
     name: default
   ttlAfterCompletion: "1d"
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        repository:
-          url: string | description="Git repository URL"
-          secretRef: string | default="" description="Secret reference name for Git credentials"
-          revision:
-            branch: string | default=main description="Git branch to checkout"
-            commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
-          appPath: string | default=. description="Path to the React application directory within the repository"
-        nodeVersion: string | default="18" enum=16,18,20,22 description="Node.js version to use for building the React application"
+      repository:
+        url: string | description="Git repository URL"
+        secretRef: string | default="" description="Secret reference name for Git credentials"
+        revision:
+          branch: string | default=main description="Git branch to checkout"
+          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
+        appPath: string | default=. description="Path to the React application directory within the repository"
+      nodeVersion: string | default="18" enum=16,18,20,22 description="Node.js version to use for building the React application"
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
@@ -1213,16 +1198,15 @@ spec:
     kind: BuildPlane
     name: default
   ttlAfterCompletion: "1d"
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        repository:
-          url: string | description="Git repository URL"
-          secretRef: string | default="" description="Secret reference name for Git credentials"
-          revision:
-            branch: string | default=main description="Git branch to checkout"
-            commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
-          appPath: string | default=. description="Path to the Ballerina application directory within the repository"
+      repository:
+        url: string | description="Git repository URL"
+        secretRef: string | default="" description="Secret reference name for Git credentials"
+        revision:
+          branch: string | default=main description="Git branch to checkout"
+          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
+        appPath: string | default=. description="Path to the Ballerina application directory within the repository"
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
@@ -1382,16 +1366,15 @@ spec:
     kind: BuildPlane
     name: default
   ttlAfterCompletion: "1d"
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        repository:
-          url: string | description="Git repository URL"
-          secretRef: string | default="" description="Secret reference name for Git credentials"
-          revision:
-            branch: string | default=main description="Git branch to checkout"
-            commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
-          appPath: string | default=. description="Path to the application directory within the repository"
+      repository:
+        url: string | description="Git repository URL"
+        secretRef: string | default="" description="Secret reference name for Git credentials"
+        revision:
+          branch: string | default=main description="Git branch to checkout"
+          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
+        appPath: string | default=. description="Path to the application directory within the repository"
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
@@ -1538,17 +1521,16 @@ metadata:
   name: api-configuration
   namespace: default
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        apiName: "string"
-        apiVersion: "string | default=v1.0"
-        context: "string"
-        upstreamPort: "integer | default=80"
-        operations:
-          'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
-        policies:
-          "array<map<string>> | default=[]"
+      apiName: "string"
+      apiVersion: "string | default=v1.0"
+      context: "string"
+      upstreamPort: "integer | default=80"
+      operations:
+        'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
+      policies:
+        "array<map<string>> | default=[]"
 
   creates:
     - template:
@@ -1608,36 +1590,36 @@ metadata:
   name: observability-alert-rule
   namespace: default
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        # Developer-facing parameters - static across environments
-        description: "string | description=\"A human-readable description of what this alert rule monitors and when it triggers.\""
-        severity: "string | enum=info,warning,critical | default=warning | description=\"The severity level of alerts triggered by this rule. Determines alert priority and notification urgency.\""
-        source:
-          type: "string | enum=log,metric | description=\"The data source type for the alert rule.\""
-          query: "string | default=\"\" | description=\"The query expression for log-based alerts. Required when source type is 'log'.\""
-          metric: "string | default=\"\" | description=\"The predefined metric to monitor for metric-based alerts. Must be one of: cpu_usage, memory_usage. Required when source type is 'metric'.\""
-        condition:
-          window: "string | default=5m | description=\"The time window over which data is aggregated before evaluating the alert condition (e.g. 5m, 10m, 30m, 1h).\""
-          interval: "string | default=1m | description=\"The frequency at which the alert rule is evaluated (e.g. 1m, 5m, 15m, 30m).\""
-          operator: "string | enum=gt,lt,gte,lte,eq | default=gt | description=\"The comparison operator used to evaluate the condition against the threshold (gt: greater than, lt: less than, gte: greater than or equal, lte: less than or equal, eq: equal).\""
-          threshold: "integer | default=10 | description=\"The numeric threshold value used with the operator to determine when the alert triggers.\""
+      # Developer-facing parameters - static across environments
+      description: "string | description=\"A human-readable description of what this alert rule monitors and when it triggers.\""
+      severity: "string | enum=info,warning,critical | default=warning | description=\"The severity level of alerts triggered by this rule. Determines alert priority and notification urgency.\""
+      source:
+        type: "string | enum=log,metric | description=\"The data source type for the alert rule.\""
+        query: "string | default=\"\" | description=\"The query expression for log-based alerts. Required when source type is 'log'.\""
+        metric: "string | default=\"\" | description=\"The predefined metric to monitor for metric-based alerts. Must be one of: cpu_usage, memory_usage. Required when source type is 'metric'.\""
+      condition:
+        window: "string | default=5m | description=\"The time window over which data is aggregated before evaluating the alert condition (e.g. 5m, 10m, 30m, 1h).\""
+        interval: "string | default=1m | description=\"The frequency at which the alert rule is evaluated (e.g. 1m, 5m, 15m, 30m).\""
+        operator: "string | enum=gt,lt,gte,lte,eq | default=gt | description=\"The comparison operator used to evaluate the condition against the threshold (gt: greater than, lt: less than, gte: greater than or equal, lte: less than or equal, eq: equal).\""
+        threshold: "integer | default=10 | description=\"The numeric threshold value used with the operator to determine when the alert triggers.\""
 
-      envOverrides:
-        # Platform engineers can override per environment
-        enabled: "boolean | default=true | description=\"Controls whether this alert rule is active. When disabled, the rule will not trigger alerts.\""
-        actions:
-          notifications:
-            channels: "[]string | default=[] | description=\"The notification channel identifiers where alerts should be delivered. Configured per environment by platform engineers. If not provided, defaults to the environment's default notification channel.\""
-          incident:
-            enabled: "boolean | default=false | description=\"Enables incident creation when this alert fires. When enabled, a corresponding incident will be created in the incident management system.\""
-            triggerAiRca: "boolean | default=false | description=\"Enables AI-powered root cause analysis when an incident is created. When enabled, provides automated reports of root causes for alert conditions. Requires incident.enabled to also be true.\""
+  environmentConfigs:
+    ocSchema:
+      # Platform engineers can override per environment
+      enabled: "boolean | default=true | description=\"Controls whether this alert rule is active. When disabled, the rule will not trigger alerts.\""
+      actions:
+        notifications:
+          channels: "[]string | default=[] | description=\"The notification channel identifiers where alerts should be delivered. Configured per environment by platform engineers. If not provided, defaults to the environment's default notification channel.\""
+        incident:
+          enabled: "boolean | default=false | description=\"Enables incident creation when this alert fires. When enabled, a corresponding incident will be created in the incident management system.\""
+          triggerAiRca: "boolean | default=false | description=\"Enables AI-powered root cause analysis when an incident is created. When enabled, provides automated reports of root causes for alert conditions. Requires incident.enabled to also be true.\""
 
   validations:
-    - rule: "${(has(envOverrides.actions) && has(envOverrides.actions.notifications) && envOverrides.actions.notifications.channels.size() > 0) || (has(environment.defaultNotificationChannel) && environment.defaultNotificationChannel != '')}"
-      message: "A notification channel is mandatory for alert rules (incident-only rules are not supported). Provide envOverrides.actions.notifications.channels or set environment.defaultNotificationChannel."
-    - rule: "${!has(envOverrides.actions) || !has(envOverrides.actions.incident) || envOverrides.actions.incident.triggerAiRca == false || envOverrides.actions.incident.enabled == true}"
+    - rule: "${(has(environmentConfigs.actions) && has(environmentConfigs.actions.notifications) && environmentConfigs.actions.notifications.channels.size() > 0) || (has(environment.defaultNotificationChannel) && environment.defaultNotificationChannel != '')}"
+      message: "A notification channel is mandatory for alert rules (incident-only rules are not supported). Provide environmentConfigs.actions.notifications.channels or set environment.defaultNotificationChannel."
+    - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiRca == false || environmentConfigs.actions.incident.enabled == true}"
       message: "incident.enabled must be true when triggerAiRca is true. AI-powered root cause analysis requires incident creation to be enabled."
 
   creates:
@@ -1658,7 +1640,7 @@ spec:
           name: ${trait.instanceName}
           description: ${parameters.description}
           severity: ${parameters.severity}
-          enabled: ${envOverrides.enabled}
+          enabled: ${environmentConfigs.enabled}
           source:
             type: ${parameters.source.type}
             query: ${parameters.source.query}
@@ -1671,9 +1653,9 @@ spec:
           actions:
             notifications:
               channels: >-
-                ${(has(envOverrides.actions) && has(envOverrides.actions.notifications) && envOverrides.actions.notifications.channels.size() > 0)
-                  ? envOverrides.actions.notifications.channels
+                ${(has(environmentConfigs.actions) && has(environmentConfigs.actions.notifications) && environmentConfigs.actions.notifications.channels.size() > 0)
+                  ? environmentConfigs.actions.notifications.channels
                   : [environment.defaultNotificationChannel]}
             incident:
-              enabled: ${has(envOverrides.actions) && has(envOverrides.actions.incident) && (envOverrides.actions.incident.enabled || envOverrides.actions.incident.triggerAiRca)}
-              triggerAiRca: ${has(envOverrides.actions) && has(envOverrides.actions.incident) && envOverrides.actions.incident.enabled && envOverrides.actions.incident.triggerAiRca}
+              enabled: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && (environmentConfigs.actions.incident.enabled || environmentConfigs.actions.incident.triggerAiRca)}
+              triggerAiRca: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiRca}

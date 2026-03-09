@@ -6,14 +6,13 @@ spec:
     spec: {}
   releaseBinding:
     spec:
-      componentTypeEnvOverrides:
+      componentTypeEnvironmentConfigs:
         replicas: 2
   componentType:
     spec:
-      schema:
+      environmentConfigs:
         ocSchema:
-          envOverrides:
-            replicas: "integer"
+          replicas: "integer"
       resources:
         - id: deployment
           template:
@@ -22,7 +21,7 @@ spec:
             metadata:
               name: ${metadata.name}
             spec:
-              replicas: ${envOverrides.replicas}
+              replicas: ${environmentConfigs.replicas}
               template:
                 spec:
                   containers:

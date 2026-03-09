@@ -44,11 +44,10 @@ kind: ComponentType
 metadata:
   name: service
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        replicas: "integer | default=1"
-        image: "string"
+      replicas: "integer | default=1"
+      image: "string"
 `,
 			envSettingsYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -62,9 +61,9 @@ metadata:
 					"replicas": float64(3), // JSON numbers are float64
 					"image":    "myapp:v1",
 				},
-				"envOverrides": map[string]any{}, // No envOverrides schema defined
-				"dataplane":    map[string]any{},
-				"environment":  map[string]any{},
+				"environmentConfigs": map[string]any{}, // No environmentConfigs schema defined
+				"dataplane":          map[string]any{},
+				"environment":        map[string]any{},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
 					"namespace":          "test-namespace",
@@ -123,12 +122,12 @@ kind: ComponentType
 metadata:
   name: service
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        cpu: "string | default=100m"
-      envOverrides:
-        replicas: "integer | default=1"
+      cpu: "string | default=100m"
+  environmentConfigs:
+    ocSchema:
+      replicas: "integer | default=1"
 `,
 			envSettingsYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -136,7 +135,7 @@ kind: ReleaseBinding
 metadata:
   name: test-component-prod
 spec:
-  componentTypeEnvOverrides:
+  componentTypeEnvironmentConfigs:
     replicas: 5
 `,
 			environment: "prod",
@@ -144,8 +143,8 @@ spec:
 				"parameters": map[string]any{
 					"cpu": "100m", // From Component.Spec.Parameters
 				},
-				"envOverrides": map[string]any{
-					"replicas": float64(5), // From ReleaseBinding.Spec.ComponentTypeEnvOverrides
+				"environmentConfigs": map[string]any{
+					"replicas": float64(5), // From ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs
 				},
 				"dataplane":   map[string]any{},
 				"environment": map[string]any{},
@@ -205,9 +204,8 @@ kind: ComponentType
 metadata:
   name: service
 spec:
-  schema:
-    ocSchema:
-      parameters: {}
+  parameters:
+    ocSchema: {}
 `,
 			workloadYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -226,8 +224,8 @@ metadata:
 `,
 			environment: "dev",
 			want: map[string]any{
-				"parameters":   map[string]any{},
-				"envOverrides": map[string]any{}, // No envOverrides schema defined
+				"parameters":         map[string]any{},
+				"environmentConfigs": map[string]any{}, // No environmentConfigs schema defined
 				"workload": map[string]any{
 					"container": map[string]any{
 						"image": "myapp:latest",
@@ -388,10 +386,9 @@ kind: Trait
 metadata:
   name: mysql-trait
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        database: "string"
+      database: "string"
 `,
 			componentYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -423,7 +420,7 @@ metadata:
 				"parameters": map[string]any{
 					"database": "mydb",
 				},
-				"envOverrides": map[string]any{}, // No envOverrides schema defined
+				"environmentConfigs": map[string]any{}, // No environmentConfigs schema defined
 				"trait": map[string]any{
 					"name":         "mysql-trait",
 					"instanceName": "db-1",
@@ -479,12 +476,12 @@ kind: Trait
 metadata:
   name: mysql-trait
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        database: "string"
-      envOverrides:
-        size: "string | default=small"
+      database: "string"
+  environmentConfigs:
+    ocSchema:
+      size: "string | default=small"
 `,
 			componentYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -516,7 +513,7 @@ spec:
 				"parameters": map[string]any{
 					"database": "mydb",
 				},
-				"envOverrides": map[string]any{
+				"environmentConfigs": map[string]any{
 					"size": "large", // From ReleaseBinding.Spec.TraitOverrides
 				},
 				"trait": map[string]any{

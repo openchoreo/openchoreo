@@ -18,17 +18,16 @@ metadata:
   name: api-configuration
   namespace: default
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        apiName: "string"
-        apiVersion: "string | default=v1.0"
-        context: "string"
-        upstreamPort: "integer | default=80"
-        operations:
-          'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
-        policies:
-          "array<map<string>> | default=[]"
+      apiName: "string"
+      apiVersion: "string | default=v1.0"
+      context: "string"
+      upstreamPort: "integer | default=80"
+      operations:
+        'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
+      policies:
+        "array<map<string>> | default=[]"
 
   creates:
     # Backend resource to route through API Platform Gateway
@@ -146,8 +145,8 @@ spec:
 
   environment: development
 
-  # Override ComponentType envOverrides for this environment
-  componentTypeEnvOverrides:
+  # Override ComponentType environmentConfigs for this environment
+  componentTypeEnvironmentConfigs:
     replicas: 2
     resources:
       requests:
@@ -157,7 +156,7 @@ spec:
         cpu: "200m"
         memory: "256Mi"
 
-  # Override trait envOverrides for this environment (keyed by instanceName)
+  # Override trait environmentConfigs for this environment (keyed by instanceName)
   traitOverrides:
     greeter-api:  # instanceName from the trait
       gatewayRefs:

@@ -23,9 +23,13 @@ type ClusterComponentTypeSpec struct {
 	// +optional
 	AllowedWorkflows []ClusterWorkflowRef `json:"allowedWorkflows,omitempty"`
 
-	// Schema defines what developers can configure when creating components of this type
+	// Parameters defines what developers can configure when creating components of this type.
 	// +optional
-	Schema ComponentTypeSchema `json:"schema,omitempty"`
+	Parameters *SchemaSection `json:"parameters,omitempty"`
+
+	// EnvironmentConfigs defines per-environment configurations developers can set via ReleaseBinding.
+	// +optional
+	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
 
 	// Traits are pre-configured trait instances embedded in the ClusterComponentType.
 	// Only ClusterTrait references are allowed since ClusterComponentType is cluster-scoped.

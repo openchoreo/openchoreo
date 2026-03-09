@@ -59,7 +59,7 @@ type ComponentSpec struct {
 	AutoBuild *bool `json:"autoBuild,omitempty"`
 
 	// Parameters from ComponentType (oneOf schema based on componentType)
-	// This is the merged schema of parameters + envOverrides from the ComponentType
+	// This is the merged schema of parameters + environmentConfigs from the ComponentType
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
@@ -97,7 +97,7 @@ type ComponentTrait struct {
 	InstanceName string `json:"instanceName"`
 
 	// Parameters contains the trait parameter values
-	// The schema for this config is defined in the Trait's schema.ocSchema.parameters and schema.ocSchema.envOverrides
+	// The schema for this config is defined in the Trait's parameters.ocSchema and environmentConfigs.ocSchema
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless

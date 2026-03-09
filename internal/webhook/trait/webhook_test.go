@@ -36,30 +36,35 @@ var _ = Describe("Trait Webhook", func() {
 	})
 
 	Context("When creating or updating Trait under Validating Webhook", func() {
-		It("Should admit trait with valid parameters and envOverrides", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"mountPath": "string"}`),
-					},
-					EnvOverrides: &runtime.RawExtension{
-						Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string"}`),
-					},
+		It("Should admit trait with valid parameters and environmentConfigs", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"mountPath": "string"}`),
+				},
+			}
+
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string"}`),
 				},
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Should reject trait with invalid envOverrides schema syntax", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"mountPath": "string"}`),
-					},
-					EnvOverrides: &runtime.RawExtension{
-						Raw: []byte(`{"size": "unknown-type"}`), // invalid type
-					},
+		It("Should reject trait with invalid environmentConfigs schema syntax", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OCSchema: &runtime.RawExtension{
+					Raw: []byte(`{"mountPath": "string"}`),
+				},
+			}
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+				OCSchema: &runtime.RawExtension{
+					Raw: []byte(`{"size": "unknown-type"}`), // invalid type
 				},
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
@@ -67,29 +72,29 @@ var _ = Describe("Trait Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("failed to build structural schema"))
 		})
 
-		It("Should admit trait with only envOverrides (no parameters)", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
-					EnvOverrides: &runtime.RawExtension{
-						Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string | default=local-path"}`),
-					},
+		It("Should admit trait with only environmentConfigs (no parameters)", func() {
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string | default=local-path"}`),
 				},
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Should reject trait with malformed envOverrides YAML", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
-					EnvOverrides: &runtime.RawExtension{
-						Raw: []byte(`{malformed yaml`),
-					},
+		It("Should reject trait with malformed environmentConfigs YAML", func() {
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{malformed yaml`),
 				},
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to parse envOverrides schema"))
+			Expect(err.Error()).To(ContainSubstring("failed to parse environmentConfigs schema"))
 		})
 	})
 
@@ -229,11 +234,11 @@ var _ = Describe("Trait Webhook", func() {
 		})
 
 		It("should reject non-boolean CEL expression in validation rule", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"name": "string | default=app"}`),
-					},
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"name": "string | default=app"}`),
 				},
 			}
 			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
@@ -246,14 +251,19 @@ var _ = Describe("Trait Webhook", func() {
 		})
 
 		It("should admit valid boolean validation rules", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"mountPath": "string"}`),
-					},
-					EnvOverrides: &runtime.RawExtension{
-						Raw: []byte(`{"size": "string | default=10Gi"}`),
-					},
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"mountPath": "string"}`),
+				},
+			}
+
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"size": "string | default=10Gi"}`),
 				},
 			}
 			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{

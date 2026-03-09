@@ -16,28 +16,27 @@ spec:
 
   allowedTraits: []
 
-  schema:
+  parameters:
     ocSchema:
-      types:
+      successfulJobsHistoryLimit: "integer | default=3"
+      failedJobsHistoryLimit: "integer | default=1"
+      concurrencyPolicy: "string | default=Forbid"
+      backoffLimit: "integer | default=3"
+      activeDeadlineSeconds: "integer | default=300"
+      restartPolicy: "string | default=OnFailure"
+
+  environmentConfigs:
+    ocSchema:
+      $types:
         ResourceRequirements:
           requests: "ResourceQuantity | default={}"
           limits: "ResourceQuantity | default={}"
         ResourceQuantity:
           cpu: "string | default=100m"
           memory: "string | default=128Mi"
-
-      parameters:
-        successfulJobsHistoryLimit: "integer | default=3"
-        failedJobsHistoryLimit: "integer | default=1"
-        concurrencyPolicy: "string | default=Forbid"
-        backoffLimit: "integer | default=3"
-        activeDeadlineSeconds: "integer | default=300"
-        restartPolicy: "string | default=OnFailure"
-
-      envOverrides:
-        schedule: 'string | default="0 0 31 2 *"'
-        resources: "ResourceRequirements | default={}"
-        imagePullPolicy: "string | default=IfNotPresent"
+      schedule: 'string | default="0 0 31 2 *"'
+      resources: "ResourceRequirements | default={}"
+      imagePullPolicy: "string | default=IfNotPresent"
 
   resources:
     - id: cronjob
@@ -49,7 +48,7 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
-          schedule: ${envOverrides.schedule}
+          schedule: ${environmentConfigs.schedule}
           successfulJobsHistoryLimit: ${parameters.successfulJobsHistoryLimit}
           failedJobsHistoryLimit: ${parameters.failedJobsHistoryLimit}
           concurrencyPolicy: ${parameters.concurrencyPolicy}
@@ -67,18 +66,18 @@ spec:
                   containers:
                     - name: main
                       image: ${workload.container.image}
-                      imagePullPolicy: ${envOverrides.imagePullPolicy}
+                      imagePullPolicy: ${environmentConfigs.imagePullPolicy}
                       command: |
                         ${has(workload.container.command) ? workload.container.command : oc_omit()}
                       args: |
                         ${has(workload.container.args) ? workload.container.args : oc_omit()}
                       resources:
                         requests:
-                          cpu: ${envOverrides.resources.requests.cpu}
-                          memory: ${envOverrides.resources.requests.memory}
+                          cpu: ${environmentConfigs.resources.requests.cpu}
+                          memory: ${environmentConfigs.resources.requests.memory}
                         limits:
-                          cpu: ${envOverrides.resources.limits.cpu}
-                          memory: ${envOverrides.resources.limits.memory}
+                          cpu: ${environmentConfigs.resources.limits.cpu}
+                          memory: ${environmentConfigs.resources.limits.memory}
                       env: ${connections.toContainerEnv()}
                       envFrom: ${configurations.toContainerEnvFrom()}
                       volumeMounts: ${configurations.toContainerVolumeMounts()}

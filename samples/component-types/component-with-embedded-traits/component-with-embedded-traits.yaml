@@ -10,8 +10,8 @@
 # 4. Embedded trait parameters demonstrate three patterns:
 #    - Locked: `targetCPUUtilizationPercentage: 75` - PE enforces a fixed value (platform policy)
 #    - Developer-configurable: Developers set replica bounds (minReplicas, maxReplicas) via parameters
-#    - Environment-tunable: Platform teams can override replica bounds per environment via componentTypeEnvOverrides
-# 5. Environment-specific tuning via componentTypeEnvOverrides (for embedded traits) or traitOverrides (for developer traits)
+#    - Environment-tunable: Platform teams can override replica bounds per environment via componentTypeEnvironmentConfigs
+# 5. Environment-specific tuning via componentTypeEnvironmentConfigs (for embedded traits) or traitOverrides (for developer traits)
 
 ---
 # HorizontalPodAutoscaler Trait - demonstrates developer-configurable parameters with PE overrides
@@ -21,17 +21,17 @@ metadata:
   name: horizontal-pod-autoscaler
   namespace: default
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        enabled: "boolean | default=false"
-        minReplicas: "integer | default=2 | minimum=1"
-        maxReplicas: "integer | default=10 | minimum=1"
-        targetCPUUtilizationPercentage: "integer | default=80 | minimum=1 | maximum=100"
+      enabled: "boolean | default=false"
+      minReplicas: "integer | default=2 | minimum=1"
+      maxReplicas: "integer | default=10 | minimum=1"
+      targetCPUUtilizationPercentage: "integer | default=80 | minimum=1 | maximum=100"
 
-      envOverrides:
-        minReplicas: "integer | minimum=1"
-        maxReplicas: "integer | minimum=1"
+  environmentConfigs:
+    ocSchema:
+      minReplicas: "integer | minimum=1"
+      maxReplicas: "integer | minimum=1"
 
   creates:
     - includeWhen: ${parameters.enabled}
@@ -48,9 +48,9 @@ spec:
             kind: Deployment
             name: ${metadata.name}
           minReplicas: |
-            ${has(envOverrides.minReplicas) ? envOverrides.minReplicas : parameters.minReplicas}
+            ${has(environmentConfigs.minReplicas) ? environmentConfigs.minReplicas : parameters.minReplicas}
           maxReplicas: |
-            ${has(envOverrides.maxReplicas) ? envOverrides.maxReplicas : parameters.maxReplicas}
+            ${has(environmentConfigs.maxReplicas) ? environmentConfigs.maxReplicas : parameters.maxReplicas}
           metrics:
             - type: Resource
               resource:
@@ -67,16 +67,16 @@ metadata:
   name: persistent-volume
   namespace: default
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        volumeName: "string"
-        mountPath: "string"
-        containerName: "string | default=main"
+      volumeName: "string"
+      mountPath: "string"
+      containerName: "string | default=main"
 
-      envOverrides:
-        size: "string | default=10Gi"
-        storageClass: "string | default=local-path"
+  environmentConfigs:
+    ocSchema:
+      size: "string | default=10Gi"
+      storageClass: "string | default=local-path"
 
   creates:
     - template:
@@ -90,8 +90,8 @@ spec:
             - ReadWriteOnce
           resources:
             requests:
-              storage: ${envOverrides.size}
-          storageClassName: ${envOverrides.storageClass}
+              storage: ${environmentConfigs.size}
+          storageClassName: ${environmentConfigs.storageClass}
 
   patches:
     - target:
@@ -145,33 +145,32 @@ spec:
     - rule: "${size(workload.endpoints) > 0}"
       message: "Service components must have at least one endpoint. Use 'deployment/worker' for components without endpoints."
 
-  schema:
+  parameters:
     ocSchema:
-      types:
+      # Autoscaling parameters - wired to embedded HPA trait
+      # Developers can configure min/max replicas; CPU threshold is locked by PE
+      autoscaling:
+        enabled: "boolean | default=false"
+        minReplicas: "integer | default=2 | minimum=1"
+        maxReplicas: "integer | default=10 | minimum=1"
+
+  environmentConfigs:
+    ocSchema:
+      $types:
         ResourceRequirements:
           requests: "ResourceQuantity | default={}"
           limits: "ResourceQuantity | default={}"
         ResourceQuantity:
           cpu: "string | default=100m"
           memory: "string | default=256Mi"
-
-      parameters:
-        # Autoscaling parameters - wired to embedded HPA trait
-        # Developers can configure min/max replicas; CPU threshold is locked by PE
-        autoscaling:
-          enabled: "boolean | default=false"
-          minReplicas: "integer | default=2 | minimum=1"
-          maxReplicas: "integer | default=10 | minimum=1"
-
-      envOverrides:
-        replicas: "integer | default=1"
-        resources: "ResourceRequirements | default={}"
-        imagePullPolicy: "string | default=IfNotPresent"
-        # Environment-specific autoscaling overrides - allows tuning replica bounds per environment
-        # Note: targetCPUUtilizationPercentage is locked by PE at 75%, not overridable
-        autoscaling:
-          minReplicas: "integer | minimum=1"
-          maxReplicas: "integer | minimum=1"
+      replicas: "integer | default=1"
+      resources: "ResourceRequirements | default={}"
+      imagePullPolicy: "string | default=IfNotPresent"
+      # Environment-specific autoscaling overrides - allows tuning replica bounds per environment
+      # Note: targetCPUUtilizationPercentage is locked by PE at 75%, not overridable
+      autoscaling:
+        minReplicas: "integer | minimum=1"
+        maxReplicas: "integer | minimum=1"
 
   # Embedded traits - automatically applied to all Components of this type
   traits:
@@ -185,9 +184,9 @@ spec:
         # Locked: PE enforces CPU threshold at 75% (not configurable by developers)
         targetCPUUtilizationPercentage: 75
       # Wire environment-specific overrides (only for replica counts)
-      envOverrides:
-        minReplicas: ${envOverrides.autoscaling.minReplicas}
-        maxReplicas: ${envOverrides.autoscaling.maxReplicas}
+      environmentConfigs:
+        minReplicas: ${environmentConfigs.autoscaling.minReplicas}
+        maxReplicas: ${environmentConfigs.autoscaling.maxReplicas}
 
   resources:
     - id: deployment
@@ -199,7 +198,7 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
-          replicas: ${envOverrides.replicas}
+          replicas: ${environmentConfigs.replicas}
           selector:
             matchLabels: ${metadata.podSelectors}
           template:
@@ -209,18 +208,18 @@ spec:
               containers:
                 - name: main
                   image: ${workload.container.image}
-                  imagePullPolicy: ${envOverrides.imagePullPolicy}
+                  imagePullPolicy: ${environmentConfigs.imagePullPolicy}
                   command: |
                     ${has(workload.container.command) ? workload.container.command : oc_omit()}
                   args: |
                     ${has(workload.container.args) ? workload.container.args : oc_omit()}
                   resources:
                     requests:
-                      cpu: ${envOverrides.resources.requests.cpu}
-                      memory: ${envOverrides.resources.requests.memory}
+                      cpu: ${environmentConfigs.resources.requests.cpu}
+                      memory: ${environmentConfigs.resources.requests.memory}
                     limits:
-                      cpu: ${envOverrides.resources.limits.cpu}
-                      memory: ${envOverrides.resources.limits.memory}
+                      cpu: ${environmentConfigs.resources.limits.cpu}
+                      memory: ${environmentConfigs.resources.limits.memory}
                   envFrom: ${configurations.toContainerEnvFrom()}
                   volumeMounts: ${configurations.toContainerVolumeMounts()}
               volumes: ${configurations.toVolumes()}
@@ -448,7 +447,7 @@ spec:
 
   environment: development
 
-  componentTypeEnvOverrides:
+  componentTypeEnvironmentConfigs:
     replicas: 3
     resources:
       requests:

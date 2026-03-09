@@ -136,7 +136,7 @@ func (o *omitCELValue) Value() interface{} {
 // IMPORTANT: This is a shallow merge - nested maps are replaced, not merged recursively.
 //
 //	# Basic merge
-//	env: ${oc_merge(defaults, spec.env, envOverrides)}
+//	env: ${oc_merge(defaults, spec.env, environmentConfigs)}
 //
 //	# Inline map literals
 //	resources: ${oc_merge({cpu: "100m", memory: "128Mi"}, spec.resources)}

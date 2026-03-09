@@ -38,8 +38,8 @@ func TestBuildComponentCELEnv_WithParametersSchema(t *testing.T) {
 	assert.Contains(t, issues.Err().Error(), "undefined field")
 }
 
-func TestBuildComponentCELEnv_WithEnvOverridesSchema(t *testing.T) {
-	// Build a structural schema for envOverrides with nested structure
+func TestBuildComponentCELEnv_WithEnvironmentConfigsSchema(t *testing.T) {
+	// Build a structural schema for environmentConfigs with nested structure
 	structural := &apiextschema.Structural{
 		Generic: apiextschema.Generic{Type: "object"},
 		Properties: map[string]apiextschema.Structural{
@@ -59,24 +59,24 @@ func TestBuildComponentCELEnv_WithEnvOverridesSchema(t *testing.T) {
 	}
 
 	env, err := BuildComponentCELEnv(SchemaOptions{
-		EnvOverridesSchema: structural,
+		EnvironmentConfigsSchema: structural,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
 	// Valid nested field access should work
-	ast, issues := env.Compile("envOverrides.resources.limits.cpu")
+	ast, issues := env.Compile("environmentConfigs.resources.limits.cpu")
 	assert.Nil(t, issues.Err())
 	assert.NotNil(t, ast)
 
 	// Invalid nested field should fail
-	_, issues = env.Compile("envOverrides.resources.limits.invalidField")
+	_, issues = env.Compile("environmentConfigs.resources.limits.invalidField")
 	assert.NotNil(t, issues.Err())
 	assert.Contains(t, issues.Err().Error(), "undefined field")
 }
 
 func TestBuildComponentCELEnv_WithoutSchema(t *testing.T) {
-	// Without schema, parameters and envOverrides should be empty objects
+	// Without schema, parameters and environmentConfigs should be empty objects
 	env, err := BuildComponentCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
@@ -86,7 +86,7 @@ func TestBuildComponentCELEnv_WithoutSchema(t *testing.T) {
 	assert.NotNil(t, issues.Err())
 	assert.Contains(t, issues.Err().Error(), "undefined field")
 
-	_, issues = env.Compile("envOverrides.anyField")
+	_, issues = env.Compile("environmentConfigs.anyField")
 	assert.NotNil(t, issues.Err())
 	assert.Contains(t, issues.Err().Error(), "undefined field")
 }
@@ -190,7 +190,7 @@ func TestBuildTraitCELEnv_AllVariables(t *testing.T) {
 }
 
 func TestBuildTraitCELEnv_WithoutSchema(t *testing.T) {
-	// Without schema, parameters and envOverrides should be empty objects
+	// Without schema, parameters and environmentConfigs should be empty objects
 	env, err := BuildTraitCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
@@ -200,7 +200,7 @@ func TestBuildTraitCELEnv_WithoutSchema(t *testing.T) {
 	assert.NotNil(t, issues.Err())
 	assert.Contains(t, issues.Err().Error(), "undefined field")
 
-	_, issues = env.Compile("envOverrides.anyField")
+	_, issues = env.Compile("environmentConfigs.anyField")
 	assert.NotNil(t, issues.Err())
 	assert.Contains(t, issues.Err().Error(), "undefined field")
 }

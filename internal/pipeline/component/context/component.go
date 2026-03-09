@@ -13,7 +13,6 @@ import (
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/schema"
@@ -25,13 +24,13 @@ var validate = validator.New(validator.WithRequiredStructEnabled())
 //
 // The context includes:
 //   - parameters: From Component.Spec.Parameters (pruned to schema.parameters) - access via ${parameters.*}
-//   - envOverrides: From ReleaseBinding.Spec.ComponentTypeEnvOverrides (pruned to schema.envOverrides) - access via ${envOverrides.*}
+//   - environmentConfigs: From ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs (pruned to schema.environmentConfigs) - access via ${environmentConfigs.*}
 //   - workload: Workload specification (image, resources, etc.) - access via ${workload.*}
 //   - metadata: Structured naming and labeling information - access via ${metadata.*}
 //   - dataplane: Data plane configuration - access via ${dataplane.*}
 //   - configurations: Extracted configuration items from workload - access via ${configurations.*}
 //
-// Schema defaults are applied to both parameters and envOverrides sections.
+// Schema defaults are applied to both parameters and environmentConfigs sections.
 func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, error) {
 	if err := validate.Struct(input); err != nil {
 		return nil, fmt.Errorf("validation failed: %w", err)
@@ -39,13 +38,13 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 
 	ctx := &ComponentContext{}
 
-	// Process parameters and envOverrides separately
-	parameters, envOverrides, err := processComponentParameters(input)
+	// Process parameters and environmentConfigs separately
+	parameters, envConfigs, err := processComponentParameters(input)
 	if err != nil {
 		return nil, err
 	}
 	ctx.Parameters = parameters
-	ctx.EnvOverrides = envOverrides
+	ctx.EnvironmentConfigs = envConfigs
 
 	// WorkloadData, Configurations, and Connections should be pre-computed by the caller
 	ctx.Workload = input.WorkloadData
@@ -71,16 +70,15 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 	return ctx, nil
 }
 
-// processComponentParameters processes component parameters and envOverrides separately,
+// processComponentParameters processes component parameters and environmentConfigs separately,
 // validates each against their respective schemas, and returns them as separate maps.
 // Parameters come from Component.Spec.Parameters only.
-// EnvOverrides come from ReleaseBinding.Spec.ComponentTypeEnvOverrides only.
+// EnvironmentConfigs come from ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs only.
 func processComponentParameters(input *ComponentContextInput) (map[string]any, map[string]any, error) {
-	// Build both schema bundles in one call to share types unmarshaling
-	parametersBundle, envOverridesBundle, err := BuildStructuralSchemas(&SchemaInput{
-		Types:              input.ComponentType.Spec.Schema.GetTypes(),
-		ParametersSchema:   input.ComponentType.Spec.Schema.GetParameters(),
-		EnvOverridesSchema: input.ComponentType.Spec.Schema.GetEnvOverrides(),
+	// Build both schema bundles
+	parametersBundle, envConfigsBundle, err := BuildStructuralSchemas(&SchemaInput{
+		ParametersSchema:         input.ComponentType.Spec.Parameters.GetRaw(),
+		EnvironmentConfigsSchema: input.ComponentType.Spec.EnvironmentConfigs.GetRaw(),
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build schemas: %w", err)
@@ -107,30 +105,30 @@ func processComponentParameters(input *ComponentContextInput) (map[string]any, m
 		parameters = make(map[string]any)
 	}
 
-	// Process envOverrides: ONLY from ReleaseBinding (no merging with Component)
-	var envOverrides map[string]any
-	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvOverrides != nil {
-		envOverrides, err = extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvOverrides)
+	// Process environmentConfigs: ONLY from ReleaseBinding (no merging with Component)
+	var envConfigs map[string]any
+	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs != nil {
+		envConfigs, err = extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to extract environment overrides: %w", err)
+			return nil, nil, fmt.Errorf("failed to extract environment configs: %w", err)
 		}
 	} else {
-		envOverrides = make(map[string]any)
+		envConfigs = make(map[string]any)
 	}
 
 	// Prune against schema, apply defaults, and validate
-	if envOverridesBundle != nil {
-		pruning.Prune(envOverrides, envOverridesBundle.Structural, false)
-		envOverrides = schema.ApplyDefaults(envOverrides, envOverridesBundle.Structural)
-		if err := schema.ValidateWithJSONSchema(envOverrides, envOverridesBundle.JSONSchema); err != nil {
-			return nil, nil, fmt.Errorf("envOverrides validation failed: %w", err)
+	if envConfigsBundle != nil {
+		pruning.Prune(envConfigs, envConfigsBundle.Structural, false)
+		envConfigs = schema.ApplyDefaults(envConfigs, envConfigsBundle.Structural)
+		if err := schema.ValidateWithJSONSchema(envConfigs, envConfigsBundle.JSONSchema); err != nil {
+			return nil, nil, fmt.Errorf("environmentConfigs validation failed: %w", err)
 		}
 	} else {
-		// No envOverrides schema defined - discard all envOverrides
-		envOverrides = make(map[string]any)
+		// No environmentConfigs schema defined - discard all environmentConfigs
+		envConfigs = make(map[string]any)
 	}
 
-	return parameters, envOverrides, nil
+	return parameters, envConfigs, nil
 }
 
 // ToMap converts the ComponentContext to map[string]any for CEL evaluation.
@@ -404,19 +402,11 @@ type SchemaBundle struct {
 	JSONSchema *extv1.JSONSchemaProps
 }
 
-// BuildStructuralSchemas builds separate structural schemas for parameters and envOverrides
-// while unmarshaling types only once.
+// BuildStructuralSchemas builds separate structural schemas for parameters and environmentConfigs.
+// Types are extracted from within each ocSchema blob via the "$types" key by the extractor.
 //
-// Returns (parametersBundle, envOverridesBundle, error). Either bundle's schemas can be nil if not provided.
+// Returns (parametersBundle, envConfigsBundle, error). Either bundle's schemas can be nil if not provided.
 func BuildStructuralSchemas(input *SchemaInput) (*SchemaBundle, *SchemaBundle, error) {
-	// Extract types from RawExtension once
-	var types map[string]any
-	if input.Types != nil {
-		if err := yaml.Unmarshal(input.Types.Raw, &types); err != nil {
-			return nil, nil, fmt.Errorf("failed to extract types: %w", err)
-		}
-	}
-
 	// Build parameters schema bundle
 	var parametersBundle *SchemaBundle
 	if input.ParametersSchema != nil {
@@ -426,7 +416,6 @@ func BuildStructuralSchemas(input *SchemaInput) (*SchemaBundle, *SchemaBundle, e
 		}
 
 		def := schema.Definition{
-			Types:   types,
 			Schemas: []map[string]any{params},
 		}
 
@@ -440,28 +429,27 @@ func BuildStructuralSchemas(input *SchemaInput) (*SchemaBundle, *SchemaBundle, e
 		}
 	}
 
-	// Build envOverrides schema bundle
-	var envOverridesBundle *SchemaBundle
-	if input.EnvOverridesSchema != nil {
-		envOverrides, err := extractParameters(input.EnvOverridesSchema)
+	// Build environmentConfigs schema bundle
+	var envConfigsBundle *SchemaBundle
+	if input.EnvironmentConfigsSchema != nil {
+		envConfigs, err := extractParameters(input.EnvironmentConfigsSchema)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to extract envOverrides schema: %w", err)
+			return nil, nil, fmt.Errorf("failed to extract environmentConfigs schema: %w", err)
 		}
 
 		def := schema.Definition{
-			Types:   types,
-			Schemas: []map[string]any{envOverrides},
+			Schemas: []map[string]any{envConfigs},
 		}
 
 		structural, jsonSchema, err := schema.ToStructuralAndJSONSchema(def)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create envOverrides schema: %w", err)
+			return nil, nil, fmt.Errorf("failed to create environmentConfigs schema: %w", err)
 		}
-		envOverridesBundle = &SchemaBundle{
+		envConfigsBundle = &SchemaBundle{
 			Structural: structural,
 			JSONSchema: jsonSchema,
 		}
 	}
 
-	return parametersBundle, envOverridesBundle, nil
+	return parametersBundle, envConfigsBundle, nil
 }

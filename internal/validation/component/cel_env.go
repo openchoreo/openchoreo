@@ -18,8 +18,8 @@ import (
 
 // schemaBasedFields are populated from user-provided schemas, not reflection.
 var schemaBasedFields = map[string]bool{
-	"parameters":   true,
-	"envOverrides": true,
+	"parameters":         true,
+	"environmentConfigs": true,
 }
 
 // Cached field info derived from context types (excludes schema-based fields).
@@ -35,14 +35,14 @@ type SchemaOptions struct {
 	// If nil, an empty object type will be used.
 	ParametersSchema *apiextschema.Structural
 
-	// EnvOverridesSchema is the structural schema for envOverrides.
+	// EnvironmentConfigsSchema is the structural schema for environmentConfigs.
 	// If nil, an empty object type will be used.
-	EnvOverridesSchema *apiextschema.Structural
+	EnvironmentConfigsSchema *apiextschema.Structural
 }
 
 // BuildComponentCELEnv creates a schema-aware CEL environment for component validation.
 // Variables are derived from ComponentContext struct fields:
-//   - parameters, envOverrides: Schema-aware types (or empty object if not provided)
+//   - parameters, environmentConfigs: Schema-aware types (or empty object if not provided)
 //   - metadata, dataplane, workload, configurations: Types derived via reflection
 func BuildComponentCELEnv(opts SchemaOptions) (*cel.Env, error) {
 	baseEnv, err := createBaseEnv(true)
@@ -59,9 +59,9 @@ func BuildComponentCELEnv(opts SchemaOptions) (*cel.Env, error) {
 	declTypes = append(declTypes, paramType)
 	varOpts = append(varOpts, cel.Variable("parameters", paramType.CelType()))
 
-	envOverridesType := schemaToTypeOrEmpty(opts.EnvOverridesSchema, "EnvOverrides")
-	declTypes = append(declTypes, envOverridesType)
-	varOpts = append(varOpts, cel.Variable("envOverrides", envOverridesType.CelType()))
+	environmentConfigsType := schemaToTypeOrEmpty(opts.EnvironmentConfigsSchema, "EnvironmentConfigs")
+	declTypes = append(declTypes, environmentConfigsType)
+	varOpts = append(varOpts, cel.Variable("environmentConfigs", environmentConfigsType.CelType()))
 
 	// Register reflection-based fields
 	for _, f := range componentContextFields {
@@ -81,7 +81,7 @@ func BuildComponentCELEnv(opts SchemaOptions) (*cel.Env, error) {
 
 // BuildTraitCELEnv creates a schema-aware CEL environment for trait validation.
 // Variables are derived from TraitContext struct fields:
-//   - parameters, envOverrides: Schema-aware types (or empty object if not provided)
+//   - parameters, environmentConfigs: Schema-aware types (or empty object if not provided)
 //   - trait, metadata, dataplane, workload, configurations: Types derived via reflection
 func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, error) {
 	baseEnv, err := createBaseEnv(true)
@@ -98,9 +98,9 @@ func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, error) {
 	declTypes = append(declTypes, paramType)
 	varOpts = append(varOpts, cel.Variable("parameters", paramType.CelType()))
 
-	envOverridesType := schemaToTypeOrEmpty(opts.EnvOverridesSchema, "EnvOverrides")
-	declTypes = append(declTypes, envOverridesType)
-	varOpts = append(varOpts, cel.Variable("envOverrides", envOverridesType.CelType()))
+	environmentConfigsType := schemaToTypeOrEmpty(opts.EnvironmentConfigsSchema, "EnvironmentConfigs")
+	declTypes = append(declTypes, environmentConfigsType)
+	varOpts = append(varOpts, cel.Variable("environmentConfigs", environmentConfigsType.CelType()))
 
 	// Register reflection-based fields
 	for _, f := range traitContextFields {

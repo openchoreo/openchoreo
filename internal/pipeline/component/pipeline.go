@@ -151,7 +151,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		}
 
 		// Resolve CEL bindings against component context
-		resolvedParams, resolvedEnvOverrides, err := context.ResolveEmbeddedTraitBindings(
+		resolvedParams, resolvedEnvironmentConfigs, err := context.ResolveEmbeddedTraitBindings(
 			p.templateEngine,
 			embeddedTrait,
 			componentContext.ToMap(),
@@ -166,7 +166,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			Trait:                      t,
 			InstanceName:               embeddedTrait.InstanceName,
 			ResolvedParameters:         resolvedParams,
-			ResolvedEnvOverrides:       resolvedEnvOverrides,
+			ResolvedEnvironmentConfigs: resolvedEnvironmentConfigs,
 			Component:                  input.Component,
 			WorkloadData:               workloadData,
 			Configurations:             configurations,

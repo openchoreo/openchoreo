@@ -44,7 +44,7 @@ class FieldChange(BaseModel):
         alias="jsonPointer",
         description=(
             "RFC 6901 JSON Pointer for non-array fields. "
-            "Example: '/spec/componentTypeEnvOverrides/replicas', "
+            "Example: '/spec/componentTypeEnvironmentConfigs/replicas', "
             "'/spec/traitOverrides/my-trait/enabled'"
         ),
     )

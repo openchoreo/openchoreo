@@ -47,11 +47,9 @@ var _ = Describe("ComponentType Webhook", func() {
 	Context("Happy Path Tests", func() {
 		It("should admit valid ComponentType with parameters and matching workload resource", func() {
 			obj.Spec.WorkloadType = workloadTypeDeployment
-			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"replicas": "integer | default=1"}`),
-					},
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OCSchema: &runtime.RawExtension{
+					Raw: []byte(`{"replicas": "integer | default=1"}`),
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -65,16 +63,16 @@ var _ = Describe("ComponentType Webhook", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should admit valid ComponentType with parameters and envOverrides", func() {
+		It("should admit valid ComponentType with parameters and environmentConfigs", func() {
 			obj.Spec.WorkloadType = workloadTypeDeployment
-			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"replicas": "integer | default=1"}`),
-					},
-					EnvOverrides: &runtime.RawExtension{
-						Raw: []byte(`{"image": "string"}`),
-					},
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OCSchema: &runtime.RawExtension{
+					Raw: []byte(`{"replicas": "integer | default=1"}`),
+				},
+			}
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+				OCSchema: &runtime.RawExtension{
+					Raw: []byte(`{"image": "string"}`),
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -100,11 +98,11 @@ var _ = Describe("ComponentType Webhook", func() {
 
 			// Set up valid newObj
 			obj.Spec.WorkloadType = workloadTypeDeployment
-			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"replicas": "integer | default=2"}`),
-					},
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"replicas": "integer | default=2"}`),
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -131,26 +129,12 @@ var _ = Describe("ComponentType Webhook", func() {
 			}
 		})
 
-		It("should reject invalid JSON in spec.schema.types", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Types: &runtime.RawExtension{
-						Raw: []byte(`{malformed json`),
-					},
-				},
-			}
+		It("should reject invalid JSON in spec.parameters.ocSchema $types", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-			_, err := validator.ValidateCreate(ctx, obj)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to parse types"))
-		})
+				OCSchema: &runtime.RawExtension{
 
-		It("should reject invalid JSON in spec.schema.parameters", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{malformed`),
-					},
+					Raw: []byte(`{"$types": {malformed json}`),
 				},
 			}
 
@@ -159,18 +143,32 @@ var _ = Describe("ComponentType Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
 		})
 
-		It("should reject invalid JSON in spec.schema.envOverrides", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					EnvOverrides: &runtime.RawExtension{
-						Raw: []byte(`not valid yaml`),
-					},
+		It("should reject invalid JSON in spec.parameters.ocSchema", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{malformed`),
 				},
 			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to parse envOverrides schema"))
+			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
+		})
+
+		It("should reject invalid JSON in spec.environmentConfigs.ocSchema", func() {
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`not valid yaml`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse environmentConfigs schema"))
 		})
 	})
 
@@ -186,11 +184,11 @@ var _ = Describe("ComponentType Webhook", func() {
 		})
 
 		It("should reject unknown shorthand type in parameters", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"field": "unknown-type"}`),
-					},
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"field": "unknown-type"}`),
 				},
 			}
 
@@ -200,14 +198,11 @@ var _ = Describe("ComponentType Webhook", func() {
 		})
 
 		It("should reject invalid type reference in parameters", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Types: &runtime.RawExtension{
-						Raw: []byte(`{"Database": {"host": "string", "port": "integer"}}`),
-					},
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"db": "NonExistent"}`),
-					},
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"$types": {"Database": {"host": "string", "port": "integer"}}, "db": "NonExistent"}`),
 				},
 			}
 
@@ -287,11 +282,11 @@ var _ = Describe("ComponentType Webhook", func() {
 
 		// Schema-aware validation catches forEach with non-iterable types at validation time
 		It("should reject forEach with non-iterable expression", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"replicas": "integer"}`),
-					},
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"replicas": "integer"}`),
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -502,7 +497,7 @@ var _ = Describe("ComponentType Webhook", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should admit embedded traits with envOverrides", func() {
+		It("should admit embedded traits with environmentConfigs", func() {
 			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
 				{
 					Name:         "persistent-volume",
@@ -510,8 +505,8 @@ var _ = Describe("ComponentType Webhook", func() {
 					Parameters: &runtime.RawExtension{
 						Raw: []byte(`{"volumeName": "app-data"}`),
 					},
-					EnvOverrides: &runtime.RawExtension{
-						Raw: []byte(`{"size": "${envOverrides.storage.size}"}`),
+					EnvironmentConfigs: &runtime.RawExtension{
+						Raw: []byte(`{"size": "${environmentConfigs.storage.size}"}`),
 					},
 				},
 			}
@@ -605,11 +600,11 @@ var _ = Describe("ComponentType Webhook", func() {
 		})
 
 		It("should reject non-boolean CEL expression in validation rule", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"name": "string | default=app"}`),
-					},
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"name": "string | default=app"}`),
 				},
 			}
 			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
@@ -622,11 +617,11 @@ var _ = Describe("ComponentType Webhook", func() {
 		})
 
 		It("should admit valid boolean validation rules", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"replicas": "integer | default=1"}`),
-					},
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"replicas": "integer | default=1"}`),
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{

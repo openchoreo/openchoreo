@@ -87,11 +87,11 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should admit valid ComponentRelease with parameters schema and values", func() {
 			obj = validComponentRelease()
-			obj.Spec.ComponentType.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"replicas": "integer | default=1"}`),
-					},
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"replicas": "integer | default=1"}`),
 				},
 			}
 			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -113,11 +113,11 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			// This means omitting them during validation is valid. The actual defaults are applied later
 			// during rendering in the ReleaseBinding controller, not during webhook validation.
 			obj = validComponentRelease()
-			obj.Spec.ComponentType.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"replicas": "integer | default=1", "image": "string | default=nginx"}`),
-					},
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"replicas": "integer | default=1", "image": "string | default=nginx"}`),
 				},
 			}
 			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -136,11 +136,11 @@ var _ = Describe("ComponentRelease Webhook", func() {
 		It("should admit ComponentRelease with partial parameters when others have defaults", func() {
 			// "name" has no default so it's required; "replicas" has a default so it's optional
 			obj = validComponentRelease()
-			obj.Spec.ComponentType.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"replicas": "integer | default=1", "name": "string"}`),
-					},
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"replicas": "integer | default=1", "name": "string"}`),
 				},
 			}
 			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -162,11 +162,11 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
 				"storage": {
-					Schema: openchoreodevv1alpha1.TraitSchema{
-						OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
-							Parameters: &runtime.RawExtension{
-								Raw: []byte(`{"mountPath": "string", "size": "string | default=10Gi"}`),
-							},
+					Parameters: &openchoreodevv1alpha1.SchemaSection{
+
+						OCSchema: &runtime.RawExtension{
+
+							Raw: []byte(`{"mountPath": "string", "size": "string | default=10Gi"}`),
 						},
 					},
 					Creates: []openchoreodevv1alpha1.TraitCreate{
@@ -196,11 +196,9 @@ var _ = Describe("ComponentRelease Webhook", func() {
 	Context("Parameter Schema Validation", func() {
 		It("should reject when required parameter is missing", func() {
 			obj = validComponentRelease()
-			obj.Spec.ComponentType.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"replicas": "integer", "name": "string"}`), // no defaults, both required
-					},
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OCSchema: &runtime.RawExtension{
+					Raw: []byte(`{"replicas": "integer", "name": "string"}`), // no defaults, both required
 				},
 			}
 			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -221,11 +219,11 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should reject when parameter has wrong type", func() {
 			obj = validComponentRelease()
-			obj.Spec.ComponentType.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"replicas": "integer"}`),
-					},
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"replicas": "integer"}`),
 				},
 			}
 			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -248,11 +246,9 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
 				"storage": {
-					Schema: openchoreodevv1alpha1.TraitSchema{
-						OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
-							Parameters: &runtime.RawExtension{
-								Raw: []byte(`{"mountPath": "string", "size": "string"}`), // both required
-							},
+					Parameters: &openchoreodevv1alpha1.SchemaSection{
+						OCSchema: &runtime.RawExtension{
+							Raw: []byte(`{"mountPath": "string", "size": "string"}`), // both required
 						},
 					},
 					Creates: []openchoreodevv1alpha1.TraitCreate{
@@ -378,11 +374,11 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should admit valid CEL expressions in ComponentType", func() {
 			obj = validComponentRelease()
-			obj.Spec.ComponentType.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"replicas": "integer | default=1", "enabled": "boolean | default=true"}`),
-					},
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"replicas": "integer | default=1", "enabled": "boolean | default=true"}`),
 				},
 			}
 			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -450,11 +446,11 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
 				"storage": {
-					Schema: openchoreodevv1alpha1.TraitSchema{
-						OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
-							Parameters: &runtime.RawExtension{
-								Raw: []byte(`{"size": "string | default=10Gi"}`),
-							},
+					Parameters: &openchoreodevv1alpha1.SchemaSection{
+
+						OCSchema: &runtime.RawExtension{
+
+							Raw: []byte(`{"size": "string | default=10Gi"}`),
 						},
 					},
 					Creates: []openchoreodevv1alpha1.TraitCreate{
@@ -504,11 +500,11 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should reject non-boolean CEL expression in ComponentType validation rule", func() {
 			obj = validComponentRelease()
-			obj.Spec.ComponentType.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"name": "string | default=app"}`),
-					},
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"name": "string | default=app"}`),
 				},
 			}
 			obj.Spec.ComponentType.Validations = []openchoreodevv1alpha1.ValidationRule{
@@ -522,11 +518,11 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should admit valid validation rules in ComponentType and Traits", func() {
 			obj = validComponentRelease()
-			obj.Spec.ComponentType.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{"replicas": "integer | default=1"}`),
-					},
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{"replicas": "integer | default=1"}`),
 				},
 			}
 			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -540,11 +536,11 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			}
 			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
 				"storage": {
-					Schema: openchoreodevv1alpha1.TraitSchema{
-						OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
-							Parameters: &runtime.RawExtension{
-								Raw: []byte(`{"size": "integer | default=10"}`),
-							},
+					Parameters: &openchoreodevv1alpha1.SchemaSection{
+
+						OCSchema: &runtime.RawExtension{
+
+							Raw: []byte(`{"size": "integer | default=10"}`),
 						},
 					},
 					Validations: []openchoreodevv1alpha1.ValidationRule{
@@ -654,28 +650,26 @@ var _ = Describe("ComponentRelease Webhook", func() {
 	})
 
 	Context("Schema Parsing Failures", func() {
-		It("should reject invalid JSON in ComponentType schema types", func() {
+		It("should reject invalid JSON in ComponentType schema parameters", func() {
 			obj = validComponentRelease()
-			obj.Spec.ComponentType.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Types: &runtime.RawExtension{
-						Raw: []byte(`{malformed json`),
-					},
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OCSchema: &runtime.RawExtension{
+					Raw: []byte(`{malformed json`),
 				},
 			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to parse types"))
+			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
 		})
 
 		It("should reject invalid JSON in ComponentType schema parameters", func() {
 			obj = validComponentRelease()
-			obj.Spec.ComponentType.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				OCSchema: &openchoreodevv1alpha1.ComponentTypeOCSchema{
-					Parameters: &runtime.RawExtension{
-						Raw: []byte(`{malformed`),
-					},
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+
+				OCSchema: &runtime.RawExtension{
+
+					Raw: []byte(`{malformed`),
 				},
 			}
 
@@ -688,11 +682,11 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
 				"storage": {
-					Schema: openchoreodevv1alpha1.TraitSchema{
-						OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
-							Parameters: &runtime.RawExtension{
-								Raw: []byte(`{malformed`),
-							},
+					Parameters: &openchoreodevv1alpha1.SchemaSection{
+
+						OCSchema: &runtime.RawExtension{
+
+							Raw: []byte(`{malformed`),
 						},
 					},
 					Creates: []openchoreodevv1alpha1.TraitCreate{

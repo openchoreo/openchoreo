@@ -31,6 +31,40 @@ type ValidationRule struct {
 	Message string `json:"message"`
 }
 
+// SchemaSection holds one schema in either ocSchema or openAPIV3Schema format.
+// The two formats are mutually exclusive within a section.
+type SchemaSection struct {
+	// OCSchema defines the schema using OpenChoreo's simple schema format.
+	// The blob may contain a "$types" key for reusable type definitions scoped to this section.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	OCSchema *runtime.RawExtension `json:"ocSchema,omitempty"`
+
+	// OpenAPIV3Schema defines the schema using standard OpenAPI V3 / JSON Schema format.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	OpenAPIV3Schema *runtime.RawExtension `json:"openAPIV3Schema,omitempty"`
+}
+
+// GetRaw returns the raw extension for whichever format is set.
+// Returns OpenAPIV3Schema if set, otherwise OCSchema.
+func (s *SchemaSection) GetRaw() *runtime.RawExtension {
+	if s == nil {
+		return nil
+	}
+	if s.OpenAPIV3Schema != nil {
+		return s.OpenAPIV3Schema
+	}
+	return s.OCSchema
+}
+
+// IsOpenAPIV3 returns true if OpenAPIV3Schema is set.
+func (s *SchemaSection) IsOpenAPIV3() bool {
+	return s != nil && s.OpenAPIV3Schema != nil
+}
+
 // ComponentTypeSpec defines the desired state of ComponentType.
 // +kubebuilder:validation:XValidation:rule="self.workloadType == 'proxy' || self.resources.exists(r, r.id == self.workloadType)",message="resources must contain a primary resource with id matching workloadType (unless workloadType is 'proxy')"
 type ComponentTypeSpec struct {
@@ -47,9 +81,13 @@ type ComponentTypeSpec struct {
 	// +optional
 	AllowedWorkflows []WorkflowRef `json:"allowedWorkflows,omitempty"`
 
-	// Schema defines what developers can configure when creating components of this type
+	// Parameters defines what developers can configure when creating components of this type.
 	// +optional
-	Schema ComponentTypeSchema `json:"schema,omitempty"`
+	Parameters *SchemaSection `json:"parameters,omitempty"`
+
+	// EnvironmentConfigs defines per-environment overrides developers can set via ReleaseBinding.
+	// +optional
+	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
 
 	// Traits are pre-configured trait instances embedded in the ComponentType.
 	// The PE binds trait parameters using concrete values or CEL expressions
@@ -76,64 +114,6 @@ type ComponentTypeSpec struct {
 	// is "proxy", a matching resource id is not required.
 	// +kubebuilder:validation:MinItems=1
 	Resources []ResourceTemplate `json:"resources"`
-}
-
-// ComponentTypeOCSchema holds the OpenChoreo simple schema fields for a ComponentType.
-type ComponentTypeOCSchema struct {
-	// Types defines reusable type definitions that can be referenced in schema fields
-	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Type=object
-	Types *runtime.RawExtension `json:"types,omitempty"`
-
-	// Parameters are static across environments and exposed as inputs to developers
-	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Type=object
-	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
-
-	// EnvOverrides can be overridden per environment via ReleaseBinding
-	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Type=object
-	EnvOverrides *runtime.RawExtension `json:"envOverrides,omitempty"`
-}
-
-// ComponentTypeSchema defines the configurable parameters for a component type.
-// Uses the ocSchema sub-struct for OpenChoreo simple schema format.
-type ComponentTypeSchema struct {
-	// OCSchema defines the schema using OpenChoreo's simple schema format.
-	// +optional
-	OCSchema *ComponentTypeOCSchema `json:"ocSchema,omitempty"`
-}
-
-// GetTypes returns the types raw extension.
-func (s *ComponentTypeSchema) GetTypes() *runtime.RawExtension {
-	if s.OCSchema != nil {
-		return s.OCSchema.Types
-	}
-	return nil
-}
-
-// GetParameters returns the parameters raw extension.
-func (s *ComponentTypeSchema) GetParameters() *runtime.RawExtension {
-	if s.OCSchema != nil {
-		return s.OCSchema.Parameters
-	}
-	return nil
-}
-
-// GetEnvOverrides returns the envOverrides raw extension.
-func (s *ComponentTypeSchema) GetEnvOverrides() *runtime.RawExtension {
-	if s.OCSchema != nil {
-		return s.OCSchema.EnvOverrides
-	}
-	return nil
-}
-
-// IsOpenAPIV3 returns true if the schema uses OpenAPI V3 Schema format.
-func (s *ComponentTypeSchema) IsOpenAPIV3() bool {
-	return false
 }
 
 // ResourceTemplate defines a template for generating Kubernetes resources
@@ -208,14 +188,14 @@ type ComponentTypeTrait struct {
 	// +kubebuilder:validation:Schemaless
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
-	// EnvOverrides contains trait environment override bindings.
+	// EnvironmentConfigs contains trait environment config bindings.
 	// Values can be concrete (locked by PE) or CEL expressions referencing
 	// the ComponentType schema using ${...} syntax.
-	// Example: "${envOverrides.storage.size}" or "local-path" (locked)
+	// Example: "${environmentConfigs.storage.size}" or "local-path" (locked)
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
-	EnvOverrides *runtime.RawExtension `json:"envOverrides,omitempty"`
+	EnvironmentConfigs *runtime.RawExtension `json:"environmentConfigs,omitempty"`
 }
 
 // ClusterComponentTypeTrait represents a pre-configured trait instance embedded in a ClusterComponentType.
@@ -246,14 +226,14 @@ type ClusterComponentTypeTrait struct {
 	// +kubebuilder:validation:Schemaless
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
-	// EnvOverrides contains trait environment override bindings.
+	// EnvironmentConfigs contains trait environment config bindings.
 	// Values can be concrete (locked by PE) or CEL expressions referencing
 	// the ComponentType schema using ${...} syntax.
-	// Example: "${envOverrides.storage.size}" or "local-path" (locked)
+	// Example: "${environmentConfigs.storage.size}" or "local-path" (locked)
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
-	EnvOverrides *runtime.RawExtension `json:"envOverrides,omitempty"`
+	EnvironmentConfigs *runtime.RawExtension `json:"environmentConfigs,omitempty"`
 }
 
 // ComponentTypeStatus defines the observed state of ComponentType.

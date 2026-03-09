@@ -253,26 +253,15 @@ func (p *Pipeline) buildParameters(input *RenderInput) (map[string]any, error) {
 }
 
 // buildStructuralSchema builds the structural schema from Workflow for applying defaults.
-// Workflow.Spec.Schema has Types (optional) and Parameters (the actual schema).
 func (p *Pipeline) buildStructuralSchema(wf *v1alpha1.Workflow) (*apiextschema.Structural, error) {
-	if wf.Spec.Schema == nil {
+	paramsRaw := wf.Spec.Parameters.GetRaw()
+	if paramsRaw == nil {
 		return nil, nil
 	}
 
-	// Extract types if present
-	var types map[string]any
-	if typesRaw := wf.Spec.Schema.GetTypes(); typesRaw != nil {
-		if err := json.Unmarshal(typesRaw.Raw, &types); err != nil {
-			return nil, fmt.Errorf("failed to extract types: %w", err)
-		}
-	}
-
-	// Extract parameters schema (the main schema for Workflow)
 	var parameters map[string]any
-	if paramsRaw := wf.Spec.Schema.GetParameters(); paramsRaw != nil {
-		if err := json.Unmarshal(paramsRaw.Raw, &parameters); err != nil {
-			return nil, fmt.Errorf("failed to extract parameters schema: %w", err)
-		}
+	if err := json.Unmarshal(paramsRaw.Raw, &parameters); err != nil {
+		return nil, fmt.Errorf("failed to extract parameters schema: %w", err)
 	}
 
 	if parameters == nil {
@@ -280,7 +269,6 @@ func (p *Pipeline) buildStructuralSchema(wf *v1alpha1.Workflow) (*apiextschema.S
 	}
 
 	def := schema.Definition{
-		Types:   types,
 		Schemas: []map[string]any{parameters},
 	}
 

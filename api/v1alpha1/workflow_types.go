@@ -23,27 +23,10 @@ type WorkflowSpec struct {
 	// +optional
 	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
 
-	// Schema defines the developer-facing parameters that can be configured
-	// when creating a WorkflowRun instance. Uses the same shorthand schema syntax
-	// as ComponentType. Fields are nested under schema.ocSchema.
-	//
-	// Schema format: nested maps where keys are field names and values are either
-	// nested maps or type definition strings.
-	// Type definition format: "type | default=value minimum=2 enum=val1,val2"
-	//
-	// Example:
-	//   ocSchema:
-	//     parameters:
-	//       repository:
-	//         url: string | description="Git repository URL"
-	//         revision:
-	//           branch: string | default=main description="Git branch to checkout"
-	//           commit: string | default=HEAD description="Git commit SHA or reference"
-	//         appPath: string | default=. description="Path to the application directory"
-	//       version: integer | default=1 description="Build version number"
-	//
+	// Parameters defines the developer-facing parameters that can be configured
+	// when creating a WorkflowRun instance.
 	// +optional
-	Schema *WorkflowSchema `json:"schema,omitempty"`
+	Parameters *SchemaSection `json:"parameters,omitempty"`
 
 	// RunTemplate is the Kubernetes resource template to be rendered and applied to the cluster.
 	// Template variables are substituted with context and parameter values.
@@ -81,61 +64,6 @@ type WorkflowSpec struct {
 	// +optional
 	// +kubebuilder:validation:Pattern=`^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$`
 	TTLAfterCompletion string `json:"ttlAfterCompletion,omitempty"`
-}
-
-// WorkflowOCSchema holds the OpenChoreo simple schema fields for a Workflow.
-type WorkflowOCSchema struct {
-	// Types defines reusable type definitions that can be referenced in schema fields.
-	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Type=object
-	Types *runtime.RawExtension `json:"types,omitempty"`
-
-	// Parameters defines the flexible PE-defined schema for additional build configuration.
-	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Type=object
-	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
-}
-
-// WorkflowSchema defines the parameter schemas for workflows.
-// Uses the ocSchema sub-struct for OpenChoreo simple schema format.
-type WorkflowSchema struct {
-	// OCSchema defines the schema using OpenChoreo's simple schema format.
-	// +optional
-	OCSchema *WorkflowOCSchema `json:"ocSchema,omitempty"`
-}
-
-// GetTypes returns the types raw extension.
-func (s *WorkflowSchema) GetTypes() *runtime.RawExtension {
-	if s == nil {
-		return nil
-	}
-	if s.OCSchema != nil {
-		return s.OCSchema.Types
-	}
-	return nil
-}
-
-// GetParameters returns the parameters raw extension.
-func (s *WorkflowSchema) GetParameters() *runtime.RawExtension {
-	if s == nil {
-		return nil
-	}
-	if s.OCSchema != nil {
-		return s.OCSchema.Parameters
-	}
-	return nil
-}
-
-// GetEnvOverrides returns nil (workflows don't have envOverrides).
-func (s *WorkflowSchema) GetEnvOverrides() *runtime.RawExtension {
-	return nil
-}
-
-// IsOpenAPIV3 returns true if the schema uses OpenAPI V3 Schema format.
-func (s *WorkflowSchema) IsOpenAPIV3() bool {
-	return false
 }
 
 // WorkflowResource defines a template for generating Kubernetes resources

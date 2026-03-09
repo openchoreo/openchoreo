@@ -17,7 +17,6 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/schema"
-	"github.com/openchoreo/openchoreo/internal/schema/extractor"
 )
 
 var workflowTypeMeta = metav1.TypeMeta{
@@ -107,26 +106,13 @@ func (s *workflowService) GetWorkflowSchema(ctx context.Context, namespaceName, 
 		return nil, err
 	}
 
-	var types map[string]any
-	if typesRaw := wf.Spec.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
-		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
-			return nil, fmt.Errorf("failed to extract types: %w", err)
-		}
-	}
-
-	var schemaMap map[string]any
-	if paramsRaw := wf.Spec.Schema.GetParameters(); paramsRaw != nil {
+	var def schema.Definition
+	if paramsRaw := wf.Spec.Parameters.GetRaw(); paramsRaw != nil && paramsRaw.Raw != nil {
+		var schemaMap map[string]any
 		if err := yaml.Unmarshal(paramsRaw.Raw, &schemaMap); err != nil {
 			return nil, fmt.Errorf("failed to extract schema: %w", err)
 		}
-	}
-
-	def := schema.Definition{
-		Types:   types,
-		Schemas: []map[string]any{schemaMap},
-		Options: extractor.Options{
-			SkipDefaultValidation: true,
-		},
+		def.Schemas = []map[string]any{schemaMap}
 	}
 
 	jsonSchema, err := schema.ToJSONSchema(def)

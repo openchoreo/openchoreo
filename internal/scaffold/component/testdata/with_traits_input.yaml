@@ -14,10 +14,9 @@ metadata:
   name: web-app
 spec:
   workloadType: deployment
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        port: "integer"
+      port: "integer"
 ---
 # Multiple traits to verify deterministic ordering (alphabetical: logging, networking, storage)
 apiVersion: openchoreo.dev/v1alpha1
@@ -25,28 +24,25 @@ kind: Trait
 metadata:
   name: storage
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        mountPath: 'string | description="Mount path"'
-        size: string | default=10Gi
+      mountPath: 'string | description="Mount path"'
+      size: string | default=10Gi
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
 metadata:
   name: logging
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        level: string | enum=debug,info,warn,error | default=info
+      level: string | enum=debug,info,warn,error | default=info
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
 metadata:
   name: networking
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        ingress: 'boolean | description="Enable ingress"'
+      ingress: 'boolean | description="Enable ingress"'

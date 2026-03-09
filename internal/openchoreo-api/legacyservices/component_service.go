@@ -19,7 +19,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -92,11 +91,11 @@ func (s *ComponentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 		traits := make([]openchoreov1alpha1.ComponentTypeTrait, len(cct.Spec.Traits))
 		for i, t := range cct.Spec.Traits {
 			traits[i] = openchoreov1alpha1.ComponentTypeTrait{
-				Kind:         openchoreov1alpha1.TraitRefKind(t.Kind),
-				Name:         t.Name,
-				InstanceName: t.InstanceName,
-				Parameters:   t.Parameters,
-				EnvOverrides: t.EnvOverrides,
+				Kind:               openchoreov1alpha1.TraitRefKind(t.Kind),
+				Name:               t.Name,
+				InstanceName:       t.InstanceName,
+				Parameters:         t.Parameters,
+				EnvironmentConfigs: t.EnvironmentConfigs,
 			}
 		}
 		allowedWorkflows := make([]openchoreov1alpha1.WorkflowRef, len(cct.Spec.AllowedWorkflows))
@@ -107,13 +106,14 @@ func (s *ComponentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 			}
 		}
 		spec := openchoreov1alpha1.ComponentTypeSpec{
-			WorkloadType:     cct.Spec.WorkloadType,
-			AllowedWorkflows: allowedWorkflows,
-			Schema:           cct.Spec.Schema,
-			Traits:           traits,
-			AllowedTraits:    allowedTraits,
-			Validations:      cct.Spec.Validations,
-			Resources:        cct.Spec.Resources,
+			WorkloadType:       cct.Spec.WorkloadType,
+			AllowedWorkflows:   allowedWorkflows,
+			Parameters:         cct.Spec.Parameters,
+			EnvironmentConfigs: cct.Spec.EnvironmentConfigs,
+			Traits:             traits,
+			AllowedTraits:      allowedTraits,
+			Validations:        cct.Spec.Validations,
+			Resources:          cct.Spec.Resources,
 		}
 		return &spec, nil
 	default:
@@ -145,9 +145,10 @@ func (s *ComponentService) fetchTraitSpec(ctx context.Context, kind openchoreov1
 		}
 		// Convert ClusterTraitSpec to TraitSpec
 		return &openchoreov1alpha1.TraitSpec{
-			Schema:  ct.Spec.Schema,
-			Creates: ct.Spec.Creates,
-			Patches: ct.Spec.Patches,
+			Parameters:         ct.Spec.Parameters,
+			EnvironmentConfigs: ct.Spec.EnvironmentConfigs,
+			Creates:            ct.Spec.Creates,
+			Patches:            ct.Spec.Patches,
 		}, nil
 	default:
 		trait := &openchoreov1alpha1.Trait{}
@@ -161,30 +162,22 @@ func (s *ComponentService) fetchTraitSpec(ctx context.Context, kind openchoreov1
 	}
 }
 
-// buildTraitEnvOverridesSchema extracts and converts a TraitSpec's envOverrides to JSON schema
-// Returns nil if the trait has no envOverrides
-func (s *ComponentService) buildTraitEnvOverridesSchema(traitSpec openchoreov1alpha1.TraitSpec, traitName string) (*extv1.JSONSchemaProps, error) {
-	var traitEnvOverrides map[string]any
-	if envRaw := traitSpec.Schema.GetEnvOverrides(); envRaw != nil && envRaw.Raw != nil {
-		if err := json.Unmarshal(envRaw.Raw, &traitEnvOverrides); err != nil {
-			return nil, fmt.Errorf("failed to extract envOverrides for trait %s: %w", traitName, err)
+// buildTraitEnvironmentConfigsSchema extracts and converts a TraitSpec's environmentConfigs to JSON schema
+// Returns nil if the trait has no environmentConfigs
+func (s *ComponentService) buildTraitEnvironmentConfigsSchema(traitSpec openchoreov1alpha1.TraitSpec, traitName string) (*extv1.JSONSchemaProps, error) {
+	var traitEnvConfigs map[string]any
+	if envRaw := traitSpec.EnvironmentConfigs.GetRaw(); envRaw != nil && envRaw.Raw != nil {
+		if err := json.Unmarshal(envRaw.Raw, &traitEnvConfigs); err != nil {
+			return nil, fmt.Errorf("failed to extract environmentConfigs for trait %s: %w", traitName, err)
 		}
 	}
 
-	if traitEnvOverrides == nil {
+	if traitEnvConfigs == nil {
 		return nil, nil
 	}
 
-	var traitTypes map[string]any
-	if typesRaw := traitSpec.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
-		if err := yaml.Unmarshal(typesRaw.Raw, &traitTypes); err != nil {
-			return nil, fmt.Errorf("failed to extract types for trait %s: %w", traitName, err)
-		}
-	}
-
 	traitDef := openchoreoschema.Definition{
-		Types:   traitTypes,
-		Schemas: []map[string]any{traitEnvOverrides},
+		Schemas: []map[string]any{traitEnvConfigs},
 	}
 
 	traitJSONSchema, err := openchoreoschema.ToJSONSchema(traitDef)
@@ -595,21 +588,12 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 		return nil, ErrComponentReleaseNotFound
 	}
 
-	var types map[string]any
-	if typesRaw := release.Spec.ComponentType.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
-		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
-			return nil, fmt.Errorf("failed to extract types: %w", err)
-		}
-	}
+	var def openchoreoschema.Definition
 
-	def := openchoreoschema.Definition{
-		Types: types,
-	}
-
-	var componentTypeEnvOverrides map[string]any
-	if envRaw := release.Spec.ComponentType.Schema.GetEnvOverrides(); envRaw != nil && envRaw.Raw != nil {
-		if err := json.Unmarshal(envRaw.Raw, &componentTypeEnvOverrides); err != nil {
-			return nil, fmt.Errorf("failed to extract envOverrides: %w", err)
+	var componentTypeEnvConfigs map[string]any
+	if envRaw := release.Spec.ComponentType.EnvironmentConfigs.GetRaw(); envRaw != nil && envRaw.Raw != nil {
+		if err := json.Unmarshal(envRaw.Raw, &componentTypeEnvConfigs); err != nil {
+			return nil, fmt.Errorf("failed to extract environmentConfigs: %w", err)
 		}
 	}
 
@@ -619,14 +603,14 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 		Properties: make(map[string]extv1.JSONSchemaProps),
 	}
 
-	// Only add componentTypeEnvOverrides if there are actual envOverrides
-	if componentTypeEnvOverrides != nil {
-		def.Schemas = []map[string]any{componentTypeEnvOverrides}
+	// Only add componentTypeEnvironmentConfigs if there are actual environmentConfigs
+	if componentTypeEnvConfigs != nil {
+		def.Schemas = []map[string]any{componentTypeEnvConfigs}
 		jsonSchema, err := openchoreoschema.ToJSONSchema(def)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 		}
-		wrappedSchema.Properties["componentTypeEnvOverrides"] = *jsonSchema
+		wrappedSchema.Properties["componentTypeEnvironmentConfigs"] = *jsonSchema
 	}
 
 	// Process trait overrides from ComponentRelease (trait instances with instance names)
@@ -639,7 +623,7 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 				continue
 			}
 
-			traitJSONSchema, err := s.buildTraitEnvOverridesSchema(traitSpec, componentTrait.Name)
+			traitJSONSchema, err := s.buildTraitEnvironmentConfigsSchema(traitSpec, componentTrait.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -658,7 +642,7 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 		}
 	}
 
-	s.logger.Debug("Retrieved component release schema successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "release", releaseName, "hasComponentTypeEnvOverrides", componentTypeEnvOverrides != nil, "traitCount", len(traitSchemas))
+	s.logger.Debug("Retrieved component release schema successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "release", releaseName, "hasComponentTypeEnvironmentConfigs", componentTypeEnvConfigs != nil, "traitCount", len(traitSchemas))
 	return wrappedSchema, nil
 }
 
@@ -716,10 +700,11 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 		ct = openchoreov1alpha1.ComponentType{
 			ObjectMeta: cct.ObjectMeta,
 			Spec: openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType:     cct.Spec.WorkloadType,
-				AllowedWorkflows: allowedWfs,
-				Schema:           cct.Spec.Schema,
-				Resources:        cct.Spec.Resources,
+				WorkloadType:       cct.Spec.WorkloadType,
+				AllowedWorkflows:   allowedWfs,
+				Parameters:         cct.Spec.Parameters,
+				EnvironmentConfigs: cct.Spec.EnvironmentConfigs,
+				Resources:          cct.Spec.Resources,
 			},
 		}
 	default:
@@ -737,21 +722,12 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 		}
 	}
 
-	var types map[string]any
-	if typesRaw := ct.Spec.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
-		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
-			return nil, fmt.Errorf("failed to extract types: %w", err)
-		}
-	}
+	var def openchoreoschema.Definition
 
-	def := openchoreoschema.Definition{
-		Types: types,
-	}
-
-	var envOverrides map[string]any
-	if envRaw := ct.Spec.Schema.GetEnvOverrides(); envRaw != nil && envRaw.Raw != nil {
-		if err := json.Unmarshal(envRaw.Raw, &envOverrides); err != nil {
-			return nil, fmt.Errorf("failed to extract envOverrides: %w", err)
+	var envConfigs map[string]any
+	if envRaw := ct.Spec.EnvironmentConfigs.GetRaw(); envRaw != nil && envRaw.Raw != nil {
+		if err := json.Unmarshal(envRaw.Raw, &envConfigs); err != nil {
+			return nil, fmt.Errorf("failed to extract environmentConfigs: %w", err)
 		}
 	}
 
@@ -761,14 +737,14 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 		Properties: make(map[string]extv1.JSONSchemaProps),
 	}
 
-	// Only add componentTypeEnvOverrides if there are actual envOverrides
-	if envOverrides != nil {
-		def.Schemas = []map[string]any{envOverrides}
+	// Only add componentTypeEnvironmentConfigs if there are actual environmentConfigs
+	if envConfigs != nil {
+		def.Schemas = []map[string]any{envConfigs}
 		jsonSchema, err := openchoreoschema.ToJSONSchema(def)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 		}
-		wrappedSchema.Properties["componentTypeEnvOverrides"] = *jsonSchema
+		wrappedSchema.Properties["componentTypeEnvironmentConfigs"] = *jsonSchema
 	}
 
 	// Process trait overrides from the component's traits
@@ -784,7 +760,7 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 			continue // Skip missing traits instead of failing
 		}
 
-		traitJSONSchema, err := s.buildTraitEnvOverridesSchema(*traitSpec, componentTrait.Name)
+		traitJSONSchema, err := s.buildTraitEnvironmentConfigsSchema(*traitSpec, componentTrait.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -802,7 +778,7 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 		}
 	}
 
-	s.logger.Debug("Retrieved component schema successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "hasComponentTypeEnvOverrides", envOverrides != nil, "traitCount", len(traitSchemas))
+	s.logger.Debug("Retrieved component schema successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "hasComponentTypeEnvironmentConfigs", envConfigs != nil, "traitCount", len(traitSchemas))
 	return wrappedSchema, nil
 }
 
@@ -1028,13 +1004,13 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, namespaceNam
 		return nil, ErrReleaseBindingNotFound
 	}
 
-	if req.ComponentTypeEnvOverrides != nil {
-		overridesJSON, err := json.Marshal(req.ComponentTypeEnvOverrides)
+	if req.ComponentTypeEnvironmentConfigs != nil {
+		envConfigsJSON, err := json.Marshal(req.ComponentTypeEnvironmentConfigs)
 		if err != nil {
-			s.logger.Error("Failed to marshal component type env overrides", "error", err)
-			return nil, fmt.Errorf("failed to marshal component type env overrides: %w", err)
+			s.logger.Error("Failed to marshal component type environment configs", "error", err)
+			return nil, fmt.Errorf("failed to marshal component type environment configs: %w", err)
 		}
-		binding.Spec.ComponentTypeEnvOverrides = &runtime.RawExtension{Raw: overridesJSON}
+		binding.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: envConfigsJSON}
 	}
 
 	if req.TraitOverrides != nil {
@@ -1085,10 +1061,10 @@ func (s *ComponentService) toReleaseBindingResponse(binding *openchoreov1alpha1.
 	// Determine status from conditions
 	response.Status = s.determineReleaseBindingStatus(binding)
 
-	if binding.Spec.ComponentTypeEnvOverrides != nil {
+	if binding.Spec.ComponentTypeEnvironmentConfigs != nil {
 		var overrides map[string]interface{}
-		if err := json.Unmarshal(binding.Spec.ComponentTypeEnvOverrides.Raw, &overrides); err == nil {
-			response.ComponentTypeEnvOverrides = overrides
+		if err := json.Unmarshal(binding.Spec.ComponentTypeEnvironmentConfigs.Raw, &overrides); err == nil {
+			response.ComponentTypeEnvironmentConfigs = overrides
 		}
 	}
 
@@ -2752,7 +2728,7 @@ func (s *ComponentService) validateWorkflowParameters(ctx context.Context, names
 	workflowSpec := workflowResult.GetWorkflowSpec()
 
 	// If workflow has no parameter schema defined, any parameters are valid
-	if workflowSpec.Schema.GetParameters() == nil {
+	if workflowSpec.Parameters.GetRaw() == nil {
 		return nil
 	}
 
@@ -2763,7 +2739,7 @@ func (s *ComponentService) validateWorkflowParameters(ctx context.Context, names
 
 	// Unmarshal the workflow's parameter schema definition
 	var parameterSchemaMap map[string]any
-	if err := json.Unmarshal(workflowSpec.Schema.GetParameters().Raw, &parameterSchemaMap); err != nil {
+	if err := json.Unmarshal(workflowSpec.Parameters.GetRaw().Raw, &parameterSchemaMap); err != nil {
 		s.logger.Error("Failed to unmarshal workflow parameter schema", "error", err)
 		return fmt.Errorf("failed to parse workflow parameter schema: %w", err)
 	}

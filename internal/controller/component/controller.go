@@ -257,11 +257,11 @@ func (r *Reconciler) validateAndFetchComponentType(ctx context.Context, comp *op
 		traits := make([]openchoreov1alpha1.ComponentTypeTrait, len(cct.Spec.Traits))
 		for i, t := range cct.Spec.Traits {
 			traits[i] = openchoreov1alpha1.ComponentTypeTrait{
-				Kind:         openchoreov1alpha1.TraitRefKind(t.Kind),
-				Name:         t.Name,
-				InstanceName: t.InstanceName,
-				Parameters:   t.Parameters,
-				EnvOverrides: t.EnvOverrides,
+				Kind:               openchoreov1alpha1.TraitRefKind(t.Kind),
+				Name:               t.Name,
+				InstanceName:       t.InstanceName,
+				Parameters:         t.Parameters,
+				EnvironmentConfigs: t.EnvironmentConfigs,
 			}
 		}
 		// Convert ClusterWorkflowRef to WorkflowRef
@@ -275,13 +275,14 @@ func (r *Reconciler) validateAndFetchComponentType(ctx context.Context, comp *op
 		ct := &openchoreov1alpha1.ComponentType{
 			ObjectMeta: cct.ObjectMeta,
 			Spec: openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType:     cct.Spec.WorkloadType,
-				AllowedWorkflows: allowedWorkflows,
-				Schema:           cct.Spec.Schema,
-				Traits:           traits,
-				AllowedTraits:    allowedTraits,
-				Validations:      cct.Spec.Validations,
-				Resources:        cct.Spec.Resources,
+				WorkloadType:       cct.Spec.WorkloadType,
+				AllowedWorkflows:   allowedWorkflows,
+				Parameters:         cct.Spec.Parameters,
+				EnvironmentConfigs: cct.Spec.EnvironmentConfigs,
+				Traits:             traits,
+				AllowedTraits:      allowedTraits,
+				Validations:        cct.Spec.Validations,
+				Resources:          cct.Spec.Resources,
 			},
 		}
 		return ct, nil
@@ -602,10 +603,11 @@ func (r *Reconciler) fetchAllTraits(ctx context.Context, ct *openchoreov1alpha1.
 			return &openchoreov1alpha1.Trait{
 				ObjectMeta: ct.ObjectMeta,
 				Spec: openchoreov1alpha1.TraitSpec{
-					Schema:      ct.Spec.Schema,
-					Validations: ct.Spec.Validations,
-					Creates:     ct.Spec.Creates,
-					Patches:     ct.Spec.Patches,
+					Parameters:         ct.Spec.Parameters,
+					EnvironmentConfigs: ct.Spec.EnvironmentConfigs,
+					Validations:        ct.Spec.Validations,
+					Creates:            ct.Spec.Creates,
+					Patches:            ct.Spec.Patches,
 				},
 			}, nil
 		default:

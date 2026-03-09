@@ -118,10 +118,9 @@ spec:
         replicas: 2
   componentType:
     spec:
-      schema:
+      parameters:
         ocSchema:
-          parameters:
-            replicas: "integer"
+          replicas: "integer"
       resources:
         - id: deployment
           template:
@@ -168,10 +167,9 @@ spec:
         expose: true
   componentType:
     spec:
-      schema:
+      parameters:
         ocSchema:
-          parameters:
-            expose: "boolean"
+          expose: "boolean"
       resources:
         - id: deployment
           template:
@@ -235,10 +233,9 @@ spec:
           - secret2
   componentType:
     spec:
-      schema:
+      parameters:
         ocSchema:
-          parameters:
-            secrets: "[]string"
+          secrets: "[]string"
       resources:
         - id: secrets
           forEach: ${parameters.secrets}
@@ -311,10 +308,9 @@ spec:
     - metadata:
         name: mysql
       spec:
-        schema:
+        parameters:
           ocSchema:
-            parameters:
-              database: "string"
+            database: "string"
         creates:
           - template:
               apiVersion: v1
@@ -444,10 +440,9 @@ spec:
         mountPath: /var/data
   componentType:
     spec:
-      schema:
+      parameters:
         ocSchema:
-          parameters:
-            mountPath: "string"
+          mountPath: "string"
       traits:
         - name: storage
           instanceName: app-storage
@@ -465,11 +460,10 @@ spec:
     - metadata:
         name: storage
       spec:
-        schema:
+        parameters:
           ocSchema:
-            parameters:
-              mountPath: "string"
-              volumeName: "string"
+            mountPath: "string"
+            volumeName: "string"
         creates:
           - template:
               apiVersion: v1
@@ -611,10 +605,9 @@ spec:
             database: mydb
   componentType:
     spec:
-      schema:
+      parameters:
         ocSchema:
-          parameters:
-            database: "string"
+          database: "string"
       traits:
         - name: monitoring
           instanceName: embedded-mon
@@ -640,10 +633,9 @@ spec:
     - metadata:
         name: mysql
       spec:
-        schema:
+        parameters:
           ocSchema:
-            parameters:
-              database: "string"
+            database: "string"
         creates:
           - template:
               apiVersion: v1
@@ -715,10 +707,9 @@ spec:
         appPort: 8080
   componentType:
     spec:
-      schema:
+      parameters:
         ocSchema:
-          parameters:
-            appPort: "integer"
+          appPort: "integer"
       traits:
         - name: service-exposure
           instanceName: expose-1
@@ -736,11 +727,10 @@ spec:
     - metadata:
         name: service-exposure
       spec:
-        schema:
+        parameters:
           ocSchema:
-            parameters:
-              port: "integer"
-              protocol: "string | default=\"TCP\""
+            port: "integer"
+            protocol: "string | default=\"TCP\""
         creates:
           - template:
               apiVersion: v1
@@ -1045,10 +1035,9 @@ func TestPipeline_SchemaValidation(t *testing.T) {
 			name: "component parameters missing required field",
 			componentTypeYAML: `
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        replicas: integer
+      replicas: integer
   resources:
     - id: deployment
       template: {apiVersion: v1, kind: Pod, metadata: {name: x}}
@@ -1057,20 +1046,19 @@ spec:
 			wantErrMsg:    "parameters validation failed",
 		},
 		{
-			name: "component envOverrides missing required field",
+			name: "component environmentConfigs missing required field",
 			componentTypeYAML: `
 spec:
-  schema:
+  environmentConfigs:
     ocSchema:
-      envOverrides:
-        logLevel: string
+      logLevel: string
   resources:
     - id: deployment
       template: {apiVersion: v1, kind: Pod, metadata: {name: x}}
 `,
 			componentYAML:      `spec: {}`,
-			releaseBindingYAML: `spec: {componentTypeEnvOverrides: {}}`,
-			wantErrMsg:         "envOverrides validation failed",
+			releaseBindingYAML: `spec: {componentTypeEnvironmentConfigs: {}}`,
+			wantErrMsg:         "environmentConfigs validation failed",
 		},
 		{
 			name: "trait parameters missing required field",
@@ -1090,15 +1078,14 @@ spec:
 			traitsYAML: `
 - metadata: {name: storage}
   spec:
-    schema:
+    parameters:
       ocSchema:
-        parameters:
-          size: string
+        size: string
 `,
 			wantErrMsg: "parameters validation failed",
 		},
 		{
-			name: "trait envOverrides missing required field",
+			name: "trait environmentConfigs missing required field",
 			componentTypeYAML: `
 spec:
   resources:
@@ -1114,13 +1101,12 @@ spec:
 			traitsYAML: `
 - metadata: {name: storage}
   spec:
-    schema:
+    environmentConfigs:
       ocSchema:
-        envOverrides:
-          storageClass: string
+        storageClass: string
 `,
 			releaseBindingYAML: `spec: {traitOverrides: {vol1: {}}}`,
-			wantErrMsg:         "envOverrides validation failed",
+			wantErrMsg:         "environmentConfigs validation failed",
 		},
 	}
 
@@ -1205,10 +1191,9 @@ func TestPipeline_ValidationRules(t *testing.T) {
 			name: "component type validation rule passes",
 			componentTypeYAML: `
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        replicas: "integer | default=1"
+      replicas: "integer | default=1"
   validations:
     - rule: "${parameters.replicas > 0}"
       message: "replicas must be positive"
@@ -1223,10 +1208,9 @@ spec:
 			name: "component type validation rule fails with context",
 			componentTypeYAML: `
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        replicas: "integer | default=1"
+      replicas: "integer | default=1"
   validations:
     - rule: "${parameters.replicas > 5}"
       message: "replicas must be greater than 5"
@@ -1262,10 +1246,9 @@ spec:
 			traitsYAML: `
 - metadata: {name: storage}
   spec:
-    schema:
+    parameters:
       ocSchema:
-        parameters:
-          size: "integer | default=1"
+        size: "integer | default=1"
     validations:
       - rule: "${parameters.size > 0}"
         message: "size must be positive"
@@ -1293,10 +1276,9 @@ spec:
 			traitsYAML: `
 - metadata: {name: storage}
   spec:
-    schema:
+    parameters:
       ocSchema:
-        parameters:
-          size: "integer | default=1"
+        size: "integer | default=1"
     validations:
       - rule: "${parameters.size > 0}"
         message: "size must be positive"
@@ -1315,11 +1297,10 @@ spec:
 			name: "multiple validation rules all evaluated",
 			componentTypeYAML: `
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        replicas: "integer | default=1"
-        name: "string | default=app"
+      replicas: "integer | default=1"
+      name: "string | default=app"
   validations:
     - rule: "${parameters.replicas > 10}"
       message: "replicas too low"

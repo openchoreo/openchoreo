@@ -28,8 +28,8 @@ type EmbeddedTraitContextInput struct {
 	// These are already concrete values (CEL expressions have been evaluated).
 	ResolvedParameters map[string]any
 
-	// ResolvedEnvOverrides contains the CEL-resolved envOverride defaults from the embedded binding.
-	ResolvedEnvOverrides map[string]any
+	// ResolvedEnvironmentConfigs contains the CEL-resolved environmentConfig defaults from the embedded binding.
+	ResolvedEnvironmentConfigs map[string]any
 
 	// Component is the component this trait is being applied to.
 	Component *v1alpha1.Component `validate:"required"`
@@ -61,31 +61,31 @@ type EmbeddedTraitContextInput struct {
 }
 
 // ResolveEmbeddedTraitBindings resolves CEL expressions in an embedded trait's parameter
-// and envOverride bindings against the component context.
+// and environmentConfigs bindings against the component context.
 //
 // Values in the embedded trait bindings can be:
 //   - Concrete values (locked by PE): passed through as-is
 //   - CEL expressions like "${parameters.storage.mountPath}": evaluated against the component context
 //
-// Returns the resolved parameters and envOverrides as maps.
+// Returns the resolved parameters and environmentConfigs as maps.
 func ResolveEmbeddedTraitBindings(
 	engine *template.Engine,
 	embeddedTrait v1alpha1.ComponentTypeTrait,
 	componentContextMap map[string]any,
-) (resolvedParams map[string]any, resolvedEnvOverrides map[string]any, err error) {
+) (resolvedParams map[string]any, resolvedEnvConfigs map[string]any, err error) {
 	resolvedParams, err = resolveBindings(engine, embeddedTrait.Parameters, componentContextMap)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to resolve embedded trait %s/%s parameters: %w",
 			embeddedTrait.Name, embeddedTrait.InstanceName, err)
 	}
 
-	resolvedEnvOverrides, err = resolveBindings(engine, embeddedTrait.EnvOverrides, componentContextMap)
+	resolvedEnvConfigs, err = resolveBindings(engine, embeddedTrait.EnvironmentConfigs, componentContextMap)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve embedded trait %s/%s envOverrides: %w",
+		return nil, nil, fmt.Errorf("failed to resolve embedded trait %s/%s environmentConfigs: %w",
 			embeddedTrait.Name, embeddedTrait.InstanceName, err)
 	}
 
-	return resolvedParams, resolvedEnvOverrides, nil
+	return resolvedParams, resolvedEnvConfigs, nil
 }
 
 // resolveBindings takes a RawExtension containing mixed concrete values and CEL expressions,
@@ -127,7 +127,7 @@ func BuildEmbeddedTraitContext(input *EmbeddedTraitContextInput) (*TraitContext,
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
-	parameters, envOverrides, err := processEmbeddedTraitParameters(input)
+	parameters, envConfigs, err := processEmbeddedTraitParameters(input)
 	if err != nil {
 		return nil, err
 	}
@@ -144,9 +144,9 @@ func BuildEmbeddedTraitContext(input *EmbeddedTraitContextInput) (*TraitContext,
 	}
 
 	ctx := &TraitContext{
-		Parameters:   parameters,
-		EnvOverrides: envOverrides,
-		Metadata:     metadata,
+		Parameters:         parameters,
+		EnvironmentConfigs: envConfigs,
+		Metadata:           metadata,
 		Trait: TraitMetadata{
 			Name:         input.Trait.Name,
 			InstanceName: input.InstanceName,
@@ -162,29 +162,28 @@ func BuildEmbeddedTraitContext(input *EmbeddedTraitContextInput) (*TraitContext,
 	return ctx, nil
 }
 
-// processEmbeddedTraitParameters processes parameters and envOverrides for an embedded trait.
+// processEmbeddedTraitParameters processes parameters and environmentConfigs for an embedded trait.
 //
 // Parameters: Come from the resolved bindings (already concrete values from CEL evaluation).
-// EnvOverrides: Come from the resolved bindings (already concrete values from CEL evaluation).
+// EnvironmentConfigs: Come from the resolved bindings (already concrete values from CEL evaluation).
 func processEmbeddedTraitParameters(input *EmbeddedTraitContextInput) (map[string]any, map[string]any, error) {
 	traitName := input.Trait.Name
 
 	// Build or retrieve schema bundles
 	parametersBundle := getCachedSchemaBundle(input.SchemaCache, traitName+":parameters")
-	envOverridesBundle := getCachedSchemaBundle(input.SchemaCache, traitName+":envOverrides")
+	envConfigsBundle := getCachedSchemaBundle(input.SchemaCache, traitName+":environmentConfigs")
 
-	if parametersBundle == nil || envOverridesBundle == nil {
+	if parametersBundle == nil || envConfigsBundle == nil {
 		var err error
-		parametersBundle, envOverridesBundle, err = BuildStructuralSchemas(&SchemaInput{
-			Types:              input.Trait.Spec.Schema.GetTypes(),
-			ParametersSchema:   input.Trait.Spec.Schema.GetParameters(),
-			EnvOverridesSchema: input.Trait.Spec.Schema.GetEnvOverrides(),
+		parametersBundle, envConfigsBundle, err = BuildStructuralSchemas(&SchemaInput{
+			ParametersSchema:         input.Trait.Spec.Parameters.GetRaw(),
+			EnvironmentConfigsSchema: input.Trait.Spec.EnvironmentConfigs.GetRaw(),
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to build trait schemas: %w", err)
 		}
 		setCachedSchemaBundle(input.SchemaCache, traitName+":parameters", parametersBundle)
-		setCachedSchemaBundle(input.SchemaCache, traitName+":envOverrides", envOverridesBundle)
+		setCachedSchemaBundle(input.SchemaCache, traitName+":environmentConfigs", envConfigsBundle)
 	}
 
 	// Process parameters: prune, apply defaults, validate
@@ -201,19 +200,19 @@ func processEmbeddedTraitParameters(input *EmbeddedTraitContextInput) (map[strin
 		parameters = make(map[string]any)
 	}
 
-	// Process envOverrides: prune, apply defaults, validate
-	var envOverrides map[string]any
-	if envOverridesBundle != nil {
-		envOverrides = make(map[string]any, len(input.ResolvedEnvOverrides))
-		maps.Copy(envOverrides, input.ResolvedEnvOverrides)
-		pruning.Prune(envOverrides, envOverridesBundle.Structural, false)
-		envOverrides = schema.ApplyDefaults(envOverrides, envOverridesBundle.Structural)
-		if err := schema.ValidateWithJSONSchema(envOverrides, envOverridesBundle.JSONSchema); err != nil {
-			return nil, nil, fmt.Errorf("envOverrides validation failed: %w", err)
+	// Process environmentConfigs: prune, apply defaults, validate
+	var envConfigs map[string]any
+	if envConfigsBundle != nil {
+		envConfigs = make(map[string]any, len(input.ResolvedEnvironmentConfigs))
+		maps.Copy(envConfigs, input.ResolvedEnvironmentConfigs)
+		pruning.Prune(envConfigs, envConfigsBundle.Structural, false)
+		envConfigs = schema.ApplyDefaults(envConfigs, envConfigsBundle.Structural)
+		if err := schema.ValidateWithJSONSchema(envConfigs, envConfigsBundle.JSONSchema); err != nil {
+			return nil, nil, fmt.Errorf("environmentConfigs validation failed: %w", err)
 		}
 	} else {
-		envOverrides = make(map[string]any)
+		envConfigs = make(map[string]any)
 	}
 
-	return parameters, envOverrides, nil
+	return parameters, envConfigs, nil
 }

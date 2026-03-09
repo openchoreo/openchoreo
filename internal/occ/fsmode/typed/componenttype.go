@@ -28,14 +28,11 @@ func NewComponentType(entry *index.ResourceEntry) (*ComponentType, error) {
 func (ct *ComponentType) GetSchema() map[string]interface{} {
 	schema := make(map[string]interface{})
 
-	if types := ct.Spec.Schema.GetTypes(); types != nil {
-		schema["types"] = rawExtensionToMap(types)
-	}
-	if params := ct.Spec.Schema.GetParameters(); params != nil {
+	if params := ct.Spec.Parameters.GetRaw(); params != nil {
 		schema["parameters"] = rawExtensionToMap(params)
 	}
-	if envOverrides := ct.Spec.Schema.GetEnvOverrides(); envOverrides != nil {
-		schema["envOverrides"] = rawExtensionToMap(envOverrides)
+	if envConfig := ct.Spec.EnvironmentConfigs.GetRaw(); envConfig != nil {
+		schema["environmentConfigs"] = rawExtensionToMap(envConfig)
 	}
 
 	return schema

@@ -353,10 +353,10 @@ type PatchReleaseBindingRequest struct {
 	// +optional
 	Environment string `json:"environment,omitempty"`
 
-	// ComponentTypeEnvOverrides for ComponentType envOverrides parameters
+	// ComponentTypeEnvironmentConfigs for ComponentType environmentConfigs parameters
 	// These values override the defaults defined in the Component for this specific environment
 	// +optional
-	ComponentTypeEnvOverrides map[string]interface{} `json:"componentTypeEnvOverrides,omitempty"`
+	ComponentTypeEnvironmentConfigs map[string]interface{} `json:"componentTypeEnvironmentConfigs,omitempty"`
 
 	// TraitOverrides provides environment-specific overrides for trait configurations
 	// Keyed by instanceName (which must be unique across all traits in the component)

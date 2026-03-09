@@ -6,16 +6,16 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: clustertrait-sample
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        volumeName: "string"
-        mountPath: "string"
-        containerName: "string | default=app"
+      volumeName: "string"
+      mountPath: "string"
+      containerName: "string | default=app"
 
-      envOverrides:
-        size: "string | default=10Gi"
-        storageClass: "string | default=standard"
+  environmentConfigs:
+    ocSchema:
+      size: "string | default=10Gi"
+      storageClass: "string | default=standard"
 
   creates:
     - targetPlane: dataplane
@@ -30,8 +30,8 @@ spec:
             - ReadWriteOnce
           resources:
             requests:
-              storage: ${envOverrides.size}
-          storageClassName: ${envOverrides.storageClass}
+              storage: ${environmentConfigs.size}
+          storageClassName: ${environmentConfigs.storageClass}
 
   patches:
     - target:

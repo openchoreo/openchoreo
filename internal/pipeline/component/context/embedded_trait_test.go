@@ -20,14 +20,14 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 	)
 
 	tests := []struct {
-		name                string
-		embeddedTrait       v1alpha1.ComponentTypeTrait
-		componentContext    map[string]any
-		wantParams          map[string]any
-		wantEnvOverrides    map[string]any
-		wantParamsNil       bool
-		wantEnvOverridesNil bool
-		wantErr             bool
+		name                      string
+		embeddedTrait             v1alpha1.ComponentTypeTrait
+		componentContext          map[string]any
+		wantParams                map[string]any
+		wantEnvironmentConfigs    map[string]any
+		wantParamsNil             bool
+		wantEnvironmentConfigsNil bool
+		wantErr                   bool
 	}{
 		{
 			name: "concrete-only values (locked by PE)",
@@ -50,7 +50,7 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 				"volumeName": "app-data",
 				"size":       "10Gi",
 			},
-			wantEnvOverridesNil: true,
+			wantEnvironmentConfigsNil: true,
 		},
 		{
 			name: "CEL expressions referencing parameters",
@@ -75,10 +75,10 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 				"mountPath":  "/var/data",
 				"volumeName": "app-data",
 			},
-			wantEnvOverridesNil: true,
+			wantEnvironmentConfigsNil: true,
 		},
 		{
-			name: "mixed concrete and CEL values in both params and envOverrides",
+			name: "mixed concrete and CEL values in both params and environmentConfigs",
 			embeddedTrait: v1alpha1.ComponentTypeTrait{
 				Name:         "logging",
 				InstanceName: "app-logging",
@@ -88,9 +88,9 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 						"appName": "${parameters.appName}",
 					}),
 				},
-				EnvOverrides: &runtime.RawExtension{
+				EnvironmentConfigs: &runtime.RawExtension{
 					Raw: mustMarshalJSON(t, map[string]any{
-						"logLevel": "${envOverrides.logLevel}",
+						"logLevel": "${environmentConfigs.logLevel}",
 						"output":   "stdout",
 					}),
 				},
@@ -99,7 +99,7 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 				"parameters": map[string]any{
 					"appName": "my-service",
 				},
-				"envOverrides": map[string]any{
+				"environmentConfigs": map[string]any{
 					"logLevel": "debug",
 				},
 			},
@@ -107,20 +107,20 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 				"format":  "json",
 				"appName": "my-service",
 			},
-			wantEnvOverrides: map[string]any{
+			wantEnvironmentConfigs: map[string]any{
 				"logLevel": "debug",
 				"output":   "stdout",
 			},
 		},
 		{
-			name: "nil parameters and envOverrides",
+			name: "nil parameters and environmentConfigs",
 			embeddedTrait: v1alpha1.ComponentTypeTrait{
 				Name:         "simple",
 				InstanceName: "simple-1",
 			},
-			componentContext:    map[string]any{},
-			wantParamsNil:       true,
-			wantEnvOverridesNil: true,
+			componentContext:          map[string]any{},
+			wantParamsNil:             true,
+			wantEnvironmentConfigsNil: true,
 		},
 		{
 			name: "invalid CEL expression",
@@ -142,7 +142,7 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resolvedParams, resolvedEnvOverrides, err := ResolveEmbeddedTraitBindings(
+			resolvedParams, resolvedEnvironmentConfigs, err := ResolveEmbeddedTraitBindings(
 				engine,
 				tt.embeddedTrait,
 				tt.componentContext,
@@ -166,14 +166,14 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 				}
 			}
 
-			// Check envOverrides
-			if tt.wantEnvOverridesNil {
-				if resolvedEnvOverrides != nil {
-					t.Errorf("expected nil envOverrides, got %v", resolvedEnvOverrides)
+			// Check environmentConfigs
+			if tt.wantEnvironmentConfigsNil {
+				if resolvedEnvironmentConfigs != nil {
+					t.Errorf("expected nil environmentConfigs, got %v", resolvedEnvironmentConfigs)
 				}
 			} else {
-				if diff := cmp.Diff(tt.wantEnvOverrides, resolvedEnvOverrides); diff != "" {
-					t.Errorf("envOverrides mismatch (-want +got):\n%s", diff)
+				if diff := cmp.Diff(tt.wantEnvironmentConfigs, resolvedEnvironmentConfigs); diff != "" {
+					t.Errorf("environmentConfigs mismatch (-want +got):\n%s", diff)
 				}
 			}
 		})
@@ -183,14 +183,12 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 func TestBuildEmbeddedTraitContext(t *testing.T) {
 	baseTrait := &v1alpha1.Trait{}
 	baseTrait.Name = "storage"
-	baseTrait.Spec.Schema = v1alpha1.TraitSchema{
-		OCSchema: &v1alpha1.TraitOCSchema{
-			Parameters: &runtime.RawExtension{
-				Raw: mustMarshalJSON(t, map[string]any{
-					"mountPath": "string",
-					"size":      "string | default=\"5Gi\"",
-				}),
-			},
+	baseTrait.Spec.Parameters = &v1alpha1.SchemaSection{
+		OCSchema: &runtime.RawExtension{
+			Raw: mustMarshalJSON(t, map[string]any{
+				"mountPath": "string",
+				"size":      "string | default=\"5Gi\"",
+			}),
 		},
 	}
 
@@ -212,13 +210,13 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 	}
 
 	tests := []struct {
-		name             string
-		input            *EmbeddedTraitContextInput
-		wantParams       map[string]any
-		wantEnvOverrides map[string]any
-		wantTraitName    string
-		wantInstanceName string
-		wantErr          bool
+		name                   string
+		input                  *EmbeddedTraitContextInput
+		wantParams             map[string]any
+		wantEnvironmentConfigs map[string]any
+		wantTraitName          string
+		wantInstanceName       string
+		wantErr                bool
 	}{
 		{
 			name: "basic embedded trait context with resolved parameters",
@@ -238,34 +236,34 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 				"mountPath": "/var/data",
 				"size":      "10Gi",
 			},
-			wantEnvOverrides: map[string]any{},
-			wantTraitName:    "storage",
-			wantInstanceName: "app-storage",
+			wantEnvironmentConfigs: map[string]any{},
+			wantTraitName:          "storage",
+			wantInstanceName:       "app-storage",
 		},
 		{
-			name: "embedded trait with resolved envOverrides",
+			name: "embedded trait with resolved environmentConfigs",
 			input: &EmbeddedTraitContextInput{
 				Trait: func() *v1alpha1.Trait {
 					t := &v1alpha1.Trait{}
 					t.Name = "logging"
-					t.Spec.Schema = v1alpha1.TraitSchema{
-						OCSchema: &v1alpha1.TraitOCSchema{
-							Parameters: &runtime.RawExtension{
-								Raw: mustMarshalJSON(nil, map[string]any{
-									"format": "string | default=\"json\"",
-								}),
-							},
-							EnvOverrides: &runtime.RawExtension{
-								Raw: mustMarshalJSON(nil, map[string]any{
-									"logLevel": "string | default=\"info\"",
-								}),
-							},
+					t.Spec.Parameters = &v1alpha1.SchemaSection{
+						OCSchema: &runtime.RawExtension{
+							Raw: mustMarshalJSON(nil, map[string]any{
+								"format": "string | default=\"json\"",
+							}),
+						},
+					}
+					t.Spec.EnvironmentConfigs = &v1alpha1.SchemaSection{
+						OCSchema: &runtime.RawExtension{
+							Raw: mustMarshalJSON(nil, map[string]any{
+								"logLevel": "string | default=\"info\"",
+							}),
 						},
 					}
 					return t
 				}(),
 				InstanceName: "app-logging",
-				ResolvedEnvOverrides: map[string]any{
+				ResolvedEnvironmentConfigs: map[string]any{
 					"logLevel": "debug",
 				},
 				Component:   &v1alpha1.Component{},
@@ -276,25 +274,23 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 			wantParams: map[string]any{
 				"format": "json",
 			},
-			wantEnvOverrides: map[string]any{
+			wantEnvironmentConfigs: map[string]any{
 				"logLevel": "debug",
 			},
 			wantTraitName:    "logging",
 			wantInstanceName: "app-logging",
 		},
 		{
-			name: "embedded trait with nil envOverrides uses schema defaults",
+			name: "embedded trait with nil environmentConfigs uses schema defaults",
 			input: &EmbeddedTraitContextInput{
 				Trait: func() *v1alpha1.Trait {
 					t := &v1alpha1.Trait{}
 					t.Name = "logging"
-					t.Spec.Schema = v1alpha1.TraitSchema{
-						OCSchema: &v1alpha1.TraitOCSchema{
-							EnvOverrides: &runtime.RawExtension{
-								Raw: mustMarshalJSON(nil, map[string]any{
-									"logLevel": "string | default=\"info\"",
-								}),
-							},
+					t.Spec.EnvironmentConfigs = &v1alpha1.SchemaSection{
+						OCSchema: &runtime.RawExtension{
+							Raw: mustMarshalJSON(nil, map[string]any{
+								"logLevel": "string | default=\"info\"",
+							}),
 						},
 					}
 					return t
@@ -306,7 +302,7 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 				Metadata:     baseMetadata,
 			},
 			wantParams: map[string]any{},
-			wantEnvOverrides: map[string]any{
+			wantEnvironmentConfigs: map[string]any{
 				"logLevel": "info", // Schema default applied
 			},
 			wantTraitName:    "logging",
@@ -318,14 +314,12 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 				Trait: func() *v1alpha1.Trait {
 					t := &v1alpha1.Trait{}
 					t.Name = "optional-config"
-					t.Spec.Schema = v1alpha1.TraitSchema{
-						OCSchema: &v1alpha1.TraitOCSchema{
-							Parameters: &runtime.RawExtension{
-								Raw: mustMarshalJSON(nil, map[string]any{
-									"timeout": "string | default=\"30s\"",
-									"retries": "number | default=3",
-								}),
-							},
+					t.Spec.Parameters = &v1alpha1.SchemaSection{
+						OCSchema: &runtime.RawExtension{
+							Raw: mustMarshalJSON(nil, map[string]any{
+								"timeout": "string | default=\"30s\"",
+								"retries": "number | default=3",
+							}),
 						},
 					}
 					return t
@@ -341,9 +335,9 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 				"timeout": "30s", // Schema defaults applied
 				"retries": float64(3),
 			},
-			wantEnvOverrides: map[string]any{},
-			wantTraitName:    "optional-config",
-			wantInstanceName: "app-config",
+			wantEnvironmentConfigs: map[string]any{},
+			wantTraitName:          "optional-config",
+			wantInstanceName:       "app-config",
 		},
 		{
 			name: "missing instance name",
@@ -377,10 +371,10 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 				t.Errorf("parameters mismatch (-want +got):\n%s", diff)
 			}
 
-			// Verify envOverrides
-			envOverrides, _ := ctxMap["envOverrides"].(map[string]any)
-			if diff := cmp.Diff(tt.wantEnvOverrides, envOverrides); diff != "" {
-				t.Errorf("envOverrides mismatch (-want +got):\n%s", diff)
+			// Verify environmentConfigs
+			environmentConfigs, _ := ctxMap["environmentConfigs"].(map[string]any)
+			if diff := cmp.Diff(tt.wantEnvironmentConfigs, environmentConfigs); diff != "" {
+				t.Errorf("environmentConfigs mismatch (-want +got):\n%s", diff)
 			}
 
 			// Verify trait metadata

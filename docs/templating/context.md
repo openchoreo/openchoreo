@@ -8,8 +8,8 @@ OpenChoreo uses two context types depending on where the template is evaluated:
 
 | Context Type | Used In | Key Variables |
 |--------------|---------|---------------|
-| **ComponentContext** | ComponentType `validations` and `resources` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `workload`, `configurations` |
-| **TraitContext** | Trait `validations`, `creates`, and `patches` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `trait`, `workload`, `configurations` |
+| **ComponentContext** | ComponentType `validations` and `resources` | `metadata`, `parameters`, `environmentConfigs`, `dataplane`, `workload`, `configurations` |
+| **TraitContext** | Trait `validations`, `creates`, and `patches` | `metadata`, `parameters`, `environmentConfigs`, `dataplane`, `trait`, `workload`, `configurations` |
 
 ## ComponentContext
 
@@ -124,16 +124,16 @@ spec:
             - containerPort: ${parameters.port}
 ```
 
-### envOverrides
+### environmentConfigs
 
-Environment-specific overrides from `ReleaseBinding.Spec.ComponentTypeEnvOverrides`, pruned to the ComponentType's `schema.envOverrides` section with defaults applied. Use for values that vary per environment (resources, replicas, etc.).
+Environment-specific overrides from `ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs`, pruned to the ComponentType's `schema.environmentConfigs` section with defaults applied. Use for values that vary per environment (resources, replicas, etc.).
 
 ```yaml
-# Access pattern: ${envOverrides.<field>}
+# Access pattern: ${environmentConfigs.<field>}
 
 # Given this schema in ComponentType:
 schema:
-  envOverrides:
+  environmentConfigs:
     resources:
       $default: {}
       requests:
@@ -147,21 +147,21 @@ schema:
 
 # And this ReleaseBinding:
 spec:
-  componentTypeEnvOverrides:
+  componentTypeEnvironmentConfigs:
     resources:
       requests:
         cpu: "200m"
         memory: "256Mi"
 
-# The envOverrides context would be:
-envOverrides:
+# The environmentConfigs context would be:
+environmentConfigs:
   resources:
     requests:
-      cpu: "200m"                # ${envOverrides.resources.requests.cpu} (from ReleaseBinding)
-      memory: "256Mi"            # ${envOverrides.resources.requests.memory} (from ReleaseBinding)
+      cpu: "200m"                # ${environmentConfigs.resources.requests.cpu} (from ReleaseBinding)
+      memory: "256Mi"            # ${environmentConfigs.resources.requests.memory} (from ReleaseBinding)
     limits:
-      cpu: "500m"                # ${envOverrides.resources.limits.cpu} (default)
-      memory: "512Mi"            # ${envOverrides.resources.limits.memory} (default)
+      cpu: "500m"                # ${environmentConfigs.resources.limits.cpu} (default)
+      memory: "512Mi"            # ${environmentConfigs.resources.limits.memory} (default)
 ```
 
 **Example usage:**
@@ -174,16 +174,16 @@ spec:
         - name: app
           resources:
             requests:
-              cpu: ${envOverrides.resources.requests.cpu}
-              memory: ${envOverrides.resources.requests.memory}
+              cpu: ${environmentConfigs.resources.requests.cpu}
+              memory: ${environmentConfigs.resources.requests.memory}
             limits:
-              cpu: ${envOverrides.resources.limits.cpu}
-              memory: ${envOverrides.resources.limits.memory}
+              cpu: ${environmentConfigs.resources.limits.cpu}
+              memory: ${environmentConfigs.resources.limits.memory}
 ```
 
 **Key difference from parameters:**
 - `parameters`: Static values from Component - same across all environments
-- `envOverrides`: Environment-specific values from ReleaseBinding - different per environment
+- `environmentConfigs`: Environment-specific values from ReleaseBinding - different per environment
 
 ### dataplane
 
@@ -583,14 +583,14 @@ parameters:
   containerName: "app"           # ${parameters.containerName} (default)
 ```
 
-### envOverrides
+### environmentConfigs
 
-Environment-specific overrides from `ReleaseBinding.Spec.TraitOverrides[instanceName]`, pruned to the Trait's `schema.envOverrides` section with defaults applied. Use for values that vary per environment.
+Environment-specific overrides from `ReleaseBinding.Spec.TraitOverrides[instanceName]`, pruned to the Trait's `schema.environmentConfigs` section with defaults applied. Use for values that vary per environment.
 
 ```yaml
 # Given this schema in Trait:
 schema:
-  envOverrides:
+  environmentConfigs:
     size: "string | default=10Gi"
     storageClass: "string | default=standard"
 
@@ -601,10 +601,10 @@ spec:
       size: "50Gi"
       storageClass: "fast-ssd"
 
-# The envOverrides context would be:
-envOverrides:
-  size: "50Gi"                   # ${envOverrides.size} (from ReleaseBinding)
-  storageClass: "fast-ssd"       # ${envOverrides.storageClass} (from ReleaseBinding)
+# The environmentConfigs context would be:
+environmentConfigs:
+  size: "50Gi"                   # ${environmentConfigs.size} (from ReleaseBinding)
+  storageClass: "fast-ssd"       # ${environmentConfigs.storageClass} (from ReleaseBinding)
 ```
 
 **Example usage:**
@@ -620,8 +620,8 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: ${envOverrides.size}
-  storageClassName: ${envOverrides.storageClass}
+      storage: ${environmentConfigs.size}
+  storageClassName: ${environmentConfigs.storageClass}
 ```
 
 ### workload
@@ -744,7 +744,7 @@ The entire rendered Kubernetes resource is available, including:
 |----------|------------------|--------------|
 | `metadata.*` | ✅ | ✅ |
 | `parameters.*` | ✅ (from Component.Spec.Parameters) | ✅ (from Trait instance) |
-| `envOverrides.*` | ✅ (from ReleaseBinding.ComponentTypeEnvOverrides) | ✅ (from ReleaseBinding.TraitOverrides) |
+| `environmentConfigs.*` | ✅ (from ReleaseBinding.ComponentTypeEnvironmentConfigs) | ✅ (from ReleaseBinding.TraitOverrides) |
 | `dataplane.*` | ✅ | ✅ |
 | `workload.*` | ✅ | ✅ |
 | `configurations.*` | ✅ | ✅ |

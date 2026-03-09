@@ -28,19 +28,12 @@ func NewTrait(entry *index.ResourceEntry) (*Trait, error) {
 func (t *Trait) GetSpec() map[string]interface{} {
 	spec := make(map[string]interface{})
 
-	// Add schema
-	if types, params, envOverrides := t.Spec.Schema.GetTypes(), t.Spec.Schema.GetParameters(), t.Spec.Schema.GetEnvOverrides(); types != nil || params != nil || envOverrides != nil {
-		schema := make(map[string]interface{})
-		if types != nil {
-			schema["types"] = rawExtensionToMap(types)
-		}
-		if params != nil {
-			schema["parameters"] = rawExtensionToMap(params)
-		}
-		if envOverrides != nil {
-			schema["envOverrides"] = rawExtensionToMap(envOverrides)
-		}
-		spec["schema"] = schema
+	// Add schema sections
+	if params := t.Spec.Parameters.GetRaw(); params != nil {
+		spec["parameters"] = rawExtensionToMap(params)
+	}
+	if envConfig := t.Spec.EnvironmentConfigs.GetRaw(); envConfig != nil {
+		spec["environmentConfigs"] = rawExtensionToMap(envConfig)
 	}
 
 	// Add creates

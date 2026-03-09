@@ -9,13 +9,13 @@ import (
 
 func TestApplyDefaults_ArrayFieldBehaviour(t *testing.T) {
 	def := Definition{
-		Types: map[string]any{
-			"Item": map[string]any{
-				"name": "string | default=default-name",
-			},
-		},
 		Schemas: []map[string]any{
 			{
+				"$types": map[string]any{
+					"Item": map[string]any{
+						"name": "string | default=default-name",
+					},
+				},
 				"list": "[]Item",
 			},
 		},
@@ -32,13 +32,13 @@ func TestApplyDefaults_ArrayFieldBehaviour(t *testing.T) {
 	}
 
 	defWithArrayDefault := Definition{
-		Types: map[string]any{
-			"Item": map[string]any{
-				"name": "string | default=default-name",
-			},
-		},
 		Schemas: []map[string]any{
 			{
+				"$types": map[string]any{
+					"Item": map[string]any{
+						"name": "string | default=default-name",
+					},
+				},
 				"list": "[]Item | default=[{\"name\":\"custom\"}]",
 			},
 		},
@@ -61,16 +61,16 @@ func TestApplyDefaults_ArrayFieldBehaviour(t *testing.T) {
 
 func TestApplyDefaults_ArrayItems(t *testing.T) {
 	def := Definition{
-		Types: map[string]any{
-			"MountConfig": map[string]any{
-				"containerName": "string",
-				"mountPath":     "string",
-				"readOnly":      "boolean | default=true",
-				"subPath":       "string | default=\"\"",
-			},
-		},
 		Schemas: []map[string]any{
 			{
+				"$types": map[string]any{
+					"MountConfig": map[string]any{
+						"containerName": "string",
+						"mountPath":     "string",
+						"readOnly":      "boolean | default=true",
+						"subPath":       "string | default=\"\"",
+					},
+				},
 				"volumeName": "string",
 				"mounts":     "[]MountConfig",
 			},

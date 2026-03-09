@@ -690,7 +690,7 @@ func TestPatchReleaseBindingRequest(t *testing.T) {
 		{
 			name: "With component type overrides",
 			req: &PatchReleaseBindingRequest{
-				ComponentTypeEnvOverrides: map[string]interface{}{
+				ComponentTypeEnvironmentConfigs: map[string]interface{}{
 					"replicas": 3,
 					"cpu":      "500m",
 				},
@@ -739,9 +739,9 @@ func TestPatchReleaseBindingRequest(t *testing.T) {
 			}
 
 			// For component type overrides
-			if tt.req.ComponentTypeEnvOverrides != nil {
-				if len(tt.req.ComponentTypeEnvOverrides) == 0 {
-					t.Error("ComponentTypeEnvOverrides should not be empty when set")
+			if tt.req.ComponentTypeEnvironmentConfigs != nil {
+				if len(tt.req.ComponentTypeEnvironmentConfigs) == 0 {
+					t.Error("ComponentTypeEnvironmentConfigs should not be empty when set")
 				}
 			}
 

@@ -16,7 +16,7 @@ spec:
       env:
         - key: PRODUCT_CATALOG_SERVICE_ADDR
           value: "http://localhost:8080"
-  componentTypeEnvOverrides:                                       # Added to rollout restart the frontend service (Due to https://github.com/openchoreo/openchoreo/issues/1634)
+  componentTypeEnvironmentConfigs:                                       # Added to rollout restart the frontend service (Due to https://github.com/openchoreo/openchoreo/issues/1634)
     resources:
       requests:
         cpu: "60m"
@@ -46,7 +46,7 @@ spec:
     componentName: recommendation
   environment: development
   # override cpu request and limit to 10m instead 100m
-  componentTypeEnvOverrides:
+  componentTypeEnvironmentConfigs:
     resources:
       requests:
         cpu: "10m"
@@ -76,7 +76,7 @@ spec:
     componentName: cart
   environment: development
   # override memory request to 100Mi and limit to 150Mi instead of 256Mi
-  componentTypeEnvOverrides:
+  componentTypeEnvironmentConfigs:
     resources:
       requests:
         memory: "100Mi"

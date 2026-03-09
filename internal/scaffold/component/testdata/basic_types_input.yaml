@@ -10,9 +10,8 @@ metadata:
   name: web-app
 spec:
   workloadType: deployment
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        port: 'integer | description="Container port"'
-        replicas: 'integer | default=2 description="Number of pod replicas"'
-        protocol: 'string | enum=http,https,grpc description="Service protocol"'
+      port: 'integer | description="Container port"'
+      replicas: 'integer | default=2 description="Number of pod replicas"'
+      protocol: 'string | enum=http,https,grpc description="Service protocol"'

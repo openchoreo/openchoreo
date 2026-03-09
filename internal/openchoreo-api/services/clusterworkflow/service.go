@@ -17,7 +17,6 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/schema"
-	"github.com/openchoreo/openchoreo/internal/schema/extractor"
 )
 
 // clusterWorkflowService handles cluster workflow business logic without authorization checks.
@@ -184,18 +183,13 @@ func (s *clusterWorkflowService) GetClusterWorkflowSchema(ctx context.Context, c
 		return nil, err
 	}
 
-	var schemaMap map[string]any
-	if paramsRaw := cwf.Spec.Schema.GetParameters(); paramsRaw != nil {
+	var def schema.Definition
+	if paramsRaw := cwf.Spec.Parameters.GetRaw(); paramsRaw != nil && paramsRaw.Raw != nil {
+		var schemaMap map[string]any
 		if err := yaml.Unmarshal(paramsRaw.Raw, &schemaMap); err != nil {
 			return nil, fmt.Errorf("failed to extract schema: %w", err)
 		}
-	}
-
-	def := schema.Definition{
-		Schemas: []map[string]any{schemaMap},
-		Options: extractor.Options{
-			SkipDefaultValidation: true,
-		},
+		def.Schemas = []map[string]any{schemaMap}
 	}
 
 	jsonSchema, err := schema.ToJSONSchema(def)

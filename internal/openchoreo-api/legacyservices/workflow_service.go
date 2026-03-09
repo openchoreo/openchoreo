@@ -18,7 +18,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/schema"
-	"github.com/openchoreo/openchoreo/internal/schema/extractor"
 )
 
 // WorkflowService handles Workflow-related business logic
@@ -127,18 +126,13 @@ func (s *WorkflowService) GetWorkflowSchema(ctx context.Context, namespaceName, 
 		return nil, fmt.Errorf("failed to get Workflow: %w", err)
 	}
 
-	var schemaMap map[string]any
-	if paramsRaw := wf.Spec.Schema.GetParameters(); paramsRaw != nil {
+	var def schema.Definition
+	if paramsRaw := wf.Spec.Parameters.GetRaw(); paramsRaw != nil && paramsRaw.Raw != nil {
+		var schemaMap map[string]any
 		if err := yaml.Unmarshal(paramsRaw.Raw, &schemaMap); err != nil {
 			return nil, fmt.Errorf("failed to extract schema: %w", err)
 		}
-	}
-
-	def := schema.Definition{
-		Schemas: []map[string]any{schemaMap},
-		Options: extractor.Options{
-			SkipDefaultValidation: true,
-		},
+		def.Schemas = []map[string]any{schemaMap}
 	}
 
 	jsonSchema, err := schema.ToJSONSchema(def)

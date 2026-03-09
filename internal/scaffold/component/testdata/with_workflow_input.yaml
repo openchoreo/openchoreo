@@ -11,19 +11,17 @@ metadata:
   name: web-app
 spec:
   workloadType: deployment
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        port: "integer"
+      port: "integer"
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workflow
 metadata:
   name: docker-build
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        context: 'string | default=. description="Docker build context"'
-        dockerfile: 'string | default=./Dockerfile description="Path to Dockerfile"'
-        buildArgs: 'map<string> | description="Build arguments"'
+      context: 'string | default=. description="Docker build context"'
+      dockerfile: 'string | default=./Dockerfile description="Path to Dockerfile"'
+      buildArgs: 'map<string> | description="Build arguments"'

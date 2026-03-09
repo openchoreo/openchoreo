@@ -17,10 +17,10 @@ type ClusterWorkflowSpec struct {
 	// +optional
 	BuildPlaneRef *ClusterBuildPlaneRef `json:"buildPlaneRef,omitempty"`
 
-	// Schema defines the developer-facing parameters that can be configured
+	// Parameters defines the developer-facing parameters that can be configured
 	// when creating a WorkflowRun instance.
 	// +optional
-	Schema *WorkflowSchema `json:"schema,omitempty"`
+	Parameters *SchemaSection `json:"parameters,omitempty"`
 
 	// RunTemplate is the Kubernetes resource template to be rendered and applied to the cluster.
 	// +required

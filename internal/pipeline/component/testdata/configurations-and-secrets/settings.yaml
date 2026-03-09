@@ -1,7 +1,7 @@
 apiVersion: core.choreo.dev/v1alpha1
 kind: ReleaseBinding
 spec:
-  componentTypeEnvOverrides:
+  componentTypeEnvironmentConfigs:
     replicas: 3
   workloadOverrides:
     container:

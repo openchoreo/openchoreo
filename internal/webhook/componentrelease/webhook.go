@@ -182,41 +182,26 @@ func validateComponentParameters(release *openchoreodevv1alpha1.ComponentRelease
 	allErrs := field.ErrorList{}
 	basePath := field.NewPath("spec", "componentProfile", "parameters")
 
-	// Build the schema definition from ComponentType snapshot
-	var types map[string]any
-	if typesRaw := release.Spec.ComponentType.Schema.GetTypes(); typesRaw != nil && len(typesRaw.Raw) > 0 {
-		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec", "componentType", "schema", "types"),
-				omitValue,
-				fmt.Sprintf("ComponentType snapshot has invalid types schema: %v", err)))
-			return allErrs
-		}
-	}
-
-	// Extract parameters schema
-	var schemas []map[string]any
-	if paramsRaw := release.Spec.ComponentType.Schema.GetParameters(); paramsRaw != nil && len(paramsRaw.Raw) > 0 {
-		var paramsSchema map[string]any
-		if err := yaml.Unmarshal(paramsRaw.Raw, &paramsSchema); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				field.NewPath("spec", "componentType", "schema", "parameters"),
-				omitValue,
-				fmt.Sprintf("ComponentType snapshot has invalid parameters schema: %v", err)))
-			return allErrs
-		}
-		schemas = append(schemas, paramsSchema)
-	}
+	// Extract parameters schema from ComponentType snapshot
+	paramsRaw := release.Spec.ComponentType.Parameters.GetRaw()
 
 	// If no parameters schema, no validation needed
-	if len(schemas) == 0 {
+	if paramsRaw == nil || len(paramsRaw.Raw) == 0 {
 		return allErrs
 	}
 
-	// Build JSON schema
+	var paramsSchema map[string]any
+	if err := yaml.Unmarshal(paramsRaw.Raw, &paramsSchema); err != nil {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("spec", "componentType", "parameters"),
+			omitValue,
+			fmt.Sprintf("ComponentType snapshot has invalid parameters schema: %v", err)))
+		return allErrs
+	}
+
+	// Build JSON schema (types are embedded in the ocSchema blob via $types key)
 	schemaDef := schema.Definition{
-		Types:   types,
-		Schemas: schemas,
+		Schemas: []map[string]any{paramsSchema},
 	}
 
 	jsonSchema, err := schema.ToJSONSchema(schemaDef)
@@ -275,41 +260,26 @@ func validateTraitInstanceParameters(release *openchoreodevv1alpha1.ComponentRel
 			continue
 		}
 
-		// Build the schema definition from Trait snapshot
-		var types map[string]any
-		if typesRaw := traitSpec.Schema.GetTypes(); typesRaw != nil && len(typesRaw.Raw) > 0 {
-			if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
-				allErrs = append(allErrs, field.Invalid(
-					traitPath.Child("name"),
-					traitInstance.Name,
-					fmt.Sprintf("Trait %q snapshot has invalid types schema: %v", traitInstance.Name, err)))
-				continue
-			}
-		}
-
-		// Extract parameters schema from the trait
-		var schemas []map[string]any
-		if paramsRaw := traitSpec.Schema.GetParameters(); paramsRaw != nil && len(paramsRaw.Raw) > 0 {
-			var paramsSchema map[string]any
-			if err := yaml.Unmarshal(paramsRaw.Raw, &paramsSchema); err != nil {
-				allErrs = append(allErrs, field.Invalid(
-					traitPath.Child("name"),
-					traitInstance.Name,
-					fmt.Sprintf("Trait %q snapshot has invalid parameters schema: %v", traitInstance.Name, err)))
-				continue
-			}
-			schemas = append(schemas, paramsSchema)
-		}
+		// Extract parameters schema from the trait snapshot
+		paramsRaw := traitSpec.Parameters.GetRaw()
 
 		// If no parameters schema, no validation needed for this trait
-		if len(schemas) == 0 {
+		if paramsRaw == nil || len(paramsRaw.Raw) == 0 {
 			continue
 		}
 
-		// Build JSON schema
+		var paramsSchema map[string]any
+		if err := yaml.Unmarshal(paramsRaw.Raw, &paramsSchema); err != nil {
+			allErrs = append(allErrs, field.Invalid(
+				traitPath.Child("name"),
+				traitInstance.Name,
+				fmt.Sprintf("Trait %q snapshot has invalid parameters schema: %v", traitInstance.Name, err)))
+			continue
+		}
+
+		// Build JSON schema (types are embedded in the ocSchema blob via $types key)
 		schemaDef := schema.Definition{
-			Types:   types,
-			Schemas: schemas,
+			Schemas: []map[string]any{paramsSchema},
 		}
 
 		jsonSchema, err := schema.ToJSONSchema(schemaDef)
@@ -390,9 +360,14 @@ func validateComponentTypeCELExpressions(release *openchoreodevv1alpha1.Componen
 	basePath := field.NewPath("spec", "componentType")
 
 	// Extract and build structural schemas for CEL validation
-	parametersSchema, envOverridesSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
-		&release.Spec.ComponentType.Schema,
-		basePath.Child("schema"),
+	ctSource := &schema.SimpleSource{
+		Parameters:         release.Spec.ComponentType.Parameters.GetRaw(),
+		EnvironmentConfigs: release.Spec.ComponentType.EnvironmentConfigs.GetRaw(),
+		OpenAPIV3:          release.Spec.ComponentType.Parameters.IsOpenAPIV3(),
+	}
+	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
+		ctSource,
+		basePath,
 	)
 	allErrs = append(allErrs, schemaErrs...)
 
@@ -405,7 +380,7 @@ func validateComponentTypeCELExpressions(release *openchoreodevv1alpha1.Componen
 	celErrs := component.ValidateComponentTypeResourcesWithSchema(
 		tempCT,
 		parametersSchema,
-		envOverridesSchema,
+		envConfigsSchema,
 	)
 
 	// Adjust error paths to point to the embedded ComponentType
@@ -426,9 +401,14 @@ func validateTraitCELExpressions(traitSpec *openchoreodevv1alpha1.TraitSpec, bas
 	allErrs := field.ErrorList{}
 
 	// Extract and build structural schemas for CEL validation
-	parametersSchema, envOverridesSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
-		&traitSpec.Schema,
-		basePath.Child("schema"),
+	traitSource := &schema.SimpleSource{
+		Parameters:         traitSpec.Parameters.GetRaw(),
+		EnvironmentConfigs: traitSpec.EnvironmentConfigs.GetRaw(),
+		OpenAPIV3:          traitSpec.Parameters.IsOpenAPIV3(),
+	}
+	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
+		traitSource,
+		basePath,
 	)
 	allErrs = append(allErrs, schemaErrs...)
 
@@ -441,7 +421,7 @@ func validateTraitCELExpressions(traitSpec *openchoreodevv1alpha1.TraitSpec, bas
 	celErrs := component.ValidateTraitCreatesAndPatchesWithSchema(
 		tempTrait,
 		parametersSchema,
-		envOverridesSchema,
+		envConfigsSchema,
 	)
 
 	// Adjust error paths to point to the embedded Trait

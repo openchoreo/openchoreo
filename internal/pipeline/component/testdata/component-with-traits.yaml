@@ -6,22 +6,25 @@ metadata:
 spec:
   workloadType: deployment
 
-  schema:
+  parameters:
     ocSchema:
-      types:
+      $types:
         Resources:
           cpu: "string | default=100m"
           memory: "string | default=256Mi"
+      replicas: "integer | default=1"
+      imagePullPolicy: "string | default=IfNotPresent"
+      port: "integer | default=8080"
 
-      parameters:
-        replicas: "integer | default=1"
-        imagePullPolicy: "string | default=IfNotPresent"
-        port: "integer | default=8080"
-
-      envOverrides:
-        resources:
-          requests: Resources
-          limits: Resources
+  environmentConfigs:
+    ocSchema:
+      $types:
+        Resources:
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
+      resources:
+        requests: Resources
+        limits: Resources
 
   resources:
     - id: deployment
@@ -50,11 +53,11 @@ spec:
                       protocol: TCP
                   resources:
                     requests:
-                      cpu: ${envOverrides.resources.requests.cpu}
-                      memory: ${envOverrides.resources.requests.memory}
+                      cpu: ${environmentConfigs.resources.requests.cpu}
+                      memory: ${environmentConfigs.resources.requests.memory}
                     limits:
-                      cpu: ${envOverrides.resources.limits.cpu}
-                      memory: ${envOverrides.resources.limits.memory}
+                      cpu: ${environmentConfigs.resources.limits.cpu}
+                      memory: ${environmentConfigs.resources.limits.memory}
 
     - id: service
       template:
@@ -79,16 +82,16 @@ metadata:
   name: persistent-volume
   namespace: default
 spec:
-  schema:
+  parameters:
     ocSchema:
-      parameters:
-        volumeName: "string"
-        mountPath: "string"
-        containerName: "string | default=app"
+      volumeName: "string"
+      mountPath: "string"
+      containerName: "string | default=app"
 
-      envOverrides:
-        size: "string | default=10Gi"
-        storageClass: "string | default=standard"
+  environmentConfigs:
+    ocSchema:
+      size: "string | default=10Gi"
+      storageClass: "string | default=standard"
 
   creates:
     - template:
@@ -102,8 +105,8 @@ spec:
             - ReadWriteOnce
           resources:
             requests:
-              storage: ${envOverrides.size}
-          storageClassName: ${envOverrides.storageClass}
+              storage: ${environmentConfigs.size}
+          storageClassName: ${environmentConfigs.storageClass}
 
   patches:
     - target:
@@ -135,23 +138,22 @@ kind: Trait
 metadata:
   name: emptydir-volume
 spec:
-  schema:
+  parameters:
     ocSchema:
       # Define custom type for mount configuration
-      types:
+      $types:
         MountConfig:
           containerName: string
           mountPath: string
           readOnly: boolean | default=false
           subPath: string | default=""
+      volumeName: string
+      mounts: "[]MountConfig | minItems=1"
 
-      parameters:
-        volumeName: string
-        mounts: "[]MountConfig | minItems=1"
-
-      envOverrides:
-        sizeLimit: string | default=""
-        medium: string | default="" # "" for disk, "Memory" for tmpfs
+  environmentConfigs:
+    ocSchema:
+      sizeLimit: string | default=""
+      medium: string | default="" # "" for disk, "Memory" for tmpfs
 
   # Patch the Deployment to add emptyDir volume
   patches:
@@ -166,9 +168,9 @@ spec:
           value:
             name: ${parameters.volumeName}
             emptyDir: |
-              ${envOverrides.sizeLimit != "" || envOverrides.medium != "" ? {
-                "sizeLimit": envOverrides.sizeLimit != "" ? envOverrides.sizeLimit : oc_omit(),
-                "medium": envOverrides.medium != "" ? envOverrides.medium : oc_omit()
+              ${environmentConfigs.sizeLimit != "" || environmentConfigs.medium != "" ? {
+                "sizeLimit": environmentConfigs.sizeLimit != "" ? environmentConfigs.sizeLimit : oc_omit(),
+                "medium": environmentConfigs.medium != "" ? environmentConfigs.medium : oc_omit()
               } : {}}
 
     # Add volumeMounts to each specified container
@@ -259,7 +261,7 @@ spec:
 
   environment: dev
 
-  componentTypeEnvOverrides:
+  componentTypeEnvironmentConfigs:
     resources:
       requests:
         cpu: "50m"

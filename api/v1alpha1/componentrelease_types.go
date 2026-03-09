@@ -43,7 +43,7 @@ type ComponentReleaseSpec struct {
 // ComponentProfile defines a snapshot of a component's spec
 type ComponentProfile struct {
 	// Parameters from ComponentType (oneOf schema based on componentType)
-	// This is the merged schema of parameters + envOverrides from the ComponentType
+	// This is the merged schema of parameters + environmentConfigs from the ComponentType
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless

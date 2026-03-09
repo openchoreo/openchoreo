@@ -21,18 +21,32 @@ import (
 
 // Definition represents a schematized object assembled from one or more field maps.
 type Definition struct {
-	Types   map[string]any
 	Schemas []map[string]any
 	Options extractor.Options
 }
 
 // Source provides access to schema raw extensions for extraction.
-// Both ComponentTypeSchema and TraitSchema implement this interface.
 type Source interface {
-	GetTypes() *runtime.RawExtension
 	GetParameters() *runtime.RawExtension
-	GetEnvOverrides() *runtime.RawExtension
+	GetEnvironmentConfigs() *runtime.RawExtension
+	IsOpenAPIV3() bool
 }
+
+// SimpleSource is a basic Source implementation.
+type SimpleSource struct {
+	Parameters         *runtime.RawExtension
+	EnvironmentConfigs *runtime.RawExtension
+	OpenAPIV3          bool
+}
+
+// GetParameters returns the parameters raw extension.
+func (s *SimpleSource) GetParameters() *runtime.RawExtension { return s.Parameters }
+
+// GetEnvironmentConfigs returns the environment configs raw extension.
+func (s *SimpleSource) GetEnvironmentConfigs() *runtime.RawExtension { return s.EnvironmentConfigs }
+
+// IsOpenAPIV3 returns whether the schema uses OpenAPI V3 format.
+func (s *SimpleSource) IsOpenAPIV3() bool { return s.OpenAPIV3 }
 
 // ToJSONSchema converts a schema definition into an OpenAPI v3 JSON schema.
 //
@@ -40,7 +54,7 @@ type Source interface {
 // from the shorthand format into standard JSON Schema that can be used for validation.
 //
 // Process:
-//  1. Merge all schema maps (parameters, envOverrides, trait config) into one
+//  1. Merge all schema maps (parameters, environmentConfigs, trait config) into one
 //  2. Convert from shorthand syntax to full JSON Schema via extractor (internal type)
 //  3. Convert from internal to v1 type (for API compatibility and JSON serialization)
 //  4. Sort required fields for deterministic output
@@ -61,7 +75,7 @@ func ToJSONSchema(def Definition) (*extv1.JSONSchemaProps, error) {
 		}, nil
 	}
 
-	internalSchema, err := extractor.ExtractSchema(merged, def.Types, def.Options)
+	internalSchema, err := extractor.ExtractSchema(merged, nil, def.Options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert schema to OpenAPI: %w", err)
 	}
@@ -107,7 +121,7 @@ func ToStructural(def Definition) (*apiextschema.Structural, error) {
 		return structural, nil
 	}
 
-	internalSchema, err := extractor.ExtractSchema(merged, def.Types, def.Options)
+	internalSchema, err := extractor.ExtractSchema(merged, nil, def.Options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert schema to OpenAPI: %w", err)
 	}
@@ -132,7 +146,7 @@ func ToStructuralAndJSONSchema(def Definition) (*apiextschema.Structural, *extv1
 		}
 	} else {
 		var err error
-		internalSchema, err = extractor.ExtractSchema(merged, def.Types, def.Options)
+		internalSchema, err = extractor.ExtractSchema(merged, nil, def.Options)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to convert schema to OpenAPI: %w", err)
 		}
@@ -184,7 +198,7 @@ func ApplyDefaults(target map[string]any, structural *apiextschema.Structural) m
 //
 // ComponentType separate schemas into logical groups:
 //   - schema.parameters: Component-level configuration
-//   - schema.envOverrides: Environment-specific overrides
+//   - schema.environmentConfigs: Environment-specific overrides
 //   - schema.traitConfig: Trait instance configuration (for Traits)
 //
 // This function merges them using deep merge semantics so that:

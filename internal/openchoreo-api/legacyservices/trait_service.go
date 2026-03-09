@@ -18,7 +18,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/schema"
-	"github.com/openchoreo/openchoreo/internal/schema/extractor"
 )
 
 // TraitService handles Trait-related business logic
@@ -126,24 +125,9 @@ func (s *TraitService) GetTraitSchema(ctx context.Context, namespaceName, traitN
 		return nil, fmt.Errorf("failed to get Trait: %w", err)
 	}
 
-	// Extract types from RawExtension
-	var types map[string]any
-	if typesRaw := trait.Spec.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
-		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
-			return nil, fmt.Errorf("failed to extract types: %w", err)
-		}
-	}
-
-	// Build schema definition
-	def := schema.Definition{
-		Types: types,
-		Options: extractor.Options{
-			SkipDefaultValidation: true,
-		},
-	}
-
-	// Extract parameters schema from RawExtension
-	if paramsRaw := trait.Spec.Schema.GetParameters(); paramsRaw != nil && paramsRaw.Raw != nil {
+	// Build schema definition from parameters blob
+	var def schema.Definition
+	if paramsRaw := trait.Spec.Parameters.GetRaw(); paramsRaw != nil && paramsRaw.Raw != nil {
 		var params map[string]any
 		if err := yaml.Unmarshal(paramsRaw.Raw, &params); err != nil {
 			return nil, fmt.Errorf("failed to extract parameters: %w", err)

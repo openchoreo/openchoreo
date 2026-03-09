@@ -55,7 +55,7 @@ spec:
 
   environment: development
 
-  componentTypeEnvOverrides:
+  componentTypeEnvironmentConfigs:
     replicas: 2
     resources:
       requests:
