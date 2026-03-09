@@ -24,6 +24,8 @@ const (
 )
 
 var ErrAlertsResolveSearchScope = errors.New("alerts search scope resolution failed")
+var ErrScopeNotFound = errors.New("search scope resource not found")
+var ErrScopeResolutionFailed = errors.New("search scope resolution infrastructure error")
 
 func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryRequest) (*gen.AlertsQueryResponse, error) {
 	if s.alertEntryStore == nil {
@@ -42,21 +44,21 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 			var err error
 			projectUID, err = s.resolver.GetProjectUID(ctx, scope.Namespace, projectName)
 			if err != nil {
-				return nil, fmt.Errorf("%w: failed to get project UID: %w", ErrAlertsResolveSearchScope, err)
+				return nil, wrapScopeError(err, "project", projectName)
 			}
 		}
 		if componentName != "" {
 			var err error
 			componentUID, err = s.resolver.GetComponentUID(ctx, scope.Namespace, projectName, componentName)
 			if err != nil {
-				return nil, fmt.Errorf("%w: failed to get component UID: %w", ErrAlertsResolveSearchScope, err)
+				return nil, wrapScopeError(err, "component", componentName)
 			}
 		}
 		if environmentName != "" {
 			var err error
 			environmentUID, err = s.resolver.GetEnvironmentUID(ctx, scope.Namespace, environmentName)
 			if err != nil {
-				return nil, fmt.Errorf("%w: failed to get environment UID: %w", ErrAlertsResolveSearchScope, err)
+				return nil, wrapScopeError(err, "environment", environmentName)
 			}
 		}
 	}
@@ -105,16 +107,47 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 		return nil, fmt.Errorf("incident entry store is not initialized")
 	}
 
+	scope := &req.SearchScope
+
+	var projectUID, componentUID, environmentUID string
+	if s.resolver != nil {
+		projectName := stringPtrValue(scope.Project)
+		componentName := stringPtrValue(scope.Component)
+		environmentName := stringPtrValue(scope.Environment)
+
+		if projectName != "" {
+			var err error
+			projectUID, err = s.resolver.GetProjectUID(ctx, scope.Namespace, projectName)
+			if err != nil {
+				return nil, wrapScopeError(err, "project", projectName)
+			}
+		}
+		if componentName != "" {
+			var err error
+			componentUID, err = s.resolver.GetComponentUID(ctx, scope.Namespace, projectName, componentName)
+			if err != nil {
+				return nil, wrapScopeError(err, "component", componentName)
+			}
+		}
+		if environmentName != "" {
+			var err error
+			environmentUID, err = s.resolver.GetEnvironmentUID(ctx, scope.Namespace, environmentName)
+			if err != nil {
+				return nil, wrapScopeError(err, "environment", environmentName)
+			}
+		}
+	}
+
 	start := time.Now()
 	queryParams := incidententry.QueryParams{
-		StartTime:       req.StartTime.Format(time.RFC3339Nano),
-		EndTime:         req.EndTime.Format(time.RFC3339Nano),
-		NamespaceName:   req.SearchScope.Namespace,
-		ProjectName:     stringPtrValue(req.SearchScope.Project),
-		ComponentName:   stringPtrValue(req.SearchScope.Component),
-		EnvironmentName: stringPtrValue(req.SearchScope.Environment),
-		Limit:           intPtrValue(req.Limit, defaultQueryLimit),
-		SortOrder:       string(incidentSortOrderOrDefault(req.SortOrder)),
+		StartTime:     req.StartTime.Format(time.RFC3339Nano),
+		EndTime:       req.EndTime.Format(time.RFC3339Nano),
+		NamespaceName: scope.Namespace,
+		ProjectID:     projectUID,
+		ComponentID:   componentUID,
+		EnvironmentID: environmentUID,
+		Limit:         intPtrValue(req.Limit, defaultQueryLimit),
+		SortOrder:     string(incidentSortOrderOrDefault(req.SortOrder)),
 	}
 
 	entries, total, err := s.incidentEntryStore.QueryIncidentEntries(ctx, queryParams)
@@ -385,4 +418,11 @@ type incidentQueryItemPayload struct {
 	Notes                *string        `json:"notes,omitempty"`
 	Description          *string        `json:"description,omitempty"`
 	Labels               *labelsPayload `json:"labels,omitempty"`
+}
+
+func wrapScopeError(err error, resourceType, resourceName string) error {
+	if errors.Is(err, ErrResourceNotFound) {
+		return fmt.Errorf("%w: %s %q not found: %w", ErrAlertsResolveSearchScope, resourceType, resourceName, ErrScopeNotFound)
+	}
+	return fmt.Errorf("%w: failed to resolve %s %q: %w", ErrAlertsResolveSearchScope, resourceType, resourceName, ErrScopeResolutionFailed)
 }

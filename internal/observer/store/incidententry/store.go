@@ -44,14 +44,14 @@ type IncidentEntry struct {
 
 // QueryParams contains filters and pagination for querying incident entries.
 type QueryParams struct {
-	StartTime       string
-	EndTime         string
-	NamespaceName   string
-	ProjectName     string
-	ComponentName   string
-	EnvironmentName string
-	Limit           int
-	SortOrder       string
+	StartTime     string
+	EndTime       string
+	NamespaceName string
+	ProjectID     string
+	ComponentID   string
+	EnvironmentID string
+	Limit         int
+	SortOrder     string
 }
 
 // IncidentEntryStore defines lifecycle and write operations for incident persistence.

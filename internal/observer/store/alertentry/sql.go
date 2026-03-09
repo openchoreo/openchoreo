@@ -251,12 +251,9 @@ func (s *sqlStore) QueryAlertEntries(ctx context.Context, params QueryParams) ([
 	}
 
 	limitPh := nextPlaceholder()
-	limit := params.Limit
-	if limit <= 0 {
-		limit = 100
-	}
-	if limit > maxQueryLimit {
-		limit = maxQueryLimit
+	limit := maxQueryLimit
+	if params.Limit > 0 && params.Limit < limit {
+		limit = params.Limit
 	}
 	args = append(args, limit)
 	// #nosec G202 -- whereClause uses parameterized placeholders; orderClause is validated switch; limitPh is placeholder
@@ -353,7 +350,7 @@ func (s *sqlStore) enableSQLiteWAL(ctx context.Context) error {
 const createTableQuery = `
 CREATE TABLE IF NOT EXISTS alert_entries (
 	id TEXT PRIMARY KEY,
-	timestamp_ns INTEGER NOT NULL,
+	timestamp_ns BIGINT NOT NULL,
 	alert_rule_name TEXT NOT NULL,
 	alert_rule_cr_name TEXT,
 	alert_rule_cr_namespace TEXT,

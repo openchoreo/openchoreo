@@ -162,12 +162,11 @@ func TestQueryIncidentEntries(t *testing.T) {
 	}
 
 	got, total, err := store.QueryIncidentEntries(ctx, QueryParams{
-		StartTime:       "2026-03-07T10:00:00Z",
-		EndTime:         "2026-03-07T11:00:00Z",
-		NamespaceName:   "ns-2",
-		EnvironmentName: "prod",
-		Limit:           10,
-		SortOrder:       "desc",
+		StartTime:     "2026-03-07T10:00:00Z",
+		EndTime:       "2026-03-07T11:00:00Z",
+		NamespaceName: "ns-2",
+		Limit:         10,
+		SortOrder:     "desc",
 	})
 	if err != nil {
 		t.Fatalf("failed to query incident entries: %v", err)

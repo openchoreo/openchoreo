@@ -274,16 +274,16 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 		conditions = append(conditions, "namespace_name = "+nextPlaceholder())
 		args = append(args, value)
 	}
-	if value := strings.TrimSpace(params.ProjectName); value != "" {
-		conditions = append(conditions, "project_name = "+nextPlaceholder())
+	if value := strings.TrimSpace(params.ProjectID); value != "" {
+		conditions = append(conditions, "project_id = "+nextPlaceholder())
 		args = append(args, value)
 	}
-	if value := strings.TrimSpace(params.ComponentName); value != "" {
-		conditions = append(conditions, "component_name = "+nextPlaceholder())
+	if value := strings.TrimSpace(params.ComponentID); value != "" {
+		conditions = append(conditions, "component_id = "+nextPlaceholder())
 		args = append(args, value)
 	}
-	if value := strings.TrimSpace(params.EnvironmentName); value != "" {
-		conditions = append(conditions, "environment_name = "+nextPlaceholder())
+	if value := strings.TrimSpace(params.EnvironmentID); value != "" {
+		conditions = append(conditions, "environment_id = "+nextPlaceholder())
 		args = append(args, value)
 	}
 
@@ -296,12 +296,9 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 	}
 
 	limitPh := nextPlaceholder()
-	limit := params.Limit
-	if limit <= 0 {
-		limit = 100
-	}
-	if limit > maxQueryLimit {
-		limit = maxQueryLimit
+	limit := maxQueryLimit
+	if params.Limit > 0 && params.Limit < limit {
+		limit = params.Limit
 	}
 	args = append(args, limit)
 	// #nosec G202 -- whereClause uses parameterized placeholders; orderClause is validated switch; limitPh is placeholder
@@ -424,12 +421,12 @@ const createTableQuery = `
 CREATE TABLE IF NOT EXISTS incident_entries (
 	id TEXT PRIMARY KEY,
 	alert_id TEXT NOT NULL,
-	timestamp_ns INTEGER NOT NULL,
+	timestamp_ns BIGINT NOT NULL,
 	status TEXT NOT NULL,
 	trigger_ai_rca BOOLEAN NOT NULL,
-	triggered_at_ns INTEGER NOT NULL,
-	acknowledged_at_ns INTEGER,
-	resolved_at_ns INTEGER,
+	triggered_at_ns BIGINT NOT NULL,
+	acknowledged_at_ns BIGINT,
+	resolved_at_ns BIGINT,
 	notes TEXT,
 	description TEXT,
 	namespace_name TEXT,

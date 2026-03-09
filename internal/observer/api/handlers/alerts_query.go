@@ -42,7 +42,12 @@ func (h *Handler) QueryAlerts(w http.ResponseWriter, r *http.Request) {
 			errors.Is(err, observerAuthz.ErrAuthzTimeout):
 			h.writeErrorResponse(w, http.StatusServiceUnavailable, gen.InternalServerError, "AUTHZ_UNAVAILABLE", "authorization service temporarily unavailable")
 		case errors.Is(err, service.ErrAlertsResolveSearchScope):
-			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "RESOLVE_SCOPE_FAILED", "failed to resolve search scope: "+err.Error())
+			if errors.Is(err, service.ErrScopeNotFound) {
+				h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "SCOPE_NOT_FOUND", "one or more resources in the search scope were not found")
+			} else {
+				h.logger.Error("Failed to resolve alerts search scope", "error", err)
+				h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "RESOLVE_SCOPE_FAILED", "failed to resolve search scope")
+			}
 		default:
 			h.logger.Error("Failed to query alerts", "error", err)
 			h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "QUERY_ALERTS_FAILED", "failed to query alerts")
