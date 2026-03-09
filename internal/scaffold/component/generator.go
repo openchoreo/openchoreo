@@ -193,7 +193,6 @@ func NewGenerator(
 ) (*Generator, error) {
 	componentSchema, err := extractAndConvertSchema(
 		componentType.Spec.Parameters.GetRaw(),
-		nil,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("processing component schema: %w", err)
@@ -203,7 +202,6 @@ func NewGenerator(
 	for _, trait := range traits {
 		schema, err := extractAndConvertSchema(
 			trait.Spec.Parameters.GetRaw(),
-			nil,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("processing trait %s schema: %w", trait.Name, err)
@@ -218,7 +216,6 @@ func NewGenerator(
 		if workflow.Spec.Parameters.GetRaw() != nil {
 			schema, err := extractAndConvertSchema(
 				workflow.Spec.Parameters.GetRaw(),
-				nil,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("processing workflow schema: %w", err)

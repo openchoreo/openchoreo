@@ -33,6 +33,7 @@ type ValidationRule struct {
 
 // SchemaSection holds one schema in either ocSchema or openAPIV3Schema format.
 // The two formats are mutually exclusive within a section.
+// +kubebuilder:validation:XValidation:rule="!(has(self.ocSchema) && has(self.openAPIV3Schema))",message="ocSchema and openAPIV3Schema are mutually exclusive"
 type SchemaSection struct {
 	// OCSchema defines the schema using OpenChoreo's simple schema format.
 	// The blob may contain a "$types" key for reusable type definitions scoped to this section.

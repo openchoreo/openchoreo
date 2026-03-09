@@ -133,6 +133,9 @@ spec:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                 type: object
+                x-kubernetes-validations:
+                - message: ocSchema and openAPIV3Schema are mutually exclusive
+                  rule: '!(has(self.ocSchema) && has(self.openAPIV3Schema))'
               resources:
                 description: Resources are additional templates that generate Kubernetes
                   resources dynamically.

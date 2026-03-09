@@ -134,7 +134,7 @@ spec:
                     parameters:
                       description: |-
                         Parameters contains the trait parameter values
-                        The schema for this config is defined in the Trait's parameters.ocSchema and environmentConfigs.ocSchema
+                        The schema for these values is defined in the Trait's parameters schema
                       x-kubernetes-preserve-unknown-fields: true
                   required:
                   - instanceName
