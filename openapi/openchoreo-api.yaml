@@ -3688,21 +3688,21 @@ paths:
   # User Types Endpoint
   # =============================================================================
 
-  /api/v1/user-types:
+  /api/v1/authn/subject-types:
     get:
-      operationId: listUserTypes
-      summary: List user types
-      description: Returns the configured user types for authentication and authorization.
+      operationId: listSubjectTypes
+      summary: List subject types
+      description: Returns the configured subject types for authentication and authorization.
       tags: [Authorization]
       responses:
         '200':
-          description: List of configured user types
+          description: List of configured subject types
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/UserTypeConfig'
+                  $ref: '#/components/schemas/SubjectTypeConfig'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -5333,9 +5333,9 @@ components:
     # -------------------------------------------------------------------------
     # User Type Configuration
     # -------------------------------------------------------------------------
-    UserTypeConfig:
+    SubjectTypeConfig:
       type: object
-      description: Configuration for a user type used in authentication and authorization
+      description: Configuration for a subject type used in authentication and authorization
       required:
         - type
         - displayName
@@ -5344,19 +5344,19 @@ components:
       properties:
         type:
           type: string
-          description: User type identifier (e.g., "user", "service_account")
+          description: Subject type identifier (e.g., "user", "service_account")
           example: user
         displayName:
           type: string
-          description: Human-readable name for the user type
+          description: Human-readable name for the subject type
           example: Human User
         priority:
           type: integer
-          description: Check order for user type detection (lower = higher priority)
+          description: Check order for subject type detection (lower = higher priority)
           example: 1
         authMechanisms:
           type: array
-          description: Supported authentication mechanisms for this user type
+          description: Supported authentication mechanisms for this subject type
           items:
             $ref: '#/components/schemas/AuthMechanismConfig'
 
