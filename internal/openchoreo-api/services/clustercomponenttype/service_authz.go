@@ -7,7 +7,6 @@ import (
 	"context"
 	"log/slog"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -106,7 +105,7 @@ func (s *clusterComponentTypeServiceWithAuthz) GetClusterComponentType(ctx conte
 	return s.internal.GetClusterComponentType(ctx, cctName)
 }
 
-func (s *clusterComponentTypeServiceWithAuthz) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (*extv1.JSONSchemaProps, error) {
+func (s *clusterComponentTypeServiceWithAuthz) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (map[string]any, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewClusterComponentType,
 		ResourceType: resourceTypeClusterComponentType,

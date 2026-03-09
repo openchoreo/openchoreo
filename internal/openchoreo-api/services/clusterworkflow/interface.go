@@ -6,8 +6,6 @@ package clusterworkflow
 import (
 	"context"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -22,5 +20,5 @@ type Service interface {
 	ListClusterWorkflows(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterWorkflow], error)
 	GetClusterWorkflow(ctx context.Context, clusterWorkflowName string) (*openchoreov1alpha1.ClusterWorkflow, error)
 	DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName string) error
-	GetClusterWorkflowSchema(ctx context.Context, clusterWorkflowName string) (*extv1.JSONSchemaProps, error)
+	GetClusterWorkflowSchema(ctx context.Context, clusterWorkflowName string) (map[string]any, error)
 }

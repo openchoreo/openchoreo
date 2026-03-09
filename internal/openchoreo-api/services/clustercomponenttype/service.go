@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -176,7 +175,7 @@ func (s *clusterComponentTypeService) DeleteClusterComponentType(ctx context.Con
 	return nil
 }
 
-func (s *clusterComponentTypeService) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (*extv1.JSONSchemaProps, error) {
+func (s *clusterComponentTypeService) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (map[string]any, error) {
 	s.logger.Debug("Getting cluster component type schema", "clusterComponentType", cctName)
 
 	cct, err := s.GetClusterComponentType(ctx, cctName)
@@ -184,12 +183,12 @@ func (s *clusterComponentTypeService) GetClusterComponentTypeSchema(ctx context.
 		return nil, err
 	}
 
-	// Convert to JSON Schema (handles both ocSchema and openAPIV3Schema)
-	jsonSchema, err := schema.SectionToJSONSchema(cct.Spec.Parameters)
+	// Convert to raw JSON Schema map, preserving vendor extensions (x-*) for frontend consumers
+	rawSchema, err := schema.SectionToRawJSONSchema(cct.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
 
 	s.logger.Debug("Retrieved cluster component type schema successfully", "clusterComponentType", cctName)
-	return jsonSchema, nil
+	return rawSchema, nil
 }

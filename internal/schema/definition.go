@@ -4,6 +4,7 @@
 package schema
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -89,6 +90,50 @@ func SectionToJSONSchema(section *v1alpha1.SchemaSection) (*extv1.JSONSchemaProp
 	}
 
 	return ToJSONSchema(Definition{Schemas: []map[string]any{fields}})
+}
+
+// SectionToRawJSONSchema converts a SchemaSection to a raw map for API responses.
+// For openAPIV3Schema, this preserves vendor extensions (x-*) that are lost when
+// converting through extv1.JSONSchemaProps. For ocSchema, it falls back to
+// ToJSONSchema and re-marshals the result.
+func SectionToRawJSONSchema(section *v1alpha1.SchemaSection) (map[string]any, error) {
+	raw := sectionRaw(section)
+	if raw == nil || len(raw.Raw) == 0 {
+		return map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		}, nil
+	}
+
+	fields, err := unmarshalSection(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	if section.IsOpenAPIV3() {
+		return OpenAPIV3ToResolvedSchema(fields)
+	}
+
+	// For ocSchema, convert through the extractor and re-marshal to map
+	jsonSchema, err := ToJSONSchema(Definition{Schemas: []map[string]any{fields}})
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonSchemaToMap(jsonSchema)
+}
+
+// jsonSchemaToMap converts extv1.JSONSchemaProps to a raw map via JSON round-trip.
+func jsonSchemaToMap(schema *extv1.JSONSchemaProps) (map[string]any, error) {
+	data, err := json.Marshal(schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal schema: %w", err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal schema to map: %w", err)
+	}
+	return result, nil
 }
 
 // sectionRaw returns the raw extension from a SchemaSection, or nil if empty.

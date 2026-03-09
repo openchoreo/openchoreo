@@ -792,3 +792,143 @@ func TestTestdata_WithRefsOpenAPIV3_JSONSchemaPreservesFields(t *testing.T) {
 		t.Fatalf("expected port type=integer, got %s", portProp.Type)
 	}
 }
+
+func TestSectionToRawJSONSchema_OpenAPIV3_PreservesVendorExtensions(t *testing.T) {
+	rawYAML := `
+type: object
+properties:
+  replicas:
+    type: integer
+    default: 1
+    x-openchoreo-backstage-portal:
+      ui:field: RepoUrlPicker
+      ui:options:
+        allowedHosts:
+          - github.com
+  imagePullPolicy:
+    type: string
+    default: IfNotPresent
+    x-openchoreo-pull-portal:
+      ui:field: RepoUrlPicker
+`
+
+	section := &v1alpha1.SchemaSection{
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(rawYAML)},
+	}
+
+	result, err := SectionToRawJSONSchema(section)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	props := result["properties"].(map[string]any)
+
+	// x-openchoreo-backstage-portal preserved
+	replicas := props["replicas"].(map[string]any)
+	ext, ok := replicas["x-openchoreo-backstage-portal"].(map[string]any)
+	if !ok {
+		t.Fatal("expected x-openchoreo-backstage-portal on replicas")
+	}
+	if ext["ui:field"] != "RepoUrlPicker" {
+		t.Fatalf("expected ui:field=RepoUrlPicker, got %v", ext["ui:field"])
+	}
+
+	// x-openchoreo-pull-portal preserved
+	ipp := props["imagePullPolicy"].(map[string]any)
+	ext2, ok := ipp["x-openchoreo-pull-portal"].(map[string]any)
+	if !ok {
+		t.Fatal("expected x-openchoreo-pull-portal on imagePullPolicy")
+	}
+	if ext2["ui:field"] != "RepoUrlPicker" {
+		t.Fatalf("expected ui:field=RepoUrlPicker, got %v", ext2["ui:field"])
+	}
+}
+
+func TestSectionToRawJSONSchema_OpenAPIV3_RefWithVendorExtension(t *testing.T) {
+	rawYAML := `
+type: object
+$defs:
+  ResourceRequirements:
+    type: object
+    properties:
+      cpu:
+        type: string
+        default: "100m"
+    default: {}
+properties:
+  resources:
+    $ref: "#/$defs/ResourceRequirements"
+    x-openchoreo-resources-portal:
+      ui:field: ResourcePicker
+`
+
+	section := &v1alpha1.SchemaSection{
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(rawYAML)},
+	}
+
+	result, err := SectionToRawJSONSchema(section)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// $defs removed
+	if _, ok := result["$defs"]; ok {
+		t.Fatal("expected $defs to be removed")
+	}
+
+	props := result["properties"].(map[string]any)
+	resources := props["resources"].(map[string]any)
+
+	// $ref resolved
+	if resources["type"] != "object" {
+		t.Fatalf("expected type=object from resolved $ref, got %v", resources["type"])
+	}
+
+	// Vendor extension preserved as sibling
+	ext, ok := resources["x-openchoreo-resources-portal"].(map[string]any)
+	if !ok {
+		t.Fatal("expected x-openchoreo-resources-portal on resources")
+	}
+	if ext["ui:field"] != "ResourcePicker" {
+		t.Fatalf("expected ui:field=ResourcePicker, got %v", ext["ui:field"])
+	}
+}
+
+func TestSectionToRawJSONSchema_NilSection(t *testing.T) {
+	result, err := SectionToRawJSONSchema(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result["type"] != "object" {
+		t.Fatalf("expected type=object for nil section, got %v", result["type"])
+	}
+}
+
+func TestSectionToRawJSONSchema_OcSchema(t *testing.T) {
+	rawYAML := `
+replicas: "integer | default=1"
+name: "string"
+`
+	section := &v1alpha1.SchemaSection{
+		OCSchema: &runtime.RawExtension{Raw: []byte(rawYAML)},
+	}
+
+	result, err := SectionToRawJSONSchema(section)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result["type"] != "object" {
+		t.Fatalf("expected type=object, got %v", result["type"])
+	}
+	props, ok := result["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("expected properties map")
+	}
+	if _, ok := props["replicas"]; !ok {
+		t.Fatal("expected 'replicas' property")
+	}
+	if _, ok := props["name"]; !ok {
+		t.Fatal("expected 'name' property")
+	}
+}

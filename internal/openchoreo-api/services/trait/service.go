@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -192,7 +191,7 @@ func (s *traitService) DeleteTrait(ctx context.Context, namespaceName, traitName
 	return nil
 }
 
-func (s *traitService) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (*extv1.JSONSchemaProps, error) {
+func (s *traitService) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (map[string]any, error) {
 	s.logger.Debug("Getting trait schema", "namespace", namespaceName, "trait", traitName)
 
 	t, err := s.GetTrait(ctx, namespaceName, traitName)
@@ -200,14 +199,14 @@ func (s *traitService) GetTraitSchema(ctx context.Context, namespaceName, traitN
 		return nil, err
 	}
 
-	// Convert to JSON Schema (handles both ocSchema and openAPIV3Schema)
-	jsonSchema, err := schema.SectionToJSONSchema(t.Spec.Parameters)
+	// Convert to raw JSON Schema map, preserving vendor extensions (x-*) for frontend consumers
+	rawSchema, err := schema.SectionToRawJSONSchema(t.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
 
 	s.logger.Debug("Retrieved trait schema successfully", "namespace", namespaceName, "trait", traitName)
-	return jsonSchema, nil
+	return rawSchema, nil
 }
 
 func (s *traitService) traitExists(ctx context.Context, namespaceName, traitName string) (bool, error) {

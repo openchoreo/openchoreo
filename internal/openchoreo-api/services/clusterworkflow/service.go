@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -174,7 +173,7 @@ func (s *clusterWorkflowService) DeleteClusterWorkflow(ctx context.Context, clus
 	return nil
 }
 
-func (s *clusterWorkflowService) GetClusterWorkflowSchema(ctx context.Context, clusterWorkflowName string) (*extv1.JSONSchemaProps, error) {
+func (s *clusterWorkflowService) GetClusterWorkflowSchema(ctx context.Context, clusterWorkflowName string) (map[string]any, error) {
 	s.logger.Debug("Getting cluster workflow schema", "clusterWorkflow", clusterWorkflowName)
 
 	cwf, err := s.GetClusterWorkflow(ctx, clusterWorkflowName)
@@ -182,12 +181,12 @@ func (s *clusterWorkflowService) GetClusterWorkflowSchema(ctx context.Context, c
 		return nil, err
 	}
 
-	// Convert to JSON Schema (handles both ocSchema and openAPIV3Schema)
-	jsonSchema, err := schema.SectionToJSONSchema(cwf.Spec.Parameters)
+	// Convert to raw JSON Schema map, preserving vendor extensions (x-*) for frontend consumers
+	rawSchema, err := schema.SectionToRawJSONSchema(cwf.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
 
 	s.logger.Debug("Retrieved cluster workflow schema successfully", "clusterWorkflow", clusterWorkflowName)
-	return jsonSchema, nil
+	return rawSchema, nil
 }
