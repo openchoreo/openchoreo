@@ -73,6 +73,16 @@ func TestToSjsonPath(t *testing.T) {
 			input:    "spec.items[0].configs.1.name",
 			expected: "spec.items.0.configs.:1.name",
 		},
+		{
+			name:     "escaped dot preserves single key",
+			input:    `labels.foo\.0`,
+			expected: `labels.foo\.0`,
+		},
+		{
+			name:     "escaped dot with deeper path",
+			input:    `metadata.labels.app\.kubernetes\.io/name`,
+			expected: `metadata.labels.app\.kubernetes\.io/name`,
+		},
 	}
 
 	for _, tt := range tests {

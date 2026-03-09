@@ -76,7 +76,8 @@ func ToSjsonPath(path string) string {
 
 	// Escape bare numeric segments with sjson's colon prefix so they are
 	// treated as object keys, not array indices.
-	segments := strings.Split(result, ".")
+	// Split on unescaped dots only (preserve backslash-escaped dots like \.).
+	segments := splitUnescaped(result, '.')
 	for i, seg := range segments {
 		if seg == "" {
 			continue
@@ -99,6 +100,30 @@ func ToSjsonPath(path string) string {
 	}
 	result = strings.TrimPrefix(result, ".")
 	return result
+}
+
+// splitUnescaped splits s on the given separator byte, but skips separators
+// preceded by a backslash. The backslash-separator sequences are preserved
+// in the output so that sjson can interpret escaped dots (e.g. foo\.bar).
+func splitUnescaped(s string, sep byte) []string {
+	var segments []string
+	var cur strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			cur.WriteByte(s[i])
+			cur.WriteByte(s[i+1])
+			i++
+			continue
+		}
+		if s[i] == sep {
+			segments = append(segments, cur.String())
+			cur.Reset()
+			continue
+		}
+		cur.WriteByte(s[i])
+	}
+	segments = append(segments, cur.String())
+	return segments
 }
 
 // isNumeric returns true if s is a decimal integer (possibly negative).
