@@ -31,12 +31,35 @@ type AlertEntry struct {
 	EnvironmentID        string
 	ProjectID            string
 	IncidentEnabled      bool
+	Severity             string
+	Description          string
+	NotificationChannels string // JSON array of channel names
+	SourceType           string
+	SourceQuery          string
+	SourceMetric         string
+	ConditionOperator    string
+	ConditionThreshold   float64
+	ConditionWindow      string
+	ConditionInterval    string
+}
+
+// QueryParams contains filters and pagination for querying alert entries.
+type QueryParams struct {
+	StartTime     string
+	EndTime       string
+	NamespaceName string
+	ProjectID     string
+	ComponentID   string
+	EnvironmentID string
+	Limit         int
+	SortOrder     string
 }
 
 // AlertEntryStore defines lifecycle and write operations for alert entry persistence.
 type AlertEntryStore interface {
 	Initialize(ctx context.Context) error
 	WriteAlertEntry(ctx context.Context, entry *AlertEntry) (id string, err error)
+	QueryAlertEntries(ctx context.Context, params QueryParams) ([]AlertEntry, int, error)
 	Close() error
 }
 

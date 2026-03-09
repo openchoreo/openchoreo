@@ -16,12 +16,14 @@ import (
 // Authorization is enforced by the service layer — pass authz-wrapped services
 // (e.g. service.NewLogsServiceWithAuthz) rather than bare service instances.
 type Handler struct {
-	healthService  *service.HealthService
-	logsService    service.LogsQuerier
-	metricsService service.MetricsQuerier
-	alertService   *service.AlertService
-	tracesService  service.TracesQuerier
-	logger         *slog.Logger
+	healthService    *service.HealthService
+	logsService      service.LogsQuerier
+	metricsService   service.MetricsQuerier
+	alertService     *service.AlertService
+	alertsQuerier    service.AlertsQuerier
+	incidentsQuerier service.IncidentsQuerier
+	tracesService    service.TracesQuerier
+	logger           *slog.Logger
 }
 
 // NewHandler creates a new handler instance for the new API.
@@ -30,16 +32,20 @@ func NewHandler(
 	logsService service.LogsQuerier,
 	metricsService service.MetricsQuerier,
 	alertService *service.AlertService,
+	alertsQuerier service.AlertsQuerier,
+	incidentsQuerier service.IncidentsQuerier,
 	tracesService service.TracesQuerier,
 	logger *slog.Logger,
 ) *Handler {
 	return &Handler{
-		healthService:  healthService,
-		logsService:    logsService,
-		metricsService: metricsService,
-		alertService:   alertService,
-		tracesService:  tracesService,
-		logger:         logger,
+		healthService:    healthService,
+		logsService:      logsService,
+		metricsService:   metricsService,
+		alertService:     alertService,
+		alertsQuerier:    alertsQuerier,
+		incidentsQuerier: incidentsQuerier,
+		tracesService:    tracesService,
+		logger:           logger,
 	}
 }
 

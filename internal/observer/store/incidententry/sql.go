@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,7 +17,11 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const initializeTimeout = 30 * time.Second
+const (
+	initializeTimeout = 30 * time.Second
+	maxQueryLimit     = 10000
+	sortOrderDesc     = "DESC"
+)
 
 type sqlStore struct {
 	db      *sql.DB
@@ -79,15 +84,25 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 
 	id := uuid.NewString()
 	timestamp := strings.TrimSpace(entry.Timestamp)
+	var timestampNS int64
 	if timestamp == "" {
-		timestamp = time.Now().UTC().Format(time.RFC3339Nano)
+		now := time.Now().UTC()
+		timestamp = now.Format(time.RFC3339Nano)
+		timestampNS = now.UnixNano()
 	} else {
 		normalizedTimestamp, err := normalizeTimestamp(timestamp)
 		if err != nil {
 			return "", fmt.Errorf("invalid incident timestamp %q: %w", entry.Timestamp, err)
 		}
 		timestamp = normalizedTimestamp
+		parsed, err := time.Parse(time.RFC3339Nano, timestamp)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse normalized incident timestamp %q: %w", timestamp, err)
+		}
+		timestampNS = parsed.UnixNano()
 	}
+	// keep entry.Timestamp normalized for callers
+	entry.Timestamp = timestamp
 
 	status := strings.TrimSpace(entry.Status)
 	if status == "" {
@@ -97,23 +112,52 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 		return "", fmt.Errorf("unsupported incident status %q", status)
 	}
 
+	var triggeredAtNS int64
 	triggeredAt, err := normalizeTimestamp(entry.TriggeredAt)
 	if err != nil {
 		return "", fmt.Errorf("invalid incident triggeredAt %q: %w", entry.TriggeredAt, err)
 	}
 	if triggeredAt == "" {
 		triggeredAt = timestamp
+		triggeredAtNS = timestampNS
+	} else {
+		parsed, err := time.Parse(time.RFC3339Nano, triggeredAt)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse normalized incident triggeredAt %q: %w", triggeredAt, err)
+		}
+		triggeredAtNS = parsed.UnixNano()
 	}
+	entry.TriggeredAt = triggeredAt
 
 	acknowledgedAt, err := normalizeTimestamp(entry.AcknowledgedAt)
 	if err != nil {
 		return "", fmt.Errorf("invalid incident acknowledgedAt %q: %w", entry.AcknowledgedAt, err)
 	}
 
+	var acknowledgedAtNS any
+	if acknowledgedAt != "" {
+		parsed, err := time.Parse(time.RFC3339Nano, acknowledgedAt)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse normalized incident acknowledgedAt %q: %w", acknowledgedAt, err)
+		}
+		acknowledgedAtNS = parsed.UnixNano()
+	}
+	entry.AcknowledgedAt = acknowledgedAt
+
 	resolvedAt, err := normalizeTimestamp(entry.ResolvedAt)
 	if err != nil {
 		return "", fmt.Errorf("invalid incident resolvedAt %q: %w", entry.ResolvedAt, err)
 	}
+
+	var resolvedAtNS any
+	if resolvedAt != "" {
+		parsed, err := time.Parse(time.RFC3339Nano, resolvedAt)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse normalized incident resolvedAt %q: %w", resolvedAt, err)
+		}
+		resolvedAtNS = parsed.UnixNano()
+	}
+	entry.ResolvedAt = resolvedAt
 
 	var query string
 	var args []any
@@ -122,12 +166,12 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 		args = []any{
 			id,
 			alertID,
-			timestamp,
+			timestampNS,
 			status,
 			entry.TriggerAiRca,
-			triggeredAt,
-			nullableString(acknowledgedAt),
-			nullableString(resolvedAt),
+			triggeredAtNS,
+			acknowledgedAtNS,
+			resolvedAtNS,
 			nullableString(entry.Notes),
 			nullableString(entry.Description),
 			entry.NamespaceName,
@@ -143,12 +187,12 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 		args = []any{
 			id,
 			alertID,
-			timestamp,
+			timestampNS,
 			status,
 			entry.TriggerAiRca,
-			triggeredAt,
-			nullableString(acknowledgedAt),
-			nullableString(resolvedAt),
+			triggeredAtNS,
+			acknowledgedAtNS,
+			resolvedAtNS,
 			nullableString(entry.Notes),
 			nullableString(entry.Description),
 			entry.NamespaceName,
@@ -166,6 +210,165 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 	}
 
 	return id, nil
+}
+
+func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams) ([]IncidentEntry, int, error) {
+	startTimeStr, err := normalizeTimestamp(strings.TrimSpace(params.StartTime))
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid start time %q: %w", params.StartTime, err)
+	}
+	if startTimeStr == "" {
+		return nil, 0, fmt.Errorf("start time is required")
+	}
+
+	endTimeStr, err := normalizeTimestamp(strings.TrimSpace(params.EndTime))
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid end time %q: %w", params.EndTime, err)
+	}
+	if endTimeStr == "" {
+		return nil, 0, fmt.Errorf("end time is required")
+	}
+
+	startTime, err := time.Parse(time.RFC3339Nano, startTimeStr)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to parse normalized start time %q: %w", startTimeStr, err)
+	}
+	endTime, err := time.Parse(time.RFC3339Nano, endTimeStr)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to parse normalized end time %q: %w", endTimeStr, err)
+	}
+
+	startNS := startTime.UnixNano()
+	endNS := endTime.UnixNano()
+
+	sortOrder := strings.ToUpper(strings.TrimSpace(params.SortOrder))
+	if sortOrder == "" {
+		sortOrder = sortOrderDesc
+	}
+	var orderClause string
+	switch sortOrder {
+	case "ASC":
+		orderClause = "ASC"
+	case sortOrderDesc:
+		orderClause = sortOrderDesc
+	default:
+		return nil, 0, fmt.Errorf("invalid sort order %q", params.SortOrder)
+	}
+
+	conditions := make([]string, 0, 6)
+	args := make([]any, 0, 6)
+
+	nextPlaceholder := func() string {
+		if s.backend == BackendPostgreSQL {
+			return "$" + strconv.Itoa(len(args)+1)
+		}
+		return "?"
+	}
+
+	conditions = append(conditions, "timestamp_ns >= "+nextPlaceholder())
+	args = append(args, startNS)
+	conditions = append(conditions, "timestamp_ns <= "+nextPlaceholder())
+	args = append(args, endNS)
+
+	if value := strings.TrimSpace(params.NamespaceName); value != "" {
+		conditions = append(conditions, "namespace_name = "+nextPlaceholder())
+		args = append(args, value)
+	}
+	if value := strings.TrimSpace(params.ProjectID); value != "" {
+		conditions = append(conditions, "project_id = "+nextPlaceholder())
+		args = append(args, value)
+	}
+	if value := strings.TrimSpace(params.ComponentID); value != "" {
+		conditions = append(conditions, "component_id = "+nextPlaceholder())
+		args = append(args, value)
+	}
+	if value := strings.TrimSpace(params.EnvironmentID); value != "" {
+		conditions = append(conditions, "environment_id = "+nextPlaceholder())
+		args = append(args, value)
+	}
+
+	whereClause := " WHERE " + strings.Join(conditions, " AND ")
+	countQuery := "SELECT COUNT(*) FROM incident_entries" + whereClause
+
+	var total int
+	if err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count incident entries: %w", err)
+	}
+
+	limitPh := nextPlaceholder()
+	limit := maxQueryLimit
+	if params.Limit > 0 && params.Limit < limit {
+		limit = params.Limit
+	}
+	args = append(args, limit)
+	// #nosec G202 -- whereClause uses parameterized placeholders; orderClause is validated switch; limitPh is placeholder
+	query := `SELECT
+		id, alert_id, timestamp_ns, status, trigger_ai_rca,
+		triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
+		notes, description,
+		namespace_name, component_name, environment_name, project_name,
+		component_id, environment_id, project_id
+	FROM incident_entries` + whereClause + " ORDER BY timestamp_ns " + orderClause + " LIMIT " + limitPh
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query incident entries: %w", err)
+	}
+	defer rows.Close()
+
+	entries := make([]IncidentEntry, 0, limit)
+	for rows.Next() {
+		var entry IncidentEntry
+		var tsNS int64
+		var triggeredNS int64
+		var acknowledgedNS sql.NullInt64
+		var resolvedNS sql.NullInt64
+		var notes sql.NullString
+		var description sql.NullString
+		if err := rows.Scan(
+			&entry.ID,
+			&entry.AlertID,
+			&tsNS,
+			&entry.Status,
+			&entry.TriggerAiRca,
+			&triggeredNS,
+			&acknowledgedNS,
+			&resolvedNS,
+			&notes,
+			&description,
+			&entry.NamespaceName,
+			&entry.ComponentName,
+			&entry.EnvironmentName,
+			&entry.ProjectName,
+			&entry.ComponentID,
+			&entry.EnvironmentID,
+			&entry.ProjectID,
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan incident entry: %w", err)
+		}
+
+		entry.Timestamp = time.Unix(0, tsNS).UTC().Format(time.RFC3339Nano)
+		entry.TriggeredAt = time.Unix(0, triggeredNS).UTC().Format(time.RFC3339Nano)
+
+		if acknowledgedNS.Valid {
+			entry.AcknowledgedAt = time.Unix(0, acknowledgedNS.Int64).UTC().Format(time.RFC3339Nano)
+		}
+		if resolvedNS.Valid {
+			entry.ResolvedAt = time.Unix(0, resolvedNS.Int64).UTC().Format(time.RFC3339Nano)
+		}
+		if notes.Valid {
+			entry.Notes = notes.String
+		}
+		if description.Valid {
+			entry.Description = description.String
+		}
+		entries = append(entries, entry)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("failed to iterate incident entries: %w", err)
+	}
+
+	return entries, total, nil
 }
 
 func (s *sqlStore) Close() error {
@@ -218,12 +421,12 @@ const createTableQuery = `
 CREATE TABLE IF NOT EXISTS incident_entries (
 	id TEXT PRIMARY KEY,
 	alert_id TEXT NOT NULL,
-	timestamp TEXT NOT NULL,
+	timestamp_ns BIGINT NOT NULL,
 	status TEXT NOT NULL,
 	trigger_ai_rca BOOLEAN NOT NULL,
-	triggered_at TEXT NOT NULL,
-	acknowledged_at TEXT,
-	resolved_at TEXT,
+	triggered_at_ns BIGINT NOT NULL,
+	acknowledged_at_ns BIGINT,
+	resolved_at_ns BIGINT,
 	notes TEXT,
 	description TEXT,
 	namespace_name TEXT,
@@ -237,20 +440,22 @@ CREATE TABLE IF NOT EXISTS incident_entries (
 
 const createProjectEnvTimestampIndexQuery = `
 CREATE INDEX IF NOT EXISTS idx_incident_entries_project_env_ts
-ON incident_entries(project_id, environment_id, timestamp);`
+ON incident_entries(project_id, environment_id, timestamp_ns);`
 
 const insertIncidentEntrySQLiteQuery = `
 INSERT INTO incident_entries (
-	id, alert_id, timestamp, status, trigger_ai_rca, triggered_at,
-	acknowledged_at, resolved_at, notes, description,
+	id, alert_id, timestamp_ns, status, trigger_ai_rca,
+	triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
+	notes, description,
 	namespace_name, component_name, environment_name, project_name,
 	component_id, environment_id, project_id
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 const insertIncidentEntryPostgresQuery = `
 INSERT INTO incident_entries (
-	id, alert_id, timestamp, status, trigger_ai_rca, triggered_at,
-	acknowledged_at, resolved_at, notes, description,
+	id, alert_id, timestamp_ns, status, trigger_ai_rca,
+	triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
+	notes, description,
 	namespace_name, component_name, environment_name, project_name,
 	component_id, environment_id, project_id
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);`

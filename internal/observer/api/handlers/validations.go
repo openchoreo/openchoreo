@@ -17,6 +17,7 @@ const (
 	defaultLimit      = 100
 	maxLimit          = 10000
 	defaultSortOrder  = "desc"
+	sortOrderAsc      = "asc"
 	maxQueryTimeRange = 30 * 24 * time.Hour // 30 days
 
 	sourceTypeLog    = "log"
@@ -154,7 +155,7 @@ func ValidateAndSetSortOrder(sortOrder *string) error {
 		*sortOrder = defaultSortOrder
 		return nil
 	}
-	if *sortOrder != "asc" && *sortOrder != "desc" {
+	if *sortOrder != sortOrderAsc && *sortOrder != defaultSortOrder {
 		return fmt.Errorf("sortOrder must be either 'asc' or 'desc'")
 	}
 	return nil
@@ -371,10 +372,90 @@ func ValidateTracesQueryRequest(req *gen.TracesQueryRequest) error {
 	// Validate and set defaults for sort order
 	if req.SortOrder != nil {
 		validSort := string(*req.SortOrder)
-		if validSort != "asc" && validSort != "desc" {
+		if validSort != sortOrderAsc && validSort != defaultSortOrder {
 			return fmt.Errorf("sortOrder must be either 'asc' or 'desc'")
 		}
 	}
 
+	return nil
+}
+
+// ValidateAlertsQueryRequest validates an alerts query request.
+func ValidateAlertsQueryRequest(req *gen.AlertsQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+	if req.StartTime.IsZero() {
+		return fmt.Errorf("startTime is required")
+	}
+	if req.EndTime.IsZero() {
+		return fmt.Errorf("endTime is required")
+	}
+	if err := ValidateTimeRange(req.StartTime.Format(time.RFC3339), req.EndTime.Format(time.RFC3339)); err != nil {
+		return err
+	}
+	trimmedNamespace := strings.TrimSpace(req.SearchScope.Namespace)
+	if trimmedNamespace == "" {
+		return fmt.Errorf("searchScope.namespace is required")
+	}
+	req.SearchScope.Namespace = trimmedNamespace
+	if req.SearchScope.Component != nil && strings.TrimSpace(*req.SearchScope.Component) != "" &&
+		(req.SearchScope.Project == nil || strings.TrimSpace(*req.SearchScope.Project) == "") {
+		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
+	}
+	if req.Limit != nil {
+		if *req.Limit <= 0 {
+			return fmt.Errorf("limit must be a positive integer greater than zero")
+		}
+		if *req.Limit > maxLimit {
+			return fmt.Errorf("limit cannot exceed %d", maxLimit)
+		}
+	}
+	if req.SortOrder != nil {
+		order := string(*req.SortOrder)
+		if order != sortOrderAsc && order != defaultSortOrder {
+			return fmt.Errorf("sortOrder must be either 'asc' or 'desc'")
+		}
+	}
+	return nil
+}
+
+// ValidateIncidentsQueryRequest validates an incidents query request.
+func ValidateIncidentsQueryRequest(req *gen.IncidentsQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+	if req.StartTime.IsZero() {
+		return fmt.Errorf("startTime is required")
+	}
+	if req.EndTime.IsZero() {
+		return fmt.Errorf("endTime is required")
+	}
+	if err := ValidateTimeRange(req.StartTime.Format(time.RFC3339), req.EndTime.Format(time.RFC3339)); err != nil {
+		return err
+	}
+	trimmedNamespace := strings.TrimSpace(req.SearchScope.Namespace)
+	if trimmedNamespace == "" {
+		return fmt.Errorf("searchScope.namespace is required")
+	}
+	req.SearchScope.Namespace = trimmedNamespace
+	if req.SearchScope.Component != nil && strings.TrimSpace(*req.SearchScope.Component) != "" &&
+		(req.SearchScope.Project == nil || strings.TrimSpace(*req.SearchScope.Project) == "") {
+		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
+	}
+	if req.Limit != nil {
+		if *req.Limit <= 0 {
+			return fmt.Errorf("limit must be a positive integer greater than zero")
+		}
+		if *req.Limit > maxLimit {
+			return fmt.Errorf("limit cannot exceed %d", maxLimit)
+		}
+	}
+	if req.SortOrder != nil {
+		order := string(*req.SortOrder)
+		if order != sortOrderAsc && order != defaultSortOrder {
+			return fmt.Errorf("sortOrder must be either 'asc' or 'desc'")
+		}
+	}
 	return nil
 }

@@ -42,10 +42,23 @@ type IncidentEntry struct {
 	ProjectID       string
 }
 
+// QueryParams contains filters and pagination for querying incident entries.
+type QueryParams struct {
+	StartTime     string
+	EndTime       string
+	NamespaceName string
+	ProjectID     string
+	ComponentID   string
+	EnvironmentID string
+	Limit         int
+	SortOrder     string
+}
+
 // IncidentEntryStore defines lifecycle and write operations for incident persistence.
 type IncidentEntryStore interface {
 	Initialize(ctx context.Context) error
 	WriteIncidentEntry(ctx context.Context, entry *IncidentEntry) (id string, err error)
+	QueryIncidentEntries(ctx context.Context, params QueryParams) ([]IncidentEntry, int, error)
 	Close() error
 }
 

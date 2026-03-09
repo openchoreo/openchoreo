@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -24,6 +25,8 @@ type tokenCache struct {
 	token     string
 	expiresAt time.Time
 }
+
+var ErrResourceNotFound = errors.New("resource not found")
 
 // ResourceUIDResolver provides methods to resolve resource names to UIDs
 // by calling the openchoreo-api with OAuth2 client credentials authentication.
@@ -187,8 +190,10 @@ func (r *ResourceUIDResolver) fetchResourceUID(ctx context.Context, path string)
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+		if resp.StatusCode == http.StatusNotFound {
+			return "", fmt.Errorf("%w: %s", ErrResourceNotFound, path)
+		}
+		return "", fmt.Errorf("API returned status %d", resp.StatusCode)
 	}
 
 	// Parse response to extract data.uid

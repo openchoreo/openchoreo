@@ -7,17 +7,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
-	"strconv"
-	"strings"
 	"text/tabwriter"
 	"time"
 
-	"github.com/tidwall/sjson"
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/setoverride"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
@@ -189,21 +186,9 @@ func applySetOverrides(req gen.WorkflowRun, workflowName string, setValues []str
 		return req, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	jsonStr := string(reqJSON)
-	for _, s := range setValues {
-		parts := strings.SplitN(s, "=", 2)
-		if len(parts) != 2 {
-			return req, fmt.Errorf("invalid --set format %q, expected key=value", s)
-		}
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-		if key == "" {
-			return req, fmt.Errorf("empty key in --set flag")
-		}
-		jsonStr, err = sjson.SetRaw(jsonStr, key, toJSONLiteral(value))
-		if err != nil {
-			return req, fmt.Errorf("failed to set value for key %q: %w", key, err)
-		}
+	jsonStr, err := setoverride.Apply(string(reqJSON), setValues)
+	if err != nil {
+		return req, err
 	}
 
 	var result gen.WorkflowRun
@@ -217,18 +202,6 @@ func applySetOverrides(req gen.WorkflowRun, workflowName string, setValues []str
 	}
 
 	return result, nil
-}
-
-// toJSONLiteral converts a CLI string value to its raw JSON representation.
-func toJSONLiteral(s string) string {
-	if s == "true" || s == "false" || s == "null" {
-		return s
-	}
-	if f, err := strconv.ParseFloat(s, 64); err == nil && !math.IsNaN(f) && !math.IsInf(f, 0) {
-		return s
-	}
-	b, _ := json.Marshal(s)
-	return string(b)
 }
 
 func printList(items []gen.Workflow) error {

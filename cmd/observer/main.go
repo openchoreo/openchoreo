@@ -208,6 +208,7 @@ func main() {
 		logger.With("component", "alert-service"),
 		cfg.Alerting.RCAServiceURL,
 		cfg.Alerting.AIRCAEnabled,
+		uidResolver,
 	)
 
 	// Wrap services with authorization checks.
@@ -218,6 +219,10 @@ func main() {
 		metricsService, authzClient, logger.With("component", "authz-metrics"))
 	authzTracesService := service.NewTracesServiceWithAuthz(
 		tracesService, authzClient, logger.With("component", "authz-traces"))
+	authzAlertsService := service.NewAlertsServiceWithAuthz(
+		alertService, authzClient, logger.With("component", "authz-alerts"))
+	authzIncidentsService := service.NewIncidentsServiceWithAuthz(
+		alertService, authzClient, logger.With("component", "authz-incidents"))
 
 	// Initialize new API handler
 	newAPIHandler := apihandler.NewHandler(
@@ -225,6 +230,8 @@ func main() {
 		authzLogsService,
 		authzMetricsService,
 		alertService,
+		authzAlertsService,
+		authzIncidentsService,
 		authzTracesService,
 		logger.With("component", "api-handler"),
 	)
@@ -262,13 +269,16 @@ func main() {
 	api.HandleFunc("POST /api/v1alpha1/traces/query", newAPIHandler.QueryTraces)
 	api.HandleFunc("POST /api/v1alpha1/traces/{traceId}/spans/query", newAPIHandler.QuerySpansForTrace)
 	api.HandleFunc("GET /api/v1alpha1/traces/{traceId}/spans/{spanId}", newAPIHandler.GetSpanDetailsForTrace)
+	api.HandleFunc("POST /api/v1alpha1/alerts/query", newAPIHandler.QueryAlerts)
+	api.HandleFunc("POST /api/v1alpha1/incidents/query", newAPIHandler.QueryIncidents)
 
 	// Initialize new MCP handler backed by the authz-wrapped service layer
 	newMCPHandler, err := observermcp.NewMCPHandler(
 		healthService,
 		authzLogsService,
 		authzMetricsService,
-		alertService,
+		authzAlertsService,
+		authzIncidentsService,
 		authzTracesService,
 		logger.With("component", "mcp-handler"),
 	)

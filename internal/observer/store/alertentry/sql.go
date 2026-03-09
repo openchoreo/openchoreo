@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,7 +17,11 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const initializeTimeout = 30 * time.Second
+const (
+	initializeTimeout = 30 * time.Second
+	maxQueryLimit     = 10000
+	sortOrderDesc     = "DESC"
+)
 
 type sqlStore struct {
 	db      *sql.DB
@@ -63,6 +68,9 @@ func (s *sqlStore) Initialize(ctx context.Context) error {
 	if _, err := s.db.ExecContext(initCtx, createProjectEnvTimestampIndexQuery); err != nil {
 		return fmt.Errorf("failed to create alert_entries index: %w", err)
 	}
+	if _, err := s.db.ExecContext(initCtx, createNamespaceTimestampIndexQuery); err != nil {
+		return fmt.Errorf("failed to create alert_entries index: %w", err)
+	}
 	return nil
 }
 
@@ -73,15 +81,25 @@ func (s *sqlStore) WriteAlertEntry(ctx context.Context, entry *AlertEntry) (stri
 
 	id := uuid.NewString()
 	timestamp := strings.TrimSpace(entry.Timestamp)
+	var timestampNS int64
 	if timestamp == "" {
-		timestamp = time.Now().UTC().Format(time.RFC3339Nano)
+		now := time.Now().UTC()
+		timestamp = now.Format(time.RFC3339Nano)
+		timestampNS = now.UnixNano()
 	} else {
 		normalizedTimestamp, err := normalizeTimestamp(timestamp)
 		if err != nil {
 			return "", fmt.Errorf("invalid alert timestamp %q: %w", entry.Timestamp, err)
 		}
 		timestamp = normalizedTimestamp
+		parsed, err := time.Parse(time.RFC3339Nano, timestamp)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse normalized alert timestamp %q: %w", timestamp, err)
+		}
+		timestampNS = parsed.UnixNano()
 	}
+	// keep entry.Timestamp normalized for callers
+	entry.Timestamp = timestamp
 
 	var query string
 	var args []any
@@ -89,7 +107,7 @@ func (s *sqlStore) WriteAlertEntry(ctx context.Context, entry *AlertEntry) (stri
 		query = insertAlertEntryPostgresQuery
 		args = []any{
 			id,
-			timestamp,
+			timestampNS,
 			entry.AlertRuleName,
 			entry.AlertRuleCRName,
 			entry.AlertRuleCRNamespace,
@@ -102,12 +120,22 @@ func (s *sqlStore) WriteAlertEntry(ctx context.Context, entry *AlertEntry) (stri
 			entry.EnvironmentID,
 			entry.ProjectID,
 			entry.IncidentEnabled,
+			entry.Severity,
+			entry.Description,
+			entry.NotificationChannels,
+			entry.SourceType,
+			entry.SourceQuery,
+			entry.SourceMetric,
+			entry.ConditionOperator,
+			entry.ConditionThreshold,
+			entry.ConditionWindow,
+			entry.ConditionInterval,
 		}
 	} else {
 		query = insertAlertEntrySQLiteQuery
 		args = []any{
 			id,
-			timestamp,
+			timestampNS,
 			entry.AlertRuleName,
 			entry.AlertRuleCRName,
 			entry.AlertRuleCRNamespace,
@@ -120,6 +148,16 @@ func (s *sqlStore) WriteAlertEntry(ctx context.Context, entry *AlertEntry) (stri
 			entry.EnvironmentID,
 			entry.ProjectID,
 			entry.IncidentEnabled,
+			entry.Severity,
+			entry.Description,
+			entry.NotificationChannels,
+			entry.SourceType,
+			entry.SourceQuery,
+			entry.SourceMetric,
+			entry.ConditionOperator,
+			entry.ConditionThreshold,
+			entry.ConditionWindow,
+			entry.ConditionInterval,
 		}
 	}
 
@@ -127,6 +165,153 @@ func (s *sqlStore) WriteAlertEntry(ctx context.Context, entry *AlertEntry) (stri
 		return "", fmt.Errorf("failed to insert alert entry: %w", err)
 	}
 	return id, nil
+}
+
+func (s *sqlStore) QueryAlertEntries(ctx context.Context, params QueryParams) ([]AlertEntry, int, error) {
+	startTimeStr, err := normalizeTimestamp(strings.TrimSpace(params.StartTime))
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid start time %q: %w", params.StartTime, err)
+	}
+	if startTimeStr == "" {
+		return nil, 0, fmt.Errorf("start time is required")
+	}
+
+	endTimeStr, err := normalizeTimestamp(strings.TrimSpace(params.EndTime))
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid end time %q: %w", params.EndTime, err)
+	}
+	if endTimeStr == "" {
+		return nil, 0, fmt.Errorf("end time is required")
+	}
+
+	startTime, err := time.Parse(time.RFC3339Nano, startTimeStr)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to parse normalized start time %q: %w", startTimeStr, err)
+	}
+	endTime, err := time.Parse(time.RFC3339Nano, endTimeStr)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to parse normalized end time %q: %w", endTimeStr, err)
+	}
+
+	startNS := startTime.UnixNano()
+	endNS := endTime.UnixNano()
+
+	sortOrder := strings.ToUpper(strings.TrimSpace(params.SortOrder))
+	if sortOrder == "" {
+		sortOrder = sortOrderDesc
+	}
+	var orderClause string
+	switch sortOrder {
+	case "ASC":
+		orderClause = "ASC"
+	case sortOrderDesc:
+		orderClause = sortOrderDesc
+	default:
+		return nil, 0, fmt.Errorf("invalid sort order %q", params.SortOrder)
+	}
+
+	conditions := make([]string, 0, 6)
+	args := make([]any, 0, 6)
+
+	nextPlaceholder := func() string {
+		if s.backend == BackendPostgreSQL {
+			return "$" + strconv.Itoa(len(args)+1)
+		}
+		return "?"
+	}
+
+	conditions = append(conditions, "timestamp_ns >= "+nextPlaceholder())
+	args = append(args, startNS)
+	conditions = append(conditions, "timestamp_ns <= "+nextPlaceholder())
+	args = append(args, endNS)
+
+	if value := strings.TrimSpace(params.NamespaceName); value != "" {
+		conditions = append(conditions, "namespace_name = "+nextPlaceholder())
+		args = append(args, value)
+	}
+	if value := strings.TrimSpace(params.ProjectID); value != "" {
+		conditions = append(conditions, "project_id = "+nextPlaceholder())
+		args = append(args, value)
+	}
+	if value := strings.TrimSpace(params.ComponentID); value != "" {
+		conditions = append(conditions, "component_id = "+nextPlaceholder())
+		args = append(args, value)
+	}
+	if value := strings.TrimSpace(params.EnvironmentID); value != "" {
+		conditions = append(conditions, "environment_id = "+nextPlaceholder())
+		args = append(args, value)
+	}
+
+	whereClause := " WHERE " + strings.Join(conditions, " AND ")
+	countQuery := "SELECT COUNT(*) FROM alert_entries" + whereClause
+
+	var total int
+	if err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count alert entries: %w", err)
+	}
+
+	limitPh := nextPlaceholder()
+	limit := maxQueryLimit
+	if params.Limit > 0 && params.Limit < limit {
+		limit = params.Limit
+	}
+	args = append(args, limit)
+	// #nosec G202 -- whereClause uses parameterized placeholders; orderClause is validated switch; limitPh is placeholder
+	query := `SELECT
+		id, timestamp_ns, alert_rule_name, alert_rule_cr_name, alert_rule_cr_namespace, alert_value,
+		namespace_name, component_name, environment_name, project_name,
+		component_id, environment_id, project_id, incident_enabled,
+		severity, description, notification_channels,
+		source_type, source_query, source_metric,
+		condition_operator, condition_threshold, condition_window, condition_interval
+	FROM alert_entries` + whereClause + " ORDER BY timestamp_ns " + orderClause + " LIMIT " + limitPh
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query alert entries: %w", err)
+	}
+	defer rows.Close()
+
+	entries := make([]AlertEntry, 0, limit)
+	for rows.Next() {
+		var entry AlertEntry
+		var tsNS int64
+		if err := rows.Scan(
+			&entry.ID,
+			&tsNS,
+			&entry.AlertRuleName,
+			&entry.AlertRuleCRName,
+			&entry.AlertRuleCRNamespace,
+			&entry.AlertValue,
+			&entry.NamespaceName,
+			&entry.ComponentName,
+			&entry.EnvironmentName,
+			&entry.ProjectName,
+			&entry.ComponentID,
+			&entry.EnvironmentID,
+			&entry.ProjectID,
+			&entry.IncidentEnabled,
+			&entry.Severity,
+			&entry.Description,
+			&entry.NotificationChannels,
+			&entry.SourceType,
+			&entry.SourceQuery,
+			&entry.SourceMetric,
+			&entry.ConditionOperator,
+			&entry.ConditionThreshold,
+			&entry.ConditionWindow,
+			&entry.ConditionInterval,
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan alert entry: %w", err)
+		}
+		entry.Timestamp = time.Unix(0, tsNS).UTC().Format(time.RFC3339Nano)
+		entries = append(entries, entry)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("failed to iterate alert entries: %w", err)
+	}
+
+	return entries, total, nil
 }
 
 func normalizeTimestamp(value string) (string, error) {
@@ -165,7 +350,7 @@ func (s *sqlStore) enableSQLiteWAL(ctx context.Context) error {
 const createTableQuery = `
 CREATE TABLE IF NOT EXISTS alert_entries (
 	id TEXT PRIMARY KEY,
-	timestamp TEXT NOT NULL,
+	timestamp_ns BIGINT NOT NULL,
 	alert_rule_name TEXT NOT NULL,
 	alert_rule_cr_name TEXT,
 	alert_rule_cr_namespace TEXT,
@@ -177,25 +362,45 @@ CREATE TABLE IF NOT EXISTS alert_entries (
 	component_id TEXT,
 	environment_id TEXT,
 	project_id TEXT,
-	incident_enabled BOOLEAN NOT NULL
+	incident_enabled BOOLEAN NOT NULL,
+	severity TEXT,
+	description TEXT,
+	notification_channels TEXT,
+	source_type TEXT,
+	source_query TEXT,
+	source_metric TEXT,
+	condition_operator TEXT,
+	condition_threshold REAL,
+	condition_window TEXT,
+	condition_interval TEXT
 );`
 
 const createProjectEnvTimestampIndexQuery = `
 CREATE INDEX IF NOT EXISTS idx_alert_entries_project_env_ts
-ON alert_entries(project_id, environment_id, timestamp);`
+ON alert_entries(project_id, environment_id, timestamp_ns);`
+
+const createNamespaceTimestampIndexQuery = `
+CREATE INDEX IF NOT EXISTS idx_alert_entries_ns_ts
+ON alert_entries(namespace_name, timestamp_ns);`
 
 const insertAlertEntrySQLiteQuery = `
 INSERT INTO alert_entries (
-	id, timestamp, alert_rule_name, alert_rule_cr_name, alert_rule_cr_namespace, alert_value,
+	id, timestamp_ns, alert_rule_name, alert_rule_cr_name, alert_rule_cr_namespace, alert_value,
 	namespace_name, component_name, environment_name, project_name,
 	component_id, environment_id, project_id,
-	incident_enabled
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+	incident_enabled,
+	severity, description, notification_channels,
+	source_type, source_query, source_metric,
+	condition_operator, condition_threshold, condition_window, condition_interval
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 const insertAlertEntryPostgresQuery = `
 INSERT INTO alert_entries (
-	id, timestamp, alert_rule_name, alert_rule_cr_name, alert_rule_cr_namespace, alert_value,
+	id, timestamp_ns, alert_rule_name, alert_rule_cr_name, alert_rule_cr_namespace, alert_value,
 	namespace_name, component_name, environment_name, project_name,
 	component_id, environment_id, project_id,
-	incident_enabled
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);`
+	incident_enabled,
+	severity, description, notification_channels,
+	source_type, source_query, source_metric,
+	condition_operator, condition_threshold, condition_window, condition_interval
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24);`

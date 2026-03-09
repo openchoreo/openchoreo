@@ -7,18 +7,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
 
-	"github.com/tidwall/sjson"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/setoverride"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
@@ -471,60 +469,24 @@ func unmarshalSchema(raw *json.RawMessage) (*extv1.JSONSchemaProps, error) {
 	return &schema, nil
 }
 
-// mergeOverridesWithBinding merges --set override values with existing ReleaseBinding
-// This uses sjson to generically update JSON paths in the existing binding
+// mergeOverridesWithBinding merges --set override values with existing ReleaseBinding.
 func mergeOverridesWithBinding(existingBinding *gen.ReleaseBinding, setValues []string) (*gen.ReleaseBinding, error) {
-	// Marshal existing binding to JSON
 	existingJSON, err := json.Marshal(existingBinding)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal existing binding: %w", err)
 	}
 
-	jsonStr := string(existingJSON)
-
-	// Apply each --set value using sjson
-	for _, setValue := range setValues {
-		parts := strings.SplitN(setValue, "=", 2)
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid --set format '%s', expected: key=value", setValue)
-		}
-
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-
-		if key == "" {
-			return nil, fmt.Errorf("empty key in --set flag")
-		}
-
-		// Use sjson.SetRaw with a properly typed JSON literal so that
-		// numeric and boolean values are not quoted as strings.
-		jsonStr, err = sjson.SetRaw(jsonStr, key, toJSONLiteral(value))
-		if err != nil {
-			return nil, fmt.Errorf("failed to set value for key '%s': %w", key, err)
-		}
+	jsonStr, err := setoverride.Apply(string(existingJSON), setValues)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge overrides: %w", err)
 	}
 
-	// Unmarshal back to ReleaseBinding
 	var rb gen.ReleaseBinding
 	if err := json.Unmarshal([]byte(jsonStr), &rb); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal merged result: %w", err)
 	}
 
 	return &rb, nil
-}
-
-// toJSONLiteral converts a CLI string value to its raw JSON representation.
-// It preserves the correct JSON type: booleans become true/false, numbers stay
-// unquoted, and everything else is quoted as a JSON string.
-func toJSONLiteral(s string) string {
-	if s == "true" || s == "false" || s == "null" {
-		return s
-	}
-	if f, err := strconv.ParseFloat(s, 64); err == nil && !math.IsNaN(f) && !math.IsInf(f, 0) {
-		return s
-	}
-	b, _ := json.Marshal(s)
-	return string(b)
 }
 
 func printList(items []gen.Component, showProject bool) error {
