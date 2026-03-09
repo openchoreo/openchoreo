@@ -15,12 +15,13 @@ spec:
   ttlAfterCompletion: "1d"
 
   schema:
-    parameters:
-      source:
-        org: string | default="openchoreo" description="GitHub organization name"
-        repo: string | default="openchoreo" description="GitHub repository name"
-      output:
-        format: string | default="table" enum=table,json description="Report output format"
+    ocSchema:
+      parameters:
+        source:
+          org: string | default="openchoreo" description="GitHub organization name"
+          repo: string | default="openchoreo" description="GitHub repository name"
+        output:
+          format: string | default="table" enum=table,json description="Report output format"
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1

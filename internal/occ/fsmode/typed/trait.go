@@ -29,16 +29,16 @@ func (t *Trait) GetSpec() map[string]interface{} {
 	spec := make(map[string]interface{})
 
 	// Add schema
-	if t.Spec.Schema.Types != nil || t.Spec.Schema.Parameters != nil || t.Spec.Schema.EnvOverrides != nil {
+	if types, params, envOverrides := t.Spec.Schema.GetTypes(), t.Spec.Schema.GetParameters(), t.Spec.Schema.GetEnvOverrides(); types != nil || params != nil || envOverrides != nil {
 		schema := make(map[string]interface{})
-		if t.Spec.Schema.Types != nil {
-			schema["types"] = rawExtensionToMap(t.Spec.Schema.Types)
+		if types != nil {
+			schema["types"] = rawExtensionToMap(types)
 		}
-		if t.Spec.Schema.Parameters != nil {
-			schema["parameters"] = rawExtensionToMap(t.Spec.Schema.Parameters)
+		if params != nil {
+			schema["parameters"] = rawExtensionToMap(params)
 		}
-		if t.Spec.Schema.EnvOverrides != nil {
-			schema["envOverrides"] = rawExtensionToMap(t.Spec.Schema.EnvOverrides)
+		if envOverrides != nil {
+			schema["envOverrides"] = rawExtensionToMap(envOverrides)
 		}
 		spec["schema"] = schema
 	}

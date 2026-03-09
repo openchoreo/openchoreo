@@ -23,6 +23,10 @@ const (
 
 	// ReasonDataplaneFinalizing is the reason used when a dataplane's dependents are being deleted
 	ReasonDataplaneFinalizing controller.ConditionReason = "DataplaneFinalizing"
+
+	// ReasonDeletionBlocked is the reason used when a dataplane cannot be deleted
+	// because it is still referenced by one or more environments
+	ReasonDeletionBlocked controller.ConditionReason = "DeletionBlocked"
 )
 
 // NewDataPlaneCreatedCondition creates a condition to indicate the dataplane is created/ready
@@ -43,6 +47,18 @@ func NewDataPlaneFinalizingCondition(generation int64) metav1.Condition {
 		metav1.ConditionTrue,
 		ReasonDataplaneFinalizing,
 		"Dataplane is finalizing",
+		generation,
+	)
+}
+
+// NewDeletionBlockedCondition creates a condition to indicate deletion is blocked
+// because the dataplane is still referenced by environments.
+func NewDeletionBlockedCondition(generation int64, msg string) metav1.Condition {
+	return controller.NewCondition(
+		ConditionFinalizing,
+		metav1.ConditionFalse,
+		ReasonDeletionBlocked,
+		msg,
 		generation,
 	)
 }

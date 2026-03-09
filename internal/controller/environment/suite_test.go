@@ -14,12 +14,16 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -31,6 +35,7 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var ctx context.Context
 var cancel context.CancelFunc
+var mgrDone chan struct{}
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -68,8 +73,69 @@ var _ = BeforeSuite(func() {
 
 	// +kubebuilder:scaffold:scheme
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	// Create a manager with cache enabled for DeploymentPipeline (needed for field index queries
+	// in the Environment finalizer). All other types bypass cache.
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&openchoreov1alpha1.DeploymentPipeline{}: {},
+			},
+			DefaultNamespaces: map[string]cache.Config{},
+		},
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{
+					&openchoreov1alpha1.Environment{},
+					&openchoreov1alpha1.Project{},
+					&openchoreov1alpha1.DataPlane{},
+				},
+			},
+		},
+	})
 	Expect(err).NotTo(HaveOccurred())
+
+	// Register the field index used by the Environment finalizer to find referencing DeploymentPipelines
+	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.DeploymentPipeline{},
+		controller.IndexKeyDeploymentPipelineEnvironmentRef, func(obj client.Object) []string {
+			pipeline := obj.(*openchoreov1alpha1.DeploymentPipeline)
+			envNames := make(map[string]struct{})
+			for _, path := range pipeline.Spec.PromotionPaths {
+				if path.SourceEnvironmentRef != "" {
+					envNames[path.SourceEnvironmentRef] = struct{}{}
+				}
+				for _, target := range path.TargetEnvironmentRefs {
+					if target.Name != "" {
+						envNames[target.Name] = struct{}{}
+					}
+				}
+			}
+			result := make([]string, 0, len(envNames))
+			for name := range envNames {
+				result = append(result, name)
+			}
+			return result
+		})
+	Expect(err).NotTo(HaveOccurred())
+
+	// Start the manager in a goroutine
+	mgrDone = make(chan struct{})
+	go func() {
+		defer GinkgoRecover()
+		defer close(mgrDone)
+		err := mgr.Start(ctx)
+		Expect(err).NotTo(HaveOccurred())
+	}()
+
+	// Wait for cache to sync before running tests
+	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+
+	// Use the manager's client which has field index support for DeploymentPipeline
+	// but reads directly from API server for other types
+	k8sClient = mgr.GetClient()
 	Expect(k8sClient).NotTo(BeNil())
 
 })
@@ -77,6 +143,7 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	cancel()
+	<-mgrDone
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })

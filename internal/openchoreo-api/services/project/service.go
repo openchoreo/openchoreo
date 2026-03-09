@@ -61,8 +61,11 @@ func (s *projectService) CreateProject(ctx context.Context, namespaceName string
 
 	project.Namespace = namespaceName
 	project.Status = openchoreov1alpha1.ProjectStatus{}
-	if project.Spec.DeploymentPipelineRef == "" {
-		project.Spec.DeploymentPipelineRef = defaultPipeline
+	if project.Spec.DeploymentPipelineRef.Name == "" {
+		project.Spec.DeploymentPipelineRef = openchoreov1alpha1.DeploymentPipelineRef{
+			Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
+			Name: defaultPipeline,
+		}
 	}
 
 	if err := s.k8sClient.Create(ctx, project); err != nil {

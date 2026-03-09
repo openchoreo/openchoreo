@@ -14,6 +14,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices/git"
 )
 
 func TestParseWorkflowParameterAnnotation(t *testing.T) {
@@ -199,6 +200,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 		workflow    *v1alpha1.Workflow
 		wantRepo    string
 		wantAppPath string
+		wantBranch  string
 		wantErr     bool
 	}{
 		{
@@ -370,6 +372,64 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			wantRepo:    "https://github.com/example/repo",
 			wantAppPath: "",
 		},
+		{
+			name: "branch path configured but missing from parameters is an error",
+			component: &v1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
+				Spec: v1alpha1.ComponentSpec{
+					Workflow: &v1alpha1.WorkflowRunConfig{
+						Name: "wf1",
+						Parameters: makeRaw(map[string]interface{}{
+							"repository": map[string]interface{}{
+								"url": "https://github.com/example/repo",
+							},
+						}),
+					},
+				},
+			},
+			workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wf1",
+					Namespace: "ns1",
+					Annotations: map[string]string{
+						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\nbranch: parameters.repository.revision.branch\n",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "extracts repoUrl, appPath, and branch",
+			component: &v1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
+				Spec: v1alpha1.ComponentSpec{
+					Workflow: &v1alpha1.WorkflowRunConfig{
+						Name: "wf1",
+						Parameters: makeRaw(map[string]interface{}{
+							"repository": map[string]interface{}{
+								"url": "https://github.com/example/repo",
+								"revision": map[string]interface{}{
+									"branch": "main",
+								},
+							},
+							"appPath": "/src/app",
+						}),
+					},
+				},
+			},
+			workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "wf1",
+					Namespace: "ns1",
+					Annotations: map[string]string{
+						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\nappPath: parameters.appPath\nbranch: parameters.repository.revision.branch\n",
+					},
+				},
+			},
+			wantRepo:    "https://github.com/example/repo",
+			wantAppPath: "/src/app",
+			wantBranch:  "main",
+		},
 	}
 
 	for _, tt := range tests {
@@ -382,7 +442,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 
 			svc := &WebhookService{k8sClient: k8sClient}
 
-			gotRepo, gotAppPath, err := svc.extractRepoInfoFromComponent(context.Background(), tt.component)
+			gotRepo, gotAppPath, gotBranch, err := svc.extractRepoInfoFromComponent(context.Background(), tt.component)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -397,6 +457,162 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			}
 			if gotAppPath != tt.wantAppPath {
 				t.Errorf("appPath: got %q, want %q", gotAppPath, tt.wantAppPath)
+			}
+			if gotBranch != tt.wantBranch {
+				t.Errorf("branch: got %q, want %q", gotBranch, tt.wantBranch)
+			}
+		})
+	}
+}
+
+// makeAutoBuildComponent returns a Component with autoBuild enabled, pointing at the given
+// Workflow CR and carrying repository parameters including an optional branch.
+func makeAutoBuildComponent(name, ns, workflowName, repoURL, branch string, makeRaw func(interface{}) *runtime.RawExtension) *v1alpha1.Component {
+	autoBuild := true
+	params := map[string]interface{}{
+		"repository": map[string]interface{}{
+			"url": repoURL,
+			"revision": map[string]interface{}{
+				"branch": branch,
+			},
+		},
+	}
+	return &v1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+		Spec: v1alpha1.ComponentSpec{
+			AutoBuild: &autoBuild,
+			Workflow: &v1alpha1.WorkflowRunConfig{
+				Name:       workflowName,
+				Parameters: makeRaw(params),
+			},
+		},
+	}
+}
+
+// makeWorkflowWithBranch returns a Workflow CR whose annotation maps repoUrl and branch.
+func makeWorkflowWithBranch(name, ns string) *v1alpha1.Workflow {
+	return &v1alpha1.Workflow{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+			Annotations: map[string]string{
+				controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\nbranch: parameters.repository.revision.branch\n",
+			},
+		},
+	}
+}
+
+// makeWorkflowNoBranch returns a Workflow CR whose annotation does NOT map branch.
+func makeWorkflowNoBranch(name, ns string) *v1alpha1.Workflow {
+	return &v1alpha1.Workflow{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+			Annotations: map[string]string{
+				controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\n",
+			},
+		},
+	}
+}
+
+func TestWebhookBranchFilter_Match(t *testing.T) {
+	makeRaw := func(v interface{}) *runtime.RawExtension {
+		b, _ := json.Marshal(v)
+		return &runtime.RawExtension{Raw: b}
+	}
+
+	scheme := newTestScheme(t)
+	comp := makeAutoBuildComponent("svc", "ns1", "wf1", "https://github.com/example/repo", "main", makeRaw)
+	workflow := makeWorkflowWithBranch("wf1", "ns1")
+
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(comp, workflow).Build()
+	svc := &WebhookService{k8sClient: k8sClient}
+
+	event := &git.WebhookEvent{
+		RepositoryURL: "https://github.com/example/repo",
+		Branch:        "main",
+	}
+
+	affected, err := svc.findAffectedComponents(context.Background(), event)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(affected) != 1 {
+		t.Fatalf("expected 1 affected component, got %d", len(affected))
+	}
+	if affected[0].Name != "svc" {
+		t.Errorf("expected component %q, got %q", "svc", affected[0].Name)
+	}
+}
+
+func TestWebhookBranchFilter_Mismatch(t *testing.T) {
+	makeRaw := func(v interface{}) *runtime.RawExtension {
+		b, _ := json.Marshal(v)
+		return &runtime.RawExtension{Raw: b}
+	}
+
+	scheme := newTestScheme(t)
+	comp := makeAutoBuildComponent("svc", "ns1", "wf1", "https://github.com/example/repo", "main", makeRaw)
+	workflow := makeWorkflowWithBranch("wf1", "ns1")
+
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(comp, workflow).Build()
+	svc := &WebhookService{k8sClient: k8sClient}
+
+	event := &git.WebhookEvent{
+		RepositoryURL: "https://github.com/example/repo",
+		Branch:        "feature/new-api",
+	}
+
+	affected, err := svc.findAffectedComponents(context.Background(), event)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(affected) != 0 {
+		t.Fatalf("expected 0 affected components for branch mismatch, got %d", len(affected))
+	}
+}
+
+func TestWebhookBranchFilter_NoConfiguredBranch(t *testing.T) {
+	makeRaw := func(v interface{}) *runtime.RawExtension {
+		b, _ := json.Marshal(v)
+		return &runtime.RawExtension{Raw: b}
+	}
+
+	scheme := newTestScheme(t)
+	// Component has a branch value in parameters but the Workflow annotation does NOT map "branch",
+	// so no branch filtering should occur and any push branch triggers a build.
+	autoBuild := true
+	comp := &v1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns1"},
+		Spec: v1alpha1.ComponentSpec{
+			AutoBuild: &autoBuild,
+			Workflow: &v1alpha1.WorkflowRunConfig{
+				Name: "wf1",
+				Parameters: makeRaw(map[string]interface{}{
+					"repository": map[string]interface{}{
+						"url": "https://github.com/example/repo",
+					},
+				}),
+			},
+		},
+	}
+	workflow := makeWorkflowNoBranch("wf1", "ns1")
+
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(comp, workflow).Build()
+	svc := &WebhookService{k8sClient: k8sClient}
+
+	for _, pushBranch := range []string{"main", "feature/foo", "release/v1"} {
+		t.Run(pushBranch, func(t *testing.T) {
+			event := &git.WebhookEvent{
+				RepositoryURL: "https://github.com/example/repo",
+				Branch:        pushBranch,
+			}
+			affected, err := svc.findAffectedComponents(context.Background(), event)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(affected) != 1 {
+				t.Fatalf("expected 1 affected component for branch %q (no branch filter), got %d", pushBranch, len(affected))
 			}
 		})
 	}

@@ -369,10 +369,10 @@ func ValidateTracesQueryRequest(req *gen.TracesQueryRequest) error {
 	}
 
 	// Validate and set defaults for sort order
-	if req.Sort != nil {
-		validSort := string(*req.Sort)
+	if req.SortOrder != nil {
+		validSort := string(*req.SortOrder)
 		if validSort != "asc" && validSort != "desc" {
-			return fmt.Errorf("sort must be either 'asc' or 'desc'")
+			return fmt.Errorf("sortOrder must be either 'asc' or 'desc'")
 		}
 	}
 

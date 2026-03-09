@@ -219,7 +219,7 @@ func addProject(t *testing.T, idx *index.Index, namespace, name, pipelineRef str
 	t.Helper()
 	spec := map[string]any{}
 	if pipelineRef != "" {
-		spec["deploymentPipelineRef"] = pipelineRef
+		spec["deploymentPipelineRef"] = map[string]any{"name": pipelineRef}
 	}
 	addProjectRaw(t, idx, namespace, name, spec)
 }

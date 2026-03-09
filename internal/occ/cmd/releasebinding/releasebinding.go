@@ -445,7 +445,7 @@ func deriveUsePipeline(ocIndex *fsmode.Index, namespace string, params *Generate
 		if !ok {
 			return fmt.Errorf("project %q not found in namespace %q", params.ProjectName, namespace)
 		}
-		pipelineRef := projectEntry.GetNestedString("spec", "deploymentPipelineRef")
+		pipelineRef := projectEntry.GetNestedString("spec", "deploymentPipelineRef", "name")
 		if pipelineRef == "" {
 			return fmt.Errorf("project %q has no deploymentPipelineRef set", params.ProjectName)
 		}

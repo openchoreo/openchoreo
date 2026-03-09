@@ -19,14 +19,13 @@ import (
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
-	legacyhandlers "github.com/openchoreo/openchoreo/internal/observer/handlers/legacy"
-	"github.com/openchoreo/openchoreo/internal/observer/legacymcp"
 	observermcp "github.com/openchoreo/openchoreo/internal/observer/mcp"
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
-	legacyservice "github.com/openchoreo/openchoreo/internal/observer/service/legacy"
+	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
+	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 	apiconfig "github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
@@ -34,8 +33,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/oauth"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
-
-const legacyMCPHeaderValue = "true"
 
 func main() {
 	// Create bootstrap logger for early initialization
@@ -76,7 +73,8 @@ func main() {
 		log.Fatalf("Failed to initialize Prometheus client: %v", err)
 	}
 
-	// Initialize prometheus metrics service for the legacy logging service
+	// Initialize Prometheus metrics service
+	// TODO: Remove this once the metrics adapter is implemented
 	promService := prometheus.NewMetricsService(promClient, logger)
 
 	// Initialize logs adapter (optional)
@@ -117,9 +115,6 @@ func main() {
 		logger.Info("Using OpenSearch for traces")
 	}
 
-	// Initialize legacy logging service (for legacy API endpoints)
-	legacyLoggingService := legacyservice.NewLoggingService(osClient, promService, k8sClient, cfg, logger, logsAdapter)
-
 	// Initialize authz client
 	authzClient, err := observerAuthz.NewClient(&cfg.Authz, logger.With("component", "authz-client"))
 	if err != nil {
@@ -129,11 +124,6 @@ func main() {
 
 	// Initialize HTTP server
 	mux := http.NewServeMux()
-
-	// Legacy API handler (for legacy endpoints)
-	legacyHandler := legacyhandlers.NewHandler(
-		legacyLoggingService, logger, authzClient, cfg.Alerting.RCAServiceURL, cfg.Alerting.AIRCAEnabled,
-	)
 
 	// Initialize resource UID resolver for name-to-UID resolution
 	uidResolver := service.NewResourceUIDResolver(&cfg.UIDResolver, logger.With("component", "resource-resolver"))
@@ -173,10 +163,46 @@ func main() {
 		os.Exit(1)
 	}
 
+	alertEntryStore, err := alertentry.New(
+		cfg.Alerting.AlertStoreBackend,
+		cfg.Alerting.AlertStoreDSN,
+		logger.With("component", "alert-entry-store"),
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize alert entry store: %v", err)
+	}
+	if err := alertEntryStore.Initialize(context.Background()); err != nil {
+		log.Fatalf("Failed to initialize alert entry store schema: %v", err)
+	}
+	defer func() {
+		if closeErr := alertEntryStore.Close(); closeErr != nil {
+			logger.Error("Failed to close alert entry store", "error", closeErr)
+		}
+	}()
+
+	incidentEntryStore, err := incidententry.New(
+		cfg.Alerting.AlertStoreBackend,
+		cfg.Alerting.AlertStoreDSN,
+		logger.With("component", "incident-entry-store"),
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize incident entry store: %v", err)
+	}
+	if err := incidentEntryStore.Initialize(context.Background()); err != nil {
+		log.Fatalf("Failed to initialize incident entry store schema: %v", err)
+	}
+	defer func() {
+		if closeErr := incidentEntryStore.Close(); closeErr != nil {
+			logger.Error("Failed to close incident entry store", "error", closeErr)
+		}
+	}()
+
 	// Initialize alert service for the internal v1alpha1 API
 	alertService := service.NewAlertService(
 		osClient,
 		opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
+		alertEntryStore,
+		incidentEntryStore,
 		k8sClient,
 		cfg,
 		logger.With("component", "alert-service"),
@@ -220,15 +246,6 @@ func main() {
 	// OAuth Protected Resource Metadata endpoint
 	routes.HandleFunc("GET /.well-known/oauth-protected-resource", oauthProtectedResourceMetadata(logger))
 
-	// ===== Internal Routes (No Authentication Required) =====
-	// TODO: Expose through a separate route group
-	routes.HandleFunc("PUT /api/alerting/rule/{sourceType}/{ruleName}", legacyHandler.UpsertAlertingRule)
-	routes.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", legacyHandler.DeleteAlertingRule)
-
-	// ===== Vendor-specific Alerting Webhook Endpoint (No JWT Authentication) =====
-	// TODO: Expose through a separate route group
-	routes.HandleFunc("POST /api/alerting/webhook/{alertSource}", legacyHandler.AlertingWebhook)
-
 	// ===== Protected API Routes (JWT Authentication Required) =====
 
 	// Initialize JWT middleware
@@ -236,30 +253,6 @@ func main() {
 
 	// Create protected route group with JWT auth
 	api := routes.With(jwtAuth)
-
-	// ===== Legacy API Routes =====
-	// API routes - Build Logs
-	api.HandleFunc("GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/"+
-		"workflow-runs/{runName}/logs", legacyHandler.GetWorkflowRunPodLogs)
-	api.HandleFunc("POST /api/logs/build/{buildId}", legacyHandler.GetBuildLogs) // TODO: Deprecate this endpoint
-	api.HandleFunc("GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/"+
-		"workflow-runs/{runName}/events", legacyHandler.GetWorkflowRunPodEvents)
-
-	// API routes - Workflow Run Logs
-	api.HandleFunc("POST /api/v1/workflow-runs/{runId}/logs", legacyHandler.GetWorkflowRunLogs)
-
-	// API routes - Logs
-	api.HandleFunc("POST /api/logs/component/{componentId}", legacyHandler.GetComponentLogs)
-	api.HandleFunc("POST /api/logs/project/{projectId}", legacyHandler.GetProjectLogs)
-	api.HandleFunc("POST /api/logs/gateway", legacyHandler.GetGatewayLogs)
-	api.HandleFunc("POST /api/logs/namespace/{namespaceName}", legacyHandler.GetNamespaceLogs)
-
-	// API routes - Traces
-	api.HandleFunc("POST /api/traces", legacyHandler.GetTraces)
-
-	// API routes - Metrics
-	api.HandleFunc("POST /api/metrics/component/http", legacyHandler.GetComponentHTTPMetrics)
-	api.HandleFunc("POST /api/metrics/component/usage", legacyHandler.GetComponentResourceMetrics)
 
 	// ===== New API Routes (v1) =====
 	api.HandleFunc("POST /api/v1/logs/query", newAPIHandler.QueryLogs)
@@ -283,19 +276,11 @@ func main() {
 		log.Fatalf("Failed to create MCP handler: %v", err)
 	}
 	newMCPServer := observermcp.NewHTTPServer(newMCPHandler)
-	legacyMCPServer := legacymcp.NewHTTPServer(&legacymcp.MCPHandler{Service: legacyLoggingService})
 
 	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
-	// Routes X-Legacy-MCP: true to the legacy handler; all other requests use the new handler.
 	mcpMiddleware := initMCPMiddleware(logger)
 	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
-	mcpRoutes.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-Legacy-MCP") == legacyMCPHeaderValue {
-			legacyMCPServer.ServeHTTP(w, r)
-		} else {
-			newMCPServer.ServeHTTP(w, r)
-		}
-	}))
+	mcpRoutes.Handle("/mcp", newMCPServer)
 
 	// Create HTTP server
 	// CORS wraps the entire mux so it intercepts OPTIONS preflight requests

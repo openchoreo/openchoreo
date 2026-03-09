@@ -23,20 +23,21 @@ spec:
       message: "Web-application components must have at least one HTTP."
 
   schema:
-    types:
-      ResourceRequirements:
-        requests: "ResourceQuantity | default={}"
-        limits: "ResourceQuantity | default={}"
-      ResourceQuantity:
-        cpu: "string | default=100m"
-        memory: "string | default=256Mi"
+    ocSchema:
+      types:
+        ResourceRequirements:
+          requests: "ResourceQuantity | default={}"
+          limits: "ResourceQuantity | default={}"
+        ResourceQuantity:
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
 
-    parameters: {}
+      parameters: {}
 
-    envOverrides:
-      replicas: "integer | default=1"
-      resources: "ResourceRequirements | default={}"
-      imagePullPolicy: "string | default=IfNotPresent"
+      envOverrides:
+        replicas: "integer | default=1"
+        resources: "ResourceRequirements | default={}"
+        imagePullPolicy: "string | default=IfNotPresent"
 
   resources:
     - id: deployment

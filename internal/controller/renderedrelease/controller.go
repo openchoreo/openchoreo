@@ -32,6 +32,15 @@ const (
 
 	targetPlaneDataPlane          = "dataplane"
 	targetPlaneObservabilityPlane = "observabilityplane"
+
+	// ConditionResourcesApplied indicates whether resources were successfully applied to the target plane.
+	// When False, it contains the error message from the failed apply operation.
+	ConditionResourcesApplied = "ResourcesApplied"
+
+	// ReasonApplySucceeded indicates all resources were applied successfully
+	ReasonApplySucceeded = "ApplySucceeded"
+	// ReasonApplyFailed indicates one or more resources failed to apply
+	ReasonApplyFailed = "ApplyFailed"
 )
 
 // Reconciler reconciles a RenderedRelease object
@@ -145,7 +154,25 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// This ensures all resources in the spec are created/updated with proper tracking labels
 	if err := r.applyResources(ctx, planeClient, desiredResources); err != nil {
 		logger.Error(err, "Failed to apply resources to target plane", "targetPlane", targetPlane)
+		// Persist the apply error in Release status so upstream controllers (e.g., ReleaseBinding) can surface it
+		changed := controller.MarkFalseCondition(release, controller.ConditionType(ConditionResourcesApplied),
+			controller.ConditionReason(ReasonApplyFailed),
+			fmt.Sprintf("Failed to apply resources to target plane: %v", err))
+		if changed {
+			if statusErr := r.Status().Update(ctx, release); statusErr != nil {
+				logger.Error(statusErr, "Failed to update Release status with apply error")
+			}
+		}
 		return ctrl.Result{}, err
+	}
+
+	// Mark resources as successfully applied and persist to API
+	if changed := controller.MarkTrueCondition(release, controller.ConditionType(ConditionResourcesApplied),
+		controller.ConditionReason(ReasonApplySucceeded), "All resources applied successfully"); changed {
+		if statusErr := r.Status().Update(ctx, release); statusErr != nil {
+			logger.Error(statusErr, "Failed to update Release status with apply success")
+			return ctrl.Result{}, statusErr
+		}
 	}
 
 	// PHASE 2: Discover live resources that we manage in the target plane

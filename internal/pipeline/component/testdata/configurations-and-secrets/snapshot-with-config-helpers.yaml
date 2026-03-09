@@ -11,8 +11,9 @@ spec:
   componentType:
     spec:
       schema:
-        envOverrides:
-          replicas: "integer"
+        ocSchema:
+          envOverrides:
+            replicas: "integer"
       resources:
         - id: deployment
           template:

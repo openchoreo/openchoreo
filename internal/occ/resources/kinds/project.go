@@ -138,12 +138,15 @@ func (p *ProjectResource) CreateProject(params api.CreateProjectParams) error {
 			},
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
-			DeploymentPipelineRef: func() string {
-				if params.DeploymentPipeline != "" {
-					return params.DeploymentPipeline
-				}
-				return DefaultDeploymentPipeline
-			}(),
+			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+				Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
+				Name: func() string {
+					if params.DeploymentPipeline != "" {
+						return params.DeploymentPipeline
+					}
+					return DefaultDeploymentPipeline
+				}(),
+			},
 		},
 	}
 	if err := p.Create(project); err != nil {

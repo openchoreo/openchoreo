@@ -891,6 +891,38 @@ observer:
   replicas: 1
 
   # @schema
+  # description: Alert entry storage backend for fired alerts
+  # enum: [sqlite, postgresql]
+  # default: sqlite
+  # @schema
+  alertStoreBackend: sqlite
+
+  # @schema
+  # type: object
+  # description: Existing Secret reference for PostgreSQL DSN used by alert entry storage
+  # @schema
+  alertStoreSecret:
+    # @schema
+    # type: string
+    # description: Secret name that contains the alert store DSN
+    # default: ""
+    # @schema
+    name: ""
+    # @schema
+    # type: string
+    # description: Secret key that contains the alert store DSN value
+    # default: dsn
+    # @schema
+    key: dsn
+
+  # @schema
+  # type: string
+  # description: PVC size for SQLite alert entry storage
+  # default: 128Mi
+  # @schema
+  alertStoreSqliteSize: 128Mi
+
+  # @schema
   # type: object
   # description: Security configuration for Observer authentication
   # @schema
@@ -1715,7 +1747,7 @@ prometheus:
       receivers:
         - name: 'openchoreo-alerts'
           webhook_configs:
-            - url: 'http://observer.openchoreo-observability-plane.svc.cluster.local:8080/api/alerting/webhook/prometheus'
+            - url: 'http://observer-internal.openchoreo-observability-plane:8081/api/v1alpha1/alerts/webhook'
               send_resolved: false
         - name: 'null'
 
@@ -2780,9 +2812,9 @@ openSearchClusterSetup:
   # @schema
   # type: string
   # description: Alerting webhook URL for setup configuration
-  # default: http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch
+  # default: http://observer-internal.openchoreo-observability-plane:8081/api/v1alpha1/alerts/webhook
   # @schema
-  alertingWebhookUrl: "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch"
+  alertingWebhookUrl: "http://observer-internal.openchoreo-observability-plane:8081/api/v1alpha1/alerts/webhook"
 
   # @schema
   # type: object

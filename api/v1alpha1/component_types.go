@@ -97,7 +97,7 @@ type ComponentTrait struct {
 	InstanceName string `json:"instanceName"`
 
 	// Parameters contains the trait parameter values
-	// The schema for this config is defined in the Trait's schema.parameters and schema.envOverrides
+	// The schema for this config is defined in the Trait's schema.ocSchema.parameters and schema.ocSchema.envOverrides
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless

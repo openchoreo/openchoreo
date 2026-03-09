@@ -207,17 +207,17 @@ func (h *Handler) GetSubjectProfile(
 	return gen.GetSubjectProfile200JSONResponse(response), nil
 }
 
-// ListUserTypes returns the configured user types
-func (h *Handler) ListUserTypes(
+// ListSubjectTypes returns the configured subject types
+func (h *Handler) ListSubjectTypes(
 	ctx context.Context,
-	request gen.ListUserTypesRequestObject,
-) (gen.ListUserTypesResponseObject, error) {
-	h.logger.Debug("ListUserTypes handler called")
+	request gen.ListSubjectTypesRequestObject,
+) (gen.ListSubjectTypesResponseObject, error) {
+	h.logger.Debug("ListSubjectTypes handler called")
 
 	userTypes := h.Config.Security.ToSubjectUserTypeConfigs()
 
 	// Convert subject.UserTypeConfig to gen.UserTypeConfig
-	genUserTypes := make([]gen.UserTypeConfig, len(userTypes))
+	genUserTypes := make([]gen.SubjectTypeConfig, len(userTypes))
 	for i, ut := range userTypes {
 		authMechanisms := make([]gen.AuthMechanismConfig, len(ut.AuthMechanisms))
 		for j, am := range ut.AuthMechanisms {
@@ -230,7 +230,7 @@ func (h *Handler) ListUserTypes(
 			}
 		}
 
-		genUserTypes[i] = gen.UserTypeConfig{
+		genUserTypes[i] = gen.SubjectTypeConfig{
 			Type:           ut.Type,
 			DisplayName:    ut.DisplayName,
 			Priority:       ut.Priority,
@@ -238,8 +238,8 @@ func (h *Handler) ListUserTypes(
 		}
 	}
 
-	h.logger.Debug("Listed user types successfully", "count", len(genUserTypes))
-	return gen.ListUserTypes200JSONResponse(genUserTypes), nil
+	h.logger.Debug("Listed subject types successfully", "count", len(genUserTypes))
+	return gen.ListSubjectTypes200JSONResponse(genUserTypes), nil
 }
 
 // --- Cluster Roles ---

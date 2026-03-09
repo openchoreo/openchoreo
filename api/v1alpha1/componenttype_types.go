@@ -78,52 +78,63 @@ type ComponentTypeSpec struct {
 	Resources []ResourceTemplate `json:"resources"`
 }
 
-// ComponentTypeSchema defines the configurable parameters for a component type
-// Parameters and EnvOverrides are nested map structures where keys are field names
-// and values define the type and validation rules using inline schema syntax.
-//
-// Example:
-//
-//	parameters:
-//	  runtime:
-//	    command: "array<string> | default=[]"
-//	    args: "array<string> | default=[]"
-//	  lifecycle:
-//	    terminationGracePeriodSeconds: "integer | default=30"
-//	    imagePullPolicy: "string | default=IfNotPresent | enum=Always,IfNotPresent,Never"
-type ComponentTypeSchema struct {
+// ComponentTypeOCSchema holds the OpenChoreo simple schema fields for a ComponentType.
+type ComponentTypeOCSchema struct {
 	// Types defines reusable type definitions that can be referenced in schema fields
-	// This is a nested map structure where keys are type names and values are type definitions
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
 	Types *runtime.RawExtension `json:"types,omitempty"`
 
 	// Parameters are static across environments and exposed as inputs to developers
-	// when creating a Component of this type. This is a nested map structure where
-	// keys are field names and values are either nested maps or type definition strings.
-	// Type definition format: "type | default=value | enum=val1,val2"
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
-	// EnvOverrides can be overridden per environment via ReleaseBinding by platform engineers.
-	// Same nested map structure and type definition format as Parameters.
+	// EnvOverrides can be overridden per environment via ReleaseBinding
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
 	EnvOverrides *runtime.RawExtension `json:"envOverrides,omitempty"`
 }
 
+// ComponentTypeSchema defines the configurable parameters for a component type.
+// Uses the ocSchema sub-struct for OpenChoreo simple schema format.
+type ComponentTypeSchema struct {
+	// OCSchema defines the schema using OpenChoreo's simple schema format.
+	// +optional
+	OCSchema *ComponentTypeOCSchema `json:"ocSchema,omitempty"`
+}
+
 // GetTypes returns the types raw extension.
-func (s *ComponentTypeSchema) GetTypes() *runtime.RawExtension { return s.Types }
+func (s *ComponentTypeSchema) GetTypes() *runtime.RawExtension {
+	if s.OCSchema != nil {
+		return s.OCSchema.Types
+	}
+	return nil
+}
 
 // GetParameters returns the parameters raw extension.
-func (s *ComponentTypeSchema) GetParameters() *runtime.RawExtension { return s.Parameters }
+func (s *ComponentTypeSchema) GetParameters() *runtime.RawExtension {
+	if s.OCSchema != nil {
+		return s.OCSchema.Parameters
+	}
+	return nil
+}
 
 // GetEnvOverrides returns the envOverrides raw extension.
-func (s *ComponentTypeSchema) GetEnvOverrides() *runtime.RawExtension { return s.EnvOverrides }
+func (s *ComponentTypeSchema) GetEnvOverrides() *runtime.RawExtension {
+	if s.OCSchema != nil {
+		return s.OCSchema.EnvOverrides
+	}
+	return nil
+}
+
+// IsOpenAPIV3 returns true if the schema uses OpenAPI V3 Schema format.
+func (s *ComponentTypeSchema) IsOpenAPIV3() bool {
+	return false
+}
 
 // ResourceTemplate defines a template for generating Kubernetes resources
 // +kubebuilder:validation:XValidation:rule="!has(self.forEach) || has(self.var)",message="var is required when forEach is specified"

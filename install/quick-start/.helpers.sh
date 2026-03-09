@@ -1083,7 +1083,7 @@ install_observability_plane() {
 
     # Install logs and metrics observability modules
     # See https://github.com/openchoreo/community-modules for more details
-    local modules_repo="oci://ghcr.io/openchoreo/charts"
+    local modules_repo="oci://ghcr.io/openchoreo/helm-charts"
 
     log_info "Installing observability modules..."
 

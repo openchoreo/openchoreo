@@ -273,7 +273,7 @@ func (cp *Component) promoteComponent(ctx context.Context, c *client.Client, par
 		return nil, "", err
 	}
 
-	if project.Spec == nil || project.Spec.DeploymentPipelineRef == nil {
+	if project.Spec == nil || project.Spec.DeploymentPipelineRef == nil || project.Spec.DeploymentPipelineRef.Name == "" {
 		return nil, "", fmt.Errorf("project does not have a deployment pipeline configured")
 	}
 

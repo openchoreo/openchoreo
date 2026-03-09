@@ -47,95 +47,6 @@ spec:
             type: object
           spec:
             properties:
-              connections:
-                description: Connections define how this workload consumes endpoints
-                  from other components.
-                items:
-                  description: WorkloadConnection represents a connection to another
-                    component's endpoint.
-                  properties:
-                    component:
-                      description: Component is the target component name.
-                      minLength: 1
-                      type: string
-                    endpoint:
-                      description: Endpoint is the target endpoint name on the target
-                        component.
-                      minLength: 1
-                      type: string
-                    envBindings:
-                      description: EnvBindings maps semantic URL components to environment
-                        variable names.
-                      properties:
-                        address:
-                          description: |-
-                            Address is the env var name for the protocol-appropriate connection string.
-                            For HTTP/HTTPS/WS/WSS: scheme://host:port/basePath
-                            For gRPC/TCP/UDP: host:port
-                          type: string
-                        basePath:
-                          description: BasePath is the optional env var name for just
-                            the base path.
-                          type: string
-                        host:
-                          description: Host is the optional env var name for just
-                            the hostname.
-                          type: string
-                        port:
-                          description: Port is the optional env var name for just
-                            the port number.
-                          type: string
-                      type: object
-                    environmentMapping:
-                      additionalProperties:
-                        type: string
-                      description: |-
-                        EnvironmentMapping maps consumer environment names (keys) to provider environment
-                        names (values). Only applicable when visibility is internal. When a consumer is
-                        deployed in a source environment, the connection resolves against the mapped
-                        target environment. If no mapping matches, the source environment name is used as-is.
-                      type: object
-                    namespace:
-                      description: |-
-                        Namespace is the control plane namespace of the target component.
-                        Only applicable when visibility is internal (cross-namespace connections).
-                        If empty, defaults to the same namespace as the consumer.
-                      type: string
-                    project:
-                      description: |-
-                        Project is the target component's project name.
-                        If empty, defaults to the same project as the consumer.
-                        Required when namespace is specified.
-                      type: string
-                    visibility:
-                      allOf:
-                      - enum:
-                        - project
-                        - namespace
-                        - internal
-                        - external
-                      - enum:
-                        - project
-                        - namespace
-                        - internal
-                      description: Visibility is the visibility level at which this
-                        connection consumes the endpoint.
-                      type: string
-                  required:
-                  - component
-                  - endpoint
-                  - envBindings
-                  - visibility
-                  type: object
-                  x-kubernetes-validations:
-                  - message: project is required when namespace is set
-                    rule: '!has(self.namespace) || size(self.namespace) == 0 || (has(self.project)
-                      && size(self.project) > 0)'
-                  - message: environmentMapping requires internal visibility
-                    rule: self.visibility == 'internal' || !has(self.environmentMapping)
-                      || size(self.environmentMapping) == 0
-                maxItems: 50
-                type: array
               container:
                 description: Container defines the container specification for this
                   workload.
@@ -234,6 +145,77 @@ spec:
                     type: string
                 required:
                 - image
+                type: object
+              dependencies:
+                description: Dependencies define the dependencies of this workload
+                  on other components.
+                properties:
+                  endpoints:
+                    description: Endpoints define how this workload consumes endpoints
+                      from other components.
+                    items:
+                      description: WorkloadConnection represents a connection to another
+                        component's endpoint.
+                      properties:
+                        component:
+                          description: Component is the target component name.
+                          minLength: 1
+                          type: string
+                        envBindings:
+                          description: EnvBindings maps semantic URL components to
+                            environment variable names.
+                          properties:
+                            address:
+                              description: |-
+                                Address is the env var name for the protocol-appropriate connection string.
+                                For HTTP/HTTPS/WS/WSS: scheme://host:port/basePath
+                                For gRPC/TCP/UDP: host:port
+                              type: string
+                            basePath:
+                              description: BasePath is the optional env var name for
+                                just the base path.
+                              type: string
+                            host:
+                              description: Host is the optional env var name for just
+                                the hostname.
+                              type: string
+                            port:
+                              description: Port is the optional env var name for just
+                                the port number.
+                              type: string
+                          type: object
+                        name:
+                          description: Name is the target endpoint name on the target
+                            component.
+                          minLength: 1
+                          type: string
+                        project:
+                          description: |-
+                            Project is the target component's project name.
+                            If empty, defaults to the same project as the consumer.
+                            Required when namespace is specified.
+                          type: string
+                        visibility:
+                          allOf:
+                          - enum:
+                            - project
+                            - namespace
+                            - internal
+                            - external
+                          - enum:
+                            - project
+                            - namespace
+                          description: Visibility is the visibility level at which
+                            this connection consumes the endpoint.
+                          type: string
+                      required:
+                      - component
+                      - envBindings
+                      - name
+                      - visibility
+                      type: object
+                    maxItems: 50
+                    type: array
                 type: object
               endpoints:
                 additionalProperties:

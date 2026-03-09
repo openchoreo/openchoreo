@@ -222,7 +222,7 @@ func platformResourcesYAML(cpNamespace string, environments, projects []string) 
 					"openchoreo.dev/name": proj,
 				},
 			},
-			Spec: openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: "default"},
+			Spec: openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "default"}},
 		})
 	}
 
@@ -290,8 +290,10 @@ func componentTypesYAML(cpNamespace string) string {
 				Message: "e2e-service must have at least one endpoint.",
 			}},
 			Schema: openchoreov1alpha1.ComponentTypeSchema{
-				Parameters:   mustRawExtension(map[string]any{}),
-				EnvOverrides: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
+				OCSchema: &openchoreov1alpha1.ComponentTypeOCSchema{
+					Parameters:   mustRawExtension(map[string]any{}),
+					EnvOverrides: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
+				},
 			},
 			Resources: []openchoreov1alpha1.ResourceTemplate{
 				{ID: "deployment", Template: mustRawExtension(deploymentTemplate)},
@@ -313,8 +315,10 @@ func componentTypesYAML(cpNamespace string) string {
 				Message: "e2e-worker must not have endpoints.",
 			}},
 			Schema: openchoreov1alpha1.ComponentTypeSchema{
-				Parameters:   mustRawExtension(map[string]any{}),
-				EnvOverrides: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
+				OCSchema: &openchoreov1alpha1.ComponentTypeOCSchema{
+					Parameters:   mustRawExtension(map[string]any{}),
+					EnvOverrides: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
+				},
 			},
 			Resources: []openchoreov1alpha1.ResourceTemplate{
 				{ID: "deployment", Template: mustRawExtension(deploymentTemplate)},

@@ -7,12 +7,14 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 )
 
 // ResourceCategory defines the category of a resource for status evaluation.
@@ -80,8 +82,16 @@ func (r *Reconciler) setResourcesReadyStatus(
 		"workloadType", workloadType,
 		"resourceCount", len(release.Status.Resources))
 
-	// If Release has no resources yet, mark as Progressing
+	// If Release has no resources yet, check if there's an apply error on the Release
 	if len(release.Status.Resources) == 0 {
+		// Check if the Release controller recorded an apply failure for the current generation
+		applyCond := meta.FindStatusCondition(release.Status.Conditions, renderedrelease.ConditionResourcesApplied)
+		if applyCond != nil && applyCond.Status == metav1.ConditionFalse &&
+			applyCond.ObservedGeneration == release.Generation {
+			controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
+				ReasonResourceApplyFailed, applyCond.Message)
+			return nil
+		}
 		msg := fmt.Sprintf("Release %q has no resources yet", release.Name)
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
 			ReasonResourcesProgressing, msg)

@@ -51,7 +51,9 @@ func (d *Defaulter) Default(ctx context.Context, obj runtime.Object) error {
 	}
 	projectlog.Info("Defaulting for Project", "name", project.GetName())
 
-	// TODO(user): fill in your defaulting logic.
+	if project.Spec.DeploymentPipelineRef.Kind == "" {
+		project.Spec.DeploymentPipelineRef.Kind = openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline
+	}
 
 	return nil
 }

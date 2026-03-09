@@ -27,13 +27,14 @@ spec:
     grpc:
       type: gRPC
       port: 8080
-  connections:
-    - project: gcp-microservice-demo
-      component: productcatalog
-      endpoint: grpc
-      visibility: project
-      envBindings:
-        address: PRODUCT_CATALOG_SERVICE_ADDR
+  dependencies:
+    endpoints:
+      - project: gcp-microservice-demo
+        component: productcatalog
+        name: grpc
+        visibility: project
+        envBindings:
+          address: PRODUCT_CATALOG_SERVICE_ADDR
   container:
     image: us-central1-docker.pkg.dev/google-samples/microservices-demo/recommendationservice:v0.10.3
     env:

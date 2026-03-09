@@ -17,12 +17,12 @@ const (
 
 // Defines values for AlertRuleRequestConditionOperator.
 const (
-	Eq  AlertRuleRequestConditionOperator = "eq"
-	Gt  AlertRuleRequestConditionOperator = "gt"
-	Gte AlertRuleRequestConditionOperator = "gte"
-	Lt  AlertRuleRequestConditionOperator = "lt"
-	Lte AlertRuleRequestConditionOperator = "lte"
-	Neq AlertRuleRequestConditionOperator = "neq"
+	AlertRuleRequestConditionOperatorEq  AlertRuleRequestConditionOperator = "eq"
+	AlertRuleRequestConditionOperatorGt  AlertRuleRequestConditionOperator = "gt"
+	AlertRuleRequestConditionOperatorGte AlertRuleRequestConditionOperator = "gte"
+	AlertRuleRequestConditionOperatorLt  AlertRuleRequestConditionOperator = "lt"
+	AlertRuleRequestConditionOperatorLte AlertRuleRequestConditionOperator = "lte"
+	AlertRuleRequestConditionOperatorNeq AlertRuleRequestConditionOperator = "neq"
 )
 
 // Defines values for AlertRuleRequestSourceMetric.
@@ -33,8 +33,8 @@ const (
 
 // Defines values for AlertRuleRequestSourceType.
 const (
-	Log    AlertRuleRequestSourceType = "log"
-	Metric AlertRuleRequestSourceType = "metric"
+	AlertRuleRequestSourceTypeLog    AlertRuleRequestSourceType = "log"
+	AlertRuleRequestSourceTypeMetric AlertRuleRequestSourceType = "metric"
 )
 
 // Defines values for AlertWebhookResponseStatus.
@@ -57,6 +57,35 @@ const (
 	Synced AlertingRuleSyncResponseStatus = "synced"
 )
 
+// Defines values for AlertsQueryRequestSortOrder.
+const (
+	AlertsQueryRequestSortOrderAsc  AlertsQueryRequestSortOrder = "asc"
+	AlertsQueryRequestSortOrderDesc AlertsQueryRequestSortOrder = "desc"
+)
+
+// Defines values for AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator.
+const (
+	AlertsQueryResponseAlertsMetadataAlertRuleConditionOperatorEq  AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "eq"
+	AlertsQueryResponseAlertsMetadataAlertRuleConditionOperatorGt  AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "gt"
+	AlertsQueryResponseAlertsMetadataAlertRuleConditionOperatorGte AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "gte"
+	AlertsQueryResponseAlertsMetadataAlertRuleConditionOperatorLt  AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "lt"
+	AlertsQueryResponseAlertsMetadataAlertRuleConditionOperatorLte AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "lte"
+	AlertsQueryResponseAlertsMetadataAlertRuleConditionOperatorNeq AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "neq"
+)
+
+// Defines values for AlertsQueryResponseAlertsMetadataAlertRuleSeverity.
+const (
+	Critical AlertsQueryResponseAlertsMetadataAlertRuleSeverity = "critical"
+	Info     AlertsQueryResponseAlertsMetadataAlertRuleSeverity = "info"
+	Warning  AlertsQueryResponseAlertsMetadataAlertRuleSeverity = "warning"
+)
+
+// Defines values for AlertsQueryResponseAlertsMetadataAlertRuleSourceType.
+const (
+	AlertsQueryResponseAlertsMetadataAlertRuleSourceTypeLog    AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "log"
+	AlertsQueryResponseAlertsMetadataAlertRuleSourceTypeMetric AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "metric"
+)
+
 // Defines values for ErrorResponseTitle.
 const (
 	BadRequest          ErrorResponseTitle = "badRequest"
@@ -65,6 +94,19 @@ const (
 	InternalServerError ErrorResponseTitle = "internalServerError"
 	NotFound            ErrorResponseTitle = "notFound"
 	Unauthorized        ErrorResponseTitle = "unauthorized"
+)
+
+// Defines values for IncidentsQueryRequestSortOrder.
+const (
+	IncidentsQueryRequestSortOrderAsc  IncidentsQueryRequestSortOrder = "asc"
+	IncidentsQueryRequestSortOrderDesc IncidentsQueryRequestSortOrder = "desc"
+)
+
+// Defines values for IncidentsQueryResponseIncidentsStatus.
+const (
+	Acknowledged IncidentsQueryResponseIncidentsStatus = "acknowledged"
+	Resolved     IncidentsQueryResponseIncidentsStatus = "resolved"
+	Triggered    IncidentsQueryResponseIncidentsStatus = "triggered"
 )
 
 // Defines values for LogsQueryRequestLogLevels.
@@ -87,10 +129,10 @@ const (
 	Resource MetricsQueryRequestMetric = "resource"
 )
 
-// Defines values for TracesQueryRequestSort.
+// Defines values for TracesQueryRequestSortOrder.
 const (
-	TracesQueryRequestSortAsc  TracesQueryRequestSort = "asc"
-	TracesQueryRequestSortDesc TracesQueryRequestSort = "desc"
+	TracesQueryRequestSortOrderAsc  TracesQueryRequestSortOrder = "asc"
+	TracesQueryRequestSortOrderDesc TracesQueryRequestSortOrder = "desc"
 )
 
 // AlertRuleRequest defines model for AlertRuleRequest.
@@ -208,6 +250,119 @@ type AlertingRuleSyncResponseAction string
 // AlertingRuleSyncResponseStatus The status of the alert rule
 type AlertingRuleSyncResponseStatus string
 
+// AlertsQueryRequest defines model for AlertsQueryRequest.
+type AlertsQueryRequest struct {
+	// EndTime The end time of the query
+	EndTime time.Time `json:"endTime"`
+
+	// Limit The maximum number of items to return
+	Limit       *int                 `json:"limit,omitempty"`
+	SearchScope ComponentSearchScope `json:"searchScope"`
+
+	// SortOrder The sort order of the query
+	SortOrder *AlertsQueryRequestSortOrder `json:"sortOrder,omitempty"`
+
+	// StartTime The start time of the query
+	StartTime time.Time `json:"startTime"`
+}
+
+// AlertsQueryRequestSortOrder The sort order of the query
+type AlertsQueryRequestSortOrder string
+
+// AlertsQueryResponse defines model for AlertsQueryResponse.
+type AlertsQueryResponse struct {
+	// Alerts The list of alerts
+	Alerts *[]struct {
+		// AlertId The alert ID
+		AlertId *string `json:"alertId,omitempty"`
+
+		// AlertValue The value of the alert
+		AlertValue *string `json:"alertValue,omitempty"`
+		Metadata   *struct {
+			AlertRule *struct {
+				// Condition The condition configuration of the alert rule
+				Condition *struct {
+					// Interval The evaluation interval (e.g. "1m", "5m")
+					Interval *string `json:"interval,omitempty"`
+
+					// Operator The comparison operator used for evaluation
+					Operator *AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator `json:"operator,omitempty"`
+
+					// Threshold The threshold value that triggers the alert
+					Threshold *float32 `json:"threshold,omitempty"`
+
+					// Window The time window for aggregation (e.g. "5m", "1h")
+					Window *string `json:"window,omitempty"`
+				} `json:"condition,omitempty"`
+
+				// Description The description of the alert rule
+				Description *string `json:"description,omitempty"`
+
+				// Name The name of the alert rule
+				Name *string `json:"name,omitempty"`
+
+				// Severity The severity of the alert rule
+				Severity *AlertsQueryResponseAlertsMetadataAlertRuleSeverity `json:"severity,omitempty"`
+
+				// Source The source configuration of the alert rule
+				Source *struct {
+					// Metric The metric used for metric-based alerts
+					Metric *string `json:"metric,omitempty"`
+
+					// Query The query used for log-based alerts
+					Query *string `json:"query,omitempty"`
+
+					// Type The type of the alert source
+					Type *AlertsQueryResponseAlertsMetadataAlertRuleSourceType `json:"type,omitempty"`
+				} `json:"source,omitempty"`
+			} `json:"alertRule,omitempty"`
+			Labels *struct {
+				// ComponentName The name of the component
+				ComponentName *string `json:"componentName,omitempty"`
+
+				// ComponentUid The UID of the component
+				ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
+
+				// EnvironmentName The name of the environment
+				EnvironmentName *string `json:"environmentName,omitempty"`
+
+				// EnvironmentUid The UID of the environment
+				EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
+
+				// NamespaceName The name of the namespace
+				NamespaceName *string `json:"namespaceName,omitempty"`
+
+				// ProjectName The name of the project
+				ProjectName *string `json:"projectName,omitempty"`
+
+				// ProjectUid The UID of the project
+				ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+			} `json:"labels,omitempty"`
+		} `json:"metadata,omitempty"`
+
+		// NotificationChannels The notification channels of the alert. Empty if failed to notify.
+		NotificationChannels *[]string `json:"notificationChannels,omitempty"`
+
+		// Timestamp The timestamp of the alert
+		Timestamp *time.Time `json:"timestamp,omitempty"`
+	} `json:"alerts,omitempty"`
+
+	// TookMs The time taken to query the alerts in milliseconds
+	TookMs *int `json:"tookMs,omitempty"`
+
+	// Total The total number of alerts
+	Total *int `json:"total,omitempty"`
+}
+
+// AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator The comparison operator used for evaluation
+type AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator string
+
+// AlertsQueryResponseAlertsMetadataAlertRuleSeverity The severity of the alert rule
+type AlertsQueryResponseAlertsMetadataAlertRuleSeverity string
+
+// AlertsQueryResponseAlertsMetadataAlertRuleSourceType The type of the alert source
+type AlertsQueryResponseAlertsMetadataAlertRuleSourceType string
+
 // ComponentLogEntry defines model for ComponentLogEntry.
 type ComponentLogEntry struct {
 	// Level The log level
@@ -286,6 +441,92 @@ type HttpMetricsTimeSeries struct {
 	SuccessfulRequestCount   *[]MetricsTimeSeriesItem `json:"successfulRequestCount,omitempty"`
 	UnsuccessfulRequestCount *[]MetricsTimeSeriesItem `json:"unsuccessfulRequestCount,omitempty"`
 }
+
+// IncidentsQueryRequest defines model for IncidentsQueryRequest.
+type IncidentsQueryRequest struct {
+	// EndTime The end time of the query
+	EndTime time.Time `json:"endTime"`
+
+	// Limit The maximum number of items to return
+	Limit       *int                 `json:"limit,omitempty"`
+	SearchScope ComponentSearchScope `json:"searchScope"`
+
+	// SortOrder The sort order of the query
+	SortOrder *IncidentsQueryRequestSortOrder `json:"sortOrder,omitempty"`
+
+	// StartTime The start time of the query
+	StartTime time.Time `json:"startTime"`
+}
+
+// IncidentsQueryRequestSortOrder The sort order of the query
+type IncidentsQueryRequestSortOrder string
+
+// IncidentsQueryResponse defines model for IncidentsQueryResponse.
+type IncidentsQueryResponse struct {
+	// Incidents The list of incidents
+	Incidents *[]struct {
+		// AcknowledgedAt The timestamp when the incident was acknowledged
+		AcknowledgedAt *time.Time `json:"acknowledgedAt,omitempty"`
+
+		// AlertId The ID of the alert that triggered the incident
+		AlertId *string `json:"alertId,omitempty"`
+
+		// Description The description of the incident
+		Description *string `json:"description,omitempty"`
+
+		// IncidentId The ID of the incident
+		IncidentId *string `json:"incidentId,omitempty"`
+
+		// IncidentTriggerAiRca Whether AI RCA was triggered for the incident
+		IncidentTriggerAiRca *bool `json:"incidentTriggerAiRca,omitempty"`
+		Labels               *struct {
+			// ComponentName The name of the component
+			ComponentName *string `json:"componentName,omitempty"`
+
+			// ComponentUid The UID of the component
+			ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
+
+			// EnvironmentName The name of the environment
+			EnvironmentName *string `json:"environmentName,omitempty"`
+
+			// EnvironmentUid The UID of the environment
+			EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
+
+			// NamespaceName The name of the namespace
+			NamespaceName *string `json:"namespaceName,omitempty"`
+
+			// ProjectName The name of the project
+			ProjectName *string `json:"projectName,omitempty"`
+
+			// ProjectUid The UID of the project
+			ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+		} `json:"labels,omitempty"`
+
+		// Notes Notes associated with the incident
+		Notes *string `json:"notes,omitempty"`
+
+		// ResolvedAt The timestamp when the incident was resolved
+		ResolvedAt *time.Time `json:"resolvedAt,omitempty"`
+
+		// Status The status of the incident
+		Status *IncidentsQueryResponseIncidentsStatus `json:"status,omitempty"`
+
+		// Timestamp The timestamp of the incident
+		Timestamp *time.Time `json:"timestamp,omitempty"`
+
+		// TriggeredAt The timestamp when the incident was triggered
+		TriggeredAt *time.Time `json:"triggeredAt,omitempty"`
+	} `json:"incidents,omitempty"`
+
+	// TookMs The time taken to query the incidents in milliseconds
+	TookMs *int `json:"tookMs,omitempty"`
+
+	// Total The total number of incidents
+	Total *int `json:"total,omitempty"`
+}
+
+// IncidentsQueryResponseIncidentsStatus The status of the incident
+type IncidentsQueryResponseIncidentsStatus string
 
 // LogsQueryRequest defines model for LogsQueryRequest.
 type LogsQueryRequest struct {
@@ -453,15 +694,15 @@ type TracesQueryRequest struct {
 	Limit       *int                 `json:"limit,omitempty"`
 	SearchScope ComponentSearchScope `json:"searchScope"`
 
-	// Sort The sort order of the query
-	Sort *TracesQueryRequestSort `json:"sort,omitempty"`
+	// SortOrder The sort order of the query
+	SortOrder *TracesQueryRequestSortOrder `json:"sortOrder,omitempty"`
 
 	// StartTime The start time of the query
 	StartTime time.Time `json:"startTime"`
 }
 
-// TracesQueryRequestSort The sort order of the query
-type TracesQueryRequestSort string
+// TracesQueryRequestSortOrder The sort order of the query
+type TracesQueryRequestSortOrder string
 
 // TracesQueryResponse defines model for TracesQueryResponse.
 type TracesQueryResponse struct {
@@ -518,6 +759,9 @@ type QueryLogsJSONRequestBody = LogsQueryRequest
 // QueryMetricsJSONRequestBody defines body for QueryMetrics for application/json ContentType.
 type QueryMetricsJSONRequestBody = MetricsQueryRequest
 
+// QueryAlertsJSONRequestBody defines body for QueryAlerts for application/json ContentType.
+type QueryAlertsJSONRequestBody = AlertsQueryRequest
+
 // CreateAlertRuleJSONRequestBody defines body for CreateAlertRule for application/json ContentType.
 type CreateAlertRuleJSONRequestBody = AlertRuleRequest
 
@@ -526,6 +770,9 @@ type UpdateAlertRuleJSONRequestBody = AlertRuleRequest
 
 // HandleAlertWebhookJSONRequestBody defines body for HandleAlertWebhook for application/json ContentType.
 type HandleAlertWebhookJSONRequestBody = AlertWebhookRequest
+
+// QueryIncidentsJSONRequestBody defines body for QueryIncidents for application/json ContentType.
+type QueryIncidentsJSONRequestBody = IncidentsQueryRequest
 
 // QueryTracesJSONRequestBody defines body for QueryTraces for application/json ContentType.
 type QueryTracesJSONRequestBody = TracesQueryRequest

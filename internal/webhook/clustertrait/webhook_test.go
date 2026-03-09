@@ -81,11 +81,13 @@ var _ = Describe("ClusterTrait Webhook", func() {
 	Context("When creating or updating ClusterTrait under Validating Webhook", func() {
 		It("Should admit cluster trait with valid parameters and envOverrides", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"mountPath": "string"}`),
-				},
-				EnvOverrides: &runtime.RawExtension{
-					Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string"}`),
+				OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"mountPath": "string"}`),
+					},
+					EnvOverrides: &runtime.RawExtension{
+						Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string"}`),
+					},
 				},
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
@@ -94,11 +96,13 @@ var _ = Describe("ClusterTrait Webhook", func() {
 
 		It("Should reject cluster trait with invalid envOverrides schema syntax", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"mountPath": "string"}`),
-				},
-				EnvOverrides: &runtime.RawExtension{
-					Raw: []byte(`{"size": "unknown-type"}`), // invalid type
+				OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"mountPath": "string"}`),
+					},
+					EnvOverrides: &runtime.RawExtension{
+						Raw: []byte(`{"size": "unknown-type"}`), // invalid type
+					},
 				},
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
@@ -108,8 +112,10 @@ var _ = Describe("ClusterTrait Webhook", func() {
 
 		It("Should admit cluster trait with only envOverrides (no parameters)", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				EnvOverrides: &runtime.RawExtension{
-					Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string | default=local-path"}`),
+				OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
+					EnvOverrides: &runtime.RawExtension{
+						Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string | default=local-path"}`),
+					},
 				},
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
@@ -118,8 +124,10 @@ var _ = Describe("ClusterTrait Webhook", func() {
 
 		It("Should reject cluster trait with malformed envOverrides YAML", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				EnvOverrides: &runtime.RawExtension{
-					Raw: []byte(`{malformed yaml`),
+				OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
+					EnvOverrides: &runtime.RawExtension{
+						Raw: []byte(`{malformed yaml`),
+					},
 				},
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
@@ -249,8 +257,10 @@ var _ = Describe("ClusterTrait Webhook", func() {
 
 		It("should reject non-boolean CEL expression in validation rule", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"name": "string | default=app"}`),
+				OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"name": "string | default=app"}`),
+					},
 				},
 			}
 			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
@@ -264,11 +274,13 @@ var _ = Describe("ClusterTrait Webhook", func() {
 
 		It("should admit valid boolean validation rules", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"mountPath": "string"}`),
-				},
-				EnvOverrides: &runtime.RawExtension{
-					Raw: []byte(`{"size": "string | default=10Gi"}`),
+				OCSchema: &openchoreodevv1alpha1.TraitOCSchema{
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"mountPath": "string"}`),
+					},
+					EnvOverrides: &runtime.RawExtension{
+						Raw: []byte(`{"size": "string | default=10Gi"}`),
+					},
 				},
 			}
 			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{

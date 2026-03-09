@@ -167,21 +167,8 @@ type Schema struct {
 	Content string `json:"content,omitempty"`
 }
 
-// EnvironmentMapping maps consumer environment names (keys) to provider environment
-// names (values). Used for internal visibility connections where the consumer and
-// provider may have different environment names.
-type EnvironmentMapping map[string]string
-
 // WorkloadConnection represents a connection to another component's endpoint.
-// +kubebuilder:validation:XValidation:rule="!has(self.namespace) || size(self.namespace) == 0 || (has(self.project) && size(self.project) > 0)",message="project is required when namespace is set"
-// +kubebuilder:validation:XValidation:rule="self.visibility == 'internal' || !has(self.environmentMapping) || size(self.environmentMapping) == 0",message="environmentMapping requires internal visibility"
 type WorkloadConnection struct {
-	// Namespace is the control plane namespace of the target component.
-	// Only applicable when visibility is internal (cross-namespace connections).
-	// If empty, defaults to the same namespace as the consumer.
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
-
 	// Project is the target component's project name.
 	// If empty, defaults to the same project as the consumer.
 	// Required when namespace is specified.
@@ -193,22 +180,15 @@ type WorkloadConnection struct {
 	// +kubebuilder:validation:MinLength=1
 	Component string `json:"component"`
 
-	// Endpoint is the target endpoint name on the target component.
+	// Name is the target endpoint name on the target component.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
-	Endpoint string `json:"endpoint"`
+	Name string `json:"name"`
 
 	// Visibility is the visibility level at which this connection consumes the endpoint.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=project;namespace;internal
+	// +kubebuilder:validation:Enum=project;namespace
 	Visibility EndpointVisibility `json:"visibility"`
-
-	// EnvironmentMapping maps consumer environment names (keys) to provider environment
-	// names (values). Only applicable when visibility is internal. When a consumer is
-	// deployed in a source environment, the connection resolves against the mapped
-	// target environment. If no mapping matches, the source environment name is used as-is.
-	// +optional
-	EnvironmentMapping EnvironmentMapping `json:"environmentMapping,omitempty"`
 
 	// EnvBindings maps semantic URL components to environment variable names.
 	// +kubebuilder:validation:Required
@@ -236,6 +216,14 @@ type ConnectionEnvBindings struct {
 	BasePath string `json:"basePath,omitempty"`
 }
 
+// WorkloadDependencies defines the dependencies of a workload on other components' endpoints.
+type WorkloadDependencies struct {
+	// Endpoints define how this workload consumes endpoints from other components.
+	// +optional
+	// +kubebuilder:validation:MaxItems=50
+	Endpoints []WorkloadConnection `json:"endpoints,omitempty"`
+}
+
 // WorkloadTemplateSpec defines the desired state of Workload.
 type WorkloadTemplateSpec struct {
 	// Container defines the container specification for this workload.
@@ -247,10 +235,17 @@ type WorkloadTemplateSpec struct {
 	// +optional
 	Endpoints map[string]WorkloadEndpoint `json:"endpoints,omitempty"`
 
-	// Connections define how this workload consumes endpoints from other components.
+	// Dependencies define the dependencies of this workload on other components.
 	// +optional
-	// +kubebuilder:validation:MaxItems=50
-	Connections []WorkloadConnection `json:"connections,omitempty"`
+	Dependencies *WorkloadDependencies `json:"dependencies,omitempty"`
+}
+
+// GetDependencyEndpoints returns the endpoint connections from dependencies, or nil if none.
+func (w *WorkloadTemplateSpec) GetDependencyEndpoints() []WorkloadConnection {
+	if w.Dependencies == nil {
+		return nil
+	}
+	return w.Dependencies.Endpoints
 }
 
 type WorkloadOwner struct {

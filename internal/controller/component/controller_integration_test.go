@@ -110,7 +110,9 @@ func minimalWorkload(name, project, component, image string) *openchoreov1alpha1
 func minimalProject(name, pipelineRef string) *openchoreov1alpha1.Project {
 	return &openchoreov1alpha1.Project{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: itNamespace},
-		Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: pipelineRef},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: pipelineRef},
+		},
 	}
 }
 

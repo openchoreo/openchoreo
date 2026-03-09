@@ -34,6 +34,11 @@ func (r *Reconciler) updateStatus(ctx context.Context, old, release *openchoreov
 	// Update the status
 	release.Status.Resources = resourceStatuses
 
+	// Sync conditions in old to match release before comparison, because conditions
+	// (e.g., ResourcesApplied) were already persisted earlier in the reconcile loop.
+	// Without this, DeepEqual sees a false diff and triggers a redundant status update.
+	old.Status.Conditions = release.Status.Conditions
+
 	// Check if the entire status actually changed and skip update if not
 	if apiequality.Semantic.DeepEqual(old.Status, release.Status) {
 		return false, nil

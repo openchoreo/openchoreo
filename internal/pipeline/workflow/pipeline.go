@@ -261,16 +261,16 @@ func (p *Pipeline) buildStructuralSchema(wf *v1alpha1.Workflow) (*apiextschema.S
 
 	// Extract types if present
 	var types map[string]any
-	if wf.Spec.Schema.Types != nil {
-		if err := json.Unmarshal(wf.Spec.Schema.Types.Raw, &types); err != nil {
+	if typesRaw := wf.Spec.Schema.GetTypes(); typesRaw != nil {
+		if err := json.Unmarshal(typesRaw.Raw, &types); err != nil {
 			return nil, fmt.Errorf("failed to extract types: %w", err)
 		}
 	}
 
 	// Extract parameters schema (the main schema for Workflow)
 	var parameters map[string]any
-	if wf.Spec.Schema.Parameters != nil {
-		if err := json.Unmarshal(wf.Spec.Schema.Parameters.Raw, &parameters); err != nil {
+	if paramsRaw := wf.Spec.Schema.GetParameters(); paramsRaw != nil {
+		if err := json.Unmarshal(paramsRaw.Raw, &parameters); err != nil {
 			return nil, fmt.Errorf("failed to extract parameters schema: %w", err)
 		}
 	}

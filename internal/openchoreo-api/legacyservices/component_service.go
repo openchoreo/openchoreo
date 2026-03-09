@@ -165,8 +165,8 @@ func (s *ComponentService) fetchTraitSpec(ctx context.Context, kind openchoreov1
 // Returns nil if the trait has no envOverrides
 func (s *ComponentService) buildTraitEnvOverridesSchema(traitSpec openchoreov1alpha1.TraitSpec, traitName string) (*extv1.JSONSchemaProps, error) {
 	var traitEnvOverrides map[string]any
-	if traitSpec.Schema.EnvOverrides != nil && traitSpec.Schema.EnvOverrides.Raw != nil {
-		if err := json.Unmarshal(traitSpec.Schema.EnvOverrides.Raw, &traitEnvOverrides); err != nil {
+	if envRaw := traitSpec.Schema.GetEnvOverrides(); envRaw != nil && envRaw.Raw != nil {
+		if err := json.Unmarshal(envRaw.Raw, &traitEnvOverrides); err != nil {
 			return nil, fmt.Errorf("failed to extract envOverrides for trait %s: %w", traitName, err)
 		}
 	}
@@ -176,8 +176,8 @@ func (s *ComponentService) buildTraitEnvOverridesSchema(traitSpec openchoreov1al
 	}
 
 	var traitTypes map[string]any
-	if traitSpec.Schema.Types != nil && traitSpec.Schema.Types.Raw != nil {
-		if err := yaml.Unmarshal(traitSpec.Schema.Types.Raw, &traitTypes); err != nil {
+	if typesRaw := traitSpec.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
+		if err := yaml.Unmarshal(typesRaw.Raw, &traitTypes); err != nil {
 			return nil, fmt.Errorf("failed to extract types for trait %s: %w", traitName, err)
 		}
 	}
@@ -596,8 +596,8 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 	}
 
 	var types map[string]any
-	if release.Spec.ComponentType.Schema.Types != nil && release.Spec.ComponentType.Schema.Types.Raw != nil {
-		if err := yaml.Unmarshal(release.Spec.ComponentType.Schema.Types.Raw, &types); err != nil {
+	if typesRaw := release.Spec.ComponentType.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
+		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
 			return nil, fmt.Errorf("failed to extract types: %w", err)
 		}
 	}
@@ -607,9 +607,9 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 	}
 
 	var componentTypeEnvOverrides map[string]any
-	if release.Spec.ComponentType.Schema.EnvOverrides != nil && release.Spec.ComponentType.Schema.EnvOverrides.Raw != nil {
-		if err := json.Unmarshal(release.Spec.ComponentType.Schema.EnvOverrides.Raw, &componentTypeEnvOverrides); err != nil {
-			return nil, fmt.Errorf("failed to extract parameters: %w", err)
+	if envRaw := release.Spec.ComponentType.Schema.GetEnvOverrides(); envRaw != nil && envRaw.Raw != nil {
+		if err := json.Unmarshal(envRaw.Raw, &componentTypeEnvOverrides); err != nil {
+			return nil, fmt.Errorf("failed to extract envOverrides: %w", err)
 		}
 	}
 
@@ -738,8 +738,8 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 	}
 
 	var types map[string]any
-	if ct.Spec.Schema.Types != nil && ct.Spec.Schema.Types.Raw != nil {
-		if err := yaml.Unmarshal(ct.Spec.Schema.Types.Raw, &types); err != nil {
+	if typesRaw := ct.Spec.Schema.GetTypes(); typesRaw != nil && typesRaw.Raw != nil {
+		if err := yaml.Unmarshal(typesRaw.Raw, &types); err != nil {
 			return nil, fmt.Errorf("failed to extract types: %w", err)
 		}
 	}
@@ -749,8 +749,8 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 	}
 
 	var envOverrides map[string]any
-	if ct.Spec.Schema.EnvOverrides != nil && ct.Spec.Schema.EnvOverrides.Raw != nil {
-		if err := json.Unmarshal(ct.Spec.Schema.EnvOverrides.Raw, &envOverrides); err != nil {
+	if envRaw := ct.Spec.Schema.GetEnvOverrides(); envRaw != nil && envRaw.Raw != nil {
+		if err := json.Unmarshal(envRaw.Raw, &envOverrides); err != nil {
 			return nil, fmt.Errorf("failed to extract envOverrides: %w", err)
 		}
 	}
@@ -2752,7 +2752,7 @@ func (s *ComponentService) validateWorkflowParameters(ctx context.Context, names
 	workflowSpec := workflowResult.GetWorkflowSpec()
 
 	// If workflow has no parameter schema defined, any parameters are valid
-	if workflowSpec.Schema == nil || workflowSpec.Schema.Parameters == nil {
+	if workflowSpec.Schema.GetParameters() == nil {
 		return nil
 	}
 
@@ -2763,7 +2763,7 @@ func (s *ComponentService) validateWorkflowParameters(ctx context.Context, names
 
 	// Unmarshal the workflow's parameter schema definition
 	var parameterSchemaMap map[string]any
-	if err := json.Unmarshal(workflowSpec.Schema.Parameters.Raw, &parameterSchemaMap); err != nil {
+	if err := json.Unmarshal(workflowSpec.Schema.GetParameters().Raw, &parameterSchemaMap); err != nil {
 		s.logger.Error("Failed to unmarshal workflow parameter schema", "error", err)
 		return fmt.Errorf("failed to parse workflow parameter schema: %w", err)
 	}

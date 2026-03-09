@@ -185,8 +185,8 @@ func (s *clusterWorkflowService) GetClusterWorkflowSchema(ctx context.Context, c
 	}
 
 	var schemaMap map[string]any
-	if cwf.Spec.Schema != nil && cwf.Spec.Schema.Parameters != nil {
-		if err := yaml.Unmarshal(cwf.Spec.Schema.Parameters.Raw, &schemaMap); err != nil {
+	if paramsRaw := cwf.Spec.Schema.GetParameters(); paramsRaw != nil {
+		if err := yaml.Unmarshal(paramsRaw.Raw, &schemaMap); err != nil {
 			return nil, fmt.Errorf("failed to extract schema: %w", err)
 		}
 	}

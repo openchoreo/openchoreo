@@ -128,8 +128,8 @@ func (s *WorkflowService) GetWorkflowSchema(ctx context.Context, namespaceName, 
 	}
 
 	var schemaMap map[string]any
-	if wf.Spec.Schema != nil && wf.Spec.Schema.Parameters != nil {
-		if err := yaml.Unmarshal(wf.Spec.Schema.Parameters.Raw, &schemaMap); err != nil {
+	if paramsRaw := wf.Spec.Schema.GetParameters(); paramsRaw != nil {
+		if err := yaml.Unmarshal(paramsRaw.Raw, &schemaMap); err != nil {
 			return nil, fmt.Errorf("failed to extract schema: %w", err)
 		}
 	}

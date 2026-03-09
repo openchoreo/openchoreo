@@ -135,17 +135,18 @@ spec:
   ttlAfterCompletion: "1d"
 
   schema:
-    parameters:
-      github:
-        owner: string | description="GitHub organization or user that will own the repository"
-        tokenSecret: string | description="Name of the Kubernetes Secret in the namespace containing the GitHub token under the key 'token'"
-      repo:
-        name: string | description="Name of the repository to create"
-        description: string | default="" description="Short description of the repository"
-        visibility: string | default="private" enum=public,private description="Repository visibility"
-        autoInit: string | default="true" enum=true,false description="Initialize the repository with a README"
-        gitignoreTemplate: string | default="" description="Gitignore template to apply (e.g. Go, Python, Node)"
-        licenseTemplate: string | default="" description="License template to apply (e.g. mit, apache-2.0)"
+    ocSchema:
+      parameters:
+        github:
+          owner: string | description="GitHub organization that will own the repository"
+          tokenSecret: string | description="Name of the Kubernetes Secret in the namespace containing the GitHub token under the key 'token'"
+        repo:
+          name: string | description="Name of the repository to create"
+          description: string | default="" description="Short description of the repository"
+          visibility: string | default="private" enum=public,private description="Repository visibility"
+          autoInit: string | default="true" enum=true,false description="Initialize the repository with a README"
+          gitignoreTemplate: string | default="" description="Gitignore template to apply (e.g. Go, Python, Node)"
+          licenseTemplate: string | default="" description="License template to apply (e.g. mit, apache-2.0)"
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1

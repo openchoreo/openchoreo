@@ -1,0 +1,15 @@
+{{- if eq (.Values.observer.alertStoreBackend | default "sqlite") "sqlite" }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: observer-alerts-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer") | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.observer.alertStoreSqliteSize | default "128Mi" }}
+{{- end }}

@@ -224,6 +224,11 @@ const (
 	ObservabilityPlaneRefKindObservabilityPlane        ObservabilityPlaneRefKind = "ObservabilityPlane"
 )
 
+// Defines values for ProjectSpecDeploymentPipelineRefKind.
+const (
+	ProjectSpecDeploymentPipelineRefKindDeploymentPipeline ProjectSpecDeploymentPipelineRefKind = "DeploymentPipeline"
+)
+
 // Defines values for ReleaseBindingSpecState.
 const (
 	ReleaseBindingSpecStateActive   ReleaseBindingSpecState = "Active"
@@ -801,14 +806,17 @@ type ClusterComponentTypeSpec struct {
 
 	// Schema Developer-configurable schema definition
 	Schema *struct {
-		// EnvOverrides Environment-specific overrides for platform engineers
-		EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
+		// OcSchema Schema using OpenChoreo's simple schema format
+		OcSchema *struct {
+			// EnvOverrides Environment-specific overrides for platform engineers
+			EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
 
-		// Parameters Static developer configuration parameters
-		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+			// Parameters Static developer configuration parameters
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-		// Types Reusable type definitions
-		Types *map[string]interface{} `json:"types,omitempty"`
+			// Types Reusable type definitions
+			Types *map[string]interface{} `json:"types,omitempty"`
+		} `json:"ocSchema,omitempty"`
 	} `json:"schema,omitempty"`
 
 	// Traits Pre-configured trait instances embedded in this component type
@@ -1073,14 +1081,17 @@ type ClusterTraitSpec struct {
 
 	// Schema Trait parameter schema definition
 	Schema *struct {
-		// EnvOverrides Environment-specific overrides
-		EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
+		// OcSchema Schema using OpenChoreo's simple schema format
+		OcSchema *struct {
+			// EnvOverrides Environment-specific overrides
+			EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
 
-		// Parameters Developer-facing configuration options
-		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+			// Parameters Developer-facing configuration options
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-		// Types Reusable type definitions
-		Types *map[string]interface{} `json:"types,omitempty"`
+			// Types Reusable type definitions
+			Types *map[string]interface{} `json:"types,omitempty"`
+		} `json:"ocSchema,omitempty"`
 	} `json:"schema,omitempty"`
 
 	// Validations CEL-based validation rules evaluated during rendering
@@ -1399,14 +1410,17 @@ type ComponentTypeSpec struct {
 
 	// Schema Developer-configurable schema definition
 	Schema *struct {
-		// EnvOverrides Environment-specific overrides for platform engineers
-		EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
+		// OcSchema Schema using OpenChoreo's simple schema format
+		OcSchema *struct {
+			// EnvOverrides Environment-specific overrides for platform engineers
+			EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
 
-		// Parameters Static developer configuration parameters
-		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+			// Parameters Static developer configuration parameters
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-		// Types Reusable type definitions
-		Types *map[string]interface{} `json:"types,omitempty"`
+			// Types Reusable type definitions
+			Types *map[string]interface{} `json:"types,omitempty"`
+		} `json:"ocSchema,omitempty"`
 	} `json:"schema,omitempty"`
 
 	// Traits Pre-configured trait instances embedded in this component type
@@ -2488,8 +2502,17 @@ type ProjectList struct {
 type ProjectSpec struct {
 	// DeploymentPipelineRef Reference to the DeploymentPipeline that defines the environments
 	// and deployment progression for components in this project.
-	DeploymentPipelineRef *string `json:"deploymentPipelineRef,omitempty"`
+	DeploymentPipelineRef *struct {
+		// Kind Kind of deployment pipeline resource
+		Kind *ProjectSpecDeploymentPipelineRefKind `json:"kind,omitempty"`
+
+		// Name Name of the deployment pipeline resource
+		Name string `json:"name"`
+	} `json:"deploymentPipelineRef,omitempty"`
 }
+
+// ProjectSpecDeploymentPipelineRefKind Kind of deployment pipeline resource
+type ProjectSpecDeploymentPipelineRefKind string
 
 // ProjectStatus Observed state of a Project
 type ProjectStatus struct {
@@ -3018,6 +3041,21 @@ type SubjectContext struct {
 // SubjectContextType Subject type
 type SubjectContextType string
 
+// SubjectTypeConfig Configuration for a subject type used in authentication and authorization
+type SubjectTypeConfig struct {
+	// AuthMechanisms Supported authentication mechanisms for this subject type
+	AuthMechanisms []AuthMechanismConfig `json:"authMechanisms"`
+
+	// DisplayName Human-readable name for the subject type
+	DisplayName string `json:"displayName"`
+
+	// Priority Check order for subject type detection (lower = higher priority)
+	Priority int `json:"priority"`
+
+	// Type Subject type identifier (e.g., "user", "service_account")
+	Type string `json:"type"`
+}
+
 // TargetEnvironmentRef Target environment reference with approval settings
 type TargetEnvironmentRef struct {
 	// IsManualApprovalRequired Whether manual approval is required
@@ -3127,14 +3165,17 @@ type TraitSpec struct {
 
 	// Schema Trait parameter schema definition
 	Schema *struct {
-		// EnvOverrides Environment-specific overrides
-		EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
+		// OcSchema Schema using OpenChoreo's simple schema format
+		OcSchema *struct {
+			// EnvOverrides Environment-specific overrides
+			EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
 
-		// Parameters Developer-facing configuration options
-		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+			// Parameters Developer-facing configuration options
+			Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-		// Types Reusable type definitions
-		Types *map[string]interface{} `json:"types,omitempty"`
+			// Types Reusable type definitions
+			Types *map[string]interface{} `json:"types,omitempty"`
+		} `json:"ocSchema,omitempty"`
 	} `json:"schema,omitempty"`
 
 	// Validations CEL-based validation rules evaluated during rendering
@@ -3241,21 +3282,6 @@ type UserCapabilitiesResponse struct {
 
 	// User Authenticated subject context
 	User *SubjectContext `json:"user,omitempty"`
-}
-
-// UserTypeConfig Configuration for a user type used in authentication and authorization
-type UserTypeConfig struct {
-	// AuthMechanisms Supported authentication mechanisms for this user type
-	AuthMechanisms []AuthMechanismConfig `json:"authMechanisms"`
-
-	// DisplayName Human-readable name for the user type
-	DisplayName string `json:"displayName"`
-
-	// Priority Check order for user type detection (lower = higher priority)
-	Priority int `json:"priority"`
-
-	// Type User type identifier (e.g., "user", "service_account")
-	Type string `json:"type"`
 }
 
 // ValidationRule CEL-based validation rule evaluated during rendering
@@ -3452,11 +3478,14 @@ type WorkflowRunStatusResponseStatus string
 
 // WorkflowSchema Developer-facing schema definition for workflow parameters
 type WorkflowSchema struct {
-	// Parameters Developer-facing configuration options
-	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+	// OcSchema Schema using OpenChoreo's simple schema format
+	OcSchema *struct {
+		// Parameters Developer-facing configuration options
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-	// Types Reusable type definitions
-	Types *map[string]interface{} `json:"types,omitempty"`
+		// Types Reusable type definitions
+		Types *map[string]interface{} `json:"types,omitempty"`
+	} `json:"ocSchema,omitempty"`
 }
 
 // WorkflowSpec Desired state of a Workflow

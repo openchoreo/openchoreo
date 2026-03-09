@@ -17,26 +17,27 @@ spec:
   allowedTraits: []
 
   schema:
-    types:
-      ResourceRequirements:
-        requests: "ResourceQuantity | default={}"
-        limits: "ResourceQuantity | default={}"
-      ResourceQuantity:
-        cpu: "string | default=100m"
-        memory: "string | default=128Mi"
+    ocSchema:
+      types:
+        ResourceRequirements:
+          requests: "ResourceQuantity | default={}"
+          limits: "ResourceQuantity | default={}"
+        ResourceQuantity:
+          cpu: "string | default=100m"
+          memory: "string | default=128Mi"
 
-    parameters:
-      successfulJobsHistoryLimit: "integer | default=3"
-      failedJobsHistoryLimit: "integer | default=1"
-      concurrencyPolicy: "string | default=Forbid"
-      backoffLimit: "integer | default=3"
-      activeDeadlineSeconds: "integer | default=300"
-      restartPolicy: "string | default=OnFailure"
+      parameters:
+        successfulJobsHistoryLimit: "integer | default=3"
+        failedJobsHistoryLimit: "integer | default=1"
+        concurrencyPolicy: "string | default=Forbid"
+        backoffLimit: "integer | default=3"
+        activeDeadlineSeconds: "integer | default=300"
+        restartPolicy: "string | default=OnFailure"
 
-    envOverrides:
-      schedule: 'string | default="0 0 31 2 *"'
-      resources: "ResourceRequirements | default={}"
-      imagePullPolicy: "string | default=IfNotPresent"
+      envOverrides:
+        schedule: 'string | default="0 0 31 2 *"'
+        resources: "ResourceRequirements | default={}"
+        imagePullPolicy: "string | default=IfNotPresent"
 
   resources:
     - id: cronjob

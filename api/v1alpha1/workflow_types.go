@@ -25,26 +25,24 @@ type WorkflowSpec struct {
 
 	// Schema defines the developer-facing parameters that can be configured
 	// when creating a WorkflowRun instance. Uses the same shorthand schema syntax
-	// as ComponentType.
+	// as ComponentType. Fields are nested under schema.ocSchema.
 	//
 	// Schema format: nested maps where keys are field names and values are either
 	// nested maps or type definition strings.
 	// Type definition format: "type | default=value minimum=2 enum=val1,val2"
 	//
 	// Example:
-	//   repository:
-	//     url: string | description="Git repository URL"
-	//     revision:
-	//       branch: string | default=main description="Git branch to checkout"
-	//       commit: string | default=HEAD description="Git commit SHA or reference"
-	//     appPath: string | default=. description="Path to the application directory"
-	//     credentialsRef: string | enum=checkout-repo-credentials-dev,payments-repo-credentials-dev description="Repository credentials secret reference"
-	//   version: integer | default=1 description="Build version number"
-	//   testMode: string | enum=unit,integration,none default=unit description="Test mode to execute"
+	//   ocSchema:
+	//     parameters:
+	//       repository:
+	//         url: string | description="Git repository URL"
+	//         revision:
+	//           branch: string | default=main description="Git branch to checkout"
+	//           commit: string | default=HEAD description="Git commit SHA or reference"
+	//         appPath: string | default=. description="Path to the application directory"
+	//       version: integer | default=1 description="Build version number"
 	//
 	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Type=object
 	Schema *WorkflowSchema `json:"schema,omitempty"`
 
 	// RunTemplate is the Kubernetes resource template to be rendered and applied to the cluster.
@@ -85,38 +83,59 @@ type WorkflowSpec struct {
 	TTLAfterCompletion string `json:"ttlAfterCompletion,omitempty"`
 }
 
-// WorkflowSchema defines the parameter schemas for workflows.
-type WorkflowSchema struct {
+// WorkflowOCSchema holds the OpenChoreo simple schema fields for a Workflow.
+type WorkflowOCSchema struct {
 	// Types defines reusable type definitions that can be referenced in schema fields.
-	// This is a nested map structure where keys are type names and values are type definitions.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
 	Types *runtime.RawExtension `json:"types,omitempty"`
 
 	// Parameters defines the flexible PE-defined schema for additional build configuration.
-	// Platform Engineers have complete freedom to define any structure, types, and validation rules.
-	//
-	// This is a nested map structure where keys are field names and values are type definitions.
-	// Type definition format: "type | default=value enum=val1,val2 minimum=N maximum=N"
-	//
-	// Supported types: string, integer, boolean, array<type>, object
-	//
-	// Example:
-	//   parameters:
-	//     version: 'integer | default=1 description="Build version"'
-	//     testMode: "string | enum=unit,integration,none default=unit"
-	//     resources:
-	//       cpuCores: "integer | default=1 minimum=1 maximum=8"
-	//       memoryGb: "integer | default=2 minimum=1 maximum=32"
-	//     cache:
-	//       enabled: "boolean | default=true"
-	//       paths: "array<string> | default=["/root/.cache"]"
-	//
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+}
+
+// WorkflowSchema defines the parameter schemas for workflows.
+// Uses the ocSchema sub-struct for OpenChoreo simple schema format.
+type WorkflowSchema struct {
+	// OCSchema defines the schema using OpenChoreo's simple schema format.
+	// +optional
+	OCSchema *WorkflowOCSchema `json:"ocSchema,omitempty"`
+}
+
+// GetTypes returns the types raw extension.
+func (s *WorkflowSchema) GetTypes() *runtime.RawExtension {
+	if s == nil {
+		return nil
+	}
+	if s.OCSchema != nil {
+		return s.OCSchema.Types
+	}
+	return nil
+}
+
+// GetParameters returns the parameters raw extension.
+func (s *WorkflowSchema) GetParameters() *runtime.RawExtension {
+	if s == nil {
+		return nil
+	}
+	if s.OCSchema != nil {
+		return s.OCSchema.Parameters
+	}
+	return nil
+}
+
+// GetEnvOverrides returns nil (workflows don't have envOverrides).
+func (s *WorkflowSchema) GetEnvOverrides() *runtime.RawExtension {
+	return nil
+}
+
+// IsOpenAPIV3 returns true if the schema uses OpenAPI V3 Schema format.
+func (s *WorkflowSchema) IsOpenAPIV3() bool {
+	return false
 }
 
 // WorkflowResource defines a template for generating Kubernetes resources

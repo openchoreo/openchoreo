@@ -29,6 +29,10 @@ const (
 
 	// IndexKeyProjectDeploymentPipelineRef indexes Project by deploymentPipelineRef.
 	IndexKeyProjectDeploymentPipelineRef = "project.spec.deploymentPipelineRef"
+
+	// IndexKeyDeploymentPipelineEnvironmentRef indexes DeploymentPipeline by the environment names
+	// referenced in its promotionPaths (both source and target environments).
+	IndexKeyDeploymentPipelineEnvironmentRef = "deploymentpipeline.spec.promotionPaths.environmentRefs"
 )
 
 // MakeReleaseBindingOwnerEnvKey creates the composite index key for ReleaseBinding lookups
@@ -80,12 +84,35 @@ func SetupSharedIndexes(ctx context.Context, mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Project{},
 		IndexKeyProjectDeploymentPipelineRef, func(obj client.Object) []string {
 			project := obj.(*openchoreov1alpha1.Project)
-			if project.Spec.DeploymentPipelineRef == "" {
+			if project.Spec.DeploymentPipelineRef.Name == "" {
 				return nil
 			}
-			return []string{project.Spec.DeploymentPipelineRef}
+			return []string{project.Spec.DeploymentPipelineRef.Name}
 		}); err != nil {
 		return fmt.Errorf("failed to setup Project deploymentPipelineRef index: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.DeploymentPipeline{},
+		IndexKeyDeploymentPipelineEnvironmentRef, func(obj client.Object) []string {
+			pipeline := obj.(*openchoreov1alpha1.DeploymentPipeline)
+			envNames := make(map[string]struct{})
+			for _, path := range pipeline.Spec.PromotionPaths {
+				if path.SourceEnvironmentRef != "" {
+					envNames[path.SourceEnvironmentRef] = struct{}{}
+				}
+				for _, target := range path.TargetEnvironmentRefs {
+					if target.Name != "" {
+						envNames[target.Name] = struct{}{}
+					}
+				}
+			}
+			result := make([]string, 0, len(envNames))
+			for name := range envNames {
+				result = append(result, name)
+			}
+			return result
+		}); err != nil {
+		return fmt.Errorf("failed to setup DeploymentPipeline environment ref index: %w", err)
 	}
 
 	return nil

@@ -117,13 +117,14 @@ spec:
   ttlAfterCompletion: "1d"
 
   schema:
-    parameters:
-      aws:
-        region: string | description="AWS region where the CodeCommit repository will be created"
-        credentialsSecret: string | description="Name of the Kubernetes Secret containing 'accessKeyId' and 'secretAccessKey' keys"
-      repo:
-        name: string | description="Name of the CodeCommit repository to create"
-        description: string | default="" description="Workflow originated repository"
+    ocSchema:
+      parameters:
+        aws:
+          region: string | description="AWS region where the CodeCommit repository will be created"
+          credentialsSecret: string | description="Name of the Kubernetes Secret containing 'accessKeyId' and 'secretAccessKey' keys"
+        repo:
+          name: string | description="Name of the CodeCommit repository to create"
+          description: string | default="" description="Workflow originated repository"
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1

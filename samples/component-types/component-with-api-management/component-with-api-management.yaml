@@ -19,15 +19,16 @@ metadata:
   namespace: default
 spec:
   schema:
-    parameters:
-      apiName: "string"
-      apiVersion: "string | default=v1.0"
-      context: "string"
-      upstreamPort: "integer | default=80"
-      operations:
-        'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
-      policies:
-        "array<map<string>> | default=[]"
+    ocSchema:
+      parameters:
+        apiName: "string"
+        apiVersion: "string | default=v1.0"
+        context: "string"
+        upstreamPort: "integer | default=80"
+        operations:
+          'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
+        policies:
+          "array<map<string>> | default=[]"
 
   creates:
     # Backend resource to route through API Platform Gateway

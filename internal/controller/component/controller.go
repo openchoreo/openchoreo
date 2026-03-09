@@ -508,7 +508,7 @@ func (r *Reconciler) validateAndFetchDeploymentPipeline(ctx context.Context, com
 	}
 
 	// Validate that the project has a deployment pipeline reference
-	if project.Spec.DeploymentPipelineRef == "" {
+	if project.Spec.DeploymentPipelineRef.Name == "" {
 		msg := fmt.Sprintf("Project %q has empty deploymentPipelineRef", project.Name)
 		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
 		logger.Info(msg, "component", comp.Name)
@@ -518,11 +518,11 @@ func (r *Reconciler) validateAndFetchDeploymentPipeline(ctx context.Context, com
 	// Get the DeploymentPipeline
 	pipeline := &openchoreov1alpha1.DeploymentPipeline{}
 	if err := r.Get(ctx, types.NamespacedName{
-		Name:      project.Spec.DeploymentPipelineRef,
+		Name:      project.Spec.DeploymentPipelineRef.Name,
 		Namespace: project.Namespace,
 	}, pipeline); err != nil {
 		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("DeploymentPipeline %q not found", project.Spec.DeploymentPipelineRef)
+			msg := fmt.Sprintf("DeploymentPipeline %q not found", project.Spec.DeploymentPipelineRef.Name)
 			controller.MarkFalseCondition(comp, ConditionReady, ReasonDeploymentPipelineNotFound, msg)
 			logger.Info(msg, "component", comp.Name, "project", project.Name)
 			return "", nil

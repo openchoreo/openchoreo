@@ -286,9 +286,10 @@ metadata:
 spec:
   workloadType: deployment
   schema:
-    parameters:
-      replicas: "integer | default=1"
-      port: "integer | default=8080"
+    ocSchema:
+      parameters:
+        replicas: "integer | default=1"
+        port: "integer | default=8080"
   resources:
     - id: deployment
       template:
@@ -484,12 +485,13 @@ metadata:
 spec:
   workloadType: deployment
   schema:
-    types:
-      EnvVar:
-        name: string
-        value: string
-    parameters:
-      envVars: "[]EnvVar"
+    ocSchema:
+      types:
+        EnvVar:
+          name: string
+          value: string
+      parameters:
+        envVars: "[]EnvVar"
   resources:
     - id: configmaps
       forEach: ${parameters.envVars}

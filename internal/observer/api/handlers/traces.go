@@ -27,15 +27,15 @@ func (h *Handler) QueryTraces(w http.ResponseWriter, r *http.Request) {
 
 	// Convert from generated type to internal type
 	sort := defaultSortOrder
-	if genReq.Sort != nil {
-		sort = string(*genReq.Sort)
+	if genReq.SortOrder != nil {
+		sort = string(*genReq.SortOrder)
 	}
 
 	req := &types.TracesQueryRequest{
 		StartTime: genReq.StartTime,
 		EndTime:   genReq.EndTime,
 		Limit:     derefInt(genReq.Limit, 100),
-		Sort:      sort,
+		SortOrder: sort,
 		SearchScope: types.ComponentSearchScope{
 			Namespace:   genReq.SearchScope.Namespace,
 			Project:     derefString(genReq.SearchScope.Project),
@@ -117,15 +117,15 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 
 	// Convert from generated type to internal type
 	sort := defaultSortOrder
-	if genReq.Sort != nil {
-		sort = string(*genReq.Sort)
+	if genReq.SortOrder != nil {
+		sort = string(*genReq.SortOrder)
 	}
 
 	req := &types.TracesQueryRequest{
 		StartTime: genReq.StartTime,
 		EndTime:   genReq.EndTime,
 		Limit:     derefInt(genReq.Limit, 100),
-		Sort:      sort,
+		SortOrder: sort,
 		SearchScope: types.ComponentSearchScope{
 			Namespace:   genReq.SearchScope.Namespace,
 			Project:     derefString(genReq.SearchScope.Project),

@@ -512,6 +512,98 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  # Incidents query endpoint
+  /api/v1alpha1/incidents/query:
+    post:
+      tags:
+        - Incidents
+      summary: Query incidents
+      description: Query incidents from the observer service
+      operationId: queryIncidents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IncidentsQueryRequest"
+      responses:
+        "200":
+          description: Incidents queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentsQueryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Triggered alerts query endpoint
+  /api/v1alpha1/alerts/query:
+    post:
+      tags:
+        - Alerts
+      summary: Query alerts
+      description: Query alerts from the observer service
+      operationId: queryAlerts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertsQueryRequest"
+      responses:
+        "200":
+          description: Alerts queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertsQueryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     # Request schemas for logs
@@ -780,7 +872,7 @@ components:
           minimum: 1
           maximum: 1000
           description: The maximum number of items to return
-        sort:
+        sortOrder:
           type: string
           description: The sort order of the query
           enum:
@@ -1050,6 +1142,264 @@ components:
           enum:
             - success
             - error
+
+    # Request schema for alerts query
+    AlertsQueryRequest:
+      type: object
+      properties:
+        startTime:
+          type: string
+          description: The start time of the query
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the query
+          format: date-time
+        limit:
+          type: integer
+          description: The maximum number of items to return
+          default: 100
+          minimum: 1
+          maximum: 1000
+        sortOrder:
+          type: string
+          description: The sort order of the query
+          enum:
+            - asc
+            - desc
+          default: desc
+        searchScope:
+          $ref: "#/components/schemas/ComponentSearchScope"
+      required: [startTime, endTime, searchScope]
+
+    # Response schema for alerts query
+    AlertsQueryResponse:
+      type: object
+      properties:
+        alerts:
+          type: array
+          description: The list of alerts
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                description: The timestamp of the alert
+                format: date-time
+              alertId:
+                type: string
+                description: The alert ID
+              alertValue:
+                type: string
+                description: The value of the alert
+              notificationChannels:
+                type: array
+                description: The notification channels of the alert. Empty if failed to notify.
+                items:
+                  type: string
+                  description: The name of the notification channel
+              metadata:
+                type: object
+                properties:
+                  alertRule:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        description: The name of the alert rule
+                      description:
+                        type: string
+                        description: The description of the alert rule
+                      severity:
+                        type: string
+                        description: The severity of the alert rule
+                        enum:
+                          - info
+                          - warning
+                          - critical
+                      source:
+                        type: object
+                        description: The source configuration of the alert rule
+                        properties:
+                          type:
+                            type: string
+                            description: The type of the alert source
+                            enum:
+                              - log
+                              - metric
+                          query:
+                            type: string
+                            description: The query used for log-based alerts
+                          metric:
+                            type: string
+                            description: The metric used for metric-based alerts
+                      condition:
+                        type: object
+                        description: The condition configuration of the alert rule
+                        properties:
+                          operator:
+                            type: string
+                            description: The comparison operator used for evaluation
+                            enum:
+                              - gt
+                              - lt
+                              - gte
+                              - lte
+                              - eq
+                              - neq
+                          threshold:
+                            type: number
+                            description: The threshold value that triggers the alert
+                          window:
+                            type: string
+                            description: The time window for aggregation (e.g. "5m", "1h")
+                          interval:
+                            type: string
+                            description: The evaluation interval (e.g. "1m", "5m")
+                  labels:
+                    type: object
+                    properties:
+                      componentName:
+                        type: string
+                        description: The name of the component
+                      environmentName:
+                        type: string
+                        description: The name of the environment
+                      projectName:
+                        type: string
+                        description: The name of the project
+                      namespaceName:
+                        type: string
+                        description: The name of the namespace
+                      componentUid:
+                        type: string
+                        description: The UID of the component
+                        format: uuid
+                      environmentUid:
+                        type: string
+                        description: The UID of the environment
+                        format: uuid
+                      projectUid:
+                        type: string
+                        description: The UID of the project
+                        format: uuid
+        total:
+          type: integer
+          description: The total number of alerts
+        tookMs:
+          type: integer
+          description: The time taken to query the alerts in milliseconds
+
+    # Request schema for incidents query
+    IncidentsQueryRequest:
+      type: object
+      properties:
+        startTime:
+          type: string
+          description: The start time of the query
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the query
+          format: date-time
+        limit:
+          type: integer
+          description: The maximum number of items to return
+          default: 100
+          minimum: 1
+          maximum: 1000
+        sortOrder:
+          type: string
+          description: The sort order of the query
+          enum:
+            - asc
+            - desc
+          default: desc
+        searchScope:
+          $ref: "#/components/schemas/ComponentSearchScope"
+      required: [startTime, endTime, searchScope]
+
+    # Response schema for incidents query
+    IncidentsQueryResponse:
+      type: object
+      properties:
+        incidents:
+          type: array
+          description: The list of incidents
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                description: The timestamp of the incident
+                format: date-time
+              alertId:
+                type: string
+                description: The ID of the alert that triggered the incident
+              incidentId:
+                type: string
+                description: The ID of the incident
+              incidentTriggerAiRca:
+                type: boolean
+                description: Whether AI RCA was triggered for the incident
+              status:
+                type: string
+                description: The status of the incident
+                enum:
+                  - triggered
+                  - acknowledged
+                  - resolved
+              triggeredAt:
+                type: string
+                description: The timestamp when the incident was triggered
+                format: date-time
+              acknowledgedAt:
+                type: string
+                description: The timestamp when the incident was acknowledged
+                format: date-time
+              resolvedAt:
+                type: string
+                description: The timestamp when the incident was resolved
+                format: date-time
+              notes:
+                type: string
+                description: Notes associated with the incident
+              description:
+                type: string
+                description: The description of the incident
+              labels:
+                type: object
+                properties:
+                  componentName:
+                    type: string
+                    description: The name of the component
+                  environmentName:
+                    type: string
+                    description: The name of the environment
+                  projectName:
+                    type: string
+                    description: The name of the project
+                  namespaceName:
+                    type: string
+                    description: The name of the namespace
+                  componentUid:
+                    type: string
+                    description: The UID of the component
+                    format: uuid
+                  environmentUid:
+                    type: string
+                    description: The UID of the environment
+                    format: uuid
+                  projectUid:
+                    type: string
+                    description: The UID of the project
+                    format: uuid
+        total:
+          type: integer
+          description: The total number of incidents
+        tookMs:
+          type: integer
+          description: The time taken to query the incidents in milliseconds
 
     # New error response schema
     ErrorResponse:

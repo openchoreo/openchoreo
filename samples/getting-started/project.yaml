@@ -9,4 +9,5 @@ metadata:
   labels:
     openchoreo.dev/name: default
 spec:
-  deploymentPipelineRef: default
+  deploymentPipelineRef:
+    name: default

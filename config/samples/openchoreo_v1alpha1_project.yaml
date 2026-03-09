@@ -9,4 +9,5 @@ metadata:
   labels:
     openchoreo.dev/name: internal-apps
 spec:
-  deploymentPipelineRef: default-deployment-pipeline
+  deploymentPipelineRef:
+    name: default-deployment-pipeline

@@ -33,64 +33,65 @@ spec:
   # Schema definition for workflow parameters
   # Defines the contract between platform engineers (who create workflows) and developers (who use them)
   schema:
-    # Custom type definitions for reusable complex structures
-    # These types can be referenced in parameters using their name (e.g., "[]Endpoint", "ResourceRequirements")
-    # Enables strongly-typed nested objects, arrays, and lists with validation
-    types:
-      # Endpoint type - Defines service endpoints exposed by the component
-      Endpoint:
-        name: "string"
-        port: "integer"
-        type: "string | enum=REST,HTTP,TCP,UDP"
-        schemaFile: "string | description='Path to the schema file defining the endpoint structure'"
+    ocSchema:
+      # Custom type definitions for reusable complex structures
+      # These types can be referenced in parameters using their name (e.g., "[]Endpoint", "ResourceRequirements")
+      # Enables strongly-typed nested objects, arrays, and lists with validation
+      types:
+        # Endpoint type - Defines service endpoints exposed by the component
+        Endpoint:
+          name: "string"
+          port: "integer"
+          type: "string | enum=REST,HTTP,TCP,UDP"
+          schemaFile: "string | description='Path to the schema file defining the endpoint structure'"
 
-      # ResourceRequirements type - Kubernetes resource requests and limits
-      ResourceRequirements:
-        requests: "ResourceQuantity | default={}"
-        limits: "ResourceQuantity | default={}"
+        # ResourceRequirements type - Kubernetes resource requests and limits
+        ResourceRequirements:
+          requests: "ResourceQuantity | default={}"
+          limits: "ResourceQuantity | default={}"
 
-      # ResourceQuantity type - CPU and memory resource specifications
-      ResourceQuantity:
-        cpu: "string | default=100m"
-        memory: "string | default=256Mi"
+        # ResourceQuantity type - CPU and memory resource specifications
+        ResourceQuantity:
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
 
-    parameters:
-      # Repository parameters - structured parameters for build automation
-      repository:
-        url: string | description="Git repository URL"
-        secretRef: string | description="Secret reference name for private repository Git credentials (optional for public repos)"
-        revision:
-          branch: string | default=main description="Git branch to checkout"
-          commit: string | description="Git commit SHA or reference (optional, defaults to latest commit on branch)"
-        appPath: string | default=. description="Path to the application directory within the repository"
+      parameters:
+        # Repository parameters - structured parameters for build automation
+        repository:
+          url: string | description="Git repository URL"
+          secretRef: string | description="Secret reference name for private repository Git credentials (optional for public repos)"
+          revision:
+            branch: string | default=main description="Git branch to checkout"
+            commit: string | description="Git commit SHA or reference (optional, defaults to latest commit on branch)"
+          appPath: string | default=. description="Path to the application directory within the repository"
 
-      # Developer-configurable parameters - Custom parameters defined by Platform Engineers
-      # These allow developers to customize the build process within PE-defined constraints
-      # This workflow demonstrates advanced parameter features: nested objects, arrays, enums, and custom types
-      # Simple scalar parameters
-      version: integer | default=1 description="Build version number for image tagging"
-      testMode: string | enum=unit,integration,none default=unit description="Test mode to execute (unit, integration, or none)"
+        # Developer-configurable parameters - Custom parameters defined by Platform Engineers
+        # These allow developers to customize the build process within PE-defined constraints
+        # This workflow demonstrates advanced parameter features: nested objects, arrays, enums, and custom types
+        # Simple scalar parameters
+        version: integer | default=1 description="Build version number for image tagging"
+        testMode: string | enum=unit,integration,none default=unit description="Test mode to execute (unit, integration, or none)"
 
-      # Array parameters for container customization
-      command: '[]string | default=[] description="Custom command to override the default entrypoint"'
-      args: '[]string | default=[] description="Custom arguments to pass to the command"'
+        # Array parameters for container customization
+        command: '[]string | default=[] description="Custom command to override the default entrypoint"'
+        args: '[]string | default=[] description="Custom arguments to pass to the command"'
 
-      # Build timeout configuration
-      timeout: string | default="30m" description="Build timeout duration (e.g., 30m, 1h)"
+        # Build timeout configuration
+        timeout: string | default="30m" description="Build timeout duration (e.g., 30m, 1h)"
 
-      # Nested object for cache configuration
-      cache:
-        enabled: boolean | default=true description="Enable build cache to speed up subsequent builds"
-        paths: '[]string | default=["/root/.cache"] description="Paths to cache between builds"'
+        # Nested object for cache configuration
+        cache:
+          enabled: boolean | default=true description="Enable build cache to speed up subsequent builds"
+          paths: '[]string | default=["/root/.cache"] description="Paths to cache between builds"'
 
-      # Nested object for build constraints
-      limits:
-        maxRetries: integer | default=3 minimum=0 maximum=10 description="Maximum number of retry attempts on build failure"
-        maxDurationMinutes: integer | default=60 minimum=5 maximum=240 description="Maximum build duration in minutes"
+        # Nested object for build constraints
+        limits:
+          maxRetries: integer | default=3 minimum=0 maximum=10 description="Maximum number of retry attempts on build failure"
+          maxDurationMinutes: integer | default=60 minimum=5 maximum=240 description="Maximum build duration in minutes"
 
-      # Custom type parameters - Reference types defined above
-      endpoints: '[]Endpoint | default=[] description="List of service endpoints exposed by the component"'
-      resources: "ResourceRequirements | default={} description='CPU and memory resource constraints for the build'"
+        # Custom type parameters - Reference types defined above
+        endpoints: '[]Endpoint | default=[] description="List of service endpoints exposed by the component"'
+        resources: "ResourceRequirements | default={} description='CPU and memory resource constraints for the build'"
 
   # Workflow template that gets instantiated for each WorkflowRun
   # This generates an Argo Workflow resource in the build plane cluster

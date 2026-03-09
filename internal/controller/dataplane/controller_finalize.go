@@ -6,8 +6,8 @@ package dataplane
 import (
 	"context"
 	"fmt"
+	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,7 +17,6 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // DataPlaneCleanupFinalizer is the finalizer that is used to clean up dataplane resources.
@@ -45,23 +44,28 @@ func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *openchoreov1a
 		return ctrl.Result{}, nil
 	}
 
+	// Block deletion if the dataplane is still referenced by any environment.
+	refCount, err := r.countReferencingEnvironments(ctx, dataPlane)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check environment references: %w", err)
+	}
+	if refCount > 0 {
+		msg := fmt.Sprintf("Deletion blocked: dataplane is still referenced by %d environment(s)", refCount)
+		logger.Info(msg)
+		if meta.SetStatusCondition(&dataPlane.Status.Conditions, NewDeletionBlockedCondition(dataPlane.Generation, msg)) {
+			if err := controller.UpdateStatusConditions(ctx, r.Client, old, dataPlane); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
 	// Mark the condition as finalizing and return so that the dataplane will indicate that it is being finalized.
 	// The actual finalization will be done in the next reconcile loop triggered by the status update.
 	if meta.SetStatusCondition(&dataPlane.Status.Conditions, NewDataPlaneFinalizingCondition(dataPlane.Generation)) {
 		if err := controller.UpdateStatusConditions(ctx, r.Client, old, dataPlane); err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, nil
-	}
-
-	// Perform cleanup logic for referenced environments
-	environmentsDeleted, err := r.deleteEnvironmentsAndWait(ctx, dataPlane)
-	if err != nil {
-		logger.Error(err, "Failed to delete environments")
-		return ctrl.Result{}, err
-	}
-	if !environmentsDeleted {
-		logger.Info("Environments are still being deleted", "name", dataPlane.Name)
 		return ctrl.Result{}, nil
 	}
 
@@ -80,7 +84,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *openchoreov1a
 		r.invalidateCache(ctx, dataPlane)
 	}
 
-	// Remove the finalizer once cleanup is done
+	// Remove the finalizer once no environments reference this dataplane
 	if controllerutil.RemoveFinalizer(dataPlane, DataPlaneCleanupFinalizer) {
 		if err := r.Update(ctx, dataPlane); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
@@ -91,67 +95,17 @@ func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *openchoreov1a
 	return ctrl.Result{}, nil
 }
 
-// deleteEnvironmentsAndWait deletes referenced deployments and waits for them to be fully deleted
-func (r *Reconciler) deleteEnvironmentsAndWait(ctx context.Context, dataPlane *openchoreov1alpha1.DataPlane) (bool, error) {
-	logger := log.FromContext(ctx).WithValues("dataplane", dataPlane.Name)
-	logger.Info("Cleaning up environments")
-
-	// Find all Environments referred to by this Dataplane
+// countReferencingEnvironments returns the number of environments in the same namespace that reference this dataplane.
+func (r *Reconciler) countReferencingEnvironments(ctx context.Context, dataPlane *openchoreov1alpha1.DataPlane) (int, error) {
 	environmentsList := &openchoreov1alpha1.EnvironmentList{}
-	listOpts := []client.ListOption{
+	if err := r.List(ctx, environmentsList,
 		client.InNamespace(dataPlane.Namespace),
-		client.MatchingLabels{
-			labels.LabelKeyNamespaceName: controller.GetNamespaceName(dataPlane),
-		},
 		client.MatchingFields{
 			dataplaneRefIndexKey: dataPlane.Name,
 		},
+	); err != nil {
+		return 0, fmt.Errorf("failed to list environments: %w", err)
 	}
 
-	if err := r.List(ctx, environmentsList, listOpts...); err != nil {
-		if errors.IsNotFound(err) {
-			logger.Info("Environments not found. Continuing with deletion.")
-			return true, nil
-		}
-		return false, fmt.Errorf("failed to list environments: %w", err)
-	}
-
-	pendingDeletion := false
-
-	// Check if any environmnets still exist
-	if len(environmentsList.Items) > 0 {
-		// Process each Environment
-		for i := range environmentsList.Items {
-			environment := &environmentsList.Items[i]
-
-			// Check if the environment is already being deleted
-			if !environment.DeletionTimestamp.IsZero() {
-				// Still in the process of being deleted
-				pendingDeletion = true
-				logger.Info("Environment is still being deleted", "name", environment.Name)
-				continue
-			}
-
-			// If not being deleted, trigger deletion
-			logger.Info("Deleting environment", "name", environment.Name)
-			if err := r.Delete(ctx, environment); err != nil {
-				if errors.IsNotFound(err) {
-					logger.Info("Environment already deleted", "name", environment.Name)
-					continue
-				}
-				return false, fmt.Errorf("failed to delete environment %s: %w", environment.Name, err)
-			}
-
-			// Mark as pending since we just triggered deletion
-			pendingDeletion = true
-		}
-
-		// If there are still deployments being deleted, go to next iteration to check again later
-		if pendingDeletion {
-			return false, nil
-		}
-	}
-
-	logger.Info("All environments are deleted")
-	return true, nil
+	return len(environmentsList.Items), nil
 }
