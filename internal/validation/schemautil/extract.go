@@ -32,7 +32,7 @@ func ExtractStructuralSchemas(
 		allErrs = append(allErrs, field.Invalid(
 			basePath.Child("parameters"),
 			omitValue,
-			fmt.Sprintf("failed to build parameters schema: %v", err)))
+			fmt.Sprintf("failed to parse parameters schema: %v", err)))
 	}
 
 	// Extract and build environmentConfigs structural schema
@@ -41,7 +41,7 @@ func ExtractStructuralSchemas(
 		allErrs = append(allErrs, field.Invalid(
 			basePath.Child("environmentConfigs"),
 			omitValue,
-			fmt.Sprintf("failed to build environmentConfigs schema: %v", err)))
+			fmt.Sprintf("failed to parse environmentConfigs schema: %v", err)))
 	}
 
 	return parametersSchema, envConfigsSchema, allErrs

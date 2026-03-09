@@ -69,7 +69,7 @@ var _ = Describe("Trait Webhook", func() {
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to build structural schema"))
+			Expect(err.Error()).To(ContainSubstring("failed to parse environmentConfigs schema"))
 		})
 
 		It("Should admit trait with only environmentConfigs (no parameters)", func() {

@@ -201,7 +201,7 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to build structural schema"))
+			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
 		})
 
 		It("should reject invalid type reference in parameters", func() {
@@ -215,7 +215,7 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("failed to build structural schema"))
+			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
 		})
 	})
 
