@@ -31,18 +31,28 @@ type AlertEntry struct {
 	EnvironmentID        string
 	ProjectID            string
 	IncidentEnabled      bool
+	Severity             string
+	Description          string
+	NotificationChannels string // JSON array of channel names
+	SourceType           string
+	SourceQuery          string
+	SourceMetric         string
+	ConditionOperator    string
+	ConditionThreshold   float64
+	ConditionWindow      string
+	ConditionInterval    string
 }
 
 // QueryParams contains filters and pagination for querying alert entries.
 type QueryParams struct {
-	StartTime       string
-	EndTime         string
-	NamespaceName   string
-	ProjectName     string
-	ComponentName   string
-	EnvironmentName string
-	Limit           int
-	SortOrder       string
+	StartTime     string
+	EndTime       string
+	NamespaceName string
+	ProjectID     string
+	ComponentID   string
+	EnvironmentID string
+	Limit         int
+	SortOrder     string
 }
 
 // AlertEntryStore defines lifecycle and write operations for alert entry persistence.

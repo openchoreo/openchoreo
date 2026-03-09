@@ -6,16 +6,14 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	choreoapis "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
@@ -25,43 +23,64 @@ const (
 	defaultQueryLimit = 100
 )
 
+var ErrAlertsResolveSearchScope = errors.New("alerts search scope resolution failed")
+
 func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryRequest) (*gen.AlertsQueryResponse, error) {
 	if s.alertEntryStore == nil {
 		return nil, fmt.Errorf("alert entry store is not initialized")
 	}
 
+	scope := &req.SearchScope
+
+	var projectUID, componentUID, environmentUID string
+	if s.resolver != nil {
+		projectName := stringPtrValue(scope.Project)
+		componentName := stringPtrValue(scope.Component)
+		environmentName := stringPtrValue(scope.Environment)
+
+		if projectName != "" {
+			var err error
+			projectUID, err = s.resolver.GetProjectUID(ctx, scope.Namespace, projectName)
+			if err != nil {
+				return nil, fmt.Errorf("%w: failed to get project UID: %w", ErrAlertsResolveSearchScope, err)
+			}
+		}
+		if componentName != "" {
+			var err error
+			componentUID, err = s.resolver.GetComponentUID(ctx, scope.Namespace, projectName, componentName)
+			if err != nil {
+				return nil, fmt.Errorf("%w: failed to get component UID: %w", ErrAlertsResolveSearchScope, err)
+			}
+		}
+		if environmentName != "" {
+			var err error
+			environmentUID, err = s.resolver.GetEnvironmentUID(ctx, scope.Namespace, environmentName)
+			if err != nil {
+				return nil, fmt.Errorf("%w: failed to get environment UID: %w", ErrAlertsResolveSearchScope, err)
+			}
+		}
+	}
+
 	start := time.Now()
 	queryParams := alertentry.QueryParams{
-		StartTime:       req.StartTime.Format(time.RFC3339Nano),
-		EndTime:         req.EndTime.Format(time.RFC3339Nano),
-		NamespaceName:   req.SearchScope.Namespace,
-		ProjectName:     stringPtrValue(req.SearchScope.Project),
-		ComponentName:   stringPtrValue(req.SearchScope.Component),
-		EnvironmentName: stringPtrValue(req.SearchScope.Environment),
-		Limit:           intPtrValue(req.Limit, defaultQueryLimit),
-		SortOrder:       string(alertSortOrderOrDefault(req.SortOrder)),
+		StartTime:     req.StartTime.Format(time.RFC3339Nano),
+		EndTime:       req.EndTime.Format(time.RFC3339Nano),
+		NamespaceName: scope.Namespace,
+		ProjectID:     projectUID,
+		ComponentID:   componentUID,
+		EnvironmentID: environmentUID,
+		Limit:         intPtrValue(req.Limit, defaultQueryLimit),
+		SortOrder:     string(alertSortOrderOrDefault(req.SortOrder)),
 	}
 
 	entries, total, err := s.alertEntryStore.QueryAlertEntries(ctx, queryParams)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query alert entries: %w", err)
 	}
 
-	crCache := make(map[string]*choreoapis.ObservabilityAlertRule, len(entries))
 	items := make([]alertQueryItemPayload, 0, len(entries))
 	for _, entry := range entries {
-		crKey := strings.TrimSpace(entry.AlertRuleCRNamespace) + "/" + strings.TrimSpace(entry.AlertRuleCRName)
-		if _, exists := crCache[crKey]; !exists {
-			cr, getErr := s.getAlertRuleCR(ctx, entry.AlertRuleCRNamespace, entry.AlertRuleCRName)
-			if getErr != nil {
-				if !apierrors.IsNotFound(getErr) {
-					return nil, fmt.Errorf("failed to get alert rule custom resource %s: %w", crKey, getErr)
-				}
-				s.logger.Debug("Alert rule CR not found for alert entry", "rule", crKey, "error", getErr)
-			}
-			crCache[crKey] = cr
-		}
-		items = append(items, s.buildAlertQueryItem(entry, crCache[crKey]))
+		items = append(items, s.buildAlertQueryItem(entry))
 	}
 
 	responsePayload := alertQueryResponsePayload{
@@ -100,7 +119,7 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 
 	entries, total, err := s.incidentEntryStore.QueryIncidentEntries(ctx, queryParams)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query incident entries: %w", err)
 	}
 
 	items := make([]incidentQueryItemPayload, 0, len(entries))
@@ -145,21 +164,7 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 	return &response, nil
 }
 
-func (s *AlertService) getAlertRuleCR(ctx context.Context, ruleNamespace, ruleName string) (*choreoapis.ObservabilityAlertRule, error) {
-	if s.k8sClient == nil {
-		return nil, nil
-	}
-	if strings.TrimSpace(ruleNamespace) == "" || strings.TrimSpace(ruleName) == "" {
-		return nil, nil
-	}
-	alertRule := &choreoapis.ObservabilityAlertRule{}
-	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: ruleName, Namespace: ruleNamespace}, alertRule); err != nil {
-		return nil, err
-	}
-	return alertRule, nil
-}
-
-func (s *AlertService) buildAlertQueryItem(entry alertentry.AlertEntry, alertRule *choreoapis.ObservabilityAlertRule) alertQueryItemPayload {
+func (s *AlertService) buildAlertQueryItem(entry alertentry.AlertEntry) alertQueryItemPayload {
 	item := alertQueryItemPayload{
 		Timestamp:  parseTimePtr(entry.Timestamp),
 		AlertID:    stringPtr(strings.TrimSpace(entry.ID)),
@@ -176,46 +181,51 @@ func (s *AlertService) buildAlertQueryItem(entry alertentry.AlertEntry, alertRul
 			),
 			AlertRule: &alertRulePayload{Name: stringPtr(strings.TrimSpace(entry.AlertRuleName))},
 		},
-		NotificationChannels: []string{},
+		NotificationChannels: parseNotificationChannelsJSON(entry.NotificationChannels),
 	}
 
-	if alertRule == nil {
-		return item
-	}
-
-	item.NotificationChannels = make([]string, 0, len(alertRule.Spec.Actions.Notifications.Channels))
-	for _, channel := range alertRule.Spec.Actions.Notifications.Channels {
-		chName := strings.TrimSpace(string(channel))
-		if chName != "" {
-			item.NotificationChannels = append(item.NotificationChannels, chName)
+	if strings.TrimSpace(entry.Severity) != "" || strings.TrimSpace(entry.Description) != "" ||
+		strings.TrimSpace(entry.SourceType) != "" || strings.TrimSpace(entry.SourceQuery) != "" ||
+		strings.TrimSpace(entry.SourceMetric) != "" || strings.TrimSpace(entry.ConditionOperator) != "" ||
+		entry.ConditionThreshold != 0 || strings.TrimSpace(entry.ConditionWindow) != "" ||
+		strings.TrimSpace(entry.ConditionInterval) != "" {
+		item.Metadata.AlertRule = &alertRulePayload{
+			Name:        stringPtr(strings.TrimSpace(entry.AlertRuleName)),
+			Description: stringPtr(strings.TrimSpace(entry.Description)),
+			Severity:    stringPtr(strings.TrimSpace(entry.Severity)),
+			Source: &alertRuleSourcePayload{
+				Type:   stringPtr(strings.TrimSpace(entry.SourceType)),
+				Query:  stringPtr(strings.TrimSpace(entry.SourceQuery)),
+				Metric: stringPtr(strings.TrimSpace(entry.SourceMetric)),
+			},
+			Condition: &alertRuleConditionPayload{
+				Operator:  stringPtr(strings.TrimSpace(entry.ConditionOperator)),
+				Threshold: float32Ptr(float32(entry.ConditionThreshold)),
+				Window:    stringPtr(strings.TrimSpace(entry.ConditionWindow)),
+				Interval:  stringPtr(strings.TrimSpace(entry.ConditionInterval)),
+			},
 		}
 	}
-	item.Metadata.AlertRule = &alertRulePayload{
-		Name:        stringPtr(strings.TrimSpace(alertRule.Spec.Name)),
-		Description: stringPtr(strings.TrimSpace(alertRule.Spec.Description)),
-		Severity:    stringPtr(strings.TrimSpace(string(alertRule.Spec.Severity))),
-		Source: &alertRuleSourcePayload{
-			Type:   stringPtr(strings.TrimSpace(string(alertRule.Spec.Source.Type))),
-			Query:  stringPtr(strings.TrimSpace(alertRule.Spec.Source.Query)),
-			Metric: stringPtr(strings.TrimSpace(alertRule.Spec.Source.Metric)),
-		},
-		Condition: &alertRuleConditionPayload{
-			Operator:  stringPtr(strings.TrimSpace(string(alertRule.Spec.Condition.Operator))),
-			Threshold: float32Ptr(float32(alertRule.Spec.Condition.Threshold)),
-			Window:    stringPtr(strings.TrimSpace(alertRule.Spec.Condition.Window.Duration.String())),
-			Interval:  stringPtr(strings.TrimSpace(alertRule.Spec.Condition.Interval.Duration.String())),
-		},
-	}
-	item.Metadata.Labels = buildLabelsPayload(
-		alertRule.Labels[labels.LabelKeyNamespaceName],
-		alertRule.Labels[labels.LabelKeyProjectName],
-		alertRule.Labels[labels.LabelKeyComponentName],
-		alertRule.Labels[labels.LabelKeyEnvironmentName],
-		alertRule.Labels[labels.LabelKeyProjectUID],
-		alertRule.Labels[labels.LabelKeyComponentUID],
-		alertRule.Labels[labels.LabelKeyEnvironmentUID],
-	)
 	return item
+}
+
+func parseNotificationChannelsJSON(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return []string{}
+	}
+	var channels []string
+	if err := json.Unmarshal([]byte(raw), &channels); err != nil {
+		return []string{}
+	}
+	result := make([]string, 0, len(channels))
+	for _, ch := range channels {
+		s := strings.TrimSpace(ch)
+		if s != "" {
+			result = append(result, s)
+		}
+	}
+	return result
 }
 
 func buildLabelsPayload(
@@ -270,6 +280,7 @@ func parseTimePtr(value string) *time.Time {
 	if err != nil {
 		parsed, err = time.Parse(time.RFC3339, trimmed)
 		if err != nil {
+			slog.Default().Warn("failed to parse timestamp for alerts/incidents response", "value", value, "error", err)
 			return nil
 		}
 	}
@@ -307,7 +318,7 @@ func uuidStringPtr(value string) *string {
 }
 
 type alertQueryResponsePayload struct {
-	Alerts []alertQueryItemPayload `json:"alerts,omitempty"`
+	Alerts []alertQueryItemPayload `json:"alerts"`
 	Total  *int                    `json:"total,omitempty"`
 	TookMs *int                    `json:"tookMs,omitempty"`
 }
@@ -357,7 +368,7 @@ type labelsPayload struct {
 }
 
 type incidentQueryResponsePayload struct {
-	Incidents []incidentQueryItemPayload `json:"incidents,omitempty"`
+	Incidents []incidentQueryItemPayload `json:"incidents"`
 	Total     *int                       `json:"total,omitempty"`
 	TookMs    *int                       `json:"tookMs,omitempty"`
 }

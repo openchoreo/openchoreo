@@ -63,6 +63,7 @@ type AlertService struct {
 	logger             *slog.Logger
 	rcaServiceURL      string
 	aiRCAEnabled       bool
+	resolver           *ResourceUIDResolver
 }
 
 // NewAlertService creates a new AlertService.
@@ -76,6 +77,7 @@ func NewAlertService(
 	logger *slog.Logger,
 	rcaServiceURL string,
 	aiRCAEnabled bool,
+	resolver *ResourceUIDResolver,
 ) *AlertService {
 	return &AlertService{
 		osClient:           osClient,
@@ -87,6 +89,7 @@ func NewAlertService(
 		logger:             logger,
 		rcaServiceURL:      rcaServiceURL,
 		aiRCAEnabled:       aiRCAEnabled,
+		resolver:           resolver,
 	}
 }
 
@@ -234,6 +237,28 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		alertDetails.AlertTimestamp = time.Now().UTC().Format(time.RFC3339Nano)
 	}
 
+	// Marshal notification channels to JSON for storage
+	var notificationChannelsJSON string
+	if len(alertDetails.NotificationChannels) > 0 {
+		if b, err := json.Marshal(alertDetails.NotificationChannels); err == nil {
+			notificationChannelsJSON = string(b)
+		}
+	}
+
+	conditionOperator, conditionThreshold, conditionWindow, conditionInterval := "", 0.0, "", ""
+	if alertRule.Spec.Condition.Operator != "" {
+		conditionOperator = string(alertRule.Spec.Condition.Operator)
+	}
+	if alertRule.Spec.Condition.Threshold != 0 {
+		conditionThreshold = float64(alertRule.Spec.Condition.Threshold)
+	}
+	if alertRule.Spec.Condition.Window.Duration.String() != "" {
+		conditionWindow = alertRule.Spec.Condition.Window.Duration.String()
+	}
+	if alertRule.Spec.Condition.Interval.Duration.String() != "" {
+		conditionInterval = alertRule.Spec.Condition.Interval.Duration.String()
+	}
+
 	alertID, err := s.alertEntryStore.WriteAlertEntry(ctx, &alertentry.AlertEntry{
 		Timestamp:            alertDetails.AlertTimestamp,
 		AlertRuleName:        alertDetails.AlertName,
@@ -248,6 +273,16 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		EnvironmentID:        alertDetails.EnvironmentID,
 		ProjectID:            alertDetails.ProjectID,
 		IncidentEnabled:      alertDetails.IncidentEnabled,
+		Severity:             string(alertRule.Spec.Severity),
+		Description:          alertRule.Spec.Description,
+		NotificationChannels: notificationChannelsJSON,
+		SourceType:           string(alertRule.Spec.Source.Type),
+		SourceQuery:          alertRule.Spec.Source.Query,
+		SourceMetric:         alertRule.Spec.Source.Metric,
+		ConditionOperator:    conditionOperator,
+		ConditionThreshold:   conditionThreshold,
+		ConditionWindow:      conditionWindow,
+		ConditionInterval:    conditionInterval,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to store alert entry: %w", err)

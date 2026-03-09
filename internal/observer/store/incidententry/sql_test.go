@@ -45,9 +45,9 @@ func TestSQLiteInitializeAndWriteIncidentEntry(t *testing.T) {
 		ComponentName:   "payments",
 		EnvironmentName: "prod",
 		ProjectName:     "commerce",
-		ComponentID:     "cmp-1",
-		EnvironmentID:   "env-1",
-		ProjectID:       "prj-1",
+		ComponentID:     "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+		EnvironmentID:   "d4e5f6a7-8901-23de-f012-4567890abcde",
+		ProjectID:       "b2c3d4e5-6789-01bc-def0-234567890abc",
 	})
 	if err != nil {
 		t.Fatalf("failed to write incident entry: %v", err)

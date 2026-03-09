@@ -394,8 +394,14 @@ func ValidateAlertsQueryRequest(req *gen.AlertsQueryRequest) error {
 	if err := ValidateTimeRange(req.StartTime.Format(time.RFC3339), req.EndTime.Format(time.RFC3339)); err != nil {
 		return err
 	}
-	if req.SearchScope.Namespace == "" {
+	trimmedNamespace := strings.TrimSpace(req.SearchScope.Namespace)
+	if trimmedNamespace == "" {
 		return fmt.Errorf("searchScope.namespace is required")
+	}
+	req.SearchScope.Namespace = trimmedNamespace
+	if req.SearchScope.Component != nil && strings.TrimSpace(*req.SearchScope.Component) != "" &&
+		(req.SearchScope.Project == nil || strings.TrimSpace(*req.SearchScope.Project) == "") {
+		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
 	if req.Limit != nil {
 		if *req.Limit <= 0 {
@@ -428,8 +434,14 @@ func ValidateIncidentsQueryRequest(req *gen.IncidentsQueryRequest) error {
 	if err := ValidateTimeRange(req.StartTime.Format(time.RFC3339), req.EndTime.Format(time.RFC3339)); err != nil {
 		return err
 	}
-	if req.SearchScope.Namespace == "" {
+	trimmedNamespace := strings.TrimSpace(req.SearchScope.Namespace)
+	if trimmedNamespace == "" {
 		return fmt.Errorf("searchScope.namespace is required")
+	}
+	req.SearchScope.Namespace = trimmedNamespace
+	if req.SearchScope.Component != nil && strings.TrimSpace(*req.SearchScope.Component) != "" &&
+		(req.SearchScope.Project == nil || strings.TrimSpace(*req.SearchScope.Project) == "") {
+		return fmt.Errorf("searchScope.project is required when searchScope.component is provided")
 	}
 	if req.Limit != nil {
 		if *req.Limit <= 0 {

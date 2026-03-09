@@ -10,6 +10,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
+	"github.com/openchoreo/openchoreo/internal/observer/service"
 )
 
 // QueryAlerts handles POST /api/v1alpha1/alerts/query
@@ -37,6 +38,11 @@ func (h *Handler) QueryAlerts(w http.ResponseWriter, r *http.Request) {
 			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
 		case errors.Is(err, observerAuthz.ErrAuthzUnauthorized):
 			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
+		case errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable),
+			errors.Is(err, observerAuthz.ErrAuthzTimeout):
+			h.writeErrorResponse(w, http.StatusServiceUnavailable, gen.InternalServerError, "AUTHZ_UNAVAILABLE", "authorization service temporarily unavailable")
+		case errors.Is(err, service.ErrAlertsResolveSearchScope):
+			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "RESOLVE_SCOPE_FAILED", "failed to resolve search scope: "+err.Error())
 		default:
 			h.logger.Error("Failed to query alerts", "error", err)
 			h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "QUERY_ALERTS_FAILED", "failed to query alerts")
@@ -72,6 +78,9 @@ func (h *Handler) QueryIncidents(w http.ResponseWriter, r *http.Request) {
 			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
 		case errors.Is(err, observerAuthz.ErrAuthzUnauthorized):
 			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
+		case errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable),
+			errors.Is(err, observerAuthz.ErrAuthzTimeout):
+			h.writeErrorResponse(w, http.StatusServiceUnavailable, gen.InternalServerError, "AUTHZ_UNAVAILABLE", "authorization service temporarily unavailable")
 		default:
 			h.logger.Error("Failed to query incidents", "error", err)
 			h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "QUERY_INCIDENTS_FAILED", "failed to query incidents")

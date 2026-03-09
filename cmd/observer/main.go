@@ -208,6 +208,7 @@ func main() {
 		logger.With("component", "alert-service"),
 		cfg.Alerting.RCAServiceURL,
 		cfg.Alerting.AIRCAEnabled,
+		uidResolver,
 	)
 
 	// Wrap services with authorization checks.

@@ -44,10 +44,19 @@ func TestSQLiteInitializeAndWriteAlertEntry(t *testing.T) {
 		ComponentName:        "payments",
 		EnvironmentName:      "prod",
 		ProjectName:          "commerce",
-		ComponentID:          "cmp-1",
-		EnvironmentID:        "env-1",
-		ProjectID:            "prj-1",
+		ComponentID:          "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+		EnvironmentID:        "d4e5f6a7-8901-23de-f012-4567890abcde",
+		ProjectID:            "b2c3d4e5-6789-01bc-def0-234567890abc",
 		IncidentEnabled:      true,
+		Severity:             "critical",
+		Description:          "Payment error rate exceeds threshold",
+		NotificationChannels: `["email-main"]`,
+		SourceType:           "log",
+		SourceQuery:          "level=error",
+		ConditionOperator:    "gt",
+		ConditionThreshold:   10,
+		ConditionWindow:      "5m0s",
+		ConditionInterval:    "1m0s",
 	})
 	if err != nil {
 		t.Fatalf("failed to write alert entry: %v", err)
@@ -115,7 +124,9 @@ func TestQueryAlertEntries(t *testing.T) {
 			ComponentName:        "comp-1",
 			EnvironmentName:      "dev",
 			ProjectName:          "proj-1",
-			ProjectID:            "11111111-1111-1111-1111-111111111111",
+			ProjectID:            "b2c3d4e5-6789-01bc-def0-234567890abc",
+			ComponentID:          "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+			EnvironmentID:        "d4e5f6a7-8901-23de-f012-4567890abcde",
 		},
 		{
 			Timestamp:            "2026-03-07T10:21:30Z",
@@ -127,7 +138,9 @@ func TestQueryAlertEntries(t *testing.T) {
 			ComponentName:        "comp-2",
 			EnvironmentName:      "prod",
 			ProjectName:          "proj-2",
-			ProjectID:            "22222222-2222-2222-2222-222222222222",
+			ProjectID:            "e5f6a7b8-9012-34ef-0123-567890abcdef",
+			ComponentID:          "f6a7b8c9-0123-45f0-1234-67890abcdef0",
+			EnvironmentID:        "a7b8c9d0-1234-56f1-2345-7890abcdef01",
 		},
 	}
 	for _, entry := range entries {
@@ -137,12 +150,12 @@ func TestQueryAlertEntries(t *testing.T) {
 	}
 
 	got, total, err := store.QueryAlertEntries(ctx, QueryParams{
-		StartTime:       "2026-03-07T10:00:00Z",
-		EndTime:         "2026-03-07T11:00:00Z",
-		NamespaceName:   "ns-2",
-		EnvironmentName: "prod",
-		Limit:           10,
-		SortOrder:       "desc",
+		StartTime:     "2026-03-07T10:00:00Z",
+		EndTime:       "2026-03-07T11:00:00Z",
+		NamespaceName: "ns-2",
+		EnvironmentID: "a7b8c9d0-1234-56f1-2345-7890abcdef01",
+		Limit:         10,
+		SortOrder:     "desc",
 	})
 	if err != nil {
 		t.Fatalf("failed to query alert entries: %v", err)
