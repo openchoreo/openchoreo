@@ -297,7 +297,7 @@ _e2e.install-op:
 
 .PHONY: _e2e.configure-dp
 _e2e.configure-dp:
-	@$(call log_info, Registering ClusterDataPlane)
+	@$(call log_info, Registering DataPlane)
 	$(call e2e_register_plane,$(E2E_DP_NS),$(E2E_K3D_DIR)/dataplane.yaml)
 	@$(call log_info, Registering ClusterDataPlane)
 	$(call e2e_register_plane,$(E2E_DP_NS),$(E2E_K3D_DIR)/clusterdataplane.yaml)

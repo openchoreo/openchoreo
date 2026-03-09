@@ -55,6 +55,7 @@ var _ = Describe("Platform Health", Ordered, func() {
 			"releasebindings.openchoreo.dev",
 			"renderedreleases.openchoreo.dev",
 			"workloads.openchoreo.dev",
+			"workflows.openchoreo.dev",
 			"clusterworkflows.openchoreo.dev",
 		}
 
@@ -93,6 +94,13 @@ var _ = Describe("Platform Health", Ordered, func() {
 		for _, trait := range clusterTraits {
 			It("should have ClusterTrait '"+trait+"'", func() {
 				framework.AssertClusterResourceExists(Default, kubeContext, "clustertrait", trait)
+			})
+		}
+
+		clusterWorkflows := []string{"docker", "react", "ballerina-buildpack", "google-cloud-buildpacks"}
+		for _, wf := range clusterWorkflows {
+			It("should have ClusterWorkflow '"+wf+"'", func() {
+				framework.AssertClusterResourceExists(Default, kubeContext, "clusterworkflow", wf)
 			})
 		}
 	})

@@ -127,16 +127,18 @@ func (r *Reconciler) makeExternalResourceHandlers(dpClient client.Client) []data
 }
 
 func (r *Reconciler) getDPClient(ctx context.Context, env *openchoreov1alpha1.Environment) (client.Client, error) {
-	dataplaneRes, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
+	dataPlaneResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, r.Client, env)
 	if err != nil {
-		// Return an error if dataplane retrieval fails
 		return nil, fmt.Errorf("failed to get dataplane for environment %s: %w", env.Name, err)
 	}
 
-	// Get Kubernetes client - supports both agent mode (via HTTP proxy) and direct access mode
-	dpClient, err := kubernetesClient.GetK8sClientFromDataPlane(r.K8sClientMgr, dataplaneRes, r.GatewayURL)
+	var dpClient client.Client
+	if dataPlaneResult.DataPlane != nil {
+		dpClient, err = kubernetesClient.GetK8sClientFromDataPlane(r.K8sClientMgr, dataPlaneResult.DataPlane, r.GatewayURL)
+	} else {
+		dpClient, err = kubernetesClient.GetK8sClientFromClusterDataPlane(r.K8sClientMgr, dataPlaneResult.ClusterDataPlane, r.GatewayURL)
+	}
 	if err != nil {
-		// Return an error if client creation fails
 		return nil, fmt.Errorf("failed to get DP client: %w", err)
 	}
 
