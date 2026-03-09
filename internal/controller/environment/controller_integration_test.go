@@ -277,7 +277,7 @@ var _ = Describe("Environment Controller", func() {
 					Spec: openchoreov1alpha1.DeploymentPipelineSpec{
 						PromotionPaths: []openchoreov1alpha1.PromotionPath{
 							{
-								SourceEnvironmentRef: nn.Name,
+								SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: nn.Name},
 								TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 									{Name: "production"},
 								},
@@ -344,7 +344,7 @@ var _ = Describe("Environment Controller", func() {
 					Spec: openchoreov1alpha1.DeploymentPipelineSpec{
 						PromotionPaths: []openchoreov1alpha1.PromotionPath{
 							{
-								SourceEnvironmentRef: "development",
+								SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "development"},
 								TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 									{Name: nn.Name},
 								},
@@ -411,7 +411,7 @@ var _ = Describe("Environment Controller", func() {
 					Spec: openchoreov1alpha1.DeploymentPipelineSpec{
 						PromotionPaths: []openchoreov1alpha1.PromotionPath{
 							{
-								SourceEnvironmentRef: nn.Name,
+								SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: nn.Name},
 								TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 									{Name: "production"},
 								},

@@ -224,7 +224,7 @@ func TestFindEnvironmentNamesFromDeploymentPipeline(t *testing.T) {
 				Spec: openchoreov1alpha1.DeploymentPipelineSpec{
 					PromotionPaths: []openchoreov1alpha1.PromotionPath{
 						{
-							SourceEnvironmentRef:  "dev",
+							SourceEnvironmentRef:  openchoreov1alpha1.EnvironmentRef{Name: "dev"},
 							TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{},
 						},
 					},
@@ -238,7 +238,7 @@ func TestFindEnvironmentNamesFromDeploymentPipeline(t *testing.T) {
 				Spec: openchoreov1alpha1.DeploymentPipelineSpec{
 					PromotionPaths: []openchoreov1alpha1.PromotionPath{
 						{
-							SourceEnvironmentRef: "dev",
+							SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "dev"},
 							TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 								{Name: "staging"},
 								{Name: "prod"},
@@ -255,13 +255,13 @@ func TestFindEnvironmentNamesFromDeploymentPipeline(t *testing.T) {
 				Spec: openchoreov1alpha1.DeploymentPipelineSpec{
 					PromotionPaths: []openchoreov1alpha1.PromotionPath{
 						{
-							SourceEnvironmentRef: "dev",
+							SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "dev"},
 							TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 								{Name: "staging"},
 							},
 						},
 						{
-							SourceEnvironmentRef: "staging",
+							SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "staging"},
 							TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 								{Name: "prod"},
 							},

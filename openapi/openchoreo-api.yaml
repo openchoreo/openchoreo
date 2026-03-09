@@ -57,6 +57,8 @@ tags:
     description: ComponentType templates defined by platform engineers
   - name: Traits
     description: Trait templates for composable cross-cutting concerns
+  - name: ClusterWorkflows
+    description: Cluster-scoped workflow templates for building and automating tasks
   - name: Workflows
     description: Generic workflow templates
   - name: Authorization
@@ -9560,9 +9562,23 @@ components:
         - targetEnvironmentRefs
       properties:
         sourceEnvironmentRef:
-          type: string
-          description: Source environment name
-          example: dev
+          type: object
+          description: |
+            Reference to the source environment for this promotion path.
+          properties:
+            kind:
+              type: string
+              description: Kind of environment resource
+              enum: [Environment]
+              default: Environment
+            name:
+              type: string
+              description: Name of the environment resource
+              minLength: 1
+              maxLength: 63
+              example: dev
+          required:
+            - name
         targetEnvironmentRefs:
           type: array
           description: Target environments for promotion

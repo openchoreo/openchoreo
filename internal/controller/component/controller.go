@@ -664,11 +664,11 @@ func findRootEnvironment(pipeline *openchoreov1alpha1.DeploymentPipeline) (strin
 	// Find source environment that's never a target (the root)
 	var rootEnv string
 	for _, path := range pipeline.Spec.PromotionPaths {
-		if path.SourceEnvironmentRef == "" {
+		if path.SourceEnvironmentRef.Name == "" {
 			continue
 		}
-		if !targets[path.SourceEnvironmentRef] {
-			rootEnv = path.SourceEnvironmentRef
+		if !targets[path.SourceEnvironmentRef.Name] {
+			rootEnv = path.SourceEnvironmentRef.Name
 			break
 		}
 	}

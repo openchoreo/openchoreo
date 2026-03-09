@@ -77,7 +77,7 @@ func (r *Reconciler) findEnvironmentNamesFromDeploymentPipeline(deploymentPipeli
 	// Iterate through all promotion paths
 	for _, path := range deploymentPipeline.Spec.PromotionPaths {
 		// Add source environment
-		environmentMap[path.SourceEnvironmentRef] = struct{}{}
+		environmentMap[path.SourceEnvironmentRef.Name] = struct{}{}
 
 		// Add target environments
 		for _, target := range path.TargetEnvironmentRefs {

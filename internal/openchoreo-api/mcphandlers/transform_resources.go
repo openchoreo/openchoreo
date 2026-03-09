@@ -279,7 +279,10 @@ func deploymentPipelineDetail(dp *openchoreov1alpha1.DeploymentPipeline) map[str
 		for i := range dp.Spec.PromotionPaths {
 			pp := dp.Spec.PromotionPaths[i]
 			p := map[string]any{
-				"sourceEnvironmentRef": pp.SourceEnvironmentRef,
+				"sourceEnvironmentRef": map[string]any{
+					"kind": string(pp.SourceEnvironmentRef.Kind),
+					"name": pp.SourceEnvironmentRef.Name,
+				},
 			}
 			if len(pp.TargetEnvironmentRefs) > 0 {
 				targets := make([]map[string]any, 0, len(pp.TargetEnvironmentRefs))

@@ -65,7 +65,7 @@ func platformResourcesYAML(cpNamespace string, environments, projects []string) 
 
 	if len(environments) == 0 {
 		promotionPaths = append(promotionPaths, openchoreov1alpha1.PromotionPath{
-			SourceEnvironmentRef: "development",
+			SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "development"},
 			TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{{
 				Name:             "development",
 				RequiresApproval: false,
@@ -73,7 +73,7 @@ func platformResourcesYAML(cpNamespace string, environments, projects []string) 
 		})
 	} else if len(environments) == 1 {
 		promotionPaths = append(promotionPaths, openchoreov1alpha1.PromotionPath{
-			SourceEnvironmentRef: environments[0],
+			SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: environments[0]},
 			TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{{
 				Name:             environments[0],
 				RequiresApproval: false,
@@ -82,7 +82,7 @@ func platformResourcesYAML(cpNamespace string, environments, projects []string) 
 	} else {
 		for i := 0; i < len(environments)-1; i++ {
 			promotionPaths = append(promotionPaths, openchoreov1alpha1.PromotionPath{
-				SourceEnvironmentRef: environments[i],
+				SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: environments[i]},
 				TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{{
 					Name:             environments[i+1],
 					RequiresApproval: false,

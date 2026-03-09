@@ -127,7 +127,7 @@ func setupDependencies(namespaceName, dpName, envName, deppipName string) {
 		Spec: openchoreov1alpha1.DeploymentPipelineSpec{
 			PromotionPaths: []openchoreov1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef:  envName,
+					SourceEnvironmentRef:  openchoreov1alpha1.EnvironmentRef{Name: envName},
 					TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{},
 				},
 			},

@@ -97,7 +97,7 @@ func (s *DeploymentPipelineService) toDeploymentPipelineResponse(pipeline *openc
 			})
 		}
 		promotionPaths = append(promotionPaths, models.PromotionPath{
-			SourceEnvironmentRef:  path.SourceEnvironmentRef,
+			SourceEnvironmentRef:  path.SourceEnvironmentRef.Name,
 			TargetEnvironmentRefs: targetRefs,
 		})
 	}

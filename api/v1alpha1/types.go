@@ -405,6 +405,29 @@ func (r *DeploymentPipelineRef) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, (*Alias)(r))
 }
 
+// EnvironmentRefKind defines the kind of environment referenced
+// +kubebuilder:validation:Enum=Environment
+type EnvironmentRefKind string
+
+const (
+	// EnvironmentRefKindEnvironment references a namespace-scoped Environment
+	EnvironmentRefKindEnvironment EnvironmentRefKind = "Environment"
+)
+
+// EnvironmentRef represents a reference to an Environment (or ClusterEnvironment in the future)
+type EnvironmentRef struct {
+	// Kind is the kind of environment (Environment)
+	// +optional
+	// +kubebuilder:default=Environment
+	Kind EnvironmentRefKind `json:"kind,omitempty"`
+
+	// Name is the name of the environment resource
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name"`
+}
+
 // EffectType defines whether to allow or deny access
 // Used by AuthzRoleBinding and AuthzClusterRoleBinding
 // +kubebuilder:validation:Enum=allow;deny

@@ -256,7 +256,8 @@ spec:
     # This should be a reference name to an existing environment.
     #
     # +required
-    - sourceEnvironmentRef: us-development
+    - sourceEnvironmentRef:
+        name: us-development
       # Target environments for the promotion path.
       #
       # +required
@@ -272,7 +273,8 @@ spec:
           requiresApproval: false
         - name: us-production
           isManualApprovalRequired: true
-    - sourceEnvironmentRef: us-staging
+    - sourceEnvironmentRef:
+        name: us-staging
       targetEnvironmentRefs:
         - name: us-production
           requiresApproval: true

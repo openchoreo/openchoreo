@@ -51,7 +51,7 @@ func ParsePipeline(pipeline *unstructured.Unstructured) (*PipelineInfo, error) {
 			continue
 		}
 
-		source, _ := pathMap["sourceEnvironmentRef"].(string)
+		source := extractSourceEnvironmentRefName(pathMap)
 		if source == "" {
 			continue
 		}
@@ -173,7 +173,7 @@ func FindRootEnvironment(pipeline *unstructured.Unstructured) (string, error) {
 			continue
 		}
 
-		source, _ := pathMap["sourceEnvironmentRef"].(string)
+		source := extractSourceEnvironmentRefName(pathMap)
 		if source == "" {
 			continue
 		}
@@ -252,4 +252,24 @@ func (p *PipelineInfo) GetEnvironmentPosition(envName string) (int, error) {
 	}
 
 	return position, nil
+}
+
+// extractSourceEnvironmentRefName extracts the environment name from a sourceEnvironmentRef
+// field in unstructured data. It supports both the object format (with kind/name fields)
+// and the legacy plain string format for backwards compatibility.
+func extractSourceEnvironmentRefName(pathMap map[string]interface{}) string {
+	ref := pathMap["sourceEnvironmentRef"]
+	if ref == nil {
+		return ""
+	}
+	// Object format: {kind: "Environment", name: "dev"}
+	if refMap, ok := ref.(map[string]interface{}); ok {
+		name, _ := refMap["name"].(string)
+		return name
+	}
+	// Legacy string format for backwards compatibility
+	if s, ok := ref.(string); ok {
+		return s
+	}
+	return ""
 }

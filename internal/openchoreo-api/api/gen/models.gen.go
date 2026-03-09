@@ -229,6 +229,11 @@ const (
 	ProjectSpecDeploymentPipelineRefKindDeploymentPipeline ProjectSpecDeploymentPipelineRefKind = "DeploymentPipeline"
 )
 
+// Defines values for PromotionPathSourceEnvironmentRefKind.
+const (
+	PromotionPathSourceEnvironmentRefKindEnvironment PromotionPathSourceEnvironmentRefKind = "Environment"
+)
+
 // Defines values for ReleaseBindingSpecState.
 const (
 	ReleaseBindingSpecStateActive   ReleaseBindingSpecState = "Active"
@@ -2492,12 +2497,21 @@ type ProjectStatus struct {
 
 // PromotionPath Promotion path between environments
 type PromotionPath struct {
-	// SourceEnvironmentRef Source environment name
-	SourceEnvironmentRef string `json:"sourceEnvironmentRef"`
+	// SourceEnvironmentRef Reference to the source environment for this promotion path.
+	SourceEnvironmentRef struct {
+		// Kind Kind of environment resource
+		Kind *PromotionPathSourceEnvironmentRefKind `json:"kind,omitempty"`
+
+		// Name Name of the environment resource
+		Name string `json:"name"`
+	} `json:"sourceEnvironmentRef"`
 
 	// TargetEnvironmentRefs Target environments for promotion
 	TargetEnvironmentRefs []TargetEnvironmentRef `json:"targetEnvironmentRefs"`
 }
+
+// PromotionPathSourceEnvironmentRefKind Kind of environment resource
+type PromotionPathSourceEnvironmentRefKind string
 
 // ReleaseBinding ReleaseBinding resource.
 // Binds a ComponentRelease to a specific environment.

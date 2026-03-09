@@ -183,13 +183,13 @@ func TestFindLowestEnvironment(t *testing.T) {
 			name: "Simple linear pipeline: dev -> staging -> prod",
 			promotionPaths: []v1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef: "dev",
+					SourceEnvironmentRef: v1alpha1.EnvironmentRef{Name: "dev"},
 					TargetEnvironmentRefs: []v1alpha1.TargetEnvironmentRef{
 						{Name: "staging"},
 					},
 				},
 				{
-					SourceEnvironmentRef: "staging",
+					SourceEnvironmentRef: v1alpha1.EnvironmentRef{Name: "staging"},
 					TargetEnvironmentRefs: []v1alpha1.TargetEnvironmentRef{
 						{Name: "prod"},
 					},
@@ -202,14 +202,14 @@ func TestFindLowestEnvironment(t *testing.T) {
 			name: "Pipeline with multiple branches from dev",
 			promotionPaths: []v1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef: "dev",
+					SourceEnvironmentRef: v1alpha1.EnvironmentRef{Name: "dev"},
 					TargetEnvironmentRefs: []v1alpha1.TargetEnvironmentRef{
 						{Name: "qa"},
 						{Name: "staging"},
 					},
 				},
 				{
-					SourceEnvironmentRef: "qa",
+					SourceEnvironmentRef: v1alpha1.EnvironmentRef{Name: "qa"},
 					TargetEnvironmentRefs: []v1alpha1.TargetEnvironmentRef{
 						{Name: "prod"},
 					},
@@ -222,7 +222,7 @@ func TestFindLowestEnvironment(t *testing.T) {
 			name: "Single environment pipeline",
 			promotionPaths: []v1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef:  "prod",
+					SourceEnvironmentRef:  v1alpha1.EnvironmentRef{Name: "prod"},
 					TargetEnvironmentRefs: []v1alpha1.TargetEnvironmentRef{},
 				},
 			},
@@ -392,7 +392,7 @@ func TestValidatePromotionPath(t *testing.T) {
 			name: "Valid promotion path",
 			promotionPaths: []v1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef: "dev",
+					SourceEnvironmentRef: v1alpha1.EnvironmentRef{Name: "dev"},
 					TargetEnvironmentRefs: []v1alpha1.TargetEnvironmentRef{
 						{Name: "staging"},
 					},
@@ -406,7 +406,7 @@ func TestValidatePromotionPath(t *testing.T) {
 			name: "Invalid promotion path - wrong source",
 			promotionPaths: []v1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef: "dev",
+					SourceEnvironmentRef: v1alpha1.EnvironmentRef{Name: "dev"},
 					TargetEnvironmentRefs: []v1alpha1.TargetEnvironmentRef{
 						{Name: "staging"},
 					},
@@ -420,7 +420,7 @@ func TestValidatePromotionPath(t *testing.T) {
 			name: "Invalid promotion path - wrong target",
 			promotionPaths: []v1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef: "dev",
+					SourceEnvironmentRef: v1alpha1.EnvironmentRef{Name: "dev"},
 					TargetEnvironmentRefs: []v1alpha1.TargetEnvironmentRef{
 						{Name: "staging"},
 					},
@@ -434,7 +434,7 @@ func TestValidatePromotionPath(t *testing.T) {
 			name: "Valid promotion with multiple targets",
 			promotionPaths: []v1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef: "dev",
+					SourceEnvironmentRef: v1alpha1.EnvironmentRef{Name: "dev"},
 					TargetEnvironmentRefs: []v1alpha1.TargetEnvironmentRef{
 						{Name: "qa"},
 						{Name: "staging"},
@@ -452,7 +452,7 @@ func TestValidatePromotionPath(t *testing.T) {
 			// Simulate validation logic from validatePromotionPath
 			isValid := false
 			for _, path := range tt.promotionPaths {
-				if path.SourceEnvironmentRef == tt.sourceEnv {
+				if path.SourceEnvironmentRef.Name == tt.sourceEnv {
 					for _, target := range path.TargetEnvironmentRefs {
 						if target.Name == tt.targetEnv {
 							isValid = true

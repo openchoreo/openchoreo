@@ -97,13 +97,13 @@ func testDeploymentPipeline() *openchoreov1alpha1.DeploymentPipeline {
 		Spec: openchoreov1alpha1.DeploymentPipelineSpec{
 			PromotionPaths: []openchoreov1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef: "dev",
+					SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "dev"},
 					TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 						{Name: "staging"},
 					},
 				},
 				{
-					SourceEnvironmentRef: "staging",
+					SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "staging"},
 					TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 						{Name: "prod"},
 					},
