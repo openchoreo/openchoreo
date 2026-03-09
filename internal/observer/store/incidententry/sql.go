@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,7 +17,11 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const initializeTimeout = 30 * time.Second
+const (
+	initializeTimeout = 30 * time.Second
+	maxQueryLimit     = 10000
+	sortOrderDesc     = "DESC"
+)
 
 type sqlStore struct {
 	db      *sql.DB
@@ -166,6 +171,150 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 	}
 
 	return id, nil
+}
+
+func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams) ([]IncidentEntry, int, error) {
+	startTime, err := normalizeTimestamp(strings.TrimSpace(params.StartTime))
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid start time %q: %w", params.StartTime, err)
+	}
+	if startTime == "" {
+		return nil, 0, fmt.Errorf("start time is required")
+	}
+
+	endTime, err := normalizeTimestamp(strings.TrimSpace(params.EndTime))
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid end time %q: %w", params.EndTime, err)
+	}
+	if endTime == "" {
+		return nil, 0, fmt.Errorf("end time is required")
+	}
+
+	sortOrder := strings.ToUpper(strings.TrimSpace(params.SortOrder))
+	if sortOrder == "" {
+		sortOrder = sortOrderDesc
+	}
+	var orderClause string
+	switch sortOrder {
+	case "ASC":
+		orderClause = "ASC"
+	case sortOrderDesc:
+		orderClause = sortOrderDesc
+	default:
+		return nil, 0, fmt.Errorf("invalid sort order %q", params.SortOrder)
+	}
+
+	limit := params.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > maxQueryLimit {
+		limit = maxQueryLimit
+	}
+
+	conditions := make([]string, 0, 6)
+	args := make([]any, 0, 6)
+
+	nextPlaceholder := func() string {
+		if s.backend == BackendPostgreSQL {
+			return "$" + strconv.Itoa(len(args)+1)
+		}
+		return "?"
+	}
+
+	conditions = append(conditions, "timestamp >= "+nextPlaceholder())
+	args = append(args, startTime)
+	conditions = append(conditions, "timestamp <= "+nextPlaceholder())
+	args = append(args, endTime)
+
+	if value := strings.TrimSpace(params.NamespaceName); value != "" {
+		conditions = append(conditions, "namespace_name = "+nextPlaceholder())
+		args = append(args, value)
+	}
+	if value := strings.TrimSpace(params.ProjectName); value != "" {
+		conditions = append(conditions, "project_name = "+nextPlaceholder())
+		args = append(args, value)
+	}
+	if value := strings.TrimSpace(params.ComponentName); value != "" {
+		conditions = append(conditions, "component_name = "+nextPlaceholder())
+		args = append(args, value)
+	}
+	if value := strings.TrimSpace(params.EnvironmentName); value != "" {
+		conditions = append(conditions, "environment_name = "+nextPlaceholder())
+		args = append(args, value)
+	}
+
+	whereClause := " WHERE " + strings.Join(conditions, " AND ")
+	countQuery := "SELECT COUNT(*) FROM incident_entries" + whereClause
+
+	var total int
+	if err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("failed to count incident entries: %w", err)
+	}
+
+	limitPh := nextPlaceholder()
+	args = append(args, limit)
+	// #nosec G202 -- whereClause uses parameterized placeholders; orderClause is validated switch; limitPh is placeholder
+	query := `SELECT
+		id, alert_id, timestamp, status, trigger_ai_rca, triggered_at,
+		acknowledged_at, resolved_at, notes, description,
+		namespace_name, component_name, environment_name, project_name,
+		component_id, environment_id, project_id
+	FROM incident_entries` + whereClause + " ORDER BY timestamp " + orderClause + " LIMIT " + limitPh
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query incident entries: %w", err)
+	}
+	defer rows.Close()
+
+	entries := make([]IncidentEntry, 0, limit)
+	for rows.Next() {
+		var entry IncidentEntry
+		var acknowledgedAt sql.NullString
+		var resolvedAt sql.NullString
+		var notes sql.NullString
+		var description sql.NullString
+		if err := rows.Scan(
+			&entry.ID,
+			&entry.AlertID,
+			&entry.Timestamp,
+			&entry.Status,
+			&entry.TriggerAiRca,
+			&entry.TriggeredAt,
+			&acknowledgedAt,
+			&resolvedAt,
+			&notes,
+			&description,
+			&entry.NamespaceName,
+			&entry.ComponentName,
+			&entry.EnvironmentName,
+			&entry.ProjectName,
+			&entry.ComponentID,
+			&entry.EnvironmentID,
+			&entry.ProjectID,
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan incident entry: %w", err)
+		}
+		if acknowledgedAt.Valid {
+			entry.AcknowledgedAt = acknowledgedAt.String
+		}
+		if resolvedAt.Valid {
+			entry.ResolvedAt = resolvedAt.String
+		}
+		if notes.Valid {
+			entry.Notes = notes.String
+		}
+		if description.Valid {
+			entry.Description = description.String
+		}
+		entries = append(entries, entry)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("failed to iterate incident entries: %w", err)
+	}
+
+	return entries, total, nil
 }
 
 func (s *sqlStore) Close() error {

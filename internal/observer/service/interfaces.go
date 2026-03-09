@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
@@ -24,4 +25,14 @@ type TracesQuerier interface {
 	QueryTraces(ctx context.Context, req *types.TracesQueryRequest) (*types.TracesQueryResponse, error)
 	QuerySpans(ctx context.Context, traceID string, req *types.TracesQueryRequest) (*types.SpansQueryResponse, error)
 	GetSpanDetails(ctx context.Context, traceID string, spanID string) (*types.SpanInfo, error)
+}
+
+// AlertsQuerier is the interface for querying alerts.
+type AlertsQuerier interface {
+	QueryAlerts(ctx context.Context, req gen.AlertsQueryRequest) (*gen.AlertsQueryResponse, error)
+}
+
+// IncidentsQuerier is the interface for querying incidents.
+type IncidentsQuerier interface {
+	QueryIncidents(ctx context.Context, req gen.IncidentsQueryRequest) (*gen.IncidentsQueryResponse, error)
 }
