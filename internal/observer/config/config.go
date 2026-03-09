@@ -80,7 +80,7 @@ type AuthConfig struct {
 	JWTSecret    string                   `koanf:"jwt.secret"`
 	EnableAuth   bool                     `koanf:"enable.auth"`
 	RequiredRole string                   `koanf:"required.role"`
-	UserTypes    []subject.UserTypeConfig `koanf:"user_types"`
+	SubjectTypes []subject.UserTypeConfig `koanf:"subject_types"`
 }
 
 // AuthzConfig holds authorization configuration
@@ -149,7 +149,7 @@ func Load() (*Config, error) {
 
 	var authCfg struct {
 		Auth struct {
-			UserTypes []subject.UserTypeConfig `yaml:"user_types"`
+			SubjectTypes []subject.UserTypeConfig `yaml:"subject_types"`
 		} `yaml:"auth"`
 	}
 	if _, err := os.Stat(authConfigPath); err == nil {
@@ -283,15 +283,15 @@ func Load() (*Config, error) {
 		}
 	}
 
-	// Assign user types from separately loaded auth config
-	cfg.Auth.UserTypes = authCfg.Auth.UserTypes
+	// Assign subject types from separately loaded auth config
+	cfg.Auth.SubjectTypes = authCfg.Auth.SubjectTypes
 
-	// Validate and sort user types configuration
-	if len(cfg.Auth.UserTypes) > 0 {
-		if err := subject.ValidateConfig(cfg.Auth.UserTypes); err != nil {
-			return nil, fmt.Errorf("invalid user type config: %w", err)
+	// Validate and sort subject types configuration
+	if len(cfg.Auth.SubjectTypes) > 0 {
+		if err := subject.ValidateConfig(cfg.Auth.SubjectTypes); err != nil {
+			return nil, fmt.Errorf("invalid subject type config: %w", err)
 		}
-		subject.SortByPriority(cfg.Auth.UserTypes)
+		subject.SortByPriority(cfg.Auth.SubjectTypes)
 	}
 
 	// Validate configuration

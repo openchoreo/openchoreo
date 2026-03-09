@@ -1,7 +1,7 @@
 # Observer Service Authentication Configuration
 
 auth:
-  user_types:
+  subject_types:
     - type: "user"
       display_name: "User"
       priority: 1

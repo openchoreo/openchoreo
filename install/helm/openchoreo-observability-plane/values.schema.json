@@ -1852,8 +1852,8 @@
           "additionalProperties": false,
           "description": "Security configuration for Observer authentication",
           "properties": {
-            "userTypes": {
-              "description": "User type configurations for JWT subject resolution",
+            "subjectTypes": {
+              "description": "Subject type configurations for JWT subject resolution",
               "items": {
                 "properties": {
                   "auth_mechanisms": {
@@ -1884,7 +1884,7 @@
                     "type": "array"
                   },
                   "display_name": {
-                    "description": "Human-readable name for the user type",
+                    "description": "Human-readable name for the subject type",
                     "type": "string"
                   },
                   "priority": {
@@ -1892,14 +1892,14 @@
                     "type": "integer"
                   },
                   "type": {
-                    "description": "User type identifier (user, service_account, etc.)",
+                    "description": "Subject type identifier (user, service_account, etc.)",
                     "type": "string"
                   }
                 },
                 "required": [],
                 "type": "object"
               },
-              "title": "userTypes",
+              "title": "subjectTypes",
               "type": "array"
             }
           },

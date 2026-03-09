@@ -420,15 +420,15 @@ func initJWTMiddleware(cfg *config.Config, logger *slog.Logger) func(http.Handle
 		jwtAudiences = []string{jwtAudience}
 	}
 
-	// Create OAuth2 user type detector from configuration
+	// Create subject type detector from configuration
 	var detector *jwt.Resolver
-	if len(cfg.Auth.UserTypes) > 0 {
+	if len(cfg.Auth.SubjectTypes) > 0 {
 		var err error
-		detector, err = jwt.NewResolver(cfg.Auth.UserTypes)
+		detector, err = jwt.NewResolver(cfg.Auth.SubjectTypes)
 		if err != nil {
 			logger.Error("Failed to create JWT subject resolver", "error", err)
 		} else {
-			logger.Info("JWT subject resolver initialized", "user_types_count", len(cfg.Auth.UserTypes))
+			logger.Info("JWT subject resolver initialized", "subject_types_count", len(cfg.Auth.SubjectTypes))
 		}
 	}
 
