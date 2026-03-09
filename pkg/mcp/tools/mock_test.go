@@ -303,7 +303,7 @@ func (m *MockCoreToolsetHandler) GetClusterTraitSchema(ctx context.Context, ctNa
 	return emptyObjectSchema, nil
 }
 
-// InfrastructureToolsetHandler methods
+// PEToolsetHandler methods
 
 func (m *MockCoreToolsetHandler) ListEnvironments(
 	ctx context.Context, namespaceName string, opts ListOpts,
@@ -312,16 +312,32 @@ func (m *MockCoreToolsetHandler) ListEnvironments(
 	return `[{"name":"dev"}]`, nil
 }
 
-func (m *MockCoreToolsetHandler) GetEnvironment(ctx context.Context, namespaceName, envName string) (any, error) {
-	m.recordCall("GetEnvironment", namespaceName, envName)
-	return `{"name":"dev"}`, nil
-}
-
 func (m *MockCoreToolsetHandler) CreateEnvironment(
 	ctx context.Context, namespaceName string, req *gen.CreateEnvironmentJSONRequestBody,
 ) (any, error) {
 	m.recordCall("CreateEnvironment", namespaceName, req)
 	return `{"name":"new-env"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateEnvironment(
+	ctx context.Context, namespaceName string, req *gen.UpdateEnvironmentJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateEnvironment", namespaceName, req)
+	return `{"name":"updated-env"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteEnvironment(
+	ctx context.Context, namespaceName, envName string,
+) (any, error) {
+	m.recordCall("DeleteEnvironment", namespaceName, envName)
+	return `{"name":"deleted-env"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateDeploymentPipeline(
+	ctx context.Context, namespaceName string, req *gen.CreateDeploymentPipelineJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateDeploymentPipeline", namespaceName, req)
+	return `{"name":"new-pipeline"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) ListDataPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
@@ -334,13 +350,6 @@ func (m *MockCoreToolsetHandler) GetDataPlane(ctx context.Context, namespaceName
 	return `{"name":"dp1"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) CreateDataPlane(
-	ctx context.Context, namespaceName string, req *gen.CreateDataPlaneJSONRequestBody,
-) (any, error) {
-	m.recordCall("CreateDataPlane", namespaceName, req)
-	return `{"name":"new-dp"}`, nil
-}
-
 func (m *MockCoreToolsetHandler) ListObservabilityPlanes(
 	ctx context.Context, namespaceName string, opts ListOpts,
 ) (any, error) {
@@ -348,11 +357,11 @@ func (m *MockCoreToolsetHandler) ListObservabilityPlanes(
 	return `[{"name":"observability-plane-1"}]`, nil
 }
 
-func (m *MockCoreToolsetHandler) GetDeploymentPipeline(
-	ctx context.Context, namespaceName, pipelineName string,
+func (m *MockCoreToolsetHandler) GetObservabilityPlane(
+	ctx context.Context, namespaceName, observabilityPlaneName string,
 ) (any, error) {
-	m.recordCall("GetDeploymentPipeline", namespaceName, pipelineName)
-	return `{"name":"default-pipeline"}`, nil
+	m.recordCall("GetObservabilityPlane", namespaceName, observabilityPlaneName)
+	return `{"name":"observability-plane-1"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) ListDeploymentPipelines(
@@ -362,11 +371,25 @@ func (m *MockCoreToolsetHandler) ListDeploymentPipelines(
 	return `[{"name":"default-pipeline"}]`, nil
 }
 
+func (m *MockCoreToolsetHandler) GetDeploymentPipeline(
+	ctx context.Context, namespaceName, pipelineName string,
+) (any, error) {
+	m.recordCall("GetDeploymentPipeline", namespaceName, pipelineName)
+	return `{"name":"default-pipeline"}`, nil
+}
+
 func (m *MockCoreToolsetHandler) ListBuildPlanes(
 	ctx context.Context, namespaceName string, opts ListOpts,
 ) (any, error) {
 	m.recordCall("ListBuildPlanes", namespaceName, opts)
 	return `[{"name":"bp1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetBuildPlane(
+	ctx context.Context, namespaceName, buildPlaneName string,
+) (any, error) {
+	m.recordCall("GetBuildPlane", namespaceName, buildPlaneName)
+	return `{"name":"bp1"}`, nil
 }
 
 // ClusterPlaneHandler methods
@@ -379,13 +402,6 @@ func (m *MockCoreToolsetHandler) ListClusterDataPlanes(ctx context.Context, opts
 func (m *MockCoreToolsetHandler) GetClusterDataPlane(ctx context.Context, cdpName string) (any, error) {
 	m.recordCall("GetClusterDataPlane", cdpName)
 	return `{"name":"cdp1"}`, nil
-}
-
-func (m *MockCoreToolsetHandler) CreateClusterDataPlane(
-	ctx context.Context, req *gen.CreateClusterDataPlaneJSONRequestBody,
-) (any, error) {
-	m.recordCall("CreateClusterDataPlane", req)
-	return `{"name":"new-cdp"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) ListClusterBuildPlanes(ctx context.Context, opts ListOpts) (any, error) {
@@ -411,4 +427,20 @@ func (m *MockCoreToolsetHandler) GetClusterWorkflow(ctx context.Context, cwfName
 func (m *MockCoreToolsetHandler) GetClusterWorkflowSchema(ctx context.Context, cwfName string) (any, error) {
 	m.recordCall("GetClusterWorkflowSchema", cwfName)
 	return emptyObjectSchema, nil
+}
+
+// Diagnostics methods
+
+func (m *MockCoreToolsetHandler) GetResourceEvents(
+	ctx context.Context, namespaceName, releaseBindingName, group, version, kind, name string,
+) (any, error) {
+	m.recordCall("GetResourceEvents", namespaceName, releaseBindingName, group, version, kind, name)
+	return `{"events":[]}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetResourceLogs(
+	ctx context.Context, namespaceName, releaseBindingName, podName string, sinceSeconds *int64,
+) (any, error) {
+	m.recordCall("GetResourceLogs", namespaceName, releaseBindingName, podName, sinceSeconds)
+	return `{"logEntries":[]}`, nil
 }

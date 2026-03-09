@@ -66,33 +66,53 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterGetClusterWorkflowSchema,
 		t.RegisterListWorkflows,
 		t.RegisterGetWorkflowSchema,
-	}
-}
-
-// infrastructureToolRegistrations returns the list of infrastructure toolset registration functions
-func (t *Toolsets) infrastructureToolRegistrations() []RegisterFunc {
-	return []RegisterFunc{
-		t.RegisterListEnvironments,
-		t.RegisterGetEnvironments,
-		t.RegisterGetDeploymentPipeline,
 		t.RegisterListDeploymentPipelines,
+		t.RegisterGetDeploymentPipeline,
+		t.RegisterListEnvironments,
 	}
 }
 
 // peToolRegistrations returns the list of pe toolset registration functions
 func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
+		// Environment management
+		t.RegisterPEListEnvironments,
 		t.RegisterCreateEnvironment,
+		t.RegisterUpdateEnvironment,
+		t.RegisterDeleteEnvironment,
+
+		// Deployment pipeline management
+		t.RegisterCreateDeploymentPipeline,
+
+		// DataPlane read
 		t.RegisterListDataPlanes,
 		t.RegisterGetDataPlane,
-		t.RegisterCreateDataPlane,
-		t.RegisterListObservabilityPlanes,
+
+		// BuildPlane read
 		t.RegisterListBuildPlanes,
+		t.RegisterGetBuildPlane,
+
+		// ObservabilityPlane read
+		t.RegisterListObservabilityPlanes,
+		t.RegisterGetObservabilityPlane,
+
+		// Cluster-scoped plane read
 		t.RegisterListClusterDataPlanes,
 		t.RegisterGetClusterDataPlane,
-		t.RegisterCreateClusterDataPlane,
 		t.RegisterListClusterBuildPlanes,
 		t.RegisterListClusterObservabilityPlanes,
+
+		// Platform standards read
+		t.RegisterPEListComponentTypes,
+		t.RegisterPEGetComponentTypeSchema,
+		t.RegisterPEListTraits,
+		t.RegisterPEGetTraitSchema,
+		t.RegisterPEListWorkflows,
+		t.RegisterPEGetWorkflowSchema,
+
+		// Diagnostics
+		t.RegisterGetResourceEvents,
+		t.RegisterGetResourceLogs,
 	}
 }
 
@@ -114,13 +134,6 @@ func (t *Toolsets) Register(s *mcp.Server) {
 	// Register component tools if ComponentToolset is enabled
 	if t.ComponentToolset != nil {
 		for _, registerFunc := range t.componentToolRegistrations() {
-			registerFunc(s)
-		}
-	}
-
-	// Register infrastructure tools if InfrastructureToolset is enabled
-	if t.InfrastructureToolset != nil {
-		for _, registerFunc := range t.infrastructureToolRegistrations() {
 			registerFunc(s)
 		}
 	}

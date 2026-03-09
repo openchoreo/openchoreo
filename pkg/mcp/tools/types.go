@@ -15,11 +15,10 @@ import (
 type ToolsetType string
 
 const (
-	ToolsetNamespace      ToolsetType = "namespace"
-	ToolsetProject        ToolsetType = "project"
-	ToolsetComponent      ToolsetType = "component"
-	ToolsetInfrastructure ToolsetType = "infrastructure"
-	ToolsetPE             ToolsetType = "pe"
+	ToolsetNamespace ToolsetType = "namespace"
+	ToolsetProject   ToolsetType = "project"
+	ToolsetComponent ToolsetType = "component"
+	ToolsetPE        ToolsetType = "pe"
 )
 
 // DefaultPageSize is the default number of items per page for MCP list operations.
@@ -43,38 +42,56 @@ func (o ListOpts) EffectiveLimit() int {
 }
 
 type Toolsets struct {
-	NamespaceToolset      NamespaceToolsetHandler
-	ProjectToolset        ProjectToolsetHandler
-	ComponentToolset      ComponentToolsetHandler
-	InfrastructureToolset InfrastructureToolsetHandler
-	PEToolset             PEToolsetHandler
+	NamespaceToolset NamespaceToolsetHandler
+	ProjectToolset   ProjectToolsetHandler
+	ComponentToolset ComponentToolsetHandler
+	PEToolset        PEToolsetHandler
 }
 
 // PEToolsetHandler handles platform engineering operations on openchoreo
 type PEToolsetHandler interface {
+	// Environment operations
+	ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	CreateEnvironment(ctx context.Context, namespaceName string, req *gen.CreateEnvironmentJSONRequestBody) (any, error)
+	UpdateEnvironment(ctx context.Context, namespaceName string, req *gen.UpdateEnvironmentJSONRequestBody) (any, error)
+	DeleteEnvironment(ctx context.Context, namespaceName, envName string) (any, error)
+
+	// DeploymentPipeline operations
+	CreateDeploymentPipeline(ctx context.Context, namespaceName string, req *gen.CreateDeploymentPipelineJSONRequestBody) (any, error)
 
 	// DataPlane operations
 	ListDataPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetDataPlane(ctx context.Context, namespaceName, dpName string) (any, error)
-	CreateDataPlane(ctx context.Context, namespaceName string, req *gen.CreateDataPlaneJSONRequestBody) (any, error)
-
-	// ObservabilityPlane operations
-	ListObservabilityPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 
 	// BuildPlane operations
 	ListBuildPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetBuildPlane(ctx context.Context, namespaceName, buildPlaneName string) (any, error)
+
+	// ObservabilityPlane operations
+	ListObservabilityPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetObservabilityPlane(ctx context.Context, namespaceName, observabilityPlaneName string) (any, error)
 
 	// ClusterDataPlane operations
 	ListClusterDataPlanes(ctx context.Context, opts ListOpts) (any, error)
 	GetClusterDataPlane(ctx context.Context, cdpName string) (any, error)
-	CreateClusterDataPlane(ctx context.Context, req *gen.CreateClusterDataPlaneJSONRequestBody) (any, error)
 
 	// ClusterBuildPlane operations
 	ListClusterBuildPlanes(ctx context.Context, opts ListOpts) (any, error)
 
 	// ClusterObservabilityPlane operations
 	ListClusterObservabilityPlanes(ctx context.Context, opts ListOpts) (any, error)
+
+	// Platform standards (read-only)
+	ListComponentTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (any, error)
+	ListTraits(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error)
+	ListWorkflows(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error)
+
+	// Diagnostics
+	GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName, group, version, kind, name string) (any, error)
+	GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName, podName string, sinceSeconds *int64) (any, error)
 }
 
 // NamespaceToolsetHandler handles namespace operations
@@ -183,17 +200,13 @@ type ComponentToolsetHandler interface {
 	// Workflow operations
 	ListWorkflows(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error)
-}
 
-// InfrastructureToolsetHandler handles infrastructure operations
-type InfrastructureToolsetHandler interface {
-	// Environment operations
-	ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-	GetEnvironment(ctx context.Context, namespaceName, envName string) (any, error)
-
-	// DeploymentPipeline operations
-	GetDeploymentPipeline(ctx context.Context, namespaceName, pipelineName string) (any, error)
+	// DeploymentPipeline operations (developer-facing)
 	ListDeploymentPipelines(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetDeploymentPipeline(ctx context.Context, namespaceName, pipelineName string) (any, error)
+
+	// Environment operations (developer-facing read)
+	ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 }
 
 // RegisterFunc is a function type for registering MCP tools

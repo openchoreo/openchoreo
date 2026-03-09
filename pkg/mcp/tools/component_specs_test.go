@@ -23,6 +23,8 @@ func componentToolSpecs() []toolTestSpec {
 	specs = append(specs, componentClusterComponentTypeSpecs()...)
 	specs = append(specs, componentClusterTraitSpecs()...)
 	specs = append(specs, componentClusterWorkflowSpecs()...)
+	specs = append(specs, componentDeploymentPipelineSpecs()...)
+	specs = append(specs, componentEnvironmentSpecs()...)
 	return specs
 }
 
@@ -740,4 +742,67 @@ func componentClusterWorkflowSpecs() []toolTestSpec {
 		getMethod:       "GetClusterWorkflow",
 		schemaMethod:    "GetClusterWorkflowSchema",
 	})
+}
+
+// componentDeploymentPipelineSpecs returns deployment pipeline operation specs (moved from infrastructure)
+func componentDeploymentPipelineSpecs() []toolTestSpec {
+	return []toolTestSpec{
+		{
+			name:                "get_deployment_pipeline",
+			toolset:             "component",
+			descriptionKeywords: []string{"deployment", "pipeline"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "pipeline_name"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"pipeline_name":  "default-pipeline",
+			},
+			expectedMethod: "GetDeploymentPipeline",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != "default-pipeline" {
+					t.Errorf("Expected (%s, default-pipeline), got (%v, %v)", testNamespaceName, args[0], args[1])
+				}
+			},
+		},
+		{
+			name:                "list_deployment_pipelines",
+			toolset:             "component",
+			descriptionKeywords: []string{"list", "deployment", "pipeline"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name"},
+			optionalParams:      []string{"limit", "cursor"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+			},
+			expectedMethod: "ListDeploymentPipelines",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+			},
+		},
+	}
+}
+
+// componentEnvironmentSpecs returns environment list spec (developer-facing read)
+func componentEnvironmentSpecs() []toolTestSpec {
+	return []toolTestSpec{
+		{
+			name:                "list_environments",
+			toolset:             "component",
+			descriptionKeywords: []string{"list", "environment"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name"},
+			optionalParams:      []string{"limit", "cursor"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+			},
+			expectedMethod: "ListEnvironments",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+			},
+		},
+	}
 }
