@@ -81,16 +81,16 @@ var _ = Describe("Connection Resolution", Ordered, func() {
 		}, 3*time.Minute, 2*time.Second).Should(Succeed())
 	}
 
-	// getReleaseDeploymentEnv retrieves env vars from the rendered Deployment in a Release.
+	// getReleaseDeploymentEnv retrieves env vars from the rendered Deployment in a RenderedRelease.
 	getReleaseDeploymentEnv := func(componentName string) []map[string]any {
 		output, err := framework.Kubectl(
 			kubeContext,
-			"get", "release",
+			"get", "renderedrelease",
 			"-n", cpNs,
 			"-l", fmt.Sprintf("openchoreo.dev/component=%s,openchoreo.dev/environment=development", componentName),
 			"-o", "json",
 		)
-		Expect(err).NotTo(HaveOccurred(), "failed to get Release for %s", componentName)
+		Expect(err).NotTo(HaveOccurred(), "failed to get RenderedRelease for %s", componentName)
 
 		var releaseList struct {
 			Items []struct {
@@ -103,7 +103,7 @@ var _ = Describe("Connection Resolution", Ordered, func() {
 			} `json:"items"`
 		}
 		Expect(json.Unmarshal([]byte(output), &releaseList)).To(Succeed())
-		Expect(releaseList.Items).To(HaveLen(1), "expected exactly 1 Release for component %s, got %d", componentName, len(releaseList.Items))
+		Expect(releaseList.Items).To(HaveLen(1), "expected exactly 1 RenderedRelease for component %s, got %d", componentName, len(releaseList.Items))
 
 		release := releaseList.Items[0]
 		for _, res := range release.Spec.Resources {
@@ -149,7 +149,7 @@ var _ = Describe("Connection Resolution", Ordered, func() {
 			return result
 		}
 
-		Fail(fmt.Sprintf("no Deployment resource found in Release for component %s", componentName))
+		Fail(fmt.Sprintf("no Deployment resource found in RenderedRelease for component %s", componentName))
 		return nil
 	}
 
@@ -269,11 +269,11 @@ var _ = Describe("Connection Resolution", Ordered, func() {
 			assertRBEndpointServiceURL("consumer-development", "web", 3000)
 		})
 
-		It("renders connection env vars in the Release Deployment", func() {
+		It("renders connection env vars in the RenderedRelease Deployment", func() {
 			By("waiting for consumer connections to resolve first")
 			assertRBCondition("consumer-development", "ConnectionsResolved", "True", "AllConnectionsResolved")
 
-			By("checking rendered Release for connection env vars")
+			By("checking rendered RenderedRelease for connection env vars")
 			envVars := getReleaseDeploymentEnv("consumer")
 
 			envMap := make(map[string]string, len(envVars))
