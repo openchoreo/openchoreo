@@ -77,8 +77,8 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 func processComponentParameters(input *ComponentContextInput) (map[string]any, map[string]any, error) {
 	// Build both schema bundles
 	parametersBundle, envConfigsBundle, err := BuildStructuralSchemas(&SchemaInput{
-		ParametersSchema:         input.ComponentType.Spec.Parameters.GetRaw(),
-		EnvironmentConfigsSchema: input.ComponentType.Spec.EnvironmentConfigs.GetRaw(),
+		ParametersSchema:         input.ComponentType.Spec.Parameters,
+		EnvironmentConfigsSchema: input.ComponentType.Spec.EnvironmentConfigs,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build schemas: %w", err)
@@ -409,20 +409,11 @@ type SchemaBundle struct {
 func BuildStructuralSchemas(input *SchemaInput) (*SchemaBundle, *SchemaBundle, error) {
 	// Build parameters schema bundle
 	var parametersBundle *SchemaBundle
-	if input.ParametersSchema != nil {
-		params, err := extractParameters(input.ParametersSchema)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to extract parameters schema: %w", err)
-		}
-
-		def := schema.Definition{
-			Schemas: []map[string]any{params},
-		}
-
-		structural, jsonSchema, err := schema.ToStructuralAndJSONSchema(def)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create parameters schema: %w", err)
-		}
+	structural, jsonSchema, err := schema.ResolveSectionToBundle(input.ParametersSchema)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create parameters schema: %w", err)
+	}
+	if structural != nil {
 		parametersBundle = &SchemaBundle{
 			Structural: structural,
 			JSONSchema: jsonSchema,
@@ -431,20 +422,11 @@ func BuildStructuralSchemas(input *SchemaInput) (*SchemaBundle, *SchemaBundle, e
 
 	// Build environmentConfigs schema bundle
 	var envConfigsBundle *SchemaBundle
-	if input.EnvironmentConfigsSchema != nil {
-		envConfigs, err := extractParameters(input.EnvironmentConfigsSchema)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to extract environmentConfigs schema: %w", err)
-		}
-
-		def := schema.Definition{
-			Schemas: []map[string]any{envConfigs},
-		}
-
-		structural, jsonSchema, err := schema.ToStructuralAndJSONSchema(def)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create environmentConfigs schema: %w", err)
-		}
+	structural, jsonSchema, err = schema.ResolveSectionToBundle(input.EnvironmentConfigsSchema)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create environmentConfigs schema: %w", err)
+	}
+	if structural != nil {
 		envConfigsBundle = &SchemaBundle{
 			Structural: structural,
 			JSONSchema: jsonSchema,

@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/schema"
 	"github.com/openchoreo/openchoreo/internal/validation/component"
 	"github.com/openchoreo/openchoreo/internal/validation/schemautil"
 )
@@ -51,12 +50,9 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 
 	// Extract and validate schemas, getting structural schemas for CEL validation
 	basePath := field.NewPath("spec")
-	source := &schema.SimpleSource{
-		Parameters:         ct.Spec.Parameters.GetRaw(),
-		EnvironmentConfigs: ct.Spec.EnvironmentConfigs.GetRaw(),
-		OpenAPIV3:          ct.Spec.Parameters.IsOpenAPIV3(),
-	}
-	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(source, basePath)
+	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
+		ct.Spec.Parameters, ct.Spec.EnvironmentConfigs, basePath,
+	)
 	allErrs = append(allErrs, schemaErrs...)
 
 	templateErrs := validateClusterTraitCreatesTemplateStructure(ct)
@@ -89,12 +85,9 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 
 	// Extract and validate schemas, getting structural schemas for CEL validation
 	basePath := field.NewPath("spec")
-	newSource := &schema.SimpleSource{
-		Parameters:         newClusterTrait.Spec.Parameters.GetRaw(),
-		EnvironmentConfigs: newClusterTrait.Spec.EnvironmentConfigs.GetRaw(),
-		OpenAPIV3:          newClusterTrait.Spec.Parameters.IsOpenAPIV3(),
-	}
-	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(newSource, basePath)
+	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
+		newClusterTrait.Spec.Parameters, newClusterTrait.Spec.EnvironmentConfigs, basePath,
+	)
 	allErrs = append(allErrs, schemaErrs...)
 
 	templateErrs := validateClusterTraitCreatesTemplateStructure(newClusterTrait)

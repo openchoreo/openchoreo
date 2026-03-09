@@ -100,8 +100,8 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, map[strin
 	if parametersBundle == nil || envConfigsBundle == nil {
 		var err error
 		parametersBundle, envConfigsBundle, err = BuildStructuralSchemas(&SchemaInput{
-			ParametersSchema:         input.Trait.Spec.Parameters.GetRaw(),
-			EnvironmentConfigsSchema: input.Trait.Spec.EnvironmentConfigs.GetRaw(),
+			ParametersSchema:         input.Trait.Spec.Parameters,
+			EnvironmentConfigsSchema: input.Trait.Spec.EnvironmentConfigs,
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to build trait schemas: %w", err)

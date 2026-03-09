@@ -360,14 +360,8 @@ func validateComponentTypeCELExpressions(release *openchoreodevv1alpha1.Componen
 	basePath := field.NewPath("spec", "componentType")
 
 	// Extract and build structural schemas for CEL validation
-	ctSource := &schema.SimpleSource{
-		Parameters:         release.Spec.ComponentType.Parameters.GetRaw(),
-		EnvironmentConfigs: release.Spec.ComponentType.EnvironmentConfigs.GetRaw(),
-		OpenAPIV3:          release.Spec.ComponentType.Parameters.IsOpenAPIV3(),
-	}
 	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
-		ctSource,
-		basePath,
+		release.Spec.ComponentType.Parameters, release.Spec.ComponentType.EnvironmentConfigs, basePath,
 	)
 	allErrs = append(allErrs, schemaErrs...)
 
@@ -401,14 +395,8 @@ func validateTraitCELExpressions(traitSpec *openchoreodevv1alpha1.TraitSpec, bas
 	allErrs := field.ErrorList{}
 
 	// Extract and build structural schemas for CEL validation
-	traitSource := &schema.SimpleSource{
-		Parameters:         traitSpec.Parameters.GetRaw(),
-		EnvironmentConfigs: traitSpec.EnvironmentConfigs.GetRaw(),
-		OpenAPIV3:          traitSpec.Parameters.IsOpenAPIV3(),
-	}
 	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
-		traitSource,
-		basePath,
+		traitSpec.Parameters, traitSpec.EnvironmentConfigs, basePath,
 	)
 	allErrs = append(allErrs, schemaErrs...)
 

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"gopkg.in/yaml.v3"
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/clone"
 	"github.com/openchoreo/openchoreo/internal/schema/extractor"
 )
@@ -25,28 +27,55 @@ type Definition struct {
 	Options extractor.Options
 }
 
-// Source provides access to schema raw extensions for extraction.
-type Source interface {
-	GetParameters() *runtime.RawExtension
-	GetEnvironmentConfigs() *runtime.RawExtension
-	IsOpenAPIV3() bool
+// ResolveSectionToStructural converts a SchemaSection into a Kubernetes structural schema.
+// It handles both ocSchema and openAPIV3Schema formats transparently.
+// Returns nil if the section is nil or empty.
+func ResolveSectionToStructural(section *v1alpha1.SchemaSection) (*apiextschema.Structural, error) {
+	raw := sectionRaw(section)
+	if raw == nil || len(raw.Raw) == 0 {
+		return nil, nil
+	}
+
+	fields, err := unmarshalSection(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	return ToStructural(Definition{Schemas: []map[string]any{fields}})
 }
 
-// SimpleSource is a basic Source implementation.
-type SimpleSource struct {
-	Parameters         *runtime.RawExtension
-	EnvironmentConfigs *runtime.RawExtension
-	OpenAPIV3          bool
+// ResolveSectionToBundle converts a SchemaSection into both structural and JSON schema formats.
+// Returns nil for both if the section is nil or empty.
+func ResolveSectionToBundle(section *v1alpha1.SchemaSection) (*apiextschema.Structural, *extv1.JSONSchemaProps, error) {
+	raw := sectionRaw(section)
+	if raw == nil || len(raw.Raw) == 0 {
+		return nil, nil, nil
+	}
+
+	fields, err := unmarshalSection(raw)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return ToStructuralAndJSONSchema(Definition{Schemas: []map[string]any{fields}})
 }
 
-// GetParameters returns the parameters raw extension.
-func (s *SimpleSource) GetParameters() *runtime.RawExtension { return s.Parameters }
+// sectionRaw returns the raw extension from a SchemaSection, or nil if empty.
+func sectionRaw(section *v1alpha1.SchemaSection) *runtime.RawExtension {
+	if section == nil {
+		return nil
+	}
+	return section.GetRaw()
+}
 
-// GetEnvironmentConfigs returns the environment configs raw extension.
-func (s *SimpleSource) GetEnvironmentConfigs() *runtime.RawExtension { return s.EnvironmentConfigs }
-
-// IsOpenAPIV3 returns whether the schema uses OpenAPI V3 format.
-func (s *SimpleSource) IsOpenAPIV3() bool { return s.OpenAPIV3 }
+// unmarshalSection unmarshals a raw extension into a field map.
+func unmarshalSection(raw *runtime.RawExtension) (map[string]any, error) {
+	var fields map[string]any
+	if err := yaml.Unmarshal(raw.Raw, &fields); err != nil {
+		return nil, fmt.Errorf("failed to parse schema: %w", err)
+	}
+	return fields, nil
+}
 
 // ToJSONSchema converts a schema definition into an OpenAPI v3 JSON schema.
 //

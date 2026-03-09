@@ -4,8 +4,6 @@
 package context
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
@@ -171,11 +169,11 @@ type TraitContextInput struct {
 
 // SchemaInput contains schema information for building structural and JSON schemas.
 type SchemaInput struct {
-	// ParametersSchema is the parameters schema definition (may contain inline $types).
-	ParametersSchema *runtime.RawExtension
+	// ParametersSchema is the parameters schema section.
+	ParametersSchema *v1alpha1.SchemaSection
 
-	// EnvironmentConfigsSchema is the environmentConfigs schema definition (may contain inline $types).
-	EnvironmentConfigsSchema *runtime.RawExtension
+	// EnvironmentConfigsSchema is the environmentConfigs schema section.
+	EnvironmentConfigsSchema *v1alpha1.SchemaSection
 }
 
 // ComponentContext represents the evaluated context for rendering component resources.

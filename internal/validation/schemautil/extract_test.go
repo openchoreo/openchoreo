@@ -8,33 +8,24 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-// mockSchemaSource is a test implementation of schema.Source
-type mockSchemaSource struct {
-	parameters         *runtime.RawExtension
-	environmentConfigs *runtime.RawExtension
-	openAPIV3          bool
-}
-
-func (m *mockSchemaSource) GetParameters() *runtime.RawExtension { return m.parameters }
-func (m *mockSchemaSource) GetEnvironmentConfigs() *runtime.RawExtension {
-	return m.environmentConfigs
-}
-func (m *mockSchemaSource) IsOpenAPIV3() bool { return m.openAPIV3 }
-
 func TestExtractStructuralSchemas_ValidSchemas(t *testing.T) {
-	source := &mockSchemaSource{
-		parameters: &runtime.RawExtension{
+	params := &v1alpha1.SchemaSection{
+		OCSchema: &runtime.RawExtension{
 			Raw: []byte(`{"replicas": "integer | default=1", "name": "string"}`),
 		},
-		environmentConfigs: &runtime.RawExtension{
+	}
+	envConfigs := &v1alpha1.SchemaSection{
+		OCSchema: &runtime.RawExtension{
 			Raw: []byte(`{"environment": "string | default=dev"}`),
 		},
 	}
 
 	basePath := field.NewPath("spec")
-	paramsSchema, envSchema, errs := ExtractStructuralSchemas(source, basePath)
+	paramsSchema, envSchema, errs := ExtractStructuralSchemas(params, envConfigs, basePath)
 
 	if len(errs) != 0 {
 		t.Fatalf("expected no errors, got %v", errs)
@@ -61,14 +52,14 @@ func TestExtractStructuralSchemas_ValidSchemas(t *testing.T) {
 }
 
 func TestExtractStructuralSchemas_WithTypes(t *testing.T) {
-	source := &mockSchemaSource{
-		parameters: &runtime.RawExtension{
+	params := &v1alpha1.SchemaSection{
+		OCSchema: &runtime.RawExtension{
 			Raw: []byte(`{"$types": {"Port": {"containerPort": "integer", "protocol": "string | default=TCP"}}, "ports": "[]Port"}`),
 		},
 	}
 
 	basePath := field.NewPath("spec")
-	paramsSchema, envSchema, errs := ExtractStructuralSchemas(source, basePath)
+	paramsSchema, envSchema, errs := ExtractStructuralSchemas(params, nil, basePath)
 
 	if len(errs) != 0 {
 		t.Fatalf("expected no errors, got %v", errs)
@@ -87,10 +78,8 @@ func TestExtractStructuralSchemas_WithTypes(t *testing.T) {
 }
 
 func TestExtractStructuralSchemas_EmptySchemas(t *testing.T) {
-	source := &mockSchemaSource{}
-
 	basePath := field.NewPath("spec")
-	paramsSchema, envSchema, errs := ExtractStructuralSchemas(source, basePath)
+	paramsSchema, envSchema, errs := ExtractStructuralSchemas(nil, nil, basePath)
 
 	if len(errs) != 0 {
 		t.Fatalf("expected no errors, got %v", errs)
@@ -105,14 +94,15 @@ func TestExtractStructuralSchemas_EmptySchemas(t *testing.T) {
 
 func TestExtractStructuralSchemas_InvalidYAML(t *testing.T) {
 	tests := []struct {
-		name     string
-		source   *mockSchemaSource
-		wantPath string
+		name       string
+		parameters *v1alpha1.SchemaSection
+		envConfigs *v1alpha1.SchemaSection
+		wantPath   string
 	}{
 		{
 			name: "invalid parameters YAML",
-			source: &mockSchemaSource{
-				parameters: &runtime.RawExtension{
+			parameters: &v1alpha1.SchemaSection{
+				OCSchema: &runtime.RawExtension{
 					Raw: []byte(`{invalid yaml`),
 				},
 			},
@@ -120,8 +110,8 @@ func TestExtractStructuralSchemas_InvalidYAML(t *testing.T) {
 		},
 		{
 			name: "invalid environmentConfigs YAML",
-			source: &mockSchemaSource{
-				environmentConfigs: &runtime.RawExtension{
+			envConfigs: &v1alpha1.SchemaSection{
+				OCSchema: &runtime.RawExtension{
 					Raw: []byte(`{invalid yaml`),
 				},
 			},
@@ -132,7 +122,7 @@ func TestExtractStructuralSchemas_InvalidYAML(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			basePath := field.NewPath("spec")
-			_, _, errs := ExtractStructuralSchemas(tc.source, basePath)
+			_, _, errs := ExtractStructuralSchemas(tc.parameters, tc.envConfigs, basePath)
 
 			if len(errs) == 0 {
 				t.Fatal("expected errors for invalid YAML")
