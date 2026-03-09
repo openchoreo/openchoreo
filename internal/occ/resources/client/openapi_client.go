@@ -466,28 +466,16 @@ func (c *Client) UpdateReleaseBinding(ctx context.Context, namespaceName, bindin
 	return resp.JSON200, nil
 }
 
-// DeployRelease deploys a component release to the root environment
-func (c *Client) DeployRelease(ctx context.Context, namespaceName, componentName string, req gen.DeployReleaseRequest) (*gen.ReleaseBinding, error) {
-	resp, err := c.client.DeployReleaseWithResponse(ctx, namespaceName, componentName, req)
+// CreateReleaseBinding creates a new release binding
+func (c *Client) CreateReleaseBinding(ctx context.Context, namespaceName string, req gen.ReleaseBinding) (*gen.ReleaseBinding, error) {
+	resp, err := c.client.CreateReleaseBindingWithResponse(ctx, namespaceName, req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy release: %w", err)
+		return nil, fmt.Errorf("failed to create release binding: %w", err)
 	}
 	if resp.JSON201 == nil {
 		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
 	}
 	return resp.JSON201, nil
-}
-
-// PromoteComponent promotes a component from source to target environment
-func (c *Client) PromoteComponent(ctx context.Context, namespaceName, componentName string, req gen.PromoteComponentRequest) (*gen.ReleaseBinding, error) {
-	resp, err := c.client.PromoteComponentWithResponse(ctx, namespaceName, componentName, req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to promote component: %w", err)
-	}
-	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
-	}
-	return resp.JSON200, nil
 }
 
 // GetProject retrieves a project by name
@@ -881,6 +869,9 @@ func (c *Client) GetReleaseBinding(ctx context.Context, namespaceName, releaseBi
 	resp, err := c.client.GetReleaseBindingWithResponse(ctx, namespaceName, releaseBindingName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get release binding: %w", err)
+	}
+	if resp.StatusCode() == http.StatusNotFound {
+		return nil, nil
 	}
 	if resp.JSON200 == nil {
 		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())

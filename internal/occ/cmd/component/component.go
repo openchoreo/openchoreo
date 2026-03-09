@@ -201,27 +201,17 @@ func (cp *Component) Deploy(params DeployParams) error {
 	}
 
 	var binding *gen.ReleaseBinding
-	var bindingName string
 
 	// Check if this is a promotion or initial deployment
 	if params.To != "" {
 		// Promotion flow
-		binding, bindingName, err = cp.promoteComponent(ctx, c, params)
+		binding, err = cp.promoteComponent(ctx, c, params)
 		if err != nil {
 			return err
 		}
 	} else {
 		// Deploy to lowest environment in the pipeline
-		binding, bindingName, err = cp.deployComponent(ctx, c, params)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Apply overrides if provided
-	// TODO: Update the deploy and promote API to accept overrides directly so we don't have to do a separate PATCH call here
-	if len(params.Set) > 0 {
-		binding, err = cp.applyOverrides(ctx, c, params, bindingName, binding)
+		binding, err = cp.deployComponent(ctx, c, params)
 		if err != nil {
 			return err
 		}
@@ -241,63 +231,176 @@ func (cp *Component) Deploy(params DeployParams) error {
 }
 
 // deployComponent deploys a component to the lowest environment in the pipeline
-func (cp *Component) deployComponent(ctx context.Context, c *client.Client, params DeployParams) (*gen.ReleaseBinding, string, error) {
+func (cp *Component) deployComponent(ctx context.Context, c *client.Client, params DeployParams) (*gen.ReleaseBinding, error) {
 	releaseName := params.Release
 
 	// If no release specified, generate a new one
 	if releaseName == "" {
 		release, err := c.GenerateRelease(ctx, params.Namespace, params.ComponentName, gen.GenerateReleaseRequest{})
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
 		releaseName = release.Metadata.Name
 		fmt.Printf("Created release: %s\n", releaseName)
 	}
 
-	binding, err := c.DeployRelease(ctx, params.Namespace, params.ComponentName, gen.DeployReleaseRequest{
-		ReleaseName: releaseName,
-	})
+	// Resolve the lowest environment from the deployment pipeline
+	pipeline, err := c.GetProjectDeploymentPipeline(ctx, params.Namespace, params.Project)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	return binding, binding.Metadata.Name, nil
+	lowestEnv, err := findLowestEnvironment(pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build the ReleaseBinding
+	bindingName := fmt.Sprintf("%s-%s", params.ComponentName, lowestEnv)
+	rb := gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{
+			Name: bindingName,
+		},
+		Spec: &gen.ReleaseBindingSpec{
+			Owner: struct {
+				ComponentName string `json:"componentName"`
+				ProjectName   string `json:"projectName"`
+			}{
+				ComponentName: params.ComponentName,
+				ProjectName:   params.Project,
+			},
+			Environment: lowestEnv,
+			ReleaseName: &releaseName,
+		},
+	}
+
+	// Apply overrides if provided
+	if len(params.Set) > 0 {
+		merged, err := mergeOverridesWithBinding(&rb, params.Set)
+		if err != nil {
+			return nil, fmt.Errorf("failed to merge overrides: %w", err)
+		}
+		rb = *merged
+	}
+
+	binding, err := c.CreateReleaseBinding(ctx, params.Namespace, rb)
+	if err != nil {
+		return nil, err
+	}
+
+	return binding, nil
 }
 
 // promoteComponent promotes a component to the target environment
-func (cp *Component) promoteComponent(ctx context.Context, c *client.Client, params DeployParams) (*gen.ReleaseBinding, string, error) {
-	project, err := c.GetProject(ctx, params.Namespace, params.Project)
-	if err != nil {
-		return nil, "", err
-	}
-
-	if project.Spec == nil || project.Spec.DeploymentPipelineRef == nil || project.Spec.DeploymentPipelineRef.Name == "" {
-		return nil, "", fmt.Errorf("project does not have a deployment pipeline configured")
-	}
-
+func (cp *Component) promoteComponent(ctx context.Context, c *client.Client, params DeployParams) (*gen.ReleaseBinding, error) {
 	pipeline, err := c.GetProjectDeploymentPipeline(ctx, params.Namespace, params.Project)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	sourceEnv, err := cp.findSourceEnvironment(pipeline, params.To)
+	sourceEnv, err := findSourceEnvironment(pipeline, params.To)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	binding, err := c.PromoteComponent(ctx, params.Namespace, params.ComponentName, gen.PromoteComponentRequest{
-		SourceEnv: sourceEnv,
-		TargetEnv: params.To,
-	})
+	// Get the source release binding to find the release name
+	sourceBindings, err := c.ListReleaseBindings(ctx, params.Namespace, "", params.ComponentName)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	return binding, binding.Metadata.Name, nil
+	var releaseName string
+	for _, b := range sourceBindings.Items {
+		if b.Spec != nil && b.Spec.Environment == sourceEnv &&
+			b.Spec.Owner.ComponentName == params.ComponentName {
+			if b.Spec.ReleaseName != nil {
+				releaseName = *b.Spec.ReleaseName
+			}
+			break
+		}
+	}
+	if releaseName == "" {
+		return nil, fmt.Errorf("no release binding found for source environment '%s'", sourceEnv)
+	}
+
+	// Check if a binding already exists for the target environment
+	bindingName := fmt.Sprintf("%s-%s", params.ComponentName, params.To)
+	existing, err := c.GetReleaseBinding(ctx, params.Namespace, bindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	if existing != nil {
+		// Update existing binding with the new release
+		existing.Spec.ReleaseName = &releaseName
+
+		// Apply overrides if provided
+		if len(params.Set) > 0 {
+			merged, err := mergeOverridesWithBinding(existing, params.Set)
+			if err != nil {
+				return nil, fmt.Errorf("failed to merge overrides: %w", err)
+			}
+			existing = merged
+		}
+
+		return c.UpdateReleaseBinding(ctx, params.Namespace, bindingName, *existing)
+	}
+
+	// Create new binding
+	rb := gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{
+			Name: bindingName,
+		},
+		Spec: &gen.ReleaseBindingSpec{
+			Owner: struct {
+				ComponentName string `json:"componentName"`
+				ProjectName   string `json:"projectName"`
+			}{
+				ComponentName: params.ComponentName,
+				ProjectName:   params.Project,
+			},
+			Environment: params.To,
+			ReleaseName: &releaseName,
+		},
+	}
+
+	// Apply overrides if provided
+	if len(params.Set) > 0 {
+		merged, err := mergeOverridesWithBinding(&rb, params.Set)
+		if err != nil {
+			return nil, fmt.Errorf("failed to merge overrides: %w", err)
+		}
+		rb = *merged
+	}
+
+	return c.CreateReleaseBinding(ctx, params.Namespace, rb)
+}
+
+// findLowestEnvironment finds the environment that is not a target in any promotion path.
+func findLowestEnvironment(pipeline *gen.DeploymentPipeline) (string, error) {
+	if pipeline.Spec == nil || pipeline.Spec.PromotionPaths == nil || len(*pipeline.Spec.PromotionPaths) == 0 {
+		return "", fmt.Errorf("deployment pipeline has no promotion paths")
+	}
+
+	targets := make(map[string]bool)
+	for _, path := range *pipeline.Spec.PromotionPaths {
+		for _, targetRef := range path.TargetEnvironmentRefs {
+			targets[targetRef.Name] = true
+		}
+	}
+
+	for _, path := range *pipeline.Spec.PromotionPaths {
+		if !targets[path.SourceEnvironmentRef] {
+			return path.SourceEnvironmentRef, nil
+		}
+	}
+
+	// Fallback: return the first source
+	return (*pipeline.Spec.PromotionPaths)[0].SourceEnvironmentRef, nil
 }
 
 // findSourceEnvironment finds the source environment for a given target environment in the pipeline
-func (cp *Component) findSourceEnvironment(pipeline *gen.DeploymentPipeline, targetEnv string) (string, error) {
+func findSourceEnvironment(pipeline *gen.DeploymentPipeline, targetEnv string) (string, error) {
 	if pipeline.Spec == nil || pipeline.Spec.PromotionPaths == nil || len(*pipeline.Spec.PromotionPaths) == 0 {
 		return "", fmt.Errorf("deployment pipeline has no promotion paths")
 	}
@@ -312,23 +415,6 @@ func (cp *Component) findSourceEnvironment(pipeline *gen.DeploymentPipeline, tar
 	}
 
 	return "", fmt.Errorf("no promotion path found for target environment '%s'", targetEnv)
-}
-
-// applyOverrides applies override values to the release binding by merging with existing values
-func (cp *Component) applyOverrides(ctx context.Context, c *client.Client, params DeployParams, bindingName string, existingBinding *gen.ReleaseBinding) (*gen.ReleaseBinding, error) {
-	// Merge --set values with existing binding using sjson
-	merged, err := mergeOverridesWithBinding(existingBinding, params.Set)
-	if err != nil {
-		return nil, fmt.Errorf("failed to merge overrides: %w", err)
-	}
-
-	// Apply update
-	binding, err := c.UpdateReleaseBinding(ctx, params.Namespace, bindingName, *merged)
-	if err != nil {
-		return nil, err
-	}
-
-	return binding, nil
 }
 
 func scaffoldComponent(params ScaffoldParams) error {
