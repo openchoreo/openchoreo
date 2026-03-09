@@ -160,6 +160,7 @@ func newScaffoldComponentCmd() *cobra.Command {
 	return cmd
 }
 
+//nolint:dupl // deploy and logs commands follow the same pattern but are distinct
 func newDeployComponentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     constants.DeployComponent.Use,
@@ -209,6 +210,7 @@ func newDeployComponentCmd() *cobra.Command {
 	return cmd
 }
 
+//nolint:dupl // logs and deploy commands follow the same pattern but are distinct
 func newLogsComponentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs COMPONENT_NAME",
@@ -224,6 +226,9 @@ If --env is not specified, uses the lowest environment from the deployment pipel
   # Get logs with custom since duration
   occ component logs my-component --env dev --since 30m
 
+  # Show the last 100 lines of logs
+  occ component logs my-component --tail 100
+
   # Follow logs in real-time
   occ component logs my-component --env dev -f`,
 		Args: cobra.ExactArgs(1), // Requires COMPONENT_NAME
@@ -237,6 +242,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 			environment, _ := cmd.Flags().GetString(flags.Environment.Name)
 			follow, _ := cmd.Flags().GetBool(flags.Follow.Name)
 			since, _ := cmd.Flags().GetString(flags.Since.Name)
+			tail, _ := cmd.Flags().GetInt(flags.Tail.Name)
 
 			// Create params
 			params := component.LogsParams{
@@ -246,6 +252,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 				Environment: environment,
 				Follow:      follow,
 				Since:       since,
+				Tail:        tail,
 			}
 
 			// Execute logs
@@ -261,6 +268,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 		flags.Environment,
 		flags.Follow,
 		flags.Since,
+		flags.Tail,
 	)
 
 	return cmd
