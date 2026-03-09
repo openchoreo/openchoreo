@@ -3,7 +3,12 @@
 
 package tools
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
 
 // peToolSpecs returns test specs for platform engineering toolset
 func peToolSpecs() []toolTestSpec {
@@ -444,5 +449,225 @@ func peDiagnosticsSpecs() []toolTestSpec {
 				}
 			},
 		},
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Coverage tests for closures in pe.go that are overwritten when both
+// Component/Build/Deployment toolsets and PE toolset are registered together.
+// These tests register only the relevant toolset so the non-PE closures execute.
+// ---------------------------------------------------------------------------
+
+// TestComponentToolsetClosuresInPEFile exercises the component toolset handler closures
+// defined in pe.go (RegisterListComponentTypes, RegisterListTraits, etc.) that are normally
+// overwritten when the PE toolset is also registered.
+func TestComponentToolsetClosuresInPEFile(t *testing.T) {
+	mockHandler := NewMockCoreToolsetHandler()
+	toolsets := &Toolsets{ComponentToolset: mockHandler}
+	clientSession := setupTestServerWithToolset(t, toolsets)
+	defer clientSession.Close()
+
+	ctx := context.Background()
+
+	tests := []struct {
+		toolName       string
+		args           map[string]any
+		expectedMethod string
+	}{
+		{"list_component_types", map[string]any{"namespace_name": testNamespaceName}, "ListComponentTypes"},
+		{"get_component_type_schema", map[string]any{"namespace_name": testNamespaceName, "ct_name": "WebApplication"}, "GetComponentTypeSchema"},
+		{"list_traits", map[string]any{"namespace_name": testNamespaceName}, "ListTraits"},
+		{"get_trait_schema", map[string]any{"namespace_name": testNamespaceName, "trait_name": "autoscaling"}, "GetTraitSchema"},
+		{"list_cluster_component_types", map[string]any{}, "ListClusterComponentTypes"},
+		{"get_cluster_component_type", map[string]any{"cct_name": testGoServiceName}, "GetClusterComponentType"},
+		{"get_cluster_component_type_schema", map[string]any{"cct_name": testGoServiceName}, "GetClusterComponentTypeSchema"},
+		{"list_cluster_traits", map[string]any{}, "ListClusterTraits"},
+		{"get_cluster_trait", map[string]any{"ct_name": testAutoscalerName}, "GetClusterTrait"},
+		{"get_cluster_trait_schema", map[string]any{"ct_name": testAutoscalerName}, "GetClusterTraitSchema"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.toolName, func(t *testing.T) {
+			mockHandler.calls = make(map[string][]interface{})
+			result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+				Name:      tt.toolName,
+				Arguments: tt.args,
+			})
+			if err != nil {
+				t.Fatalf("Failed to call tool %q: %v", tt.toolName, err)
+			}
+			if len(result.Content) == 0 {
+				t.Fatal("Expected non-empty result content")
+			}
+			if _, ok := mockHandler.calls[tt.expectedMethod]; !ok {
+				t.Errorf("Expected ComponentToolset method %q to be called, got calls: %v",
+					tt.expectedMethod, mockHandler.calls)
+			}
+		})
+	}
+}
+
+// TestBuildToolsetClosuresInPEFile exercises the build toolset handler closures
+// (RegisterListWorkflows, RegisterGetWorkflowSchema) in pe.go that are normally
+// overwritten when the PE toolset is also registered.
+func TestBuildToolsetClosuresInPEFile(t *testing.T) {
+	mockHandler := NewMockCoreToolsetHandler()
+	toolsets := &Toolsets{BuildToolset: mockHandler}
+	clientSession := setupTestServerWithToolset(t, toolsets)
+	defer clientSession.Close()
+
+	ctx := context.Background()
+
+	tests := []struct {
+		toolName       string
+		args           map[string]any
+		expectedMethod string
+	}{
+		{"list_workflows", map[string]any{"namespace_name": testNamespaceName}, "ListWorkflows"},
+		{"get_workflow_schema", map[string]any{"namespace_name": testNamespaceName, "workflow_name": testBuildWorkflow}, "GetWorkflowSchema"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.toolName, func(t *testing.T) {
+			mockHandler.calls = make(map[string][]interface{})
+			result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+				Name:      tt.toolName,
+				Arguments: tt.args,
+			})
+			if err != nil {
+				t.Fatalf("Failed to call tool %q: %v", tt.toolName, err)
+			}
+			if len(result.Content) == 0 {
+				t.Fatal("Expected non-empty result content")
+			}
+			if _, ok := mockHandler.calls[tt.expectedMethod]; !ok {
+				t.Errorf("Expected BuildToolset method %q to be called, got calls: %v",
+					tt.expectedMethod, mockHandler.calls)
+			}
+		})
+	}
+}
+
+// TestDeploymentToolsetListEnvironmentsInPEFile exercises the RegisterListEnvironments
+// closure in pe.go that uses DeploymentToolset, normally overwritten by
+// RegisterPEListEnvironments when the PE toolset is also registered.
+func TestDeploymentToolsetListEnvironmentsInPEFile(t *testing.T) {
+	mockHandler := NewMockCoreToolsetHandler()
+	toolsets := &Toolsets{DeploymentToolset: mockHandler}
+	clientSession := setupTestServerWithToolset(t, toolsets)
+	defer clientSession.Close()
+
+	ctx := context.Background()
+	mockHandler.calls = make(map[string][]interface{})
+
+	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "list_environments",
+		Arguments: map[string]any{"namespace_name": testNamespaceName},
+	})
+	if err != nil {
+		t.Fatalf("Failed to call list_environments: %v", err)
+	}
+	if len(result.Content) == 0 {
+		t.Fatal("Expected non-empty result content")
+	}
+	if _, ok := mockHandler.calls["ListEnvironments"]; !ok {
+		t.Errorf("Expected DeploymentToolset.ListEnvironments to be called, got calls: %v", mockHandler.calls)
+	}
+}
+
+// TestCreateEnvironmentMinimalArgs covers the code path in RegisterCreateEnvironment
+// where optional fields (display_name, description, data_plane_ref) are absent.
+func TestCreateEnvironmentMinimalArgs(t *testing.T) {
+	mockHandler := NewMockCoreToolsetHandler()
+	toolsets := &Toolsets{PEToolset: mockHandler}
+	clientSession := setupTestServerWithToolset(t, toolsets)
+	defer clientSession.Close()
+
+	ctx := context.Background()
+	mockHandler.calls = make(map[string][]interface{})
+
+	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "create_environment",
+		Arguments: map[string]any{"namespace_name": testNamespaceName, "name": "minimal-env"},
+	})
+	if err != nil {
+		t.Fatalf("Failed to call create_environment: %v", err)
+	}
+	if len(result.Content) == 0 {
+		t.Fatal("Expected non-empty result content")
+	}
+	if _, ok := mockHandler.calls["CreateEnvironment"]; !ok {
+		t.Errorf("Expected CreateEnvironment to be called, got: %v", mockHandler.calls)
+	}
+}
+
+// TestCreateDeploymentPipelineWithPromotionPaths covers the promotion_paths branch
+// in RegisterCreateDeploymentPipeline where promotion paths are provided.
+func TestCreateDeploymentPipelineWithPromotionPaths(t *testing.T) {
+	mockHandler := NewMockCoreToolsetHandler()
+	toolsets := &Toolsets{PEToolset: mockHandler}
+	clientSession := setupTestServerWithToolset(t, toolsets)
+	defer clientSession.Close()
+
+	ctx := context.Background()
+	mockHandler.calls = make(map[string][]interface{})
+
+	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "create_deployment_pipeline",
+		Arguments: map[string]any{
+			"namespace_name": testNamespaceName,
+			"name":           "my-pipeline",
+			"display_name":   "My Pipeline",
+			"description":    "A test pipeline",
+			"promotion_paths": []map[string]any{
+				{
+					"source_environment_ref": "dev",
+					"target_environment_refs": []map[string]any{
+						{"name": "staging", "requires_approval": true},
+						{"name": "production", "requires_approval": false},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to call create_deployment_pipeline: %v", err)
+	}
+	if len(result.Content) == 0 {
+		t.Fatal("Expected non-empty result content")
+	}
+	if _, ok := mockHandler.calls["CreateDeploymentPipeline"]; !ok {
+		t.Errorf("Expected CreateDeploymentPipeline to be called, got: %v", mockHandler.calls)
+	}
+}
+
+// TestUpdateEnvironmentWithOptionalFields covers the non-empty display_name/description
+// branches in RegisterUpdateEnvironment.
+func TestUpdateEnvironmentWithOptionalFields(t *testing.T) {
+	mockHandler := NewMockCoreToolsetHandler()
+	toolsets := &Toolsets{PEToolset: mockHandler}
+	clientSession := setupTestServerWithToolset(t, toolsets)
+	defer clientSession.Close()
+
+	ctx := context.Background()
+	mockHandler.calls = make(map[string][]interface{})
+
+	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "update_environment",
+		Arguments: map[string]any{
+			"namespace_name": testNamespaceName,
+			"name":           "dev",
+			"display_name":   "Development",
+			"description":    "Updated description",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to call update_environment: %v", err)
+	}
+	if len(result.Content) == 0 {
+		t.Fatal("Expected non-empty result content")
+	}
+	if _, ok := mockHandler.calls["UpdateEnvironment"]; !ok {
+		t.Errorf("Expected UpdateEnvironment to be called, got: %v", mockHandler.calls)
 	}
 }
