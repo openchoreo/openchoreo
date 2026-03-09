@@ -114,11 +114,23 @@ func (cp *Component) fetchAndPrintLogs(
 		return err
 	}
 
+	// When --tail is used, logs are fetched in desc order; reverse for chronological display
+	if params.Tail > 0 {
+		reverseLogs(logs)
+	}
+
 	for _, log := range logs {
 		fmt.Printf("%s %s\n", log.Timestamp, log.Log)
 	}
 
 	return nil
+}
+
+// reverseLogs reverses a slice of log entries in place
+func reverseLogs(logs []client.LogEntry) {
+	for i, j := 0, len(logs)-1; i < j; i, j = i+1, j-1 {
+		logs[i], logs[j] = logs[j], logs[i]
+	}
 }
 
 // followLogs continuously fetches and prints new logs
@@ -135,10 +147,15 @@ func (cp *Component) followLogs(
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Initial fetch
+	// Initial fetch (respects --tail for the initial batch)
 	logs, err := cp.fetchLogs(ctx, observerURL, token, environmentID, params, startTime, endTime)
 	if err != nil {
 		return err
+	}
+
+	// When --tail is used, initial logs are fetched in desc order; reverse for chronological display
+	if params.Tail > 0 {
+		reverseLogs(logs)
 	}
 
 	// Print initial logs
@@ -154,6 +171,9 @@ func (cp *Component) followLogs(
 			startTime = lastTimestamp.Add(1 * time.Millisecond) // Add 1ms to avoid duplicate
 		}
 	}
+
+	// Clear tail for subsequent polls — fetch all new logs in ascending order
+	params.Tail = 0
 
 	// Poll for new logs
 	ticker := time.NewTicker(2 * time.Second)
@@ -208,6 +228,11 @@ func (cp *Component) fetchLogs(
 	startTime time.Time,
 	endTime time.Time,
 ) ([]client.LogEntry, error) {
+	sortOrder := "asc"
+	if params.Tail > 0 {
+		sortOrder = "desc"
+	}
+
 	reqBody := client.ComponentLogsRequest{
 		StartTime:       startTime.Format(time.RFC3339),
 		EndTime:         endTime.Format(time.RFC3339),
@@ -216,7 +241,8 @@ func (cp *Component) fetchLogs(
 		ProjectName:     params.Project,
 		NamespaceName:   params.Namespace,
 		EnvironmentName: params.Environment,
-		SortOrder:       "asc",
+		Limit:           int64(params.Tail),
+		SortOrder:       sortOrder,
 		LogType:         "runtime",
 	}
 

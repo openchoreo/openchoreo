@@ -120,6 +120,7 @@ var (
 	Tail = Flag{
 		Name:  "tail",
 		Usage: messages.FlagTailDesc,
+		Type:  "int",
 	}
 	Follow = Flag{
 		Name:      "follow",
@@ -418,6 +419,8 @@ func AddFlags(cmd *cobra.Command, flags ...Flag) {
 		switch flag.Type {
 		case "bool":
 			cmd.Flags().BoolP(flag.Name, flag.Shorthand, false, flag.Usage)
+		case "int":
+			cmd.Flags().IntP(flag.Name, flag.Shorthand, 0, flag.Usage)
 		case "stringArray":
 			cmd.Flags().StringArrayP(flag.Name, flag.Shorthand, nil, flag.Usage)
 		default:

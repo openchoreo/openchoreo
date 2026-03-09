@@ -8,5 +8,5 @@ metadata:
 data:
   auth-config.yaml: |
     auth:
-      user_types:
-        {{- toYaml .Values.observer.security.userTypes | nindent 8 }}
+      subject_types:
+        {{- toYaml .Values.observer.security.subjectTypes | nindent 8 }}
