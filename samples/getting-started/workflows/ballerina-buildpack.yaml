@@ -1,8 +1,7 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
   name: ballerina-buildpack
-  namespace: default
   annotations:
     openchoreo.dev/description: "Ballerina build workflow for containerized builds using Ballerina Buildpack"
     openchoreo.dev/workflow-scope: "component"
@@ -14,7 +13,7 @@ metadata:
       secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
-    kind: BuildPlane
+    kind: ClusterBuildPlane
     name: default
   ttlAfterCompletion: "1d"
   parameters:

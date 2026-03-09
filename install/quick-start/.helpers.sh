@@ -776,9 +776,9 @@ CSSEOF
     log_success "OpenBao installed and ClusterSecretStore created"
 }
 
-# Extract cluster-agent CA and create DataPlane CR
+# Extract cluster-agent CA and create ClusterDataPlane CR
 create_dataplane_resource() {
-    log_info "Creating DataPlane resource..."
+    log_info "Creating ClusterDataPlane resource..."
 
     # Wait for cluster-agent-tls secret
     local max_attempts=60
@@ -797,10 +797,9 @@ create_dataplane_resource() {
 
     kubectl apply -f - >/dev/null <<DPEOF
 apiVersion: openchoreo.dev/v1alpha1
-kind: DataPlane
+kind: ClusterDataPlane
 metadata:
   name: default
-  namespace: default
 spec:
   planeID: default
   clusterAgent:
@@ -820,7 +819,7 @@ $(echo "$agent_ca" | sed 's/^/        /')
         namespace: openchoreo-data-plane
 DPEOF
 
-    log_success "DataPlane resource created"
+    log_success "ClusterDataPlane resource created"
 }
 
 # Extract cluster-agent CA and create BuildPlane CR
@@ -992,7 +991,7 @@ install_data_plane() {
 # Configure the dataplane and buildplane with observabilityplane reference
 configure_observabilityplane_reference() {
     log_info "Configuring OpenChoreo Data Plane with observabilityplane reference..."
-    kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}' >/dev/null
+    kubectl patch clusterdataplane default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}' >/dev/null
     if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
         log_info "Configuring OpenChoreo Build Plane with observabilityplane reference..."
         kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}' >/dev/null

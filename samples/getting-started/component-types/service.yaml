@@ -1,24 +1,25 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
+kind: ClusterComponentType
 metadata:
   name: service
-  namespace: default
   annotations:
     openchoreo.dev/description: "Component type for backend services that expose HTTP endpoints"
 spec:
   workloadType: deployment
 
   allowedWorkflows:
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: google-cloud-buildpacks
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: ballerina-buildpack
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: docker
 
   allowedTraits:
-    - name: api-configuration
-    - name: observability-alert-rule
+    - kind: ClusterTrait
+      name: api-configuration
+    - kind: ClusterTrait
+      name: observability-alert-rule
 
   validations:
     - rule: "${size(workload.endpoints) > 0}"

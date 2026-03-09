@@ -155,22 +155,31 @@ func GetDataplaneOfEnv(ctx context.Context, c client.Client, env *openchoreov1al
 }
 
 // GetDataPlaneOrClusterDataPlaneOfEnv retrieves either a DataPlane or ClusterDataPlane for the given Environment.
-// If DataPlaneRef is not specified, it defaults to a DataPlane named "default" in the same namespace.
+// If DataPlaneRef is not specified, it defaults to a DataPlane named "default" in the same namespace,
+// falling back to a ClusterDataPlane named "default" if the namespace-scoped one is not found.
 func GetDataPlaneOrClusterDataPlaneOfEnv(ctx context.Context, c client.Client, env *openchoreov1alpha1.Environment) (*DataPlaneResult, error) {
 	ref := env.Spec.DataPlaneRef
 
-	// If no DataPlaneRef is specified, default to DataPlane named "default" in the same namespace
 	if ref == nil {
 		dataPlane := &openchoreov1alpha1.DataPlane{}
 		key := client.ObjectKey{Namespace: env.Namespace, Name: DefaultPlaneName}
 
-		if err := c.Get(ctx, key, dataPlane); err != nil {
-			if apierrors.IsNotFound(err) {
-				return nil, fmt.Errorf("no dataPlaneRef specified and default DataPlane '%s' not found in namespace '%s': %w", DefaultPlaneName, env.Namespace, err)
-			}
+		if err := c.Get(ctx, key, dataPlane); err == nil {
+			return &DataPlaneResult{DataPlane: dataPlane}, nil
+		} else if !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get default dataPlane: %w", err)
 		}
-		return &DataPlaneResult{DataPlane: dataPlane}, nil
+
+		clusterDataPlane := &openchoreov1alpha1.ClusterDataPlane{}
+		clusterKey := client.ObjectKey{Name: DefaultPlaneName}
+
+		if err := c.Get(ctx, clusterKey, clusterDataPlane); err == nil {
+			return &DataPlaneResult{ClusterDataPlane: clusterDataPlane}, nil
+		} else if !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get default clusterDataPlane: %w", err)
+		}
+
+		return nil, fmt.Errorf("no dataPlaneRef specified and neither default DataPlane nor ClusterDataPlane '%s' found", DefaultPlaneName)
 	}
 
 	// Handle based on Kind

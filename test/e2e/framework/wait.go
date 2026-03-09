@@ -101,6 +101,14 @@ func AssertResourceExists(g gomega.Gomega, kubeContext, namespace, resource, nam
 		fmt.Sprintf("%s/%s should exist in namespace %s", resource, name, namespace))
 }
 
+// AssertClusterResourceExists checks that a cluster-scoped resource exists.
+// Designed for use inside Eventually(func(g Gomega) { ... }).
+func AssertClusterResourceExists(g gomega.Gomega, kubeContext, resource, name string) {
+	_, err := Kubectl(kubeContext, "get", resource, name, "-o", "jsonpath={.metadata.name}")
+	g.Expect(err).NotTo(gomega.HaveOccurred(),
+		fmt.Sprintf("%s/%s should exist (cluster-scoped)", resource, name))
+}
+
 // AssertJsonpathEquals checks that a jsonpath value on a resource matches the expected string.
 // Designed for use inside Eventually(func(g Gomega) { ... }).
 func AssertJsonpathEquals(g gomega.Gomega, kubeContext, namespace, resource, name, jsonpath, expected string) {

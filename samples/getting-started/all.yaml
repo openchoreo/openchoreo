@@ -62,7 +62,7 @@ metadata:
     openchoreo.dev/name: development
 spec:
   dataPlaneRef:
-    kind: DataPlane
+    kind: ClusterDataPlane
     name: default
   isProduction: false
 ---
@@ -78,7 +78,7 @@ metadata:
     openchoreo.dev/name: staging
 spec:
   dataPlaneRef:
-    kind: DataPlane
+    kind: ClusterDataPlane
     name: default
   isProduction: false
 ---
@@ -94,29 +94,29 @@ metadata:
     openchoreo.dev/name: production
 spec:
   dataPlaneRef:
-    kind: DataPlane
+    kind: ClusterDataPlane
     name: default
   isProduction: true
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
+kind: ClusterComponentType
 metadata:
   name: worker
-  namespace: default
   annotations:
     openchoreo.dev/description: "Component type for background workers"
 spec:
   workloadType: deployment
 
   allowedWorkflows:
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: google-cloud-buildpacks
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: docker
 
   allowedTraits:
-    - name: observability-alert-rule
+    - kind: ClusterTrait
+      name: observability-alert-rule
 
   validations:
     - rule: "${size(workload.endpoints) == 0}"
@@ -270,26 +270,27 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
+kind: ClusterComponentType
 metadata:
   name: service
-  namespace: default
   annotations:
     openchoreo.dev/description: "Component type for backend services that expose HTTP endpoints"
 spec:
   workloadType: deployment
 
   allowedWorkflows:
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: google-cloud-buildpacks
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: ballerina-buildpack
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: docker
 
   allowedTraits:
-    - name: api-configuration
-    - name: observability-alert-rule
+    - kind: ClusterTrait
+      name: api-configuration
+    - kind: ClusterTrait
+      name: observability-alert-rule
 
   validations:
     - rule: "${size(workload.endpoints) > 0}"
@@ -520,24 +521,25 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
+kind: ClusterComponentType
 metadata:
   name: web-application
-  namespace: default
   annotations:
     openchoreo.dev/description: "Component type for web applications"
 spec:
   workloadType: deployment
 
   allowedWorkflows:
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: react
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: docker
 
   allowedTraits:
-    - name: api-configuration
-    - name: observability-alert-rule
+    - kind: ClusterTrait
+      name: api-configuration
+    - kind: ClusterTrait
+      name: observability-alert-rule
 
   validations:
     - rule: "${workload.endpoints.exists(name, endpoint, endpoint.type == 'HTTP')}"
@@ -749,19 +751,18 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
+kind: ClusterComponentType
 metadata:
   name: scheduled-task
-  namespace: default
   annotations:
     openchoreo.dev/description: "Component type for scheduled tasks"
 spec:
   workloadType: cronjob
 
   allowedWorkflows:
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: google-cloud-buildpacks
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: docker
 
   allowedTraits: []
@@ -944,10 +945,9 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
   name: docker
-  namespace: default
   annotations:
     openchoreo.dev/description: "Docker build workflow for containerized builds using Dockerfile"
     openchoreo.dev/workflow-scope: "component"
@@ -959,7 +959,7 @@ metadata:
       secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
-    kind: BuildPlane
+    kind: ClusterBuildPlane
     name: default
   ttlAfterCompletion: "1d"
   parameters:
@@ -1154,10 +1154,9 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
   name: react
-  namespace: default
   annotations:
     openchoreo.dev/description: "Build workflow for React web applications"
     openchoreo.dev/workflow-scope: "component"
@@ -1169,7 +1168,7 @@ metadata:
       secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
-    kind: BuildPlane
+    kind: ClusterBuildPlane
     name: default
   ttlAfterCompletion: "1d"
   parameters:
@@ -1358,10 +1357,9 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
   name: ballerina-buildpack
-  namespace: default
   annotations:
     openchoreo.dev/description: "Ballerina build workflow for containerized builds using Ballerina Buildpack"
     openchoreo.dev/workflow-scope: "component"
@@ -1373,7 +1371,7 @@ metadata:
       secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
-    kind: BuildPlane
+    kind: ClusterBuildPlane
     name: default
   ttlAfterCompletion: "1d"
   parameters:
@@ -1551,10 +1549,9 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
   name: google-cloud-buildpacks
-  namespace: default
   annotations:
     openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
     openchoreo.dev/workflow-scope: "component"
@@ -1566,7 +1563,7 @@ metadata:
       secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
-    kind: BuildPlane
+    kind: ClusterBuildPlane
     name: default
   ttlAfterCompletion: "1d"
   parameters:
@@ -1744,10 +1741,9 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: Trait
+kind: ClusterTrait
 metadata:
   name: api-configuration
-  namespace: default
 spec:
   parameters:
     openAPIV3Schema:
@@ -1844,12 +1840,10 @@ spec:
 
 ---
 ---
-# Trait for Alert Rules - reusable across any component type
 apiVersion: openchoreo.dev/v1alpha1
-kind: Trait
+kind: ClusterTrait
 metadata:
   name: observability-alert-rule
-  namespace: default
 spec:
   parameters:
     openAPIV3Schema:
