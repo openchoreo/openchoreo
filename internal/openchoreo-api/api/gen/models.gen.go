@@ -3545,7 +3545,7 @@ type WorkflowTask struct {
 }
 
 // Workload Workload resource.
-// Defines the source code, container, endpoints and connections for a component.
+// Defines the source code, container, endpoints and dependencies for a component.
 type Workload struct {
 	// ApiVersion API version of the resource
 	ApiVersion *string `json:"apiVersion,omitempty"`
@@ -3567,11 +3567,11 @@ type WorkloadConnection struct {
 	// Component Target component name
 	Component string `json:"component"`
 
-	// Endpoint Target endpoint name on the target component
-	Endpoint string `json:"endpoint"`
-
 	// EnvBindings Maps resolved connection address components to environment variable names
 	EnvBindings ConnectionEnvBindings `json:"envBindings"`
+
+	// Name Target endpoint name on the target component
+	Name string `json:"name"`
 
 	// Project Target component's project name. If empty, defaults to the same project as the consumer.
 	Project *string `json:"project,omitempty"`
@@ -3651,11 +3651,14 @@ type WorkloadOverrides struct {
 
 // WorkloadSpec Desired state of a Workload
 type WorkloadSpec struct {
-	// Connections Connection specifications for endpoints consumed by this workload
-	Connections *[]WorkloadConnection `json:"connections,omitempty"`
-
 	// Container Container specification
 	Container *WorkloadContainer `json:"container,omitempty"`
+
+	// Dependencies Dependencies on other components' endpoints
+	Dependencies *struct {
+		// Endpoints Endpoint connections to other components
+		Endpoints *[]WorkloadConnection `json:"endpoints,omitempty"`
+	} `json:"dependencies,omitempty"`
 
 	// Endpoints Named endpoint specifications
 	Endpoints *map[string]WorkloadEndpoint `json:"endpoints,omitempty"`
