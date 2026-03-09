@@ -6,18 +6,19 @@ ARG TARGETARCH
 
 RUN apk update && \
    apk add --no-cache \
-   curl=8.12.1-r0 \
-   podman=5.2.5-r0 \
-   fuse-overlayfs=1.14-r0 && \
+   curl=8.17.0-r1 \
+   podman=5.7.0-r3 \
+   zlib=1.3.2-r0 \
+   fuse-overlayfs=1.16-r0 && \
    rm -rf /var/cache/apk/*
 
 ENV DOCKER_HOST=unix:///run/podman/podman.sock
 
 RUN if [ "${TARGETARCH}" = "amd64" ]; then \
-        curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.36.4/pack-v0.36.4-linux.tgz" | \
+        curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.40.1/pack-v0.40.1-linux.tgz" | \
         tar -C /usr/local/bin -xzv pack; \
     elif [ "${TARGETARCH}" = "arm64" ]; then \
-        curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.36.4/pack-v0.36.4-linux-arm64.tgz" | \
+        curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.40.1/pack-v0.40.1-linux-arm64.tgz" | \
         tar -C /usr/local/bin -xzv pack; \
     fi
 
