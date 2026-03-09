@@ -9536,7 +9536,7 @@ components:
       type: object
       description: |
         Workload resource.
-        Defines the source code, container, endpoints and connections for a component.
+        Defines the source code, container, endpoints and dependencies for a component.
       required:
         - metadata
       properties:
@@ -9585,11 +9585,15 @@ components:
           description: Named endpoint specifications
           additionalProperties:
             $ref: '#/components/schemas/WorkloadEndpoint'
-        connections:
-          type: array
-          description: Connection specifications for endpoints consumed by this workload
-          items:
-            $ref: '#/components/schemas/WorkloadConnection'
+        dependencies:
+          type: object
+          description: Dependencies on other components' endpoints
+          properties:
+            endpoints:
+              type: array
+              description: Endpoint connections to other components
+              items:
+                $ref: '#/components/schemas/WorkloadConnection'
 
     WorkloadStatus:
       type: object
@@ -9673,7 +9677,7 @@ components:
       description: A connection to another component's endpoint
       required:
         - component
-        - endpoint
+        - name
         - visibility
         - envBindings
       properties:
@@ -9684,7 +9688,7 @@ components:
           type: string
           description: Target component name
           minLength: 1
-        endpoint:
+        name:
           type: string
           description: Target endpoint name on the target component
           minLength: 1
