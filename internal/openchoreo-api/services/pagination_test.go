@@ -45,26 +45,6 @@ func pagedListResource[T any](t *testing.T, pages map[string]listPage[T], calls 
 	}
 }
 
-type paginationMockPDP struct {
-	evaluateFunc func(ctx context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error)
-}
-
-func (m *paginationMockPDP) Evaluate(ctx context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
-	return m.evaluateFunc(ctx, req)
-}
-
-// FilteredList calls AuthzChecker.Check and never
-// uses BatchEvaluate. This method is just interface stubs.
-func (m *paginationMockPDP) BatchEvaluate(_ context.Context, _ *authzcore.BatchEvaluateRequest) (*authzcore.BatchEvaluateResponse, error) {
-	return nil, nil
-}
-
-// FilteredList calls AuthzChecker.Check and never
-// uses GetSubjectProfile. This method is just interface stubs.
-func (m *paginationMockPDP) GetSubjectProfile(_ context.Context, _ *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
-	return nil, nil
-}
-
 func intCheckRequest(item int) CheckRequest {
 	return CheckRequest{
 		Action:       "number:view",
@@ -94,7 +74,7 @@ func denyDecision() *authzcore.Decision {
 func newPaginationChecker(
 	evaluate func(ctx context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error),
 ) *AuthzChecker {
-	return NewAuthzChecker(&paginationMockPDP{evaluateFunc: evaluate}, slog.Default())
+	return NewAuthzChecker(&mockPDP{evaluateFunc: evaluate}, slog.Default())
 }
 
 func TestEncodeCursor_DecodeCursor_RoundTrip(t *testing.T) {
