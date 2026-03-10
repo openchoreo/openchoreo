@@ -171,7 +171,9 @@ mcp:
     - namespace
     - project
     - component
-    - infrastructure
+    - deployment
+    - build
+    - pe
 
 logging:
   # Minimum log level: debug, info, warn, error
