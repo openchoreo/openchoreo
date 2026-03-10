@@ -1387,7 +1387,7 @@ metadata:
   name: dockerfile-builder
   namespace: default
   annotations:
-    openchoreo.dev/description: "Docker build workflow for containerized builds using Dockerfile"
+    openchoreo.dev/description: "Build with a provided Dockerfile/Containerfile/Podmanfile"
     openchoreo.dev/workflow-scope: "component"
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
