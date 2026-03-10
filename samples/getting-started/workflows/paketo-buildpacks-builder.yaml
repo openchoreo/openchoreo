@@ -1,8 +1,7 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
   name: paketo-buildpacks-builder
-  namespace: default
   annotations:
     openchoreo.dev/description: "Supports building Java, Node.js, Python, Go, .NET, Ruby, PHP, and more. See https://paketo.io/docs/"
     openchoreo.dev/workflow-scope: "component"
@@ -14,7 +13,7 @@ metadata:
       secretRef: parameters.repository.secretRef
 spec:
   buildPlaneRef:
-    kind: BuildPlane
+    kind: ClusterBuildPlane
     name: default
 
   ttlAfterCompletion: "1d"

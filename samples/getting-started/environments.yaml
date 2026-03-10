@@ -10,7 +10,7 @@ metadata:
     openchoreo.dev/name: development
 spec:
   dataPlaneRef:
-    kind: DataPlane
+    kind: ClusterDataPlane
     name: default
   isProduction: false
 ---
@@ -26,7 +26,7 @@ metadata:
     openchoreo.dev/name: staging
 spec:
   dataPlaneRef:
-    kind: DataPlane
+    kind: ClusterDataPlane
     name: default
   isProduction: false
 ---
@@ -42,6 +42,6 @@ metadata:
     openchoreo.dev/name: production
 spec:
   dataPlaneRef:
-    kind: DataPlane
+    kind: ClusterDataPlane
     name: default
   isProduction: true

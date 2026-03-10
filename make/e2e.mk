@@ -317,8 +317,8 @@ _e2e.configure-op:
 .PHONY: _e2e.link-observability
 _e2e.link-observability:
 	@$(call log_info, Linking ObservabilityPlane to other planes)
-	$(E2E_KUBECTL) patch dataplane default -n default --type merge \
-		-p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
+	$(E2E_KUBECTL) patch clusterdataplane default --type merge \
+		-p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}'
 	@if [ "$(E2E_WITH_BUILD)" = "true" ]; then \
 		$(E2E_KUBECTL) patch buildplane default -n default --type merge \
 			-p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'; \
@@ -346,7 +346,7 @@ e2e.status: ## Check status of all planes and agent connections
 	@$(E2E_KUBECTL) get pods -A
 	@echo ""
 	@echo "=== Plane Resources ==="
-	@$(E2E_KUBECTL) get dataplane,buildplane,observabilityplane -n default 2>/dev/null || true
+	@$(E2E_KUBECTL) get clusterdataplane,dataplane,buildplane,observabilityplane 2>/dev/null || true
 	@echo ""
 	@echo "=== Agent Connections ==="
 	@for ns in $(E2E_DP_NS) $(E2E_BP_NS) $(E2E_OP_NS); do \
@@ -365,7 +365,7 @@ e2e.diagnostics: ## Collect logs, events, and resource dumps from all namespaces
 			$(E2E_KUBECTL) logs $$pod -n $$ns --all-containers --tail=200 > $(E2E_DIAGNOSTICS_DIR)/logs-$$ns-$$pod.txt 2>&1 || true; \
 		done; \
 	done
-	@$(E2E_KUBECTL) get dataplane,buildplane,observabilityplane -n default -o yaml > $(E2E_DIAGNOSTICS_DIR)/plane-resources.yaml 2>&1 || true
+	@$(E2E_KUBECTL) get clusterdataplane,dataplane,buildplane,observabilityplane -o yaml > $(E2E_DIAGNOSTICS_DIR)/plane-resources.yaml 2>&1 || true
 	@$(E2E_KUBECTL) get component,componentrelease,releasebinding,release -A -o yaml > $(E2E_DIAGNOSTICS_DIR)/release-chain.yaml 2>&1 || true
 	@$(call log_success, Diagnostics collected to $(E2E_DIAGNOSTICS_DIR))
 

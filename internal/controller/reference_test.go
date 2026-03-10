@@ -117,7 +117,7 @@ func TestGetDataplaneOfEnv_WithEmptyRef_DefaultNotFound(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "no dataPlaneRef specified and default DataPlane 'default' not found in namespace 'test-namespace'")
+	assert.Contains(t, err.Error(), "no dataPlaneRef specified and neither default DataPlane nor ClusterDataPlane 'default' found")
 }
 
 func TestGetDataplaneOfEnv_WithExplicitRef_NotFound(t *testing.T) {

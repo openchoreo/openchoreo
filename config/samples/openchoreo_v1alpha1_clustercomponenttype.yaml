@@ -8,7 +8,7 @@ metadata:
 spec:
   # Restrict which workflows developers can use for this component type
   allowedWorkflows:
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: workflow-sample
 
   workloadType: deployment

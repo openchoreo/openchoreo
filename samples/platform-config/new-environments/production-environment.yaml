@@ -10,6 +10,6 @@ metadata:
   namespace: default
 spec:
   dataPlaneRef:
-    kind: DataPlane
+    kind: ClusterDataPlane
     name: default
   isProduction: true
