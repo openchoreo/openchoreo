@@ -346,10 +346,9 @@ AGENT_CA=$(kubectl --context k3d-openchoreo-wp get secret cluster-agent-tls \
 
 kubectl --context k3d-openchoreo-cp apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
-kind: WorkflowPlane
+kind: ClusterWorkflowPlane
 metadata:
   name: default
-  namespace: default
 spec:
   planeID: default
   clusterAgent:

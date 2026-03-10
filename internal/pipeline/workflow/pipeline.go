@@ -114,9 +114,17 @@ func (p *Pipeline) renderTemplate(tmpl *runtime.RawExtension, celContext map[str
 }
 
 // renderResources renders additional resources defined in the Workflow.
+// All rendered resources are forced into the enforced workflow namespace (metadata.namespace)
+// regardless of what the template specifies. This prevents workflow authors from deploying
+// resources into arbitrary namespaces.
 func (p *Pipeline) renderResources(resources []v1alpha1.WorkflowResource, celContext map[string]any) ([]RenderedResource, error) {
 	if len(resources) == 0 {
 		return nil, nil
+	}
+
+	enforcedNamespace, err := extractEnforcedNamespace(celContext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract enforced namespace: %w", err)
 	}
 
 	renderedResources := make([]RenderedResource, 0, len(resources))
@@ -143,6 +151,10 @@ func (p *Pipeline) renderResources(resources []v1alpha1.WorkflowResource, celCon
 		if shouldSkipResource(rendered) {
 			continue
 		}
+
+		// Enforce the workflow namespace on all additional resources.
+		// This overrides whatever namespace the template may have specified.
+		setResourceNamespace(rendered, enforcedNamespace)
 
 		renderedResources = append(renderedResources, RenderedResource{
 			ID:       res.ID,
@@ -285,6 +297,31 @@ func (p *Pipeline) validateRenderedResource(resource map[string]any) error {
 	}
 
 	return nil
+}
+
+// extractEnforcedNamespace extracts the enforced workflow namespace from the CEL context.
+func extractEnforcedNamespace(celContext map[string]any) (string, error) {
+	metadata, ok := celContext["metadata"].(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("metadata not found in CEL context")
+	}
+
+	namespace, ok := metadata["namespace"].(string)
+	if !ok || namespace == "" {
+		return "", fmt.Errorf("enforced namespace not found in CEL context metadata")
+	}
+
+	return namespace, nil
+}
+
+// setResourceNamespace sets the metadata.namespace field on a rendered resource.
+func setResourceNamespace(resource map[string]any, namespace string) {
+	metadata, ok := resource["metadata"].(map[string]any)
+	if !ok {
+		metadata = make(map[string]any)
+		resource["metadata"] = metadata
+	}
+	metadata["namespace"] = namespace
 }
 
 // rawExtensionToMap converts a runtime.RawExtension to map[string]any.

@@ -1542,6 +1542,183 @@ func TestPipeline_Render_DifferentResourceTypes(t *testing.T) {
 
 // Helper functions
 
+func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
+	makeInput := func(t *testing.T, resources []v1alpha1.WorkflowResource) *RenderInput {
+		t.Helper()
+		return &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-run",
+					Namespace: "my-namespace",
+				},
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name: "test-workflow",
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-workflow",
+					Namespace: "my-namespace",
+				},
+				Spec: v1alpha1.WorkflowSpec{
+					RunTemplate: mustRawExtension(t, map[string]any{
+						"apiVersion": "argoproj.io/v1alpha1",
+						"kind":       "Workflow",
+						"metadata": map[string]any{
+							"name":      "${metadata.workflowRunName}",
+							"namespace": "${metadata.namespace}",
+						},
+						"spec": map[string]any{},
+					}),
+					Resources: resources,
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "my-namespace",
+				WorkflowRunName: "test-run",
+			},
+		}
+	}
+
+	t.Run("resource namespace is overridden to enforced namespace", func(t *testing.T) {
+		input := makeInput(t, []v1alpha1.WorkflowResource{
+			{
+				ID: "test-secret",
+				Template: mustRawExtension(t, map[string]any{
+					"apiVersion": "v1",
+					"kind":       "Secret",
+					"metadata": map[string]any{
+						"name":      "my-secret",
+						"namespace": "some-other-namespace",
+					},
+				}),
+			},
+		})
+
+		p := NewPipeline()
+		output, err := p.Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(output.Resources) != 1 {
+			t.Fatalf("expected 1 resource, got %d", len(output.Resources))
+		}
+
+		metadata := output.Resources[0].Resource["metadata"].(map[string]any)
+		if metadata["namespace"] != "workflows-my-namespace" {
+			t.Errorf("expected namespace to be enforced to 'workflows-my-namespace', got %v", metadata["namespace"])
+		}
+	})
+
+	t.Run("resource using metadata.namespace CEL expression gets enforced namespace", func(t *testing.T) {
+		input := makeInput(t, []v1alpha1.WorkflowResource{
+			{
+				ID: "test-configmap",
+				Template: mustRawExtension(t, map[string]any{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]any{
+						"name":      "my-config",
+						"namespace": "${metadata.namespace}",
+					},
+				}),
+			},
+		})
+
+		p := NewPipeline()
+		output, err := p.Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(output.Resources) != 1 {
+			t.Fatalf("expected 1 resource, got %d", len(output.Resources))
+		}
+
+		metadata := output.Resources[0].Resource["metadata"].(map[string]any)
+		if metadata["namespace"] != "workflows-my-namespace" {
+			t.Errorf("expected namespace 'workflows-my-namespace', got %v", metadata["namespace"])
+		}
+	})
+
+	t.Run("resource without namespace gets enforced namespace", func(t *testing.T) {
+		input := makeInput(t, []v1alpha1.WorkflowResource{
+			{
+				ID: "test-secret",
+				Template: mustRawExtension(t, map[string]any{
+					"apiVersion": "v1",
+					"kind":       "Secret",
+					"metadata": map[string]any{
+						"name": "my-secret",
+					},
+				}),
+			},
+		})
+
+		p := NewPipeline()
+		output, err := p.Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(output.Resources) != 1 {
+			t.Fatalf("expected 1 resource, got %d", len(output.Resources))
+		}
+
+		metadata := output.Resources[0].Resource["metadata"].(map[string]any)
+		if metadata["namespace"] != "workflows-my-namespace" {
+			t.Errorf("expected namespace 'workflows-my-namespace', got %v", metadata["namespace"])
+		}
+	})
+
+	t.Run("multiple resources all get enforced namespace", func(t *testing.T) {
+		input := makeInput(t, []v1alpha1.WorkflowResource{
+			{
+				ID: "secret-1",
+				Template: mustRawExtension(t, map[string]any{
+					"apiVersion": "v1",
+					"kind":       "Secret",
+					"metadata": map[string]any{
+						"name":      "secret-1",
+						"namespace": "attacker-namespace",
+					},
+				}),
+			},
+			{
+				ID: "configmap-1",
+				Template: mustRawExtension(t, map[string]any{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]any{
+						"name":      "configmap-1",
+						"namespace": "different-namespace",
+					},
+				}),
+			},
+		})
+
+		p := NewPipeline()
+		output, err := p.Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(output.Resources) != 2 {
+			t.Fatalf("expected 2 resources, got %d", len(output.Resources))
+		}
+
+		for i, res := range output.Resources {
+			metadata := res.Resource["metadata"].(map[string]any)
+			if metadata["namespace"] != "workflows-my-namespace" {
+				t.Errorf("resource[%d] (%s): expected namespace 'workflows-my-namespace', got %v", i, res.ID, metadata["namespace"])
+			}
+		}
+	})
+}
+
 func mustRawExtension(t *testing.T, data interface{}) *runtime.RawExtension {
 	t.Helper()
 	bytes, err := json.Marshal(data)
