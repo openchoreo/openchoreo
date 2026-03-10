@@ -52,7 +52,7 @@ spec:
               --run-image "$RUN_IMG" \
               --docker-host inherit \
               --path "$WORKDIR/$APP_PATH" \
-              --pull-policy if-not-present \
+              --pull-policy always \
               $ENV_ARGS
 
             podman save -o /mnt/vol/app-image.tar "$IMAGE"

@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: publish-image-k3d
+  name: publish-image
 spec:
   templates:
     - name: publish-image

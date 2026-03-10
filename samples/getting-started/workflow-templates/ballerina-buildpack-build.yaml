@@ -54,7 +54,7 @@ spec:
               --docker-host inherit \
               --path "$WORKDIR/$APP_PATH" \
               --volume "/mnt/vol:/app/generated-artifacts:rw" \
-              --pull-policy if-not-present \
+              --pull-policy always \
               $ENV_ARGS
 
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
