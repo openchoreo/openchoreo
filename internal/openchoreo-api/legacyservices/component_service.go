@@ -2706,13 +2706,6 @@ func (s *ComponentService) validateWorkflowParameters(ctx context.Context, names
 		return nil
 	}
 
-	// Unmarshal the workflow's parameter schema definition
-	var parameterSchemaMap map[string]any
-	if err := json.Unmarshal(workflowSpec.Parameters.GetRaw().Raw, &parameterSchemaMap); err != nil {
-		s.logger.Error("Failed to unmarshal workflow parameter schema", "error", err)
-		return fmt.Errorf("failed to parse workflow parameter schema: %w", err)
-	}
-
 	// Unmarshal the provided parameter values
 	var providedValues map[string]any
 	if err := json.Unmarshal(providedParameters.Raw, &providedValues); err != nil {
@@ -2720,12 +2713,8 @@ func (s *ComponentService) validateWorkflowParameters(ctx context.Context, names
 		return fmt.Errorf("failed to parse provided parameters: %w", err)
 	}
 
-	// Build structural schema from workflow parameter schema
-	def := openchoreoschema.Definition{
-		Schemas: []map[string]any{parameterSchemaMap},
-	}
-
-	structural, err := openchoreoschema.ToStructural(def)
+	// Build structural schema — handles both ocSchema and openAPIV3Schema formats
+	structural, err := openchoreoschema.ResolveSectionToStructural(workflowSpec.Parameters)
 	if err != nil {
 		s.logger.Error("Failed to build structural schema", "error", err)
 		return fmt.Errorf("failed to build workflow parameter schema structure: %w", err)

@@ -190,21 +190,8 @@ func validateComponentParameters(release *openchoreodevv1alpha1.ComponentRelease
 		return allErrs
 	}
 
-	var paramsSchema map[string]any
-	if err := yaml.Unmarshal(paramsRaw.Raw, &paramsSchema); err != nil {
-		allErrs = append(allErrs, field.Invalid(
-			field.NewPath("spec", "componentType", "parameters"),
-			omitValue,
-			fmt.Sprintf("ComponentType snapshot has invalid parameters schema: %v", err)))
-		return allErrs
-	}
-
-	// Build JSON schema (types are embedded in the ocSchema blob via $types key)
-	schemaDef := schema.Definition{
-		Schemas: []map[string]any{paramsSchema},
-	}
-
-	jsonSchema, err := schema.ToJSONSchema(schemaDef)
+	// Build JSON schema — handles both ocSchema and openAPIV3Schema formats
+	jsonSchema, err := schema.SectionToJSONSchema(release.Spec.ComponentType.Parameters)
 	if err != nil {
 		allErrs = append(allErrs, field.Invalid(
 			basePath,
@@ -268,21 +255,8 @@ func validateTraitInstanceParameters(release *openchoreodevv1alpha1.ComponentRel
 			continue
 		}
 
-		var paramsSchema map[string]any
-		if err := yaml.Unmarshal(paramsRaw.Raw, &paramsSchema); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				traitPath.Child("name"),
-				traitInstance.Name,
-				fmt.Sprintf("Trait %q snapshot has invalid parameters schema: %v", traitInstance.Name, err)))
-			continue
-		}
-
-		// Build JSON schema (types are embedded in the ocSchema blob via $types key)
-		schemaDef := schema.Definition{
-			Schemas: []map[string]any{paramsSchema},
-		}
-
-		jsonSchema, err := schema.ToJSONSchema(schemaDef)
+		// Build JSON schema — handles both ocSchema and openAPIV3Schema formats
+		jsonSchema, err := schema.SectionToJSONSchema(traitSpec.Parameters)
 		if err != nil {
 			allErrs = append(allErrs, field.Invalid(
 				traitPath.Child("parameters"),

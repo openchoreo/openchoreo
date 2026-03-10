@@ -1564,3 +1564,342 @@ func deepEqual(a, b interface{}) bool {
 	bJSON, _ := json.Marshal(b)
 	return string(aJSON) == string(bJSON)
 }
+
+func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
+	t.Run("openAPIV3Schema applies defaults for missing fields", func(t *testing.T) {
+		input := &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name: "test-workflow",
+						Parameters: mustRawExtension(t, map[string]any{
+							"repo": "https://github.com/org/repo",
+						}),
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				Spec: v1alpha1.WorkflowSpec{
+					Parameters: &v1alpha1.SchemaSection{
+						OpenAPIV3Schema: mustRawExtension(t, map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"branch": map[string]any{
+									"type":    "string",
+									"default": "main",
+								},
+								"replicas": map[string]any{
+									"type":    "integer",
+									"default": float64(1),
+								},
+								"repo": map[string]any{
+									"type": "string",
+								},
+							},
+						}),
+					},
+					RunTemplate: mustRawExtension(t, map[string]any{
+						"apiVersion": "argoproj.io/v1alpha1",
+						"kind":       "Workflow",
+						"metadata":   map[string]any{"name": "test-run"},
+						"spec": map[string]any{
+							"arguments": map[string]any{
+								"parameters": []any{
+									map[string]any{"name": "branch", "value": "${parameters.branch}"},
+									map[string]any{"name": "repo", "value": "${parameters.repo}"},
+								},
+							},
+						},
+					}),
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "test-ns",
+				WorkflowRunName: "test-run",
+			},
+		}
+
+		p := NewPipeline()
+		output, err := p.Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		spec := output.Resource["spec"].(map[string]any)
+		args := spec["arguments"].(map[string]any)
+		params := args["parameters"].([]any)
+
+		branchParam := params[0].(map[string]any)
+		if branchParam["value"] != "main" {
+			t.Errorf("expected branch default 'main', got %v", branchParam["value"])
+		}
+		repoParam := params[1].(map[string]any)
+		if repoParam["value"] != "https://github.com/org/repo" {
+			t.Errorf("expected repo value, got %v", repoParam["value"])
+		}
+	})
+
+	t.Run("openAPIV3Schema with $defs and $ref applies defaults", func(t *testing.T) {
+		input := &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name: "test-workflow",
+						Parameters: mustRawExtension(t, map[string]any{
+							"repository": map[string]any{
+								"url": "https://github.com/org/repo",
+							},
+						}),
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				Spec: v1alpha1.WorkflowSpec{
+					Parameters: &v1alpha1.SchemaSection{
+						OpenAPIV3Schema: mustRawExtension(t, map[string]any{
+							"type": "object",
+							"$defs": map[string]any{
+								"Revision": map[string]any{
+									"type": "object",
+									"properties": map[string]any{
+										"branch": map[string]any{
+											"type":    "string",
+											"default": "main",
+										},
+										"commit": map[string]any{
+											"type":    "string",
+											"default": "",
+										},
+									},
+								},
+							},
+							"properties": map[string]any{
+								"repository": map[string]any{
+									"type": "object",
+									"properties": map[string]any{
+										"url": map[string]any{
+											"type": "string",
+										},
+										"revision": map[string]any{
+											"$ref":    "#/$defs/Revision",
+											"default": map[string]any{},
+										},
+									},
+								},
+							},
+						}),
+					},
+					RunTemplate: mustRawExtension(t, map[string]any{
+						"apiVersion": "argoproj.io/v1alpha1",
+						"kind":       "Workflow",
+						"metadata":   map[string]any{"name": "test-run"},
+						"spec": map[string]any{
+							"arguments": map[string]any{
+								"parameters": []any{
+									map[string]any{"name": "url", "value": "${parameters.repository.url}"},
+									map[string]any{"name": "branch", "value": "${parameters.repository.revision.branch}"},
+								},
+							},
+						},
+					}),
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "test-ns",
+				WorkflowRunName: "test-run",
+			},
+		}
+
+		p := NewPipeline()
+		output, err := p.Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		spec := output.Resource["spec"].(map[string]any)
+		args := spec["arguments"].(map[string]any)
+		params := args["parameters"].([]any)
+
+		urlParam := params[0].(map[string]any)
+		if urlParam["value"] != "https://github.com/org/repo" {
+			t.Errorf("expected url, got %v", urlParam["value"])
+		}
+		branchParam := params[1].(map[string]any)
+		if branchParam["value"] != "main" {
+			t.Errorf("expected branch default 'main' via $ref, got %v", branchParam["value"])
+		}
+	})
+
+	t.Run("ocSchema applies defaults for missing fields", func(t *testing.T) {
+		input := &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name: "test-workflow",
+						Parameters: mustRawExtension(t, map[string]any{
+							"repo": "https://github.com/org/repo",
+						}),
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				Spec: v1alpha1.WorkflowSpec{
+					Parameters: &v1alpha1.SchemaSection{
+						OCSchema: mustRawExtension(t, map[string]any{
+							"branch":   "string | default=main",
+							"replicas": "integer | default=1",
+							"repo":     "string",
+						}),
+					},
+					RunTemplate: mustRawExtension(t, map[string]any{
+						"apiVersion": "argoproj.io/v1alpha1",
+						"kind":       "Workflow",
+						"metadata":   map[string]any{"name": "test-run"},
+						"spec": map[string]any{
+							"arguments": map[string]any{
+								"parameters": []any{
+									map[string]any{"name": "branch", "value": "${parameters.branch}"},
+									map[string]any{"name": "repo", "value": "${parameters.repo}"},
+									map[string]any{"name": "replicas", "value": "${parameters.replicas}"},
+								},
+							},
+						},
+					}),
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "test-ns",
+				WorkflowRunName: "test-run",
+			},
+		}
+
+		p := NewPipeline()
+		output, err := p.Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		spec := output.Resource["spec"].(map[string]any)
+		args := spec["arguments"].(map[string]any)
+		params := args["parameters"].([]any)
+
+		branchParam := params[0].(map[string]any)
+		if branchParam["value"] != "main" {
+			t.Errorf("expected branch default 'main', got %v", branchParam["value"])
+		}
+		repoParam := params[1].(map[string]any)
+		if repoParam["value"] != "https://github.com/org/repo" {
+			t.Errorf("expected repo value, got %v", repoParam["value"])
+		}
+	})
+
+	t.Run("openAPIV3Schema with no parameters applies all defaults", func(t *testing.T) {
+		input := &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name:       "test-workflow",
+						Parameters: mustRawExtension(t, map[string]any{}),
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				Spec: v1alpha1.WorkflowSpec{
+					Parameters: &v1alpha1.SchemaSection{
+						OpenAPIV3Schema: mustRawExtension(t, map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"timeout": map[string]any{
+									"type":    "string",
+									"default": "30m",
+								},
+							},
+						}),
+					},
+					RunTemplate: mustRawExtension(t, map[string]any{
+						"apiVersion": "argoproj.io/v1alpha1",
+						"kind":       "Workflow",
+						"metadata":   map[string]any{"name": "test-run"},
+						"spec": map[string]any{
+							"arguments": map[string]any{
+								"parameters": []any{
+									map[string]any{"name": "timeout", "value": "${parameters.timeout}"},
+								},
+							},
+						},
+					}),
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "test-ns",
+				WorkflowRunName: "test-run",
+			},
+		}
+
+		p := NewPipeline()
+		output, err := p.Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		spec := output.Resource["spec"].(map[string]any)
+		args := spec["arguments"].(map[string]any)
+		params := args["parameters"].([]any)
+
+		timeoutParam := params[0].(map[string]any)
+		if timeoutParam["value"] != "30m" {
+			t.Errorf("expected timeout default '30m', got %v", timeoutParam["value"])
+		}
+	})
+
+	t.Run("nil schema section works without defaults", func(t *testing.T) {
+		input := &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name: "test-workflow",
+						Parameters: mustRawExtension(t, map[string]any{
+							"repo": "https://github.com/org/repo",
+						}),
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				Spec: v1alpha1.WorkflowSpec{
+					Parameters: nil,
+					RunTemplate: mustRawExtension(t, map[string]any{
+						"apiVersion": "argoproj.io/v1alpha1",
+						"kind":       "Workflow",
+						"metadata":   map[string]any{"name": "test-run"},
+						"spec": map[string]any{
+							"arguments": map[string]any{
+								"parameters": []any{
+									map[string]any{"name": "repo", "value": "${parameters.repo}"},
+								},
+							},
+						},
+					}),
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "test-ns",
+				WorkflowRunName: "test-run",
+			},
+		}
+
+		p := NewPipeline()
+		output, err := p.Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		spec := output.Resource["spec"].(map[string]any)
+		args := spec["arguments"].(map[string]any)
+		params := args["parameters"].([]any)
+
+		repoParam := params[0].(map[string]any)
+		if repoParam["value"] != "https://github.com/org/repo" {
+			t.Errorf("expected repo value, got %v", repoParam["value"])
+		}
+	})
+}
