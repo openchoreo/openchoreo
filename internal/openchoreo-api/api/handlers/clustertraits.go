@@ -27,6 +27,10 @@ func (h *Handler) ListClusterTraits(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListClusterTraits403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListClusterTraits400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list cluster traits", "error", err)
 		return gen.ListClusterTraits500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

@@ -28,6 +28,10 @@ func (h *Handler) ListDataPlanes(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListDataPlanes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListDataPlanes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list data planes", "error", err)
 		return gen.ListDataPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

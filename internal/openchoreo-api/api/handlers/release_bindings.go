@@ -35,6 +35,10 @@ func (h *Handler) ListReleaseBindings(
 		if errors.Is(err, releasebindingsvc.ErrComponentNotFound) {
 			return gen.ListReleaseBindings404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListReleaseBindings400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list release bindings", "error", err)
 		return gen.ListReleaseBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

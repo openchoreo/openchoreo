@@ -25,6 +25,10 @@ func (h *Handler) ListEnvironments(
 
 	result, err := h.services.EnvironmentService.ListEnvironments(ctx, request.NamespaceName, opts)
 	if err != nil {
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListEnvironments400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list environments", "error", err)
 		return gen.ListEnvironments500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

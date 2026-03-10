@@ -27,6 +27,10 @@ func (h *Handler) ListDeploymentPipelines(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListDeploymentPipelines403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListDeploymentPipelines400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list deployment pipelines", "error", err)
 		return gen.ListDeploymentPipelines500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

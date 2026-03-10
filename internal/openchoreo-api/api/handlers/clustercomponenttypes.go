@@ -27,6 +27,10 @@ func (h *Handler) ListClusterComponentTypes(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListClusterComponentTypes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListClusterComponentTypes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list cluster component types", "error", err)
 		return gen.ListClusterComponentTypes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

@@ -24,6 +24,10 @@ func (h *Handler) ListProjects(
 
 	result, err := h.services.ProjectService.ListProjects(ctx, request.NamespaceName, opts)
 	if err != nil {
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListProjects400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list projects", "error", err)
 		return gen.ListProjects500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

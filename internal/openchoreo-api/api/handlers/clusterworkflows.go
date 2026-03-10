@@ -27,6 +27,10 @@ func (h *Handler) ListClusterWorkflows(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListClusterWorkflows403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListClusterWorkflows400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list cluster workflows", "error", err)
 		return gen.ListClusterWorkflows500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

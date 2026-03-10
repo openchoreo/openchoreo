@@ -27,6 +27,10 @@ func (h *Handler) ListWorkflows(
 
 	result, err := h.services.WorkflowService.ListWorkflows(ctx, request.NamespaceName, opts)
 	if err != nil {
+		var validationErr *svcerrors.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListWorkflows400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list workflows", "error", err)
 		return gen.ListWorkflows500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -221,6 +225,10 @@ func (h *Handler) ListWorkflowRuns(
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.ListWorkflowRuns403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		var validationErr *svcerrors.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListWorkflowRuns400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list workflow runs", "error", err)
 		return gen.ListWorkflowRuns500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

@@ -40,7 +40,7 @@ func BuildListOptions(opts ListOptions) ([]client.ListOption, error) {
 	if opts.LabelSelector != "" {
 		selector, err := labels.Parse(opts.LabelSelector)
 		if err != nil {
-			return nil, fmt.Errorf("invalid label selector: %w", err)
+			return nil, &ValidationError{Msg: fmt.Sprintf("invalid label selector: %v", err)}
 		}
 		listOpts = append(listOpts, client.MatchingLabelsSelector{Selector: selector})
 	}

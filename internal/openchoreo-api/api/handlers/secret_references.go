@@ -24,6 +24,10 @@ func (h *Handler) ListSecretReferences(
 
 	result, err := h.services.SecretReferenceService.ListSecretReferences(ctx, request.NamespaceName, opts)
 	if err != nil {
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListSecretReferences400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list secret references", "error", err)
 		return gen.ListSecretReferences500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

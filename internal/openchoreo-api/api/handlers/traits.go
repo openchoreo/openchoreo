@@ -24,6 +24,10 @@ func (h *Handler) ListTraits(
 
 	result, err := h.services.TraitService.ListTraits(ctx, request.NamespaceName, opts)
 	if err != nil {
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListTraits400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list traits", "error", err)
 		return gen.ListTraits500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

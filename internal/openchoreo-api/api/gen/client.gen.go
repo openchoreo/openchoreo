@@ -12302,6 +12302,7 @@ type ListClusterBuildPlanesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ClusterBuildPlaneList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -12433,6 +12434,7 @@ type ListClusterComponentTypesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ClusterComponentTypeList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -12722,6 +12724,7 @@ type ListClusterObservabilityPlanesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ClusterObservabilityPlaneList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -12853,6 +12856,7 @@ type ListClusterRoleBindingsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *AuthzClusterRoleBindingList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -12984,6 +12988,7 @@ type ListClusterRolesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *AuthzClusterRoleList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -13115,6 +13120,7 @@ type ListClusterTraitsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ClusterTraitList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -13272,6 +13278,7 @@ type ListClusterWorkflowsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ClusterWorkflowList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -13429,6 +13436,7 @@ type ListNamespacesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *NamespaceList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -13559,6 +13567,7 @@ type ListBuildPlanesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *BuildPlaneList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -13690,6 +13699,7 @@ type ListComponentReleasesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ComponentReleaseList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
@@ -13742,6 +13752,7 @@ type ListComponentsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ComponentList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
@@ -13981,6 +13992,7 @@ type ListComponentTypesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ComponentTypeList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -14138,6 +14150,7 @@ type ListDataPlanesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *DataPlaneList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -14269,6 +14282,7 @@ type ListDeploymentPipelinesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *DeploymentPipelineList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -14399,6 +14413,7 @@ type ListEnvironmentsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *EnvironmentList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -14530,6 +14545,7 @@ type ListObservabilityAlertsNotificationChannelsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ObservabilityAlertsNotificationChannelList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -14660,6 +14676,7 @@ type ListObservabilityPlanesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ObservabilityPlaneList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -14791,6 +14808,7 @@ type ListProjectsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ProjectList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
@@ -14923,6 +14941,7 @@ type ListReleaseBindingsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ReleaseBindingList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
@@ -15403,6 +15422,7 @@ type ListSecretReferencesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *SecretReferenceList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -15533,6 +15553,7 @@ type ListTraitsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *TraitList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -15690,6 +15711,7 @@ type ListWorkflowRunsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *WorkflowRunList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -15872,6 +15894,7 @@ type ListWorkflowsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *WorkflowList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -16029,6 +16052,7 @@ type ListWorkloadsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *WorkloadList
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
@@ -18483,6 +18507,13 @@ func ParseListClusterBuildPlanesResp(rsp *http.Response) (*ListClusterBuildPlane
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -18759,6 +18790,13 @@ func ParseListClusterComponentTypesResp(rsp *http.Response) (*ListClusterCompone
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -19375,6 +19413,13 @@ func ParseListClusterObservabilityPlanesResp(rsp *http.Response) (*ListClusterOb
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -19651,6 +19696,13 @@ func ParseListClusterRoleBindingsResp(rsp *http.Response) (*ListClusterRoleBindi
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -19929,6 +19981,13 @@ func ParseListClusterRolesResp(rsp *http.Response) (*ListClusterRolesResp, error
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -20205,6 +20264,13 @@ func ParseListClusterTraitsResp(rsp *http.Response) (*ListClusterTraitsResp, err
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -20537,6 +20603,13 @@ func ParseListClusterWorkflowsResp(rsp *http.Response) (*ListClusterWorkflowsRes
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -20868,6 +20941,13 @@ func ParseListNamespacesResp(rsp *http.Response) (*ListNamespacesResp, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21137,6 +21217,13 @@ func ParseListBuildPlanesResp(rsp *http.Response) (*ListBuildPlanesResp, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -21415,6 +21502,13 @@ func ParseListComponentReleasesResp(rsp *http.Response) (*ListComponentReleasesR
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21522,6 +21616,13 @@ func ParseListComponentsResp(rsp *http.Response) (*ListComponentsResp, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -22044,6 +22145,13 @@ func ParseListComponentTypesResp(rsp *http.Response) (*ListComponentTypesResp, e
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22375,6 +22483,13 @@ func ParseListDataPlanesResp(rsp *http.Response) (*ListDataPlanesResp, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22652,6 +22767,13 @@ func ParseListDeploymentPipelinesResp(rsp *http.Response) (*ListDeploymentPipeli
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22921,6 +23043,13 @@ func ParseListEnvironmentsResp(rsp *http.Response) (*ListEnvironmentsResp, error
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -23199,6 +23328,13 @@ func ParseListObservabilityAlertsNotificationChannelsResp(rsp *http.Response) (*
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23468,6 +23604,13 @@ func ParseListObservabilityPlanesResp(rsp *http.Response) (*ListObservabilityPla
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -23745,6 +23888,13 @@ func ParseListProjectsResp(rsp *http.Response) (*ListProjectsResp, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -24029,6 +24179,13 @@ func ParseListReleaseBindingsResp(rsp *http.Response) (*ListReleaseBindingsResp,
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -25086,6 +25243,13 @@ func ParseListSecretReferencesResp(rsp *http.Response) (*ListSecretReferencesRes
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25355,6 +25519,13 @@ func ParseListTraitsResp(rsp *http.Response) (*ListTraitsResp, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -25686,6 +25857,13 @@ func ParseListWorkflowRunsResp(rsp *http.Response) (*ListWorkflowRunsResp, error
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -26065,6 +26243,13 @@ func ParseListWorkflowsResp(rsp *http.Response) (*ListWorkflowsResp, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -26395,6 +26580,13 @@ func ParseListWorkloadsResp(rsp *http.Response) (*ListWorkloadsResp, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized

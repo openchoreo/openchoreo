@@ -28,6 +28,10 @@ func (h *Handler) ListNamespaces(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListNamespaces403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListNamespaces400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list namespaces", "error", err)
 		return gen.ListNamespaces500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

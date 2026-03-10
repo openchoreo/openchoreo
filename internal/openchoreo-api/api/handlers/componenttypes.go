@@ -24,6 +24,10 @@ func (h *Handler) ListComponentTypes(
 
 	result, err := h.services.ComponentTypeService.ListComponentTypes(ctx, request.NamespaceName, opts)
 	if err != nil {
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListComponentTypes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list component types", "error", err)
 		return gen.ListComponentTypes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

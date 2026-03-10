@@ -24,6 +24,10 @@ func (h *Handler) ListClusterObservabilityPlanes(
 
 	result, err := h.services.ClusterObservabilityPlaneService.ListClusterObservabilityPlanes(ctx, opts)
 	if err != nil {
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListClusterObservabilityPlanes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list cluster observability planes", "error", err)
 		return gen.ListClusterObservabilityPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

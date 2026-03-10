@@ -24,6 +24,10 @@ func (h *Handler) ListBuildPlanes(
 
 	result, err := h.services.BuildPlaneService.ListBuildPlanes(ctx, request.NamespaceName, opts)
 	if err != nil {
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListBuildPlanes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list build planes", "error", err)
 		return gen.ListBuildPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

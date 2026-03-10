@@ -27,6 +27,10 @@ func (h *Handler) ListObservabilityPlanes(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListObservabilityPlanes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListObservabilityPlanes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list observability planes", "error", err)
 		return gen.ListObservabilityPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
