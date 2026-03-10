@@ -1,7 +1,11 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
+<<<<<<< HEAD:samples/getting-started/workflows/dockerfile-builder.yaml
   name: dockerfile-builder
+=======
+  name: react
+>>>>>>> upstream/main:samples/getting-started/workflows/react.yaml
   annotations:
     openchoreo.dev/description: "Build with a provided Dockerfile/Containerfile/Podmanfile"
     openchoreo.dev/workflow-scope: "component"

@@ -1,7 +1,11 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
+<<<<<<< HEAD:samples/getting-started/workflows/gcp-buildpacks-builder.yaml
   name: gcp-buildpacks-builder
+=======
+  name: docker
+>>>>>>> upstream/main:samples/getting-started/workflows/docker.yaml
   annotations:
     openchoreo.dev/description: "Supports building Go, Java, Node.js, Python, and .NET applications. See https://cloud.google.com/docs/buildpacks/overview"
     openchoreo.dev/workflow-scope: "component"

@@ -9,8 +9,6 @@ spec:
 
   allowedWorkflows:
     - kind: ClusterWorkflow
-      name: paketo-buildpacks-builder
-    - kind: ClusterWorkflow
       name: gcp-buildpacks-builder
     - kind: ClusterWorkflow
       name: ballerina-buildpack-builder

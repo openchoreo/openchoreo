@@ -9,11 +9,17 @@ spec:
 
   allowedWorkflows:
     - kind: ClusterWorkflow
+<<<<<<< HEAD
       name: paketo-buildpacks-builder
     - kind: ClusterWorkflow
       name: gcp-buildpacks-builder
     - kind: ClusterWorkflow
       name: dockerfile-builder
+=======
+      name: google-cloud-buildpacks
+    - kind: ClusterWorkflow
+      name: docker
+>>>>>>> upstream/main
 
   allowedTraits:
     - kind: ClusterTrait
