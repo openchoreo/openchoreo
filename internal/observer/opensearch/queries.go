@@ -188,9 +188,9 @@ func (qb *QueryBuilder) BuildWorkflowRunLogsQuery(params WorkflowRunQueryParams)
 	// Add namespace filter if specified
 	// Use kubernetes.namespace_name (actual K8s namespace) instead of the pod label
 	// since generic workflows don't have the namespace-name label on their pods
-	// The actual K8s namespace for workflows is "openchoreo-ci-<namespaceName>"
+	// The actual K8s namespace for workflows is "workflows-<namespaceName>"
 	if params.QueryParams.NamespaceName != "" {
-		k8sNamespace := fmt.Sprintf("openchoreo-ci-%s", params.QueryParams.NamespaceName)
+		k8sNamespace := fmt.Sprintf("workflows-%s", params.QueryParams.NamespaceName)
 		namespaceFilter := map[string]interface{}{
 			"term": map[string]interface{}{
 				"kubernetes.namespace_name.keyword": k8sNamespace,

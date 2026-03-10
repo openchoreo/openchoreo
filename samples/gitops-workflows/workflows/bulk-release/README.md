@@ -138,10 +138,10 @@ spec:
 kubectl get workflowrun bulk-release-all-001 -w
 
 # View Argo Workflow status in the workflow plane
-kubectl get workflow -n openchoreo-ci-default
+kubectl get workflow -n workflows-default
 
 # View logs for a specific step
-kubectl logs -n openchoreo-ci-default -l workflows.argoproj.io/workflow=<workflow-name> --all-containers=true
+kubectl logs -n workflows-default -l workflows.argoproj.io/workflow=<workflow-name> --all-containers=true
 ```
 
 ## Parameters Reference
@@ -233,7 +233,7 @@ If the workflow reports "No changes to commit", this means:
 
 ```bash
 # Check ExternalSecrets status
-kubectl get externalsecret -n openchoreo-ci-default
+kubectl get externalsecret -n workflows-default
 
 # Verify ClusterSecretStore has required keys
 kubectl get clustersecretstore default -o jsonpath='{.spec.provider.fake.data[*].key}'

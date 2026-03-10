@@ -55,11 +55,11 @@ After deploying, monitor the workflow progress:
 # Check WorkflowRun status
 kubectl get workflowrun reading-list-service-build-01 -n default -o jsonpath='{.status.conditions}' | jq .
 
-# Watch workflow pods (in openchoreo-ci-default namespace)
-kubectl get pods -n openchoreo-ci-default | grep reading-list
+# Watch workflow pods (in workflows-default namespace)
+kubectl get pods -n workflows-default | grep reading-list
 
 # View workflow logs (replace <pod-name> with actual pod name)
-kubectl logs -n openchoreo-ci-default <pod-name> -f
+kubectl logs -n workflows-default <pod-name> -f
 ```
 
 Wait for the WorkflowRun to complete successfully. You should see:
@@ -145,16 +145,16 @@ If the workflow fails or takes too long:
 
 2. **Check workflow pod status:**
    ```bash
-   kubectl get pods -n openchoreo-ci-default | grep reading-list
+   kubectl get pods -n workflows-default | grep reading-list
    ```
 
 3. **View workflow pod logs for errors:**
    ```bash
    # Get the pod name
-   POD_NAME=$(kubectl get pods -n openchoreo-ci-default -l component-workflows.argoproj.io/workflow=reading-list-service-build-01 --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+   POD_NAME=$(kubectl get pods -n workflows-default -l component-workflows.argoproj.io/workflow=reading-list-service-build-01 --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
 
    # View logs
-   kubectl logs -n openchoreo-ci-default $POD_NAME
+   kubectl logs -n workflows-default $POD_NAME
    ```
 
 4. **Check if Workload was created after workflow:**

@@ -178,7 +178,7 @@ while true; do
 
     if [[ $elapsed -ge $MAX_WAIT ]]; then
         log_error "Timeout waiting for build to complete (${MAX_WAIT}s)"
-        log_info "Check build logs with: kubectl logs -n openchoreo-ci-default -l workflows.argoproj.io/workflow=${WORKFLOWRUN_NAME}"
+        log_info "Check build logs with: kubectl logs -n workflows-default -l workflows.argoproj.io/workflow=${WORKFLOWRUN_NAME}"
         exit 1
     fi
 

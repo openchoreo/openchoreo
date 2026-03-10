@@ -282,7 +282,7 @@ Workflows support template variables for dynamic values in the `runTemplate`:
 |----------|-------------|-------|
 | `${metadata.workflowRunName}` | Name of the WorkflowRun CR | All workflows |
 | `${metadata.namespaceName}` | Namespace name | All workflows |
-| `${metadata.namespace}` | CI namespace (e.g., `openchoreo-ci-default`) | All workflows |
+| `${metadata.namespace}` | CI namespace (e.g., `workflows-default`) | All workflows |
 | `${metadata.labels['key']}` | WorkflowRun labels (any label set on the WorkflowRun) | All workflows |
 | `${parameters.*}` | Parameter values (repository, developer params) | All workflows |
 | `${externalRefs['id'].spec.*}` | Resolved external CR spec from `externalRefs` declarations | When externalRefs are declared |

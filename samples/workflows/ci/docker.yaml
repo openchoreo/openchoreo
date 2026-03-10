@@ -20,7 +20,7 @@ spec:
   # Template Variable Reference (processed by WorkflowRun controller):
   # ${metadata.workflowRunName}              - Generated name for this workflow run instance
   # ${metadata.namespaceName}                - Organization namespace where the component resides
-  # ${metadata.namespace}                    - Full namespace path (e.g., openchoreo-ci-${metadata.namespaceName})
+  # ${metadata.namespace}                    - Full namespace path (e.g., ${metadata.namespace})
   # ${metadata.labels['key']}                - WorkflowRun labels (e.g., openchoreo.dev/project, openchoreo.dev/component)
   # ${parameters.repository.*}               - Repository parameters (url, revision, appPath, secretRef)
   # ${parameters.*}                          - Custom developer parameters defined in schema
@@ -88,7 +88,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.namespaceName}
+      namespace: ${metadata.namespace}
     spec:
       arguments:
         parameters:

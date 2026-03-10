@@ -28,11 +28,11 @@ const (
 	gitSecretTypeValue          = "git-credentials"
 	gitSecretAuthTypeAnnotation = "kubernetes.io/secret-type"
 	ownerNamespaceLabel         = "openchoreo.dev/owner-namespace"
-	gitSecretNamespacePrefix    = "openchoreo-ci-"
+	gitSecretNamespacePrefix    = "workflows-"
 )
 
-// getCINamespace returns the CI namespace for a given control plane namespace
-func getCINamespace(namespaceName string) string {
+// getWorkflowNamespace returns the workflow execution namespace for a given control plane namespace.
+func getWorkflowNamespace(namespaceName string) string {
 	return gitSecretNamespacePrefix + namespaceName
 }
 
@@ -119,27 +119,27 @@ func (s *GitSecretService) CreateGitSecret(ctx context.Context, namespaceName st
 		return nil, fmt.Errorf("failed to get workflow plane client: %w", err)
 	}
 
-	// Create namespace: openchoreo-ci-{namespaceName}
-	ciNamespace := getCINamespace(namespaceName)
-	if err := s.ensureNamespaceExists(ctx, workflowPlaneClient, ciNamespace); err != nil {
+	// Create namespace: workflows-{namespaceName}
+	workflowNamespace := getWorkflowNamespace(namespaceName)
+	if err := s.ensureNamespaceExists(ctx, workflowPlaneClient, workflowNamespace); err != nil {
 		return nil, err
 	}
 
 	// Create or update K8s Secret in workflow plane using Server-Side Apply
-	secret := s.buildGitSecret(req.SecretName, namespaceName, ciNamespace, req.SecretType, req.Username, req.Token, req.SSHKey, req.SSHKEYID)
+	secret := s.buildGitSecret(req.SecretName, namespaceName, workflowNamespace, req.SecretType, req.Username, req.Token, req.SSHKey, req.SSHKEYID)
 	if err := workflowPlaneClient.Patch(ctx, secret, client.Apply, client.ForceOwnership, client.FieldOwner("openchoreo-api")); err != nil {
 		s.logger.Error("Failed to apply workflow plane secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to apply workflow plane secret: %w", err)
 	}
-	s.logger.Debug("Successfully applied K8s secret in workflow plane", "namespace", ciNamespace, "secret", req.SecretName)
+	s.logger.Debug("Successfully applied K8s secret in workflow plane", "namespace", workflowNamespace, "secret", req.SecretName)
 
 	// Create or update PushSecret in workflow plane using Server-Side Apply
-	pushSecret := s.createPushSecret(req.SecretName, secretStoreName, namespaceName, ciNamespace, req.SecretType, req.Username, req.SSHKEYID)
+	pushSecret := s.createPushSecret(req.SecretName, secretStoreName, namespaceName, workflowNamespace, req.SecretType, req.Username, req.SSHKEYID)
 	if err := workflowPlaneClient.Patch(ctx, pushSecret, client.Apply, client.ForceOwnership, client.FieldOwner("openchoreo-api")); err != nil {
 		s.logger.Error("Failed to apply push secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to apply push secret: %w", err)
 	}
-	s.logger.Debug("Successfully applied PushSecret in workflow plane", "namespace", ciNamespace, "secret", req.SecretName)
+	s.logger.Debug("Successfully applied PushSecret in workflow plane", "namespace", workflowNamespace, "secret", req.SecretName)
 
 	// Create SecretReference in control plane
 	secretReference := s.buildSecretReference(namespaceName, req.SecretName, req.SecretType, req.Username, req.SSHKEYID)
@@ -170,7 +170,7 @@ func (s *GitSecretService) getWorkflowPlane(ctx context.Context, namespaceName s
 	return &workflowPlanes.Items[0], nil
 }
 
-func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, ciNamespace, secretType, username, token, sshKey, sshKeyID string) *corev1.Secret {
+func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, workflowNamespace, secretType, username, token, sshKey, sshKeyID string) *corev1.Secret {
 	var k8sSecretType corev1.SecretType
 	var secretData map[string]string
 
@@ -201,7 +201,7 @@ func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, ciNamespac
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
-			Namespace: ciNamespace,
+			Namespace: workflowNamespace,
 			Labels: map[string]string{
 				ownerNamespaceLabel: ownerNamespace,
 			},
@@ -288,7 +288,7 @@ func (s *GitSecretService) buildSecretReference(namespaceName, secretName, secre
 }
 
 // createPushSecret creates an unstructured PushSecret resource for workflow planes.
-func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespace, ciNamespace, secretType, username, sshKeyID string) *unstructured.Unstructured {
+func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespace, workflowNamespace, secretType, username, sshKeyID string) *unstructured.Unstructured {
 	remoteKey := fmt.Sprintf("secret/%s/git/%s", ownerNamespace, name)
 
 	var dataMatches []map[string]interface{}
@@ -350,7 +350,7 @@ func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespac
 	pushSecret.SetAPIVersion("external-secrets.io/v1alpha1")
 	pushSecret.SetKind("PushSecret")
 	pushSecret.SetName(name)
-	pushSecret.SetNamespace(ciNamespace)
+	pushSecret.SetNamespace(workflowNamespace)
 	pushSecret.SetLabels(map[string]string{
 		ownerNamespaceLabel: ownerNamespace,
 	})
@@ -479,14 +479,14 @@ func (s *GitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, s
 		return fmt.Errorf("failed to get workflow plane client: %w", err)
 	}
 
-	ciNamespace := getCINamespace(namespaceName)
+	workflowNamespace := getWorkflowNamespace(namespaceName)
 
 	// Delete PushSecret from workflow plane
 	pushSecret := &unstructured.Unstructured{}
 	pushSecret.SetAPIVersion("external-secrets.io/v1alpha1")
 	pushSecret.SetKind("PushSecret")
 	pushSecret.SetName(secretName)
-	pushSecret.SetNamespace(ciNamespace)
+	pushSecret.SetNamespace(workflowNamespace)
 	if err := workflowPlaneClient.Delete(ctx, pushSecret); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			s.logger.Error("Failed to delete push secret", "error", err, "namespace", namespaceName, "secret", secretName)
@@ -499,7 +499,7 @@ func (s *GitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, s
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
-			Namespace: ciNamespace,
+			Namespace: workflowNamespace,
 		},
 	}
 	if err := workflowPlaneClient.Delete(ctx, secret); err != nil {

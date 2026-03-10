@@ -189,10 +189,10 @@ spec:
 kubectl get componentworkflowrun reading-list-service-gitops-build-release-001 -w
 
 # View Argo Workflow status in the workflow plane
-kubectl get workflow -n openchoreo-ci-default
+kubectl get workflow -n workflows-default
 
 # View logs for a specific step
-kubectl logs -n openchoreo-ci-default -l workflows.argoproj.io/workflow=<workflow-name> --all-containers=true
+kubectl logs -n workflows-default -l workflows.argoproj.io/workflow=<workflow-name> --all-containers=true
 ```
 
 ## Parameters Reference

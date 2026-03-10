@@ -196,7 +196,7 @@ func shouldSkipResource(resource map[string]any) bool {
 // BuildCELContext builds the CEL evaluation context with metadata.*, parameters.*, and externalRefs variables.
 func (p *Pipeline) BuildCELContext(input *RenderInput) (map[string]any, error) {
 	// Enforced namespace
-	ciNamespace := fmt.Sprintf("openchoreo-ci-%s", input.Context.NamespaceName)
+	workflowNamespace := fmt.Sprintf("workflows-%s", input.Context.NamespaceName)
 
 	// Expose WorkflowRun labels to CEL context; default to empty map for safe access
 	labels := input.Context.Labels
@@ -207,7 +207,7 @@ func (p *Pipeline) BuildCELContext(input *RenderInput) (map[string]any, error) {
 	metadata := map[string]any{
 		"namespaceName":   input.Context.NamespaceName,
 		"workflowRunName": input.Context.WorkflowRunName,
-		"namespace":       ciNamespace, // Enforced CI namespace
+		"namespace":       workflowNamespace, // Enforced workflow execution namespace
 		"labels":          labels,
 	}
 

@@ -95,7 +95,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.namespaceName}
+      namespace: ${metadata.namespace}
     spec:
       arguments:
         parameters:
@@ -155,7 +155,7 @@ spec:
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-source-git-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
@@ -174,7 +174,7 @@ spec:
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-gitops-git-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
