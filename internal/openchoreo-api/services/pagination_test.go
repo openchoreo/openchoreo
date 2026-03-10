@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"log/slog"
-	"reflect"
 	"strconv"
 	"testing"
 
@@ -136,12 +135,20 @@ func TestDecodeCursor_InvalidJSON(t *testing.T) {
 
 func TestPreFilteredList_NoFilters(t *testing.T) {
 	listResource := func(_ context.Context, _ ListOptions) (*ListResult[int], error) {
-		return &ListResult[int]{Items: []int{1, 2, 3}}, nil
+		return &ListResult[int]{Items: []int{1, 2, 3}, NextCursor: "next"}, nil
 	}
 
 	filtered := PreFilteredList(listResource)
+	opts := ListOptions{Limit: 10, Cursor: "cursor"}
 
-	assert.Equal(t, reflect.ValueOf(listResource).Pointer(), reflect.ValueOf(filtered).Pointer())
+	got, err := filtered(context.Background(), opts)
+	require.NoError(t, err)
+
+	want, err := listResource(context.Background(), opts)
+	require.NoError(t, err)
+
+	assert.Equal(t, want.Items, got.Items, "items should match original list resource")
+	assert.Equal(t, want.NextCursor, got.NextCursor, "next cursor should match original list resource")
 }
 
 func TestPreFilteredList_SingleFilter(t *testing.T) {
