@@ -17,7 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//we will not test the limits in this file as those are handled in the handlers/pagination_test.go file. This file is focused on testing the pagination logic itself, independent of the limit normalization.
+// we will not test the limits in this file as those are handled in the handlers/pagination_test.go file.
+// This file is focused on testing the pagination logic itself, independent of the limit normalization.
 
 type listPage[T any] struct {
 	items      []T
