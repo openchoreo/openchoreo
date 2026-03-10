@@ -15,10 +15,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	openchoreoschema "github.com/openchoreo/openchoreo/internal/schema"
+	componentvalidation "github.com/openchoreo/openchoreo/internal/validation/component"
 )
 
 var componentTypeMeta = metav1.TypeMeta{
@@ -280,28 +282,26 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 		return nil, fmt.Errorf("failed to fetch component type: %w", err)
 	}
 
-	// Fetch and validate Trait specs
-	traits, err := s.fetchTraitSpecs(ctx, component.Spec.Traits, namespaceName)
+	// Fetch all trait specs (embedded from ComponentType + component-level)
+	traits, clusterTraits, err := s.fetchAllTraits(ctx, componentTypeSpec, component)
 	if err != nil {
 		return nil, err
 	}
 
-	// Build ComponentProfile from Component parameters
-	var componentProfile *openchoreov1alpha1.ComponentProfile
-	if component.Spec.Parameters != nil || len(component.Spec.Traits) > 0 {
-		componentProfile = &openchoreov1alpha1.ComponentProfile{}
-		if component.Spec.Parameters != nil {
-			componentProfile.Parameters = component.Spec.Parameters
-		}
-		if component.Spec.Traits != nil {
-			componentProfile.Traits = component.Spec.Traits
-		}
-	}
-
-	// Build workload template spec
 	workloadTemplateSpec := openchoreov1alpha1.WorkloadTemplateSpec{
 		Container: workload.Spec.Container,
 		Endpoints: workload.Spec.Endpoints,
+	}
+
+	crSpec, err := componentrelease.BuildSpec(componentrelease.BuildInput{
+		Component:     component,
+		ComponentType: componentTypeSpec,
+		Traits:        traits,
+		ClusterTraits: clusterTraits,
+		Workload:      &workloadTemplateSpec,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to build ComponentReleaseSpec: %w", err)
 	}
 
 	componentRelease := &openchoreov1alpha1.ComponentRelease{
@@ -313,22 +313,7 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 				labels.LabelKeyComponentName: componentName,
 			},
 		},
-		Spec: openchoreov1alpha1.ComponentReleaseSpec{
-			Owner: openchoreov1alpha1.ComponentReleaseOwner{
-				ProjectName:   projectName,
-				ComponentName: componentName,
-			},
-			ComponentProfile: componentProfile,
-			Workload:         workloadTemplateSpec,
-		},
-	}
-
-	if componentTypeSpec != nil {
-		componentRelease.Spec.ComponentType = *componentTypeSpec
-	}
-
-	if len(traits) > 0 {
-		componentRelease.Spec.Traits = traits
+		Spec: *crSpec,
 	}
 
 	if err := s.k8sClient.Create(ctx, componentRelease); err != nil {
@@ -400,8 +385,7 @@ func (s *componentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 		cct := &openchoreov1alpha1.ClusterComponentType{}
 		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: componentTypeName}, cct); err != nil {
 			if client.IgnoreNotFound(err) == nil {
-				s.logger.Warn("ClusterComponentType not found", "componentType", ctRef.Name)
-				return nil, nil
+				return nil, fmt.Errorf("ClusterComponentType %q: %w", componentTypeName, ErrComponentTypeNotFound)
 			}
 			return nil, fmt.Errorf("failed to get ClusterComponentType: %w", err)
 		}
@@ -446,8 +430,7 @@ func (s *componentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 		ct := &openchoreov1alpha1.ComponentType{}
 		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: componentTypeName, Namespace: namespaceName}, ct); err != nil {
 			if client.IgnoreNotFound(err) == nil {
-				s.logger.Warn("ComponentType not found", "componentType", ctRef.Name)
-				return nil, nil
+				return nil, fmt.Errorf("ComponentType %q: %w", componentTypeName, ErrComponentTypeNotFound)
 			}
 			return nil, fmt.Errorf("failed to get ComponentType: %w", err)
 		}
@@ -455,37 +438,75 @@ func (s *componentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 	}
 }
 
-// fetchTraitSpecs fetches trait specs for all component traits, detecting cross-kind collisions.
-func (s *componentService) fetchTraitSpecs(ctx context.Context, componentTraits []openchoreov1alpha1.ComponentTrait, namespaceName string) (map[string]openchoreov1alpha1.TraitSpec, error) {
-	traits := make(map[string]openchoreov1alpha1.TraitSpec)
-	traitKindByName := make(map[string]openchoreov1alpha1.TraitRefKind)
-
-	for _, ct := range componentTraits {
-		kind := ct.Kind
-		if kind == "" {
-			kind = openchoreov1alpha1.TraitRefKindTrait
-		}
-		if prevKind, exists := traitKindByName[ct.Name]; exists && prevKind != kind {
-			return nil, fmt.Errorf("trait %q is referenced as both %s and %s: %w", ct.Name, prevKind, kind, ErrTraitNameCollision)
-		}
-
-		traitSpec, err := s.fetchTraitSpec(ctx, kind, ct.Name, namespaceName)
-		if err != nil {
-			s.logger.Error("Failed to get Trait", "kind", kind, "trait", ct.Name, "error", err)
-			continue
-		}
-		if traitSpec == nil {
-			s.logger.Warn("Trait not found", "kind", kind, "trait", ct.Name)
-			continue
-		}
-		traitKindByName[ct.Name] = kind
-		traits[ct.Name] = *traitSpec
+// fetchAllTraits validates trait configuration and fetches all trait specs needed for a
+// ComponentRelease: embedded traits from the ComponentType and component-level traits from
+// the Component. Returns an error if validation fails, any trait is not found, or if the
+// same trait name is referenced with different kinds.
+// Returns separate maps for namespace-scoped traits and cluster-scoped traits.
+func (s *componentService) fetchAllTraits(
+	ctx context.Context,
+	ctSpec *openchoreov1alpha1.ComponentTypeSpec,
+	comp *openchoreov1alpha1.Component,
+) (map[string]openchoreov1alpha1.TraitSpec, map[string]openchoreov1alpha1.ClusterTraitSpec, error) {
+	if err := componentvalidation.ValidateAllowedTraits(comp.Spec.Traits, ctSpec.AllowedTraits); err != nil {
+		return nil, nil, fmt.Errorf("%w: %w", ErrValidation, err)
+	}
+	if err := componentvalidation.ValidateTraitInstanceNameUniqueness(comp.Spec.Traits, ctSpec.Traits); err != nil {
+		return nil, nil, fmt.Errorf("%w: %w", ErrValidation, err)
+	}
+	if err := componentvalidation.ValidateTraitNameKindConsistency(comp.Spec.Traits, ctSpec.Traits); err != nil {
+		return nil, nil, fmt.Errorf("%w: %w", ErrValidation, err)
 	}
 
-	return traits, nil
+	traits := make(map[string]openchoreov1alpha1.TraitSpec)
+	clusterTraits := make(map[string]openchoreov1alpha1.ClusterTraitSpec)
+
+	fetchTrait := func(kind openchoreov1alpha1.TraitRefKind, name, source string) error {
+		switch kind {
+		case openchoreov1alpha1.TraitRefKindClusterTrait:
+			if _, exists := clusterTraits[name]; exists {
+				return nil
+			}
+			ct := &openchoreov1alpha1.ClusterTrait{}
+			if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name}, ct); err != nil {
+				if client.IgnoreNotFound(err) == nil {
+					return fmt.Errorf("%s trait %q (kind %s): %w", source, name, kind, ErrTraitNotFound)
+				}
+				return fmt.Errorf("failed to fetch %s trait %q (kind %s): %w", source, name, kind, err)
+			}
+			clusterTraits[name] = ct.Spec
+		default:
+			if _, exists := traits[name]; exists {
+				return nil
+			}
+			trait := &openchoreov1alpha1.Trait{}
+			if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: comp.Namespace}, trait); err != nil {
+				if client.IgnoreNotFound(err) == nil {
+					return fmt.Errorf("%s trait %q (kind %s): %w", source, name, kind, ErrTraitNotFound)
+				}
+				return fmt.Errorf("failed to fetch %s trait %q (kind %s): %w", source, name, kind, err)
+			}
+			traits[name] = trait.Spec
+		}
+		return nil
+	}
+
+	for _, et := range ctSpec.Traits {
+		if err := fetchTrait(et.Kind, et.Name, "embedded"); err != nil {
+			return nil, nil, err
+		}
+	}
+	for _, ct := range comp.Spec.Traits {
+		if err := fetchTrait(ct.Kind, ct.Name, "component"); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return traits, clusterTraits, nil
 }
 
 // fetchTraitSpec fetches a TraitSpec from the cluster based on the trait kind and name.
+// Used for schema queries where only the spec is needed.
 func (s *componentService) fetchTraitSpec(ctx context.Context, kind openchoreov1alpha1.TraitRefKind, name, namespaceName string) (*openchoreov1alpha1.TraitSpec, error) {
 	switch kind {
 	case openchoreov1alpha1.TraitRefKindClusterTrait:
@@ -496,12 +517,8 @@ func (s *componentService) fetchTraitSpec(ctx context.Context, kind openchoreov1
 			}
 			return nil, fmt.Errorf("failed to get ClusterTrait: %w", err)
 		}
-		return &openchoreov1alpha1.TraitSpec{
-			Parameters:         ct.Spec.Parameters,
-			EnvironmentConfigs: ct.Spec.EnvironmentConfigs,
-			Creates:            ct.Spec.Creates,
-			Patches:            ct.Spec.Patches,
-		}, nil
+		spec := openchoreov1alpha1.TraitSpec(ct.Spec)
+		return &spec, nil
 	default:
 		trait := &openchoreov1alpha1.Trait{}
 		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespaceName}, trait); err != nil {

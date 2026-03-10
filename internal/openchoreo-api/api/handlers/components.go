@@ -337,8 +337,14 @@ func (h *Handler) GenerateRelease(
 		if errors.Is(err, componentsvc.ErrWorkloadNotFound) {
 			return gen.GenerateRelease404JSONResponse{NotFoundJSONResponse: notFound("Workload")}, nil
 		}
-		if errors.Is(err, componentsvc.ErrTraitNameCollision) {
+		if errors.Is(err, componentsvc.ErrValidation) {
 			return gen.GenerateRelease400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
+		}
+		if errors.Is(err, componentsvc.ErrComponentTypeNotFound) {
+			return gen.GenerateRelease404JSONResponse{NotFoundJSONResponse: notFound("ComponentType")}, nil
+		}
+		if errors.Is(err, componentsvc.ErrTraitNotFound) {
+			return gen.GenerateRelease404JSONResponse{NotFoundJSONResponse: notFound("Trait")}, nil
 		}
 		h.logger.Error("Failed to generate release", "error", err)
 		return gen.GenerateRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

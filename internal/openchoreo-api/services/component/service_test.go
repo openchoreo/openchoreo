@@ -479,8 +479,12 @@ func TestGenerateRelease(t *testing.T) {
 		compWithTrait.Spec.Traits = []openchoreov1alpha1.ComponentTrait{
 			{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "ingress", InstanceName: "my-ingress"},
 		}
+		ct := testComponentType()
+		ct.Spec.AllowedTraits = []openchoreov1alpha1.TraitRef{
+			{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "ingress"},
+		}
 
-		objs := []client.Object{testProject(), testDeploymentPipeline(), compWithTrait, testComponentType(), testWorkload(), trait}
+		objs := []client.Object{testProject(), testDeploymentPipeline(), compWithTrait, ct, testWorkload(), trait}
 		svc := newService(t, objs...)
 
 		result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
@@ -523,6 +527,134 @@ func TestGenerateRelease(t *testing.T) {
 		result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
 		require.NoError(t, err)
 		assert.Equal(t, "deployment", result.Spec.ComponentType.WorkloadType)
+	})
+
+	t.Run("with embedded traits from ComponentType", func(t *testing.T) {
+		embeddedTrait := &openchoreov1alpha1.Trait{
+			ObjectMeta: metav1.ObjectMeta{Name: "storage", Namespace: testNamespace},
+			Spec: openchoreov1alpha1.TraitSpec{
+				Parameters: &openchoreov1alpha1.SchemaSection{
+					OCSchema: rawJSON(t, map[string]any{"mountPath": "string"}),
+				},
+			},
+		}
+		ct := testComponentType()
+		ct.Spec.Traits = []openchoreov1alpha1.ComponentTypeTrait{
+			{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "storage", InstanceName: "app-storage"},
+		}
+
+		objs := []client.Object{testProject(), testDeploymentPipeline(), testComponent(), ct, testWorkload(), embeddedTrait}
+		svc := newService(t, objs...)
+
+		result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
+		require.NoError(t, err)
+		assert.Contains(t, result.Spec.Traits, "storage")
+	})
+
+	t.Run("with embedded ClusterTrait from ComponentType", func(t *testing.T) {
+		clusterTrait := &openchoreov1alpha1.ClusterTrait{
+			ObjectMeta: metav1.ObjectMeta{Name: "observability"},
+			Spec: openchoreov1alpha1.ClusterTraitSpec{
+				Parameters: &openchoreov1alpha1.SchemaSection{
+					OCSchema: rawJSON(t, map[string]any{"enabled": "boolean"}),
+				},
+			},
+		}
+		ct := testComponentType()
+		ct.Spec.Traits = []openchoreov1alpha1.ComponentTypeTrait{
+			{Kind: openchoreov1alpha1.TraitRefKindClusterTrait, Name: "observability", InstanceName: "obs"},
+		}
+
+		objs := []client.Object{testProject(), testDeploymentPipeline(), testComponent(), ct, testWorkload(), clusterTrait}
+		svc := newService(t, objs...)
+
+		result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
+		require.NoError(t, err)
+		assert.Contains(t, result.Spec.Traits, "observability")
+	})
+
+	t.Run("with both embedded and component-level traits", func(t *testing.T) {
+		embeddedTrait := &openchoreov1alpha1.Trait{
+			ObjectMeta: metav1.ObjectMeta{Name: "storage", Namespace: testNamespace},
+			Spec: openchoreov1alpha1.TraitSpec{
+				Parameters: &openchoreov1alpha1.SchemaSection{
+					OCSchema: rawJSON(t, map[string]any{"mountPath": "string"}),
+				},
+			},
+		}
+		componentTrait := &openchoreov1alpha1.Trait{
+			ObjectMeta: metav1.ObjectMeta{Name: "ingress", Namespace: testNamespace},
+			Spec: openchoreov1alpha1.TraitSpec{
+				Parameters: &openchoreov1alpha1.SchemaSection{
+					OCSchema: rawJSON(t, map[string]any{"host": "string"}),
+				},
+			},
+		}
+		ct := testComponentType()
+		ct.Spec.Traits = []openchoreov1alpha1.ComponentTypeTrait{
+			{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "storage", InstanceName: "app-storage"},
+		}
+		ct.Spec.AllowedTraits = []openchoreov1alpha1.TraitRef{
+			{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "ingress"},
+		}
+		comp := testComponent()
+		comp.Spec.Traits = []openchoreov1alpha1.ComponentTrait{
+			{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "ingress", InstanceName: "my-ingress"},
+		}
+
+		objs := []client.Object{testProject(), testDeploymentPipeline(), comp, ct, testWorkload(), embeddedTrait, componentTrait}
+		svc := newService(t, objs...)
+
+		result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
+		require.NoError(t, err)
+		assert.Contains(t, result.Spec.Traits, "storage")
+		assert.Contains(t, result.Spec.Traits, "ingress")
+		assert.Len(t, result.Spec.Traits, 2)
+	})
+
+	t.Run("ClusterComponentType with embedded ClusterTrait", func(t *testing.T) {
+		clusterTrait := &openchoreov1alpha1.ClusterTrait{
+			ObjectMeta: metav1.ObjectMeta{Name: "networking"},
+			Spec: openchoreov1alpha1.ClusterTraitSpec{
+				Parameters: &openchoreov1alpha1.SchemaSection{
+					OCSchema: rawJSON(t, map[string]any{"port": "integer"}),
+				},
+			},
+		}
+		cct := &openchoreov1alpha1.ClusterComponentType{
+			ObjectMeta: metav1.ObjectMeta{Name: "cluster-web"},
+			Spec: openchoreov1alpha1.ClusterComponentTypeSpec{
+				WorkloadType: "deployment",
+				Traits: []openchoreov1alpha1.ClusterComponentTypeTrait{
+					{Kind: openchoreov1alpha1.ClusterTraitRefKindClusterTrait, Name: "networking", InstanceName: "net"},
+				},
+			},
+		}
+		comp := testComponent()
+		comp.Spec.ComponentType = openchoreov1alpha1.ComponentTypeRef{
+			Kind: openchoreov1alpha1.ComponentTypeRefKindClusterComponentType,
+			Name: "deployment/cluster-web",
+		}
+
+		objs := []client.Object{testProject(), testDeploymentPipeline(), comp, cct, testWorkload(), clusterTrait}
+		svc := newService(t, objs...)
+
+		result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
+		require.NoError(t, err)
+		assert.Contains(t, result.Spec.Traits, "networking")
+	})
+
+	t.Run("embedded trait not found returns error", func(t *testing.T) {
+		ct := testComponentType()
+		ct.Spec.Traits = []openchoreov1alpha1.ComponentTypeTrait{
+			{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "nonexistent", InstanceName: "missing"},
+		}
+
+		objs := []client.Object{testProject(), testDeploymentPipeline(), testComponent(), ct, testWorkload()}
+		svc := newService(t, objs...)
+
+		_, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
+		require.ErrorIs(t, err, ErrTraitNotFound)
 	})
 }
 

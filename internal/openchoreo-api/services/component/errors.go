@@ -10,7 +10,7 @@ var (
 	ErrComponentAlreadyExists   = errors.New("component already exists")
 	ErrComponentReleaseNotFound = errors.New("component release not found")
 	ErrWorkloadNotFound         = errors.New("workload not found")
-	ErrTraitNameCollision       = errors.New("trait name collision across kinds")
+	ErrTraitNotFound            = errors.New("trait not found")
 	ErrValidation               = errors.New("validation error")
 	ErrComponentTypeNotFound    = errors.New("component type not found")
 )

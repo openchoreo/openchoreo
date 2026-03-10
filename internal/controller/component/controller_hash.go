@@ -4,8 +4,6 @@
 package component
 
 import (
-	"fmt"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/pkg/hash"
 )
@@ -49,52 +47,13 @@ func EqualReleaseTemplate(lhs, rhs *ReleaseSpec) bool {
 	return ComputeReleaseHash(lhs, nil) == ComputeReleaseHash(rhs, nil)
 }
 
-// BuildReleaseSpec constructs a ReleaseSpec from the component's
-// related resources. This extracts the immutable snapshot data needed for hashing.
-//
-// This follows the pattern of building template specs in Kubernetes controllers.
-func BuildReleaseSpec(
-	ct *openchoreov1alpha1.ComponentType,
-	traits []openchoreov1alpha1.Trait,
-	comp *openchoreov1alpha1.Component,
-	workload *openchoreov1alpha1.Workload,
-) (*ReleaseSpec, error) {
-	if ct == nil {
-		return nil, fmt.Errorf("componentType cannot be nil")
+// ReleaseSpecFromComponentReleaseSpec derives a ReleaseSpec from a ComponentReleaseSpec,
+// excluding the Owner field to preserve hash compatibility.
+func ReleaseSpecFromComponentReleaseSpec(spec *openchoreov1alpha1.ComponentReleaseSpec) *ReleaseSpec {
+	return &ReleaseSpec{
+		ComponentType:    spec.ComponentType,
+		Traits:           spec.Traits,
+		ComponentProfile: spec.ComponentProfile,
+		Workload:         spec.Workload,
 	}
-	if workload == nil {
-		return nil, fmt.Errorf("workload cannot be nil")
-	}
-	if comp == nil {
-		return nil, fmt.Errorf("component cannot be nil")
-	}
-
-	// Build traits map from trait slice
-	traitsMap := make(map[string]openchoreov1alpha1.TraitSpec)
-	if len(traits) == 0 || traits == nil {
-		traitsMap = nil
-	} else {
-		for _, trait := range traits {
-			traitsMap[trait.Name] = trait.Spec
-		}
-	}
-
-	// Build component profile (only if there's content)
-	var componentProfile *openchoreov1alpha1.ComponentProfile
-	if comp.Spec.Parameters != nil || len(comp.Spec.Traits) > 0 {
-		componentProfile = &openchoreov1alpha1.ComponentProfile{
-			Parameters: comp.Spec.Parameters,
-			Traits:     comp.Spec.Traits,
-		}
-	}
-
-	// Construct ReleaseSpec
-	releaseSpec := &ReleaseSpec{
-		ComponentType:    ct.Spec,
-		Traits:           traitsMap,
-		ComponentProfile: componentProfile,
-		Workload:         workload.Spec.WorkloadTemplateSpec,
-	}
-
-	return releaseSpec, nil
 }
