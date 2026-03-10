@@ -23,14 +23,6 @@ func (h *MCPHandler) ListEnvironments(ctx context.Context, namespaceName string,
 	return wrapTransformedList("environments", result.Items, result.NextCursor, environmentSummary), nil
 }
 
-func (h *MCPHandler) GetEnvironment(ctx context.Context, namespaceName, envName string) (any, error) {
-	env, err := h.services.EnvironmentService.GetEnvironment(ctx, namespaceName, envName)
-	if err != nil {
-		return nil, err
-	}
-	return environmentDetail(env), nil
-}
-
 func (h *MCPHandler) CreateEnvironment(ctx context.Context, namespaceName string, req *gen.CreateEnvironmentJSONRequestBody) (any, error) {
 	annotations := map[string]string{}
 	if req.Metadata.Annotations != nil {
@@ -68,4 +60,40 @@ func (h *MCPHandler) CreateEnvironment(ctx context.Context, namespaceName string
 		return nil, err
 	}
 	return mutationResult(created, "created"), nil
+}
+
+func (h *MCPHandler) UpdateEnvironment(ctx context.Context, namespaceName string, req *gen.UpdateEnvironmentJSONRequestBody) (any, error) {
+	// Fetch the existing environment first to preserve immutable fields
+	existing, err := h.services.EnvironmentService.GetEnvironment(ctx, namespaceName, req.Metadata.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply mutable updates
+	if req.Metadata.Annotations != nil {
+		if existing.Annotations == nil {
+			existing.Annotations = map[string]string{}
+		}
+		maps.Copy(existing.Annotations, *req.Metadata.Annotations)
+	}
+	if req.Spec != nil && req.Spec.IsProduction != nil {
+		existing.Spec.IsProduction = *req.Spec.IsProduction
+	}
+
+	updated, err := h.services.EnvironmentService.UpdateEnvironment(ctx, namespaceName, existing)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(updated, "updated"), nil
+}
+
+func (h *MCPHandler) DeleteEnvironment(ctx context.Context, namespaceName, envName string) (any, error) {
+	if err := h.services.EnvironmentService.DeleteEnvironment(ctx, namespaceName, envName); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name":      envName,
+		"namespace": namespaceName,
+		"action":    "deleted",
+	}, nil
 }

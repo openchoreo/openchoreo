@@ -7,22 +7,19 @@ import (
 	"testing"
 )
 
-const testReleaseName = "release-1"
+const (
+	testReleaseName = "release-1"
+	testBindingName = "binding-1"
+)
 
-// componentToolSpecs returns test specs for component toolset
+// componentToolSpecs returns test specs for component toolset (definition & configuration)
 func componentToolSpecs() []toolTestSpec {
-	specs := make([]toolTestSpec, 0, 5)
+	specs := make([]toolTestSpec, 0, 20)
 	specs = append(specs, componentBasicSpecs()...)
-	specs = append(specs, componentReleaseSpecs()...)
-	specs = append(specs, componentBindingSpecs()...)
+	specs = append(specs, componentWorkloadSpecs()...)
 	specs = append(specs, componentSchemaSpecs()...)
-	specs = append(specs, componentTypeSpecs()...)
-	specs = append(specs, componentTraitSpecs()...)
-	specs = append(specs, componentWorkflowRunSpecs()...)
-	specs = append(specs, componentWorkflowSpecs()...)
-	specs = append(specs, componentClusterComponentTypeSpecs()...)
-	specs = append(specs, componentClusterTraitSpecs()...)
-	specs = append(specs, componentClusterWorkflowSpecs()...)
+	specs = append(specs, componentPlatformStandardsSpecs()...)
+	specs = append(specs, componentBindingSpecs()...)
 	return specs
 }
 
@@ -148,8 +145,8 @@ func componentBasicSpecs() []toolTestSpec {
 	}
 }
 
-// componentReleaseSpecs returns component release operation specs
-func componentReleaseSpecs() []toolTestSpec {
+// componentWorkloadSpecs returns workload operation specs
+func componentWorkloadSpecs() []toolTestSpec {
 	return []toolTestSpec{
 		{
 			name:                "list_component_releases",
@@ -259,19 +256,19 @@ func componentBindingSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "binding_name"},
 			optionalParams: []string{
-				"release_name", "environment", "component_type_environment_configs",
+				"release_name", "environment", "component_type_env_overrides",
 				"trait_overrides", "workload_overrides",
 			},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"binding_name":   "binding-1",
+				"binding_name":   testBindingName,
 				"release_name":   testReleaseName,
 			},
 			expectedMethod: "PatchReleaseBinding",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "binding-1" {
-					t.Errorf("Expected (%s, binding-1), got (%v, %v)",
-						testNamespaceName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != testBindingName {
+					t.Errorf("Expected (%s, %s), got (%v, %v)",
+						testNamespaceName, testBindingName, args[0], args[1])
 				}
 			},
 		},
@@ -355,6 +352,156 @@ func componentBindingSpecs() []toolTestSpec {
 	}
 }
 
+// componentPlatformStandardsSpecs returns specs for platform standards accessible from the component toolset
+func componentPlatformStandardsSpecs() []toolTestSpec {
+	return []toolTestSpec{
+		{
+			name:                "list_component_types",
+			toolset:             "component",
+			descriptionKeywords: []string{"list", "component", "type"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name"},
+			optionalParams:      []string{"limit", "cursor"},
+			testArgs:            map[string]any{"namespace_name": testNamespaceName},
+			expectedMethod:      "ListComponentTypes",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+			},
+		},
+		{
+			name:                "get_component_type_schema",
+			toolset:             "component",
+			descriptionKeywords: []string{"component", "type", "schema"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "ct_name"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"ct_name":        "WebApplication",
+			},
+			expectedMethod: "GetComponentTypeSchema",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != "WebApplication" {
+					t.Errorf("Expected (%s, WebApplication), got (%v, %v)", testNamespaceName, args[0], args[1])
+				}
+			},
+		},
+		{
+			name:                "list_traits",
+			toolset:             "component",
+			descriptionKeywords: []string{"list", "trait"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name"},
+			optionalParams:      []string{"limit", "cursor"},
+			testArgs:            map[string]any{"namespace_name": testNamespaceName},
+			expectedMethod:      "ListTraits",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+			},
+		},
+		{
+			name:                "get_trait_schema",
+			toolset:             "component",
+			descriptionKeywords: []string{"trait", "schema"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "trait_name"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"trait_name":     "autoscaling",
+			},
+			expectedMethod: "GetTraitSchema",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != "autoscaling" {
+					t.Errorf("Expected (%s, autoscaling), got (%v, %v)", testNamespaceName, args[0], args[1])
+				}
+			},
+		},
+		{
+			name:                "list_cluster_component_types",
+			toolset:             "component",
+			descriptionKeywords: []string{"cluster", "component", "type"},
+			descriptionMinLen:   10,
+			optionalParams:      []string{"limit", "cursor"},
+			testArgs:            map[string]any{},
+			expectedMethod:      "ListClusterComponentTypes",
+			validateCall: func(t *testing.T, args []interface{}) {
+				// Only ListOpts argument
+			},
+		},
+		{
+			name:                "get_cluster_component_type",
+			toolset:             "component",
+			descriptionKeywords: []string{"cluster", "component", "type"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"cct_name"},
+			testArgs:            map[string]any{"cct_name": "go-service"},
+			expectedMethod:      "GetClusterComponentType",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != "go-service" {
+					t.Errorf("Expected cct_name %q, got %v", "go-service", args[0])
+				}
+			},
+		},
+		{
+			name:                "get_cluster_component_type_schema",
+			toolset:             "component",
+			descriptionKeywords: []string{"cluster", "component", "type", "schema"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"cct_name"},
+			testArgs:            map[string]any{"cct_name": "go-service"},
+			expectedMethod:      "GetClusterComponentTypeSchema",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != "go-service" {
+					t.Errorf("Expected cct_name %q, got %v", "go-service", args[0])
+				}
+			},
+		},
+		{
+			name:                "list_cluster_traits",
+			toolset:             "component",
+			descriptionKeywords: []string{"cluster", "trait"},
+			descriptionMinLen:   10,
+			optionalParams:      []string{"limit", "cursor"},
+			testArgs:            map[string]any{},
+			expectedMethod:      "ListClusterTraits",
+			validateCall: func(t *testing.T, args []interface{}) {
+				// Only ListOpts argument
+			},
+		},
+		{
+			name:                "get_cluster_trait",
+			toolset:             "component",
+			descriptionKeywords: []string{"cluster", "trait"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"ct_name"},
+			testArgs:            map[string]any{"ct_name": "autoscaler"},
+			expectedMethod:      "GetClusterTrait",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != "autoscaler" {
+					t.Errorf("Expected ct_name %q, got %v", "autoscaler", args[0])
+				}
+			},
+		},
+		{
+			name:                "get_cluster_trait_schema",
+			toolset:             "component",
+			descriptionKeywords: []string{"cluster", "trait", "schema"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"ct_name"},
+			testArgs:            map[string]any{"ct_name": "autoscaler"},
+			expectedMethod:      "GetClusterTraitSchema",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != "autoscaler" {
+					t.Errorf("Expected ct_name %q, got %v", "autoscaler", args[0])
+				}
+			},
+		},
+	}
+}
+
 // componentSchemaSpecs returns component schema operation specs
 func componentSchemaSpecs() []toolTestSpec {
 	return []toolTestSpec{
@@ -387,357 +534,5 @@ func componentSchemaSpecs() []toolTestSpec {
 				}
 			},
 		},
-		{
-			name:                "update_release_binding_state",
-			toolset:             "component",
-			descriptionKeywords: []string{"state", "binding"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "binding_name", "release_state"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"binding_name":   "binding-1",
-				"release_state":  "Active",
-			},
-			expectedMethod: "UpdateReleaseBindingState",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "binding-1" {
-					t.Errorf("Expected (%s, binding-1), got (%v, %v)",
-						testNamespaceName, args[0], args[1])
-				}
-			},
-		},
-		{
-			name:                "get_component_release_schema",
-			toolset:             "component",
-			descriptionKeywords: []string{"release", "schema"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "component_name"},
-			optionalParams:      []string{"release_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"component_name": testComponentName,
-				"release_name":   testReleaseName,
-			},
-			expectedMethod: "GetComponentReleaseSchema",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testComponentName || args[2] != testReleaseName {
-					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
-						testNamespaceName, testComponentName, testReleaseName, args[0], args[1], args[2])
-				}
-			},
-		},
-		{
-			name:                "trigger_workflow_run",
-			toolset:             "component",
-			descriptionKeywords: []string{"trigger", "workflow"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
-			optionalParams:      []string{"commit"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"project_name":   testProjectName,
-				"component_name": testComponentName,
-				"commit":         "abc1234",
-			},
-			expectedMethod: "TriggerWorkflowRun",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testProjectName ||
-					args[2] != testComponentName || args[3] != "abc1234" {
-					t.Errorf("Expected (%s, %s, %s, abc1234), got (%v, %v, %v, %v)",
-						testNamespaceName, testProjectName, testComponentName, args[0], args[1], args[2], args[3])
-				}
-			},
-		},
 	}
-}
-
-// componentTypeSpecs returns component type operation specs
-func componentTypeSpecs() []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                "list_component_types",
-			toolset:             "component",
-			descriptionKeywords: []string{"list", "component", "type"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name"},
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-			},
-			expectedMethod: "ListComponentTypes",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName {
-					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
-				}
-			},
-		},
-		{
-			name:                "get_component_type_schema",
-			toolset:             "component",
-			descriptionKeywords: []string{"component", "type", "schema"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "ct_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"ct_name":        "WebApplication",
-			},
-			expectedMethod: "GetComponentTypeSchema",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "WebApplication" {
-					t.Errorf("Expected (%s, WebApplication), got (%v, %v)", testNamespaceName, args[0], args[1])
-				}
-			},
-		},
-	}
-}
-
-// listAndGetSchemaSpecs generates specs for list and get-schema operations on a named entity type.
-// entityKind is the human-readable kind (e.g. "trait"), entityNameParam is the request param name
-// (e.g. "trait_name"), testEntityName is the value used in test args, listMethod and getSchemaMethod
-// are the expected mock method names.
-func listAndGetSchemaSpecs(
-	entityKind, entityNameParam, testEntityName, listMethod, getSchemaMethod string,
-) []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                "list_" + entityKind + "s",
-			toolset:             "component",
-			descriptionKeywords: []string{"list", entityKind},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name"},
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-			},
-			expectedMethod: listMethod,
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName {
-					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
-				}
-			},
-		},
-		{
-			name:                "get_" + entityKind + "_schema",
-			toolset:             "component",
-			descriptionKeywords: []string{entityKind, "schema"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", entityNameParam},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				entityNameParam:  testEntityName,
-			},
-			expectedMethod: getSchemaMethod,
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testEntityName {
-					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testEntityName, args[0], args[1])
-				}
-			},
-		},
-	}
-}
-
-// componentTraitSpecs returns trait operation specs
-func componentTraitSpecs() []toolTestSpec {
-	return listAndGetSchemaSpecs("trait", "trait_name", "autoscaling", "ListTraits", "GetTraitSchema")
-}
-
-// componentWorkflowRunSpecs returns workflow run operation specs
-func componentWorkflowRunSpecs() []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                "create_workflow_run",
-			toolset:             "component",
-			descriptionKeywords: []string{"create", "workflow", "run"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "workflow_name"},
-			optionalParams:      []string{"parameters"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"workflow_name":  "build-workflow",
-			},
-			expectedMethod: "CreateWorkflowRun",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "build-workflow" {
-					t.Errorf("Expected (%s, build-workflow), got (%v, %v)", testNamespaceName, args[0], args[1])
-				}
-			},
-		},
-		{
-			name:                "list_workflow_runs",
-			toolset:             "component",
-			descriptionKeywords: []string{"list", "workflow", "run"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name"},
-			optionalParams:      []string{"project_name", "component_name", "limit", "cursor"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-			},
-			expectedMethod: "ListWorkflowRuns",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName {
-					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
-				}
-			},
-		},
-		{
-			name:                "get_workflow_run",
-			toolset:             "component",
-			descriptionKeywords: []string{"workflow", "run"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "run_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"run_name":       "workflow-run-1",
-			},
-			expectedMethod: "GetWorkflowRun",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "workflow-run-1" {
-					t.Errorf("Expected (%s, workflow-run-1), got (%v, %v)", testNamespaceName, args[0], args[1])
-				}
-			},
-		},
-	}
-}
-
-// componentWorkflowSpecs returns workflow operation specs
-func componentWorkflowSpecs() []toolTestSpec {
-	return listAndGetSchemaSpecs("workflow", "workflow_name", "build-workflow", "ListWorkflows", "GetWorkflowSchema")
-}
-
-// componentClusterComponentTypeSpecs returns cluster component type operation specs
-func componentClusterComponentTypeSpecs() []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                "list_cluster_component_types",
-			toolset:             "component",
-			descriptionKeywords: []string{"cluster", "component", "type"},
-			descriptionMinLen:   10,
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs:            map[string]any{},
-			expectedMethod:      "ListClusterComponentTypes",
-			validateCall: func(t *testing.T, args []interface{}) {
-				// Only ListOpts argument
-			},
-		},
-		{
-			name:                "get_cluster_component_type",
-			toolset:             "component",
-			descriptionKeywords: []string{"cluster", "component", "type"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"cct_name"},
-			testArgs: map[string]any{
-				"cct_name": "go-service",
-			},
-			expectedMethod: "GetClusterComponentType",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != "go-service" {
-					t.Errorf("Expected cct_name %q, got %v", "go-service", args[0])
-				}
-			},
-		},
-		{
-			name:                "get_cluster_component_type_schema",
-			toolset:             "component",
-			descriptionKeywords: []string{"cluster", "component", "type", "schema"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"cct_name"},
-			testArgs: map[string]any{
-				"cct_name": "go-service",
-			},
-			expectedMethod: "GetClusterComponentTypeSchema",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != "go-service" {
-					t.Errorf("Expected cct_name %q, got %v", "go-service", args[0])
-				}
-			},
-		},
-	}
-}
-
-// clusterResourceTrioSpecs generates the standard list/get/get-schema trio of tool specs
-// for a cluster-scoped resource (e.g., ClusterTrait, ClusterWorkflow).
-type clusterResourceTrioConfig struct {
-	resourceKeyword string // e.g., "trait", "workflow"
-	listToolName    string // e.g., "list_cluster_traits"
-	getToolName     string // e.g., "get_cluster_trait"
-	schemaToolName  string // e.g., "get_cluster_trait_schema"
-	paramName       string // e.g., "ct_name", "cwf_name"
-	testValue       string // e.g., "autoscaler", "build-go"
-	listMethod      string // e.g., "ListClusterTraits"
-	getMethod       string // e.g., "GetClusterTrait"
-	schemaMethod    string // e.g., "GetClusterTraitSchema"
-}
-
-func clusterResourceTrioSpecs(cfg clusterResourceTrioConfig) []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                cfg.listToolName,
-			toolset:             "component",
-			descriptionKeywords: []string{"cluster", cfg.resourceKeyword},
-			descriptionMinLen:   10,
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs:            map[string]any{},
-			expectedMethod:      cfg.listMethod,
-			validateCall: func(t *testing.T, args []interface{}) {
-				// Only ListOpts argument
-			},
-		},
-		{
-			name:                cfg.getToolName,
-			toolset:             "component",
-			descriptionKeywords: []string{"cluster", cfg.resourceKeyword},
-			descriptionMinLen:   10,
-			requiredParams:      []string{cfg.paramName},
-			testArgs:            map[string]any{cfg.paramName: cfg.testValue},
-			expectedMethod:      cfg.getMethod,
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != cfg.testValue {
-					t.Errorf("Expected %s %q, got %v", cfg.paramName, cfg.testValue, args[0])
-				}
-			},
-		},
-		{
-			name:                cfg.schemaToolName,
-			toolset:             "component",
-			descriptionKeywords: []string{"cluster", cfg.resourceKeyword, "schema"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{cfg.paramName},
-			testArgs:            map[string]any{cfg.paramName: cfg.testValue},
-			expectedMethod:      cfg.schemaMethod,
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != cfg.testValue {
-					t.Errorf("Expected %s %q, got %v", cfg.paramName, cfg.testValue, args[0])
-				}
-			},
-		},
-	}
-}
-
-// componentClusterTraitSpecs returns cluster trait operation specs
-func componentClusterTraitSpecs() []toolTestSpec {
-	return clusterResourceTrioSpecs(clusterResourceTrioConfig{
-		resourceKeyword: "trait",
-		listToolName:    "list_cluster_traits",
-		getToolName:     "get_cluster_trait",
-		schemaToolName:  "get_cluster_trait_schema",
-		paramName:       "ct_name",
-		testValue:       "autoscaler",
-		listMethod:      "ListClusterTraits",
-		getMethod:       "GetClusterTrait",
-		schemaMethod:    "GetClusterTraitSchema",
-	})
-}
-
-func componentClusterWorkflowSpecs() []toolTestSpec {
-	return clusterResourceTrioSpecs(clusterResourceTrioConfig{
-		resourceKeyword: "workflow",
-		listToolName:    "list_cluster_workflows",
-		getToolName:     "get_cluster_workflow",
-		schemaToolName:  "get_cluster_workflow_schema",
-		paramName:       "cwf_name",
-		testValue:       "build-go",
-		listMethod:      "ListClusterWorkflows",
-		getMethod:       "GetClusterWorkflow",
-		schemaMethod:    "GetClusterWorkflowSchema",
-	})
 }

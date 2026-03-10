@@ -11,22 +11,26 @@ import (
 )
 
 const (
-	testNamespaceName = "my-namespace"
-	testProjectName   = "my-project"
-	testComponentName = "my-component"
-	testEnvName       = "dev"
-	testKindProject   = "Project"
+	testNamespaceName  = "my-namespace"
+	testProjectName    = "my-project"
+	testComponentName  = "my-component"
+	testEnvName        = "dev"
+	testKindProject    = "Project"
+	testGoServiceName  = "go-service"
+	testAutoscalerName = "autoscaler"
+	testBuildWorkflow  = "build-workflow"
 )
 
 func setupTestServer(t *testing.T) (*mcp.ClientSession, *MockCoreToolsetHandler) {
 	t.Helper()
 	mockHandler := NewMockCoreToolsetHandler()
 	toolsets := &Toolsets{
-		NamespaceToolset:      mockHandler,
-		ProjectToolset:        mockHandler,
-		ComponentToolset:      mockHandler,
-		InfrastructureToolset: mockHandler,
-		PEToolset:             mockHandler,
+		NamespaceToolset:  mockHandler,
+		ProjectToolset:    mockHandler,
+		ComponentToolset:  mockHandler,
+		DeploymentToolset: mockHandler,
+		BuildToolset:      mockHandler,
+		PEToolset:         mockHandler,
 	}
 	clientSession := setupTestServerWithToolset(t, toolsets)
 	return clientSession, mockHandler
@@ -86,13 +90,54 @@ type toolTestSpec struct {
 	validateCall   func(t *testing.T, args []interface{})
 }
 
+// makeNamespacedListGetSpecs creates a list+get pair of tool test specs for namespace-scoped resources.
+func makeNamespacedListGetSpecs(
+	toolset, listToolName, getToolName string,
+	listKeywords, getKeywords []string,
+	getParamName, getParamValue, listMethod, getMethod string,
+) []toolTestSpec {
+	getVal := getParamValue
+	return []toolTestSpec{
+		{
+			name:                listToolName,
+			toolset:             toolset,
+			descriptionKeywords: listKeywords,
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name"},
+			optionalParams:      []string{"limit", "cursor"},
+			testArgs:            map[string]any{"namespace_name": testNamespaceName},
+			expectedMethod:      listMethod,
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+			},
+		},
+		{
+			name:                getToolName,
+			toolset:             toolset,
+			descriptionKeywords: getKeywords,
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", getParamName},
+			testArgs:            map[string]any{"namespace_name": testNamespaceName, getParamName: getVal},
+			expectedMethod:      getMethod,
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != getVal {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, getVal, args[0], args[1])
+				}
+			},
+		},
+	}
+}
+
 // allToolSpecs aggregates all tool specs from all toolsets
 var allToolSpecs = func() []toolTestSpec {
 	specs := make([]toolTestSpec, 0, 8)
 	specs = append(specs, namespaceToolSpecs()...)
 	specs = append(specs, projectToolSpecs()...)
 	specs = append(specs, componentToolSpecs()...)
-	specs = append(specs, infrastructureToolSpecs()...)
+	specs = append(specs, deploymentToolSpecs()...)
+	specs = append(specs, buildToolSpecs()...)
 	specs = append(specs, peToolSpecs()...)
 	return specs
 }()

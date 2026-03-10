@@ -2503,9 +2503,10 @@
                     "namespace",
                     "project",
                     "component",
-                    "infrastructure"
+                    "deployment",
+                    "build"
                   ],
-                  "description": "List of enabled MCP toolsets. Each toolset exposes a group of related operations. Allowed toolsets: namespace, project, component, infrastructure, pe",
+                  "description": "List of enabled MCP toolsets. Each toolset exposes a group of related operations. Allowed toolsets: namespace, project, component, deployment, build, pe",
                   "items": {
                     "type": "string"
                   },

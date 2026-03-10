@@ -208,22 +208,6 @@ func environmentSummary(e openchoreov1alpha1.Environment) map[string]any {
 	return m
 }
 
-func environmentDetail(e *openchoreov1alpha1.Environment) map[string]any {
-	m := extractCommonMeta(e)
-	m["isProduction"] = e.Spec.IsProduction
-	if e.Spec.DataPlaneRef != nil {
-		m["dataPlaneRef"] = map[string]any{
-			"kind": string(e.Spec.DataPlaneRef.Kind),
-			"name": e.Spec.DataPlaneRef.Name,
-		}
-	}
-	setIfNotEmpty(m, "status", readyStatus(e.Status.Conditions))
-	if conds := conditionsSummary(e.Status.Conditions); conds != nil {
-		m["conditions"] = conds
-	}
-	return m
-}
-
 // ---------------------------------------------------------------------------
 // DataPlane
 // ---------------------------------------------------------------------------
@@ -480,6 +464,25 @@ func buildPlaneSummary(bp openchoreov1alpha1.BuildPlane) map[string]any {
 	return m
 }
 
+func buildPlaneDetail(bp *openchoreov1alpha1.BuildPlane) map[string]any {
+	m := extractCommonMeta(bp)
+	setIfNotEmpty(m, "planeID", bp.Spec.PlaneID)
+	if bp.Spec.ObservabilityPlaneRef != nil {
+		m["observabilityPlaneRef"] = map[string]any{
+			"kind": string(bp.Spec.ObservabilityPlaneRef.Kind),
+			"name": bp.Spec.ObservabilityPlaneRef.Name,
+		}
+	}
+	if bp.Status.AgentConnection != nil {
+		m["agentConnection"] = agentConnectionToMap(bp.Status.AgentConnection)
+	}
+	setIfNotEmpty(m, "status", readyStatus(bp.Status.Conditions))
+	if conds := conditionsSummary(bp.Status.Conditions); conds != nil {
+		m["conditions"] = conds
+	}
+	return m
+}
+
 // ---------------------------------------------------------------------------
 // ObservabilityPlane
 // ---------------------------------------------------------------------------
@@ -492,6 +495,20 @@ func observabilityPlaneSummary(op openchoreov1alpha1.ObservabilityPlane) map[str
 		m["agentConnected"] = op.Status.AgentConnection.Connected
 	}
 	setIfNotEmpty(m, "status", readyStatus(op.Status.Conditions))
+	return m
+}
+
+func observabilityPlaneDetail(op *openchoreov1alpha1.ObservabilityPlane) map[string]any {
+	m := extractCommonMeta(op)
+	setIfNotEmpty(m, "planeID", op.Spec.PlaneID)
+	setIfNotEmpty(m, "observerURL", op.Spec.ObserverURL)
+	if op.Status.AgentConnection != nil {
+		m["agentConnection"] = agentConnectionToMap(op.Status.AgentConnection)
+	}
+	setIfNotEmpty(m, "status", readyStatus(op.Status.Conditions))
+	if conds := conditionsSummary(op.Status.Conditions); conds != nil {
+		m["conditions"] = conds
+	}
 	return m
 }
 
