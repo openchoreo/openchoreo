@@ -338,6 +338,38 @@ func TestFilteredList_PaginationWithPartialAuthz(t *testing.T) {
 	}, calls)
 }
 
+func TestFilteredList_RemainingCountCleared(t *testing.T) {
+	remaining := int64(3)
+
+	listResource := func(_ context.Context, _ ListOptions) (*ListResult[int], error) {
+		return &ListResult[int]{
+			Items:          []int{1, 2, 3, 4},
+			RemainingCount: &remaining,
+		}, nil
+	}
+
+	checker := newPaginationChecker(func(_ context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
+		num, err := strconv.Atoi(req.Resource.ID)
+		require.NoError(t, err)
+		if num%2 == 0 {
+			return alwaysAllowDecision(), nil
+		}
+		return denyDecision(), nil
+	})
+
+	result, err := FilteredList(
+		context.Background(),
+		ListOptions{Limit: 2},
+		checker,
+		listResource,
+		intCheckRequest,
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, []int{2, 4}, result.Items)
+	assert.Nil(t, result.RemainingCount, "authz-filtered pages must not expose upstream RemainingCount")
+}
+
 func TestFilteredList_AuthzErrorPropagation(t *testing.T) {
 	authzErr := errors.New("pdp unavailable")
 	listResource := func(_ context.Context, _ ListOptions) (*ListResult[int], error) {
