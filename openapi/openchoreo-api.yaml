@@ -8486,12 +8486,16 @@ components:
       description: Specification for a cluster-scoped role binding
       required:
         - entitlement
-        - roleRef
+        - roleMappings
       properties:
         entitlement:
           $ref: '#/components/schemas/AuthzEntitlementClaim'
-        roleRef:
-          $ref: '#/components/schemas/AuthzRoleRef'
+        roleMappings:
+          type: array
+          description: List of cluster role mappings this binding grants
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AuthzClusterRoleMapping'
         effect:
           type: string
           description: Policy effect (allow or deny)
@@ -8541,14 +8545,16 @@ components:
       description: Specification for a namespace-scoped role binding
       required:
         - entitlement
-        - roleRef
+        - roleMappings
       properties:
         entitlement:
           $ref: '#/components/schemas/AuthzEntitlementClaim'
-        roleRef:
-          $ref: '#/components/schemas/AuthzRoleRef'
-        targetPath:
-          $ref: '#/components/schemas/AuthzTargetPath'
+        roleMappings:
+          type: array
+          description: List of role-scope pair mappings this binding grants
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AuthzRoleMapping'
         effect:
           type: string
           description: Policy effect (allow or deny)
@@ -8615,6 +8621,26 @@ components:
           type: string
           description: Component name
           example: api-service
+
+    AuthzRoleMapping:
+      type: object
+      description: Pairs a role reference with an optional target path scope
+      required:
+        - roleRef
+      properties:
+        roleRef:
+          $ref: '#/components/schemas/AuthzRoleRef'
+        targetPath:
+          $ref: '#/components/schemas/AuthzTargetPath'
+
+    AuthzClusterRoleMapping:
+      type: object
+      description: Pairs a role reference for cluster-scoped bindings
+      required:
+        - roleRef
+      properties:
+        roleRef:
+          $ref: '#/components/schemas/AuthzRoleRef'
 
     Entitlement:
       type: object
@@ -8955,9 +8981,10 @@ components:
           description: Human-readable description of the role
           example: Updated cluster admin role
 
+    # NOTE: Legacy single-mapping endpoints. Multi-mapping is handled via the CRD API directly.
     CreateClusterRoleBindingRequest:
       type: object
-      description: Request to create a cluster-scoped role binding (legacy)
+      description: Request to create a cluster-scoped role binding (legacy, single mapping only)
       required:
         - name
         - entitlement
@@ -8982,7 +9009,7 @@ components:
 
     UpdateClusterRoleBindingRequest:
       type: object
-      description: Request to update a cluster role binding (legacy)
+      description: Request to update a cluster role binding (legacy, single mapping only)
       required:
         - entitlement
         - role
@@ -9040,9 +9067,10 @@ components:
           description: Human-readable description of the role
           example: Updated developer role
 
+    # NOTE: Legacy single-mapping endpoints. Multi-mapping is handled via the CRD API directly.
     CreateNamespaceRoleBindingRequest:
       type: object
-      description: Request to create a namespace-scoped role binding (legacy)
+      description: Request to create a namespace-scoped role binding (legacy, single mapping only)
       required:
         - name
         - entitlement
@@ -9067,7 +9095,7 @@ components:
 
     UpdateNamespaceRoleBindingRequest:
       type: object
-      description: Request to update a namespace role binding (legacy)
+      description: Request to update a namespace role binding (legacy, single mapping only)
       required:
         - entitlement
         - role

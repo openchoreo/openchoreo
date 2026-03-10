@@ -944,6 +944,151 @@ func TestComputeActionsDiff(t *testing.T) {
 	}
 }
 
+func TestComputePolicyDiff(t *testing.T) {
+	tests := []struct {
+		name        string
+		oldPolicies [][]string
+		newPolicies [][]string
+		wantAdded   [][]string
+		wantRemoved [][]string
+	}{
+		{
+			name: "no changes",
+			oldPolicies: [][]string{
+				{"groups:devs", "ns/acme", "editor", "acme", "allow", "{}", "binding-1"},
+			},
+			newPolicies: [][]string{
+				{"groups:devs", "ns/acme", "editor", "acme", "allow", "{}", "binding-1"},
+			},
+			wantAdded:   nil,
+			wantRemoved: nil,
+		},
+		{
+			name:        "add policies to empty set",
+			oldPolicies: nil,
+			newPolicies: [][]string{
+				{"groups:devs", "ns/acme", "editor", "acme", "allow", "{}", "binding-1"},
+				{"groups:devs", "ns/acme", "viewer", "*", "allow", "{}", "binding-1"},
+			},
+			wantAdded: [][]string{
+				{"groups:devs", "ns/acme", "editor", "acme", "allow", "{}", "binding-1"},
+				{"groups:devs", "ns/acme", "viewer", "*", "allow", "{}", "binding-1"},
+			},
+			wantRemoved: nil,
+		},
+		{
+			name: "remove all policies",
+			oldPolicies: [][]string{
+				{"groups:devs", "ns/acme", "editor", "acme", "allow", "{}", "binding-1"},
+			},
+			newPolicies: nil,
+			wantAdded:   nil,
+			wantRemoved: [][]string{
+				{"groups:devs", "ns/acme", "editor", "acme", "allow", "{}", "binding-1"},
+			},
+		},
+		{
+			name: "swap role — one added one removed",
+			oldPolicies: [][]string{
+				{"groups:devs", "ns/acme", "editor", "acme", "allow", "{}", "binding-1"},
+			},
+			newPolicies: [][]string{
+				{"groups:devs", "ns/acme", "viewer", "acme", "allow", "{}", "binding-1"},
+			},
+			wantAdded: [][]string{
+				{"groups:devs", "ns/acme", "viewer", "acme", "allow", "{}", "binding-1"},
+			},
+			wantRemoved: [][]string{
+				{"groups:devs", "ns/acme", "editor", "acme", "allow", "{}", "binding-1"},
+			},
+		},
+		{
+			name: "expand — keep existing and add new",
+			oldPolicies: [][]string{
+				{"groups:devs", "ns/acme/project/crm", "editor", "acme", "allow", "{}", "binding-1"},
+			},
+			newPolicies: [][]string{
+				{"groups:devs", "ns/acme/project/crm", "editor", "acme", "allow", "{}", "binding-1"},
+				{"groups:devs", "ns/acme", "viewer", "*", "allow", "{}", "binding-1"},
+			},
+			wantAdded: [][]string{
+				{"groups:devs", "ns/acme", "viewer", "*", "allow", "{}", "binding-1"},
+			},
+			wantRemoved: nil,
+		},
+		{
+			name: "shrink — remove one keep one",
+			oldPolicies: [][]string{
+				{"groups:devs", "ns/acme/project/crm", "editor", "acme", "allow", "{}", "binding-1"},
+				{"groups:devs", "ns/acme", "viewer", "*", "allow", "{}", "binding-1"},
+			},
+			newPolicies: [][]string{
+				{"groups:devs", "ns/acme/project/crm", "editor", "acme", "allow", "{}", "binding-1"},
+			},
+			wantAdded: nil,
+			wantRemoved: [][]string{
+				{"groups:devs", "ns/acme", "viewer", "*", "allow", "{}", "binding-1"},
+			},
+		},
+		{
+			name:        "both empty",
+			oldPolicies: nil,
+			newPolicies: nil,
+			wantAdded:   nil,
+			wantRemoved: nil,
+		},
+		{
+			name: "change effect — old removed new added",
+			oldPolicies: [][]string{
+				{"groups:devs", "ns/acme", "editor", "acme", "allow", "{}", "binding-1"},
+			},
+			newPolicies: [][]string{
+				{"groups:devs", "ns/acme", "editor", "acme", "deny", "{}", "binding-1"},
+			},
+			wantAdded: [][]string{
+				{"groups:devs", "ns/acme", "editor", "acme", "deny", "{}", "binding-1"},
+			},
+			wantRemoved: [][]string{
+				{"groups:devs", "ns/acme", "editor", "acme", "allow", "{}", "binding-1"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotAdded, gotRemoved := computePolicyDiff(tt.oldPolicies, tt.newPolicies)
+
+			if !policySlicesEqual(gotAdded, tt.wantAdded) {
+				t.Errorf("computePolicyDiff() added = %v, want %v", gotAdded, tt.wantAdded)
+			}
+			if !policySlicesEqual(gotRemoved, tt.wantRemoved) {
+				t.Errorf("computePolicyDiff() removed = %v, want %v", gotRemoved, tt.wantRemoved)
+			}
+		})
+	}
+}
+
+// policySlicesEqual checks if two slices of policy tuples contain the same elements (order-independent)
+func policySlicesEqual(a, b [][]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	if len(a) == 0 {
+		return true
+	}
+	aSet := make(map[string]int)
+	for _, p := range a {
+		aSet[policyKey(p)]++
+	}
+	for _, p := range b {
+		aSet[policyKey(p)]--
+		if aSet[policyKey(p)] < 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // sliceContainsSameElements checks if two slices contain the same elements
 func sliceContainsSameElements(a, b []string) bool {
 	if len(a) != len(b) {

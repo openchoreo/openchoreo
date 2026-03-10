@@ -2626,20 +2626,50 @@
                                 "description": "Binding name",
                                 "type": "string"
                               },
-                              "roleRef": {
-                                "description": "Reference to the role",
-                                "properties": {
-                                  "name": {
-                                    "description": "Role name",
-                                    "type": "string"
+                              "roleMappings": {
+                                "description": "List of role-scope pairs this binding grants",
+                                "items": {
+                                  "properties": {
+                                    "roleRef": {
+                                      "description": "Reference to the role",
+                                      "properties": {
+                                        "name": {
+                                          "description": "Role name",
+                                          "type": "string"
+                                        },
+                                        "namespace": {
+                                          "description": "Role namespace (empty for cluster role)",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "name"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "targetPath": {
+                                      "description": "Scopes this mapping within the ownership hierarchy",
+                                      "properties": {
+                                        "component": {
+                                          "description": "Component scope (requires project)",
+                                          "type": "string"
+                                        },
+                                        "project": {
+                                          "description": "Project scope",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [],
+                                      "type": "object"
+                                    }
                                   },
-                                  "namespace": {
-                                    "description": "Role namespace (empty for cluster role)",
-                                    "type": "string"
-                                  }
+                                  "required": [
+                                    "roleRef"
+                                  ],
+                                  "type": "object"
                                 },
-                                "required": [],
-                                "type": "object"
+                                "minItems": 1,
+                                "type": "array"
                               },
                               "system": {
                                 "default": false,

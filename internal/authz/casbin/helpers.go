@@ -406,6 +406,34 @@ func normalizeNamespace(namespace string) string {
 	return namespace
 }
 
+// policyKey joins a policy tuple into a single string key for set-based comparison. The null byte separator avoids collisions between field values.
+func policyKey(policy []string) string {
+	return strings.Join(policy, "\x00")
+}
+
+// computePolicyDiff computes added and removed policies between two sets of policy tuples
+func computePolicyDiff(oldPolicies, newPolicies [][]string) (added, removed [][]string) {
+	oldSet := make(map[string][]string, len(oldPolicies))
+	for _, p := range oldPolicies {
+		oldSet[policyKey(p)] = p
+	}
+	newSet := make(map[string][]string, len(newPolicies))
+	for _, p := range newPolicies {
+		newSet[policyKey(p)] = p
+	}
+	for key, p := range oldSet {
+		if _, exists := newSet[key]; !exists {
+			removed = append(removed, p)
+		}
+	}
+	for key, p := range newSet {
+		if _, exists := oldSet[key]; !exists {
+			added = append(added, p)
+		}
+	}
+	return added, removed
+}
+
 // computeActionsDiff computes the difference between existing and new actions for a role
 // Returns added actions (in new but not in existing) and removed actions (in existing but not in new)
 func computeActionsDiff(existingActions, newActions []string) (added, removed []string) {

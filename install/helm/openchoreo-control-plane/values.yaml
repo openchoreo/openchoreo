@@ -1140,16 +1140,35 @@ openchoreoApi:
           #       type: boolean
           #       description: Whether this is a system-managed binding (adds openchoreo.io/system label when true, omitted when false)
           #       default: false
-          #     roleRef:
-          #       type: object
-          #       description: Reference to the role
-          #       properties:
-          #         name:
-          #           type: string
-          #           description: Role name
-          #         namespace:
-          #           type: string
-          #           description: Role namespace (empty for cluster role)
+          #     roleMappings:
+          #       type: array
+          #       description: List of role-scope pairs this binding grants
+          #       minItems: 1
+          #       items:
+          #         type: object
+          #         required: [roleRef]
+          #         properties:
+          #           roleRef:
+          #             type: object
+          #             description: Reference to the role
+          #             required: [name]
+          #             properties:
+          #               name:
+          #                 type: string
+          #                 description: Role name
+          #               namespace:
+          #                 type: string
+          #                 description: Role namespace (empty for cluster role)
+          #           targetPath:
+          #             type: object
+          #             description: Scopes this mapping within the ownership hierarchy
+          #             properties:
+          #               project:
+          #                 type: string
+          #                 description: Project scope
+          #               component:
+          #                 type: string
+          #                 description: Component scope (requires project)
           #     entitlement:
           #       type: object
           #       description: JWT claim that grants this role
@@ -1182,8 +1201,9 @@ openchoreoApi:
             # Super admin mapping - grants admins group full access
             - name: super-admin-binding
               system: true
-              roleRef:
-                name: super-admin
+              roleMappings:
+                - roleRef:
+                    name: super-admin
               entitlement:
                 claim: groups
                 value: admins
@@ -1192,8 +1212,9 @@ openchoreoApi:
             # Backstage catalog reader mapping - grants backstage service account read access
             - name: backstage-catalog-reader-binding
               system: true
-              roleRef:
-                name: backstage-catalog-reader
+              roleMappings:
+                - roleRef:
+                    name: backstage-catalog-reader
               entitlement:
                 claim: sub
                 value: openchoreo-backstage-client
@@ -1202,8 +1223,9 @@ openchoreoApi:
             # RCA agent mapping - grants RCA service account troubleshooting access
             - name: rca-agent-binding
               system: true
-              roleRef:
-                name: rca-agent
+              roleMappings:
+                - roleRef:
+                    name: rca-agent
               entitlement:
                 claim: sub
                 value: openchoreo-rca-agent
@@ -1212,8 +1234,9 @@ openchoreoApi:
             # Workload publisher mapping - grants workload publisher service account workload creation access
             - name: workload-publisher-binding
               system: true
-              roleRef:
-                name: workload-publisher
+              roleMappings:
+                - roleRef:
+                    name: workload-publisher
               entitlement:
                 claim: sub
                 value: openchoreo-workload-publisher-client
@@ -1222,8 +1245,9 @@ openchoreoApi:
             # Observer mapping - grants observer service account resource UID resolver access
             - name: observer-binding
               system: true
-              roleRef:
-                name: observer
+              roleMappings:
+                - roleRef:
+                    name: observer
               entitlement:
                 claim: sub
                 value: openchoreo-observer
@@ -1232,8 +1256,9 @@ openchoreoApi:
             # MCP tryout client mapping - grants MCP tryout client full access
             - name: mcp-tryout-client-binding
               system: true
-              roleRef:
-                name: super-admin
+              roleMappings:
+                - roleRef:
+                    name: super-admin
               entitlement:
                 claim: sub
                 value: service_mcp_client

@@ -242,9 +242,9 @@ func TestAuthzInformerHandler_HandleAddClusterRole_Idempotent(t *testing.T) {
 
 func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 	tests := []struct {
-		name       string
-		binding    *authzv1alpha1.AuthzRoleBinding
-		wantPolicy []string // Expected policy: [subject, resource, role, namespace, effect, context, binding_name]
+		name         string
+		binding      *authzv1alpha1.AuthzRoleBinding
+		wantPolicies [][]string // Expected policies: [subject, resource, role, namespace, effect, context, binding_name]
 	}{
 		{
 			name: "add binding at namespace level",
@@ -255,14 +255,18 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 						Claim: "groups",
 						Value: "developers",
 					},
-					RoleRef: authzv1alpha1.RoleRef{
-						Kind: CRDTypeAuthzRole,
-						Name: "editor",
-					},
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{
+							Kind: CRDTypeAuthzRole,
+							Name: "editor",
+						},
+					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			wantPolicy: []string{"groups:developers", "ns/acme", "editor", "acme", "allow", "{}", "dev-binding"},
+			wantPolicies: [][]string{
+				{"groups:developers", "ns/acme", "editor", "acme", "allow", "{}", "dev-binding"},
+			},
 		},
 		{
 			name: "add binding at project level",
@@ -273,17 +277,21 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 						Claim: "groups",
 						Value: "project-team",
 					},
-					RoleRef: authzv1alpha1.RoleRef{
-						Kind: CRDTypeAuthzRole,
-						Name: "viewer",
-					},
-					TargetPath: authzv1alpha1.TargetPath{
-						Project: "my-project",
-					},
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{
+							Kind: CRDTypeAuthzRole,
+							Name: "viewer",
+						},
+						TargetPath: authzv1alpha1.TargetPath{
+							Project: "my-project",
+						},
+					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			wantPolicy: []string{"groups:project-team", "ns/acme/project/my-project", "viewer", "acme", "allow", "{}", "project-binding"},
+			wantPolicies: [][]string{
+				{"groups:project-team", "ns/acme/project/my-project", "viewer", "acme", "allow", "{}", "project-binding"},
+			},
 		},
 		{
 			name: "add binding at component level",
@@ -294,18 +302,22 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 						Claim: "sub",
 						Value: "user-123",
 					},
-					RoleRef: authzv1alpha1.RoleRef{
-						Kind: CRDTypeAuthzRole,
-						Name: "deployer",
-					},
-					TargetPath: authzv1alpha1.TargetPath{
-						Project:   "my-project",
-						Component: "my-component",
-					},
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{
+							Kind: CRDTypeAuthzRole,
+							Name: "deployer",
+						},
+						TargetPath: authzv1alpha1.TargetPath{
+							Project:   "my-project",
+							Component: "my-component",
+						},
+					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			wantPolicy: []string{"sub:user-123", "ns/acme/project/my-project/component/my-component", "deployer", "acme", "allow", "{}", "component-binding"},
+			wantPolicies: [][]string{
+				{"sub:user-123", "ns/acme/project/my-project/component/my-component", "deployer", "acme", "allow", "{}", "component-binding"},
+			},
 		},
 		{
 			name: "add deny binding",
@@ -316,17 +328,21 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 						Claim: "groups",
 						Value: "restricted-group",
 					},
-					RoleRef: authzv1alpha1.RoleRef{
-						Kind: CRDTypeAuthzRole,
-						Name: "editor",
-					},
-					TargetPath: authzv1alpha1.TargetPath{
-						Project: "secret-project",
-					},
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{
+							Kind: CRDTypeAuthzRole,
+							Name: "editor",
+						},
+						TargetPath: authzv1alpha1.TargetPath{
+							Project: "secret-project",
+						},
+					}},
 					Effect: authzv1alpha1.EffectDeny,
 				},
 			},
-			wantPolicy: []string{"groups:restricted-group", "ns/acme/project/secret-project", "editor", "acme", "deny", "{}", "deny-binding"},
+			wantPolicies: [][]string{
+				{"groups:restricted-group", "ns/acme/project/secret-project", "editor", "acme", "deny", "{}", "deny-binding"},
+			},
 		},
 		{
 			name: "add binding referencing cluster role",
@@ -337,14 +353,55 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 						Claim: "groups",
 						Value: "admins",
 					},
-					RoleRef: authzv1alpha1.RoleRef{
-						Kind: CRDTypeAuthzClusterRole,
-						Name: "global-admin",
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{
+							Kind: CRDTypeAuthzClusterRole,
+							Name: "global-admin",
+						},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:admins", "ns/acme", "global-admin", "*", "allow", "{}", "cluster-role-binding"},
+			},
+		},
+		{
+			name: "add binding with multiple role mappings",
+			binding: &authzv1alpha1.AuthzRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "multi-binding", Namespace: "acme"},
+				Spec: authzv1alpha1.AuthzRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{
+						Claim: "groups",
+						Value: "developers",
+					},
+					RoleMappings: []authzv1alpha1.RoleMapping{
+						{
+							RoleRef: authzv1alpha1.RoleRef{
+								Kind: CRDTypeAuthzRole,
+								Name: "editor",
+							},
+							TargetPath: authzv1alpha1.TargetPath{
+								Project: "project-a",
+							},
+						},
+						{
+							RoleRef: authzv1alpha1.RoleRef{
+								Kind: CRDTypeAuthzRole,
+								Name: "viewer",
+							},
+							TargetPath: authzv1alpha1.TargetPath{
+								Project: "project-b",
+							},
+						},
 					},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			wantPolicy: []string{"groups:admins", "ns/acme", "global-admin", "*", "allow", "{}", "cluster-role-binding"},
+			wantPolicies: [][]string{
+				{"groups:developers", "ns/acme/project/project-a", "editor", "acme", "allow", "{}", "multi-binding"},
+				{"groups:developers", "ns/acme/project/project-b", "viewer", "acme", "allow", "{}", "multi-binding"},
+			},
 		},
 	}
 
@@ -357,13 +414,24 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 				t.Fatalf("handleAddBinding() error = %v", err)
 			}
 
-			hasPolicy, err := enforcer.HasPolicy(tt.wantPolicy[0], tt.wantPolicy[1], tt.wantPolicy[2], tt.wantPolicy[3], tt.wantPolicy[4], tt.wantPolicy[5], tt.wantPolicy[6])
-			if err != nil {
-				t.Fatalf("HasPolicy() error = %v", err)
+			for _, wantPolicy := range tt.wantPolicies {
+				hasPolicy, err := enforcer.HasPolicy(wantPolicy[0], wantPolicy[1], wantPolicy[2], wantPolicy[3], wantPolicy[4], wantPolicy[5], wantPolicy[6])
+				if err != nil {
+					t.Fatalf("HasPolicy() error = %v", err)
+				}
+				if !hasPolicy {
+					policies, _ := enforcer.GetPolicy()
+					t.Errorf("expected policy %v not found. All policies: %v", wantPolicy, policies)
+				}
 			}
-			if !hasPolicy {
-				policies, _ := enforcer.GetPolicy()
-				t.Errorf("expected policy %v not found. All policies: %v", tt.wantPolicy, policies)
+
+			// Verify total policy count matches expected
+			policies, err := enforcer.GetPolicy()
+			if err != nil {
+				t.Fatalf("GetPolicy() error = %v", err)
+			}
+			if len(policies) != len(tt.wantPolicies) {
+				t.Errorf("expected %d policies, got %d. All policies: %v", len(tt.wantPolicies), len(policies), policies)
 			}
 		})
 	}
@@ -384,10 +452,12 @@ func TestAuthzInformerHandler_HandleAddBinding_Errors(t *testing.T) {
 						Claim: "groups",
 						Value: "developers",
 					},
-					RoleRef: authzv1alpha1.RoleRef{
-						Kind: CRDTypeAuthzRole,
-						Name: "editor",
-					},
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{
+							Kind: CRDTypeAuthzRole,
+							Name: "editor",
+						},
+					}},
 				},
 			},
 			wantErrContain: "effect not specified",
@@ -401,10 +471,12 @@ func TestAuthzInformerHandler_HandleAddBinding_Errors(t *testing.T) {
 						Claim: "groups",
 						Value: "",
 					},
-					RoleRef: authzv1alpha1.RoleRef{
-						Kind: CRDTypeAuthzRole,
-						Name: "editor",
-					},
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{
+							Kind: CRDTypeAuthzRole,
+							Name: "editor",
+						},
+					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
@@ -434,10 +506,12 @@ func TestAuthzInformerHandler_HandleAddBinding_Idempotent(t *testing.T) {
 				Claim: "groups",
 				Value: "developers",
 			},
-			RoleRef: authzv1alpha1.RoleRef{
-				Kind: CRDTypeAuthzRole,
-				Name: "editor",
-			},
+			RoleMappings: []authzv1alpha1.RoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{
+					Kind: CRDTypeAuthzRole,
+					Name: "editor",
+				},
+			}},
 			Effect: authzv1alpha1.EffectAllow,
 		},
 	}
@@ -462,9 +536,9 @@ func TestAuthzInformerHandler_HandleAddBinding_Idempotent(t *testing.T) {
 
 func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 	tests := []struct {
-		name       string
-		binding    *authzv1alpha1.AuthzClusterRoleBinding
-		wantPolicy []string // Expected policy: [subject, "*", role, "*", effect, context, binding_name]
+		name         string
+		binding      *authzv1alpha1.AuthzClusterRoleBinding
+		wantPolicies [][]string // Expected policies: [subject, "*", role, "*", effect, context, binding_name]
 	}{
 		{
 			name: "add cluster binding with allow effect",
@@ -475,14 +549,18 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 						Claim: "groups",
 						Value: "platform-admins",
 					},
-					RoleRef: authzv1alpha1.RoleRef{
-						Kind: CRDTypeAuthzClusterRole,
-						Name: "super-admin",
-					},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{
+							Kind: CRDTypeAuthzClusterRole,
+							Name: "super-admin",
+						},
+					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			wantPolicy: []string{"groups:platform-admins", "*", "super-admin", "*", "allow", "{}", "global-admin-binding"},
+			wantPolicies: [][]string{
+				{"groups:platform-admins", "*", "super-admin", "*", "allow", "{}", "global-admin-binding"},
+			},
 		},
 		{
 			name: "add cluster binding with deny effect",
@@ -493,14 +571,49 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 						Claim: "groups",
 						Value: "blocked-group",
 					},
-					RoleRef: authzv1alpha1.RoleRef{
-						Kind: CRDTypeAuthzClusterRole,
-						Name: "all-access",
-					},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{
+							Kind: CRDTypeAuthzClusterRole,
+							Name: "all-access",
+						},
+					}},
 					Effect: authzv1alpha1.EffectDeny,
 				},
 			},
-			wantPolicy: []string{"groups:blocked-group", "*", "all-access", "*", "deny", "{}", "global-deny-binding"},
+			wantPolicies: [][]string{
+				{"groups:blocked-group", "*", "all-access", "*", "deny", "{}", "global-deny-binding"},
+			},
+		},
+		{
+			name: "add cluster binding with multiple role mappings",
+			binding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "multi-cluster-binding"},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{
+						Claim: "groups",
+						Value: "platform-admins",
+					},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{
+						{
+							RoleRef: authzv1alpha1.RoleRef{
+								Kind: CRDTypeAuthzClusterRole,
+								Name: "super-admin",
+							},
+						},
+						{
+							RoleRef: authzv1alpha1.RoleRef{
+								Kind: CRDTypeAuthzClusterRole,
+								Name: "global-viewer",
+							},
+						},
+					},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:platform-admins", "*", "super-admin", "*", "allow", "{}", "multi-cluster-binding"},
+				{"groups:platform-admins", "*", "global-viewer", "*", "allow", "{}", "multi-cluster-binding"},
+			},
 		},
 	}
 
@@ -513,13 +626,24 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 				t.Fatalf("handleAddClusterBinding() error = %v", err)
 			}
 
-			hasPolicy, err := enforcer.HasPolicy(tt.wantPolicy[0], tt.wantPolicy[1], tt.wantPolicy[2], tt.wantPolicy[3], tt.wantPolicy[4], tt.wantPolicy[5], tt.wantPolicy[6])
-			if err != nil {
-				t.Fatalf("HasPolicy() error = %v", err)
+			for _, wantPolicy := range tt.wantPolicies {
+				hasPolicy, err := enforcer.HasPolicy(wantPolicy[0], wantPolicy[1], wantPolicy[2], wantPolicy[3], wantPolicy[4], wantPolicy[5], wantPolicy[6])
+				if err != nil {
+					t.Fatalf("HasPolicy() error = %v", err)
+				}
+				if !hasPolicy {
+					policies, _ := enforcer.GetPolicy()
+					t.Errorf("expected policy %v not found. All policies: %v", wantPolicy, policies)
+				}
 			}
-			if !hasPolicy {
-				policies, _ := enforcer.GetPolicy()
-				t.Errorf("expected policy %v not found. All policies: %v", tt.wantPolicy, policies)
+
+			// Verify total policy count matches expected
+			policies, err := enforcer.GetPolicy()
+			if err != nil {
+				t.Fatalf("GetPolicy() error = %v", err)
+			}
+			if len(policies) != len(tt.wantPolicies) {
+				t.Errorf("expected %d policies, got %d. All policies: %v", len(tt.wantPolicies), len(policies), policies)
 			}
 		})
 	}
@@ -535,10 +659,12 @@ func TestAuthzInformerHandler_HandleAddClusterBinding_Idempotent(t *testing.T) {
 				Claim: "groups",
 				Value: "platform-admins",
 			},
-			RoleRef: authzv1alpha1.RoleRef{
-				Kind: CRDTypeAuthzClusterRole,
-				Name: "super-admin",
-			},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{
+					Kind: CRDTypeAuthzClusterRole,
+					Name: "super-admin",
+				},
+			}},
 			Effect: authzv1alpha1.EffectAllow,
 		},
 	}
@@ -719,6 +845,417 @@ func TestAuthzInformerHandler_HandleUpdateClusterRole(t *testing.T) {
 	}
 }
 
+func TestAuthzInformerHandler_HandleUpdateBinding(t *testing.T) {
+	tests := []struct {
+		name            string
+		seedPolicies    [][]string
+		oldBinding      *authzv1alpha1.AuthzRoleBinding
+		newBinding      *authzv1alpha1.AuthzRoleBinding
+		wantPolicies    [][]string
+		wantPolicyCount int
+	}{
+		{
+			name: "change role within single mapping",
+			seedPolicies: [][]string{
+				{"groups:developers", "ns/acme/project/crm", "editor", "acme", "allow", "{}", "dev-binding"},
+			},
+			oldBinding: &authzv1alpha1.AuthzRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "dev-binding", Namespace: "acme", Generation: 1},
+				Spec: authzv1alpha1.AuthzRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+						TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			newBinding: &authzv1alpha1.AuthzRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "dev-binding", Namespace: "acme", Generation: 2},
+				Spec: authzv1alpha1.AuthzRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "viewer"},
+						TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:developers", "ns/acme/project/crm", "viewer", "acme", "allow", "{}", "dev-binding"},
+			},
+			wantPolicyCount: 1,
+		},
+		{
+			name: "expand from single to multiple mappings",
+			seedPolicies: [][]string{
+				{"groups:developers", "ns/acme/project/crm", "editor", "acme", "allow", "{}", "dev-binding"},
+			},
+			oldBinding: &authzv1alpha1.AuthzRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "dev-binding", Namespace: "acme", Generation: 1},
+				Spec: authzv1alpha1.AuthzRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+						TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			newBinding: &authzv1alpha1.AuthzRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "dev-binding", Namespace: "acme", Generation: 2},
+				Spec: authzv1alpha1.AuthzRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
+					RoleMappings: []authzv1alpha1.RoleMapping{
+						{
+							RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+							TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+						},
+						{
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "viewer"},
+						},
+					},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:developers", "ns/acme/project/crm", "editor", "acme", "allow", "{}", "dev-binding"},
+				{"groups:developers", "ns/acme", "viewer", "*", "allow", "{}", "dev-binding"},
+			},
+			wantPolicyCount: 2,
+		},
+		{
+			name: "shrink from multiple to single mapping",
+			seedPolicies: [][]string{
+				{"groups:developers", "ns/acme/project/crm", "editor", "acme", "allow", "{}", "dev-binding"},
+				{"groups:developers", "ns/acme", "viewer", "*", "allow", "{}", "dev-binding"},
+			},
+			oldBinding: &authzv1alpha1.AuthzRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "dev-binding", Namespace: "acme", Generation: 1},
+				Spec: authzv1alpha1.AuthzRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
+					RoleMappings: []authzv1alpha1.RoleMapping{
+						{
+							RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+							TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+						},
+						{
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "viewer"},
+						},
+					},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			newBinding: &authzv1alpha1.AuthzRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "dev-binding", Namespace: "acme", Generation: 2},
+				Spec: authzv1alpha1.AuthzRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+						TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:developers", "ns/acme/project/crm", "editor", "acme", "allow", "{}", "dev-binding"},
+			},
+			wantPolicyCount: 1,
+		},
+		{
+			name: "change effect from allow to deny",
+			seedPolicies: [][]string{
+				{"groups:developers", "ns/acme/project/crm", "editor", "acme", "allow", "{}", "dev-binding"},
+			},
+			oldBinding: &authzv1alpha1.AuthzRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "dev-binding", Namespace: "acme", Generation: 1},
+				Spec: authzv1alpha1.AuthzRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+						TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			newBinding: &authzv1alpha1.AuthzRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "dev-binding", Namespace: "acme", Generation: 2},
+				Spec: authzv1alpha1.AuthzRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
+					RoleMappings: []authzv1alpha1.RoleMapping{{
+						RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+						TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+					}},
+					Effect: authzv1alpha1.EffectDeny,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:developers", "ns/acme/project/crm", "editor", "acme", "deny", "{}", "dev-binding"},
+			},
+			wantPolicyCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, enforcer := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+
+			// Seed existing policies
+			if len(tt.seedPolicies) > 0 {
+				if _, err := enforcer.AddPolicies(tt.seedPolicies); err != nil {
+					t.Fatalf("AddPolicies() error = %v", err)
+				}
+			}
+
+			if err := handler.handleUpdateBinding(tt.oldBinding, tt.newBinding); err != nil {
+				t.Fatalf("handleUpdateBinding() error = %v", err)
+			}
+
+			// Verify expected policies exist
+			for _, wantPolicy := range tt.wantPolicies {
+				hasPolicy, err := enforcer.HasPolicy(wantPolicy[0], wantPolicy[1], wantPolicy[2], wantPolicy[3], wantPolicy[4], wantPolicy[5], wantPolicy[6])
+				if err != nil {
+					t.Fatalf("HasPolicy() error = %v", err)
+				}
+				if !hasPolicy {
+					policies, _ := enforcer.GetPolicy()
+					t.Errorf("expected policy %v not found. All policies: %v", wantPolicy, policies)
+				}
+			}
+
+			// Verify total count
+			policies, err := enforcer.GetPolicy()
+			if err != nil {
+				t.Fatalf("GetPolicy() error = %v", err)
+			}
+			if len(policies) != tt.wantPolicyCount {
+				t.Errorf("expected %d policies, got %d. All policies: %v", tt.wantPolicyCount, len(policies), policies)
+			}
+		})
+	}
+}
+
+func TestAuthzInformerHandler_HandleUpdateBinding_NoGenerationChange(t *testing.T) {
+	handler, enforcer := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+
+	_, err := enforcer.AddPolicy("groups:developers", "ns/acme/project/crm", "editor", "acme", "allow", "{}", "dev-binding")
+	if err != nil {
+		t.Fatalf("AddPolicy() error = %v", err)
+	}
+
+	binding := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "dev-binding", Namespace: "acme", Generation: 1},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{
+				RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+				TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+
+	// Same generation — should be a no-op
+	newBinding := binding.DeepCopy()
+	newBinding.Spec.RoleMappings[0].RoleRef.Name = "viewer"
+
+	if err := handler.handleUpdateBinding(binding, newBinding); err != nil {
+		t.Fatalf("handleUpdateBinding() error = %v", err)
+	}
+
+	// Original policy should remain unchanged
+	hasOld, _ := enforcer.HasPolicy("groups:developers", "ns/acme/project/crm", "editor", "acme", "allow", "{}", "dev-binding")
+	hasNew, _ := enforcer.HasPolicy("groups:developers", "ns/acme/project/crm", "viewer", "acme", "allow", "{}", "dev-binding")
+	if !hasOld {
+		t.Error("original policy should still exist (update skipped)")
+	}
+	if hasNew {
+		t.Error("new policy should not be added (update skipped)")
+	}
+}
+
+func TestAuthzInformerHandler_HandleUpdateClusterBinding(t *testing.T) {
+	tests := []struct {
+		name            string
+		seedPolicies    [][]string
+		oldBinding      *authzv1alpha1.AuthzClusterRoleBinding
+		newBinding      *authzv1alpha1.AuthzClusterRoleBinding
+		wantPolicies    [][]string
+		wantPolicyCount int
+	}{
+		{
+			name: "change role within single mapping",
+			seedPolicies: [][]string{
+				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "admin-binding"},
+			},
+			oldBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 1},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			newBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 2},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "global-viewer"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:admins", "*", "global-viewer", "*", "allow", "{}", "admin-binding"},
+			},
+			wantPolicyCount: 1,
+		},
+		{
+			name: "expand from single to multiple mappings",
+			seedPolicies: [][]string{
+				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "admin-binding"},
+			},
+			oldBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 1},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			newBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 2},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{
+						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"}},
+						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "audit-viewer"}},
+					},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "admin-binding"},
+				{"groups:admins", "*", "audit-viewer", "*", "allow", "{}", "admin-binding"},
+			},
+			wantPolicyCount: 2,
+		},
+		{
+			name: "shrink from multiple to single mapping",
+			seedPolicies: [][]string{
+				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "admin-binding"},
+				{"groups:admins", "*", "audit-viewer", "*", "allow", "{}", "admin-binding"},
+			},
+			oldBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 1},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{
+						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"}},
+						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "audit-viewer"}},
+					},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			newBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 2},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "admin-binding"},
+			},
+			wantPolicyCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
+
+			// Seed existing policies
+			if len(tt.seedPolicies) > 0 {
+				if _, err := enforcer.AddPolicies(tt.seedPolicies); err != nil {
+					t.Fatalf("AddPolicies() error = %v", err)
+				}
+			}
+
+			if err := handler.handleUpdateClusterBinding(tt.oldBinding, tt.newBinding); err != nil {
+				t.Fatalf("handleUpdateClusterBinding() error = %v", err)
+			}
+
+			// Verify expected policies exist
+			for _, wantPolicy := range tt.wantPolicies {
+				hasPolicy, err := enforcer.HasPolicy(wantPolicy[0], wantPolicy[1], wantPolicy[2], wantPolicy[3], wantPolicy[4], wantPolicy[5], wantPolicy[6])
+				if err != nil {
+					t.Fatalf("HasPolicy() error = %v", err)
+				}
+				if !hasPolicy {
+					policies, _ := enforcer.GetPolicy()
+					t.Errorf("expected policy %v not found. All policies: %v", wantPolicy, policies)
+				}
+			}
+
+			// Verify total count
+			policies, err := enforcer.GetPolicy()
+			if err != nil {
+				t.Fatalf("GetPolicy() error = %v", err)
+			}
+			if len(policies) != tt.wantPolicyCount {
+				t.Errorf("expected %d policies, got %d. All policies: %v", tt.wantPolicyCount, len(policies), policies)
+			}
+		})
+	}
+}
+
+func TestAuthzInformerHandler_HandleUpdateClusterBinding_NoGenerationChange(t *testing.T) {
+	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
+
+	_, err := enforcer.AddPolicy("groups:admins", "*", "super-admin", "*", "allow", "{}", "admin-binding")
+	if err != nil {
+		t.Fatalf("AddPolicy() error = %v", err)
+	}
+
+	binding := &authzv1alpha1.AuthzClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 1},
+		Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+
+	// Same generation — should be a no-op
+	newBinding := binding.DeepCopy()
+	newBinding.Spec.RoleMappings[0].RoleRef.Name = "global-viewer"
+
+	if err := handler.handleUpdateClusterBinding(binding, newBinding); err != nil {
+		t.Fatalf("handleUpdateClusterBinding() error = %v", err)
+	}
+
+	// Original policy should remain unchanged
+	hasOld, _ := enforcer.HasPolicy("groups:admins", "*", "super-admin", "*", "allow", "{}", "admin-binding")
+	hasNew, _ := enforcer.HasPolicy("groups:admins", "*", "global-viewer", "*", "allow", "{}", "admin-binding")
+	if !hasOld {
+		t.Error("original policy should still exist (update skipped)")
+	}
+	if hasNew {
+		t.Error("new policy should not be added (update skipped)")
+	}
+}
+
 func TestAuthzInformerHandler_HandleDeleteRole(t *testing.T) {
 	handler, enforcer := setupTestHandler(t, CRDTypeAuthzRole)
 
@@ -794,10 +1331,12 @@ func TestAuthzInformerHandler_HandleDeleteBinding(t *testing.T) {
 				Claim: "groups",
 				Value: "developers",
 			},
-			RoleRef: authzv1alpha1.RoleRef{
-				Kind: CRDTypeAuthzRole,
-				Name: "editor",
-			},
+			RoleMappings: []authzv1alpha1.RoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{
+					Kind: CRDTypeAuthzRole,
+					Name: "editor",
+				},
+			}},
 			Effect: authzv1alpha1.EffectAllow,
 		},
 	}
@@ -809,6 +1348,63 @@ func TestAuthzInformerHandler_HandleDeleteBinding(t *testing.T) {
 	hasPolicy, _ := enforcer.HasPolicy("groups:developers", "ns/acme", "editor", "acme", "allow", "{}", "dev-binding")
 	if hasPolicy {
 		t.Error("policy should be removed after delete")
+	}
+}
+
+func TestAuthzInformerHandler_HandleDeleteBinding_MultipleRoleMappings(t *testing.T) {
+	handler, enforcer := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+
+	// Pre-add 2 policies matching 2 role mappings
+	_, err := enforcer.AddPolicies([][]string{
+		{"groups:developers", "ns/acme/project/project-a", "editor", "acme", "allow", "{}", "multi-binding"},
+		{"groups:developers", "ns/acme/project/project-b", "viewer", "acme", "allow", "{}", "multi-binding"},
+	})
+	if err != nil {
+		t.Fatalf("AddPolicies() error = %v", err)
+	}
+
+	binding := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "multi-binding", Namespace: "acme"},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{
+				Claim: "groups",
+				Value: "developers",
+			},
+			RoleMappings: []authzv1alpha1.RoleMapping{
+				{
+					RoleRef: authzv1alpha1.RoleRef{
+						Kind: CRDTypeAuthzRole,
+						Name: "editor",
+					},
+					TargetPath: authzv1alpha1.TargetPath{
+						Project: "project-a",
+					},
+				},
+				{
+					RoleRef: authzv1alpha1.RoleRef{
+						Kind: CRDTypeAuthzRole,
+						Name: "viewer",
+					},
+					TargetPath: authzv1alpha1.TargetPath{
+						Project: "project-b",
+					},
+				},
+			},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+
+	if err := handler.handleDeleteBinding(binding); err != nil {
+		t.Fatalf("handleDeleteBinding() error = %v", err)
+	}
+
+	// Verify both policies are removed
+	policies, err := enforcer.GetPolicy()
+	if err != nil {
+		t.Fatalf("GetPolicy() error = %v", err)
+	}
+	if len(policies) != 0 {
+		t.Errorf("expected 0 policies after delete, got %d. All policies: %v", len(policies), policies)
 	}
 }
 
@@ -828,10 +1424,12 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding(t *testing.T) {
 				Claim: "groups",
 				Value: "platform-admins",
 			},
-			RoleRef: authzv1alpha1.RoleRef{
-				Kind: CRDTypeAuthzClusterRole,
-				Name: "super-admin",
-			},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{
+					Kind: CRDTypeAuthzClusterRole,
+					Name: "super-admin",
+				},
+			}},
 			Effect: authzv1alpha1.EffectAllow,
 		},
 	}
@@ -843,5 +1441,56 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding(t *testing.T) {
 	hasPolicy, _ := enforcer.HasPolicy("groups:platform-admins", "*", "super-admin", "*", "allow", "{}", "global-admin-binding")
 	if hasPolicy {
 		t.Error("policy should be removed after delete")
+	}
+}
+
+func TestAuthzInformerHandler_HandleDeleteClusterBinding_MultipleRoleMappings(t *testing.T) {
+	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
+
+	// Pre-add 2 policies matching 2 cluster role mappings
+	_, err := enforcer.AddPolicies([][]string{
+		{"groups:platform-admins", "*", "super-admin", "*", "allow", "{}", "multi-cluster-binding"},
+		{"groups:platform-admins", "*", "global-viewer", "*", "allow", "{}", "multi-cluster-binding"},
+	})
+	if err != nil {
+		t.Fatalf("AddPolicies() error = %v", err)
+	}
+
+	binding := &authzv1alpha1.AuthzClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "multi-cluster-binding"},
+		Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{
+				Claim: "groups",
+				Value: "platform-admins",
+			},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{
+				{
+					RoleRef: authzv1alpha1.RoleRef{
+						Kind: CRDTypeAuthzClusterRole,
+						Name: "super-admin",
+					},
+				},
+				{
+					RoleRef: authzv1alpha1.RoleRef{
+						Kind: CRDTypeAuthzClusterRole,
+						Name: "global-viewer",
+					},
+				},
+			},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+
+	if err := handler.handleDeleteClusterBinding(binding); err != nil {
+		t.Fatalf("handleDeleteClusterBinding() error = %v", err)
+	}
+
+	// Verify both policies are removed
+	policies, err := enforcer.GetPolicy()
+	if err != nil {
+		t.Fatalf("GetPolicy() error = %v", err)
+	}
+	if len(policies) != 0 {
+		t.Errorf("expected 0 policies after delete, got %d. All policies: %v", len(policies), policies)
 	}
 }

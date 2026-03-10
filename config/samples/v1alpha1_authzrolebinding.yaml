@@ -10,9 +10,13 @@ spec:
   entitlement:
     claim: groups
     value: dev-team
-  roleRef:
-    kind: AuthzRole
-    name: developer
-  targetPath:
-    project: crm
+  roleMappings:
+    - roleRef:
+        kind: AuthzRole
+        name: developer
+      targetPath:
+        project: crm
+    - roleRef:
+        kind: AuthzClusterRole
+        name: viewer
   effect: allow

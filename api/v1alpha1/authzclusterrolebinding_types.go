@@ -7,17 +7,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ClusterRoleMapping pairs a role reference for cluster-scoped bindings (no target path)
+type ClusterRoleMapping struct {
+	// RoleRef references the AuthzClusterRole to bind
+	RoleRef RoleRef `json:"roleRef"`
+}
+
 // AuthzClusterRoleBindingSpec defines the desired state of AuthzClusterRoleBinding
-// +kubebuilder:validation:XValidation:rule="self.roleRef.kind == 'AuthzClusterRole'",message="AuthzClusterRoleBinding can only reference AuthzClusterRole"
+// +kubebuilder:validation:XValidation:rule="self.roleMappings.all(m, m.roleRef.kind == 'AuthzClusterRole')",message="AuthzClusterRoleBinding can only reference AuthzClusterRole"
 type AuthzClusterRoleBindingSpec struct {
 	// Entitlement defines the subject (from JWT claims) to grant the role to
 	// +required
 	Entitlement EntitlementClaim `json:"entitlement"`
 
-	// RoleRef references the AuthzClusterRole to bind
-	// NOTE: AuthzClusterRoleBinding can ONLY reference AuthzClusterRole
+	// RoleMappings is the list of cluster roles this binding grants
 	// +required
-	RoleRef RoleRef `json:"roleRef"`
+	// +kubebuilder:validation:MinItems=1
+	RoleMappings []ClusterRoleMapping `json:"roleMappings"`
 
 	// Effect indicates whether this binding allows or denies access (default: allow)
 	// +kubebuilder:default=allow

@@ -67,33 +67,43 @@ spec:
                 - claim
                 - value
                 type: object
-              roleRef:
-                description: |-
-                  RoleRef references the AuthzClusterRole to bind
-                  NOTE: AuthzClusterRoleBinding can ONLY reference AuthzClusterRole
-                properties:
-                  kind:
-                    description: |-
-                      Kind is the kind of role (AuthzRole or AuthzClusterRole)
-                      For AuthzRoleBinding: AuthzRole must be in the same namespace
-                    enum:
-                    - AuthzRole
-                    - AuthzClusterRole
-                    type: string
-                  name:
-                    description: Name is the name of the role
-                    type: string
-                required:
-                - kind
-                - name
-                type: object
+              roleMappings:
+                description: RoleMappings is the list of cluster roles this binding
+                  grants
+                items:
+                  description: ClusterRoleMapping pairs a role reference for cluster-scoped
+                    bindings (no target path)
+                  properties:
+                    roleRef:
+                      description: RoleRef references the AuthzClusterRole to bind
+                      properties:
+                        kind:
+                          description: |-
+                            Kind is the kind of role (AuthzRole or AuthzClusterRole)
+                            For AuthzRoleBinding: AuthzRole must be in the same namespace
+                          enum:
+                          - AuthzRole
+                          - AuthzClusterRole
+                          type: string
+                        name:
+                          description: Name is the name of the role
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      type: object
+                  required:
+                  - roleRef
+                  type: object
+                minItems: 1
+                type: array
             required:
             - entitlement
-            - roleRef
+            - roleMappings
             type: object
             x-kubernetes-validations:
             - message: AuthzClusterRoleBinding can only reference AuthzClusterRole
-              rule: self.roleRef.kind == 'AuthzClusterRole'
+              rule: self.roleMappings.all(m, m.roleRef.kind == 'AuthzClusterRole')
         type: object
     served: true
     storage: true

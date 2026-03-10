@@ -715,8 +715,9 @@ func (ce *CasbinEnforcer) updateClusterRoleBinding(ctx context.Context, mapping 
 	// Update spec fields directly on the existing object
 	existingBinding.Spec.Entitlement.Claim = mapping.Entitlement.Claim
 	existingBinding.Spec.Entitlement.Value = mapping.Entitlement.Value
-	existingBinding.Spec.RoleRef.Kind = roleKind
-	existingBinding.Spec.RoleRef.Name = mapping.RoleRef.Name
+	existingBinding.Spec.RoleMappings = []openchoreov1alpha1.ClusterRoleMapping{{
+		RoleRef: openchoreov1alpha1.RoleRef{Kind: roleKind, Name: mapping.RoleRef.Name},
+	}}
 	existingBinding.Spec.Effect = openchoreov1alpha1.EffectType(mapping.Effect)
 
 	if err := ce.k8sClient.Update(ctx, existingBinding); err != nil {
@@ -750,10 +751,10 @@ func (ce *CasbinEnforcer) updateNamespacedRoleBinding(ctx context.Context, mappi
 	// Update spec fields directly on the existing object
 	existingBinding.Spec.Entitlement.Claim = mapping.Entitlement.Claim
 	existingBinding.Spec.Entitlement.Value = mapping.Entitlement.Value
-	existingBinding.Spec.RoleRef.Kind = roleKind
-	existingBinding.Spec.RoleRef.Name = mapping.RoleRef.Name
-	existingBinding.Spec.TargetPath.Project = mapping.Hierarchy.Project
-	existingBinding.Spec.TargetPath.Component = mapping.Hierarchy.Component
+	existingBinding.Spec.RoleMappings = []openchoreov1alpha1.RoleMapping{{
+		RoleRef:    openchoreov1alpha1.RoleRef{Kind: roleKind, Name: mapping.RoleRef.Name},
+		TargetPath: openchoreov1alpha1.TargetPath{Project: mapping.Hierarchy.Project, Component: mapping.Hierarchy.Component},
+	}}
 	existingBinding.Spec.Effect = openchoreov1alpha1.EffectType(mapping.Effect)
 
 	if err := ce.k8sClient.Update(ctx, existingBinding); err != nil {
@@ -921,10 +922,9 @@ func (ce *CasbinEnforcer) buildBindingFromMapping(mapping *authzcore.RoleEntitle
 					Claim: mapping.Entitlement.Claim,
 					Value: mapping.Entitlement.Value,
 				},
-				RoleRef: openchoreov1alpha1.RoleRef{
-					Kind: roleKind,
-					Name: mapping.RoleRef.Name,
-				},
+				RoleMappings: []openchoreov1alpha1.ClusterRoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: roleKind, Name: mapping.RoleRef.Name},
+				}},
 				Effect: openchoreov1alpha1.EffectType(mapping.Effect),
 			},
 		}
@@ -940,31 +940,31 @@ func (ce *CasbinEnforcer) buildBindingFromMapping(mapping *authzcore.RoleEntitle
 				Claim: mapping.Entitlement.Claim,
 				Value: mapping.Entitlement.Value,
 			},
-			RoleRef: openchoreov1alpha1.RoleRef{
-				Kind: roleKind,
-				Name: mapping.RoleRef.Name,
-			},
-			TargetPath: openchoreov1alpha1.TargetPath{
-				Project:   mapping.Hierarchy.Project,
-				Component: mapping.Hierarchy.Component,
-			},
+			RoleMappings: []openchoreov1alpha1.RoleMapping{{
+				RoleRef:    openchoreov1alpha1.RoleRef{Kind: roleKind, Name: mapping.RoleRef.Name},
+				TargetPath: openchoreov1alpha1.TargetPath{Project: mapping.Hierarchy.Project, Component: mapping.Hierarchy.Component},
+			}},
 			Effect: openchoreov1alpha1.EffectType(mapping.Effect),
 		},
 	}
 }
 
-// convertBindingToMapping converts CRD bindings to core RoleEntitlementMapping objects
+// convertBindingToMapping converts CRD bindings to core RoleEntitlementMapping objects. Uses the first role mapping entry for legacy single-mapping conversion.
 func (ce *CasbinEnforcer) convertBindingToMapping(binding interface{}) *authzcore.RoleEntitlementMapping {
 	switch b := binding.(type) {
 	case openchoreov1alpha1.AuthzRoleBinding:
+		if len(b.Spec.RoleMappings) == 0 {
+			return nil
+		}
+		m := b.Spec.RoleMappings[0]
 		ns := b.Namespace
-		if b.Spec.RoleRef.Kind == CRDTypeAuthzClusterRole {
+		if m.RoleRef.Kind == CRDTypeAuthzClusterRole {
 			ns = ""
 		}
 		return &authzcore.RoleEntitlementMapping{
 			Name: b.Name,
 			RoleRef: authzcore.RoleRef{
-				Name:      b.Spec.RoleRef.Name,
+				Name:      m.RoleRef.Name,
 				Namespace: ns,
 			},
 			Entitlement: authzcore.Entitlement{
@@ -973,16 +973,20 @@ func (ce *CasbinEnforcer) convertBindingToMapping(binding interface{}) *authzcor
 			},
 			Hierarchy: authzcore.ResourceHierarchy{
 				Namespace: b.Namespace,
-				Project:   b.Spec.TargetPath.Project,
-				Component: b.Spec.TargetPath.Component,
+				Project:   m.TargetPath.Project,
+				Component: m.TargetPath.Component,
 			},
 			Effect: authzcore.PolicyEffectType(b.Spec.Effect),
 		}
 	case openchoreov1alpha1.AuthzClusterRoleBinding:
+		if len(b.Spec.RoleMappings) == 0 {
+			return nil
+		}
+		m := b.Spec.RoleMappings[0]
 		return &authzcore.RoleEntitlementMapping{
 			Name: b.Name,
 			RoleRef: authzcore.RoleRef{
-				Name:      b.Spec.RoleRef.Name,
+				Name:      m.RoleRef.Name,
 				Namespace: "",
 			},
 			Entitlement: authzcore.Entitlement{
