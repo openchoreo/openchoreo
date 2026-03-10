@@ -13,8 +13,11 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -514,11 +517,12 @@ func (s *AlertService) getOpenSearchAlertRule(ctx context.Context, ruleName stri
 		return nil, fmt.Errorf("%w: %s", ErrAlertRuleNotFound, ruleName)
 	}
 
-	logicalID := ruleName
-	return &gen.AlertRuleResponse{
-		RuleLogicalId: &logicalID,
-		RuleBackendId: &monitorID,
-	}, nil
+	rawMonitor, err := s.osClient.GetMonitorByID(ctx, monitorID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get alert rule details: %w", err)
+	}
+
+	return mapMonitorToAlertRuleResponse(rawMonitor, ruleName)
 }
 
 func (s *AlertService) updateOpenSearchAlertRule(ctx context.Context, ruleName string, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
@@ -636,12 +640,7 @@ func (s *AlertService) getPrometheusAlertRule(ctx context.Context, ruleName stri
 		return nil, fmt.Errorf("failed to get PrometheusRule: %w", err)
 	}
 
-	logicalID := ruleName
-	backendID := string(existing.UID)
-	return &gen.AlertRuleResponse{
-		RuleLogicalId: &logicalID,
-		RuleBackendId: &backendID,
-	}, nil
+	return mapPrometheusRuleToAlertRuleResponse(existing, ruleName)
 }
 
 func (s *AlertService) updatePrometheusAlertRule(ctx context.Context, ruleName string, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
@@ -825,6 +824,358 @@ func prometheusSpecsAreEqual(logger *slog.Logger, existing, newRule *monitoringv
 		return false
 	}
 	return string(existingJSON) == string(newJSON)
+}
+
+// ---- Monitor mapping helpers ----
+
+// webhookTemplateData represents the metadata embedded in the OpenSearch monitor webhook message template.
+type webhookTemplateData struct {
+	RuleName       string `json:"ruleName"`
+	RuleNamespace  string `json:"ruleNamespace"`
+	ComponentUID   string `json:"componentUid"`
+	ProjectUID     string `json:"projectUid"`
+	EnvironmentUID string `json:"environmentUid"`
+}
+
+// mapMonitorToAlertRuleResponse converts a raw OpenSearch monitor into a gen.AlertRuleResponse.
+func mapMonitorToAlertRuleResponse(rawMonitor map[string]interface{}, ruleName string) (*gen.AlertRuleResponse, error) {
+	monitorJSON, err := json.Marshal(rawMonitor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal monitor: %w", err)
+	}
+	var monitor opensearch.MonitorBody
+	if err := json.Unmarshal(monitorJSON, &monitor); err != nil {
+		return nil, fmt.Errorf("failed to parse monitor body: %w", err)
+	}
+
+	resp := &gen.AlertRuleResponse{}
+
+	// Extract metadata from the webhook message template
+	templateData := extractWebhookTemplateData(monitor)
+	name := ruleName
+	namespace := templateData.RuleNamespace
+	sourceType := gen.AlertRuleResponseSourceType(sourceTypeLog)
+
+	//nolint:revive,staticcheck // field names match generated code (e.g. ComponentUid not ComponentUID)
+	resp.Metadata = &struct {
+		ComponentUid   *openapi_types.UUID `json:"componentUid,omitempty"`
+		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
+		Name           *string             `json:"name,omitempty"`
+		Namespace      *string             `json:"namespace,omitempty"`
+		ProjectUid     *openapi_types.UUID `json:"projectUid,omitempty"`
+	}{
+		Name:      &name,
+		Namespace: &namespace,
+	}
+	if uid, err := uuid.Parse(templateData.ComponentUID); err == nil {
+		resp.Metadata.ComponentUid = &uid
+	}
+	if uid, err := uuid.Parse(templateData.ProjectUID); err == nil {
+		resp.Metadata.ProjectUid = &uid
+	}
+	if uid, err := uuid.Parse(templateData.EnvironmentUID); err == nil {
+		resp.Metadata.EnvironmentUid = &uid
+	}
+
+	// Extract source
+	query := extractQueryFromMonitor(monitor)
+	resp.Source = &struct {
+		Metric *gen.AlertRuleResponseSourceMetric `json:"metric,omitempty"`
+		Query  *string                            `json:"query,omitempty"`
+		Type   *gen.AlertRuleResponseSourceType   `json:"type,omitempty"`
+	}{
+		Type:  &sourceType,
+		Query: &query,
+	}
+
+	// Extract condition
+	operator, threshold := extractTriggerCondition(monitor)
+	interval := formatMinutesDuration(monitor.Schedule.Period.Interval)
+	resp.Condition = &struct {
+		Enabled   *bool                                   `json:"enabled,omitempty"`
+		Interval  *string                                 `json:"interval,omitempty"`
+		Operator  *gen.AlertRuleResponseConditionOperator `json:"operator,omitempty"`
+		Threshold *float32                                `json:"threshold,omitempty"`
+		Window    *string                                 `json:"window,omitempty"`
+	}{
+		Enabled:  &monitor.Enabled,
+		Interval: &interval,
+	}
+	if operator != "" {
+		op := gen.AlertRuleResponseConditionOperator(operator)
+		resp.Condition.Operator = &op
+	}
+	if threshold != nil {
+		resp.Condition.Threshold = threshold
+	}
+	if window := extractWindowFromQuery(monitor); window != "" {
+		resp.Condition.Window = &window
+	}
+
+	return resp, nil
+}
+
+// extractWebhookTemplateData parses the webhook message template to recover metadata.
+func extractWebhookTemplateData(monitor opensearch.MonitorBody) webhookTemplateData {
+	var data webhookTemplateData
+	if len(monitor.Triggers) == 0 {
+		return data
+	}
+	trigger := monitor.Triggers[0].QueryLevelTrigger
+	if trigger == nil || len(trigger.Actions) == 0 {
+		return data
+	}
+	tmpl := trigger.Actions[0].MessageTemplate.Source
+	// The template contains Mustache expressions (e.g. {{ctx.results...}}) that are not valid JSON.
+	// Truncate at the first {{ to get parseable JSON, then close the object.
+	if idx := strings.Index(tmpl, ",\"alertValue\":{{"); idx > 0 {
+		tmpl = tmpl[:idx] + "}"
+	}
+	_ = json.Unmarshal([]byte(tmpl), &data)
+	return data
+}
+
+// extractQueryFromMonitor extracts the log search query from the monitor's wildcard filter.
+func extractQueryFromMonitor(monitor opensearch.MonitorBody) string {
+	if len(monitor.Inputs) == 0 {
+		return ""
+	}
+	query := monitor.Inputs[0].Search.Query
+	filters := extractBoolFilters(query)
+	for _, filter := range filters {
+		if wc, ok := filter["wildcard"].(map[string]interface{}); ok {
+			if logEntry, ok := wc["log"].(map[string]interface{}); ok {
+				if pattern, ok := logEntry["wildcard"].(string); ok {
+					return strings.TrimSuffix(strings.TrimPrefix(pattern, "*"), "*")
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// extractTriggerCondition parses the trigger script to extract operator and threshold.
+// The script format is: "ctx.results[0].hits.total.value > 100"
+func extractTriggerCondition(monitor opensearch.MonitorBody) (string, *float32) {
+	if len(monitor.Triggers) == 0 {
+		return "", nil
+	}
+	trigger := monitor.Triggers[0].QueryLevelTrigger
+	if trigger == nil {
+		return "", nil
+	}
+	script := trigger.Condition.Script.Source
+
+	operatorMap := map[string]string{
+		">=": "gte",
+		"<=": "lte",
+		">":  "gt",
+		"<":  "lt",
+		"==": "eq",
+		"!=": "neq",
+	}
+	// Try longer operators first to avoid matching ">" before ">="
+	for _, sym := range []string{">=", "<=", "!=", "==", ">", "<"} {
+		if parts := strings.SplitN(script, " "+sym+" ", 2); len(parts) == 2 {
+			op := operatorMap[sym]
+			if val, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 32); err == nil {
+				f := float32(val)
+				return op, &f
+			}
+			return op, nil
+		}
+	}
+	return "", nil
+}
+
+// extractWindowFromQuery parses the timestamp range filter to extract the window duration.
+// The "from" field has format: "{{period_end}}||-5m"
+func extractWindowFromQuery(monitor opensearch.MonitorBody) string {
+	if len(monitor.Inputs) == 0 {
+		return ""
+	}
+	filters := extractBoolFilters(monitor.Inputs[0].Search.Query)
+	for _, filter := range filters {
+		if rangeMap, ok := filter["range"].(map[string]interface{}); ok {
+			if ts, ok := rangeMap["@timestamp"].(map[string]interface{}); ok {
+				if from, ok := ts["from"].(string); ok {
+					// Format: "{{period_end}}||-5m"
+					if idx := strings.Index(from, "||-"); idx >= 0 {
+						return from[idx+3:]
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// extractBoolFilters extracts the filter array from a bool query.
+func extractBoolFilters(query map[string]interface{}) []map[string]interface{} {
+	q, ok := query["query"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	b, ok := q["bool"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	filters, ok := b["filter"].([]interface{})
+	if !ok {
+		return nil
+	}
+	result := make([]map[string]interface{}, 0, len(filters))
+	for _, f := range filters {
+		if fm, ok := f.(map[string]interface{}); ok {
+			result = append(result, fm)
+		}
+	}
+	return result
+}
+
+// formatMinutesDuration converts a float64 minutes value to a Go duration string (e.g. "5m").
+func formatMinutesDuration(minutes float64) string {
+	d := time.Duration(minutes * float64(time.Minute))
+	return d.String()
+}
+
+// ---- Prometheus mapping helpers ----
+
+// mapPrometheusRuleToAlertRuleResponse converts a PrometheusRule CR into a gen.AlertRuleResponse.
+func mapPrometheusRuleToAlertRuleResponse(pr *monitoringv1.PrometheusRule, ruleName string) (*gen.AlertRuleResponse, error) {
+	resp := &gen.AlertRuleResponse{}
+
+	// Extract the first rule from the first group
+	if len(pr.Spec.Groups) == 0 || len(pr.Spec.Groups[0].Rules) == 0 {
+		return nil, fmt.Errorf("PrometheusRule has no rule groups or rules")
+	}
+	group := pr.Spec.Groups[0]
+	rule := group.Rules[0]
+
+	// Metadata: name from ruleName, namespace from annotations
+	name := ruleName
+	namespace := rule.Annotations["rule_namespace"]
+	sourceType := gen.AlertRuleResponseSourceType(sourceTypeMetric)
+
+	//nolint:revive,staticcheck // field names match generated code (e.g. ComponentUid not ComponentUID)
+	resp.Metadata = &struct {
+		ComponentUid   *openapi_types.UUID `json:"componentUid,omitempty"`
+		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
+		Name           *string             `json:"name,omitempty"`
+		Namespace      *string             `json:"namespace,omitempty"`
+		ProjectUid     *openapi_types.UUID `json:"projectUid,omitempty"`
+	}{
+		Name:      &name,
+		Namespace: &namespace,
+	}
+
+	// Extract UIDs from the PromQL expression label filters
+	expr := rule.Expr.String()
+	// These are the Prometheus label names used in PromQL expressions, derived from
+	// the Kubernetes labels by replacing dots/dashes/slashes with underscores and prefixing with "label_".
+	const (
+		promComponentUIDLabel   = "label_openchoreo_dev_component_uid"
+		promProjectUIDLabel     = "label_openchoreo_dev_project_uid"
+		promEnvironmentUIDLabel = "label_openchoreo_dev_environment_uid"
+	)
+	if uid, err := uuid.Parse(extractPromLabelValue(expr, promComponentUIDLabel)); err == nil {
+		resp.Metadata.ComponentUid = &uid
+	}
+	if uid, err := uuid.Parse(extractPromLabelValue(expr, promProjectUIDLabel)); err == nil {
+		resp.Metadata.ProjectUid = &uid
+	}
+	if uid, err := uuid.Parse(extractPromLabelValue(expr, promEnvironmentUIDLabel)); err == nil {
+		resp.Metadata.EnvironmentUid = &uid
+	}
+
+	// Source: type is always "metric", detect metric from the expression
+	metric := detectMetricType(expr)
+	resp.Source = &struct {
+		Metric *gen.AlertRuleResponseSourceMetric `json:"metric,omitempty"`
+		Query  *string                            `json:"query,omitempty"`
+		Type   *gen.AlertRuleResponseSourceType   `json:"type,omitempty"`
+	}{
+		Type:   &sourceType,
+		Metric: &metric,
+	}
+
+	// Condition
+	operator, threshold := extractPromOperatorAndThreshold(expr)
+	enabled := true // PrometheusRule CRs are always enabled when they exist
+	resp.Condition = &struct {
+		Enabled   *bool                                   `json:"enabled,omitempty"`
+		Interval  *string                                 `json:"interval,omitempty"`
+		Operator  *gen.AlertRuleResponseConditionOperator `json:"operator,omitempty"`
+		Threshold *float32                                `json:"threshold,omitempty"`
+		Window    *string                                 `json:"window,omitempty"`
+	}{
+		Enabled: &enabled,
+	}
+	if group.Interval != nil {
+		interval := string(*group.Interval)
+		resp.Condition.Interval = &interval
+	}
+	if rule.For != nil {
+		window := string(*rule.For)
+		resp.Condition.Window = &window
+	}
+	if operator != "" {
+		op := gen.AlertRuleResponseConditionOperator(operator)
+		resp.Condition.Operator = &op
+	}
+	if threshold != nil {
+		resp.Condition.Threshold = threshold
+	}
+
+	return resp, nil
+}
+
+// extractPromLabelValue extracts the value of a label from a PromQL expression.
+// Looks for patterns like: label_name="value"
+func extractPromLabelValue(expr, labelName string) string {
+	prefix := labelName + `="`
+	idx := strings.Index(expr, prefix)
+	if idx < 0 {
+		return ""
+	}
+	start := idx + len(prefix)
+	end := strings.Index(expr[start:], `"`)
+	if end < 0 {
+		return ""
+	}
+	return expr[start : start+end]
+}
+
+// detectMetricType determines the metric type from the PromQL expression.
+func detectMetricType(expr string) gen.AlertRuleResponseSourceMetric {
+	if strings.Contains(expr, "container_cpu_usage_seconds_total") {
+		return gen.AlertRuleResponseSourceMetricCpuUsage
+	}
+	return gen.AlertRuleResponseSourceMetricMemoryUsage
+}
+
+// extractPromOperatorAndThreshold extracts the comparison operator and threshold
+// from the end of a PromQL expression like: "...) * 100 >= 80"
+func extractPromOperatorAndThreshold(expr string) (string, *float32) {
+	operatorMap := map[string]string{
+		">=": "gte",
+		"<=": "lte",
+		">":  "gt",
+		"<":  "lt",
+		"==": "eq",
+		"!=": "neq",
+	}
+	for _, sym := range []string{">=", "<=", "!=", "==", ">", "<"} {
+		if parts := strings.SplitN(expr, " "+sym+" ", 2); len(parts) == 2 {
+			op := operatorMap[sym]
+			if val, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 32); err == nil {
+				f := float32(val)
+				return op, &f
+			}
+			return op, nil
+		}
+	}
+	return "", nil
 }
 
 // ---- Utility helpers ----
