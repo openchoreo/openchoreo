@@ -20,7 +20,7 @@ Tools are organized into **Toolsets** - logical groupings of related functionali
 - `ToolsetNamespace` (`namespace`) - Namespace operations (get namespace details)
 - `ToolsetProject` (`project`) - Project operations (list, get, create projects)
 - `ToolsetComponent` (`component`) - Component operations (list, get, create components, bindings, workloads, releases, release bindings, deployment, promotion)
-- `ToolsetBuild` (`build`) - Build operations (trigger builds, list builds, build templates, build planes)
+- `ToolsetBuild` (`build`) - Build operations (trigger builds, list builds, build templates, workflow planes)
 - `ToolsetDeployment` (`deployment`) - Deployment operations (deployment pipelines, observer URLs)
 - `ToolsetInfrastructure` (`infrastructure`) - Infrastructure operations (environments, data planes, component types, workflows, traits)
 - `ToolsetSchema` (`schema`) - Schema operations (describe a given kind)

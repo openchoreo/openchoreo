@@ -14,13 +14,13 @@ rules:
 - apiGroups: ["openchoreo.dev"]
   resources: ["clusterdataplanes"]
   verbs: ["get", "list", "watch"]
-# Allow reading BuildPlane CRs to get client CA configuration
+# Allow reading WorkflowPlane CRs to get client CA configuration
 - apiGroups: ["openchoreo.dev"]
-  resources: ["buildplanes"]
+  resources: ["workflowplanes"]
   verbs: ["get", "list", "watch"]
-# Allow reading ClusterBuildPlane CRs to get client CA configuration
+# Allow reading ClusterWorkflowPlane CRs to get client CA configuration
 - apiGroups: ["openchoreo.dev"]
-  resources: ["clusterbuildplanes"]
+  resources: ["clusterworkflowplanes"]
   verbs: ["get", "list", "watch"]
 # Allow reading ObservabilityPlane CRs to get client CA configuration
 - apiGroups: ["openchoreo.dev"]

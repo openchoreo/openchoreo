@@ -214,13 +214,13 @@ var _ = Describe("WorkflowRun Controller Integration", func() {
 	})
 
 	// ---------------------------------------------------------------------------
-	// Reconcile: Workflow exists but no BuildPlane → sets condition
+	// Reconcile: Workflow exists but no WorkflowPlane → sets condition
 	// ---------------------------------------------------------------------------
 
-	Context("Workflow exists but no BuildPlane", func() {
+	Context("Workflow exists but no WorkflowPlane", func() {
 		const (
-			resourceName = "int-test-no-buildplane"
-			workflowName = "int-test-workflow-no-bp"
+			resourceName = "int-test-no-workflowplane"
+			workflowName = "int-test-workflow-no-wp"
 		)
 		nn := types.NamespacedName{Name: resourceName, Namespace: "default"}
 		wfNN := types.NamespacedName{Name: workflowName, Namespace: "default"}
@@ -268,7 +268,7 @@ var _ = Describe("WorkflowRun Controller Integration", func() {
 			forceDeleteWorkflow(ctx, wfNN)
 		})
 
-		It("should set BuildPlaneNotFound condition and requeue after 1 minute", func() {
+		It("should set WorkflowPlaneNotFound condition and requeue after 1 minute", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
@@ -280,7 +280,7 @@ var _ = Describe("WorkflowRun Controller Integration", func() {
 			cond := meta.FindStatusCondition(resource.Status.Conditions, string(ConditionWorkflowCompleted))
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(cond.Reason).To(Equal(string(ReasonBuildPlaneNotFound)))
+			Expect(cond.Reason).To(Equal(string(ReasonWorkflowPlaneNotFound)))
 		})
 	})
 
@@ -465,15 +465,15 @@ var _ = Describe("WorkflowRun Controller Integration", func() {
 			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
 			// Second reconcile: WorkflowPending is set, fetches Workflow (ok), then attempts
-			// ResolveBuildPlane. In this test environment no BuildPlane is configured, so the
-			// controller returns early at that check (controller.go ResolveBuildPlane) and the
-			// TTL copy branch (after ResolveBuildPlane) is not reached.
+			// ResolveWorkflowPlane. In this test environment no WorkflowPlane is configured, so the
+			// controller returns early at that check (controller.go ResolveWorkflowPlane) and the
+			// TTL copy branch (after ResolveWorkflowPlane) is not reached.
 			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			// The controller should have set the BuildPlaneNotFound condition and requeued.
+			// The controller should have set the WorkflowPlaneNotFound condition and requeued.
 			Expect(result.RequeueAfter).To(Equal(time.Minute))
 
-			By("Re-fetching and asserting TTL is still empty (no BuildPlane to trigger propagation)")
+			By("Re-fetching and asserting TTL is still empty (no WorkflowPlane to trigger propagation)")
 			fetched := &openchoreodevv1alpha1.WorkflowRun{}
 			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
 			Expect(fetched.Spec.TTLAfterCompletion).To(Equal(""))
@@ -505,7 +505,7 @@ var _ = Describe("WorkflowRun Controller Integration", func() {
 			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Second reconcile: WorkflowPending set, progresses to ResolveBuildPlane check")
+			By("Second reconcile: WorkflowPending set, progresses to ResolveWorkflowPlane check")
 			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
 

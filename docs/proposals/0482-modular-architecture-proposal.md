@@ -162,7 +162,7 @@ A modular OpenChoreo addresses these issues by:
 | **Module** | **Name** | **Description** | **Cilium Edition** | **Generic Edition** |
 |------------|----------|-----------------|---------------------|----------------------|
 | CD | OpenChoreo CD Plane | GitOps-driven Continuous Delivery (Argo CD). | ✅ | ✅ |
-| CI | OpenChoreo Build Plane | CI pipelines, build packs, container scans. | ✅ | ✅ |
+| CI | OpenChoreo Workflow Plane | CI pipelines, build packs, container scans. | ✅ | ✅ |
 | Observability | OpenChoreo Observe Plane | Logs, metrics, tracing, cell diagrams. | ✅ Full | ⚠️ Basic only |
 | API Gateway | OpenChoreo API Gateway Plane | External & internal API management. | ✅ | ✅ |
 | Automation | OpenChoreo Automate Plane | General-purpose pipelines. | ✅ | ✅ |

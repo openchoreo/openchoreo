@@ -44,7 +44,7 @@ func main() {
 		cmdutil.GetEnv("SERVER_URL", "wss://cluster-gateway:8443/ws"),
 		"Cluster gateway WebSocket URL")
 	flag.StringVar(&planeType, "plane-type", cmdutil.GetEnv("PLANE_TYPE", "dataplane"),
-		"Plane type: dataplane, buildplane, or observabilityplane")
+		"Plane type: dataplane, workflowplane, or observabilityplane")
 	flag.StringVar(&planeID, "plane-id", cmdutil.GetEnv("PLANE_ID", ""),
 		"Logical plane identifier (shared across multiple CRs with same physical plane)")
 	flag.BoolVar(&tlsEnabled, "tls-enabled", cmdutil.GetEnvBool("TLS_ENABLED", true),
@@ -70,8 +70,8 @@ func main() {
 		planeType = "dataplane"
 	}
 
-	if planeType != "dataplane" && planeType != "buildplane" && planeType != "observabilityplane" {
-		fmt.Printf("Error: plane-type must be 'dataplane' or 'buildplane' or 'observabilityplane', got: %s\n", planeType)
+	if planeType != "dataplane" && planeType != "workflowplane" && planeType != "observabilityplane" {
+		fmt.Printf("Error: plane-type must be 'dataplane' or 'workflowplane' or 'observabilityplane', got: %s\n", planeType)
 		flag.Usage()
 		os.Exit(1)
 	}

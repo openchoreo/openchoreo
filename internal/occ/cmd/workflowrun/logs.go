@@ -56,7 +56,7 @@ func (w *WorkflowRun) Logs(params LogsParams) error {
 	return w.fetchArchivedLogs(ctx, apiClient, params)
 }
 
-// fetchLiveLogs fetches logs from the OpenChoreo API (build plane proxy)
+// fetchLiveLogs fetches logs from the OpenChoreo API (workflow plane proxy)
 func (w *WorkflowRun) fetchLiveLogs(ctx context.Context, apiClient *client.Client, params LogsParams) error {
 	sinceSeconds := parseSinceToSeconds(params.Since)
 
@@ -186,7 +186,7 @@ func (w *WorkflowRun) fetchArchivedLogs(ctx context.Context, apiClient *client.C
 		return fmt.Errorf("workflow run %s has no workflow reference", params.WorkflowRunName)
 	}
 
-	// Resolve the observer URL from the build plane chain
+	// Resolve the observer URL from the workflow plane chain
 	observerURL, err := resolveObserverURL(ctx, apiClient, params.Namespace, workflowName)
 	if err != nil {
 		return fmt.Errorf("failed to resolve observer URL: %w", err)
@@ -242,55 +242,56 @@ func (w *WorkflowRun) fetchArchivedLogs(ctx context.Context, apiClient *client.C
 }
 
 // resolveObserverURL resolves the observer URL by traversing:
-// Workflow.BuildPlaneRef -> BuildPlane/ClusterBuildPlane -> ObservabilityPlane/ClusterObservabilityPlane -> ObserverURL
-// Falls back to default build planes if the workflow has no buildPlaneRef.
+// Workflow.WorkflowPlaneRef -> WorkflowPlane/ClusterWorkflowPlane -> ObservabilityPlane/ClusterObservabilityPlane -> ObserverURL
+// Falls back to default workflow planes if the workflow has no workflowPlaneRef.
 func resolveObserverURL(ctx context.Context, apiClient *client.Client, namespace, workflowName string) (string, error) {
-	// Resolve build plane - try workflow's buildPlaneRef first, then fall back to defaults
-	obsPlaneRef, clusterObsPlaneRef := resolveBuildPlaneObsRef(ctx, apiClient, namespace, workflowName)
+	// Resolve workflow plane - try workflow's workflowPlaneRef first, then fall back to defaults
+	obsPlaneRef, clusterObsPlaneRef := resolveWorkflowPlaneObsRef(ctx, apiClient, namespace, workflowName)
 
 	// Resolve observer URL from the observability plane
 	return resolveObserverURLFromObsRef(ctx, apiClient, namespace, obsPlaneRef, clusterObsPlaneRef)
 }
 
-// resolveBuildPlaneObsRef resolves the build plane and returns its observability plane reference.
+// resolveWorkflowPlaneObsRef resolves the workflow plane and returns its observability plane reference.
 // Resolution order:
-// 1. Workflow's explicit buildPlaneRef (BuildPlane or ClusterBuildPlane)
-// 2. Namespaced BuildPlane named "default"
-// 3. ClusterBuildPlane named "default"
-func resolveBuildPlaneObsRef(ctx context.Context, apiClient *client.Client, namespace, workflowName string) (*gen.ObservabilityPlaneRef, *gen.ClusterObservabilityPlaneRef) {
-	// Try the workflow's explicit buildPlaneRef first
+// 1. Workflow's explicit workflowPlaneRef (WorkflowPlane or ClusterWorkflowPlane)
+// 2. Namespaced WorkflowPlane named "default"
+// 3. ClusterWorkflowPlane named "default"
+// NOTE: The generated client methods still use WorkflowPlane names.
+func resolveWorkflowPlaneObsRef(ctx context.Context, apiClient *client.Client, namespace, workflowName string) (*gen.ObservabilityPlaneRef, *gen.ClusterObservabilityPlaneRef) {
+	// Try the workflow's explicit workflowPlaneRef first
 	if workflowName != "" {
 		wf, err := apiClient.GetWorkflow(ctx, namespace, workflowName)
-		if err == nil && wf.Spec != nil && wf.Spec.BuildPlaneRef != nil {
-			ref := wf.Spec.BuildPlaneRef
+		if err == nil && wf.Spec != nil && wf.Spec.WorkflowPlaneRef != nil {
+			ref := wf.Spec.WorkflowPlaneRef
 			switch ref.Kind {
-			case gen.BuildPlaneRefKindBuildPlane:
-				bp, err := apiClient.GetBuildPlane(ctx, namespace, ref.Name)
-				if err == nil && bp.Spec != nil && bp.Spec.ObservabilityPlaneRef != nil {
-					return bp.Spec.ObservabilityPlaneRef, nil
+			case gen.WorkflowPlaneRefKindWorkflowPlane:
+				wp, err := apiClient.GetWorkflowPlane(ctx, namespace, ref.Name)
+				if err == nil && wp.Spec != nil && wp.Spec.ObservabilityPlaneRef != nil {
+					return wp.Spec.ObservabilityPlaneRef, nil
 				}
-			case gen.BuildPlaneRefKindClusterBuildPlane:
-				cbp, err := apiClient.GetClusterBuildPlane(ctx, ref.Name)
-				if err == nil && cbp.Spec != nil && cbp.Spec.ObservabilityPlaneRef != nil {
-					return nil, cbp.Spec.ObservabilityPlaneRef
+			case gen.WorkflowPlaneRefKindClusterWorkflowPlane:
+				cwp, err := apiClient.GetClusterWorkflowPlane(ctx, ref.Name)
+				if err == nil && cwp.Spec != nil && cwp.Spec.ObservabilityPlaneRef != nil {
+					return nil, cwp.Spec.ObservabilityPlaneRef
 				}
 			}
 		}
 	}
 
-	// Fall back to namespaced BuildPlane "default"
-	bp, err := apiClient.GetBuildPlane(ctx, namespace, defaultPlaneName)
-	if err == nil && bp.Spec != nil && bp.Spec.ObservabilityPlaneRef != nil {
-		return bp.Spec.ObservabilityPlaneRef, nil
+	// Fall back to namespaced WorkflowPlane "default"
+	wp, err := apiClient.GetWorkflowPlane(ctx, namespace, defaultPlaneName)
+	if err == nil && wp.Spec != nil && wp.Spec.ObservabilityPlaneRef != nil {
+		return wp.Spec.ObservabilityPlaneRef, nil
 	}
 
-	// Fall back to ClusterBuildPlane "default"
-	cbp, err := apiClient.GetClusterBuildPlane(ctx, defaultPlaneName)
-	if err == nil && cbp.Spec != nil && cbp.Spec.ObservabilityPlaneRef != nil {
-		return nil, cbp.Spec.ObservabilityPlaneRef
+	// Fall back to ClusterWorkflowPlane "default"
+	cwp, err := apiClient.GetClusterWorkflowPlane(ctx, defaultPlaneName)
+	if err == nil && cwp.Spec != nil && cwp.Spec.ObservabilityPlaneRef != nil {
+		return nil, cwp.Spec.ObservabilityPlaneRef
 	}
 
-	// No build plane found - try default observability plane directly
+	// No workflow plane found - try default observability plane directly
 	return nil, nil
 }
 

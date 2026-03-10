@@ -24,7 +24,7 @@ import (
 type AgentConnection struct {
 	ID              string // Unique connection identifier
 	Conn            *websocket.Conn
-	PlaneType       string // e.g., "dataplane", "buildplane", "observabilityplane"
+	PlaneType       string // e.g., "dataplane", "workflowplane", "observabilityplane"
 	PlaneID         string // Logical plane identifier (shared across CRs with same physical plane)
 	PlaneIdentifier string // Simplified identifier: {planeType}/{planeID}
 	ConnectedAt     time.Time

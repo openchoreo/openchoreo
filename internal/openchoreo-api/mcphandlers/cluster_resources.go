@@ -27,14 +27,14 @@ func (h *MCPHandler) GetClusterDataPlane(ctx context.Context, cdpName string) (a
 	return clusterDataPlaneDetail(cdp), nil
 }
 
-// ClusterBuildPlane operations
+// ClusterWorkflowPlane operations
 
-func (h *MCPHandler) ListClusterBuildPlanes(ctx context.Context, opts tools.ListOpts) (any, error) {
-	result, err := h.services.ClusterBuildPlaneService.ListClusterBuildPlanes(ctx, toServiceListOptions(opts))
+func (h *MCPHandler) ListClusterWorkflowPlanes(ctx context.Context, opts tools.ListOpts) (any, error) {
+	result, err := h.services.ClusterWorkflowPlaneService.ListClusterWorkflowPlanes(ctx, toServiceListOptions(opts))
 	if err != nil {
 		return nil, err
 	}
-	return wrapTransformedList("cluster_build_planes", result.Items, result.NextCursor, clusterBuildPlaneSummary), nil
+	return wrapTransformedList("cluster_workflow_planes", result.Items, result.NextCursor, clusterWorkflowPlaneSummary), nil
 }
 
 // ClusterObservabilityPlane operations

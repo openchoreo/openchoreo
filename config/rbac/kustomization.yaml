@@ -61,9 +61,9 @@ resources:
   - renderedrelease_editor_role.yaml
   - renderedrelease_viewer_role.yaml
 
-  - buildplane_admin_role.yaml
-  - buildplane_editor_role.yaml
-  - buildplane_viewer_role.yaml
+  - workflowplane_admin_role.yaml
+  - workflowplane_editor_role.yaml
+  - workflowplane_viewer_role.yaml
 
 # For each CRD, "Admin", "Editor" and "Viewer" roles are scaffolded by
 # default, aiding admins in cluster management. Those roles are
@@ -87,9 +87,9 @@ resources:
   - clusterobservabilityplane_admin_role.yaml
   - clusterobservabilityplane_editor_role.yaml
   - clusterobservabilityplane_viewer_role.yaml
-  - clusterbuildplane_admin_role.yaml
-  - clusterbuildplane_editor_role.yaml
-  - clusterbuildplane_viewer_role.yaml
+  - clusterworkflowplane_admin_role.yaml
+  - clusterworkflowplane_editor_role.yaml
+  - clusterworkflowplane_viewer_role.yaml
   - clusterdataplane_admin_role.yaml
   - clusterdataplane_editor_role.yaml
   - clusterdataplane_viewer_role.yaml

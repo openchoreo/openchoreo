@@ -174,9 +174,9 @@ func (m *MockCoreToolsetHandler) ListBuilds(
 	return `[{"id":"build-123"}]`, nil
 }
 
-func (m *MockCoreToolsetHandler) ListBuildPlanes(ctx context.Context, namespaceName string) (any, error) {
-	m.recordCall("ListBuildPlanes", namespaceName)
-	return `[{"name":"bp1"}]`, nil
+func (m *MockCoreToolsetHandler) ListWorkflowPlanes(ctx context.Context, namespaceName string) (any, error) {
+	m.recordCall("ListWorkflowPlanes", namespaceName)
+	return `[{"name":"wp1"}]`, nil
 }
 
 func (m *MockCoreToolsetHandler) GetProjectDeploymentPipeline(
@@ -381,9 +381,9 @@ func (m *MockCoreToolsetHandler) CreateClusterDataPlane(
 	return `{"name":"new-cdp"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) ListClusterBuildPlanes(ctx context.Context) (any, error) {
-	m.recordCall("ListClusterBuildPlanes")
-	return `[{"name":"cbp1"}]`, nil
+func (m *MockCoreToolsetHandler) ListClusterWorkflowPlanes(ctx context.Context) (any, error) {
+	m.recordCall("ListClusterWorkflowPlanes")
+	return `[{"name":"cwp1"}]`, nil
 }
 
 func (m *MockCoreToolsetHandler) ListClusterObservabilityPlanes(ctx context.Context) (any, error) {

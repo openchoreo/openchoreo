@@ -107,7 +107,7 @@ jobs:
         chart:
           - openchoreo-control-plane
           - openchoreo-data-plane
-          - openchoreo-build-plane
+          - openchoreo-workflow-plane
           - openchoreo-observability-plane
     steps:
       - name: Calculate cutoff date

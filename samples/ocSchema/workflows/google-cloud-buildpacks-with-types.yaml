@@ -13,8 +13,8 @@ metadata:
       appPath: parameters.repository.appPath
       secretRef: parameters.repository.secretRef
 spec:
-  buildPlaneRef:
-    kind: BuildPlane
+  workflowPlaneRef:
+    kind: WorkflowPlane
     name: default
 
   # Template Variable Reference (processed by WorkflowRun controller):
@@ -93,7 +93,7 @@ spec:
       resources: "ResourceRequirements | default={} description='CPU and memory resource constraints for the build'"
 
   # Workflow template that gets instantiated for each WorkflowRun
-  # This generates an Argo Workflow resource in the build plane cluster
+  # This generates an Argo Workflow resource in the workflow plane cluster
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -166,7 +166,7 @@ spec:
         name: google-cloud-buildpacks
 
   # Additional Kubernetes resources created alongside the workflow
-  # These resources are deployed to the build plane namespace before the workflow executes
+  # These resources are deployed to the workflow plane namespace before the workflow executes
   externalRefs:
     - id: git-secret-reference
       apiVersion: openchoreo.dev/v1alpha1

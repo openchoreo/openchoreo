@@ -157,7 +157,7 @@ spec:
                   These are tracked for cleanup when the WorkflowRun is deleted.
                 items:
                   description: ResourceReference tracks a resource applied to the
-                    build plane cluster for cleanup purposes.
+                    workflow plane cluster for cleanup purposes.
                   properties:
                     apiVersion:
                       description: APIVersion is the API version of the resource (e.g.,
@@ -170,13 +170,13 @@ spec:
                       minLength: 1
                       type: string
                     name:
-                      description: Name is the name of the resource in the build plane
-                        cluster.
+                      description: Name is the name of the resource in the workflow
+                        plane cluster.
                       minLength: 1
                       type: string
                     namespace:
                       description: |-
-                        Namespace is the namespace of the resource in the build plane cluster.
+                        Namespace is the namespace of the resource in the workflow plane cluster.
                         Empty for cluster-scoped resources.
                       type: string
                   required:
@@ -201,13 +201,13 @@ spec:
                     minLength: 1
                     type: string
                   name:
-                    description: Name is the name of the resource in the build plane
-                      cluster.
+                    description: Name is the name of the resource in the workflow
+                      plane cluster.
                     minLength: 1
                     type: string
                   namespace:
                     description: |-
-                      Namespace is the namespace of the resource in the build plane cluster.
+                      Namespace is the namespace of the resource in the workflow plane cluster.
                       Empty for cluster-scoped resources.
                     type: string
                 required:

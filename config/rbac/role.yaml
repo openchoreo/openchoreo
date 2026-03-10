@@ -68,12 +68,11 @@ rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - buildplanes
-  - clusterbuildplanes
   - clustercomponenttypes
   - clusterdataplanes
   - clusterobservabilityplanes
   - clustertraits
+  - clusterworkflowplanes
   - clusterworkflows
   - componentreleases
   - components
@@ -88,6 +87,7 @@ rules:
   - releasebindings
   - secretreferences
   - traits
+  - workflowplanes
   - workflowruns
   - workflows
   - workloads
@@ -102,12 +102,11 @@ rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - buildplanes/finalizers
-  - clusterbuildplanes/finalizers
   - clustercomponenttypes/finalizers
   - clusterdataplanes/finalizers
   - clusterobservabilityplanes/finalizers
   - clustertraits/finalizers
+  - clusterworkflowplanes/finalizers
   - clusterworkflows/finalizers
   - componentreleases/finalizers
   - components/finalizers
@@ -123,6 +122,7 @@ rules:
   - renderedreleases/finalizers
   - secretreferences/finalizers
   - traits/finalizers
+  - workflowplanes/finalizers
   - workflowruns/finalizers
   - workflows/finalizers
   - workloads/finalizers
@@ -131,12 +131,11 @@ rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - buildplanes/status
-  - clusterbuildplanes/status
   - clustercomponenttypes/status
   - clusterdataplanes/status
   - clusterobservabilityplanes/status
   - clustertraits/status
+  - clusterworkflowplanes/status
   - clusterworkflows/status
   - componentreleases/status
   - components/status
@@ -152,6 +151,7 @@ rules:
   - renderedreleases/status
   - secretreferences/status
   - traits/status
+  - workflowplanes/status
   - workflowruns/status
   - workflows/status
   - workloads/status

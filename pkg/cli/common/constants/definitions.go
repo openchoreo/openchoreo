@@ -496,28 +496,28 @@ This command allows you to:
   %[1]s deploymentpipeline delete my-pipeline --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
-	ListBuildPlane = Command{
+	ListWorkflowPlane = Command{
 		Use:   "list",
-		Short: "List build planes",
-		Long:  `List all build planes in a namespace.`,
-		Example: `  # List all build planes in a namespace
-  occ buildplane list --namespace acme-corp`,
+		Short: "List workflow planes",
+		Long:  `List all workflow planes in a namespace.`,
+		Example: `  # List all workflow planes in a namespace
+  occ workflowplane list --namespace acme-corp`,
 	}
 
-	GetBuildPlane = Command{
-		Use:   "get [BUILDPLANE_NAME]",
-		Short: "Get a build plane",
-		Long:  `Get a build plane and display its details in YAML format.`,
-		Example: fmt.Sprintf(`  # Get a build plane
-  %[1]s buildplane get primary-buildplane --namespace acme-corp`, messages.DefaultCLIName),
+	GetWorkflowPlane = Command{
+		Use:   "get [WORKFLOWPLANE_NAME]",
+		Short: "Get a workflow plane",
+		Long:  `Get a workflow plane and display its details in YAML format.`,
+		Example: fmt.Sprintf(`  # Get a workflow plane
+  %[1]s workflowplane get primary-workflowplane --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
-	DeleteBuildPlane = Command{
-		Use:   "delete [BUILDPLANE_NAME]",
-		Short: "Delete a build plane",
-		Long:  `Delete a build plane by name.`,
-		Example: fmt.Sprintf(`  # Delete a build plane
-  %[1]s buildplane delete primary-buildplane --namespace acme-corp`, messages.DefaultCLIName),
+	DeleteWorkflowPlane = Command{
+		Use:   "delete [WORKFLOWPLANE_NAME]",
+		Short: "Delete a workflow plane",
+		Long:  `Delete a workflow plane by name.`,
+		Example: fmt.Sprintf(`  # Delete a workflow plane
+  %[1]s workflowplane delete primary-workflowplane --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
 	ListObservabilityPlane = Command{
@@ -879,11 +879,11 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
 
 	// Resource root commands
 
-	BuildPlane = Command{
-		Use:     "buildplane",
-		Aliases: []string{"bp", "buildplanes"},
-		Short:   "Manage build planes",
-		Long:    `Manage build planes for OpenChoreo.`,
+	WorkflowPlane = Command{
+		Use:     "workflowplane",
+		Aliases: []string{"wp", "workflowplanes"},
+		Short:   "Manage workflow planes",
+		Long:    `Manage workflow planes for OpenChoreo.`,
 	}
 
 	ObservabilityPlane = Command{
@@ -1395,7 +1395,7 @@ Use --workflowrun to specify a particular run.`,
 		Use:   "logs [WORKFLOW_RUN_NAME]",
 		Short: "Get logs for a workflow run",
 		Long: `Get logs for a workflow run.
-Fetches live logs from the build plane for active runs,
+Fetches live logs from the workflow plane for active runs,
 or archived logs from the observer for completed runs.`,
 		Example: fmt.Sprintf(`  # Get logs for a workflow run
   %[1]s workflowrun logs my-run --namespace acme-corp

@@ -136,51 +136,51 @@ type DataPlaneRef struct {
 	Name string `json:"name"`
 }
 
-// BuildPlaneRefKind defines the kind of build plane referenced by a BuildPlaneRef
-// +kubebuilder:validation:Enum=BuildPlane;ClusterBuildPlane
-type BuildPlaneRefKind string
+// WorkflowPlaneRefKind defines the kind of workflow plane referenced by a WorkflowPlaneRef
+// +kubebuilder:validation:Enum=WorkflowPlane;ClusterWorkflowPlane
+type WorkflowPlaneRefKind string
 
 const (
-	// BuildPlaneRefKindBuildPlane references a namespace-scoped BuildPlane
-	BuildPlaneRefKindBuildPlane BuildPlaneRefKind = "BuildPlane"
+	// WorkflowPlaneRefKindWorkflowPlane references a namespace-scoped WorkflowPlane
+	WorkflowPlaneRefKindWorkflowPlane WorkflowPlaneRefKind = "WorkflowPlane"
 
-	// BuildPlaneRefKindClusterBuildPlane references a cluster-scoped ClusterBuildPlane
-	BuildPlaneRefKindClusterBuildPlane BuildPlaneRefKind = "ClusterBuildPlane"
+	// WorkflowPlaneRefKindClusterWorkflowPlane references a cluster-scoped ClusterWorkflowPlane
+	WorkflowPlaneRefKindClusterWorkflowPlane WorkflowPlaneRefKind = "ClusterWorkflowPlane"
 )
 
-// BuildPlaneRef represents a reference to a BuildPlane or ClusterBuildPlane
-type BuildPlaneRef struct {
-	// Kind is the kind of build plane (BuildPlane or ClusterBuildPlane)
+// WorkflowPlaneRef represents a reference to a WorkflowPlane or ClusterWorkflowPlane
+type WorkflowPlaneRef struct {
+	// Kind is the kind of workflow plane (WorkflowPlane or ClusterWorkflowPlane)
 	// +required
-	Kind BuildPlaneRefKind `json:"kind"`
+	Kind WorkflowPlaneRefKind `json:"kind"`
 
-	// Name is the name of the build plane resource
+	// Name is the name of the workflow plane resource
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
 	Name string `json:"name"`
 }
 
-// ClusterBuildPlaneRefKind defines the kind for cluster-scoped build plane references.
-// Only ClusterBuildPlane is allowed since cluster-scoped resources can only reference
+// ClusterWorkflowPlaneRefKind defines the kind for cluster-scoped workflow plane references.
+// Only ClusterWorkflowPlane is allowed since cluster-scoped resources can only reference
 // other cluster-scoped resources.
-// +kubebuilder:validation:Enum=ClusterBuildPlane
-type ClusterBuildPlaneRefKind string
+// +kubebuilder:validation:Enum=ClusterWorkflowPlane
+type ClusterWorkflowPlaneRefKind string
 
 const (
-	// ClusterBuildPlaneRefKindClusterBuildPlane references a cluster-scoped ClusterBuildPlane
-	ClusterBuildPlaneRefKindClusterBuildPlane ClusterBuildPlaneRefKind = "ClusterBuildPlane"
+	// ClusterWorkflowPlaneRefKindClusterWorkflowPlane references a cluster-scoped ClusterWorkflowPlane
+	ClusterWorkflowPlaneRefKindClusterWorkflowPlane ClusterWorkflowPlaneRefKind = "ClusterWorkflowPlane"
 )
 
-// ClusterBuildPlaneRef represents a reference to a ClusterBuildPlane.
+// ClusterWorkflowPlaneRef represents a reference to a ClusterWorkflowPlane.
 // Used by cluster-scoped resources (ClusterWorkflow) that can only
-// reference cluster-scoped build planes.
-type ClusterBuildPlaneRef struct {
-	// Kind is the kind of build plane. Must be ClusterBuildPlane.
+// reference cluster-scoped workflow planes.
+type ClusterWorkflowPlaneRef struct {
+	// Kind is the kind of workflow plane. Must be ClusterWorkflowPlane.
 	// +required
-	Kind ClusterBuildPlaneRefKind `json:"kind"`
+	Kind ClusterWorkflowPlaneRefKind `json:"kind"`
 
-	// Name is the name of the ClusterBuildPlane resource
+	// Name is the name of the ClusterWorkflowPlane resource
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
@@ -225,7 +225,7 @@ const (
 )
 
 // ClusterObservabilityPlaneRef represents a reference to a ClusterObservabilityPlane.
-// Used by cluster-scoped resources (ClusterDataPlane, ClusterBuildPlane) that can only
+// Used by cluster-scoped resources (ClusterDataPlane, ClusterWorkflowPlane) that can only
 // reference cluster-scoped observability planes.
 type ClusterObservabilityPlaneRef struct {
 	// Kind is the kind of observability plane. Must be ClusterObservabilityPlane.

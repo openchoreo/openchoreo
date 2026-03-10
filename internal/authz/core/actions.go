@@ -81,11 +81,11 @@ var systemActions = []Action{
 	{Name: "dataplane:update", IsInternal: false},
 	{Name: "dataplane:delete", IsInternal: false},
 
-	// BuildPlane
-	{Name: "buildplane:view", IsInternal: false},
-	{Name: "buildplane:create", IsInternal: false},
-	{Name: "buildplane:update", IsInternal: false},
-	{Name: "buildplane:delete", IsInternal: false},
+	// WorkflowPlane
+	{Name: "workflowplane:view", IsInternal: false},
+	{Name: "workflowplane:create", IsInternal: false},
+	{Name: "workflowplane:update", IsInternal: false},
+	{Name: "workflowplane:delete", IsInternal: false},
 
 	// ObservabilityPlane
 	{Name: "observabilityplane:view", IsInternal: false},
@@ -117,11 +117,11 @@ var systemActions = []Action{
 	{Name: "clusterdataplane:update", IsInternal: false},
 	{Name: "clusterdataplane:delete", IsInternal: false},
 
-	// ClusterBuildPlane
-	{Name: "clusterbuildplane:view", IsInternal: false},
-	{Name: "clusterbuildplane:create", IsInternal: false},
-	{Name: "clusterbuildplane:update", IsInternal: false},
-	{Name: "clusterbuildplane:delete", IsInternal: false},
+	// ClusterWorkflowPlane
+	{Name: "clusterworkflowplane:view", IsInternal: false},
+	{Name: "clusterworkflowplane:create", IsInternal: false},
+	{Name: "clusterworkflowplane:update", IsInternal: false},
+	{Name: "clusterworkflowplane:delete", IsInternal: false},
 
 	// ClusterObservabilityPlane
 	{Name: "clusterobservabilityplane:view", IsInternal: false},

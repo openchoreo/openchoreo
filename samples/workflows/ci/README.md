@@ -1,6 +1,6 @@
 # CI Workflow Samples
 
-This directory contains reusable Workflow definitions that define how OpenChoreo builds applications from source code. CI Workflows are specialized templates for component builds that integrate with the Build Plane (Argo Workflows) to automate the containerization of your applications.
+This directory contains reusable Workflow definitions that define how OpenChoreo builds applications from source code. CI Workflows are specialized templates for component builds that integrate with the Workflow Plane (Argo Workflows) to automate the containerization of your applications.
 
 ---
 ## Table of Contents
@@ -8,7 +8,7 @@ This directory contains reusable Workflow definitions that define how OpenChoreo
 1. [Overview](#overview)
 2. [How CI Workflows Work](#how-ci-workflows-work)
     - [Key Concepts](#key-concepts)
-    - [Referencing Build Plane Templates](#referencing-build-plane-templates)
+    - [Referencing Workflow Plane Templates](#referencing-workflow-plane-templates)
 3. [Available Workflows](#available-workflows)
     - [Docker Workflow](#docker-workflow)
     - [Google Cloud Buildpacks Workflow](#google-cloud-buildpacks-workflow)
@@ -33,7 +33,7 @@ In OpenChoreo, a CI **Workflow** is a Custom Resource that:
 1. **Defines a build strategy** - Specifies how to build and containerize your application (Docker, Buildpacks, etc.)
 2. **Provides structured system parameters** - Required repository configuration for build automation features (webhooks, auto-build, UI actions)
 3. **Provides flexible developer parameters** - Platform Engineer-defined schema for additional build configuration
-4. **Templates Argo Workflows** - Generates the actual Argo Workflow resources that execute in the Build Plane
+4. **Templates Argo Workflows** - Generates the actual Argo Workflow resources that execute in the Workflow Plane
 5. **Enforces governance** - Platform Engineers control hardcoded parameters (registry URLs, timeouts, security settings)
 
 CI Workflows carry the annotation `openchoreo.dev/workflow-scope: component` and the `openchoreo.dev/component-workflow-parameters` annotation that maps repository fields for webhook and auto-build integration.
@@ -47,12 +47,12 @@ CI Workflows carry the annotation `openchoreo.dev/workflow-scope: component` and
 - **System Parameters**: Required structured fields for repository information (url, branch, commit, appPath)
 - **Developer Parameters**: Flexible PE-defined schema for build configuration (resources, caching, testing, etc.)
 - **Template Variables**: Placeholders like `${metadata.labels['openchoreo.dev/component']}`, `${parameters.repository.url}`, and `${parameters.version}`
-- **Build Plane**: A Kubernetes cluster running Argo Workflows
-- **ClusterWorkflowTemplate**: Pre-defined Argo Workflow templates in the Build Plane that Workflows reference via `workflowTemplateRef`
+- **Workflow Plane**: A Kubernetes cluster running Argo Workflows
+- **ClusterWorkflowTemplate**: Pre-defined Argo Workflow templates in the Workflow Plane that Workflows reference via `workflowTemplateRef`
 
-### Referencing Build Plane Templates
+### Referencing Workflow Plane Templates
 
-Workflows generate Argo Workflow resources that reference ClusterWorkflowTemplates deployed in the Build Plane. This enables reusable build logic:
+Workflows generate Argo Workflow resources that reference ClusterWorkflowTemplates deployed in the Workflow Plane. This enables reusable build logic:
 
 ```yaml
 spec:
@@ -60,10 +60,10 @@ spec:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
     spec:
-      # Reference a ClusterWorkflowTemplate in the Build Plane
+      # Reference a ClusterWorkflowTemplate in the Workflow Plane
       workflowTemplateRef:
         clusterScope: true
-        name: google-cloud-buildpacks  # Pre-defined template in Build Plane
+        name: google-cloud-buildpacks  # Pre-defined template in Workflow Plane
       arguments:
         parameters:
           - name: git-repo
@@ -614,13 +614,13 @@ Build workflows often need access to secrets for authentication, such as:
 - **Registry credentials** for pushing images to private container registries
 - **API tokens** for external services during the build process
 
-Workflows support two approaches for managing secrets in the Build Plane:
+Workflows support two approaches for managing secrets in the Workflow Plane:
 
 ### Approach 1: External Secrets with Dynamic Secret Names (Recommended)
 
 Use the `externalRefs` and `resources` sections in Workflow to resolve external CRs and define ExternalSecret resources that point to secrets in your secret backend. This approach:
 - Declares external CR references via `externalRefs` — the controller resolves them and injects their spec into the CEL context
-- Automatically creates and syncs secrets in the Build Plane's execution namespace
+- Automatically creates and syncs secrets in the Workflow Plane's execution namespace
 - Generates unique secret names per workflow run (e.g., `${metadata.workflowRunName}-git-secret`)
 - Passes the secret name as a parameter to the workflow, allowing the workflow to reference it during execution
 - Ideal for GitOps workflows where all configuration is version-controlled
@@ -695,7 +695,7 @@ The CEL `map` expression iterates over all data fields and generates ExternalSec
 
 ### Approach 2: Manual Secrets with Hardcoded Names
 
-Manually create Kubernetes secrets in the Build Plane's execution namespace and hardcode the secret name in the workflow template. This approach:
+Manually create Kubernetes secrets in the Workflow Plane's execution namespace and hardcode the secret name in the workflow template. This approach:
 - Requires pre-creating secrets before running workflows
 - Uses fixed secret names that are referenced directly in the workflow
 - Useful for development, testing, or when ESO is not available

@@ -7,7 +7,7 @@ import "time"
 
 type Config struct {
 	ServerURL         string
-	PlaneType         string // "dataplane" or "buildplane" or "observabilityplane"
+	PlaneType         string // "dataplane" or "workflowplane" or "observabilityplane"
 	PlaneID           string // Logical plane identifier (shared across multiple CRs with same physical plane)
 	TLSEnabled        bool
 	ClientCertPath    string

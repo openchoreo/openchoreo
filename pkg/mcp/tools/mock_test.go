@@ -378,18 +378,18 @@ func (m *MockCoreToolsetHandler) GetDeploymentPipeline(
 	return `{"name":"default-pipeline"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) ListBuildPlanes(
+func (m *MockCoreToolsetHandler) ListWorkflowPlanes(
 	ctx context.Context, namespaceName string, opts ListOpts,
 ) (any, error) {
-	m.recordCall("ListBuildPlanes", namespaceName, opts)
-	return `[{"name":"bp1"}]`, nil
+	m.recordCall("ListWorkflowPlanes", namespaceName, opts)
+	return `[{"name":"wp1"}]`, nil
 }
 
-func (m *MockCoreToolsetHandler) GetBuildPlane(
-	ctx context.Context, namespaceName, buildPlaneName string,
+func (m *MockCoreToolsetHandler) GetWorkflowPlane(
+	ctx context.Context, namespaceName, workflowPlaneName string,
 ) (any, error) {
-	m.recordCall("GetBuildPlane", namespaceName, buildPlaneName)
-	return `{"name":"bp1"}`, nil
+	m.recordCall("GetWorkflowPlane", namespaceName, workflowPlaneName)
+	return `{"name":"wp1"}`, nil
 }
 
 // ClusterPlaneHandler methods
@@ -404,9 +404,9 @@ func (m *MockCoreToolsetHandler) GetClusterDataPlane(ctx context.Context, cdpNam
 	return `{"name":"cdp1"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) ListClusterBuildPlanes(ctx context.Context, opts ListOpts) (any, error) {
-	m.recordCall("ListClusterBuildPlanes", opts)
-	return `[{"name":"cbp1"}]`, nil
+func (m *MockCoreToolsetHandler) ListClusterWorkflowPlanes(ctx context.Context, opts ListOpts) (any, error) {
+	m.recordCall("ListClusterWorkflowPlanes", opts)
+	return `[{"name":"cwp1"}]`, nil
 }
 
 func (m *MockCoreToolsetHandler) ListClusterObservabilityPlanes(ctx context.Context, opts ListOpts) (any, error) {

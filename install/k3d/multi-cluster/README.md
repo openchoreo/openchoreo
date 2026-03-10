@@ -241,12 +241,12 @@ $(echo "$AGENT_CA" | sed 's/^/        /')
 EOF
 ```
 
-## 4. Build Plane (Optional)
+## 4. Workflow Plane (Optional)
 
 ```bash
-k3d cluster create --config install/k3d/multi-cluster/config-bp.yaml
+k3d cluster create --config install/k3d/multi-cluster/config-wp.yaml
 
-docker exec k3d-openchoreo-bp-server-0 sh -c \
+docker exec k3d-openchoreo-wp-server-0 sh -c \
   "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 ```
 
@@ -255,44 +255,44 @@ docker exec k3d-openchoreo-bp-server-0 sh -c \
 ```bash
 # cert-manager
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
-  --kube-context k3d-openchoreo-bp \
+  --kube-context k3d-openchoreo-wp \
   --namespace cert-manager \
   --create-namespace \
   --version v1.19.2 \
   --set crds.enabled=true
 
-kubectl --context k3d-openchoreo-bp wait --for=condition=Available deployment/cert-manager \
+kubectl --context k3d-openchoreo-wp wait --for=condition=Available deployment/cert-manager \
   -n cert-manager --timeout=180s
 
 # External Secrets Operator
 helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
-  --kube-context k3d-openchoreo-bp \
+  --kube-context k3d-openchoreo-wp \
   --namespace external-secrets \
   --create-namespace \
   --version 1.3.2 \
   --set installCRDs=true
 
-kubectl --context k3d-openchoreo-bp wait --for=condition=Available deployment/external-secrets \
+kubectl --context k3d-openchoreo-wp wait --for=condition=Available deployment/external-secrets \
   -n external-secrets --timeout=180s
 ```
 
 ### CoreDNS Rewrite and Certificates
 
 ```bash
-kubectl apply --context k3d-openchoreo-bp -f install/k3d/common/coredns-custom.yaml
+kubectl apply --context k3d-openchoreo-wp -f install/k3d/common/coredns-custom.yaml
 
-kubectl --context k3d-openchoreo-bp create namespace openchoreo-build-plane \
-  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-bp apply -f -
+kubectl --context k3d-openchoreo-wp create namespace openchoreo-workflow-plane \
+  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-wp apply -f -
 
 # Copy cluster-gateway CA from control plane
 kubectl --context k3d-openchoreo-cp get secret cluster-gateway-ca \
   -n openchoreo-control-plane \
   -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/server-ca.crt
 
-kubectl --context k3d-openchoreo-bp create configmap cluster-gateway-ca \
+kubectl --context k3d-openchoreo-wp create configmap cluster-gateway-ca \
   --from-file=ca.crt=/tmp/server-ca.crt \
-  -n openchoreo-build-plane \
-  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-bp apply -f -
+  -n openchoreo-workflow-plane \
+  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-wp apply -f -
 ```
 
 ### Container Registry
@@ -302,20 +302,20 @@ helm repo add twuni https://twuni.github.io/docker-registry.helm
 helm repo update
 
 helm install registry twuni/docker-registry \
-  --kube-context k3d-openchoreo-bp \
-  --namespace openchoreo-build-plane \
+  --kube-context k3d-openchoreo-wp \
+  --namespace openchoreo-workflow-plane \
   --create-namespace \
   --values install/k3d/multi-cluster/values-registry.yaml
 ```
 
-### Install Build Plane
+### Install Workflow Plane
 
 ```bash
-helm upgrade --install openchoreo-build-plane install/helm/openchoreo-build-plane \
+helm upgrade --install openchoreo-workflow-plane install/helm/openchoreo-workflow-plane \
   --dependency-update \
-  --kube-context k3d-openchoreo-bp \
-  --namespace openchoreo-build-plane \
-  --values install/k3d/multi-cluster/values-bp.yaml
+  --kube-context k3d-openchoreo-wp \
+  --namespace openchoreo-workflow-plane \
+  --values install/k3d/multi-cluster/values-wp.yaml
 ```
 
 ### Workflow Templates
@@ -323,9 +323,9 @@ helm upgrade --install openchoreo-build-plane install/helm/openchoreo-build-plan
 The build pipeline is composed of shared ClusterWorkflowTemplates that each handle one step (checkout, build, publish, generate workload). The checkout and publish templates are applied separately so you can replace them to use your own git auth or container registry.
 
 ```bash
-kubectl --context k3d-openchoreo-bp apply -f samples/getting-started/workflow-templates/checkout-source.yaml
-kubectl --context k3d-openchoreo-bp apply -f samples/getting-started/workflow-templates.yaml
-kubectl --context k3d-openchoreo-bp apply -f samples/getting-started/workflow-templates/publish-image-k3d.yaml
+kubectl --context k3d-openchoreo-wp apply -f samples/getting-started/workflow-templates/checkout-source.yaml
+kubectl --context k3d-openchoreo-wp apply -f samples/getting-started/workflow-templates.yaml
+kubectl --context k3d-openchoreo-wp apply -f samples/getting-started/workflow-templates/publish-image-k3d.yaml
 ```
 
 `publish-image-k3d.yaml` pushes images to the local k3d registry at `host.k3d.internal:10082`. To use a different registry, replace this with your own `publish-image` ClusterWorkflowTemplate.
@@ -335,18 +335,18 @@ kubectl --context k3d-openchoreo-bp apply -f samples/getting-started/workflow-te
 Pre-populates the local registry with buildpack images so Ballerina and Google Cloud Buildpacks workflows don't pull from remote registries on every build. Skip this if you only use Docker or React builds.
 
 ```bash
-kubectl --context k3d-openchoreo-bp apply -f install/k3d/common/push-buildpack-cache-images.yaml
+kubectl --context k3d-openchoreo-wp apply -f install/k3d/common/push-buildpack-cache-images.yaml
 ```
 
-### Register Build Plane
+### Register Workflow Plane
 
 ```bash
-AGENT_CA=$(kubectl --context k3d-openchoreo-bp get secret cluster-agent-tls \
-  -n openchoreo-build-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
+AGENT_CA=$(kubectl --context k3d-openchoreo-wp get secret cluster-agent-tls \
+  -n openchoreo-workflow-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
 
 kubectl --context k3d-openchoreo-cp apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
-kind: BuildPlane
+kind: WorkflowPlane
 metadata:
   name: default
   namespace: default
@@ -496,8 +496,8 @@ EOF
 kubectl --context k3d-openchoreo-cp patch dataplane default -n default --type merge \
   -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
 
-# If build plane is installed:
-kubectl --context k3d-openchoreo-cp patch buildplane default -n default --type merge \
+# If workflow plane is installed:
+kubectl --context k3d-openchoreo-cp patch workflowplane default -n default --type merge \
   -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
 ```
 
@@ -507,7 +507,7 @@ kubectl --context k3d-openchoreo-cp patch buildplane default -n default --type m
 |---------------------|-------------------|----------|------------|
 | Control Plane       | k3d-openchoreo-cp | 6550     | 8xxx       |
 | Data Plane          | k3d-openchoreo-dp | 6551     | 19xxx      |
-| Build Plane         | k3d-openchoreo-bp | 6552     | 10xxx      |
+| Workflow Plane         | k3d-openchoreo-wp | 6552     | 10xxx      |
 | Observability Plane | k3d-openchoreo-op | 6553     | 11xxx      |
 
 All ports are mapped 1:1 (host:container) unless noted.
@@ -544,15 +544,15 @@ All ports are mapped 1:1 (host:container) unless noted.
 # All pods
 kubectl --context k3d-openchoreo-cp get pods -n openchoreo-control-plane
 kubectl --context k3d-openchoreo-dp get pods -n openchoreo-data-plane
-kubectl --context k3d-openchoreo-bp get pods -n openchoreo-build-plane
+kubectl --context k3d-openchoreo-wp get pods -n openchoreo-workflow-plane
 kubectl --context k3d-openchoreo-op get pods -n openchoreo-observability-plane
 
 # Plane resources
-kubectl --context k3d-openchoreo-cp get dataplane,buildplane,observabilityplane -n default
+kubectl --context k3d-openchoreo-cp get dataplane,workflowplane,observabilityplane -n default
 
 # Agent connections
 kubectl --context k3d-openchoreo-dp logs -n openchoreo-data-plane -l app.kubernetes.io/component=cluster-agent --tail=5
-kubectl --context k3d-openchoreo-bp logs -n openchoreo-build-plane -l app.kubernetes.io/component=cluster-agent --tail=5
+kubectl --context k3d-openchoreo-wp logs -n openchoreo-workflow-plane -l app.kubernetes.io/component=cluster-agent --tail=5
 kubectl --context k3d-openchoreo-op logs -n openchoreo-observability-plane -l app.kubernetes.io/component=cluster-agent --tail=5
 ```
 
@@ -575,11 +575,11 @@ install/k3d/preload-images.sh \
   --data-plane --dp-values install/k3d/multi-cluster/values-dp.yaml \
   --parallel 4
 
-# Build Plane
+# Workflow Plane
 install/k3d/preload-images.sh \
-  --cluster openchoreo-bp \
+  --cluster openchoreo-wp \
   --local-charts \
-  --build-plane --bp-values install/k3d/multi-cluster/values-bp.yaml \
+  --workflow-plane --wp-values install/k3d/multi-cluster/values-wp.yaml \
   --parallel 4
 
 # Observability Plane
@@ -595,5 +595,5 @@ Run after creating clusters but before installing anything.
 ## Cleanup
 
 ```bash
-k3d cluster delete openchoreo-cp openchoreo-dp openchoreo-bp openchoreo-op
+k3d cluster delete openchoreo-cp openchoreo-dp openchoreo-wp openchoreo-op
 ```

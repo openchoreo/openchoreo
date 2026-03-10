@@ -46,24 +46,24 @@ func dataPlaneInfo(obj client.Object) (planeInfo, bool) {
 	}, true
 }
 
-// buildPlaneInfo extracts plane information from a BuildPlane CR
+// workflowPlaneInfo extracts plane information from a WorkflowPlane CR
 // Returns the extracted info and true if the CR should be processed
-func buildPlaneInfo(obj client.Object) (planeInfo, bool) {
-	bp, ok := obj.(*openchoreov1alpha1.BuildPlane)
+func workflowPlaneInfo(obj client.Object) (planeInfo, bool) {
+	wp, ok := obj.(*openchoreov1alpha1.WorkflowPlane)
 	if !ok {
 		return planeInfo{}, false
 	}
 
-	planeID := bp.Spec.PlaneID
+	planeID := wp.Spec.PlaneID
 	if planeID == "" {
-		planeID = bp.Name
+		planeID = wp.Name
 	}
 
 	return planeInfo{
-		name:      bp.Name,
-		namespace: bp.Namespace,
+		name:      wp.Name,
+		namespace: wp.Namespace,
 		planeID:   planeID,
-		agent:     &bp.Spec.ClusterAgent,
+		agent:     &wp.Spec.ClusterAgent,
 	}, true
 }
 
@@ -104,19 +104,19 @@ func clusterDataPlaneInfo(obj client.Object) (planeInfo, bool) {
 	}, true
 }
 
-// clusterBuildPlaneInfo extracts plane information from a ClusterBuildPlane CR
+// clusterWorkflowPlaneInfo extracts plane information from a ClusterWorkflowPlane CR
 // Returns the extracted info and true if the CR should be processed
-func clusterBuildPlaneInfo(obj client.Object) (planeInfo, bool) {
-	cbp, ok := obj.(*openchoreov1alpha1.ClusterBuildPlane)
+func clusterWorkflowPlaneInfo(obj client.Object) (planeInfo, bool) {
+	cwp, ok := obj.(*openchoreov1alpha1.ClusterWorkflowPlane)
 	if !ok {
 		return planeInfo{}, false
 	}
 
 	return planeInfo{
-		name:      cbp.Name,
+		name:      cwp.Name,
 		namespace: "", // Cluster-scoped - no namespace
-		planeID:   cbp.Spec.PlaneID,
-		agent:     &cbp.Spec.ClusterAgent,
+		planeID:   cwp.Spec.PlaneID,
+		agent:     &cwp.Spec.ClusterAgent,
 	}, true
 }
 
@@ -137,7 +137,7 @@ func clusterObsPlaneInfo(obj client.Object) (planeInfo, bool) {
 }
 
 // extractPlaneClientCAs is a generic helper that extracts client CAs from a list of plane CRs
-// It eliminates code duplication across DataPlane, BuildPlane, and ObservabilityPlane processing
+// It eliminates code duplication across DataPlane, WorkflowPlane, and ObservabilityPlane processing
 func (s *Server) extractPlaneClientCAs(
 	ctx context.Context,
 	planeType string,
@@ -187,7 +187,7 @@ func (s *Server) extractPlaneClientCAs(
 }
 
 // extractListItems extracts the Items slice from a client.ObjectList
-// This handles the type assertion for DataPlaneList, BuildPlaneList, ObservabilityPlaneList
+// This handles the type assertion for DataPlaneList, WorkflowPlaneList, ObservabilityPlaneList
 func extractListItems(list client.ObjectList) ([]client.Object, error) {
 	switch v := list.(type) {
 	case *openchoreov1alpha1.DataPlaneList:
@@ -196,7 +196,7 @@ func extractListItems(list client.ObjectList) ([]client.Object, error) {
 			items[i] = &v.Items[i]
 		}
 		return items, nil
-	case *openchoreov1alpha1.BuildPlaneList:
+	case *openchoreov1alpha1.WorkflowPlaneList:
 		items := make([]client.Object, len(v.Items))
 		for i := range v.Items {
 			items[i] = &v.Items[i]
@@ -214,7 +214,7 @@ func extractListItems(list client.ObjectList) ([]client.Object, error) {
 			items[i] = &v.Items[i]
 		}
 		return items, nil
-	case *openchoreov1alpha1.ClusterBuildPlaneList:
+	case *openchoreov1alpha1.ClusterWorkflowPlaneList:
 		items := make([]client.Object, len(v.Items))
 		for i := range v.Items {
 			items[i] = &v.Items[i]
@@ -263,19 +263,19 @@ func (s *Server) getAllPlaneClientCAs(planeType, planeID string) (map[string][]b
 			result[k] = v
 		}
 
-	case planeTypeBuildPlane:
-		// Namespace-scoped BuildPlane
+	case planeTypeWorkflowPlane:
+		// Namespace-scoped WorkflowPlane
 		nsResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
-			&openchoreov1alpha1.BuildPlaneList{}, buildPlaneInfo)
+			&openchoreov1alpha1.WorkflowPlaneList{}, workflowPlaneInfo)
 		if err != nil {
 			return nil, err
 		}
 		for k, v := range nsResult {
 			result[k] = v
 		}
-		// Cluster-scoped ClusterBuildPlane
+		// Cluster-scoped ClusterWorkflowPlane
 		clusterResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
-			&openchoreov1alpha1.ClusterBuildPlaneList{}, clusterBuildPlaneInfo)
+			&openchoreov1alpha1.ClusterWorkflowPlaneList{}, clusterWorkflowPlaneInfo)
 		if err != nil {
 			return nil, err
 		}

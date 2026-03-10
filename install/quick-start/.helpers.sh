@@ -637,12 +637,12 @@ setup_data_plane_ca() {
     log_success "Data Plane CA configured"
 }
 
-# Copy cluster-gateway CA (public cert only) from control plane to build plane namespace
-setup_build_plane_ca() {
-    log_info "Setting up Build Plane CA..."
+# Copy cluster-gateway CA (public cert only) from control plane to workflow plane namespace
+setup_workflow_plane_ca() {
+    log_info "Setting up Workflow Plane CA..."
 
-    if ! namespace_exists "$BUILD_PLANE_NS"; then
-        kubectl create namespace "$BUILD_PLANE_NS" >/dev/null
+    if ! namespace_exists "$WORKFLOW_PLANE_NS"; then
+        kubectl create namespace "$WORKFLOW_PLANE_NS" >/dev/null
     fi
 
     local ca_crt
@@ -651,12 +651,12 @@ setup_build_plane_ca() {
     # Copy CA ConfigMap (public cert only, so the agent can verify the gateway server)
     kubectl create configmap cluster-gateway-ca \
         --from-literal=ca.crt="$ca_crt" \
-        -n "$BUILD_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1 || {
-        log_error "Failed to create cluster-gateway-ca ConfigMap in $BUILD_PLANE_NS"
+        -n "$WORKFLOW_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1 || {
+        log_error "Failed to create cluster-gateway-ca ConfigMap in $WORKFLOW_PLANE_NS"
         return 1
     }
 
-    log_success "Build Plane CA configured"
+    log_success "Workflow Plane CA configured"
 }
 
 # Install OpenBao and create ClusterSecretStore backed by Vault provider
@@ -722,7 +722,7 @@ POLICY
 
         bao write auth/kubernetes/role/openchoreo-secret-writer-role \
             bound_service_account_names='*' \
-            bound_service_account_namespaces='openbao,openchoreo-build-plane' \
+            bound_service_account_namespaces='openbao,openchoreo-workflow-plane' \
             policies=openchoreo-secret-writer-policy \
             ttl=20m
     " >/dev/null 2>&1 || {
@@ -823,28 +823,28 @@ DPEOF
     log_success "DataPlane resource created"
 }
 
-# Extract cluster-agent CA and create BuildPlane CR
-create_buildplane_resource() {
-    log_info "Creating BuildPlane resource..."
+# Extract cluster-agent CA and create WorkflowPlane CR
+create_workflowplane_resource() {
+    log_info "Creating WorkflowPlane resource..."
 
     # Wait for cluster-agent-tls secret
     local max_attempts=60
     local attempt=0
-    while ! kubectl get secret cluster-agent-tls -n "$BUILD_PLANE_NS" >/dev/null 2>&1; do
+    while ! kubectl get secret cluster-agent-tls -n "$WORKFLOW_PLANE_NS" >/dev/null 2>&1; do
         attempt=$((attempt + 1))
         if [[ $attempt -ge $max_attempts ]]; then
-            log_warning "Timed out waiting for cluster-agent-tls secret in $BUILD_PLANE_NS"
+            log_warning "Timed out waiting for cluster-agent-tls secret in $WORKFLOW_PLANE_NS"
             return 1
         fi
         sleep 2
     done
 
     local agent_ca
-    agent_ca=$(kubectl get secret cluster-agent-tls -n "$BUILD_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
+    agent_ca=$(kubectl get secret cluster-agent-tls -n "$WORKFLOW_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
 
     kubectl apply -f - >/dev/null <<BPEOF
 apiVersion: openchoreo.dev/v1alpha1
-kind: BuildPlane
+kind: WorkflowPlane
 metadata:
   name: default
   namespace: default
@@ -858,7 +858,7 @@ $(echo "$agent_ca" | sed 's/^/        /')
     name: default
 BPEOF
 
-    log_success "BuildPlane resource created"
+    log_success "WorkflowPlane resource created"
 }
 
 # Extract cluster-agent CA and create ObservabilityPlane CR
@@ -989,17 +989,17 @@ install_data_plane() {
         "--set" "observability.enabled=${ENABLE_OBSERVABILITY:-false}"
 }
 
-# Configure the dataplane and buildplane with observabilityplane reference
+# Configure the dataplane and workflowplane with observabilityplane reference
 configure_observabilityplane_reference() {
     log_info "Configuring OpenChoreo Data Plane with observabilityplane reference..."
     kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}' >/dev/null
-    if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
-        log_info "Configuring OpenChoreo Build Plane with observabilityplane reference..."
-        kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}' >/dev/null
+    if [[ "$ENABLE_WORKFLOW_PLANE" == "true" ]]; then
+        log_info "Configuring OpenChoreo Workflow Plane with observabilityplane reference..."
+        kubectl patch workflowplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}' >/dev/null
     fi
 }
 
-# Install Container Registry (required for Build Plane)
+# Install Container Registry (required for Workflow Plane)
 install_registry() {
     log_info "Installing Container Registry..."
 
@@ -1009,15 +1009,15 @@ install_registry() {
     fi
     helm repo update twuni
 
-    install_helm_chart "registry" "twuni/docker-registry" "$BUILD_PLANE_NS" "true" "true" "true" "300" \
+    install_helm_chart "registry" "twuni/docker-registry" "$WORKFLOW_PLANE_NS" "true" "true" "true" "300" \
         "--values" "$HOME/.values-registry.yaml"
 }
 
-# Install OpenChoreo Build Plane (optional)
-install_build_plane() {
-    log_info "Installing OpenChoreo Build Plane..."
-    install_helm_chart "openchoreo-build-plane" "openchoreo-build-plane" "$BUILD_PLANE_NS" "true" "true" "true" "1800" \
-        "--values" "$HOME/.values-bp.yaml"
+# Install OpenChoreo Workflow Plane (optional)
+install_workflow_plane() {
+    log_info "Installing OpenChoreo Workflow Plane..."
+    install_helm_chart "openchoreo-workflow-plane" "openchoreo-workflow-plane" "$WORKFLOW_PLANE_NS" "true" "true" "true" "1800" \
+        "--values" "$HOME/.values-wp.yaml"
 }
 
 # Copy cluster-gateway CA (public cert only) from control plane to observability plane namespace
@@ -1102,7 +1102,7 @@ install_observability_plane() {
         "--version" "0.2.2"
 }
 
-# Apply ClusterWorkflowTemplates required by the build plane
+# Apply ClusterWorkflowTemplates required by the workflow plane
 install_workflow_templates() {
     log_info "Installing ClusterWorkflowTemplates..."
 
@@ -1206,7 +1206,7 @@ print_installation_config() {
         log_info "  Image version: $OPENCHOREO_VERSION"
         log_info "  Chart version: ${OPENCHOREO_CHART_VERSION:-<latest from registry>}"
     fi
-    log_info "  Enable Build Plane: ${ENABLE_BUILD_PLANE:-false}"
+    log_info "  Enable Workflow Plane: ${ENABLE_WORKFLOW_PLANE:-false}"
     log_info "  Enable Observability: ${ENABLE_OBSERVABILITY:-false}"
     if [[ "${SKIP_RESOURCE_CHECK:-false}" == "true" ]]; then
         log_warning "  Resource Check: DISABLED (--skip-resource-check flag provided)"
@@ -1251,7 +1251,7 @@ check_system_resources() {
     # - k3s kubernetes control plane: ~1.5GB baseline
     # - Control Plane pods: ~350MB (controller, api, ui, thunder)
     # - Data Plane pods: ~200MB (envoy-gateway, gateway)
-    # - Build Plane pods: ~70MB steady + ~500MB during builds (argo, registry)
+    # - Workflow Plane pods: ~70MB steady + ~500MB during builds (argo, registry)
     # - Observability pods: ~1GB (OpenSearch is memory intensive)
     #
     # Base requirements (Control + Data Planes)
@@ -1261,9 +1261,9 @@ check_system_resources() {
     local required_memory_rec=3
     local required_disk=10
 
-    # Add build plane requirements
+    # Add workflow plane requirements
     # Build plane adds ~70MB steady state but needs headroom for concurrent builds
-    if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+    if [[ "$ENABLE_WORKFLOW_PLANE" == "true" ]]; then
         required_cpus_min=$((required_cpus_min + 1))
         required_cpus_rec=$((required_cpus_rec + 1))
         required_memory_min=$((required_memory_min + 1))
@@ -1290,12 +1290,12 @@ check_system_resources() {
     # Display required resources
     log_info "Required Resources:"
     local config_desc="Base (Control + Data Planes)"
-    if [[ "$ENABLE_OBSERVABILITY" == "true" && "$ENABLE_BUILD_PLANE" == "true" ]]; then
-        config_desc="Base + Observability + Build Planes"
+    if [[ "$ENABLE_OBSERVABILITY" == "true" && "$ENABLE_WORKFLOW_PLANE" == "true" ]]; then
+        config_desc="Base + Observability + Workflow Planes"
     elif [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
         config_desc="Base + Observability Plane"
-    elif [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
-        config_desc="Base + Build Plane"
+    elif [[ "$ENABLE_WORKFLOW_PLANE" == "true" ]]; then
+        config_desc="Base + Workflow Plane"
     fi
     echo "  Configuration: $config_desc"
     echo "  Minimum: ${required_cpus_min} vCPUs, ${required_memory_min}GB RAM, ${required_disk}GB Disk"
@@ -1416,11 +1416,11 @@ preload_images() {
         preload_args+=("--version" "$OPENCHOREO_CHART_VERSION")
     fi
 
-    # Add build plane if enabled
-    if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+    # Add workflow plane if enabled
+    if [[ "$ENABLE_WORKFLOW_PLANE" == "true" ]]; then
         preload_args+=(
-            "--build-plane"
-            "--bp-values" "${SCRIPT_DIR}/.values-bp.yaml"
+            "--workflow-plane"
+            "--wp-values" "${SCRIPT_DIR}/.values-wp.yaml"
         )
     fi
 

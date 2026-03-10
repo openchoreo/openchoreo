@@ -272,7 +272,7 @@ func (h *MCPHandler) isClusterScopedResource(gvk schema.GroupVersionKind) bool {
 	// List of known cluster-scoped OpenChoreo resources
 	clusterScopedResources := map[string]bool{
 		"Namespace":                 true,
-		"ClusterBuildPlane":         true,
+		"ClusterWorkflowPlane":      true,
 		"ClusterDataPlane":          true,
 		"ClusterObservabilityPlane": true,
 		"AuthzClusterRole":          true,

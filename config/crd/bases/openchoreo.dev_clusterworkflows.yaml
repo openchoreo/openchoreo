@@ -52,25 +52,6 @@ spec:
               ClusterWorkflow is a cluster-scoped version of Workflow that can be
               referenced by Components across all namespaces via ClusterComponentType.
             properties:
-              buildPlaneRef:
-                description: |-
-                  BuildPlaneRef references the ClusterBuildPlane for this workflow's build operations.
-                  If not specified, the controller resolves to the ClusterBuildPlane named "default".
-                properties:
-                  kind:
-                    description: Kind is the kind of build plane. Must be ClusterBuildPlane.
-                    enum:
-                    - ClusterBuildPlane
-                    type: string
-                  name:
-                    description: Name is the name of the ClusterBuildPlane resource
-                    maxLength: 63
-                    minLength: 1
-                    type: string
-                required:
-                - kind
-                - name
-                type: object
               externalRefs:
                 description: ExternalRefs declares references to external CRs that
                   are resolved at runtime.
@@ -178,6 +159,25 @@ spec:
                   instances after completion.
                 pattern: ^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$
                 type: string
+              workflowPlaneRef:
+                description: |-
+                  WorkflowPlaneRef references the ClusterWorkflowPlane for this workflow's operations.
+                  If not specified, the controller resolves to the ClusterWorkflowPlane named "default".
+                properties:
+                  kind:
+                    description: Kind is the kind of workflow plane. Must be ClusterWorkflowPlane.
+                    enum:
+                    - ClusterWorkflowPlane
+                    type: string
+                  name:
+                    description: Name is the name of the ClusterWorkflowPlane resource
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
             required:
             - runTemplate
             type: object

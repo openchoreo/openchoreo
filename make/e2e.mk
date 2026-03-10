@@ -6,7 +6,7 @@ E2E_KUBECONTEXT        := k3d-$(E2E_CLUSTER_NAME)
 
 # "local" uses chart dirs from install/helm/, "oci" pulls published charts from HELM_OCI_REGISTRY
 E2E_HELM_SOURCE        ?= local
-# Set to "true" to include build plane and observability plane in the e2e setup
+# Set to "true" to include workflow plane and observability plane in the e2e setup
 E2E_WITH_BUILD         ?= false
 E2E_WITH_OBSERVABILITY ?= false
 # Go duration for the test suite (go test -timeout)
@@ -22,7 +22,7 @@ E2E_DIAGNOSTICS_DIR    ?= $(E2E_DIR)/_diagnostics
 # Namespaces
 E2E_CP_NS              := openchoreo-control-plane
 E2E_DP_NS              := openchoreo-data-plane
-E2E_BP_NS              := openchoreo-build-plane
+E2E_WP_NS              := openchoreo-workflow-plane
 E2E_OP_NS              := openchoreo-observability-plane
 
 # Dependency versions (keep in sync with install/k3d/single-cluster/README.md)
@@ -37,13 +37,13 @@ ifeq ($(E2E_HELM_SOURCE),oci)
   E2E_HELM_DEP_UPDATE :=
   E2E_CP_CHART := $(HELM_OCI_REGISTRY)/openchoreo-control-plane --version $(HELM_CHART_VERSION)
   E2E_DP_CHART := $(HELM_OCI_REGISTRY)/openchoreo-data-plane --version $(HELM_CHART_VERSION)
-  E2E_BP_CHART := $(HELM_OCI_REGISTRY)/openchoreo-build-plane --version $(HELM_CHART_VERSION)
+  E2E_WP_CHART := $(HELM_OCI_REGISTRY)/openchoreo-workflow-plane --version $(HELM_CHART_VERSION)
   E2E_OP_CHART := $(HELM_OCI_REGISTRY)/openchoreo-observability-plane --version $(HELM_CHART_VERSION)
 else
   E2E_HELM_DEP_UPDATE := --dependency-update
   E2E_CP_CHART := $(HELM_CHARTS_DIR)/openchoreo-control-plane
   E2E_DP_CHART := $(HELM_CHARTS_DIR)/openchoreo-data-plane
-  E2E_BP_CHART := $(HELM_CHARTS_DIR)/openchoreo-build-plane
+  E2E_WP_CHART := $(HELM_CHARTS_DIR)/openchoreo-workflow-plane
   E2E_OP_CHART := $(HELM_CHARTS_DIR)/openchoreo-observability-plane
 endif
 
@@ -174,7 +174,7 @@ e2e.setup-install: ## Install all planes via Helm
 	@$(MAKE) _e2e.install-thunder
 	@$(MAKE) _e2e.install-cp
 	@$(MAKE) _e2e.install-dp
-	@if [ "$(E2E_WITH_BUILD)" = "true" ]; then $(MAKE) _e2e.install-bp; fi
+	@if [ "$(E2E_WITH_BUILD)" = "true" ]; then $(MAKE) _e2e.install-wp; fi
 	@if [ "$(E2E_WITH_OBSERVABILITY)" = "true" ]; then $(MAKE) _e2e.install-op; fi
 	@$(call log_success, All planes installed)
 
@@ -184,7 +184,7 @@ e2e.setup-configure: ## Apply default resources, register planes, and link obser
 	$(E2E_KUBECTL) label namespace default openchoreo.dev/controlplane-namespace=true --overwrite
 	$(E2E_KUBECTL) apply -f $(PROJECT_DIR)/samples/getting-started/all.yaml
 	@$(MAKE) _e2e.configure-dp
-	@if [ "$(E2E_WITH_BUILD)" = "true" ]; then $(MAKE) _e2e.configure-bp; fi
+	@if [ "$(E2E_WITH_BUILD)" = "true" ]; then $(MAKE) _e2e.configure-wp; fi
 	@if [ "$(E2E_WITH_OBSERVABILITY)" = "true" ]; then $(MAKE) _e2e.configure-op; fi
 	@if [ "$(E2E_WITH_OBSERVABILITY)" = "true" ]; then $(MAKE) _e2e.link-observability; fi
 	@$(call log_success, E2E configuration complete)
@@ -242,22 +242,22 @@ _e2e.install-dp:
 	$(E2E_KUBECTL) wait -n $(E2E_DP_NS) \
 		--for=condition=available --timeout=$(E2E_SETUP_TIMEOUT) deployment --all
 
-.PHONY: _e2e.install-bp
-_e2e.install-bp:
-	$(call e2e_copy_gateway_certs,$(E2E_BP_NS))
+.PHONY: _e2e.install-wp
+_e2e.install-wp:
+	$(call e2e_copy_gateway_certs,$(E2E_WP_NS))
 	@$(call log_info, Installing container registry)
 	helm repo add twuni https://twuni.github.io/docker-registry.helm 2>/dev/null || true
 	helm repo update twuni
 	$(E2E_HELM) upgrade --install registry twuni/docker-registry \
-		--namespace $(E2E_BP_NS) --create-namespace \
+		--namespace $(E2E_WP_NS) --create-namespace \
 		--values $(PROJECT_DIR)/install/k3d/single-cluster/values-registry.yaml
-	@$(call log_info, Installing Build Plane)
-	$(E2E_HELM) upgrade --install openchoreo-build-plane $(E2E_BP_CHART) \
+	@$(call log_info, Installing Workflow Plane)
+	$(E2E_HELM) upgrade --install openchoreo-workflow-plane $(E2E_WP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
-		--namespace $(E2E_BP_NS) --create-namespace \
-		--values $(E2E_K3D_DIR)/values-bp.yaml \
+		--namespace $(E2E_WP_NS) --create-namespace \
+		--values $(E2E_K3D_DIR)/values-wp.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)
-	$(E2E_KUBECTL) wait -n $(E2E_BP_NS) \
+	$(E2E_KUBECTL) wait -n $(E2E_WP_NS) \
 		--for=condition=available --timeout=$(E2E_SETUP_TIMEOUT) deployment --all
 
 .PHONY: _e2e.install-op
@@ -304,10 +304,10 @@ _e2e.configure-dp:
 	@$(call log_info, Creating internal gateway)
 	$(E2E_KUBECTL) apply -f $(E2E_K3D_DIR)/internal-gateway.yaml
 
-.PHONY: _e2e.configure-bp
-_e2e.configure-bp:
-	@$(call log_info, Registering BuildPlane)
-	$(call e2e_register_plane,$(E2E_BP_NS),$(E2E_K3D_DIR)/buildplane.yaml)
+.PHONY: _e2e.configure-wp
+_e2e.configure-wp:
+	@$(call log_info, Registering WorkflowPlane)
+	$(call e2e_register_plane,$(E2E_WP_NS),$(E2E_K3D_DIR)/workflowplane.yaml)
 
 .PHONY: _e2e.configure-op
 _e2e.configure-op:
@@ -320,7 +320,7 @@ _e2e.link-observability:
 	$(E2E_KUBECTL) patch dataplane default -n default --type merge \
 		-p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
 	@if [ "$(E2E_WITH_BUILD)" = "true" ]; then \
-		$(E2E_KUBECTL) patch buildplane default -n default --type merge \
+		$(E2E_KUBECTL) patch workflowplane default -n default --type merge \
 			-p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'; \
 	fi
 
@@ -346,10 +346,10 @@ e2e.status: ## Check status of all planes and agent connections
 	@$(E2E_KUBECTL) get pods -A
 	@echo ""
 	@echo "=== Plane Resources ==="
-	@$(E2E_KUBECTL) get dataplane,buildplane,observabilityplane -n default 2>/dev/null || true
+	@$(E2E_KUBECTL) get dataplane,workflowplane,observabilityplane -n default 2>/dev/null || true
 	@echo ""
 	@echo "=== Agent Connections ==="
-	@for ns in $(E2E_DP_NS) $(E2E_BP_NS) $(E2E_OP_NS); do \
+	@for ns in $(E2E_DP_NS) $(E2E_WP_NS) $(E2E_OP_NS); do \
 		echo "--- $$ns ---"; \
 		$(E2E_KUBECTL) logs -n $$ns -l app=cluster-agent --tail=3 2>/dev/null || echo "(no agent)"; \
 	done
@@ -358,14 +358,14 @@ e2e.status: ## Check status of all planes and agent connections
 e2e.diagnostics: ## Collect logs, events, and resource dumps from all namespaces
 	@$(call log_info, Collecting diagnostics to $(E2E_DIAGNOSTICS_DIR))
 	@mkdir -p $(E2E_DIAGNOSTICS_DIR)
-	@for ns in $(E2E_CP_NS) $(E2E_DP_NS) $(E2E_BP_NS) $(E2E_OP_NS) default; do \
+	@for ns in $(E2E_CP_NS) $(E2E_DP_NS) $(E2E_WP_NS) $(E2E_OP_NS) default; do \
 		$(E2E_KUBECTL) get pods -n $$ns -o wide > $(E2E_DIAGNOSTICS_DIR)/pods-$$ns.txt 2>&1 || true; \
 		$(E2E_KUBECTL) get events -n $$ns --sort-by=.lastTimestamp > $(E2E_DIAGNOSTICS_DIR)/events-$$ns.txt 2>&1 || true; \
 		for pod in $$($(E2E_KUBECTL) get pods -n $$ns -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do \
 			$(E2E_KUBECTL) logs $$pod -n $$ns --all-containers --tail=200 > $(E2E_DIAGNOSTICS_DIR)/logs-$$ns-$$pod.txt 2>&1 || true; \
 		done; \
 	done
-	@$(E2E_KUBECTL) get dataplane,buildplane,observabilityplane -n default -o yaml > $(E2E_DIAGNOSTICS_DIR)/plane-resources.yaml 2>&1 || true
+	@$(E2E_KUBECTL) get dataplane,workflowplane,observabilityplane -n default -o yaml > $(E2E_DIAGNOSTICS_DIR)/plane-resources.yaml 2>&1 || true
 	@$(E2E_KUBECTL) get component,componentrelease,releasebinding,release -A -o yaml > $(E2E_DIAGNOSTICS_DIR)/release-chain.yaml 2>&1 || true
 	@$(call log_success, Diagnostics collected to $(E2E_DIAGNOSTICS_DIR))
 

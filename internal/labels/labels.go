@@ -13,7 +13,7 @@ const (
 	LabelKeyEnvironmentName = "openchoreo.dev/environment"
 	LabelKeyName            = "openchoreo.dev/name"
 	LabelKeyDataPlaneName   = "openchoreo.dev/dataplane"
-	LabelKeyBuildPlane      = "openchoreo.dev/build-plane"
+	LabelKeyWorkflowPlane   = "openchoreo.dev/workflow-plane"
 
 	LabelKeyProjectUID     = "openchoreo.dev/project-uid"
 	LabelKeyComponentUID   = "openchoreo.dev/component-uid"

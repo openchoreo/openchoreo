@@ -538,18 +538,18 @@ func (t *Toolsets) RegisterCreateClusterDataPlane(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListClusterBuildPlanes(s *mcp.Server) {
+func (t *Toolsets) RegisterListClusterWorkflowPlanes(s *mcp.Server) {
 	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
 	if !ok {
 		return
 	}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_buildplanes",
-		Description: "List all cluster-scoped build planes. These are shared build infrastructure managed by " +
+		Name: "list_cluster_workflowplanes",
+		Description: "List all cluster-scoped workflow planes. These are shared workflow infrastructure managed by " +
 			"platform admins, not scoped to any namespace.",
 		InputSchema: createSchema(map[string]any{}, nil),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
-		result, err := cp.ListClusterBuildPlanes(ctx)
+		result, err := cp.ListClusterWorkflowPlanes(ctx)
 		return handleToolResult(result, err)
 	})
 }

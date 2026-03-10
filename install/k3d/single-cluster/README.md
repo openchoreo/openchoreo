@@ -217,12 +217,12 @@ $(echo "$AGENT_CA" | sed 's/^/        /')
 EOF
 ```
 
-## 6. Setup Build Plane (Optional)
+## 6. Setup Workflow Plane (Optional)
 
 ### Namespace and Certificates
 
 ```bash
-kubectl create namespace openchoreo-build-plane --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace openchoreo-workflow-plane --dry-run=client -o yaml | kubectl apply -f -
 
 # Copy cluster-gateway CA (public cert only) so the agent can verify the gateway server
 CA_CRT=$(kubectl get configmap cluster-gateway-ca \
@@ -230,7 +230,7 @@ CA_CRT=$(kubectl get configmap cluster-gateway-ca \
 
 kubectl create configmap cluster-gateway-ca \
   --from-literal=ca.crt="$CA_CRT" \
-  -n openchoreo-build-plane \
+  -n openchoreo-workflow-plane \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
@@ -241,18 +241,18 @@ helm repo add twuni https://twuni.github.io/docker-registry.helm
 helm repo update
 
 helm install registry twuni/docker-registry \
-  --namespace openchoreo-build-plane \
+  --namespace openchoreo-workflow-plane \
   --create-namespace \
   --values install/k3d/single-cluster/values-registry.yaml
 ```
 
-### Install Build Plane
+### Install Workflow Plane
 
 ```bash
-helm upgrade --install openchoreo-build-plane install/helm/openchoreo-build-plane \
+helm upgrade --install openchoreo-workflow-plane install/helm/openchoreo-workflow-plane \
   --dependency-update \
-  --namespace openchoreo-build-plane \
-  --values install/k3d/single-cluster/values-bp.yaml
+  --namespace openchoreo-workflow-plane \
+  --values install/k3d/single-cluster/values-wp.yaml
 ```
 
 ### Workflow Templates
@@ -275,15 +275,15 @@ Pre-populates the local registry with buildpack images so Ballerina and Google C
 kubectl apply -f install/k3d/common/push-buildpack-cache-images.yaml
 ```
 
-### Register Build Plane
+### Register Workflow Plane
 
 ```bash
 AGENT_CA=$(kubectl get secret cluster-agent-tls \
-  -n openchoreo-build-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
+  -n openchoreo-workflow-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
 
 kubectl apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
-kind: BuildPlane
+kind: WorkflowPlane
 metadata:
   name: default
   namespace: default
@@ -372,8 +372,8 @@ EOF
 kubectl patch dataplane default -n default --type merge \
   -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
 
-# If build plane is installed:
-kubectl patch buildplane default -n default --type merge \
+# If workflow plane is installed:
+kubectl patch workflowplane default -n default --type merge \
   -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
 ```
 
@@ -412,15 +412,15 @@ All ports are mapped 1:1 (host:container) unless noted.
 # All pods
 kubectl get pods -n openchoreo-control-plane
 kubectl get pods -n openchoreo-data-plane
-kubectl get pods -n openchoreo-build-plane
+kubectl get pods -n openchoreo-workflow-plane
 kubectl get pods -n openchoreo-observability-plane
 
 # Plane resources
-kubectl get dataplane,buildplane,observabilityplane -n default
+kubectl get dataplane,workflowplane,observabilityplane -n default
 
 # Agent connections
 kubectl logs -n openchoreo-data-plane -l app=cluster-agent --tail=5
-kubectl logs -n openchoreo-build-plane -l app=cluster-agent --tail=5
+kubectl logs -n openchoreo-workflow-plane -l app=cluster-agent --tail=5
 kubectl logs -n openchoreo-observability-plane -l app=cluster-agent --tail=5
 ```
 
@@ -435,7 +435,7 @@ install/k3d/preload-images.sh \
   --local-charts \
   --control-plane --cp-values install/k3d/single-cluster/values-cp.yaml \
   --data-plane --dp-values install/k3d/single-cluster/values-dp.yaml \
-  --build-plane --bp-values install/k3d/single-cluster/values-bp.yaml \
+  --workflow-plane --wp-values install/k3d/single-cluster/values-wp.yaml \
   --observability-plane --op-values install/k3d/single-cluster/values-op.yaml \
   --parallel 4
 ```

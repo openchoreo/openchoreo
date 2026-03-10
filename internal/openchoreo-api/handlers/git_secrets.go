@@ -87,12 +87,12 @@ func (h *Handler) CreateGitSecret(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusConflict, "Git secret already exists", services.CodeGitSecretExists)
 			return
 		}
-		if errors.Is(err, services.ErrBuildPlaneNotFound) {
-			writeErrorResponse(w, http.StatusNotFound, "Build plane not found", services.CodeBuildPlaneNotFound)
+		if errors.Is(err, services.ErrWorkflowPlaneNotFound) {
+			writeErrorResponse(w, http.StatusNotFound, "Workflow plane not found", services.CodeWorkflowPlaneNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrSecretStoreNotConfigured) {
-			writeErrorResponse(w, http.StatusInternalServerError, "Build plane secret store is not configured", services.CodeSecretStoreNotConfigured)
+			writeErrorResponse(w, http.StatusInternalServerError, "Workflow plane secret store is not configured", services.CodeSecretStoreNotConfigured)
 			return
 		}
 		h.logger.Error("Failed to create git secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
@@ -132,8 +132,8 @@ func (h *Handler) DeleteGitSecret(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusNotFound, "Git secret not found", services.CodeGitSecretNotFound)
 			return
 		}
-		if errors.Is(err, services.ErrBuildPlaneNotFound) {
-			writeErrorResponse(w, http.StatusNotFound, "Build plane not found", services.CodeBuildPlaneNotFound)
+		if errors.Is(err, services.ErrWorkflowPlaneNotFound) {
+			writeErrorResponse(w, http.StatusNotFound, "Workflow plane not found", services.CodeWorkflowPlaneNotFound)
 			return
 		}
 		h.logger.Error("Failed to delete git secret", "error", err, "namespace", namespaceName, "secret", secretName)

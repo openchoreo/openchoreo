@@ -29,7 +29,7 @@ flowchart TB
 
 ## Prerequisites
 
-- OpenChoreo installed with build plane
+- OpenChoreo installed with workflow plane
 - ClusterSecretStore configured (comes with OpenChoreo installation)
 - GitOps repository with OpenChoreo manifests
 > [!NOTE]
@@ -137,7 +137,7 @@ spec:
 # Watch the WorkflowRun status
 kubectl get workflowrun bulk-release-all-001 -w
 
-# View Argo Workflow status in the build plane
+# View Argo Workflow status in the workflow plane
 kubectl get workflow -n openchoreo-ci-default
 
 # View logs for a specific step

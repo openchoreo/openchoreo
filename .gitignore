@@ -38,7 +38,7 @@ go.work
 # Log files
 *.log
 test/e2e/_diagnostics/events-default.txt
-test/e2e/_diagnostics/events-openchoreo-build-plane.txt
+test/e2e/_diagnostics/events-openchoreo-workflow-plane.txt
 test/e2e/_diagnostics/events-openchoreo-control-plane.txt
 test/e2e/_diagnostics/events-openchoreo-data-plane.txt
 test/e2e/_diagnostics/events-openchoreo-observability-plane.txt
@@ -53,7 +53,7 @@ test/e2e/_diagnostics/logs-openchoreo-data-plane-gateway-default-6c85bc46fb-dhvg
 test/e2e/_diagnostics/logs-openchoreo-data-plane-gateway-internal-7659b5b848-4sqkc.txt
 test/e2e/_diagnostics/plane-resources.yaml
 test/e2e/_diagnostics/pods-default.txt
-test/e2e/_diagnostics/pods-openchoreo-build-plane.txt
+test/e2e/_diagnostics/pods-openchoreo-workflow-plane.txt
 test/e2e/_diagnostics/pods-openchoreo-control-plane.txt
 test/e2e/_diagnostics/pods-openchoreo-data-plane.txt
 test/e2e/_diagnostics/pods-openchoreo-observability-plane.txt

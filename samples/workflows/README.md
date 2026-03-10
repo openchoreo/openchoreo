@@ -15,7 +15,7 @@ This directory contains Workflow definitions for OpenChoreo. Workflows use the s
 
 ## CI Workflows (`ci/`)
 
-CI workflows are tied to the Component lifecycle. They define build strategies (Docker, Buildpacks, etc.) and integrate with the Build Plane for automated container image creation.
+CI workflows are tied to the Component lifecycle. They define build strategies (Docker, Buildpacks, etc.) and integrate with the Workflow Plane for automated container image creation.
 
 **Use these when:** you need to build and containerize a Component from source code.
 

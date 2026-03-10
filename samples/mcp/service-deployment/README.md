@@ -11,7 +11,7 @@ Additionally, for service deployment you need:
 1. **OpenChoreo instance** with at least two environments configured (development and production)
    - If you need to create environments, see the [platform configuration samples](../../platform-config/new-environments/)
 2. **Component workflows** configured (Docker or Buildpacks)
-   - Make sure you've installed the build plane. See [Setup Build Plane](https://openchoreo.dev/docs/getting-started/production/single-cluster/#step-3-setup-build-plane-optional) guide.
+   - Make sure you've installed the workflow plane. See [Setup Workflow Plane](https://openchoreo.dev/docs/getting-started/production/single-cluster/#step-3-setup-workflow-plane-optional) guide.
 
 ## Deployment Guides
 

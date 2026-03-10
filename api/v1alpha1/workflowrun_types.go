@@ -52,7 +52,7 @@ type WorkflowRunConfig struct {
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
-// ResourceReference tracks a resource applied to the build plane cluster for cleanup purposes.
+// ResourceReference tracks a resource applied to the workflow plane cluster for cleanup purposes.
 type ResourceReference struct {
 	// APIVersion is the API version of the resource (e.g., "v1", "apps/v1").
 	// +kubebuilder:validation:Required
@@ -64,12 +64,12 @@ type ResourceReference struct {
 	// +kubebuilder:validation:MinLength=1
 	Kind string `json:"kind"`
 
-	// Name is the name of the resource in the build plane cluster.
+	// Name is the name of the resource in the workflow plane cluster.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
-	// Namespace is the namespace of the resource in the build plane cluster.
+	// Namespace is the namespace of the resource in the workflow plane cluster.
 	// Empty for cluster-scoped resources.
 	// +optional
 	Namespace string `json:"namespace,omitempty"`

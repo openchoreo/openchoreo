@@ -19,13 +19,13 @@ const (
 )
 
 const (
-	ReasonWorkflowPending            controller.ConditionReason = "WorkflowPending"
-	ReasonWorkflowRunning            controller.ConditionReason = "WorkflowRunning"
-	ReasonWorkflowSucceeded          controller.ConditionReason = "WorkflowSucceeded"
-	ReasonWorkflowFailed             controller.ConditionReason = "WorkflowFailed"
-	ReasonBuildPlaneNotFound         controller.ConditionReason = "BuildPlaneNotFound"
-	ReasonBuildPlaneResolutionFailed controller.ConditionReason = "BuildPlaneResolutionFailed"
-	ReasonWorkflowResolutionFailed   controller.ConditionReason = "WorkflowResolutionFailed"
+	ReasonWorkflowPending               controller.ConditionReason = "WorkflowPending"
+	ReasonWorkflowRunning               controller.ConditionReason = "WorkflowRunning"
+	ReasonWorkflowSucceeded             controller.ConditionReason = "WorkflowSucceeded"
+	ReasonWorkflowFailed                controller.ConditionReason = "WorkflowFailed"
+	ReasonWorkflowPlaneNotFound         controller.ConditionReason = "WorkflowPlaneNotFound"
+	ReasonWorkflowPlaneResolutionFailed controller.ConditionReason = "WorkflowPlaneResolutionFailed"
+	ReasonWorkflowResolutionFailed      controller.ConditionReason = "WorkflowResolutionFailed"
 )
 
 func setWorkflowPendingCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
@@ -96,22 +96,22 @@ func setWorkflowFailedCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
 	})
 }
 
-func setBuildPlaneNotFoundCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
+func setWorkflowPlaneNotFoundCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
 	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
 		Type:               string(ConditionWorkflowCompleted),
 		Status:             metav1.ConditionFalse,
-		Reason:             string(ReasonBuildPlaneNotFound),
-		Message:            "No build plane found for the project associated with this workflow run",
+		Reason:             string(ReasonWorkflowPlaneNotFound),
+		Message:            "No workflow plane found for the project associated with this workflow run",
 		ObservedGeneration: workflowRun.Generation,
 	})
 }
 
-func setBuildPlaneResolutionFailedCondition(workflowRun *openchoreov1alpha1.WorkflowRun, err error) {
+func setWorkflowPlaneResolutionFailedCondition(workflowRun *openchoreov1alpha1.WorkflowRun, err error) {
 	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
 		Type:               string(ConditionWorkflowCompleted),
 		Status:             metav1.ConditionFalse,
-		Reason:             string(ReasonBuildPlaneResolutionFailed),
-		Message:            "Failed to resolve build plane: " + err.Error(),
+		Reason:             string(ReasonWorkflowPlaneResolutionFailed),
+		Message:            "Failed to resolve workflow plane: " + err.Error(),
 		ObservedGeneration: workflowRun.Generation,
 	})
 }

@@ -42,7 +42,7 @@ var (
 	ErrForbidden                     = errors.New("insufficient permissions to perform this action")
 	ErrDuplicateTraitInstanceName    = errors.New("duplicate trait instance name")
 	ErrInvalidTraitInstance          = errors.New("invalid trait instance")
-	ErrBuildPlaneNotFound            = errors.New("build plane not found")
+	ErrWorkflowPlaneNotFound         = errors.New("workflow plane not found")
 	ErrClusterDataPlaneNotFound      = errors.New("cluster dataplane not found")
 	ErrClusterDataPlaneAlreadyExists = errors.New("cluster dataplane already exists")
 	ErrClusterComponentTypeNotFound  = errors.New("cluster component type not found")
@@ -101,7 +101,7 @@ const (
 	CodeInvalidParams                = "INVALID_PARAMS"
 	CodeDuplicateTraitInstanceName   = "DUPLICATE_TRAIT_INSTANCE_NAME"
 	CodeInvalidTraitInstance         = "INVALID_TRAIT_INSTANCE"
-	CodeBuildPlaneNotFound           = "BUILDPLANE_NOT_FOUND"
+	CodeWorkflowPlaneNotFound        = "WORKFLOWPLANE_NOT_FOUND"
 	CodeClusterDataPlaneNotFound     = "CLUSTER_DATAPLANE_NOT_FOUND"
 	CodeClusterDataPlaneExists       = "CLUSTER_DATAPLANE_EXISTS"
 	CodeClusterComponentTypeNotFound = "CLUSTER_COMPONENT_TYPE_NOT_FOUND"

@@ -215,8 +215,8 @@ type ObservabilityPlaneRef struct {
 	Name string `json:"name"`
 }
 
-// BuildPlaneResponse represents a buildplane in API responses
-type BuildPlaneResponse struct {
+// WorkflowPlaneResponse represents a workflow plane in API responses
+type WorkflowPlaneResponse struct {
 	Name                  string                         `json:"name"`
 	Namespace             string                         `json:"namespace"`
 	DisplayName           string                         `json:"displayName,omitempty"`
@@ -515,8 +515,8 @@ type ClusterDataPlaneListResult struct {
 	RemainingCount *int64
 }
 
-// ClusterBuildPlaneResponse represents a cluster-scoped buildplane in API responses
-type ClusterBuildPlaneResponse struct {
+// ClusterWorkflowPlaneResponse represents a cluster-scoped workflow plane in API responses
+type ClusterWorkflowPlaneResponse struct {
 	Name                  string                         `json:"name"`
 	PlaneID               string                         `json:"planeID"`
 	DisplayName           string                         `json:"displayName,omitempty"`
@@ -561,7 +561,7 @@ type GitSecretResponse struct {
 type WorkflowRunStatusResponse struct {
 	Status               string               `json:"status"`               // Overall workflow status (Pending/Running/Completed/Failed)
 	Steps                []WorkflowStepStatus `json:"steps"`                // Array of step-level statuses
-	HasLiveObservability bool                 `json:"hasLiveObservability"` // Whether the workflow run has live observability (logs/events from build plane)
+	HasLiveObservability bool                 `json:"hasLiveObservability"` // Whether the workflow run has live observability (logs/events from workflow plane)
 }
 
 // WorkflowStepStatus represents the status of an individual workflow step

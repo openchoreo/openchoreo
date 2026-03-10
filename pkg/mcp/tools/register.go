@@ -102,9 +102,9 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterListDataPlanes,
 		t.RegisterGetDataPlane,
 
-		// BuildPlane read
-		t.RegisterListBuildPlanes,
-		t.RegisterGetBuildPlane,
+		// WorkflowPlane read
+		t.RegisterListWorkflowPlanes,
+		t.RegisterGetWorkflowPlane,
 
 		// ObservabilityPlane read
 		t.RegisterListObservabilityPlanes,
@@ -113,7 +113,7 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		// Cluster-scoped plane read
 		t.RegisterListClusterDataPlanes,
 		t.RegisterGetClusterDataPlane,
-		t.RegisterListClusterBuildPlanes,
+		t.RegisterListClusterWorkflowPlanes,
 		t.RegisterListClusterObservabilityPlanes,
 
 		// Platform standards read (namespace-scoped)

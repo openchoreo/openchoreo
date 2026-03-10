@@ -1,0 +1,31 @@
+{{- if .Values.clusterAgent.tls.enabled }}
+{{- if .Values.clusterAgent.tls.generateCerts }}
+---
+# Self-signed issuer for multi-cluster setups where each plane generates its own CA
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "openchoreo-workflow-plane.clusterAgent.name" . }}-selfsigned-issuer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-workflow-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-agent
+spec:
+  selfSigned: {}
+{{- else }}
+---
+# CA Issuer that uses the cluster gateway CA from control plane
+# The CA secret must be copied to this namespace first
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "openchoreo-workflow-plane.clusterAgent.name" . }}-ca-issuer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-workflow-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-agent
+spec:
+  ca:
+    secretName: {{ .Values.clusterAgent.tls.caSecretName }}
+{{- end }}
+{{- end }}

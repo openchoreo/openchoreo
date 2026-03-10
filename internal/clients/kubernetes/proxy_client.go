@@ -37,7 +37,7 @@ type ProxyClient struct {
 	scheme      *runtime.Scheme
 }
 
-// NewProxyClient creates a new proxy client for accessing a data plane or build plane through the cluster gateway
+// NewProxyClient creates a new proxy client for accessing a data plane or workflow plane through the cluster gateway
 // planeIdentifier format: "planeType/planeID" (e.g., "dataplane/prod-cluster")
 func NewProxyClient(gatewayURL, planeIdentifier string, crNamespace, crName string, tlsConfig *ProxyTLSConfig) (client.Client, error) {
 	if gatewayURL == "" {

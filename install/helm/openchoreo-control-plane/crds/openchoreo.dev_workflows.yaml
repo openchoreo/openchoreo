@@ -40,28 +40,6 @@ spec:
           spec:
             description: spec defines the desired state of Workflow
             properties:
-              buildPlaneRef:
-                description: |-
-                  BuildPlaneRef references the BuildPlane or ClusterBuildPlane for this workflow's build operations.
-                  If not specified, the controller resolves the build plane in the following order:
-                  1. BuildPlane named "default" in the same namespace
-                  2. ClusterBuildPlane named "default" (cluster-scoped fallback)
-                properties:
-                  kind:
-                    description: Kind is the kind of build plane (BuildPlane or ClusterBuildPlane)
-                    enum:
-                    - BuildPlane
-                    - ClusterBuildPlane
-                    type: string
-                  name:
-                    description: Name is the name of the build plane resource
-                    maxLength: 63
-                    minLength: 1
-                    type: string
-                required:
-                - kind
-                - name
-                type: object
               externalRefs:
                 description: |-
                   ExternalRefs declares references to external CRs that are resolved at runtime
@@ -184,6 +162,29 @@ spec:
                   If empty, workflow runs are not automatically deleted.
                 pattern: ^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$
                 type: string
+              workflowPlaneRef:
+                description: |-
+                  WorkflowPlaneRef references the WorkflowPlane or ClusterWorkflowPlane for this workflow's operations.
+                  If not specified, the controller resolves the workflow plane in the following order:
+                  1. WorkflowPlane named "default" in the same namespace
+                  2. ClusterWorkflowPlane named "default" (cluster-scoped fallback)
+                properties:
+                  kind:
+                    description: Kind is the kind of workflow plane (WorkflowPlane
+                      or ClusterWorkflowPlane)
+                    enum:
+                    - WorkflowPlane
+                    - ClusterWorkflowPlane
+                    type: string
+                  name:
+                    description: Name is the name of the workflow plane resource
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
             required:
             - runTemplate
             type: object

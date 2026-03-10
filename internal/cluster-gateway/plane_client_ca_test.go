@@ -77,9 +77,9 @@ func TestDataPlaneInfo(t *testing.T) {
 		},
 		{
 			name: "wrong type returns false",
-			obj: &openchoreov1alpha1.BuildPlane{
+			obj: &openchoreov1alpha1.WorkflowPlane{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "bp",
+					Name:      "wp",
 					Namespace: "test-ns",
 				},
 			},
@@ -150,8 +150,8 @@ func TestClusterDataPlaneInfo(t *testing.T) {
 	}
 }
 
-// TestClusterBuildPlaneInfo tests the clusterBuildPlaneInfo extractor function
-func TestClusterBuildPlaneInfo(t *testing.T) {
+// TestClusterWorkflowPlaneInfo tests the clusterWorkflowPlaneInfo extractor function
+func TestClusterWorkflowPlaneInfo(t *testing.T) {
 	tests := []struct {
 		name            string
 		obj             client.Object
@@ -161,25 +161,25 @@ func TestClusterBuildPlaneInfo(t *testing.T) {
 		expectedPlaneID string
 	}{
 		{
-			name: "valid ClusterBuildPlane",
-			obj: &openchoreov1alpha1.ClusterBuildPlane{
+			name: "valid ClusterWorkflowPlane",
+			obj: &openchoreov1alpha1.ClusterWorkflowPlane{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "shared-bp",
+					Name: "shared-wp",
 				},
-				Spec: openchoreov1alpha1.ClusterBuildPlaneSpec{
-					PlaneID: "shared-build-plane",
+				Spec: openchoreov1alpha1.ClusterWorkflowPlaneSpec{
+					PlaneID: "shared-workflow-plane",
 				},
 			},
 			expectOK:        true,
-			expectedName:    "shared-bp",
+			expectedName:    "shared-wp",
 			expectedNS:      "", // Cluster-scoped has empty namespace
-			expectedPlaneID: "shared-build-plane",
+			expectedPlaneID: "shared-workflow-plane",
 		},
 		{
 			name: "wrong type returns false",
-			obj: &openchoreov1alpha1.BuildPlane{
+			obj: &openchoreov1alpha1.WorkflowPlane{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "bp",
+					Name:      "wp",
 					Namespace: "test-ns",
 				},
 			},
@@ -189,7 +189,7 @@ func TestClusterBuildPlaneInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			info, ok := clusterBuildPlaneInfo(tt.obj)
+			info, ok := clusterWorkflowPlaneInfo(tt.obj)
 			assert.Equal(t, tt.expectOK, ok)
 			if tt.expectOK {
 				assert.Equal(t, tt.expectedName, info.name)
@@ -276,10 +276,10 @@ func TestExtractListItems(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "BuildPlaneList with items",
-			list: &openchoreov1alpha1.BuildPlaneList{
-				Items: []openchoreov1alpha1.BuildPlane{
-					{ObjectMeta: metav1.ObjectMeta{Name: "bp1"}},
+			name: "WorkflowPlaneList with items",
+			list: &openchoreov1alpha1.WorkflowPlaneList{
+				Items: []openchoreov1alpha1.WorkflowPlane{
+					{ObjectMeta: metav1.ObjectMeta{Name: "wp1"}},
 				},
 			},
 			expectedLen: 1,
@@ -308,10 +308,10 @@ func TestExtractListItems(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "ClusterBuildPlaneList with items",
-			list: &openchoreov1alpha1.ClusterBuildPlaneList{
-				Items: []openchoreov1alpha1.ClusterBuildPlane{
-					{ObjectMeta: metav1.ObjectMeta{Name: "cbp1"}},
+			name: "ClusterWorkflowPlaneList with items",
+			list: &openchoreov1alpha1.ClusterWorkflowPlaneList{
+				Items: []openchoreov1alpha1.ClusterWorkflowPlane{
+					{ObjectMeta: metav1.ObjectMeta{Name: "cwp1"}},
 				},
 			},
 			expectedLen: 1,
@@ -574,8 +574,8 @@ func TestGetAllPlaneClientCAs_NoMatchingPlaneID(t *testing.T) {
 	assert.Len(t, result, 0)
 }
 
-// TestGetAllPlaneClientCAs_BuildPlane tests getAllPlaneClientCAs for buildplane type
-func TestGetAllPlaneClientCAs_BuildPlane(t *testing.T) {
+// TestGetAllPlaneClientCAs_WorkflowPlane tests getAllPlaneClientCAs for workflowplane type
+func TestGetAllPlaneClientCAs_WorkflowPlane(t *testing.T) {
 	scheme := testScheme()
 
 	nsCASecret := &corev1.Secret{
@@ -598,12 +598,12 @@ func TestGetAllPlaneClientCAs_BuildPlane(t *testing.T) {
 		},
 	}
 
-	buildPlane := &openchoreov1alpha1.BuildPlane{
+	workflowPlane := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "build-plane",
+			Name:      "workflow-plane",
 			Namespace: "build-ns",
 		},
-		Spec: openchoreov1alpha1.BuildPlaneSpec{
+		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			PlaneID: "ci-cluster",
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
 				ClientCA: openchoreov1alpha1.ValueFrom{
@@ -616,11 +616,11 @@ func TestGetAllPlaneClientCAs_BuildPlane(t *testing.T) {
 		},
 	}
 
-	clusterBuildPlane := &openchoreov1alpha1.ClusterBuildPlane{
+	clusterWorkflowPlane := &openchoreov1alpha1.ClusterWorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "shared-build",
 		},
-		Spec: openchoreov1alpha1.ClusterBuildPlaneSpec{
+		Spec: openchoreov1alpha1.ClusterWorkflowPlaneSpec{
 			PlaneID: "ci-cluster",
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
 				ClientCA: openchoreov1alpha1.ValueFrom{
@@ -636,7 +636,7 @@ func TestGetAllPlaneClientCAs_BuildPlane(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(nsCASecret, clusterCASecret, buildPlane, clusterBuildPlane).
+		WithObjects(nsCASecret, clusterCASecret, workflowPlane, clusterWorkflowPlane).
 		Build()
 
 	server := &Server{
@@ -644,11 +644,11 @@ func TestGetAllPlaneClientCAs_BuildPlane(t *testing.T) {
 		logger:    testLogger(),
 	}
 
-	result, err := server.getAllPlaneClientCAs(planeTypeBuildPlane, "ci-cluster")
+	result, err := server.getAllPlaneClientCAs(planeTypeWorkflowPlane, "ci-cluster")
 	require.NoError(t, err)
 
 	assert.Len(t, result, 2)
-	assert.Contains(t, result, "build-ns/build-plane")
+	assert.Contains(t, result, "build-ns/workflow-plane")
 	assert.Contains(t, result, "/shared-build")
 }
 

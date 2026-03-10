@@ -31,7 +31,7 @@ options:
         nodeFilters:
           - server:*
 # Configure insecure registries for HTTP access
-# Allows kubelet to pull images from Build Plane registry via HTTP
+# Allows kubelet to pull images from Workflow Plane registry via HTTP
 registries:
   config: |
     mirrors:

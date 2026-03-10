@@ -289,13 +289,13 @@ func (t *Toolsets) RegisterGetDataPlane(s *mcp.Server) {
 }
 
 // ---------------------------------------------------------------------------
-// PE Toolset — BuildPlane read
+// PE Toolset — WorkflowPlane read
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterListBuildPlanes(s *mcp.Server) {
+func (t *Toolsets) RegisterListWorkflowPlanes(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_buildplanes",
-		Description: "List all build planes in a namespace. Build planes are infrastructure that handles " +
+		Name: "list_workflowplanes",
+		Description: "List all workflow planes in a namespace. Workflow planes are infrastructure that handles " +
 			"continuous integration and container image building. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
 			"namespace_name": defaultStringProperty(),
@@ -305,26 +305,26 @@ func (t *Toolsets) RegisterListBuildPlanes(s *mcp.Server) {
 		Limit         int    `json:"limit,omitempty"`
 		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListBuildPlanes(
+		result, err := t.PEToolset.ListWorkflowPlanes(
 			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
 
-func (t *Toolsets) RegisterGetBuildPlane(s *mcp.Server) {
+func (t *Toolsets) RegisterGetWorkflowPlane(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_buildplane",
-		Description: "Get detailed information about a build plane including cluster details, health status, " +
+		Name: "get_workflowplane",
+		Description: "Get detailed information about a workflow plane including cluster details, health status, " +
 			"and agent connection state.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"bp_name":        stringProperty("Use list_buildplanes to discover valid names"),
-		}, []string{"namespace_name", "bp_name"}),
+			"wp_name":        stringProperty("Use list_workflowplanes to discover valid names"),
+		}, []string{"namespace_name", "wp_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		BpName        string `json:"bp_name"`
+		WpName        string `json:"wp_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetBuildPlane(ctx, args.NamespaceName, args.BpName)
+		result, err := t.PEToolset.GetWorkflowPlane(ctx, args.NamespaceName, args.WpName)
 		return handleToolResult(result, err)
 	})
 }
@@ -406,17 +406,17 @@ func (t *Toolsets) RegisterGetClusterDataPlane(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListClusterBuildPlanes(s *mcp.Server) {
+func (t *Toolsets) RegisterListClusterWorkflowPlanes(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_buildplanes",
-		Description: "List all cluster-scoped build planes. These are shared build infrastructure managed by " +
+		Name: "list_cluster_workflowplanes",
+		Description: "List all cluster-scoped workflow planes. These are shared workflow infrastructure managed by " +
 			"platform admins, not scoped to any namespace. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		Limit  int    `json:"limit,omitempty"`
 		Cursor string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListClusterBuildPlanes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		result, err := t.PEToolset.ListClusterWorkflowPlanes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
@@ -519,7 +519,7 @@ func (t *Toolsets) RegisterPEListWorkflows(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_workflows",
 		Description: "List all workflows in a namespace. Workflows are reusable templates that define " +
-			"automated processes such as CI/CD pipelines executed on the build plane. " +
+			"automated processes such as CI/CD pipelines executed on the workflow plane. " +
 			"Use this to discover available workflow names for use with create_component or create_workflow_run. " +
 			"Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -687,7 +687,7 @@ func (t *Toolsets) RegisterCreateWorkflowRun(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_workflow_run",
 		Description: "Create a new workflow run by specifying a workflow name and optional parameters. " +
-			"Workflows define automated processes like CI/CD pipelines that execute on the build plane.",
+			"Workflows define automated processes like CI/CD pipelines that execute on the workflow plane.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"workflow_name":  stringProperty("Name of the Workflow CR to execute"),
@@ -756,7 +756,7 @@ func (t *Toolsets) RegisterListWorkflows(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_workflows",
 		Description: "List all workflows in a namespace. Workflows are reusable templates that define " +
-			"automated processes such as CI/CD pipelines executed on the build plane. " +
+			"automated processes such as CI/CD pipelines executed on the workflow plane. " +
 			"Use this to discover available workflow names for use with create_component or create_workflow_run. " +
 			"Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{

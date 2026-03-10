@@ -640,7 +640,7 @@ var _ = Describe("ClusterTrait Controller", func() {
 							Version: "v1",
 							Kind:    "Deployment",
 						},
-						TargetPlane: "buildplane",
+						TargetPlane: "workflowplane",
 						Operations: []openchoreov1alpha1.JSONPatchOperation{
 							{
 								Op:   "add",

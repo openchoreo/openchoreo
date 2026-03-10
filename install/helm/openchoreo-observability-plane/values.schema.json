@@ -91,7 +91,7 @@
           "description": "Type of plane this agent serves",
           "enum": [
             "dataplane",
-            "buildplane",
+            "workflowplane",
             "observabilityplane"
           ],
           "required": [],

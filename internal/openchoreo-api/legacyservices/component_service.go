@@ -2326,8 +2326,8 @@ func (s *ComponentService) GetBuildObserverURL(ctx context.Context, namespaceNam
 		return nil, err
 	}
 
-	// 2. Resolve the build plane using the component's workflow BuildPlaneRef
-	var buildPlaneRef *openchoreov1alpha1.BuildPlaneRef
+	// 2. Resolve the workflow plane using the component's workflow WorkflowPlaneRef
+	var workflowPlaneRef *openchoreov1alpha1.WorkflowPlaneRef
 	component := &openchoreov1alpha1.Component{}
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      componentName,
@@ -2341,34 +2341,34 @@ func (s *ComponentService) GetBuildObserverURL(ctx context.Context, namespaceNam
 			return nil, fmt.Errorf("failed to resolve workflow '%s' (kind: %s) for component '%s' in namespace '%s': %w",
 				component.Spec.Workflow.Name, component.Spec.Workflow.Kind, componentName, namespaceName, err)
 		}
-		buildPlaneRef = workflowResult.GetWorkflowSpec().BuildPlaneRef
+		workflowPlaneRef = workflowResult.GetWorkflowSpec().WorkflowPlaneRef
 	}
 
-	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, s.k8sClient, namespaceName, buildPlaneRef)
+	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, s.k8sClient, namespaceName, workflowPlaneRef)
 	if err != nil {
-		s.logger.Error("Failed to get build plane", "error", err, "namespace", namespaceName)
-		return nil, fmt.Errorf("failed to get build plane: %w", err)
+		s.logger.Error("Failed to get workflow plane", "error", err, "namespace", namespaceName)
+		return nil, fmt.Errorf("failed to get workflow plane: %w", err)
 	}
-	if buildPlaneResult == nil {
-		s.logger.Debug("No build plane found", "namespace", namespaceName)
+	if workflowPlaneResult == nil {
+		s.logger.Debug("No workflow plane found", "namespace", namespaceName)
 		return &ComponentObserverResponse{
 			Message: "observability-logs have not been configured",
 		}, nil
 	}
 
-	s.logger.Debug("Found build plane", "name", buildPlaneResult.GetName(), "namespace", namespaceName)
+	s.logger.Debug("Found workflow plane", "name", workflowPlaneResult.GetName(), "namespace", namespaceName)
 
-	// 3. Get ObservabilityPlane via the build plane result
-	observabilityResult, err := buildPlaneResult.GetObservabilityPlane(ctx, s.k8sClient)
+	// 3. Get ObservabilityPlane via the workflow plane result
+	observabilityResult, err := workflowPlaneResult.GetObservabilityPlane(ctx, s.k8sClient)
 	if err != nil {
 		// Only treat NotFound as "not configured" - other errors should be returned upstream
 		if apierrors.IsNotFound(err) {
-			s.logger.Debug("ObservabilityPlane not found for build", "error", err, "buildPlane", buildPlaneResult.GetName())
+			s.logger.Debug("ObservabilityPlane not found for workflow", "error", err, "workflowPlane", workflowPlaneResult.GetName())
 			return &ComponentObserverResponse{
 				Message: "observability-logs have not been configured",
 			}, nil
 		}
-		s.logger.Error("Failed to get observability plane for build", "error", err, "buildPlane", buildPlaneResult.GetName())
+		s.logger.Error("Failed to get observability plane for workflow", "error", err, "workflowPlane", workflowPlaneResult.GetName())
 		return nil, fmt.Errorf("failed to get observability plane: %w", err)
 	}
 

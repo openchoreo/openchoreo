@@ -391,12 +391,12 @@ func infrastructureToolSpecs() []toolTestSpec {
 			},
 		},
 		{
-			name:                "list_cluster_buildplanes",
+			name:                "list_cluster_workflowplanes",
 			toolset:             "infrastructure",
-			descriptionKeywords: []string{"cluster", "build", "plane"},
+			descriptionKeywords: []string{"cluster", "workflow", "plane"},
 			descriptionMinLen:   10,
 			testArgs:            map[string]any{},
-			expectedMethod:      "ListClusterBuildPlanes",
+			expectedMethod:      "ListClusterWorkflowPlanes",
 			validateCall: func(t *testing.T, args []interface{}) {
 				// No arguments to validate
 			},

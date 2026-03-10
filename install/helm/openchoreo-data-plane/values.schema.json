@@ -143,7 +143,7 @@
           "description": "Type of plane this agent manages",
           "enum": [
             "dataplane",
-            "buildplane",
+            "workflowplane",
             "observabilityplane"
           ],
           "required": [],

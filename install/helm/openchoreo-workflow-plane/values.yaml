@@ -1,0 +1,764 @@
+# @schema
+# type: object
+# additionalProperties: false
+# @schema
+
+# @schema
+# type: object
+# description: Global configuration values shared across all components
+# @schema
+global:
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Common labels to add to every resource
+  # @schema
+  commonLabels: {}
+
+# @schema
+# type: object
+# additionalProperties: true
+# description: Argo Workflows sub-chart configuration. See https://github.com/argoproj/argo-helm/tree/main/charts/argo-workflows for all options.
+# @schema
+argo-workflows:
+  # @schema
+  # type: string
+  # description: Override the full name of Argo Workflows resources
+  # default: argo
+  # @schema
+  fullnameOverride: argo
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Argo Workflows controller configuration
+  # @schema
+  controller:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource limits and requests for the argo workflows controller
+    # @schema
+    resources:
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Maximum resources the controller can consume
+      # @schema
+      limits:
+        # @schema
+        # type: string
+        # description: Memory limit for the controller
+        # default: 64Mi
+        # @schema
+        memory: 64Mi
+        # @schema
+        # type: string
+        # description: CPU limit for the controller
+        # default: 50m
+        # @schema
+        cpu: 50m
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Minimum resources guaranteed for the controller
+      # @schema
+      requests:
+        # @schema
+        # type: string
+        # description: Memory request for the controller
+        # default: 32Mi
+        # @schema
+        memory: 32Mi
+        # @schema
+        # type: string
+        # description: CPU request for the controller
+        # default: 25m
+        # @schema
+        cpu: 25m
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Argo Workflows server (UI) configuration
+  # @schema
+  server:
+    # @schema
+    # type: boolean
+    # description: Enable the Argo Workflows server UI
+    # default: false
+    # @schema
+    enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: CRD management configuration
+  # @schema
+  crds:
+    # @schema
+    # type: boolean
+    # description: Keep CRDs on chart uninstall
+    # default: false
+    # @schema
+    keep: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Workflow configuration
+  # @schema
+  workflow:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Service account configuration for workflows
+    # @schema
+    serviceAccount:
+      # @schema
+      # type: boolean
+      # description: Create service account for workflows
+      # default: true
+      # @schema
+      create: true
+
+  # @schema
+  # type: array
+  # description: Namespaces where Argo Workflows can submit workflows
+  # items:
+  #   type: string
+  # @schema
+  workflowNamespaces:
+    - argo-build
+
+# @schema
+# type: object
+# additionalProperties: false
+# description: Wait job configuration for post-install hooks
+# @schema
+waitJob:
+  # @schema
+  # type: string
+  # description: Container image used for wait jobs (must contain kubectl)
+  # default: bitnamilegacy/kubectl:1.32.4
+  # @schema
+  image: bitnamilegacy/kubectl:1.32.4
+
+# @schema
+# type: object
+# additionalProperties: true
+# description: Fluent Bit subchart configuration for log collection and forwarding to OpenSearch
+# @schema
+fluent-bit:
+  # @schema
+  # type: boolean
+  # description: Enable Fluent Bit log collector deployment
+  # default: false
+  # @schema
+  enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Fluent Bit pipeline configuration (parsers, inputs, filters, outputs)
+  # @schema
+  config:
+    # @schema
+    # type: string
+    # description: Custom parser definitions in Fluent Bit configuration format
+    # @schema
+    customParsers: |
+      [PARSER]
+          Name docker_no_time
+          Format json
+          Time_Keep Off
+          Time_Key time
+          Time_Format %Y-%m-%dT%H:%M:%S.%L
+
+    # @schema
+    # type: string
+    # description: Input plugin configuration for log collection
+    # @schema
+    inputs: |
+      [INPUT]
+          Name tail
+          Buffer_Chunk_Size 32KB
+          Buffer_Max_Size 2MB
+          DB /var/lib/fluent-bit/db/tail-container-logs.db
+          Exclude_Path /var/log/containers/fluent-bit-*_openchoreo-workflow-plane_*.log
+          Inotify_Watcher false
+          Mem_Buf_Limit 256MB
+          Path /var/log/containers/*.log
+          multiline.parser docker, cri
+          Read_from_Head On
+          Refresh_Interval 5
+          Skip_Long_Lines On
+          Tag kube.*
+
+    # @schema
+    # type: string
+    # description: Filter plugin configuration for log processing
+    # @schema
+    filters: |
+      [FILTER]
+          Name kubernetes
+          Buffer_Size 32MB
+          K8S-Logging.Parser On
+          K8S-Logging.Exclude On
+          Keep_Log On
+          Match kube.*
+          Merge_Log Off
+          tls.verify Off
+          Use_Kubelet true
+
+    # @schema
+    # type: string
+    # description: Output plugin configuration for log forwarding to OpenSearch
+    # @schema
+    outputs: |
+      [OUTPUT]
+          Name opensearch
+          Host opensearch
+          Generate_ID On
+          HTTP_Passwd ThisIsTheOpenSearchPassword1
+          HTTP_User admin
+          Logstash_Format On
+          Logstash_DateFormat %Y-%m-%d
+          Logstash_Prefix container-logs
+          Match kube.*
+          Port 9200
+          Replace_Dots On
+          Suppress_Type_Name On
+          tls On
+          tls.verify Off
+
+  # @schema
+  # description: DNS policy for Fluent Bit pods
+  # enum: [ClusterFirst, ClusterFirstWithHostNet, Default, None]
+  # default: ClusterFirstWithHostNet
+  # @schema
+  dnsPolicy: ClusterFirstWithHostNet
+
+  # @schema
+  # type: string
+  # description: Override the full name of Fluent Bit resources
+  # default: fluent-bit
+  # @schema
+  fullnameOverride: "fluent-bit"
+
+  # @schema
+  # type: boolean
+  # description: Use host network for Fluent Bit pods (required for node log access)
+  # default: true
+  # @schema
+  hostNetwork: true
+
+  # @schema
+  # type: array
+  # description: Extra volume mounts for the Fluent Bit container
+  # items:
+  #   type: object
+  # @schema
+  extraVolumeMounts:
+  - name: db
+    mountPath: "/var/lib/fluent-bit/db"
+    readOnly: false
+
+  # @schema
+  # type: array
+  # description: Extra volumes for the Fluent Bit pod
+  # items:
+  #   type: object
+  # @schema
+  extraVolumes:
+    - name: db
+      hostPath:
+        path: /var/lib/fluent-bit/db
+        type: DirectoryOrCreate
+
+  # @schema
+  # type: integer
+  # description: Port for Fluent Bit metrics endpoint
+  # minimum: 1
+  # maximum: 65535
+  # default: 2021
+  # @schema
+  metricsPort: 2021
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: RBAC configuration for Fluent Bit
+  # @schema
+  rbac:
+    # @schema
+    # type: boolean
+    # description: Enable node-level access for reading container logs
+    # default: true
+    # @schema
+    nodeAccess: true
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Resource requests and limits for Fluent Bit
+  # @schema
+  resources:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Maximum resources the container can use
+    # @schema
+    limits:
+      # @schema
+      # type: string
+      # description: CPU limit for Fluent Bit
+      # default: 200m
+      # @schema
+      cpu: 200m
+      # @schema
+      # type: string
+      # description: Memory limit for Fluent Bit
+      # default: 256Mi
+      # @schema
+      memory: 256Mi
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Minimum resources guaranteed to the container
+    # @schema
+    requests:
+      # @schema
+      # type: string
+      # description: CPU request for Fluent Bit
+      # default: 100m
+      # @schema
+      cpu: 100m
+      # @schema
+      # type: string
+      # description: Memory request for Fluent Bit
+      # default: 128Mi
+      # @schema
+      memory: 128Mi
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Security context for the Fluent Bit container
+  # @schema
+  securityContext:
+    # @schema
+    # type: boolean
+    # description: Prevent privilege escalation
+    # default: false
+    # @schema
+    allowPrivilegeEscalation: false
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Linux capabilities configuration
+    # @schema
+    capabilities:
+      # @schema
+      # type: array
+      # description: Capabilities to drop
+      # items:
+      #   type: string
+      # @schema
+      drop:
+      - ALL
+    # @schema
+    # type: boolean
+    # description: Mount root filesystem as read-only
+    # default: true
+    # @schema
+    readOnlyRootFilesystem: true
+    # @schema
+    # type: boolean
+    # description: Run container as non-root user
+    # default: true
+    # @schema
+    runAsNonRoot: true
+    # @schema
+    # type: integer
+    # description: User ID to run the container
+    # minimum: 0
+    # default: 10000
+    # @schema
+    runAsUser: 10000
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Service configuration for Fluent Bit
+  # @schema
+  service:
+    # @schema
+    # type: integer
+    # description: Service port for Fluent Bit metrics
+    # minimum: 1
+    # maximum: 65535
+    # default: 2021
+    # @schema
+    port: 2021
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Test framework configuration
+  # @schema
+  testFramework:
+    # @schema
+    # type: boolean
+    # description: Enable Fluent Bit test framework
+    # default: false
+    # @schema
+    enabled: false
+
+  # @schema
+  # type: array
+  # description: Init containers for the Fluent Bit pod (used to set volume ownership)
+  # items:
+  #   type: object
+  # @schema
+  initContainers:
+  - name: set-volume-ownership
+    image: busybox
+    command: ["sh", "-c", "chown -R 10000:10000 /var/lib/fluent-bit/db"]
+    resources:
+      limits:
+        cpu: 15m
+        memory: "32Mi"
+      requests:
+        cpu: 10m
+        memory: "24Mi"
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+      privileged: true
+      readOnlyRootFilesystem: true
+      runAsUser: 0
+    volumeMounts:
+    - name: db
+      mountPath: /var/lib/fluent-bit/db
+
+
+# @schema
+# type: object
+# additionalProperties: true
+# description: Cluster Agent configuration for agent-based communication with control plane
+# @schema
+
+clusterAgent:
+  # @schema
+  # type: string
+  # description: Name of the cluster agent deployment
+  # default: cluster-agent-workflowplane
+  # @schema
+  name: cluster-agent-workflowplane
+
+  # @schema
+  # type: integer
+  # description: Number of cluster agent replicas
+  # default: 1
+  # minimum: 0
+  # @schema
+  replicas: 1
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Cluster agent container image configuration
+  # @schema
+  image:
+    # @schema
+    # type: string
+    # description: Image repository for cluster agent
+    # default: ghcr.io/openchoreo/cluster-agent
+    # @schema
+    repository: ghcr.io/openchoreo/cluster-agent
+
+    # @schema
+    # type: string
+    # description: Image tag. If empty, uses Chart.AppVersion.
+    # @schema
+    tag: ""
+
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
+    pullPolicy: IfNotPresent
+
+  # @schema
+  # type: string
+  # description: WebSocket URL of the cluster gateway in control plane
+  # default: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+  # @schema
+  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+
+  # @schema
+  # type: string
+  # description: Logical plane identifier. Shared across multiple CRs connecting to the same physical plane for multi-tenancy.
+  # default: default
+  # @schema
+  planeID: default
+
+  # @schema
+  # description: Type of plane
+  # enum: [dataplane, workflowplane, observabilityplane]
+  # default: workflowplane
+  # @schema
+  planeType: workflowplane
+
+  # @schema
+  # type: string
+  # description: Heartbeat interval for control plane connection
+  # default: 30s
+  # @schema
+  heartbeatInterval: 30s
+
+  # @schema
+  # type: string
+  # description: Delay before reconnecting on disconnection
+  # default: 5s
+  # @schema
+  reconnectDelay: 5s
+
+  # @schema
+  # description: Log level for cluster agent
+  # enum: [debug, info, warn, error]
+  # default: info
+  # @schema
+  logLevel: info
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Resource requests and limits for cluster agent
+  # @schema
+  resources:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Minimum resources guaranteed
+    # @schema
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Maximum resources the agent can consume
+    # @schema
+    limits:
+      cpu: "100m"
+      memory: "256Mi"
+
+  # @schema
+  # type: object
+  # description: Pod Disruption Budget configuration for cluster agent
+  # @schema
+  podDisruptionBudget:
+    # @schema
+    # type: boolean
+    # description: Enable PodDisruptionBudget for cluster agent
+    # default: false
+    # @schema
+    enabled: false
+    # @schema
+    # type: integer
+    # description: Minimum number of pods that must be available
+    # minimum: 0
+    # default: 1
+    # @schema
+    minAvailable: 1
+    # @schema
+    # type: [integer, "null"]
+    # description: Maximum number of pods that can be unavailable
+    # minimum: 0
+    # @schema
+    maxUnavailable: null
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Service account configuration for cluster agent
+  # @schema
+  serviceAccount:
+    # @schema
+    # type: boolean
+    # description: Create service account
+    # default: true
+    # @schema
+    create: true
+
+    # @schema
+    # type: string
+    # description: Service account name
+    # default: cluster-agent-workflowplane
+    # @schema
+    name: cluster-agent-workflowplane
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Annotations to add to the service account
+    # @schema
+    annotations: {}
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: RBAC configuration for cluster agent
+  # @schema
+  rbac:
+    # @schema
+    # type: boolean
+    # description: Create RBAC resources
+    # default: true
+    # @schema
+    create: true
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Priority class configuration for cluster agent pods
+  # @schema
+  priorityClass:
+    # @schema
+    # type: boolean
+    # description: Create priority class
+    # default: false
+    # @schema
+    create: false
+
+    # @schema
+    # type: string
+    # description: Priority class name
+    # default: cluster-agent-workflowplane
+    # @schema
+    name: cluster-agent-workflowplane
+
+    # @schema
+    # type: integer
+    # description: Priority value
+    # default: 900000
+    # @schema
+    value: 900000
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: TLS configuration for secure control plane communication
+  # @schema
+  tls:
+    # @schema
+    # type: boolean
+    # description: Enable TLS for agent communication
+    # default: true
+    # @schema
+    enabled: true
+
+    # @schema
+    # type: boolean
+    # description: Generate client certificates locally using cert-manager with a self-signed CA
+    # default: true
+    # @schema
+    generateCerts: true
+
+    # @schema
+    # type: string
+    # description: Secret containing client certificate and key
+    # default: cluster-agent-tls
+    # @schema
+    secretName: cluster-agent-tls
+
+    # @schema
+    # type: string
+    # description: Client certificate secret name
+    # default: cluster-agent-tls
+    # @schema
+    clientSecretName: cluster-agent-tls
+
+    # @schema
+    # type: string
+    # description: ConfigMap containing server CA certificate for verifying gateway
+    # default: cluster-gateway-ca
+    # @schema
+    serverCAConfigMap: cluster-gateway-ca
+
+    # @schema
+    # type: string
+    # description: CA secret name for signing agent client certificates. If empty, self-signed certs will be generated (required for multi-cluster setup).
+    # default: cluster-gateway-ca
+    # @schema
+    caSecretName: cluster-gateway-ca
+
+    # @schema
+    # type: string
+    # description: Certificate duration
+    # default: 2160h
+    # @schema
+    duration: 2160h
+
+    # @schema
+    # type: string
+    # description: Certificate renewal window
+    # default: 360h
+    # @schema
+    renewBefore: 360h
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Pod security context for cluster agent
+  # @schema
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Container security context for cluster agent
+  # @schema
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Annotations to add to cluster agent pods
+  # @schema
+  podAnnotations: {}
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Node selector for cluster agent pods
+  # @schema
+  nodeSelector: {}
+
+  # @schema
+  # type: array
+  # description: Tolerations for cluster agent pods
+  # items:
+  #   type: object
+  #   additionalProperties: true
+  # @schema
+  tolerations: []
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Affinity rules for cluster agent pods
+  # @schema
+  affinity: {}

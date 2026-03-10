@@ -137,24 +137,24 @@ func addClusterScopedResources(reg map[string]resourceEntry) {
 		},
 	}
 
-	reg["ClusterBuildPlane"] = resourceEntry{
+	reg["ClusterWorkflowPlane"] = resourceEntry{
 		scope: scopeCluster,
 		get: func(ctx context.Context, c *gen.ClientWithResponses, _, name string) (int, error) {
-			r, err := c.GetClusterBuildPlaneWithResponse(ctx, name)
+			r, err := c.GetClusterWorkflowPlaneWithResponse(ctx, name)
 			if err != nil {
 				return 0, err
 			}
 			return r.StatusCode(), nil
 		},
 		create: func(ctx context.Context, c *gen.ClientWithResponses, _ string, body io.Reader) (int, []byte, error) {
-			r, err := c.CreateClusterBuildPlaneWithBodyWithResponse(ctx, contentTypeJSON, body)
+			r, err := c.CreateClusterWorkflowPlaneWithBodyWithResponse(ctx, contentTypeJSON, body)
 			if err != nil {
 				return 0, nil, err
 			}
 			return r.StatusCode(), r.Body, nil
 		},
 		update: func(ctx context.Context, c *gen.ClientWithResponses, _, name string, body io.Reader) (int, []byte, error) {
-			r, err := c.UpdateClusterBuildPlaneWithBodyWithResponse(ctx, name, contentTypeJSON, body)
+			r, err := c.UpdateClusterWorkflowPlaneWithBodyWithResponse(ctx, name, contentTypeJSON, body)
 			if err != nil {
 				return 0, nil, err
 			}
@@ -390,24 +390,24 @@ func addNamespacedScopedResources(reg map[string]resourceEntry) {
 		},
 	}
 
-	reg["BuildPlane"] = resourceEntry{
+	reg["WorkflowPlane"] = resourceEntry{
 		scope: scopeNamespaced,
 		get: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string) (int, error) {
-			r, err := c.GetBuildPlaneWithResponse(ctx, ns, name)
+			r, err := c.GetWorkflowPlaneWithResponse(ctx, ns, name)
 			if err != nil {
 				return 0, err
 			}
 			return r.StatusCode(), nil
 		},
 		create: func(ctx context.Context, c *gen.ClientWithResponses, ns string, body io.Reader) (int, []byte, error) {
-			r, err := c.CreateBuildPlaneWithBodyWithResponse(ctx, ns, contentTypeJSON, body)
+			r, err := c.CreateWorkflowPlaneWithBodyWithResponse(ctx, ns, contentTypeJSON, body)
 			if err != nil {
 				return 0, nil, err
 			}
 			return r.StatusCode(), r.Body, nil
 		},
 		update: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string, body io.Reader) (int, []byte, error) {
-			r, err := c.UpdateBuildPlaneWithBodyWithResponse(ctx, ns, name, contentTypeJSON, body)
+			r, err := c.UpdateWorkflowPlaneWithBodyWithResponse(ctx, ns, name, contentTypeJSON, body)
 			if err != nil {
 				return 0, nil, err
 			}

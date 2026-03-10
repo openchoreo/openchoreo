@@ -21,9 +21,9 @@ const (
 	workflowRoleBindingNameSuffix = "role-binding"
 )
 
-// ensurePrerequisites creates prerequisite resources in the build plane
+// ensurePrerequisites creates prerequisite resources in the workflow plane
 // before creating the workflow run: create namespace, service account, role, and role binding.
-func (r *Reconciler) ensurePrerequisites(ctx context.Context, namespace, serviceAccountName string, bpClient client.Client) error {
+func (r *Reconciler) ensurePrerequisites(ctx context.Context, namespace, serviceAccountName string, wpClient client.Client) error {
 	logger := log.FromContext(ctx).WithValues("namespace", namespace, "serviceAccount", serviceAccountName)
 
 	roleName := fmt.Sprintf("%s-%s", serviceAccountName, workflowRoleNameSuffix)
@@ -40,7 +40,7 @@ func (r *Reconciler) ensurePrerequisites(ctx context.Context, namespace, service
 	}
 
 	for _, res := range resources {
-		if err := ensureResource(ctx, bpClient, res.obj, res.name, logger); err != nil {
+		if err := ensureResource(ctx, wpClient, res.obj, res.name, logger); err != nil {
 			return fmt.Errorf("failed to ensure %s: %w", res.name, err)
 		}
 	}

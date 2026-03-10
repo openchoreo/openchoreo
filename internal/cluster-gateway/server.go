@@ -30,7 +30,7 @@ import (
 
 const (
 	planeTypeDataPlane          = "dataplane"
-	planeTypeBuildPlane         = "buildplane"
+	planeTypeWorkflowPlane      = "workflowplane"
 	planeTypeObservabilityPlane = "observabilityplane"
 )
 
@@ -44,7 +44,7 @@ type Server struct {
 	requestsMu          sync.Mutex
 	validator           *RequestValidator
 	logger              *slog.Logger
-	k8sClient           client.Client // Kubernetes client for querying DataPlane/BuildPlane CRs
+	k8sClient           client.Client // Kubernetes client for querying DataPlane/WorkflowPlane CRs
 }
 
 func New(config *Config, k8sClient client.Client, logger *slog.Logger) *Server {
@@ -87,7 +87,7 @@ func (s *Server) Start() error {
 	}
 
 	// Configure TLS - request client certificates but don't verify at TLS level
-	// Verification is done at application level based on DataPlane/BuildPlane CR configuration
+	// Verification is done at application level based on DataPlane/WorkflowPlane CR configuration
 	// This allows per-plane CA configuration for enhanced security
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
@@ -97,7 +97,7 @@ func (s *Server) Start() error {
 
 	s.logger.Info("TLS configured",
 		"clientAuth", "RequestClientCert",
-		"note", "Client certificate verification performed at application level per DataPlane/BuildPlane CR",
+		"note", "Client certificate verification performed at application level per DataPlane/WorkflowPlane CR",
 	)
 
 	mux := http.NewServeMux()
@@ -217,11 +217,11 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if planeType != planeTypeDataPlane && planeType != planeTypeBuildPlane && planeType != planeTypeObservabilityPlane {
+	if planeType != planeTypeDataPlane && planeType != planeTypeWorkflowPlane && planeType != planeTypeObservabilityPlane {
 		s.logger.Warn("connection rejected: invalid planeType",
 			"planeType", planeType,
 		)
-		http.Error(w, "invalid planeType: must be 'dataplane', 'buildplane', or 'observabilityplane'", http.StatusBadRequest)
+		http.Error(w, "invalid planeType: must be 'dataplane', 'workflowplane', or 'observabilityplane'", http.StatusBadRequest)
 		return
 	}
 
@@ -366,7 +366,7 @@ func (s *Server) handleHTTPTunnelResponse(planeName string, resp *messaging.HTTP
 // URL format: /api/proxy/{planeType}/{planeID}/{namespace}/{crName}/{target}/{path...}
 // Examples:
 //   - /api/proxy/dataplane/prod-cluster/namespace-a/namespace-a-dataplane/k8s/api/v1/pods
-//   - /api/proxy/buildplane/default/default/default/k8s/api/v1/namespaces
+//   - /api/proxy/workflowplane/default/default/default/k8s/api/v1/namespaces
 //
 // Note: crNamespace and crName are metadata only (for logging, future authorization)
 // Routing to agent uses only planeType and planeID

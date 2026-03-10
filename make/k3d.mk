@@ -8,7 +8,7 @@ OPENCHOREO_IMAGE_TAG := latest-dev
 # Namespaces for each plane
 K3D_CP_NAMESPACE := openchoreo-control-plane
 K3D_DP_NAMESPACE := openchoreo-data-plane
-K3D_BP_NAMESPACE := openchoreo-build-plane
+K3D_WP_NAMESPACE := openchoreo-workflow-plane
 K3D_OP_NAMESPACE := openchoreo-observability-plane
 
 # Components that can be built locally
@@ -83,7 +83,7 @@ k3d.load.observer: ## Import observer image into k3d
 k3d.uninstall: ## Uninstall all planes
 	@$(call log_info, Uninstalling all planes...)
 	@$(MAKE) k3d.uninstall.observability-plane
-	@$(MAKE) k3d.uninstall.build-plane
+	@$(MAKE) k3d.uninstall.workflow-plane
 	@$(MAKE) k3d.uninstall.data-plane
 	@$(MAKE) k3d.uninstall.control-plane
 	@$(call log_success, All planes uninstalled!)
@@ -100,11 +100,11 @@ k3d.uninstall.data-plane: ## Uninstall Data Plane
 	@helm uninstall openchoreo-data-plane --namespace $(K3D_DP_NAMESPACE) --kube-context k3d-$(K3D_CLUSTER_NAME) || true
 	@$(call log_success, Data Plane uninstalled!)
 
-.PHONY: k3d.uninstall.build-plane
-k3d.uninstall.build-plane: ## Uninstall Build Plane
-	@$(call log_info, Uninstalling Build Plane...)
-	@helm uninstall openchoreo-build-plane --namespace $(K3D_BP_NAMESPACE) --kube-context k3d-$(K3D_CLUSTER_NAME) || true
-	@$(call log_success, Build Plane uninstalled!)
+.PHONY: k3d.uninstall.workflow-plane
+k3d.uninstall.workflow-plane: ## Uninstall Workflow Plane
+	@$(call log_info, Uninstalling Workflow Plane...)
+	@helm uninstall openchoreo-workflow-plane --namespace $(K3D_WP_NAMESPACE) --kube-context k3d-$(K3D_CLUSTER_NAME) || true
+	@$(call log_success, Workflow Plane uninstalled!)
 
 .PHONY: k3d.uninstall.observability-plane
 k3d.uninstall.observability-plane: ## Uninstall Observability Plane
@@ -169,8 +169,8 @@ k3d.status: ## Check status of all planes
 	@echo "=== Data Plane ==="
 	@kubectl get pods -n $(K3D_DP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) 2>/dev/null || echo "Not installed"
 	@echo ""
-	@echo "=== Build Plane ==="
-	@kubectl get pods -n $(K3D_BP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) 2>/dev/null || echo "Not installed"
+	@echo "=== Workflow Plane ==="
+	@kubectl get pods -n $(K3D_WP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) 2>/dev/null || echo "Not installed"
 	@echo ""
 	@echo "=== Observability Plane ==="
 	@kubectl get pods -n $(K3D_OP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) 2>/dev/null || echo "Not installed"

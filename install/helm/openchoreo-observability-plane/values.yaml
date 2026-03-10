@@ -2102,7 +2102,7 @@ clusterAgent:
 
   # @schema
   # description: Type of plane this agent serves
-  # enum: [dataplane, buildplane, observabilityplane]
+  # enum: [dataplane, workflowplane, observabilityplane]
   # default: observabilityplane
   # @schema
   planeType: observabilityplane

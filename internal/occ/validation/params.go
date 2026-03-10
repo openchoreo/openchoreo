@@ -35,8 +35,8 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateDeploymentPipelineParams(cmdType, params)
 	case ResourceWorkload:
 		return validateWorkloadParams(cmdType, params)
-	case ResourceBuildPlane:
-		return validateBuildPlaneParams(cmdType, params)
+	case ResourceWorkflowPlane:
+		return validateWorkflowPlaneParams(cmdType, params)
 	case ResourceObservabilityPlane:
 		return validateObservabilityPlaneParams(cmdType, params)
 	case ResourceComponentType:
@@ -561,38 +561,38 @@ func validateDeleteDataPlaneParams(params interface{}) error {
 	return nil
 }
 
-// validateBuildPlaneParams validates parameters for build plane operations
-func validateBuildPlaneParams(cmdType CommandType, params interface{}) error {
+// validateWorkflowPlaneParams validates parameters for workflow plane operations
+func validateWorkflowPlaneParams(cmdType CommandType, params interface{}) error {
 	switch cmdType {
 	case CmdGet:
 		if p, ok := params.(namespaceParams); ok {
-			return validateNamespace(CmdGet, ResourceBuildPlane, p.GetNamespace())
+			return validateNamespace(CmdGet, ResourceWorkflowPlane, p.GetNamespace())
 		}
 	case CmdDelete:
-		return validateDeleteBuildPlaneParams(params)
+		return validateDeleteWorkflowPlaneParams(params)
 	case CmdList:
 		if p, ok := params.(namespaceParams); ok {
-			return validateNamespace(CmdList, ResourceBuildPlane, p.GetNamespace())
+			return validateNamespace(CmdList, ResourceWorkflowPlane, p.GetNamespace())
 		}
 	}
 	return nil
 }
 
-// deleteBuildPlaneParams is an interface for delete build plane parameter validation
-type deleteBuildPlaneParams interface {
+// deleteWorkflowPlaneParams is an interface for delete workflow plane parameter validation
+type deleteWorkflowPlaneParams interface {
 	GetNamespace() string
-	GetBuildPlaneName() string
+	GetWorkflowPlaneName() string
 }
 
-// validateDeleteBuildPlaneParams validates parameters for delete build plane operations
-func validateDeleteBuildPlaneParams(params interface{}) error {
-	if p, ok := params.(deleteBuildPlaneParams); ok {
+// validateDeleteWorkflowPlaneParams validates parameters for delete workflow plane operations
+func validateDeleteWorkflowPlaneParams(params interface{}) error {
+	if p, ok := params.(deleteWorkflowPlaneParams); ok {
 		fields := map[string]string{
 			"namespace": p.GetNamespace(),
-			"name":      p.GetBuildPlaneName(),
+			"name":      p.GetWorkflowPlaneName(),
 		}
 		if !checkRequiredFields(fields) {
-			return generateHelpError(CmdDelete, ResourceBuildPlane, fields)
+			return generateHelpError(CmdDelete, ResourceWorkflowPlane, fields)
 		}
 	}
 	return nil

@@ -8,7 +8,7 @@ import (
 )
 
 // ClusterGatewayConfig defines cluster gateway connection settings for communicating
-// with build planes and data planes through the cluster gateway proxy.
+// with workflow planes and data planes through the cluster gateway proxy.
 type ClusterGatewayConfig struct {
 	// Enabled controls whether cluster gateway integration is enabled.
 	Enabled bool `koanf:"enabled"`

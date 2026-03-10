@@ -66,14 +66,14 @@ This will create the cluster, build all components, load images, and install Ope
    make k3d.load
    ```
 
-4. Install OpenChoreo (Control Plane, Data Plane, Build Plane, Observability Plane):
+4. Install OpenChoreo (Control Plane, Data Plane, Workflow Plane, Observability Plane):
 
    ```sh
    make k3d.install
    ```
 
 > [!NOTE]
-> This command installs all planes in the single k3d cluster. You can install specific planes with `make k3d.install.<plane-name>` where plane-name is control-plane, data-plane, build-plane, or observability-plane.
+> This command installs all planes in the single k3d cluster. You can install specific planes with `make k3d.install.<plane-name>` where plane-name is control-plane, data-plane, workflow-plane, or observability-plane.
 
 5. Configure the DataPlane resource:
 
@@ -117,7 +117,7 @@ This will create the cluster, build all components, load images, and install Ope
 - Build specific component: `make k3d.build.<component>` (controller, openchoreo-api, observer)
 - Load specific component: `make k3d.load.<component>` (controller, openchoreo-api, observer)
 - Update specific component: `make k3d.update.<component>` (rebuild, load, and restart)
-- Upgrade specific plane: `make k3d.upgrade.<plane>` (control-plane, data-plane, build-plane, observability-plane)
+- Upgrade specific plane: `make k3d.upgrade.<plane>` (control-plane, data-plane, workflow-plane, observability-plane)
 - View logs: `make k3d.logs.<component>` (controller, openchoreo-api, observer)
 
 ### Cleanup
@@ -134,7 +134,7 @@ Once the cluster is running, you can access services via localhost:
 
 - **Control Plane UI/API**: http://openchoreo.localhost:8080
 - **Data Plane Workloads**: http://localhost:19080 (kgateway)
-- **Build Plane**: Argo Workflows at http://localhost:10081, Registry at http://localhost:10082
+- **Workflow Plane**: Argo Workflows at http://localhost:10081, Registry at http://localhost:10082
 - **Observability**: Observer API at http://localhost:11080, OpenSearch at http://localhost:11082
 
 ### Building and Running the Binaries

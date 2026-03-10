@@ -138,25 +138,25 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		Spec: workflowSpec,
 	}
 
-	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, r.Client, workflowRun.Namespace, workflow.Spec.BuildPlaneRef)
+	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, r.Client, workflowRun.Namespace, workflow.Spec.WorkflowPlaneRef)
 	if err != nil {
-		logger.Error(err, "failed to get build plane",
+		logger.Error(err, "failed to get workflow plane",
 			"workflowrun", workflowRun.Name,
 			"namespace", workflowRun.Namespace)
-		setBuildPlaneResolutionFailedCondition(workflowRun, err)
+		setWorkflowPlaneResolutionFailedCondition(workflowRun, err)
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-	if buildPlaneResult == nil {
-		logger.Info("No build plane found for workflow",
+	if workflowPlaneResult == nil {
+		logger.Info("No workflow plane found for workflow",
 			"workflowrun", workflowRun.Name)
-		setBuildPlaneNotFoundCondition(workflowRun)
+		setWorkflowPlaneNotFoundCondition(workflowRun)
 		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 
-	bpClient, err := r.getBuildPlaneClient(buildPlaneResult)
+	wpClient, err := r.getWorkflowPlaneClient(workflowPlaneResult)
 	if err != nil {
-		logger.Error(err, "failed to get build plane client",
-			"buildplane", buildPlaneResult.GetName(),
+		logger.Error(err, "failed to get workflow plane client",
+			"workflowplane", workflowPlaneResult.GetName(),
 			"workflowrun", workflowRun.Name)
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -164,7 +164,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	// Sync existing workflow run status
 	if workflowRun.Status.RunReference != nil && workflowRun.Status.RunReference.Name != "" && workflowRun.Status.RunReference.Namespace != "" {
 		runResource := &argoproj.Workflow{}
-		err = bpClient.Get(ctx, types.NamespacedName{
+		err = wpClient.Get(ctx, types.NamespacedName{
 			Name:      workflowRun.Status.RunReference.Name,
 			Namespace: workflowRun.Status.RunReference.Namespace,
 		}, runResource)
@@ -234,7 +234,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	return r.ensureRunResource(ctx, workflowRun, output, runResNamespace, bpClient), nil
+	return r.ensureRunResource(ctx, workflowRun, output, runResNamespace, wpClient), nil
 }
 
 func (r *Reconciler) ensureRunResource(
@@ -242,7 +242,7 @@ func (r *Reconciler) ensureRunResource(
 	workflowRun *openchoreodevv1alpha1.WorkflowRun,
 	output *workflowpipeline.RenderOutput,
 	runResNamespace string,
-	bpClient client.Client,
+	wpClient client.Client,
 ) ctrl.Result {
 	logger := log.FromContext(ctx)
 
@@ -254,15 +254,15 @@ func (r *Reconciler) ensureRunResource(
 		return ctrl.Result{Requeue: true}
 	}
 
-	// Ensure prerequisite resources (namespace, RBAC) are created in the build plane
-	if err := r.ensurePrerequisites(ctx, runResNamespace, serviceAccountName, bpClient); err != nil {
+	// Ensure prerequisite resources (namespace, RBAC) are created in the workflow plane
+	if err := r.ensurePrerequisites(ctx, runResNamespace, serviceAccountName, wpClient); err != nil {
 		logger.Error(err, "failed to ensure prerequisite resources",
 			"workflowrun", workflowRun.Name)
 		return ctrl.Result{Requeue: true}
 	}
 
 	// Apply additional resources (e.g., secrets, configmaps) before the main workflow
-	appliedResources, err := r.applyRenderedResources(ctx, workflowRun, output.Resources, bpClient)
+	appliedResources, err := r.applyRenderedResources(ctx, workflowRun, output.Resources, wpClient)
 	if err != nil {
 		logger.Error(err, "failed to apply rendered resources",
 			"workflowrun", workflowRun.Name)
@@ -270,7 +270,7 @@ func (r *Reconciler) ensureRunResource(
 	}
 	workflowRun.Status.Resources = appliedResources
 
-	if err := r.applyRenderedRunResource(ctx, workflowRun, output.Resource, bpClient); err != nil {
+	if err := r.applyRenderedRunResource(ctx, workflowRun, output.Resource, wpClient); err != nil {
 		logger.Error(err, "failed to apply rendered run resource",
 			"workflowrun", workflowRun.Name,
 			"targetNamespace", runResNamespace)
@@ -307,7 +307,7 @@ func (r *Reconciler) applyRenderedRunResource(
 	ctx context.Context,
 	workflowRun *openchoreodevv1alpha1.WorkflowRun,
 	resource map[string]any,
-	bpClient client.Client,
+	wpClient client.Client,
 ) error {
 	logger := log.FromContext(ctx)
 
@@ -338,20 +338,20 @@ func (r *Reconciler) applyRenderedRunResource(
 	existingResource := &unstructured.Unstructured{}
 	existingResource.SetGroupVersionKind(unstructuredResource.GroupVersionKind())
 
-	err := bpClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, existingResource)
+	err := wpClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, existingResource)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("failed to get %s %q in namespace %q: %w", kind, name, namespace, err)
 		}
 		// Resource doesn't exist, create it
-		if err := bpClient.Create(ctx, unstructuredResource); err != nil {
+		if err := wpClient.Create(ctx, unstructuredResource); err != nil {
 			return fmt.Errorf("failed to create %s %q in namespace %q: %w", kind, name, namespace, err)
 		}
 		logger.Info("created run resource", "kind", kind, "name", name, "namespace", namespace)
 	} else {
 		// Resource exists, update it
 		unstructuredResource.SetResourceVersion(existingResource.GetResourceVersion())
-		if err := bpClient.Update(ctx, unstructuredResource); err != nil {
+		if err := wpClient.Update(ctx, unstructuredResource); err != nil {
 			return fmt.Errorf("failed to update %s %q in namespace %q: %w", kind, name, namespace, err)
 		}
 		logger.Info("updated run resource", "kind", kind, "name", name, "namespace", namespace)
@@ -368,12 +368,12 @@ func (r *Reconciler) applyRenderedRunResource(
 	return nil
 }
 
-// applyRenderedResources applies additional rendered resources (e.g., secrets, configmaps) to the build plane.
+// applyRenderedResources applies additional rendered resources (e.g., secrets, configmaps) to the workflow plane.
 func (r *Reconciler) applyRenderedResources(
 	ctx context.Context,
 	workflowRun *openchoreodevv1alpha1.WorkflowRun,
 	resources []workflowpipeline.RenderedResource,
-	bpClient client.Client,
+	wpClient client.Client,
 ) (*[]openchoreodevv1alpha1.ResourceReference, error) {
 	logger := log.FromContext(ctx)
 
@@ -403,14 +403,14 @@ func (r *Reconciler) applyRenderedResources(
 		name := unstructuredResource.GetName()
 		kind := unstructuredResource.GetKind()
 
-		err := bpClient.Get(ctx, types.NamespacedName{
+		err := wpClient.Get(ctx, types.NamespacedName{
 			Name:      name,
 			Namespace: namespace,
 		}, existingResource)
 
 		if err != nil {
 			if errors.IsNotFound(err) {
-				if err := bpClient.Create(ctx, unstructuredResource); err != nil {
+				if err := wpClient.Create(ctx, unstructuredResource); err != nil {
 					return nil, fmt.Errorf("failed to create %s %q in namespace %q: %w", kind, name, namespace, err)
 				}
 				logger.Info("created resource", "id", res.ID, "kind", kind, "name", name, "namespace", namespace)
@@ -419,7 +419,7 @@ func (r *Reconciler) applyRenderedResources(
 			}
 		} else {
 			unstructuredResource.SetResourceVersion(existingResource.GetResourceVersion())
-			if err := bpClient.Update(ctx, unstructuredResource); err != nil {
+			if err := wpClient.Update(ctx, unstructuredResource); err != nil {
 				return nil, fmt.Errorf("failed to update %s %q in namespace %q: %w", kind, name, namespace, err)
 			}
 			logger.Info("updated resource", "id", res.ID, "kind", kind, "name", name, "namespace", namespace)
@@ -438,12 +438,12 @@ func (r *Reconciler) applyRenderedResources(
 	return &appliedResources, nil
 }
 
-func (r *Reconciler) getBuildPlaneClient(buildPlaneResult *controller.BuildPlaneResult) (client.Client, error) {
-	bpClient, err := buildPlaneResult.GetK8sClient(r.K8sClientMgr, r.GatewayURL)
+func (r *Reconciler) getWorkflowPlaneClient(workflowPlaneResult *controller.WorkflowPlaneResult) (client.Client, error) {
+	wpClient, err := workflowPlaneResult.GetK8sClient(r.K8sClientMgr, r.GatewayURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get build plane client: %w", err)
+		return nil, fmt.Errorf("failed to get workflow plane client: %w", err)
 	}
-	return bpClient, nil
+	return wpClient, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

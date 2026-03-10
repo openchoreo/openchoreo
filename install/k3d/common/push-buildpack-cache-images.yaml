@@ -4,7 +4,7 @@
 # so that buildpack-based workflows (Ballerina, Google Cloud Buildpacks)
 # don't need to pull from remote registries on every build.
 #
-# Only needed for local k3d setups. Run once after the build plane registry is ready:
+# Only needed for local k3d setups. Run once after the workflow plane registry is ready:
 #   kubectl apply -f install/k3d/common/push-buildpack-cache-images.yaml
 #
 # The job is idempotent and skips images that already exist in the registry.
@@ -13,7 +13,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: push-buildpack-cache-images
-  namespace: openchoreo-build-plane
+  namespace: openchoreo-workflow-plane
 spec:
   backoffLimit: 3
   template:

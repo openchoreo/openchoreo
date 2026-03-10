@@ -1,0 +1,3 @@
+OpenChoreo Workflow Plane installed successfully!
+
+Next: Register this Workflow Plane with the Control Plane using the WorkflowPlane CRD.

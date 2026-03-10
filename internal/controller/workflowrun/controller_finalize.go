@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	// WorkflowRunCleanupFinalizer is the finalizer used to clean up build plane resources.
+	// WorkflowRunCleanupFinalizer is the finalizer used to clean up workflow plane resources.
 	WorkflowRunCleanupFinalizer = "openchoreo.dev/workflowrun-cleanup"
 )
 
@@ -40,7 +40,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, cwRun *openchoreodevv1
 	return false, nil
 }
 
-// finalize cleans up the build plane resources associated with the WorkflowRun.
+// finalize cleans up the workflow plane resources associated with the WorkflowRun.
 func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.WorkflowRun) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
@@ -48,10 +48,10 @@ func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.
 		return ctrl.Result{}, nil
 	}
 
-	// Fetch the Workflow to get its BuildPlaneRef for build plane resolution.
-	// If the Workflow is already deleted, fall back to default build plane resolution
+	// Fetch the Workflow to get its WorkflowPlaneRef for workflow plane resolution.
+	// If the Workflow is already deleted, fall back to default workflow plane resolution
 	// so we can still clean up resources tracked in status.
-	var buildPlaneRef *openchoreodevv1alpha1.BuildPlaneRef
+	var workflowPlaneRef *openchoreodevv1alpha1.WorkflowPlaneRef
 	workflow := &openchoreodevv1alpha1.Workflow{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      cwRun.Spec.Workflow.Name,
@@ -65,36 +65,36 @@ func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.
 			logger.Info("Workflow not found and no resources to clean up, removing finalizer", "workflow", cwRun.Spec.Workflow.Name)
 			return r.removeFinalizer(ctx, cwRun)
 		}
-		// Otherwise, proceed with nil ref (default build plane resolution) to attempt cleanup
-		logger.Info("Workflow not found, attempting cleanup with default build plane", "workflow", cwRun.Spec.Workflow.Name)
+		// Otherwise, proceed with nil ref (default workflow plane resolution) to attempt cleanup
+		logger.Info("Workflow not found, attempting cleanup with default workflow plane", "workflow", cwRun.Spec.Workflow.Name)
 	} else {
-		buildPlaneRef = workflow.Spec.BuildPlaneRef
+		workflowPlaneRef = workflow.Spec.WorkflowPlaneRef
 	}
 
-	// Get build plane client (supports both BuildPlane and ClusterBuildPlane)
-	buildPlaneResult, err := controller.ResolveBuildPlane(ctx, r.Client, cwRun.Namespace, buildPlaneRef)
+	// Get workflow plane client (supports both WorkflowPlane and ClusterWorkflowPlane)
+	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, r.Client, cwRun.Namespace, workflowPlaneRef)
 	if err != nil {
-		// If build plane doesn't exist, we can't clean up - remove finalizer anyway
+		// If workflow plane doesn't exist, we can't clean up - remove finalizer anyway
 		if errors.IsNotFound(err) {
-			logger.Info("BuildPlane not found, removing finalizer without cleanup", "error", err)
+			logger.Info("WorkflowPlane not found, removing finalizer without cleanup", "error", err)
 			return r.removeFinalizer(ctx, cwRun)
 		}
 		return ctrl.Result{Requeue: true}, err
 	}
-	if buildPlaneResult == nil {
-		logger.Info("No build plane found, removing finalizer without cleanup")
+	if workflowPlaneResult == nil {
+		logger.Info("No workflow plane found, removing finalizer without cleanup")
 		return r.removeFinalizer(ctx, cwRun)
 	}
 
-	bpClient, err := r.getBuildPlaneClient(buildPlaneResult)
+	wpClient, err := r.getWorkflowPlaneClient(workflowPlaneResult)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get build plane client: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to get workflow plane client: %w", err)
 	}
 
 	// Delete additional resources from status.Resources
 	if cwRun.Status.Resources != nil {
 		for _, res := range *cwRun.Status.Resources {
-			if err := r.deleteResource(ctx, bpClient, res); err != nil {
+			if err := r.deleteResource(ctx, wpClient, res); err != nil {
 				if !errors.IsNotFound(err) {
 					logger.Error(err, "failed to delete resource", "name", res.Name, "namespace", res.Namespace, "kind", res.Kind)
 					return ctrl.Result{Requeue: true}, nil
@@ -106,7 +106,7 @@ func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.
 
 	// Delete the run resource from status.RunReference
 	if cwRun.Status.RunReference != nil && cwRun.Status.RunReference.Name != "" {
-		if err := r.deleteResource(ctx, bpClient, *cwRun.Status.RunReference); err != nil {
+		if err := r.deleteResource(ctx, wpClient, *cwRun.Status.RunReference); err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Error(err, "failed to delete run resource",
 					"name", cwRun.Status.RunReference.Name,
@@ -119,8 +119,8 @@ func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.
 	return r.removeFinalizer(ctx, cwRun)
 }
 
-// deleteResource deletes a single resource from the build plane using the ResourceReference.
-func (r *Reconciler) deleteResource(ctx context.Context, bpClient client.Client, ref openchoreodevv1alpha1.ResourceReference) error {
+// deleteResource deletes a single resource from the workflow plane using the ResourceReference.
+func (r *Reconciler) deleteResource(ctx context.Context, wpClient client.Client, ref openchoreodevv1alpha1.ResourceReference) error {
 	gv, err := schema.ParseGroupVersion(ref.APIVersion)
 	if err != nil {
 		return fmt.Errorf("failed to parse API version %q: %w", ref.APIVersion, err)
@@ -133,18 +133,18 @@ func (r *Reconciler) deleteResource(ctx context.Context, bpClient client.Client,
 		Kind:    ref.Kind,
 	})
 
-	if err := bpClient.Get(ctx, types.NamespacedName{
+	if err := wpClient.Get(ctx, types.NamespacedName{
 		Name:      ref.Name,
 		Namespace: ref.Namespace,
 	}, obj); err != nil {
 		return err
 	}
 
-	return bpClient.Delete(ctx, obj)
+	return wpClient.Delete(ctx, obj)
 }
 
 // hasResourcesInStatus returns true if the WorkflowRun has resources or a run reference
-// that need to be cleaned up from the build plane.
+// that need to be cleaned up from the workflow plane.
 func hasResourcesInStatus(cwRun *openchoreodevv1alpha1.WorkflowRun) bool {
 	if cwRun.Status.RunReference != nil && cwRun.Status.RunReference.Name != "" {
 		return true

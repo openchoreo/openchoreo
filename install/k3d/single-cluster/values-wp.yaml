@@ -1,0 +1,12 @@
+# Helm values for OpenChoreo Workflow Plane in k3d single-cluster setup
+# This file contains overrides specific to running the workflow plane in a k3d environment
+
+argo-workflows:
+  server:
+    # Argo Workflows UI is enabled for testing/development purposes
+    enabled: true
+    serviceType: LoadBalancer
+    servicePort: 10081
+    authModes:
+      - server
+

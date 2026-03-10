@@ -27,7 +27,7 @@ ports:
   - port: 19443:19443
     nodeFilters:
       - loadbalancer
-  # Build Plane uses port range 10xxx
+  # Workflow Plane uses port range 10xxx
   # Argo Workflows UI for development testing
   - port: 10081:10081
     nodeFilters:
@@ -74,7 +74,7 @@ options:
         nodeFilters:
           - server:*
 # Configure insecure registries for HTTP access
-# Allows kubelet to pull images from Build Plane registry via HTTP
+# Allows kubelet to pull images from Workflow Plane registry via HTTP
 registries:
   config: |
     mirrors:

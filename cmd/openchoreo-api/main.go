@@ -111,7 +111,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize build plane client manager
+	// Initialize workflow plane client manager
 	var planeK8sClientMgr *kubernetesClient.KubeMultiClientManager
 	if cfg.ClusterGateway.TLS.CACertPath != "" ||
 		cfg.ClusterGateway.TLS.ClientCertPath != "" ||
@@ -121,7 +121,7 @@ func main() {
 			ClientCertPath: cfg.ClusterGateway.TLS.ClientCertPath,
 			ClientKeyPath:  cfg.ClusterGateway.TLS.ClientKeyPath,
 		})
-		logger.Info("Build plane client manager created with proxy TLS configuration",
+		logger.Info("Workflow plane client manager created with proxy TLS configuration",
 			"caCert", cfg.ClusterGateway.TLS.CACertPath != "",
 			"clientCert", cfg.ClusterGateway.TLS.ClientCertPath != "",
 			"clientKey", cfg.ClusterGateway.TLS.ClientKeyPath != "")
@@ -139,7 +139,7 @@ func main() {
 		gatewayURL = cfg.ClusterGateway.URL
 	}
 
-	// Create gateway client to fetch buildplane pod logs/events
+	// Create gateway client to fetch workflowplane pod logs/events
 	var gwClient *gatewayClient.Client
 	if cfg.ClusterGateway.Enabled {
 		if gatewayURL == "" {

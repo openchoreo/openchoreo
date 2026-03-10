@@ -96,20 +96,20 @@ func (h *MCPHandler) CreateDeploymentPipeline(ctx context.Context, namespaceName
 	return mutationResult(created, "created"), nil
 }
 
-func (h *MCPHandler) ListBuildPlanes(ctx context.Context, namespaceName string, opts tools.ListOpts) (any, error) {
-	result, err := h.services.BuildPlaneService.ListBuildPlanes(ctx, namespaceName, toServiceListOptions(opts))
+func (h *MCPHandler) ListWorkflowPlanes(ctx context.Context, namespaceName string, opts tools.ListOpts) (any, error) {
+	result, err := h.services.WorkflowPlaneService.ListWorkflowPlanes(ctx, namespaceName, toServiceListOptions(opts))
 	if err != nil {
 		return nil, err
 	}
-	return wrapTransformedList("build_planes", result.Items, result.NextCursor, buildPlaneSummary), nil
+	return wrapTransformedList("workflow_planes", result.Items, result.NextCursor, workflowPlaneSummary), nil
 }
 
-func (h *MCPHandler) GetBuildPlane(ctx context.Context, namespaceName, buildPlaneName string) (any, error) {
-	bp, err := h.services.BuildPlaneService.GetBuildPlane(ctx, namespaceName, buildPlaneName)
+func (h *MCPHandler) GetWorkflowPlane(ctx context.Context, namespaceName, workflowPlaneName string) (any, error) {
+	wp, err := h.services.WorkflowPlaneService.GetWorkflowPlane(ctx, namespaceName, workflowPlaneName)
 	if err != nil {
 		return nil, err
 	}
-	return buildPlaneDetail(bp), nil
+	return workflowPlaneDetail(wp), nil
 }
 
 func (h *MCPHandler) GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName, group, version, kind, name string) (any, error) {

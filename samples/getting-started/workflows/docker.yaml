@@ -13,8 +13,8 @@ metadata:
       appPath: parameters.repository.appPath
       secretRef: parameters.repository.secretRef
 spec:
-  buildPlaneRef:
-    kind: BuildPlane
+  workflowPlaneRef:
+    kind: WorkflowPlane
     name: default
   ttlAfterCompletion: "1d"
   parameters:

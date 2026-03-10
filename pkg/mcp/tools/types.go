@@ -68,9 +68,9 @@ type PEToolsetHandler interface {
 	ListDataPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetDataPlane(ctx context.Context, namespaceName, dpName string) (any, error)
 
-	// BuildPlane operations
-	ListBuildPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-	GetBuildPlane(ctx context.Context, namespaceName, buildPlaneName string) (any, error)
+	// WorkflowPlane operations
+	ListWorkflowPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetWorkflowPlane(ctx context.Context, namespaceName, workflowPlaneName string) (any, error)
 
 	// ObservabilityPlane operations
 	ListObservabilityPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
@@ -80,8 +80,8 @@ type PEToolsetHandler interface {
 	ListClusterDataPlanes(ctx context.Context, opts ListOpts) (any, error)
 	GetClusterDataPlane(ctx context.Context, cdpName string) (any, error)
 
-	// ClusterBuildPlane operations
-	ListClusterBuildPlanes(ctx context.Context, opts ListOpts) (any, error)
+	// ClusterWorkflowPlane operations
+	ListClusterWorkflowPlanes(ctx context.Context, opts ListOpts) (any, error)
 
 	// ClusterObservabilityPlane operations
 	ListClusterObservabilityPlanes(ctx context.Context, opts ListOpts) (any, error)

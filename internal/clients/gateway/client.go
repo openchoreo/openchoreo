@@ -40,7 +40,7 @@ type Client struct {
 }
 
 type PlaneNotification struct {
-	PlaneType string `json:"planeType"` // "dataplane", "buildplane", "observabilityplane"
+	PlaneType string `json:"planeType"` // "dataplane", "workflowplane", "observabilityplane"
 	PlaneID   string `json:"planeID"`
 	Event     string `json:"event"` // "created", "updated", "deleted"
 	Namespace string `json:"namespace"`

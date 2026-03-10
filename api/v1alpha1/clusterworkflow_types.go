@@ -12,10 +12,10 @@ import (
 // ClusterWorkflow is a cluster-scoped version of Workflow that can be
 // referenced by Components across all namespaces via ClusterComponentType.
 type ClusterWorkflowSpec struct {
-	// BuildPlaneRef references the ClusterBuildPlane for this workflow's build operations.
-	// If not specified, the controller resolves to the ClusterBuildPlane named "default".
+	// WorkflowPlaneRef references the ClusterWorkflowPlane for this workflow's operations.
+	// If not specified, the controller resolves to the ClusterWorkflowPlane named "default".
 	// +optional
-	BuildPlaneRef *ClusterBuildPlaneRef `json:"buildPlaneRef,omitempty"`
+	WorkflowPlaneRef *ClusterWorkflowPlaneRef `json:"workflowPlaneRef,omitempty"`
 
 	// Parameters defines the developer-facing parameters that can be configured
 	// when creating a WorkflowRun instance.

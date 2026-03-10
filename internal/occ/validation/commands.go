@@ -35,7 +35,7 @@ const (
 	ResourceEndpoint           ResourceType = "endpoint"
 	ResourceNamespace          ResourceType = "namespace"
 	ResourceDataPlane          ResourceType = "dataplane"
-	ResourceBuildPlane         ResourceType = "buildplane"
+	ResourceWorkflowPlane      ResourceType = "workflowplane"
 	ResourceObservabilityPlane ResourceType = "observabilityplane"
 	ResourceComponentType      ResourceType = "componenttype"
 	ResourceTrait              ResourceType = "trait"

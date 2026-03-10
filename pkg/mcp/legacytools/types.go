@@ -159,8 +159,8 @@ type ClusterPlaneHandler interface {
 	GetClusterDataPlane(ctx context.Context, cdpName string) (any, error)
 	CreateClusterDataPlane(ctx context.Context, req *models.CreateClusterDataPlaneRequest) (any, error)
 
-	// ClusterBuildPlane operations
-	ListClusterBuildPlanes(ctx context.Context) (any, error)
+	// ClusterWorkflowPlane operations
+	ListClusterWorkflowPlanes(ctx context.Context) (any, error)
 
 	// ClusterObservabilityPlane operations
 	ListClusterObservabilityPlanes(ctx context.Context) (any, error)

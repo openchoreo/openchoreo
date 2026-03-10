@@ -183,21 +183,21 @@ func TestGetWorkflowRunEvents(t *testing.T) {
 			},
 		}
 
-		// A BuildPlaneService backed by an empty fake client returns ErrBuildPlaneNotFound,
+		// A WorkflowPlaneService backed by an empty fake client returns ErrWorkflowPlaneNotFound,
 		// which is enough to confirm that GetWorkflowRunEvents delegated past its own checks.
-		emptyBPSvc := &BuildPlaneService{
+		emptyBPSvc := &WorkflowPlaneService{
 			k8sClient: fake.NewClientBuilder().WithScheme(newTestScheme(t)).Build(),
 			logger:    slog.Default(),
 		}
 		svc := &WorkflowRunService{
-			k8sClient:         fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithObjects(wfRun).Build(),
-			logger:            slog.Default(),
-			authzPDP:          &allowAllPDP{},
-			buildPlaneService: emptyBPSvc,
+			k8sClient:            fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithObjects(wfRun).Build(),
+			logger:               slog.Default(),
+			authzPDP:             &allowAllPDP{},
+			workflowPlaneService: emptyBPSvc,
 		}
 
 		_, err := svc.GetWorkflowRunEvents(context.Background(), namespace, runName, "", "")
-		// We expect an error from the build plane (not an authz or reference error),
+		// We expect an error from the workflow plane (not an authz or reference error),
 		// which proves GetWorkflowRunEvents successfully delegated past its own checks.
 		if errors.Is(err, ErrForbidden) {
 			t.Errorf("unexpected ErrForbidden: authz check should have passed")
@@ -287,10 +287,10 @@ func TestGetWorkflowRunStatus(t *testing.T) {
 		}
 
 		svc := &WorkflowRunService{
-			k8sClient:         fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithStatusSubresource(wfRun).WithObjects(wfRun).Build(),
-			logger:            slog.Default(),
-			authzPDP:          &allowAllPDP{},
-			buildPlaneService: &BuildPlaneService{k8sClient: fake.NewClientBuilder().WithScheme(newTestScheme(t)).Build(), logger: slog.Default()},
+			k8sClient:            fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithStatusSubresource(wfRun).WithObjects(wfRun).Build(),
+			logger:               slog.Default(),
+			authzPDP:             &allowAllPDP{},
+			workflowPlaneService: &WorkflowPlaneService{k8sClient: fake.NewClientBuilder().WithScheme(newTestScheme(t)).Build(), logger: slog.Default()},
 		}
 
 		resp, err := svc.GetWorkflowRunStatus(context.Background(), namespace, runName, "")
@@ -327,9 +327,9 @@ func TestGetWorkflowRunStatus(t *testing.T) {
 			t.Errorf("expected nil FinishedAt for running step, got %v", buildStep.FinishedAt)
 		}
 
-		// buildPlaneService has no BuildPlane object -> HasLiveObservability must be false
+		// workflowPlaneService has no WorkflowPlane object -> HasLiveObservability must be false
 		if resp.HasLiveObservability {
-			t.Errorf("expected HasLiveObservability false when build plane is unreachable")
+			t.Errorf("expected HasLiveObservability false when workflow plane is unreachable")
 		}
 	})
 }

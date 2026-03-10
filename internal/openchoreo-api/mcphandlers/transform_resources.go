@@ -451,33 +451,33 @@ func traitSummary(t openchoreov1alpha1.Trait) map[string]any {
 }
 
 // ---------------------------------------------------------------------------
-// BuildPlane
+// WorkflowPlane
 // ---------------------------------------------------------------------------
 
-func buildPlaneSummary(bp openchoreov1alpha1.BuildPlane) map[string]any {
-	m := extractCommonMeta(&bp)
-	setIfNotEmpty(m, "planeID", bp.Spec.PlaneID)
-	if bp.Status.AgentConnection != nil {
-		m["agentConnected"] = bp.Status.AgentConnection.Connected
+func workflowPlaneSummary(wp openchoreov1alpha1.WorkflowPlane) map[string]any {
+	m := extractCommonMeta(&wp)
+	setIfNotEmpty(m, "planeID", wp.Spec.PlaneID)
+	if wp.Status.AgentConnection != nil {
+		m["agentConnected"] = wp.Status.AgentConnection.Connected
 	}
-	setIfNotEmpty(m, "status", readyStatus(bp.Status.Conditions))
+	setIfNotEmpty(m, "status", readyStatus(wp.Status.Conditions))
 	return m
 }
 
-func buildPlaneDetail(bp *openchoreov1alpha1.BuildPlane) map[string]any {
-	m := extractCommonMeta(bp)
-	setIfNotEmpty(m, "planeID", bp.Spec.PlaneID)
-	if bp.Spec.ObservabilityPlaneRef != nil {
+func workflowPlaneDetail(wp *openchoreov1alpha1.WorkflowPlane) map[string]any {
+	m := extractCommonMeta(wp)
+	setIfNotEmpty(m, "planeID", wp.Spec.PlaneID)
+	if wp.Spec.ObservabilityPlaneRef != nil {
 		m["observabilityPlaneRef"] = map[string]any{
-			"kind": string(bp.Spec.ObservabilityPlaneRef.Kind),
-			"name": bp.Spec.ObservabilityPlaneRef.Name,
+			"kind": string(wp.Spec.ObservabilityPlaneRef.Kind),
+			"name": wp.Spec.ObservabilityPlaneRef.Name,
 		}
 	}
-	if bp.Status.AgentConnection != nil {
-		m["agentConnection"] = agentConnectionToMap(bp.Status.AgentConnection)
+	if wp.Status.AgentConnection != nil {
+		m["agentConnection"] = agentConnectionToMap(wp.Status.AgentConnection)
 	}
-	setIfNotEmpty(m, "status", readyStatus(bp.Status.Conditions))
-	if conds := conditionsSummary(bp.Status.Conditions); conds != nil {
+	setIfNotEmpty(m, "status", readyStatus(wp.Status.Conditions))
+	if conds := conditionsSummary(wp.Status.Conditions); conds != nil {
 		m["conditions"] = conds
 	}
 	return m
@@ -559,14 +559,14 @@ func clusterDataPlaneDetail(cdp *openchoreov1alpha1.ClusterDataPlane) map[string
 }
 
 // ---------------------------------------------------------------------------
-// ClusterBuildPlane
+// ClusterWorkflowPlane
 // ---------------------------------------------------------------------------
 
-func clusterBuildPlaneSummary(cbp openchoreov1alpha1.ClusterBuildPlane) map[string]any {
-	m := extractCommonMeta(&cbp)
-	setIfNotEmpty(m, "planeID", cbp.Spec.PlaneID)
-	if cbp.Status.AgentConnection != nil {
-		m["agentConnected"] = cbp.Status.AgentConnection.Connected
+func clusterWorkflowPlaneSummary(cwp openchoreov1alpha1.ClusterWorkflowPlane) map[string]any {
+	m := extractCommonMeta(&cwp)
+	setIfNotEmpty(m, "planeID", cwp.Spec.PlaneID)
+	if cwp.Status.AgentConnection != nil {
+		m["agentConnected"] = cwp.Status.AgentConnection.Connected
 	}
 	return m
 }

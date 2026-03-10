@@ -15,7 +15,7 @@ func peToolSpecs() []toolTestSpec {
 	specs := peEnvironmentSpecs()
 	specs = append(specs, pePipelineSpecs()...)
 	specs = append(specs, peDataPlaneSpecs()...)
-	specs = append(specs, peBuildPlaneSpecs()...)
+	specs = append(specs, peWorkflowPlaneSpecs()...)
 	specs = append(specs, peObservabilityPlaneSpecs()...)
 	specs = append(specs, peClusterSpecs()...)
 	specs = append(specs, peClusterPlatformStandardsSpecs()...)
@@ -134,11 +134,11 @@ func peDataPlaneSpecs() []toolTestSpec {
 	)
 }
 
-func peBuildPlaneSpecs() []toolTestSpec {
+func peWorkflowPlaneSpecs() []toolTestSpec {
 	return makeNamespacedListGetSpecs(
-		"pe", "list_buildplanes", "get_buildplane",
-		[]string{"list", "build", "plane"}, []string{"build", "plane"},
-		"bp_name", "bp1", "ListBuildPlanes", "GetBuildPlane",
+		"pe", "list_workflowplanes", "get_workflowplane",
+		[]string{"list", "workflow", "plane"}, []string{"workflow", "plane"},
+		"wp_name", "wp1", "ListWorkflowPlanes", "GetWorkflowPlane",
 	)
 }
 
@@ -181,13 +181,13 @@ func peClusterSpecs() []toolTestSpec {
 			},
 		},
 		{
-			name:                "list_cluster_buildplanes",
+			name:                "list_cluster_workflowplanes",
 			toolset:             "pe",
-			descriptionKeywords: []string{"cluster", "build", "plane"},
+			descriptionKeywords: []string{"cluster", "workflow", "plane"},
 			descriptionMinLen:   10,
 			optionalParams:      []string{"limit", "cursor"},
 			testArgs:            map[string]any{},
-			expectedMethod:      "ListClusterBuildPlanes",
+			expectedMethod:      "ListClusterWorkflowPlanes",
 			validateCall: func(t *testing.T, args []interface{}) {
 				// Only ListOpts argument
 			},

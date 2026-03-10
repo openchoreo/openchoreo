@@ -44,13 +44,13 @@ const (
 	SystemActionCreateDataPlane systemAction = "dataplane:create"
 	SystemActionViewDataPlane   systemAction = "dataplane:view"
 
-	SystemActionViewBuildPlane systemAction = "buildplane:view"
+	SystemActionViewWorkflowPlane systemAction = "workflowplane:view"
 
 	SystemActionViewObservabilityPlane systemAction = "observabilityplane:view"
 
 	SystemActionCreateClusterDataPlane        systemAction = "clusterdataplane:create"
 	SystemActionViewClusterDataPlane          systemAction = "clusterdataplane:view"
-	SystemActionViewClusterBuildPlane         systemAction = "clusterbuildplane:view"
+	SystemActionViewClusterWorkflowPlane      systemAction = "clusterworkflowplane:view"
 	SystemActionViewClusterObservabilityPlane systemAction = "clusterobservabilityplane:view"
 
 	SystemActionViewClusterComponentType systemAction = "clustercomponenttype:view"
@@ -86,10 +86,10 @@ const (
 	ResourceTypeComponentType             ResourceType = "componentType"
 	ResourceTypeTrait                     ResourceType = "trait"
 	ResourceTypeDataPlane                 ResourceType = "dataPlane"
-	ResourceTypeBuildPlane                ResourceType = "buildPlane"
+	ResourceTypeWorkflowPlane             ResourceType = "workflowPlane"
 	ResourceTypeObservabilityPlane        ResourceType = "observabilityPlane"
 	ResourceTypeClusterDataPlane          ResourceType = "clusterDataPlane"
-	ResourceTypeClusterBuildPlane         ResourceType = "clusterBuildPlane"
+	ResourceTypeClusterWorkflowPlane      ResourceType = "clusterWorkflowPlane"
 	ResourceTypeClusterObservabilityPlane ResourceType = "clusterObservabilityPlane"
 	ResourceTypeClusterComponentType      ResourceType = "clusterComponentType"
 	ResourceTypeClusterTrait              ResourceType = "clusterTrait"

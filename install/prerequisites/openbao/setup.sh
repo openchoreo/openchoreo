@@ -94,7 +94,7 @@ path \"secret/metadata/*\" {
 }
 POLICY
 
-    # Writer policy (build plane / ESO PushSecrets)
+    # Writer policy (workflow plane / ESO PushSecrets)
     bao policy write openchoreo-secret-writer-policy - <<'POLICY'
 path \"secret/data/*\" {
   capabilities = [\"create\", \"read\", \"update\", \"delete\"]
@@ -111,10 +111,10 @@ POLICY
         policies=openchoreo-secret-reader-policy \
         ttl=20m
 
-    # Writer role for build plane and openbao namespace
+    # Writer role for workflow plane and openbao namespace
     bao write auth/kubernetes/role/openchoreo-secret-writer-role \
         bound_service_account_names='*' \
-        bound_service_account_namespaces='${OPENBAO_NAMESPACE},openchoreo-build-plane' \
+        bound_service_account_namespaces='${OPENBAO_NAMESPACE},openchoreo-workflow-plane' \
         policies=openchoreo-secret-writer-policy \
         ttl=20m
 "

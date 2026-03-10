@@ -17,7 +17,7 @@ ports:
   - port: 11081:5601
     nodeFilters:
       - loadbalancer
-  # OpenSearch API for Fluent Bit data pushing from DP/BP
+  # OpenSearch API for Fluent Bit data pushing from DP/WP
   - port: 11082:9200
     nodeFilters:
       - loadbalancer
@@ -25,11 +25,11 @@ ports:
   - port: 11085:11085
     nodeFilters:
       - loadbalancer
-  # Prometheus for metrics remote write from DP/BP
+  # Prometheus for metrics remote write from DP/WP
   - port: 11084:9091
     nodeFilters:
       - loadbalancer
-  # OpenTelemetry Collector for traces from DP/BP
+  # OpenTelemetry Collector for traces from DP/WP
   - port: 11086:4317
     nodeFilters:
       - loadbalancer

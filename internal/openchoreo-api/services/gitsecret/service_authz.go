@@ -29,9 +29,9 @@ type gitSecretServiceWithAuthz struct {
 }
 
 // NewServiceWithAuthz creates a new git secret service with authorization.
-func NewServiceWithAuthz(k8sClient client.Client, bpClientMgr *kubernetesClient.KubeMultiClientManager, authzPDP authz.PDP, logger *slog.Logger, gatewayURL string) Service {
+func NewServiceWithAuthz(k8sClient client.Client, wpClientMgr *kubernetesClient.KubeMultiClientManager, authzPDP authz.PDP, logger *slog.Logger, gatewayURL string) Service {
 	return &gitSecretServiceWithAuthz{
-		internal: NewService(k8sClient, bpClientMgr, logger, gatewayURL),
+		internal: NewService(k8sClient, wpClientMgr, logger, gatewayURL),
 		authz:    services.NewAuthzChecker(authzPDP, logger),
 	}
 }

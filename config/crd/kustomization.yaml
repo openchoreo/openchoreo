@@ -15,7 +15,7 @@ resources:
 
   - bases/openchoreo.dev_renderedreleases.yaml
 
-  - bases/openchoreo.dev_buildplanes.yaml
+  - bases/openchoreo.dev_workflowplanes.yaml
   - bases/openchoreo.dev_workflows.yaml
   - bases/openchoreo.dev_workflowruns.yaml
   - bases/openchoreo.dev_secretreferences.yaml
@@ -28,7 +28,7 @@ resources:
   - bases/openchoreo.dev_authzrolebindings.yaml
   - bases/openchoreo.dev_authzclusterroles.yaml
   - bases/openchoreo.dev_authzclusterrolebindings.yaml
-  - bases/openchoreo.dev_clusterbuildplanes.yaml
+  - bases/openchoreo.dev_clusterworkflowplanes.yaml
   - bases/openchoreo.dev_clusterdataplanes.yaml
   - bases/openchoreo.dev_clusterobservabilityplanes.yaml
   - bases/openchoreo.dev_clustercomponenttypes.yaml

@@ -23,7 +23,7 @@ ports:
   - port: 29443:19443
     nodeFilters:
       - loadbalancer
-  # Build Plane — port range 20xxx (only used when E2E_WITH_BUILD=true)
+  # Workflow Plane — port range 20xxx (only used when E2E_WITH_BUILD=true)
   - port: 20082:10082
     nodeFilters:
       - loadbalancer
@@ -44,7 +44,7 @@ options:
   k3s:
     extraArgs:
       # Add host.k3d.internal to API server TLS SANs so kubelet can pull images
-      # from the build plane registry at host.k3d.internal:20082 via HTTP proxy
+      # from the workflow plane registry at host.k3d.internal:20082 via HTTP proxy
       - arg: "--tls-san=host.k3d.internal"
         nodeFilters:
           - server:*

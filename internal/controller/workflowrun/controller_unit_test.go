@@ -332,18 +332,18 @@ func TestConditionFunctions(t *testing.T) {
 		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionTrue, string(ReasonWorkflowFailed))
 	})
 
-	t.Run("setBuildPlaneNotFoundCondition", func(t *testing.T) {
+	t.Run("setWorkflowPlaneNotFoundCondition", func(t *testing.T) {
 		wfr := newWFRun()
-		setBuildPlaneNotFoundCondition(wfr)
+		setWorkflowPlaneNotFoundCondition(wfr)
 		assertConditionCount(t, wfr, 1)
-		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionFalse, string(ReasonBuildPlaneNotFound))
+		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionFalse, string(ReasonWorkflowPlaneNotFound))
 	})
 
-	t.Run("setBuildPlaneResolutionFailedCondition", func(t *testing.T) {
+	t.Run("setWorkflowPlaneResolutionFailedCondition", func(t *testing.T) {
 		wfr := newWFRun()
-		setBuildPlaneResolutionFailedCondition(wfr, errors.New("test error"))
+		setWorkflowPlaneResolutionFailedCondition(wfr, errors.New("test error"))
 		assertConditionCount(t, wfr, 1)
-		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionFalse, string(ReasonBuildPlaneResolutionFailed))
+		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionFalse, string(ReasonWorkflowPlaneResolutionFailed))
 		cond := findConditionByType(wfr.Status.Conditions, string(ConditionWorkflowCompleted))
 		if !strings.Contains(cond.Message, "test error") {
 			t.Errorf("expected message to contain 'test error', got %q", cond.Message)

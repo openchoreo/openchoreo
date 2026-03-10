@@ -39,14 +39,14 @@ tags:
     description: Environment management within namespaces
   - name: DataPlanes
     description: DataPlane management for workload deployment targets
-  - name: BuildPlanes
-    description: BuildPlane management for CI/CD build infrastructure
+  - name: WorkflowPlanes
+    description: WorkflowPlane management for CI/CD build infrastructure
   - name: ObservabilityPlanes
     description: ObservabilityPlane management for monitoring and logging
   - name: ClusterDataPlanes
     description: Cluster-scoped DataPlane management
-  - name: ClusterBuildPlanes
-    description: Cluster-scoped BuildPlane management
+  - name: ClusterWorkflowPlanes
+    description: Cluster-scoped WorkflowPlane management
   - name: ClusterObservabilityPlanes
     description: Cluster-scoped ObservabilityPlane management
   - name: ClusterComponentTypes
@@ -783,26 +783,26 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
-  # BuildPlane Endpoints
+  # WorkflowPlane Endpoints
   # =============================================================================
 
-  /api/v1/namespaces/{namespaceName}/buildplanes:
+  /api/v1/namespaces/{namespaceName}/workflowplanes:
     get:
-      operationId: listBuildPlanes
-      summary: List build planes
-      description: Returns a paginated list of build planes within a namespace. Typically one per namespace.
-      tags: [BuildPlanes]
+      operationId: listWorkflowPlanes
+      summary: List workflow planes
+      description: Returns a paginated list of workflow planes within a namespace. Typically one per namespace.
+      tags: [WorkflowPlanes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
-          description: List of build planes
+          description: List of workflow planes
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BuildPlaneList'
+                $ref: '#/components/schemas/WorkflowPlaneList'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -811,10 +811,10 @@ paths:
           $ref: '#/components/responses/InternalError'
 
     post:
-      operationId: createBuildPlane
-      summary: Create build plane
-      description: Creates a new build plane within a namespace.
-      tags: [BuildPlanes]
+      operationId: createWorkflowPlane
+      summary: Create workflow plane
+      description: Creates a new workflow plane within a namespace.
+      tags: [WorkflowPlanes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
       requestBody:
@@ -822,14 +822,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BuildPlane'
+              $ref: '#/components/schemas/WorkflowPlane'
       responses:
         '201':
-          description: BuildPlane created successfully
+          description: WorkflowPlane created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BuildPlane'
+                $ref: '#/components/schemas/WorkflowPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -841,22 +841,22 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/buildplanes/{buildPlaneName}:
+  /api/v1/namespaces/{namespaceName}/workflowplanes/{workflowPlaneName}:
     get:
-      operationId: getBuildPlane
-      summary: Get build plane
-      description: Returns details of a specific build plane.
-      tags: [BuildPlanes]
+      operationId: getWorkflowPlane
+      summary: Get workflow plane
+      description: Returns details of a specific workflow plane.
+      tags: [WorkflowPlanes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/BuildPlaneNameParam'
+        - $ref: '#/components/parameters/WorkflowPlaneNameParam'
       responses:
         '200':
-          description: Build plane details
+          description: Workflow plane details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BuildPlane'
+                $ref: '#/components/schemas/WorkflowPlane'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -867,26 +867,26 @@ paths:
           $ref: '#/components/responses/InternalError'
 
     put:
-      operationId: updateBuildPlane
-      summary: Update build plane
-      description: Replaces an existing build plane (full update).
-      tags: [BuildPlanes]
+      operationId: updateWorkflowPlane
+      summary: Update workflow plane
+      description: Replaces an existing workflow plane (full update).
+      tags: [WorkflowPlanes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/BuildPlaneNameParam'
+        - $ref: '#/components/parameters/WorkflowPlaneNameParam'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BuildPlane'
+              $ref: '#/components/schemas/WorkflowPlane'
       responses:
         '200':
-          description: BuildPlane updated successfully
+          description: WorkflowPlane updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BuildPlane'
+                $ref: '#/components/schemas/WorkflowPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -901,16 +901,16 @@ paths:
           $ref: '#/components/responses/InternalError'
 
     delete:
-      operationId: deleteBuildPlane
-      summary: Delete build plane
-      description: Deletes a build plane by name.
-      tags: [BuildPlanes]
+      operationId: deleteWorkflowPlane
+      summary: Delete workflow plane
+      description: Deletes a workflow plane by name.
+      tags: [WorkflowPlanes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/BuildPlaneNameParam'
+        - $ref: '#/components/parameters/WorkflowPlaneNameParam'
       responses:
         '204':
-          description: BuildPlane deleted successfully
+          description: WorkflowPlane deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1193,25 +1193,25 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
-  # ClusterBuildPlane Endpoints (Cluster-Scoped)
+  # ClusterWorkflowPlane Endpoints (Cluster-Scoped)
   # =============================================================================
 
-  /api/v1/clusterbuildplanes:
+  /api/v1/clusterworkflowplanes:
     get:
-      operationId: listClusterBuildPlanes
-      summary: List cluster build planes
-      description: Returns a list of cluster-scoped build planes.
-      tags: [ClusterBuildPlanes]
+      operationId: listClusterWorkflowPlanes
+      summary: List cluster workflow planes
+      description: Returns a list of cluster-scoped workflow planes.
+      tags: [ClusterWorkflowPlanes]
       parameters:
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
-          description: List of cluster build planes
+          description: List of cluster workflow planes
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ClusterBuildPlaneList'
+                $ref: '#/components/schemas/ClusterWorkflowPlaneList'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1220,23 +1220,23 @@ paths:
           $ref: '#/components/responses/InternalError'
 
     post:
-      operationId: createClusterBuildPlane
-      summary: Create cluster build plane
-      description: Creates a new cluster-scoped build plane.
-      tags: [ClusterBuildPlanes]
+      operationId: createClusterWorkflowPlane
+      summary: Create cluster workflow plane
+      description: Creates a new cluster-scoped workflow plane.
+      tags: [ClusterWorkflowPlanes]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ClusterBuildPlane'
+              $ref: '#/components/schemas/ClusterWorkflowPlane'
       responses:
         '201':
-          description: ClusterBuildPlane created successfully
+          description: ClusterWorkflowPlane created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ClusterBuildPlane'
+                $ref: '#/components/schemas/ClusterWorkflowPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1248,26 +1248,26 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/clusterbuildplanes/{clusterBuildPlaneName}:
+  /api/v1/clusterworkflowplanes/{clusterWorkflowPlaneName}:
     get:
-      operationId: getClusterBuildPlane
-      summary: Get a cluster build plane
-      description: Returns details of a specific cluster-scoped build plane.
-      tags: [ClusterBuildPlanes]
+      operationId: getClusterWorkflowPlane
+      summary: Get a cluster workflow plane
+      description: Returns details of a specific cluster-scoped workflow plane.
+      tags: [ClusterWorkflowPlanes]
       parameters:
-        - name: clusterBuildPlaneName
+        - name: clusterWorkflowPlaneName
           in: path
           required: true
           schema:
             type: string
-          description: Name of the cluster build plane
+          description: Name of the cluster workflow plane
       responses:
         '200':
-          description: Cluster build plane details
+          description: Cluster workflow plane details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ClusterBuildPlane'
+                $ref: '#/components/schemas/ClusterWorkflowPlane'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1278,30 +1278,30 @@ paths:
           $ref: '#/components/responses/InternalError'
 
     put:
-      operationId: updateClusterBuildPlane
-      summary: Update cluster build plane
-      description: Replaces an existing cluster-scoped build plane (full update).
-      tags: [ClusterBuildPlanes]
+      operationId: updateClusterWorkflowPlane
+      summary: Update cluster workflow plane
+      description: Replaces an existing cluster-scoped workflow plane (full update).
+      tags: [ClusterWorkflowPlanes]
       parameters:
-        - name: clusterBuildPlaneName
+        - name: clusterWorkflowPlaneName
           in: path
           required: true
           schema:
             type: string
-          description: Name of the cluster build plane
+          description: Name of the cluster workflow plane
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ClusterBuildPlane'
+              $ref: '#/components/schemas/ClusterWorkflowPlane'
       responses:
         '200':
-          description: ClusterBuildPlane updated successfully
+          description: ClusterWorkflowPlane updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ClusterBuildPlane'
+                $ref: '#/components/schemas/ClusterWorkflowPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1316,20 +1316,20 @@ paths:
           $ref: '#/components/responses/InternalError'
 
     delete:
-      operationId: deleteClusterBuildPlane
-      summary: Delete cluster build plane
-      description: Deletes a cluster-scoped build plane by name.
-      tags: [ClusterBuildPlanes]
+      operationId: deleteClusterWorkflowPlane
+      summary: Delete cluster workflow plane
+      description: Deletes a cluster-scoped workflow plane by name.
+      tags: [ClusterWorkflowPlanes]
       parameters:
-        - name: clusterBuildPlaneName
+        - name: clusterWorkflowPlaneName
           in: path
           required: true
           schema:
             type: string
-          description: Name of the cluster build plane
+          description: Name of the cluster workflow plane
       responses:
         '204':
-          description: ClusterBuildPlane deleted successfully
+          description: ClusterWorkflowPlane deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2572,7 +2572,7 @@ paths:
     get:
       operationId: getWorkflowRunLogs
       summary: Get workflow run logs
-      description: Returns logs for a specific workflow run from the build plane. Logs are fetched live from the build plane; no archived logs are returned for completed runs.
+      description: Returns logs for a specific workflow run from the workflow plane. Logs are fetched live from the workflow plane; no archived logs are returned for completed runs.
       tags: [Workflows]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -4607,14 +4607,14 @@ components:
         type: string
         example: my-project
 
-    BuildPlaneNameParam:
-      name: buildPlaneName
+    WorkflowPlaneNameParam:
+      name: workflowPlaneName
       in: path
       required: true
-      description: Build plane name
+      description: Workflow plane name
       schema:
         type: string
-        example: default-buildplane
+        example: default-workflowplane
 
     ProjectQueryParam:
       name: project
@@ -5907,11 +5907,11 @@ components:
           description: Virtual host for the listener
 
     # -------------------------------------------------------------------------
-    # BuildPlanes
+    # WorkflowPlanes
     # -------------------------------------------------------------------------
-    BuildPlaneList:
+    WorkflowPlaneList:
       type: object
-      description: Paginated list of build planes
+      description: Paginated list of workflow planes
       required:
         - items
         - pagination
@@ -5919,14 +5919,14 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/BuildPlane'
+            $ref: '#/components/schemas/WorkflowPlane'
         pagination:
           $ref: '#/components/schemas/Pagination'
 
-    BuildPlane:
+    WorkflowPlane:
       type: object
       description: |
-        BuildPlane resource.
+        WorkflowPlane resource.
         Represents CI/CD build infrastructure within a namespace.
       required:
         - metadata
@@ -5940,25 +5940,25 @@ components:
           type: string
           readOnly: true
           description: Kind of the resource
-          example: BuildPlane
+          example: WorkflowPlane
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
-          $ref: '#/components/schemas/BuildPlaneSpec'
+          $ref: '#/components/schemas/WorkflowPlaneSpec'
         status:
           readOnly: true
           allOf:
-            - $ref: '#/components/schemas/BuildPlaneStatus'
+            - $ref: '#/components/schemas/WorkflowPlaneStatus'
 
-    BuildPlaneSpec:
+    WorkflowPlaneSpec:
       type: object
-      description: Desired state of a BuildPlane
+      description: Desired state of a WorkflowPlane
       properties:
         planeID:
           type: string
           description: |
             Logical plane identifier for the physical cluster.
-            Multiple BuildPlane CRs can share the same planeID.
+            Multiple WorkflowPlane CRs can share the same planeID.
           example: ci-cluster
         clusterAgent:
           $ref: '#/components/schemas/ClusterAgentConfig'
@@ -5967,17 +5967,17 @@ components:
         observabilityPlaneRef:
           $ref: '#/components/schemas/ObservabilityPlaneRef'
 
-    BuildPlaneStatus:
+    WorkflowPlaneStatus:
       type: object
-      description: Observed state of a BuildPlane
+      description: Observed state of a WorkflowPlane
       properties:
         observedGeneration:
           type: integer
           format: int64
-          description: Generation of the most recently observed BuildPlane
+          description: Generation of the most recently observed WorkflowPlane
         conditions:
           type: array
-          description: Current state conditions of the BuildPlane
+          description: Current state conditions of the WorkflowPlane
           items:
             $ref: '#/components/schemas/Condition'
         agentConnection:
@@ -6232,11 +6232,11 @@ components:
           $ref: '#/components/schemas/AgentConnectionStatus'
 
     # -------------------------------------------------------------------------
-    # ClusterBuildPlanes (Cluster-Scoped)
+    # ClusterWorkflowPlanes (Cluster-Scoped)
     # -------------------------------------------------------------------------
-    ClusterBuildPlaneList:
+    ClusterWorkflowPlaneList:
       type: object
-      description: List of cluster-scoped build planes
+      description: List of cluster-scoped workflow planes
       required:
         - items
         - pagination
@@ -6244,14 +6244,14 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/ClusterBuildPlane'
+            $ref: '#/components/schemas/ClusterWorkflowPlane'
         pagination:
           $ref: '#/components/schemas/Pagination'
 
-    ClusterBuildPlane:
+    ClusterWorkflowPlane:
       type: object
       description: |
-        ClusterBuildPlane resource.
+        ClusterWorkflowPlane resource.
         Represents cluster-scoped CI/CD build infrastructure.
       required:
         - metadata
@@ -6265,25 +6265,25 @@ components:
           type: string
           readOnly: true
           description: Kind of the resource
-          example: ClusterBuildPlane
+          example: ClusterWorkflowPlane
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
-          $ref: '#/components/schemas/ClusterBuildPlaneSpec'
+          $ref: '#/components/schemas/ClusterWorkflowPlaneSpec'
         status:
           readOnly: true
           allOf:
-            - $ref: '#/components/schemas/ClusterBuildPlaneStatus'
+            - $ref: '#/components/schemas/ClusterWorkflowPlaneStatus'
 
-    ClusterBuildPlaneSpec:
+    ClusterWorkflowPlaneSpec:
       type: object
-      description: Desired state of a ClusterBuildPlane
+      description: Desired state of a ClusterWorkflowPlane
       properties:
         planeID:
           type: string
           description: |
             Logical plane identifier for the physical cluster.
-            Multiple ClusterBuildPlane CRs can share the same planeID.
+            Multiple ClusterWorkflowPlane CRs can share the same planeID.
           example: ci-cluster
         clusterAgent:
           $ref: '#/components/schemas/ClusterAgentConfig'
@@ -6292,17 +6292,17 @@ components:
         observabilityPlaneRef:
           $ref: '#/components/schemas/ClusterObservabilityPlaneRef'
 
-    ClusterBuildPlaneStatus:
+    ClusterWorkflowPlaneStatus:
       type: object
-      description: Observed state of a ClusterBuildPlane
+      description: Observed state of a ClusterWorkflowPlane
       properties:
         observedGeneration:
           type: integer
           format: int64
-          description: Generation of the most recently observed ClusterBuildPlane
+          description: Generation of the most recently observed ClusterWorkflowPlane
         conditions:
           type: array
-          description: Current state conditions of the ClusterBuildPlane
+          description: Current state conditions of the ClusterWorkflowPlane
           items:
             $ref: '#/components/schemas/Condition'
         agentConnection:
@@ -7134,8 +7134,8 @@ components:
       required:
         - runTemplate
       properties:
-        buildPlaneRef:
-          $ref: '#/components/schemas/BuildPlaneRef'
+        workflowPlaneRef:
+          $ref: '#/components/schemas/WorkflowPlaneRef'
         parameters:
           $ref: '#/components/schemas/SchemaSection'
         runTemplate:
@@ -7156,21 +7156,21 @@ components:
           type: string
           description: Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
 
-    BuildPlaneRef:
+    WorkflowPlaneRef:
       type: object
-      description: Reference to a BuildPlane or ClusterBuildPlane
+      description: Reference to a WorkflowPlane or ClusterWorkflowPlane
       required:
         - kind
         - name
       properties:
         kind:
           type: string
-          description: Kind of build plane
-          enum: [BuildPlane, ClusterBuildPlane]
-          example: BuildPlane
+          description: Kind of workflow plane
+          enum: [WorkflowPlane, ClusterWorkflowPlane]
+          example: WorkflowPlane
         name:
           type: string
-          description: Name of the build plane resource
+          description: Name of the workflow plane resource
           example: default
 
     SchemaSection:
@@ -7290,10 +7290,10 @@ components:
       required:
         - runTemplate
       properties:
-        buildPlaneRef:
-          description: Reference to the ClusterBuildPlane for this workflow's build operations. Defaults to the ClusterBuildPlane named "default" when omitted.
+        workflowPlaneRef:
+          description: Reference to the ClusterWorkflowPlane for this workflow's build operations. Defaults to the ClusterWorkflowPlane named "default" when omitted.
           allOf:
-            - $ref: '#/components/schemas/ClusterBuildPlaneRef'
+            - $ref: '#/components/schemas/ClusterWorkflowPlaneRef'
         parameters:
           $ref: '#/components/schemas/SchemaSection'
         runTemplate:
@@ -7314,21 +7314,21 @@ components:
           type: string
           description: Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
 
-    ClusterBuildPlaneRef:
+    ClusterWorkflowPlaneRef:
       type: object
-      description: Reference to a ClusterBuildPlane
+      description: Reference to a ClusterWorkflowPlane
       required:
         - kind
         - name
       properties:
         kind:
           type: string
-          description: Kind of build plane (must be ClusterBuildPlane)
-          enum: [ClusterBuildPlane]
-          example: ClusterBuildPlane
+          description: Kind of workflow plane (must be ClusterWorkflowPlane)
+          enum: [ClusterWorkflowPlane]
+          example: ClusterWorkflowPlane
         name:
           type: string
-          description: Name of the cluster build plane resource
+          description: Name of the cluster workflow plane resource
           example: default
 
     ClusterWorkflowStatus:
@@ -7491,7 +7491,7 @@ components:
             $ref: '#/components/schemas/WorkflowStepStatus'
         hasLiveObservability:
           type: boolean
-          description: Whether live logs/events are available from the build plane
+          description: Whether live logs/events are available from the workflow plane
           example: true
 
     WorkflowStepStatus:

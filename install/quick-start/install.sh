@@ -11,7 +11,7 @@ source "${SCRIPT_DIR}/.helpers.sh"
 trap 'exit_code=$?; if [[ $exit_code -ne 0 ]]; then echo ""; log_error "Installation failed unexpectedly (exit code $exit_code)"; log_error "Re-run with --debug for more details"; fi' EXIT
 
 # Parse command line arguments
-ENABLE_BUILD_PLANE=false
+ENABLE_WORKFLOW_PLANE=false
 ENABLE_OBSERVABILITY=false
 SKIP_PRELOAD=false
 SKIP_RESOURCE_CHECK=false
@@ -20,7 +20,7 @@ DEBUG=false
 while [[ $# -gt 0 ]]; do
     case $1 in
         --with-build)
-            ENABLE_BUILD_PLANE=true
+            ENABLE_WORKFLOW_PLANE=true
             shift
             ;;
         --with-observability)
@@ -50,7 +50,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Options:"
             echo "  --version VER             Specify version to install (default: latest)"
-            echo "  --with-build              Install with Build Plane (Argo Workflows + Registry)"
+            echo "  --with-build              Install with Workflow Plane (Argo Workflows + Registry)"
             echo "  --with-observability      Install with Observability Plane"
             echo "  --skip-preload            Skip image preloading from host Docker"
             echo "  --skip-resource-check     Skip system resource validation"
@@ -77,7 +77,7 @@ done
 
 # Export flags for use in helper functions
 export SKIP_RESOURCE_CHECK
-export ENABLE_BUILD_PLANE
+export ENABLE_WORKFLOW_PLANE
 export ENABLE_OBSERVABILITY
 
 # Derive chart version from the (possibly user-provided) OPENCHOREO_VERSION
@@ -126,14 +126,14 @@ create_dataplane_resource
 install_default_resources
 label_default_namespace
 
-# Step 10: Install Build Plane (optional)
-if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
-    setup_build_plane_ca
+# Step 10: Install Workflow Plane (optional)
+if [[ "$ENABLE_WORKFLOW_PLANE" == "true" ]]; then
+    setup_workflow_plane_ca
     install_registry
-    install_build_plane
+    install_workflow_plane
     install_workflow_templates
 
-    create_buildplane_resource
+    create_workflowplane_resource
 fi
 
 # Step 11: Install Observability Plane (optional)
@@ -182,6 +182,6 @@ log_info "  Deploy sample applications:"
 log_info "    ./deploy-react-starter.sh      # Simple React web application"
 log_info "    ./deploy-gcp-demo.sh           # GCP Microservices Demo (11 services)"
 
-if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+if [[ "$ENABLE_WORKFLOW_PLANE" == "true" ]]; then
     log_info "    ./build-deploy-greeter.sh      # Build from source (Go greeter service)"
 fi

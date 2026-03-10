@@ -113,8 +113,8 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/environments/{envName}/observer-url", h.GetEnvironmentObserverURL)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/environments/{envName}/rca-agent-url", h.GetRCAAgentURL)
 
-	// BuildPlane management
-	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/buildplanes", h.ListBuildPlanes)
+	// WorkflowPlane management
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflowplanes", h.ListWorkflowPlanes)
 
 	// ComponentType endpoints
 	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/component-types/definition", h.CreateComponentTypeDefinition)
@@ -246,8 +246,8 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("POST "+v1+"/clusterdataplanes", h.CreateClusterDataPlane)
 	api.HandleFunc("GET "+v1+"/clusterdataplanes/{cdpName}", h.GetClusterDataPlane)
 
-	// ClusterBuildPlane management
-	api.HandleFunc("GET "+v1+"/clusterbuildplanes", h.ListClusterBuildPlanes)
+	// ClusterWorkflowPlane management
+	api.HandleFunc("GET "+v1+"/clusterworkflowplanes", h.ListClusterWorkflowPlanes)
 
 	// ClusterObservabilityPlane management
 	api.HandleFunc("GET "+v1+"/clusterobservabilityplanes", h.ListClusterObservabilityPlanes)

@@ -11,7 +11,6 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/authzclusterrolebinding"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/authzrole"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/authzrolebinding"
-	"github.com/openchoreo/openchoreo/pkg/cli/cmd/buildplane"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clustertrait"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clusterworkflow"
@@ -33,6 +32,7 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/trait"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/version"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/workflow"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/workflowplane"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/workflowrun"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/workload"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/config"
@@ -62,7 +62,7 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		component.NewComponentCmd(),
 		environment.NewEnvironmentCmd(),
 		dataplane.NewDataPlaneCmd(),
-		buildplane.NewBuildPlaneCmd(),
+		workflowplane.NewWorkflowPlaneCmd(),
 		observabilityplane.NewObservabilityPlaneCmd(),
 		componenttype.NewComponentTypeCmd(),
 		clustercomponenttype.NewClusterComponentTypeCmd(),

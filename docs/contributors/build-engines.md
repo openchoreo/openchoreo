@@ -15,7 +15,7 @@ OpenChoreo supports multiple build engines through a pluggable architecture that
 ### High-Level Architecture
 
 ```
-Control Plane                                  Build Plane
+Control Plane                                  Workflow Plane
 ┌───────────────────────────────────────┐      ┌─────────────────────────────┐
 │                                       │      │                             │
 │  ┌──────────────────┐                 │      │  Engine-Specific Resources: │
@@ -54,10 +54,10 @@ Control Plane                                  Build Plane
 │ All Engines Implement Same Interface:                       │
 │                                                             │
 │ GetName() string                                            │
-│ EnsurePrerequisites(ctx, bpClient, build) error             │
-│ CreateBuild(ctx, bpClient, build) (response, error)         │
-│ GetBuildStatus(ctx, bpClient, build) (status, error)        │
-│ ExtractBuildArtifacts(ctx, bpClient, build) (artifacts, e)  │
+│ EnsurePrerequisites(ctx, wpClient, build) error             │
+│ CreateBuild(ctx, wpClient, build) (response, error)         │
+│ GetBuildStatus(ctx, wpClient, build) (status, error)        │
+│ ExtractBuildArtifacts(ctx, wpClient, build) (artifacts, e)  │
 └─────────────────────────────────────────────────────────────┘
 
 
@@ -76,7 +76,7 @@ Build Lifecycle Flow:
 1. Build CR created/updated
 2. Controller calls Builder.ProcessBuild()
 3. Builder selects engine based on spec.templateRef.engine
-4. Builder gets build-plane client (cross-cluster)
+4. Builder gets workflow-plane client (cross-cluster)
 5. Engine.EnsurePrerequisites() → Create namespace, RBAC, etc.
 6. Engine.CreateBuild() → Create Workflow/PipelineRun/etc.
 7. Controller periodically calls Engine.GetBuildStatus()
@@ -132,11 +132,11 @@ Shared types used across engines:
 6. **Workload creation** (optional, handled by Builder)
    - If a workload CR is present in artifacts, Builder creates the Workload resource in the Build’s namespace.
 
-## Control Plane vs Build Plane
+## Control Plane vs Workflow Plane
 
-- The Builder runs in the control plane and talks to the build plane cluster selected by the BuildPlane resource.
-- All engine methods (`EnsurePrerequisites`, `CreateBuild`, `GetBuildStatus`, `ExtractBuildArtifacts`) receive a Kubernetes client that targets the build plane. Do not assume access to control-plane resources inside the engine.
-- Ensure that any CRDs and templates your engine needs are installed in the build plane cluster referenced by the BuildPlane.
+- The Builder runs in the control plane and talks to the workflow plane cluster selected by the WorkflowPlane resource.
+- All engine methods (`EnsurePrerequisites`, `CreateBuild`, `GetBuildStatus`, `ExtractBuildArtifacts`) receive a Kubernetes client that targets the workflow plane. Do not assume access to control-plane resources inside the engine.
+- Ensure that any CRDs and templates your engine needs are installed in the workflow plane cluster referenced by the WorkflowPlane.
 
 ## Artifact Contract (Outputs your engine should provide)
 
@@ -191,7 +191,7 @@ Follow this checklist to add a new engine implementation:
    - Keep naming deterministic and collision-free.
 
 5. **Template and resource expectations**
-   - If your engine uses cluster templates (e.g., pipeline templates), ensure they are installed in the build plane cluster.
+   - If your engine uses cluster templates (e.g., pipeline templates), ensure they are installed in the workflow plane cluster.
    - Ensure any engine CRDs are present.
 
 6. **Security and RBAC**
@@ -266,7 +266,7 @@ Common issues and hints:
 - **Import cycles**: Keep engine code isolated; use shared utilities from names and engines packages.
 - **Resource conflicts**: Ensure unique names and correct owner references.
 - **Status sync**: Make sure `GetBuildStatus` reflects the actual engine state and terminal phases are recognized.
-- **Missing CRDs**: Verify your engine’s CRDs are installed in the build plane cluster.
+- **Missing CRDs**: Verify your engine’s CRDs are installed in the workflow plane cluster.
 
 Debugging tips:
 - Check controller logs in the control-plane namespace.

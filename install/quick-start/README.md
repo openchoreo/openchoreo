@@ -9,7 +9,7 @@ is pre-configured inside a Docker container.
 - **Interactive Environment**: Bash shell with helpful aliases and auto-completion
 - **Sample Applications**: Ready-to-deploy examples to explore OpenChoreo capabilities
 - **Installation Scripts**: Automated setup for local k3d cluster with OpenChoreo
-- **Optional Build Plane**: Argo Workflows + Container Registry for building from source
+- **Optional Workflow Plane**: Argo Workflows + Container Registry for building from source
 
 ## Prerequisites
 
@@ -53,7 +53,7 @@ Installation typically takes 5-10 minutes depending on your network speed.
 **Installation Options:**
 
 - `./install.sh` - Install with Control Plane and Data Plane (minimal setup)
-- `./install.sh --with-build` - Install with Build Plane (Argo Workflows + Container Registry)
+- `./install.sh --with-build` - Install with Workflow Plane (Argo Workflows + Container Registry)
 - `./install.sh --with-observability` - Install with OpenSearch and observability components
 - `./install.sh --with-build --with-observability` - Install full platform with all optional components
 - `./install.sh --version v0.4.0` - Install a specific OpenChoreo version
@@ -67,7 +67,7 @@ The installer will:
 - Create a local k3d Kubernetes cluster
 - Install OpenChoreo Control Plane
 - Install OpenChoreo Data Plane
-- Optionally install Build Plane (for building from source)
+- Optionally install Workflow Plane (for building from source)
 - Optionally install Observability Plane (for monitoring and logs)
 - Configure the environment for sample deployments
 
@@ -103,7 +103,7 @@ A complex microservices application demonstrating multi-component deployments wi
 
 Demonstrates the complete build-to-deploy workflow:
 - Clones source code from GitHub
-- Builds a Docker image using the Build Plane
+- Builds a Docker image using the Workflow Plane
 - Pushes the image to the container registry
 - Deploys the service to the Data Plane
 
@@ -146,7 +146,7 @@ k3d cluster delete openchoreo-quick-start
 ### Cluster Agent Pod Stuck in Pending
 
 In single-cluster setups, the cluster agent should start automatically after Helm completes the installation. The Helm post-install jobs automatically:
-- Copy the cluster-gateway CA from control plane to data/build plane namespaces
+- Copy the cluster-gateway CA from control plane to data/workflow plane namespaces
 - Create TLS certificates for secure communication
 
 If the agent pod is stuck, check the Helm job logs:

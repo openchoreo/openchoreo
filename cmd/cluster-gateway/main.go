@@ -80,10 +80,10 @@ func main() {
 		"serverKey", serverKeyPath,
 		"heartbeatInterval", heartbeatInterval,
 		"heartbeatTimeout", heartbeatTimeout,
-		"note", "Client CA certificates are loaded dynamically from DataPlane/BuildPlane/ObservabilityPlane CRs",
+		"note", "Client CA certificates are loaded dynamically from DataPlane/WorkflowPlane/ObservabilityPlane CRs",
 	)
 
-	// Create Kubernetes client for querying DataPlane/BuildPlane/ObservabilityPlane CRs
+	// Create Kubernetes client for querying DataPlane/WorkflowPlane/ObservabilityPlane CRs
 	k8sConfig, err := ctrl.GetConfig()
 	if err != nil {
 		logger.Error("failed to get Kubernetes config", "error", err)

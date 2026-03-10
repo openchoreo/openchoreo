@@ -182,21 +182,21 @@ helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
   --values install/k3d/multi-cluster/values-dp.yaml
 ```
 
-### 3. Install OpenChoreo Build Plane (Optional)
+### 3. Install OpenChoreo Workflow Plane (Optional)
 
-Install the Build Plane using Helm:
+Install the Workflow Plane using Helm:
 
 ```shell
-helm install openchoreo-build-plane install/helm/openchoreo-build-plane \
+helm install openchoreo-workflow-plane install/helm/openchoreo-workflow-plane \
   --dependency-update \
-  --kube-context k3d-openchoreo-bp \
-  --namespace openchoreo-build-plane \
+  --kube-context k3d-openchoreo-wp \
+  --namespace openchoreo-workflow-plane \
   --create-namespace \
-  --values install/k3d/multi-cluster/values-bp.yaml
+  --values install/k3d/multi-cluster/values-wp.yaml
 ```
 
 > [!TIP]
-> To install the Build Plane without Argo Workflows, append the following flag: `--set argo-workflows.enabled=false`.
+> To install the Workflow Plane without Argo Workflows, append the following flag: `--set argo-workflows.enabled=false`.
 
 ### 4. Verify the Installation
 
@@ -209,8 +209,8 @@ kubectl --context k3d-openchoreo-cp get pods -n openchoreo-control-plane
 # Data Plane
 kubectl --context k3d-openchoreo-dp get pods -n openchoreo-data-plane
 
-# Build Plane (if installed)
-kubectl --context k3d-openchoreo-bp get pods -n openchoreo-build-plane
+# Workflow Plane (if installed)
+kubectl --context k3d-openchoreo-wp get pods -n openchoreo-workflow-plane
 ```
 
 Once you are done with the installation, you can try out our [samples](../samples) to get a better understanding of OpenChoreo.

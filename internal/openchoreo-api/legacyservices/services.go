@@ -24,7 +24,7 @@ type Services struct {
 	NamespaceService                 *NamespaceService
 	EnvironmentService               *EnvironmentService
 	DataPlaneService                 *DataPlaneService
-	BuildPlaneService                *BuildPlaneService
+	WorkflowPlaneService             *WorkflowPlaneService
 	DeploymentPipelineService        *DeploymentPipelineService
 	SchemaService                    *SchemaService
 	SecretReferenceService           *SecretReferenceService
@@ -33,7 +33,7 @@ type Services struct {
 	AuthzService                     *AuthzService
 	ObservabilityPlaneService        *ObservabilityPlaneService
 	ClusterDataPlaneService          *ClusterDataPlaneService
-	ClusterBuildPlaneService         *ClusterBuildPlaneService
+	ClusterWorkflowPlaneService      *ClusterWorkflowPlaneService
 	ClusterObservabilityPlaneService *ClusterObservabilityPlaneService
 	ClusterComponentTypeService      *ClusterComponentTypeService
 	ClusterTraitService              *ClusterTraitService
@@ -60,8 +60,8 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	// Create dataplane service
 	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"), authzPDP)
 
-	// Create build plane service with client manager for multi-cluster support
-	buildPlaneService := NewBuildPlaneService(k8sClient, k8sClientMgr, logger.With("service", "buildplane"), authzPDP)
+	// Create workflow plane service with client manager for multi-cluster support
+	workflowPlaneService := NewWorkflowPlaneService(k8sClient, k8sClientMgr, logger.With("service", "workflowplane"), authzPDP)
 
 	// Create deployment pipeline service (depends on project service)
 	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"), authzPDP)
@@ -76,7 +76,7 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"), authzPDP)
 
 	// Create WorkflowRun service
-	workflowRunService := NewWorkflowRunService(k8sClient, logger.With("service", "workflowrun"), authzPDP, buildPlaneService, gwClient)
+	workflowRunService := NewWorkflowRunService(k8sClient, logger.With("service", "workflowrun"), authzPDP, workflowPlaneService, gwClient)
 
 	// Create webhook service (handles all git providers)
 	webhookService := NewWebhookService(k8sClient, workflowRunService)
@@ -88,7 +88,7 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	secretReferenceService := NewSecretReferenceService(k8sClient, logger.With("service", "secretreference"), authzPDP)
 
 	// Create GitSecret service
-	gitSecretService := NewGitSecretService(k8sClient, k8sClientMgr, buildPlaneService, logger.With("service", "gitsecret"), authzPDP, gatewayURL)
+	gitSecretService := NewGitSecretService(k8sClient, k8sClientMgr, workflowPlaneService, logger.With("service", "gitsecret"), authzPDP, gatewayURL)
 
 	// Create Authorization service
 	authzService := NewAuthzService(authzPAP, authzPDP, logger.With("service", "authz"))
@@ -99,8 +99,8 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	// Create ClusterDataPlane service
 	clusterDataPlaneService := NewClusterDataPlaneService(k8sClient, logger.With("service", "clusterdataplane"), authzPDP)
 
-	// Create ClusterBuildPlane service
-	clusterBuildPlaneService := NewClusterBuildPlaneService(k8sClient, logger.With("service", "clusterbuildplane"), authzPDP)
+	// Create ClusterWorkflowPlane service
+	clusterWorkflowPlaneService := NewClusterWorkflowPlaneService(k8sClient, logger.With("service", "clusterworkflowplane"), authzPDP)
 
 	// Create ClusterObservabilityPlane service
 	clusterObservabilityPlaneService := NewClusterObservabilityPlaneService(k8sClient, logger.With("service", "clusterobservabilityplane"), authzPDP)
@@ -121,7 +121,7 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 		NamespaceService:                 namespaceService,
 		EnvironmentService:               environmentService,
 		DataPlaneService:                 dataplaneService,
-		BuildPlaneService:                buildPlaneService,
+		WorkflowPlaneService:             workflowPlaneService,
 		DeploymentPipelineService:        deploymentPipelineService,
 		SchemaService:                    schemaService,
 		SecretReferenceService:           secretReferenceService,
@@ -130,7 +130,7 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 		AuthzService:                     authzService,
 		ObservabilityPlaneService:        observabilityPlaneService,
 		ClusterDataPlaneService:          clusterDataPlaneService,
-		ClusterBuildPlaneService:         clusterBuildPlaneService,
+		ClusterWorkflowPlaneService:      clusterWorkflowPlaneService,
 		ClusterObservabilityPlaneService: clusterObservabilityPlaneService,
 		ClusterComponentTypeService:      clusterComponentTypeService,
 		ClusterTraitService:              clusterTraitService,

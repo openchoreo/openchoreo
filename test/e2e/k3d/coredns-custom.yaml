@@ -17,7 +17,7 @@ data:
       answer auto
     }
     rewrite stop {
-      name regex (.+\.)?e2e-bp\.local host.k3d.internal
+      name regex (.+\.)?e2e-wp\.local host.k3d.internal
       answer auto
     }
     rewrite stop {

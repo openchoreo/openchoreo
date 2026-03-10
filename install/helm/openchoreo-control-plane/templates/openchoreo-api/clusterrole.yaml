@@ -17,8 +17,8 @@ rules:
   - apibindings
   - apiclasses
   - apis
-  - buildplanes
-  - clusterbuildplanes
+  - workflowplanes
+  - clusterworkflowplanes
   - clustercomponenttypes
   - clusterdataplanes
   - clustertraits
@@ -79,8 +79,8 @@ rules:
   - apibindings/status
   - apiclasses/status
   - apis/status
-  - buildplanes/status
-  - clusterbuildplanes/status
+  - workflowplanes/status
+  - clusterworkflowplanes/status
   - clustercomponenttypes/status
   - clusterdataplanes/status
   - clustertraits/status

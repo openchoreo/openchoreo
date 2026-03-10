@@ -10,7 +10,7 @@ KUBECONFIG_PATH="$HOME/.kube/config"
 # Namespace definitions
 CONTROL_PLANE_NS="openchoreo-control-plane"
 DATA_PLANE_NS="openchoreo-data-plane"
-BUILD_PLANE_NS="openchoreo-build-plane"
+WORKFLOW_PLANE_NS="openchoreo-workflow-plane"
 OBSERVABILITY_NS="openchoreo-observability-plane"
 THUNDER_NS="thunder"
 

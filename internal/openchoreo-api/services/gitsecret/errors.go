@@ -10,5 +10,5 @@ var (
 	ErrGitSecretNotFound        = errors.New("git secret not found")
 	ErrSecretStoreNotConfigured = errors.New("secret store not configured")
 	ErrInvalidSecretType        = errors.New("secret type must be 'basic-auth' or 'ssh-auth'")
-	ErrBuildPlaneNotFound       = errors.New("build plane not found")
+	ErrWorkflowPlaneNotFound    = errors.New("workflow plane not found")
 )

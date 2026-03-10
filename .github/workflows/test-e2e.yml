@@ -8,7 +8,7 @@ on:
         required: false
         default: "0.0.0-latest-dev"
       with_build:
-        description: "Include build plane"
+        description: "Include workflow plane"
         type: boolean
         default: false
       with_observability:

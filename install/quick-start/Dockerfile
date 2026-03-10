@@ -76,7 +76,7 @@ RUN cp /tmp/install/quick-start/.bash_profile ${USER_HOME}/.bash_profile && \
     cp /tmp/install/quick-start/build-deploy-greeter.sh ${USER_HOME}/build-deploy-greeter.sh && \
     cp /tmp/install/quick-start/.values-cp.yaml ${USER_HOME}/.values-cp.yaml && \
     cp /tmp/install/quick-start/.values-dp.yaml ${USER_HOME}/.values-dp.yaml && \
-    cp /tmp/install/quick-start/.values-bp.yaml ${USER_HOME}/.values-bp.yaml && \
+    cp /tmp/install/quick-start/.values-wp.yaml ${USER_HOME}/.values-wp.yaml && \
     cp /tmp/install/quick-start/.values-registry.yaml ${USER_HOME}/.values-registry.yaml && \
     cp /tmp/install/quick-start/.values-op.yaml ${USER_HOME}/.values-op.yaml && \
     cp /tmp/install/k3d/preload-images.sh ${USER_HOME}/.preload-images.sh && \

@@ -61,7 +61,7 @@ resources:
     namespaced: true
   controller: true
   domain: openchoreo.dev
-  kind: BuildPlane
+  kind: WorkflowPlane
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
 - api:
@@ -198,7 +198,7 @@ resources:
     crdVersion: v1
   controller: true
   domain: openchoreo.dev
-  kind: ClusterBuildPlane
+  kind: ClusterWorkflowPlane
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
 - api:

@@ -34,9 +34,9 @@ type workflowRunServiceWithAuthz struct {
 var _ Service = (*workflowRunServiceWithAuthz)(nil)
 
 // NewServiceWithAuthz creates a workflow run service with authorization checks.
-func NewServiceWithAuthz(k8sClient client.Client, bpClientMgr *kubernetesClient.KubeMultiClientManager, gwClient *gatewayClient.Client, authzPDP authz.PDP, logger *slog.Logger) Service {
+func NewServiceWithAuthz(k8sClient client.Client, wpClientMgr *kubernetesClient.KubeMultiClientManager, gwClient *gatewayClient.Client, authzPDP authz.PDP, logger *slog.Logger) Service {
 	return &workflowRunServiceWithAuthz{
-		internal: NewService(k8sClient, bpClientMgr, gwClient, logger),
+		internal: NewService(k8sClient, wpClientMgr, gwClient, logger),
 		authz:    services.NewAuthzChecker(authzPDP, logger),
 	}
 }

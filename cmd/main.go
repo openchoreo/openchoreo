@@ -26,13 +26,12 @@ import (
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
-	"github.com/openchoreo/openchoreo/internal/controller/clusterbuildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterdataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterobservabilityplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clustertrait"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterworkflow"
+	"github.com/openchoreo/openchoreo/internal/controller/clusterworkflowplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
@@ -48,6 +47,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/secretreference"
 	"github.com/openchoreo/openchoreo/internal/controller/trait"
 	"github.com/openchoreo/openchoreo/internal/controller/workflow"
+	"github.com/openchoreo/openchoreo/internal/controller/workflowplane"
 	"github.com/openchoreo/openchoreo/internal/controller/workflowrun"
 	"github.com/openchoreo/openchoreo/internal/controller/workload"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
@@ -150,7 +150,7 @@ func setupControlPlaneControllers(
 		return err
 	}
 
-	if err := (&clusterbuildplane.Reconciler{
+	if err := (&clusterworkflowplane.Reconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
 		ClientMgr:     k8sClientMgr,
@@ -252,7 +252,7 @@ func setupControlPlaneControllers(
 		return err
 	}
 
-	if err := (&buildplane.Reconciler{
+	if err := (&workflowplane.Reconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
 		ClientMgr:     k8sClientMgr,
@@ -435,7 +435,7 @@ func main() {
 	// -----------------------------------------------------------------------------
 	// Setup Kubernetes multi-client manager
 	// -----------------------------------------------------------------------------
-	// The k8sClientMgr manages cached Kubernetes clients for accessing data planes and build planes.
+	// The k8sClientMgr manages cached Kubernetes clients for accessing data planes and workflow planes.
 	// It supports both direct access mode and agent mode (via HTTP proxy through cluster gateway).
 	var k8sClientMgr *kubernetesClient.KubeMultiClientManager
 	if clusterGatewayCACert != "" || clusterGatewayClientCert != "" || clusterGatewayClientKey != "" {

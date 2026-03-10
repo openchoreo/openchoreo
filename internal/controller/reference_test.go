@@ -150,7 +150,7 @@ func TestGetDataplaneOfEnv_WithExplicitRef_NotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "dataPlane 'nonexistent-dataplane' not found in namespace 'test-namespace'")
 }
 
-func TestGetObservabilityPlaneOfBuildPlane_WithExplicitRef(t *testing.T) {
+func TestGetObservabilityPlaneOfWorkflowPlane_WithExplicitRef(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -162,13 +162,13 @@ func TestGetObservabilityPlaneOfBuildPlane_WithExplicitRef(t *testing.T) {
 		},
 	}
 
-	// Create test BuildPlane with explicit observabilityPlaneRef
-	buildPlane := &openchoreov1alpha1.BuildPlane{
+	// Create test WorkflowPlane with explicit observabilityPlaneRef
+	workflowPlane := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-buildplane",
+			Name:      "test-workflowplane",
 			Namespace: "test-namespace",
 		},
-		Spec: openchoreov1alpha1.BuildPlaneSpec{
+		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ObservabilityPlaneRef: &openchoreov1alpha1.ObservabilityPlaneRef{
 				Kind: openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane,
 				Name: "my-observability",
@@ -178,17 +178,17 @@ func TestGetObservabilityPlaneOfBuildPlane_WithExplicitRef(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(observabilityPlane, buildPlane).
+		WithObjects(observabilityPlane, workflowPlane).
 		Build()
 
-	result, err := GetObservabilityPlaneOfBuildPlane(context.Background(), fakeClient, buildPlane)
+	result, err := GetObservabilityPlaneOfWorkflowPlane(context.Background(), fakeClient, workflowPlane)
 
 	require.NoError(t, err)
 	assert.Equal(t, "my-observability", result.Name)
 	assert.Equal(t, "test-namespace", result.Namespace)
 }
 
-func TestGetObservabilityPlaneOfBuildPlane_WithEmptyRef_DefaultExists(t *testing.T) {
+func TestGetObservabilityPlaneOfWorkflowPlane_WithEmptyRef_DefaultExists(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -200,67 +200,67 @@ func TestGetObservabilityPlaneOfBuildPlane_WithEmptyRef_DefaultExists(t *testing
 		},
 	}
 
-	// Create BuildPlane without observabilityPlaneRef
-	buildPlane := &openchoreov1alpha1.BuildPlane{
+	// Create WorkflowPlane without observabilityPlaneRef
+	workflowPlane := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-buildplane",
+			Name:      "test-workflowplane",
 			Namespace: "test-namespace",
 		},
-		Spec: openchoreov1alpha1.BuildPlaneSpec{
+		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ObservabilityPlaneRef: nil,
 		},
 	}
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(observabilityPlane, buildPlane).
+		WithObjects(observabilityPlane, workflowPlane).
 		Build()
 
-	result, err := GetObservabilityPlaneOfBuildPlane(context.Background(), fakeClient, buildPlane)
+	result, err := GetObservabilityPlaneOfWorkflowPlane(context.Background(), fakeClient, workflowPlane)
 
 	require.NoError(t, err)
 	assert.Equal(t, "default", result.Name)
 	assert.Equal(t, "test-namespace", result.Namespace)
 }
 
-func TestGetObservabilityPlaneOfBuildPlane_WithEmptyRef_DefaultNotFound(t *testing.T) {
+func TestGetObservabilityPlaneOfWorkflowPlane_WithEmptyRef_DefaultNotFound(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
-	// Create BuildPlane without observabilityPlaneRef, but no "default" ObservabilityPlane exists
-	buildPlane := &openchoreov1alpha1.BuildPlane{
+	// Create WorkflowPlane without observabilityPlaneRef, but no "default" ObservabilityPlane exists
+	workflowPlane := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-buildplane",
+			Name:      "test-workflowplane",
 			Namespace: "test-namespace",
 		},
-		Spec: openchoreov1alpha1.BuildPlaneSpec{
+		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ObservabilityPlaneRef: nil,
 		},
 	}
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(buildPlane).
+		WithObjects(workflowPlane).
 		Build()
 
-	result, err := GetObservabilityPlaneOfBuildPlane(context.Background(), fakeClient, buildPlane)
+	result, err := GetObservabilityPlaneOfWorkflowPlane(context.Background(), fakeClient, workflowPlane)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "no observabilityPlaneRef specified and default ObservabilityPlane 'default' not found in namespace 'test-namespace'")
 }
 
-func TestGetObservabilityPlaneOfBuildPlane_WithExplicitRef_NotFound(t *testing.T) {
+func TestGetObservabilityPlaneOfWorkflowPlane_WithExplicitRef_NotFound(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
-	// Create BuildPlane with explicit ref that doesn't exist
-	buildPlane := &openchoreov1alpha1.BuildPlane{
+	// Create WorkflowPlane with explicit ref that doesn't exist
+	workflowPlane := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-buildplane",
+			Name:      "test-workflowplane",
 			Namespace: "test-namespace",
 		},
-		Spec: openchoreov1alpha1.BuildPlaneSpec{
+		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ObservabilityPlaneRef: &openchoreov1alpha1.ObservabilityPlaneRef{
 				Kind: openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane,
 				Name: "nonexistent-observability",
@@ -270,10 +270,10 @@ func TestGetObservabilityPlaneOfBuildPlane_WithExplicitRef_NotFound(t *testing.T
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(buildPlane).
+		WithObjects(workflowPlane).
 		Build()
 
-	result, err := GetObservabilityPlaneOfBuildPlane(context.Background(), fakeClient, buildPlane)
+	result, err := GetObservabilityPlaneOfWorkflowPlane(context.Background(), fakeClient, workflowPlane)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
@@ -410,7 +410,7 @@ func TestGetObservabilityPlaneOfDataPlane_WithExplicitRef_NotFound(t *testing.T)
 	assert.Contains(t, err.Error(), "observabilityPlane 'nonexistent-observability' not found in namespace 'test-namespace'")
 }
 
-func TestGetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane_WithClusterRef(t *testing.T) {
+func TestGetObservabilityPlaneOrClusterObservabilityPlaneOfWorkflowPlane_WithClusterRef(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -421,13 +421,13 @@ func TestGetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane_WithCluste
 		},
 	}
 
-	// Create test BuildPlane with ClusterObservabilityPlane ref
-	buildPlane := &openchoreov1alpha1.BuildPlane{
+	// Create test WorkflowPlane with ClusterObservabilityPlane ref
+	workflowPlane := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-buildplane",
+			Name:      "test-workflowplane",
 			Namespace: "test-namespace",
 		},
-		Spec: openchoreov1alpha1.BuildPlaneSpec{
+		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ObservabilityPlaneRef: &openchoreov1alpha1.ObservabilityPlaneRef{
 				Kind: openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane,
 				Name: "shared-observability",
@@ -437,10 +437,10 @@ func TestGetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane_WithCluste
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(clusterObservabilityPlane, buildPlane).
+		WithObjects(clusterObservabilityPlane, workflowPlane).
 		Build()
 
-	result, err := GetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane(context.Background(), fakeClient, buildPlane)
+	result, err := GetObservabilityPlaneOrClusterObservabilityPlaneOfWorkflowPlane(context.Background(), fakeClient, workflowPlane)
 
 	require.NoError(t, err)
 	assert.Nil(t, result.ObservabilityPlane)
@@ -553,7 +553,7 @@ func TestGetClusterObservabilityPlaneOfClusterDataPlane_WithNilRef_DefaultExists
 	assert.Equal(t, "default", result.Name)
 }
 
-func TestGetClusterObservabilityPlaneOfClusterBuildPlane_WithExplicitRef(t *testing.T) {
+func TestGetClusterObservabilityPlaneOfClusterWorkflowPlane_WithExplicitRef(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -564,12 +564,12 @@ func TestGetClusterObservabilityPlaneOfClusterBuildPlane_WithExplicitRef(t *test
 		},
 	}
 
-	// Create test ClusterBuildPlane with explicit ref
-	clusterBuildPlane := &openchoreov1alpha1.ClusterBuildPlane{
+	// Create test ClusterWorkflowPlane with explicit ref
+	clusterWorkflowPlane := &openchoreov1alpha1.ClusterWorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-clusterbuildplane",
+			Name: "test-clusterworkflowplane",
 		},
-		Spec: openchoreov1alpha1.ClusterBuildPlaneSpec{
+		Spec: openchoreov1alpha1.ClusterWorkflowPlaneSpec{
 			ObservabilityPlaneRef: &openchoreov1alpha1.ClusterObservabilityPlaneRef{
 				Kind: openchoreov1alpha1.ClusterObservabilityPlaneRefKindClusterObservabilityPlane,
 				Name: "shared-observability",
@@ -579,10 +579,10 @@ func TestGetClusterObservabilityPlaneOfClusterBuildPlane_WithExplicitRef(t *test
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(clusterObservabilityPlane, clusterBuildPlane).
+		WithObjects(clusterObservabilityPlane, clusterWorkflowPlane).
 		Build()
 
-	result, err := GetClusterObservabilityPlaneOfClusterBuildPlane(context.Background(), fakeClient, clusterBuildPlane)
+	result, err := GetClusterObservabilityPlaneOfClusterWorkflowPlane(context.Background(), fakeClient, clusterWorkflowPlane)
 
 	require.NoError(t, err)
 	assert.Equal(t, "shared-observability", result.Name)
@@ -638,73 +638,73 @@ func TestObservabilityPlaneResult_Methods(t *testing.T) {
 }
 
 // ============================================================================
-// Tests for ResolveBuildPlane with explicit BuildPlaneRef
+// Tests for ResolveWorkflowPlane with explicit WorkflowPlaneRef
 // ============================================================================
 
-func TestResolveBuildPlane_WithExplicitBuildPlaneRef(t *testing.T) {
+func TestResolveWorkflowPlane_WithExplicitWorkflowPlaneRef(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
-	buildPlane := &openchoreov1alpha1.BuildPlane{
+	workflowPlane := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-buildplane",
+			Name:      "my-workflowplane",
 			Namespace: "test-namespace",
 		},
 	}
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(buildPlane).
+		WithObjects(workflowPlane).
 		Build()
 
-	ref := &openchoreov1alpha1.BuildPlaneRef{
-		Kind: openchoreov1alpha1.BuildPlaneRefKindBuildPlane,
-		Name: "my-buildplane",
+	ref := &openchoreov1alpha1.WorkflowPlaneRef{
+		Kind: openchoreov1alpha1.WorkflowPlaneRefKindWorkflowPlane,
+		Name: "my-workflowplane",
 	}
-	result, err := ResolveBuildPlane(context.Background(), fakeClient, "test-namespace", ref)
+	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", ref)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.NotNil(t, result.BuildPlane)
-	assert.Nil(t, result.ClusterBuildPlane)
-	assert.Equal(t, "my-buildplane", result.GetName())
+	assert.NotNil(t, result.WorkflowPlane)
+	assert.Nil(t, result.ClusterWorkflowPlane)
+	assert.Equal(t, "my-workflowplane", result.GetName())
 	assert.Equal(t, "test-namespace", result.GetNamespace())
 }
 
-func TestResolveBuildPlane_WithExplicitClusterBuildPlaneRef(t *testing.T) {
+func TestResolveWorkflowPlane_WithExplicitClusterWorkflowPlaneRef(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
-	clusterBuildPlane := &openchoreov1alpha1.ClusterBuildPlane{
+	clusterWorkflowPlane := &openchoreov1alpha1.ClusterWorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "shared-buildplane",
+			Name: "shared-workflowplane",
 		},
 	}
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(clusterBuildPlane).
+		WithObjects(clusterWorkflowPlane).
 		Build()
 
-	ref := &openchoreov1alpha1.BuildPlaneRef{
-		Kind: openchoreov1alpha1.BuildPlaneRefKindClusterBuildPlane,
-		Name: "shared-buildplane",
+	ref := &openchoreov1alpha1.WorkflowPlaneRef{
+		Kind: openchoreov1alpha1.WorkflowPlaneRefKindClusterWorkflowPlane,
+		Name: "shared-workflowplane",
 	}
-	result, err := ResolveBuildPlane(context.Background(), fakeClient, "test-namespace", ref)
+	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", ref)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.Nil(t, result.BuildPlane)
-	assert.NotNil(t, result.ClusterBuildPlane)
-	assert.Equal(t, "shared-buildplane", result.GetName())
-	assert.Equal(t, "", result.GetNamespace()) // ClusterBuildPlane is cluster-scoped
+	assert.Nil(t, result.WorkflowPlane)
+	assert.NotNil(t, result.ClusterWorkflowPlane)
+	assert.Equal(t, "shared-workflowplane", result.GetName())
+	assert.Equal(t, "", result.GetNamespace()) // ClusterWorkflowPlane is cluster-scoped
 }
 
-func TestResolveBuildPlane_WithNoRef_DefaultExists(t *testing.T) {
+func TestResolveWorkflowPlane_WithNoRef_DefaultExists(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
-	buildPlane := &openchoreov1alpha1.BuildPlane{
+	workflowPlane := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
 			Namespace: "test-namespace",
@@ -713,69 +713,69 @@ func TestResolveBuildPlane_WithNoRef_DefaultExists(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(buildPlane).
+		WithObjects(workflowPlane).
 		Build()
 
-	result, err := ResolveBuildPlane(context.Background(), fakeClient, "test-namespace", nil)
+	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.NotNil(t, result.BuildPlane)
+	assert.NotNil(t, result.WorkflowPlane)
 	assert.Equal(t, "default", result.GetName())
 }
 
-func TestResolveBuildPlane_WithNoRef_DefaultClusterBuildPlane(t *testing.T) {
+func TestResolveWorkflowPlane_WithNoRef_DefaultClusterWorkflowPlane(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
-	clusterBuildPlane := &openchoreov1alpha1.ClusterBuildPlane{
+	clusterWorkflowPlane := &openchoreov1alpha1.ClusterWorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "default",
 		},
-		Spec: openchoreov1alpha1.ClusterBuildPlaneSpec{
+		Spec: openchoreov1alpha1.ClusterWorkflowPlaneSpec{
 			PlaneID: "test-plane",
 		},
 	}
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(clusterBuildPlane).
+		WithObjects(clusterWorkflowPlane).
 		Build()
 
-	result, err := ResolveBuildPlane(context.Background(), fakeClient, "test-namespace", nil)
+	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.Nil(t, result.BuildPlane)
-	assert.NotNil(t, result.ClusterBuildPlane)
-	assert.Equal(t, "default", result.ClusterBuildPlane.Name)
+	assert.Nil(t, result.WorkflowPlane)
+	assert.NotNil(t, result.ClusterWorkflowPlane)
+	assert.Equal(t, "default", result.ClusterWorkflowPlane.Name)
 }
 
-func TestResolveBuildPlane_WithNoRef_NonDefaultBuildPlane_ReturnsNil(t *testing.T) {
+func TestResolveWorkflowPlane_WithNoRef_NonDefaultWorkflowPlane_ReturnsNil(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
-	// A non-default BuildPlane exists but should NOT be used as fallback
-	buildPlane := &openchoreov1alpha1.BuildPlane{
+	// A non-default WorkflowPlane exists but should NOT be used as fallback
+	workflowPlane := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "other-buildplane",
+			Name:      "other-workflowplane",
 			Namespace: "test-namespace",
 		},
 	}
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(buildPlane).
+		WithObjects(workflowPlane).
 		Build()
 
-	result, err := ResolveBuildPlane(context.Background(), fakeClient, "test-namespace", nil)
+	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
 
 	// Should return nil since only "default" named planes are used in fallback
 	require.NoError(t, err)
 	assert.Nil(t, result)
 }
 
-func TestResolveBuildPlane_WithNoRef_NoBuildPlane(t *testing.T) {
+func TestResolveWorkflowPlane_WithNoRef_NoWorkflowPlane(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -783,14 +783,14 @@ func TestResolveBuildPlane_WithNoRef_NoBuildPlane(t *testing.T) {
 		WithScheme(scheme).
 		Build()
 
-	result, err := ResolveBuildPlane(context.Background(), fakeClient, "test-namespace", nil)
+	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
 
-	// Should return nil without error (BuildPlane is optional)
+	// Should return nil without error (WorkflowPlane is optional)
 	require.NoError(t, err)
 	assert.Nil(t, result)
 }
 
-func TestResolveBuildPlane_WithExplicitRef_NotFound(t *testing.T) {
+func TestResolveWorkflowPlane_WithExplicitRef_NotFound(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -798,18 +798,18 @@ func TestResolveBuildPlane_WithExplicitRef_NotFound(t *testing.T) {
 		WithScheme(scheme).
 		Build()
 
-	ref := &openchoreov1alpha1.BuildPlaneRef{
-		Kind: openchoreov1alpha1.BuildPlaneRefKindBuildPlane,
-		Name: "nonexistent-buildplane",
+	ref := &openchoreov1alpha1.WorkflowPlaneRef{
+		Kind: openchoreov1alpha1.WorkflowPlaneRefKindWorkflowPlane,
+		Name: "nonexistent-workflowplane",
 	}
-	result, err := ResolveBuildPlane(context.Background(), fakeClient, "test-namespace", ref)
+	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", ref)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "buildPlane 'nonexistent-buildplane' not found in namespace 'test-namespace'")
+	assert.Contains(t, err.Error(), "workflowPlane 'nonexistent-workflowplane' not found in namespace 'test-namespace'")
 }
 
-func TestResolveBuildPlane_WithExplicitClusterRef_NotFound(t *testing.T) {
+func TestResolveWorkflowPlane_WithExplicitClusterRef_NotFound(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -817,18 +817,18 @@ func TestResolveBuildPlane_WithExplicitClusterRef_NotFound(t *testing.T) {
 		WithScheme(scheme).
 		Build()
 
-	ref := &openchoreov1alpha1.BuildPlaneRef{
-		Kind: openchoreov1alpha1.BuildPlaneRefKindClusterBuildPlane,
-		Name: "nonexistent-clusterbuildplane",
+	ref := &openchoreov1alpha1.WorkflowPlaneRef{
+		Kind: openchoreov1alpha1.WorkflowPlaneRefKindClusterWorkflowPlane,
+		Name: "nonexistent-clusterworkflowplane",
 	}
-	result, err := ResolveBuildPlane(context.Background(), fakeClient, "test-namespace", ref)
+	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", ref)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "clusterBuildPlane 'nonexistent-clusterbuildplane' not found")
+	assert.Contains(t, err.Error(), "clusterWorkflowPlane 'nonexistent-clusterworkflowplane' not found")
 }
 
-func TestResolveBuildPlane_WithUnsupportedKind(t *testing.T) {
+func TestResolveWorkflowPlane_WithUnsupportedKind(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -836,11 +836,11 @@ func TestResolveBuildPlane_WithUnsupportedKind(t *testing.T) {
 		WithScheme(scheme).
 		Build()
 
-	ref := &openchoreov1alpha1.BuildPlaneRef{
-		Kind: openchoreov1alpha1.BuildPlaneRefKind("UnsupportedKind"),
-		Name: "some-buildplane",
+	ref := &openchoreov1alpha1.WorkflowPlaneRef{
+		Kind: openchoreov1alpha1.WorkflowPlaneRefKind("UnsupportedKind"),
+		Name: "some-workflowplane",
 	}
-	result, err := ResolveBuildPlane(context.Background(), fakeClient, "test-namespace", ref)
+	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", ref)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
@@ -1076,14 +1076,14 @@ func TestDataPlaneResult_GetObservabilityPlane_NeitherSet(t *testing.T) {
 }
 
 // ============================================================================
-// Additional Tests for ResolveBuildPlane (namespace-level fallback scenarios)
+// Additional Tests for ResolveWorkflowPlane (namespace-level fallback scenarios)
 // ============================================================================
 
-func TestResolveBuildPlane_NilRef_FallsBackToDefault(t *testing.T) {
+func TestResolveWorkflowPlane_NilRef_FallsBackToDefault(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
-	defaultBP := &openchoreov1alpha1.BuildPlane{
+	defaultBP := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
 			Namespace: "test-namespace",
@@ -1095,19 +1095,19 @@ func TestResolveBuildPlane_NilRef_FallsBackToDefault(t *testing.T) {
 		WithObjects(defaultBP).
 		Build()
 
-	result, err := ResolveBuildPlane(context.Background(), fakeClient, "test-namespace", nil)
+	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.NotNil(t, result.BuildPlane)
+	assert.NotNil(t, result.WorkflowPlane)
 	assert.Equal(t, "default", result.GetName())
 }
 
-func TestResolveBuildPlane_NilRef_FallsBackToClusterBuildPlane(t *testing.T) {
+func TestResolveWorkflowPlane_NilRef_FallsBackToClusterWorkflowPlane(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
-	clusterBP := &openchoreov1alpha1.ClusterBuildPlane{
+	clusterBP := &openchoreov1alpha1.ClusterWorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "default",
 		},
@@ -1118,15 +1118,15 @@ func TestResolveBuildPlane_NilRef_FallsBackToClusterBuildPlane(t *testing.T) {
 		WithObjects(clusterBP).
 		Build()
 
-	result, err := ResolveBuildPlane(context.Background(), fakeClient, "test-namespace", nil)
+	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.NotNil(t, result.ClusterBuildPlane)
+	assert.NotNil(t, result.ClusterWorkflowPlane)
 	assert.Equal(t, "default", result.GetName())
 }
 
-func TestResolveBuildPlane_NilRef_NoBuildPlaneExists(t *testing.T) {
+func TestResolveWorkflowPlane_NilRef_NoWorkflowPlaneExists(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -1134,17 +1134,17 @@ func TestResolveBuildPlane_NilRef_NoBuildPlaneExists(t *testing.T) {
 		WithScheme(scheme).
 		Build()
 
-	result, err := ResolveBuildPlane(context.Background(), fakeClient, "test-namespace", nil)
+	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
 
 	require.NoError(t, err)
 	assert.Nil(t, result)
 }
 
 // ============================================================================
-// Tests for BuildPlaneResult.GetObservabilityPlane
+// Tests for WorkflowPlaneResult.GetObservabilityPlane
 // ============================================================================
 
-func TestBuildPlaneResult_GetObservabilityPlane_WithBuildPlane(t *testing.T) {
+func TestWorkflowPlaneResult_GetObservabilityPlane_WithWorkflowPlane(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -1158,12 +1158,12 @@ func TestBuildPlaneResult_GetObservabilityPlane_WithBuildPlane(t *testing.T) {
 		},
 	}
 
-	bp := &openchoreov1alpha1.BuildPlane{
+	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-bp",
+			Name:      "my-wp",
 			Namespace: "test-ns",
 		},
-		Spec: openchoreov1alpha1.BuildPlaneSpec{
+		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ObservabilityPlaneRef: &openchoreov1alpha1.ObservabilityPlaneRef{
 				Kind: openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane,
 				Name: "my-obs",
@@ -1173,10 +1173,10 @@ func TestBuildPlaneResult_GetObservabilityPlane_WithBuildPlane(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(obsPlane, bp).
+		WithObjects(obsPlane, wp).
 		Build()
 
-	result := &BuildPlaneResult{BuildPlane: bp}
+	result := &WorkflowPlaneResult{WorkflowPlane: wp}
 	obsResult, err := result.GetObservabilityPlane(context.Background(), fakeClient)
 
 	require.NoError(t, err)
@@ -1187,7 +1187,7 @@ func TestBuildPlaneResult_GetObservabilityPlane_WithBuildPlane(t *testing.T) {
 	assert.Equal(t, "http://observer.example.com", obsResult.GetObserverURL())
 }
 
-func TestBuildPlaneResult_GetObservabilityPlane_WithClusterBuildPlane(t *testing.T) {
+func TestWorkflowPlaneResult_GetObservabilityPlane_WithClusterWorkflowPlane(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -1200,11 +1200,11 @@ func TestBuildPlaneResult_GetObservabilityPlane_WithClusterBuildPlane(t *testing
 		},
 	}
 
-	cbp := &openchoreov1alpha1.ClusterBuildPlane{
+	cwp := &openchoreov1alpha1.ClusterWorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cluster-bp",
+			Name: "cluster-wp",
 		},
-		Spec: openchoreov1alpha1.ClusterBuildPlaneSpec{
+		Spec: openchoreov1alpha1.ClusterWorkflowPlaneSpec{
 			ObservabilityPlaneRef: &openchoreov1alpha1.ClusterObservabilityPlaneRef{
 				Kind: openchoreov1alpha1.ClusterObservabilityPlaneRefKindClusterObservabilityPlane,
 				Name: "shared-obs",
@@ -1214,10 +1214,10 @@ func TestBuildPlaneResult_GetObservabilityPlane_WithClusterBuildPlane(t *testing
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(clusterObsPlane, cbp).
+		WithObjects(clusterObsPlane, cwp).
 		Build()
 
-	result := &BuildPlaneResult{ClusterBuildPlane: cbp}
+	result := &WorkflowPlaneResult{ClusterWorkflowPlane: cwp}
 	obsResult, err := result.GetObservabilityPlane(context.Background(), fakeClient)
 
 	require.NoError(t, err)
@@ -1228,7 +1228,7 @@ func TestBuildPlaneResult_GetObservabilityPlane_WithClusterBuildPlane(t *testing
 	assert.Equal(t, "http://cluster-observer.example.com", obsResult.GetObserverURL())
 }
 
-func TestBuildPlaneResult_GetObservabilityPlane_WithClusterBuildPlane_DefaultObs(t *testing.T) {
+func TestWorkflowPlaneResult_GetObservabilityPlane_WithClusterWorkflowPlane_DefaultObs(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -1241,22 +1241,22 @@ func TestBuildPlaneResult_GetObservabilityPlane_WithClusterBuildPlane_DefaultObs
 		},
 	}
 
-	// ClusterBuildPlane without explicit obs ref — should default to "default"
-	cbp := &openchoreov1alpha1.ClusterBuildPlane{
+	// ClusterWorkflowPlane without explicit obs ref — should default to "default"
+	cwp := &openchoreov1alpha1.ClusterWorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cluster-bp-no-ref",
+			Name: "cluster-wp-no-ref",
 		},
-		Spec: openchoreov1alpha1.ClusterBuildPlaneSpec{
+		Spec: openchoreov1alpha1.ClusterWorkflowPlaneSpec{
 			ObservabilityPlaneRef: nil,
 		},
 	}
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(defaultClusterObs, cbp).
+		WithObjects(defaultClusterObs, cwp).
 		Build()
 
-	result := &BuildPlaneResult{ClusterBuildPlane: cbp}
+	result := &WorkflowPlaneResult{ClusterWorkflowPlane: cwp}
 	obsResult, err := result.GetObservabilityPlane(context.Background(), fakeClient)
 
 	require.NoError(t, err)
@@ -1266,7 +1266,7 @@ func TestBuildPlaneResult_GetObservabilityPlane_WithClusterBuildPlane_DefaultObs
 	assert.Equal(t, "http://default-observer.example.com", obsResult.GetObserverURL())
 }
 
-func TestBuildPlaneResult_GetObservabilityPlane_NeitherSet(t *testing.T) {
+func TestWorkflowPlaneResult_GetObservabilityPlane_NeitherSet(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -1274,12 +1274,12 @@ func TestBuildPlaneResult_GetObservabilityPlane_NeitherSet(t *testing.T) {
 		WithScheme(scheme).
 		Build()
 
-	result := &BuildPlaneResult{}
+	result := &WorkflowPlaneResult{}
 	obsResult, err := result.GetObservabilityPlane(context.Background(), fakeClient)
 
 	require.Error(t, err)
 	assert.Nil(t, obsResult)
-	assert.Contains(t, err.Error(), "no build plane set in result")
+	assert.Contains(t, err.Error(), "no workflow plane set in result")
 }
 
 // ============================================================================
@@ -1433,9 +1433,9 @@ func TestWorkflowResult_GetWorkflowSpec_FromClusterWorkflow(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "cwf"},
 			Spec: openchoreov1alpha1.ClusterWorkflowSpec{
 				TTLAfterCompletion: "2h",
-				BuildPlaneRef: &openchoreov1alpha1.ClusterBuildPlaneRef{
-					Kind: openchoreov1alpha1.ClusterBuildPlaneRefKindClusterBuildPlane,
-					Name: "shared-bp",
+				WorkflowPlaneRef: &openchoreov1alpha1.ClusterWorkflowPlaneRef{
+					Kind: openchoreov1alpha1.ClusterWorkflowPlaneRefKindClusterWorkflowPlane,
+					Name: "shared-wp",
 				},
 			},
 		},
@@ -1443,27 +1443,27 @@ func TestWorkflowResult_GetWorkflowSpec_FromClusterWorkflow(t *testing.T) {
 
 	spec := result.GetWorkflowSpec()
 	assert.Equal(t, "2h", spec.TTLAfterCompletion)
-	require.NotNil(t, spec.BuildPlaneRef)
-	assert.Equal(t, openchoreov1alpha1.BuildPlaneRefKind("ClusterBuildPlane"), spec.BuildPlaneRef.Kind)
-	assert.Equal(t, "shared-bp", spec.BuildPlaneRef.Name)
+	require.NotNil(t, spec.WorkflowPlaneRef)
+	assert.Equal(t, openchoreov1alpha1.WorkflowPlaneRefKind("ClusterWorkflowPlane"), spec.WorkflowPlaneRef.Kind)
+	assert.Equal(t, "shared-wp", spec.WorkflowPlaneRef.Name)
 }
 
-func TestWorkflowResult_GetWorkflowSpec_FromClusterWorkflow_NilBuildPlaneRef(t *testing.T) {
+func TestWorkflowResult_GetWorkflowSpec_FromClusterWorkflow_NilWorkflowPlaneRef(t *testing.T) {
 	result := &WorkflowResult{
 		ClusterWorkflow: &openchoreov1alpha1.ClusterWorkflow{
-			ObjectMeta: metav1.ObjectMeta{Name: "cwf-no-bp"},
+			ObjectMeta: metav1.ObjectMeta{Name: "cwf-no-wp"},
 			Spec: openchoreov1alpha1.ClusterWorkflowSpec{
 				TTLAfterCompletion: "1h",
-				// BuildPlaneRef is nil — should default to ClusterBuildPlane "default"
+				// WorkflowPlaneRef is nil — should default to ClusterWorkflowPlane "default"
 			},
 		},
 	}
 
 	spec := result.GetWorkflowSpec()
 	assert.Equal(t, "1h", spec.TTLAfterCompletion)
-	require.NotNil(t, spec.BuildPlaneRef, "nil ClusterWorkflow BuildPlaneRef should inject ClusterBuildPlane default")
-	assert.Equal(t, openchoreov1alpha1.BuildPlaneRefKindClusterBuildPlane, spec.BuildPlaneRef.Kind)
-	assert.Equal(t, "default", spec.BuildPlaneRef.Name)
+	require.NotNil(t, spec.WorkflowPlaneRef, "nil ClusterWorkflow WorkflowPlaneRef should inject ClusterWorkflowPlane default")
+	assert.Equal(t, openchoreov1alpha1.WorkflowPlaneRefKindClusterWorkflowPlane, spec.WorkflowPlaneRef.Kind)
+	assert.Equal(t, "default", spec.WorkflowPlaneRef.Name)
 }
 
 func TestWorkflowResult_GetWorkflowSpec_Empty(t *testing.T) {

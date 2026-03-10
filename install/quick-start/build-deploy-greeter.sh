@@ -26,10 +26,10 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Build and deploy the Go Greeter sample service to OpenChoreo."
             echo "This demonstrates building a container image from source code using"
-            echo "the Build Plane (Argo Workflows + Container Registry)."
+            echo "the Workflow Plane (Argo Workflows + Container Registry)."
             echo ""
             echo "Prerequisites:"
-            echo "  - Build Plane must be installed (./install.sh --with-build)"
+            echo "  - Workflow Plane must be installed (./install.sh --with-build)"
             echo ""
             echo "Options:"
             echo "  --clean        Delete the deployed application and exit"
@@ -61,10 +61,10 @@ if [[ "$CLEAN_MODE" == "true" ]]; then
     exit 0
 fi
 
-# Check if Build Plane is installed
-if ! kubectl get namespace openchoreo-build-plane &>/dev/null; then
-    log_error "Build Plane is not installed!"
-    log_info "The Build Plane is required to build container images from source code."
+# Check if Workflow Plane is installed
+if ! kubectl get namespace openchoreo-workflow-plane &>/dev/null; then
+    log_error "Workflow Plane is not installed!"
+    log_info "The Workflow Plane is required to build container images from source code."
     log_info "Please reinstall with: ./install.sh --with-build"
     exit 1
 fi

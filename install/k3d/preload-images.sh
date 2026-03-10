@@ -21,11 +21,11 @@ fi
 CLUSTER_NAME=""
 INCLUDE_CONTROL_PLANE=false
 INCLUDE_DATA_PLANE=false
-INCLUDE_BUILD_PLANE=false
+INCLUDE_WORKFLOW_PLANE=false
 INCLUDE_OBSERVABILITY_PLANE=false
 CP_VALUES=""
 DP_VALUES=""
-BP_VALUES=""
+WP_VALUES=""
 OP_VALUES=""
 OPENCHOREO_CHART_VERSION=""
 PARALLEL_PULLS=4
@@ -33,7 +33,7 @@ HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
 USE_LOCAL_CHARTS=false
 CP_CHART=""
 DP_CHART=""
-BP_CHART=""
+WP_CHART=""
 OP_CHART=""
 EXTRA_IMAGES=()
 
@@ -74,13 +74,13 @@ Required:
 Plane Selection (at least one required):
   --control-plane             Include Control Plane images
   --data-plane                Include Data Plane images
-  --build-plane               Include Build Plane images
+  --workflow-plane               Include Workflow Plane images
   --observability-plane       Include Observability Plane images
 
 Optional:
   --cp-values FILE            Helm values file for Control Plane
   --dp-values FILE            Helm values file for Data Plane
-  --bp-values FILE            Helm values file for Build Plane
+  --wp-values FILE            Helm values file for Workflow Plane
   --op-values FILE            Helm values file for Observability Plane
   --version VERSION           Helm chart version for OCI registry (default: empty, pulls latest)
                               Only used when --local-charts is NOT specified
@@ -89,7 +89,7 @@ Optional:
   --local-charts              Use local chart paths instead of OCI registry
   --cp-chart PATH/URL         Custom Control Plane chart path or OCI URL
   --dp-chart PATH/URL         Custom Data Plane chart path or OCI URL
-  --bp-chart PATH/URL         Custom Build Plane chart path or OCI URL
+  --wp-chart PATH/URL         Custom Workflow Plane chart path or OCI URL
   --op-chart PATH/URL         Custom Observability Plane chart path or OCI URL
   --extra-images IMAGES       Comma-separated list of additional images to preload
   --help                      Show this help message
@@ -135,8 +135,8 @@ while [[ $# -gt 0 ]]; do
             INCLUDE_DATA_PLANE=true
             shift
             ;;
-        --build-plane)
-            INCLUDE_BUILD_PLANE=true
+        --workflow-plane)
+            INCLUDE_WORKFLOW_PLANE=true
             shift
             ;;
         --observability-plane)
@@ -151,8 +151,8 @@ while [[ $# -gt 0 ]]; do
             DP_VALUES="$2"
             shift 2
             ;;
-        --bp-values)
-            BP_VALUES="$2"
+        --wp-values)
+            WP_VALUES="$2"
             shift 2
             ;;
         --op-values)
@@ -187,8 +187,8 @@ while [[ $# -gt 0 ]]; do
             DP_CHART="$2"
             shift 2
             ;;
-        --bp-chart)
-            BP_CHART="$2"
+        --wp-chart)
+            WP_CHART="$2"
             shift 2
             ;;
         --op-chart)
@@ -229,7 +229,7 @@ fi
 # Check if at least one plane is selected
 if [[ "$INCLUDE_CONTROL_PLANE" == "false" ]] && \
    [[ "$INCLUDE_DATA_PLANE" == "false" ]] && \
-   [[ "$INCLUDE_BUILD_PLANE" == "false" ]] && \
+   [[ "$INCLUDE_WORKFLOW_PLANE" == "false" ]] && \
    [[ "$INCLUDE_OBSERVABILITY_PLANE" == "false" ]]; then
     log_error "At least one plane must be selected"
     usage
@@ -387,19 +387,19 @@ collect_images() {
         all_images+=("${dp_images[@]}")
     fi
 
-    # Build Plane images
-    if [[ "$INCLUDE_BUILD_PLANE" == "true" ]]; then
-        log_info "Collecting Build Plane images..." >&2
-        local bp_chart
-        bp_chart=$(resolve_chart_location "openchoreo-build-plane" "$BP_CHART")
-        local bp_images=()
+    # Workflow Plane images
+    if [[ "$INCLUDE_WORKFLOW_PLANE" == "true" ]]; then
+        log_info "Collecting Workflow Plane images..." >&2
+        local wp_chart
+        wp_chart=$(resolve_chart_location "openchoreo-workflow-plane" "$WP_CHART")
+        local wp_images=()
         while IFS= read -r line; do
-            bp_images+=("$line")
-        done < <(get_helm_chart_images "$bp_chart" "${BP_VALUES}" "openchoreo-bp")
-        if [[ ${#bp_images[@]} -eq 0 ]]; then
-            log_warning "No images found for Build Plane (helm template may have failed)" >&2
+            wp_images+=("$line")
+        done < <(get_helm_chart_images "$wp_chart" "${WP_VALUES}" "openchoreo-wp")
+        if [[ ${#wp_images[@]} -eq 0 ]]; then
+            log_warning "No images found for Workflow Plane (helm template may have failed)" >&2
         fi
-        all_images+=("${bp_images[@]}")
+        all_images+=("${wp_images[@]}")
     fi
 
     # Observability Plane images

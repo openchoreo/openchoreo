@@ -161,11 +161,11 @@ func (c *Client) ListDataPlanes(ctx context.Context, namespaceName string, param
 	return resp.JSON200, nil
 }
 
-// ListBuildPlanes retrieves all build planes for a namespace
-func (c *Client) ListBuildPlanes(ctx context.Context, namespaceName string, params *gen.ListBuildPlanesParams) (*gen.BuildPlaneList, error) {
-	resp, err := c.client.ListBuildPlanesWithResponse(ctx, namespaceName, params)
+// ListWorkflowPlanes retrieves all workflow planes for a namespace
+func (c *Client) ListWorkflowPlanes(ctx context.Context, namespaceName string, params *gen.ListWorkflowPlanesParams) (*gen.WorkflowPlaneList, error) {
+	resp, err := c.client.ListWorkflowPlanesWithResponse(ctx, namespaceName, params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list build planes: %w", err)
+		return nil, fmt.Errorf("failed to list workflow planes: %w", err)
 	}
 	if resp.JSON200 == nil {
 		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
@@ -615,11 +615,11 @@ func (c *Client) DeleteDataPlane(ctx context.Context, namespaceName, dpName stri
 	return nil
 }
 
-// GetBuildPlane retrieves a specific build plane
-func (c *Client) GetBuildPlane(ctx context.Context, namespaceName, buildPlaneName string) (*gen.BuildPlane, error) {
-	resp, err := c.client.GetBuildPlaneWithResponse(ctx, namespaceName, buildPlaneName)
+// GetWorkflowPlane retrieves a specific workflow plane
+func (c *Client) GetWorkflowPlane(ctx context.Context, namespaceName, workflowPlaneName string) (*gen.WorkflowPlane, error) {
+	resp, err := c.client.GetWorkflowPlaneWithResponse(ctx, namespaceName, workflowPlaneName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get build plane: %w", err)
+		return nil, fmt.Errorf("failed to get workflow plane: %w", err)
 	}
 	if resp.JSON200 == nil {
 		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
@@ -627,11 +627,11 @@ func (c *Client) GetBuildPlane(ctx context.Context, namespaceName, buildPlaneNam
 	return resp.JSON200, nil
 }
 
-// DeleteBuildPlane deletes a build plane
-func (c *Client) DeleteBuildPlane(ctx context.Context, namespaceName, buildPlaneName string) error {
-	resp, err := c.client.DeleteBuildPlaneWithResponse(ctx, namespaceName, buildPlaneName)
+// DeleteWorkflowPlane deletes a workflow plane
+func (c *Client) DeleteWorkflowPlane(ctx context.Context, namespaceName, workflowPlaneName string) error {
+	resp, err := c.client.DeleteWorkflowPlaneWithResponse(ctx, namespaceName, workflowPlaneName)
 	if err != nil {
-		return fmt.Errorf("failed to delete build plane: %w", err)
+		return fmt.Errorf("failed to delete workflow plane: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
 		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
@@ -1098,7 +1098,7 @@ func (c *Client) DeleteNamespaceRoleBinding(ctx context.Context, namespaceName, 
 	return nil
 }
 
-// GetWorkflowRunLogs retrieves live logs for a workflow run from the build plane
+// GetWorkflowRunLogs retrieves live logs for a workflow run from the workflow plane
 func (c *Client) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName string, params *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error) {
 	if params == nil {
 		params = &gen.GetWorkflowRunLogsParams{}
@@ -1125,11 +1125,11 @@ func (c *Client) GetWorkflowRunStatus(ctx context.Context, namespaceName, runNam
 	return resp.JSON200, nil
 }
 
-// GetClusterBuildPlane retrieves a specific cluster build plane
-func (c *Client) GetClusterBuildPlane(ctx context.Context, clusterBuildPlaneName string) (*gen.ClusterBuildPlane, error) {
-	resp, err := c.client.GetClusterBuildPlaneWithResponse(ctx, clusterBuildPlaneName)
+// GetClusterWorkflowPlane retrieves a specific cluster workflow plane
+func (c *Client) GetClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) (*gen.ClusterWorkflowPlane, error) {
+	resp, err := c.client.GetClusterWorkflowPlaneWithResponse(ctx, clusterWorkflowPlaneName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster build plane: %w", err)
+		return nil, fmt.Errorf("failed to get cluster workflow plane: %w", err)
 	}
 	if resp.JSON200 == nil {
 		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())

@@ -40,7 +40,7 @@ WorkflowRun
 Deploy the resources in order:
 
 ```bash
-# 1. Deploy the ClusterWorkflowTemplate to the Build Plane
+# 1. Deploy the ClusterWorkflowTemplate to the Workflow Plane
 kubectl apply -f cluster-workflow-template-github-stats-report.yaml
 
 # 2. Deploy the Workflow CR to the Control Plane
