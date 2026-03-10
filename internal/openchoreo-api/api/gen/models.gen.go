@@ -2834,12 +2834,6 @@ type ResourceReference struct {
 	Namespace  *string `json:"namespace,omitempty"`
 }
 
-// ResourceTreeResponse Response containing the resource tree for a release
-type ResourceTreeResponse struct {
-	// Nodes All resource nodes in the tree
-	Nodes []ResourceNode `json:"nodes"`
-}
-
 // Role Authorization role with permitted actions (legacy)
 type Role struct {
 	// Actions List of actions this role permits
@@ -3655,9 +3649,6 @@ type ClusterTraitNameParam = string
 // ClusterWorkflowNameParam defines model for ClusterWorkflowNameParam.
 type ClusterWorkflowNameParam = string
 
-// ComponentEnvironmentNameParam defines model for ComponentEnvironmentNameParam.
-type ComponentEnvironmentNameParam = string
-
 // ComponentNameParam defines model for ComponentNameParam.
 type ComponentNameParam = string
 
@@ -3960,36 +3951,6 @@ type ListProjectsParams struct {
 	// Cursor Opaque pagination cursor from a previous response.
 	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
-// GetReleaseResourceEventsParams defines parameters for GetReleaseResourceEvents.
-type GetReleaseResourceEventsParams struct {
-	// Kind Kind of the resource
-	Kind string `form:"kind" json:"kind"`
-
-	// Name Name of the resource
-	Name string `form:"name" json:"name"`
-
-	// Namespace Namespace of the resource
-	Namespace *string `form:"namespace,omitempty" json:"namespace,omitempty"`
-
-	// Uid UID of the resource for precise event matching
-	Uid *string `form:"uid,omitempty" json:"uid,omitempty"`
-}
-
-// GetReleaseResourcePodLogsParams defines parameters for GetReleaseResourcePodLogs.
-type GetReleaseResourcePodLogsParams struct {
-	// Name Name of the pod
-	Name string `form:"name" json:"name"`
-
-	// Namespace Namespace of the pod
-	Namespace string `form:"namespace" json:"namespace"`
-
-	// Container Specific container name to get logs from
-	Container *string `form:"container,omitempty" json:"container,omitempty"`
-
-	// SinceSeconds Only return logs newer than this many seconds
-	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
 }
 
 // ListReleaseBindingsParams defines parameters for ListReleaseBindings.

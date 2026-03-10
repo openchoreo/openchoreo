@@ -2746,141 +2746,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release/resources:
-    get:
-      operationId: getReleaseResourceTree
-      summary: Get release resource tree
-      description: Returns all live Kubernetes resources deployed by the active release for a component in an environment, including child resources like Pods.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-        - $ref: '#/components/parameters/ComponentEnvironmentNameParam'
-      responses:
-        '200':
-          description: Resource tree for the active release
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ResourceTreeResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release/resources/events:
-    get:
-      operationId: getReleaseResourceEvents
-      summary: Get resource events
-      description: Returns Kubernetes events for a specific resource in the release resource tree.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-        - $ref: '#/components/parameters/ComponentEnvironmentNameParam'
-        - name: kind
-          in: query
-          required: true
-          description: Kind of the resource
-          schema:
-            type: string
-        - name: name
-          in: query
-          required: true
-          description: Name of the resource
-          schema:
-            type: string
-        - name: namespace
-          in: query
-          required: false
-          description: Namespace of the resource
-          schema:
-            type: string
-        - name: uid
-          in: query
-          required: false
-          description: UID of the resource for precise event matching
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Events for the specified resource
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ResourceEventsResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release/resources/pod-logs:
-    get:
-      operationId: getReleaseResourcePodLogs
-      summary: Get pod logs
-      description: Returns logs for a specific pod in the release resource tree.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-        - $ref: '#/components/parameters/ComponentEnvironmentNameParam'
-        - name: name
-          in: query
-          required: true
-          description: Name of the pod
-          schema:
-            type: string
-        - name: namespace
-          in: query
-          required: true
-          description: Namespace of the pod
-          schema:
-            type: string
-        - name: container
-          in: query
-          required: false
-          description: Specific container name to get logs from
-          schema:
-            type: string
-        - name: sinceSeconds
-          in: query
-          required: false
-          description: Only return logs newer than this many seconds
-          schema:
-            type: integer
-            format: int64
-            minimum: 0
-      responses:
-        '200':
-          description: Logs for the specified pod
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ResourcePodLogsResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
   /api/v1/namespaces/{namespaceName}/components/{componentName}/deploy:
     post:
       operationId: deployRelease
@@ -4801,15 +4666,6 @@ components:
       in: path
       required: true
       description: Environment name
-      schema:
-        type: string
-        example: dev
-
-    ComponentEnvironmentNameParam:
-      name: environmentName
-      in: path
-      required: true
-      description: Environment name for component-scoped operations
       schema:
         type: string
         example: dev
@@ -8329,18 +8185,6 @@ components:
           description: Full Kubernetes resource object
         health:
           $ref: '#/components/schemas/HealthInfo'
-
-    ResourceTreeResponse:
-      type: object
-      description: Response containing the resource tree for a release
-      required:
-        - nodes
-      properties:
-        nodes:
-          type: array
-          description: All resource nodes in the tree
-          items:
-            $ref: '#/components/schemas/ResourceNode'
 
     ResourceEvent:
       type: object
