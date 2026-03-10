@@ -25,7 +25,7 @@ func (h *Handler) ListReleaseBindings(
 		componentName = *request.Params.Component
 	}
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ReleaseBindingService.ListReleaseBindings(ctx, request.NamespaceName, componentName, opts)
 	if err != nil {

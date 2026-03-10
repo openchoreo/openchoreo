@@ -20,7 +20,7 @@ func (h *Handler) ListClusterObservabilityPlanes(
 ) (gen.ListClusterObservabilityPlanesResponseObject, error) {
 	h.logger.Debug("ListClusterObservabilityPlanes called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ClusterObservabilityPlaneService.ListClusterObservabilityPlanes(ctx, opts)
 	if err != nil {

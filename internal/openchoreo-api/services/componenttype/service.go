@@ -117,15 +117,11 @@ func (s *componentTypeService) UpdateComponentType(ctx context.Context, namespac
 func (s *componentTypeService) ListComponentTypes(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ComponentType], error) {
 	s.logger.Debug("Listing component types", "namespace", namespaceName, "limit", opts.Limit, "cursor", opts.Cursor)
 
-	listOpts := []client.ListOption{
-		client.InNamespace(namespaceName),
+	commonOpts, err := services.BuildListOptions(opts)
+	if err != nil {
+		return nil, err
 	}
-	if opts.Limit > 0 {
-		listOpts = append(listOpts, client.Limit(int64(opts.Limit)))
-	}
-	if opts.Cursor != "" {
-		listOpts = append(listOpts, client.Continue(opts.Cursor))
-	}
+	listOpts := append([]client.ListOption{client.InNamespace(namespaceName)}, commonOpts...)
 
 	var ctList openchoreov1alpha1.ComponentTypeList
 	if err := s.k8sClient.List(ctx, &ctList, listOpts...); err != nil {

@@ -20,7 +20,7 @@ func (h *Handler) ListSecretReferences(
 ) (gen.ListSecretReferencesResponseObject, error) {
 	h.logger.Debug("ListSecretReferences called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.SecretReferenceService.ListSecretReferences(ctx, request.NamespaceName, opts)
 	if err != nil {

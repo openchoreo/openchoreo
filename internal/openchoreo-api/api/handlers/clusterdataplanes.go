@@ -20,7 +20,7 @@ func (h *Handler) ListClusterDataPlanes(
 ) (gen.ListClusterDataPlanesResponseObject, error) {
 	h.logger.Debug("ListClusterDataPlanes called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ClusterDataPlaneService.ListClusterDataPlanes(ctx, opts)
 	if err != nil {

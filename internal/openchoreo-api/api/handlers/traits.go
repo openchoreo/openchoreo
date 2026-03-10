@@ -20,7 +20,7 @@ func (h *Handler) ListTraits(
 ) (gen.ListTraitsResponseObject, error) {
 	h.logger.Debug("ListTraits called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.TraitService.ListTraits(ctx, request.NamespaceName, opts)
 	if err != nil {

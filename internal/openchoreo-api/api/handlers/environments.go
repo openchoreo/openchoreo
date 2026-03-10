@@ -21,7 +21,7 @@ func (h *Handler) ListEnvironments(
 ) (gen.ListEnvironmentsResponseObject, error) {
 	h.logger.Debug("ListEnvironments called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.EnvironmentService.ListEnvironments(ctx, request.NamespaceName, opts)
 	if err != nil {

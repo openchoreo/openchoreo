@@ -126,15 +126,11 @@ func (s *projectService) UpdateProject(ctx context.Context, namespaceName string
 func (s *projectService) ListProjects(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Project], error) {
 	s.logger.Debug("Listing projects", "namespace", namespaceName, "limit", opts.Limit, "cursor", opts.Cursor)
 
-	listOpts := []client.ListOption{
-		client.InNamespace(namespaceName),
+	commonOpts, err := services.BuildListOptions(opts)
+	if err != nil {
+		return nil, err
 	}
-	if opts.Limit > 0 {
-		listOpts = append(listOpts, client.Limit(int64(opts.Limit)))
-	}
-	if opts.Cursor != "" {
-		listOpts = append(listOpts, client.Continue(opts.Cursor))
-	}
+	listOpts := append([]client.ListOption{client.InNamespace(namespaceName)}, commonOpts...)
 
 	var projectList openchoreov1alpha1.ProjectList
 	if err := s.k8sClient.List(ctx, &projectList, listOpts...); err != nil {

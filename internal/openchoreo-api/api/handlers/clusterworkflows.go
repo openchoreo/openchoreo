@@ -20,7 +20,7 @@ func (h *Handler) ListClusterWorkflows(
 ) (gen.ListClusterWorkflowsResponseObject, error) {
 	h.logger.Debug("ListClusterWorkflows called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ClusterWorkflowService.ListClusterWorkflows(ctx, opts)
 	if err != nil {

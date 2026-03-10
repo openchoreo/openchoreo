@@ -173,15 +173,11 @@ func (s *workflowRunService) ListWorkflowRuns(ctx context.Context, namespaceName
 // listWorkflowRunsResource returns a ListResource that fetches workflow runs from K8s for the given namespace.
 func (s *workflowRunService) listWorkflowRunsResource(namespaceName string) services.ListResource[openchoreov1alpha1.WorkflowRun] {
 	return func(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.WorkflowRun], error) {
-		listOpts := []client.ListOption{
-			client.InNamespace(namespaceName),
+		commonOpts, err := services.BuildListOptions(opts)
+		if err != nil {
+			return nil, err
 		}
-		if opts.Limit > 0 {
-			listOpts = append(listOpts, client.Limit(int64(opts.Limit)))
-		}
-		if opts.Cursor != "" {
-			listOpts = append(listOpts, client.Continue(opts.Cursor))
-		}
+		listOpts := append([]client.ListOption{client.InNamespace(namespaceName)}, commonOpts...)
 
 		var wfRunList openchoreov1alpha1.WorkflowRunList
 		if err := s.k8sClient.List(ctx, &wfRunList, listOpts...); err != nil {

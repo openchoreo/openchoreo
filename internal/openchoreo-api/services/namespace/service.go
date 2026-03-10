@@ -130,18 +130,16 @@ func (s *namespaceService) UpdateNamespace(ctx context.Context, ns *corev1.Names
 func (s *namespaceService) ListNamespaces(ctx context.Context, opts services.ListOptions) (*services.ListResult[corev1.Namespace], error) {
 	s.logger.Debug("Listing control plane namespaces", "limit", opts.Limit, "cursor", opts.Cursor)
 
-	listOpts := []client.ListOption{
+	commonOpts, err := services.BuildListOptions(opts)
+	if err != nil {
+		return nil, err
+	}
+	listOpts := append([]client.ListOption{
 		// Only include control plane namespaces
 		client.MatchingLabels{
 			labels.LabelKeyControlPlaneNamespace: labels.LabelValueTrue,
 		},
-	}
-	if opts.Limit > 0 {
-		listOpts = append(listOpts, client.Limit(int64(opts.Limit)))
-	}
-	if opts.Cursor != "" {
-		listOpts = append(listOpts, client.Continue(opts.Cursor))
-	}
+	}, commonOpts...)
 
 	var nsList corev1.NamespaceList
 	if err := s.k8sClient.List(ctx, &nsList, listOpts...); err != nil {

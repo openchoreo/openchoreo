@@ -20,7 +20,7 @@ func (h *Handler) ListObservabilityPlanes(
 ) (gen.ListObservabilityPlanesResponseObject, error) {
 	h.logger.Debug("ListObservabilityPlanes called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ObservabilityPlaneService.ListObservabilityPlanes(ctx, request.NamespaceName, opts)
 	if err != nil {

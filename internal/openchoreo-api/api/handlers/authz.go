@@ -251,7 +251,7 @@ func (h *Handler) ListClusterRoles(
 ) (gen.ListClusterRolesResponseObject, error) {
 	h.logger.Debug("ListClusterRoles called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 	result, err := h.services.AuthzService.ListClusterRoles(ctx, opts)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
@@ -413,7 +413,7 @@ func (h *Handler) ListClusterRoleBindings(
 ) (gen.ListClusterRoleBindingsResponseObject, error) {
 	h.logger.Debug("ListClusterRoleBindings called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 	result, err := h.services.AuthzService.ListClusterRoleBindings(ctx, opts)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
@@ -575,7 +575,7 @@ func (h *Handler) ListNamespaceRoles(
 ) (gen.ListNamespaceRolesResponseObject, error) {
 	h.logger.Debug("ListNamespaceRoles called", "namespace", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 	result, err := h.services.AuthzService.ListNamespaceRoles(ctx, request.NamespaceName, opts)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
@@ -737,7 +737,7 @@ func (h *Handler) ListNamespaceRoleBindings(
 ) (gen.ListNamespaceRoleBindingsResponseObject, error) {
 	h.logger.Debug("ListNamespaceRoleBindings called", "namespace", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 	result, err := h.services.AuthzService.ListNamespaceRoleBindings(ctx, request.NamespaceName, opts)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {

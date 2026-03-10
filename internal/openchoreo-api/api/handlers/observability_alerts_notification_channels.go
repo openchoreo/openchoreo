@@ -20,7 +20,7 @@ func (h *Handler) ListObservabilityAlertsNotificationChannels(
 ) (gen.ListObservabilityAlertsNotificationChannelsResponseObject, error) {
 	h.logger.Debug("ListObservabilityAlertsNotificationChannels called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ObservabilityAlertsNotificationChannelService.ListObservabilityAlertsNotificationChannels(ctx, request.NamespaceName, opts)
 	if err != nil {

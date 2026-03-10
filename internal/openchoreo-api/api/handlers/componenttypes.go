@@ -20,7 +20,7 @@ func (h *Handler) ListComponentTypes(
 ) (gen.ListComponentTypesResponseObject, error) {
 	h.logger.Debug("ListComponentTypes called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ComponentTypeService.ListComponentTypes(ctx, request.NamespaceName, opts)
 	if err != nil {

@@ -31,7 +31,7 @@ func (h *Handler) ListComponents(
 		projectName = *request.Params.Project
 	}
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ComponentService.ListComponents(ctx, request.NamespaceName, projectName, opts)
 	if err != nil {

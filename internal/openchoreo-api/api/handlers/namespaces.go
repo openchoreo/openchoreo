@@ -21,7 +21,7 @@ func (h *Handler) ListNamespaces(
 ) (gen.ListNamespacesResponseObject, error) {
 	h.logger.Debug("ListNamespaces called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.NamespaceService.ListNamespaces(ctx, opts)
 	if err != nil {

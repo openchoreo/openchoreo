@@ -21,7 +21,7 @@ func (h *Handler) ListDataPlanes(
 ) (gen.ListDataPlanesResponseObject, error) {
 	h.logger.Debug("ListDataPlanes called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.DataPlaneService.ListDataPlanes(ctx, request.NamespaceName, opts)
 	if err != nil {

@@ -42,15 +42,11 @@ func NewService(k8sClient client.Client, logger *slog.Logger) Service {
 func (s *environmentService) ListEnvironments(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Environment], error) {
 	s.logger.Debug("Listing environments", "namespace", namespaceName, "limit", opts.Limit, "cursor", opts.Cursor)
 
-	listOpts := []client.ListOption{
-		client.InNamespace(namespaceName),
+	commonOpts, err := services.BuildListOptions(opts)
+	if err != nil {
+		return nil, err
 	}
-	if opts.Limit > 0 {
-		listOpts = append(listOpts, client.Limit(int64(opts.Limit)))
-	}
-	if opts.Cursor != "" {
-		listOpts = append(listOpts, client.Continue(opts.Cursor))
-	}
+	listOpts := append([]client.ListOption{client.InNamespace(namespaceName)}, commonOpts...)
 
 	var envList openchoreov1alpha1.EnvironmentList
 	if err := s.k8sClient.List(ctx, &envList, listOpts...); err != nil {

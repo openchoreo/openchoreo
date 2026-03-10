@@ -20,7 +20,7 @@ func (h *Handler) ListProjects(
 ) (gen.ListProjectsResponseObject, error) {
 	h.logger.Debug("ListProjects called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ProjectService.ListProjects(ctx, request.NamespaceName, opts)
 	if err != nil {

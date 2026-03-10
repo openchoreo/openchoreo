@@ -23,7 +23,7 @@ func (h *Handler) ListWorkflows(
 ) (gen.ListWorkflowsResponseObject, error) {
 	h.logger.Debug("ListWorkflows called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.WorkflowService.ListWorkflows(ctx, request.NamespaceName, opts)
 	if err != nil {
@@ -215,7 +215,7 @@ func (h *Handler) ListWorkflowRuns(
 		workflowName = *request.Params.Workflow
 	}
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.WorkflowRunService.ListWorkflowRuns(ctx, request.NamespaceName, "", "", workflowName, opts)
 	if err != nil {

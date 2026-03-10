@@ -3679,6 +3679,9 @@ type EnvironmentQueryParam = string
 // GitSecretNameParam defines model for GitSecretNameParam.
 type GitSecretNameParam = string
 
+// LabelSelectorParam defines model for LabelSelectorParam.
+type LabelSelectorParam = string
+
 // LimitParam defines model for LimitParam.
 type LimitParam = int
 
@@ -3759,6 +3762,12 @@ type GetSubjectProfileParams struct {
 
 // ListClusterBuildPlanesParams defines parameters for ListClusterBuildPlanes.
 type ListClusterBuildPlanesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3769,6 +3778,12 @@ type ListClusterBuildPlanesParams struct {
 
 // ListClusterComponentTypesParams defines parameters for ListClusterComponentTypes.
 type ListClusterComponentTypesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3779,6 +3794,12 @@ type ListClusterComponentTypesParams struct {
 
 // ListClusterDataPlanesParams defines parameters for ListClusterDataPlanes.
 type ListClusterDataPlanesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3789,6 +3810,12 @@ type ListClusterDataPlanesParams struct {
 
 // ListClusterObservabilityPlanesParams defines parameters for ListClusterObservabilityPlanes.
 type ListClusterObservabilityPlanesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3799,6 +3826,12 @@ type ListClusterObservabilityPlanesParams struct {
 
 // ListClusterRoleBindingsParams defines parameters for ListClusterRoleBindings.
 type ListClusterRoleBindingsParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3809,6 +3842,12 @@ type ListClusterRoleBindingsParams struct {
 
 // ListClusterRolesParams defines parameters for ListClusterRoles.
 type ListClusterRolesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3819,6 +3858,12 @@ type ListClusterRolesParams struct {
 
 // ListClusterTraitsParams defines parameters for ListClusterTraits.
 type ListClusterTraitsParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3829,6 +3874,12 @@ type ListClusterTraitsParams struct {
 
 // ListClusterWorkflowsParams defines parameters for ListClusterWorkflows.
 type ListClusterWorkflowsParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3839,6 +3890,12 @@ type ListClusterWorkflowsParams struct {
 
 // ListNamespacesParams defines parameters for ListNamespaces.
 type ListNamespacesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3849,6 +3906,12 @@ type ListNamespacesParams struct {
 
 // ListBuildPlanesParams defines parameters for ListBuildPlanes.
 type ListBuildPlanesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3861,6 +3924,12 @@ type ListBuildPlanesParams struct {
 type ListComponentReleasesParams struct {
 	// Component Filter resources by component name
 	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
+
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
 
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
@@ -3875,6 +3944,12 @@ type ListComponentsParams struct {
 	// Project Filter resources by project name
 	Project *ProjectQueryParam `form:"project,omitempty" json:"project,omitempty"`
 
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3885,6 +3960,12 @@ type ListComponentsParams struct {
 
 // ListComponentTypesParams defines parameters for ListComponentTypes.
 type ListComponentTypesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3895,6 +3976,12 @@ type ListComponentTypesParams struct {
 
 // ListDataPlanesParams defines parameters for ListDataPlanes.
 type ListDataPlanesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3905,6 +3992,12 @@ type ListDataPlanesParams struct {
 
 // ListDeploymentPipelinesParams defines parameters for ListDeploymentPipelines.
 type ListDeploymentPipelinesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3915,6 +4008,12 @@ type ListDeploymentPipelinesParams struct {
 
 // ListEnvironmentsParams defines parameters for ListEnvironments.
 type ListEnvironmentsParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3925,6 +4024,12 @@ type ListEnvironmentsParams struct {
 
 // ListObservabilityAlertsNotificationChannelsParams defines parameters for ListObservabilityAlertsNotificationChannels.
 type ListObservabilityAlertsNotificationChannelsParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3935,6 +4040,12 @@ type ListObservabilityAlertsNotificationChannelsParams struct {
 
 // ListObservabilityPlanesParams defines parameters for ListObservabilityPlanes.
 type ListObservabilityPlanesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3945,6 +4056,12 @@ type ListObservabilityPlanesParams struct {
 
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3957,6 +4074,12 @@ type ListProjectsParams struct {
 type ListReleaseBindingsParams struct {
 	// Component Filter resources by component name
 	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
+
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
 
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
@@ -3992,6 +4115,12 @@ type GetReleaseBindingK8sResourceLogsParams struct {
 
 // ListNamespaceRoleBindingsParams defines parameters for ListNamespaceRoleBindings.
 type ListNamespaceRoleBindingsParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -4002,6 +4131,12 @@ type ListNamespaceRoleBindingsParams struct {
 
 // ListNamespaceRolesParams defines parameters for ListNamespaceRoles.
 type ListNamespaceRolesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -4012,6 +4147,12 @@ type ListNamespaceRolesParams struct {
 
 // ListSecretReferencesParams defines parameters for ListSecretReferences.
 type ListSecretReferencesParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -4022,6 +4163,12 @@ type ListSecretReferencesParams struct {
 
 // ListTraitsParams defines parameters for ListTraits.
 type ListTraitsParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -4034,6 +4181,12 @@ type ListTraitsParams struct {
 type ListWorkflowRunsParams struct {
 	// Workflow Filter workflow runs by workflow name
 	Workflow *WorkflowQueryParam `form:"workflow,omitempty" json:"workflow,omitempty"`
+
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
 
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
@@ -4060,6 +4213,12 @@ type GetWorkflowRunLogsParams struct {
 
 // ListWorkflowsParams defines parameters for ListWorkflows.
 type ListWorkflowsParams struct {
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -4072,6 +4231,12 @@ type ListWorkflowsParams struct {
 type ListWorkloadsParams struct {
 	// Component Filter resources by component name
 	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
+
+	// LabelSelector A label selector to filter resources.
+	// Supports equality-based requirements (e.g., "app=frontend,tier!=backend")
+	// and set-based requirements (e.g., "environment in (production,staging)").
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
 
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`

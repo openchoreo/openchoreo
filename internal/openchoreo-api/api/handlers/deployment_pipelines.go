@@ -20,7 +20,7 @@ func (h *Handler) ListDeploymentPipelines(
 ) (gen.ListDeploymentPipelinesResponseObject, error) {
 	h.logger.Debug("ListDeploymentPipelines called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.DeploymentPipelineService.ListDeploymentPipelines(ctx, request.NamespaceName, opts)
 	if err != nil {

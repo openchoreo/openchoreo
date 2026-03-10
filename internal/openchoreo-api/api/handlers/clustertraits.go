@@ -20,7 +20,7 @@ func (h *Handler) ListClusterTraits(
 ) (gen.ListClusterTraitsResponseObject, error) {
 	h.logger.Debug("ListClusterTraits called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ClusterTraitService.ListClusterTraits(ctx, opts)
 	if err != nil {

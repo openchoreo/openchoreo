@@ -41,12 +41,9 @@ func NewService(k8sClient client.Client, logger *slog.Logger) Service {
 func (s *clusterDataPlaneService) ListClusterDataPlanes(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterDataPlane], error) {
 	s.logger.Debug("Listing cluster data planes", "limit", opts.Limit, "cursor", opts.Cursor)
 
-	var listOpts []client.ListOption
-	if opts.Limit > 0 {
-		listOpts = append(listOpts, client.Limit(int64(opts.Limit)))
-	}
-	if opts.Cursor != "" {
-		listOpts = append(listOpts, client.Continue(opts.Cursor))
+	listOpts, err := services.BuildListOptions(opts)
+	if err != nil {
+		return nil, err
 	}
 
 	var clusterDataPlaneList openchoreov1alpha1.ClusterDataPlaneList

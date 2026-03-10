@@ -20,7 +20,7 @@ func (h *Handler) ListClusterComponentTypes(
 ) (gen.ListClusterComponentTypesResponseObject, error) {
 	h.logger.Debug("ListClusterComponentTypes called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ClusterComponentTypeService.ListClusterComponentTypes(ctx, opts)
 	if err != nil {
