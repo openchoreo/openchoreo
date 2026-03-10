@@ -115,6 +115,8 @@ spec:
       name: gcp-buildpacks-builder
     - kind: ClusterWorkflow
       name: dockerfile-builder
+    - kind: ClusterWorkflow
+      name: ballerina-buildpack-builder
 
   allowedTraits:
     - kind: ClusterTrait
@@ -282,11 +284,13 @@ spec:
 
   allowedWorkflows:
     - kind: ClusterWorkflow
+      name: paketo-buildpacks-builder
+    - kind: ClusterWorkflow
       name: gcp-buildpacks-builder
     - kind: ClusterWorkflow
-      name: ballerina-buildpack-builder
-    - kind: ClusterWorkflow
       name: dockerfile-builder
+    - kind: ClusterWorkflow
+      name: ballerina-buildpack-builder
 
   allowedTraits:
     - kind: ClusterTrait
@@ -765,9 +769,13 @@ spec:
 
   allowedWorkflows:
     - kind: ClusterWorkflow
+      name: paketo-buildpacks-builder
+    - kind: ClusterWorkflow
       name: gcp-buildpacks-builder
     - kind: ClusterWorkflow
       name: dockerfile-builder
+    - kind: ClusterWorkflow
+      name: ballerina-buildpack-builder
 
   allowedTraits: []
 
