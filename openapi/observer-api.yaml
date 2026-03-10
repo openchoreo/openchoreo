@@ -1077,12 +1077,70 @@ components:
     AlertRuleResponse:
       type: object
       properties:
-        ruleLogicalId:
-          type: string
-          description: The logical ID (name) of the alert rule
-        ruleBackendId:
-          type: string
-          description: The backend ID (UID from observability backend) of the alert rule
+        metadata:
+          type: object
+          properties:
+            name:
+              type: string
+              description: The name of the alert rule
+            namespace:
+              type: string
+              description: The namespace of the alert rule CR
+            projectUid:
+              type: string
+              description: The OpenChoreo project UID to query
+              format: uuid
+            environmentUid:
+              type: string
+              description: The OpenChoreo environment UID to query
+              format: uuid
+            componentUid:
+              type: string
+              description: The OpenChoreo component UID to query
+              format: uuid
+        source:
+          type: object
+          properties:
+            type:
+              type: string
+              description: The type of the source
+              enum:
+                - log
+                - metric
+            query:
+              type: string
+              description: The query to execute for log based alerts
+            metric:
+              type: string
+              description: The metric to query for metric based alerts
+              enum:
+                - cpu_usage
+                - memory_usage
+        condition:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              description: Whether the alert rule is enabled
+            window:
+              type: string
+              description: The window of time to query for the alert rule
+            interval:
+              type: string
+              description: The interval of time to query for the alert rule
+            operator:
+              type: string
+              description: The operator to use for the alert rule
+              enum:
+                - gt
+                - gte
+                - lt
+                - lte
+                - eq
+                - neq
+            threshold:
+              type: number
+              description: The threshold value to use for the alert rule
 
     AlertingRuleSyncResponse:
       type: object
