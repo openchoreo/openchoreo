@@ -5,15 +5,48 @@ metadata:
   namespace: default
 spec:
   parameters:
-    ocSchema:
-      apiName: "string"
-      apiVersion: "string | default=v1.0"
-      context: "string"
-      upstreamPort: "integer | default=80"
-      operations:
-        'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
-      policies:
-        "array<map<string>> | default=[]"
+    openAPIV3Schema:
+      type: object
+      properties:
+        apiName:
+          type: string
+        apiVersion:
+          type: string
+          default: "v1.0"
+        context:
+          type: string
+        upstreamPort:
+          type: integer
+          default: 80
+        operations:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+          default:
+            - method: "GET"
+              path: "/*"
+            - method: "POST"
+              path: "/*"
+            - method: "PUT"
+              path: "/*"
+            - method: "DELETE"
+              path: "/*"
+            - method: "PATCH"
+              path: "/*"
+            - method: "OPTIONS"
+              path: "/*"
+        policies:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+          default: []
+      required:
+        - apiName
+        - context
 
   creates:
     - template:

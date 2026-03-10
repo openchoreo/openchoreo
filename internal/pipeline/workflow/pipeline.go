@@ -253,30 +253,12 @@ func (p *Pipeline) buildParameters(input *RenderInput) (map[string]any, error) {
 }
 
 // buildStructuralSchema builds the structural schema from Workflow for applying defaults.
+// Handles both ocSchema and openAPIV3Schema formats transparently via ResolveSectionToStructural.
 func (p *Pipeline) buildStructuralSchema(wf *v1alpha1.Workflow) (*apiextschema.Structural, error) {
-	paramsRaw := wf.Spec.Parameters.GetRaw()
-	if paramsRaw == nil {
-		return nil, nil
-	}
-
-	var parameters map[string]any
-	if err := json.Unmarshal(paramsRaw.Raw, &parameters); err != nil {
-		return nil, fmt.Errorf("failed to extract parameters schema: %w", err)
-	}
-
-	if parameters == nil {
-		return nil, nil
-	}
-
-	def := schema.Definition{
-		Schemas: []map[string]any{parameters},
-	}
-
-	structural, err := schema.ToStructural(def)
+	structural, err := schema.ResolveSectionToStructural(wf.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build structural schema: %w", err)
 	}
-
 	return structural, nil
 }
 

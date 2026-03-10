@@ -320,6 +320,267 @@ var _ = Describe("ComponentRelease Webhook", func() {
 		})
 	})
 
+	Context("OpenAPIV3Schema Support", func() {
+		It("should admit ComponentRelease with openAPIV3Schema parameters schema and values", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: deploymentTemplateWithCEL("${parameters.replicas}"),
+				},
+			}
+			obj.Spec.ComponentProfile.Parameters = &runtime.RawExtension{
+				Raw: []byte(`{"replicas": 3}`),
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit ComponentRelease when openAPIV3Schema parameter with default is omitted", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1},"image":{"type":"string","default":"nginx"}}}`),
+				},
+			}
+			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: deploymentTemplateWithCEL("${parameters.replicas}"),
+				},
+			}
+			obj.Spec.ComponentProfile.Parameters = nil
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject when required openAPIV3Schema parameter is missing", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer"},"name":{"type":"string"}},"required":["replicas","name"]}`),
+				},
+			}
+			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+			obj.Spec.ComponentProfile.Parameters = &runtime.RawExtension{
+				Raw: []byte(`{"replicas": 3}`),
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("name"))
+		})
+
+		It("should reject when openAPIV3Schema parameter has wrong type", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer"}},"required":["replicas"]}`),
+				},
+			}
+			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+			obj.Spec.ComponentProfile.Parameters = &runtime.RawExtension{
+				Raw: []byte(`{"replicas": "not-a-number"}`),
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("replicas"))
+		})
+
+		It("should admit openAPIV3Schema with $defs/$ref resolved parameters", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","$defs":{"ResourceQuantity":{"type":"object","properties":{"cpu":{"type":"string","default":"100m"},"memory":{"type":"string","default":"256Mi"}}}},"properties":{"resources":{"$ref":"#/$defs/ResourceQuantity","default":{}}}}`),
+				},
+			}
+			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+			obj.Spec.ComponentProfile.Parameters = &runtime.RawExtension{
+				Raw: []byte(`{"resources": {"cpu": "200m"}}`),
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject invalid JSON in openAPIV3Schema ComponentType parameters", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{malformed json`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
+		})
+
+		It("should admit trait instance parameters validated against openAPIV3Schema", func() {
+			obj = validComponentRelease()
+			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
+				"storage": {
+					Parameters: &openchoreodevv1alpha1.SchemaSection{
+						OpenAPIV3Schema: &runtime.RawExtension{
+							Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"},"size":{"type":"string","default":"10Gi"}},"required":["mountPath"]}`),
+						},
+					},
+					Creates: []openchoreodevv1alpha1.TraitCreate{
+						{
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+							},
+						},
+					},
+				},
+			}
+			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentTrait{
+				{
+					Name:         "storage",
+					InstanceName: "data-storage",
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"mountPath": "/data"}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject missing required trait parameter with openAPIV3Schema", func() {
+			obj = validComponentRelease()
+			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
+				"storage": {
+					Parameters: &openchoreodevv1alpha1.SchemaSection{
+						OpenAPIV3Schema: &runtime.RawExtension{
+							Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"},"size":{"type":"string"}},"required":["mountPath","size"]}`),
+						},
+					},
+					Creates: []openchoreodevv1alpha1.TraitCreate{
+						{
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+							},
+						},
+					},
+				},
+			}
+			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentTrait{
+				{
+					Name:         "storage",
+					InstanceName: "data-storage",
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"mountPath": "/data"}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("size"))
+		})
+
+		It("should admit CEL expressions in ComponentType with openAPIV3Schema", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1},"enabled":{"type":"boolean","default":true}}}`),
+				},
+			}
+			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:          "deployment",
+					IncludeWhen: "${parameters.enabled}",
+					Template:    deploymentTemplateWithCEL("${parameters.replicas}"),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should validate validation rules with openAPIV3Schema in ComponentType and Traits", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: deploymentTemplateWithCEL("${parameters.replicas}"),
+				},
+			}
+			obj.Spec.ComponentType.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.replicas > 0}", Message: "replicas must be positive"},
+			}
+			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
+				"storage": {
+					Parameters: &openchoreodevv1alpha1.SchemaSection{
+						OpenAPIV3Schema: &runtime.RawExtension{
+							Raw: []byte(`{"type":"object","properties":{"size":{"type":"integer","default":10}}}`),
+						},
+					},
+					Validations: []openchoreodevv1alpha1.ValidationRule{
+						{Rule: "${parameters.size > 0}", Message: "size must be positive"},
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject invalid JSON in openAPIV3Schema Trait parameters", func() {
+			obj = validComponentRelease()
+			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
+				"storage": {
+					Parameters: &openchoreodevv1alpha1.SchemaSection{
+						OpenAPIV3Schema: &runtime.RawExtension{
+							Raw: []byte(`{malformed`),
+						},
+					},
+					Creates: []openchoreodevv1alpha1.TraitCreate{
+						{
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+							},
+						},
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
+		})
+	})
+
 	Context("CEL Validation in Embedded ComponentType", func() {
 		It("should reject malformed CEL expression in ComponentType resource template", func() {
 			obj = validComponentRelease()

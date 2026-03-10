@@ -41,6 +41,8 @@ Low-level examples demonstrating how to define and use custom component types wi
 - **[Web App Component](./component-types/component-web-app/)** - Define a reusable web application component type
 - **[Component with Configs](./component-types/component-with-configs/)** - Demonstrate configuration management
 - **[Component with Traits](./component-types/component-with-traits/)** - Demonstrate trait composition
+- **[Component with Embedded Traits](./component-types/component-with-embedded-traits/)** - Demonstrate PE-defined embedded traits
+- **[Component with API Management](./component-types/component-with-api-management/)** - Demonstrate API management via traits
 
 ### [Workflows](./workflows)
 Reusable Workflow definitions organized by purpose. Workflows use the same `Workflow` CRD but serve two distinct roles.

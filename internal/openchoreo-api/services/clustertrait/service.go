@@ -8,11 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
@@ -177,7 +175,7 @@ func (s *clusterTraitService) DeleteClusterTrait(ctx context.Context, clusterTra
 	return nil
 }
 
-func (s *clusterTraitService) GetClusterTraitSchema(ctx context.Context, clusterTraitName string) (*extv1.JSONSchemaProps, error) {
+func (s *clusterTraitService) GetClusterTraitSchema(ctx context.Context, clusterTraitName string) (map[string]any, error) {
 	s.logger.Debug("Getting cluster trait schema", "clusterTrait", clusterTraitName)
 
 	trait, err := s.GetClusterTrait(ctx, clusterTraitName)
@@ -185,22 +183,12 @@ func (s *clusterTraitService) GetClusterTraitSchema(ctx context.Context, cluster
 		return nil, err
 	}
 
-	// Build schema definition from parameters blob
-	var def schema.Definition
-	if paramsRaw := trait.Spec.Parameters.GetRaw(); paramsRaw != nil && paramsRaw.Raw != nil {
-		var params map[string]any
-		if err := yaml.Unmarshal(paramsRaw.Raw, &params); err != nil {
-			return nil, fmt.Errorf("failed to extract parameters: %w", err)
-		}
-		def.Schemas = []map[string]any{params}
-	}
-
-	// Convert to JSON Schema
-	jsonSchema, err := schema.ToJSONSchema(def)
+	// Convert to raw JSON Schema map, preserving vendor extensions (x-*) for frontend consumers
+	rawSchema, err := schema.SectionToRawJSONSchema(trait.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
 
 	s.logger.Debug("Retrieved cluster trait schema successfully", "clusterTrait", clusterTraitName)
-	return jsonSchema, nil
+	return rawSchema, nil
 }

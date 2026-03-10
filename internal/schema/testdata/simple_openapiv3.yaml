@@ -1,0 +1,32 @@
+# Simple OpenAPI V3 Schema test fixture
+# Basic types, constraints, and defaults
+type: object
+properties:
+  replicas:
+    type: integer
+    default: 1
+    minimum: 1
+    maximum: 100
+    description: Number of replicas
+  image:
+    type: string
+    minLength: 1
+    description: Container image to deploy
+  enabled:
+    type: boolean
+    default: true
+    description: Whether the component is enabled
+  port:
+    type: integer
+    default: 8080
+    minimum: 1
+    maximum: 65535
+  environment:
+    type: string
+    enum:
+      - dev
+      - staging
+      - prod
+    default: dev
+required:
+  - image

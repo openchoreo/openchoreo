@@ -118,6 +118,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	corev1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	openchoreoschema "github.com/openchoreo/openchoreo/internal/schema"
 )
 
 // Structural comment constants for consistent messaging across generated YAML.
@@ -191,22 +192,18 @@ func NewGenerator(
 	workflow *corev1alpha1.Workflow,
 	opts *Options,
 ) (*Generator, error) {
-	componentSchema, err := extractAndConvertSchema(
-		componentType.Spec.Parameters.GetRaw(),
-	)
+	componentSchema, err := openchoreoschema.SectionToJSONSchema(componentType.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("processing component schema: %w", err)
 	}
 
 	traitSchemas := make(map[string]*extv1.JSONSchemaProps)
 	for _, trait := range traits {
-		schema, err := extractAndConvertSchema(
-			trait.Spec.Parameters.GetRaw(),
-		)
+		traitSchema, err := openchoreoschema.SectionToJSONSchema(trait.Spec.Parameters)
 		if err != nil {
 			return nil, fmt.Errorf("processing trait %s schema: %w", trait.Name, err)
 		}
-		traitSchemas[trait.Name] = schema
+		traitSchemas[trait.Name] = traitSchema
 	}
 
 	var workflowSchema *extv1.JSONSchemaProps
@@ -214,13 +211,10 @@ func NewGenerator(
 	if workflow != nil {
 		workflowName = workflow.Name
 		if workflow.Spec.Parameters.GetRaw() != nil {
-			schema, err := extractAndConvertSchema(
-				workflow.Spec.Parameters.GetRaw(),
-			)
+			workflowSchema, err = openchoreoschema.SectionToJSONSchema(workflow.Spec.Parameters)
 			if err != nil {
 				return nil, fmt.Errorf("processing workflow schema: %w", err)
 			}
-			workflowSchema = schema
 		}
 	}
 

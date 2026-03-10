@@ -16,26 +16,80 @@ spec:
 
   # System parameters - Required structured parameters for component workflows
   systemParameters:
-    ocSchema:
-      repository:
-        url: string | description="Git repository URL"
-        revision:
-          branch: string | default=main description="Git branch to checkout"
-          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
-        appPath: string | default=. description="Path to the application directory within the repository"
+    openAPIV3Schema:
+      type: object
+      required:
+        - repository
+      properties:
+        repository:
+          type: object
+          required:
+            - url
+          properties:
+            url:
+              type: string
+              description: "Git repository URL"
+            revision:
+              type: object
+              properties:
+                branch:
+                  type: string
+                  default: "main"
+                  description: "Git branch to checkout"
+                commit:
+                  type: string
+                  default: ""
+                  description: "Git commit SHA or reference (optional, defaults to latest)"
+            appPath:
+              type: string
+              default: "."
+              description: "Path to the application directory within the repository"
 
   # Developer-configurable parameters
   parameters:
-    ocSchema:
-      buildpacks:
-        builderImage: string | default="gcr.io/buildpacks/builder:v1" description="Buildpacks builder image to use"
-        env: '[]string | default=[] description="Environment variables for the build (KEY=VALUE format)"'
-      gitops:
-        repositoryUrl: string | description="GitOps repository URL"
-        branch: string | default=main description="GitOps repository branch"
-        targetEnvironment: string | default=development description="Target environment name for deployment"
-        deploymentPipeline: string | description="Deployment pipeline name for the target environment"
-      workloadDescriptorPath: string | default=workload.yaml description="Path to workload descriptor file relative to appPath"
+    openAPIV3Schema:
+      type: object
+      required:
+        - gitops
+      properties:
+        buildpacks:
+          type: object
+          default: {}
+          properties:
+            builderImage:
+              type: string
+              default: "gcr.io/buildpacks/builder:v1"
+              description: "Buildpacks builder image to use"
+            env:
+              type: array
+              items:
+                type: string
+              default: []
+              description: "Environment variables for the build (KEY=VALUE format)"
+        gitops:
+          type: object
+          required:
+            - repositoryUrl
+            - deploymentPipeline
+          properties:
+            repositoryUrl:
+              type: string
+              description: "GitOps repository URL"
+            branch:
+              type: string
+              default: "main"
+              description: "GitOps repository branch"
+            targetEnvironment:
+              type: string
+              default: "development"
+              description: "Target environment name for deployment"
+            deploymentPipeline:
+              type: string
+              description: "Deployment pipeline name for the target environment"
+        workloadDescriptorPath:
+          type: string
+          default: "workload.yaml"
+          description: "Path to workload descriptor file relative to appPath"
 
   # Rendered workflow resource for ComponentWorkflowRun executions
   runTemplate:

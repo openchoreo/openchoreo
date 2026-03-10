@@ -22,16 +22,39 @@ metadata:
   namespace: default
 spec:
   parameters:
-    ocSchema:
-      enabled: "boolean | default=false"
-      minReplicas: "integer | default=2 | minimum=1"
-      maxReplicas: "integer | default=10 | minimum=1"
-      targetCPUUtilizationPercentage: "integer | default=80 | minimum=1 | maximum=100"
+    openAPIV3Schema:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: false
+        minReplicas:
+          type: integer
+          default: 2
+          minimum: 1
+        maxReplicas:
+          type: integer
+          default: 10
+          minimum: 1
+        targetCPUUtilizationPercentage:
+          type: integer
+          default: 80
+          minimum: 1
+          maximum: 100
 
   environmentConfigs:
-    ocSchema:
-      minReplicas: "integer | minimum=1"
-      maxReplicas: "integer | minimum=1"
+    openAPIV3Schema:
+      type: object
+      required:
+        - minReplicas
+        - maxReplicas
+      properties:
+        minReplicas:
+          type: integer
+          minimum: 1
+        maxReplicas:
+          type: integer
+          minimum: 1
 
   creates:
     - includeWhen: ${parameters.enabled}
@@ -68,15 +91,30 @@ metadata:
   namespace: default
 spec:
   parameters:
-    ocSchema:
-      volumeName: "string"
-      mountPath: "string"
-      containerName: "string | default=main"
+    openAPIV3Schema:
+      type: object
+      required:
+        - volumeName
+        - mountPath
+      properties:
+        volumeName:
+          type: string
+        mountPath:
+          type: string
+        containerName:
+          type: string
+          default: "main"
 
   environmentConfigs:
-    ocSchema:
-      size: "string | default=10Gi"
-      storageClass: "string | default=local-path"
+    openAPIV3Schema:
+      type: object
+      properties:
+        size:
+          type: string
+          default: "10Gi"
+        storageClass:
+          type: string
+          default: "local-path"
 
   creates:
     - template:
@@ -146,31 +184,73 @@ spec:
       message: "Service components must have at least one endpoint. Use 'deployment/worker' for components without endpoints."
 
   parameters:
-    ocSchema:
-      # Autoscaling parameters - wired to embedded HPA trait
-      # Developers can configure min/max replicas; CPU threshold is locked by PE
-      autoscaling:
-        enabled: "boolean | default=false"
-        minReplicas: "integer | default=2 | minimum=1"
-        maxReplicas: "integer | default=10 | minimum=1"
+    openAPIV3Schema:
+      type: object
+      properties:
+        # Autoscaling parameters - wired to embedded HPA trait
+        # Developers can configure min/max replicas; CPU threshold is locked by PE
+        autoscaling:
+          type: object
+          default: {}
+          properties:
+            enabled:
+              type: boolean
+              default: false
+            minReplicas:
+              type: integer
+              default: 2
+              minimum: 1
+            maxReplicas:
+              type: integer
+              default: 10
+              minimum: 1
 
   environmentConfigs:
-    ocSchema:
-      $types:
+    openAPIV3Schema:
+      type: object
+      $defs:
         ResourceRequirements:
-          requests: "ResourceQuantity | default={}"
-          limits: "ResourceQuantity | default={}"
+          type: object
+          properties:
+            requests:
+              $ref: "#/$defs/ResourceQuantity"
+              default: {}
+            limits:
+              $ref: "#/$defs/ResourceQuantity"
+              default: {}
         ResourceQuantity:
-          cpu: "string | default=100m"
-          memory: "string | default=256Mi"
-      replicas: "integer | default=1"
-      resources: "ResourceRequirements | default={}"
-      imagePullPolicy: "string | default=IfNotPresent"
-      # Environment-specific autoscaling overrides - allows tuning replica bounds per environment
-      # Note: targetCPUUtilizationPercentage is locked by PE at 75%, not overridable
-      autoscaling:
-        minReplicas: "integer | minimum=1"
-        maxReplicas: "integer | minimum=1"
+          type: object
+          properties:
+            cpu:
+              type: string
+              default: "100m"
+            memory:
+              type: string
+              default: "256Mi"
+      properties:
+        replicas:
+          type: integer
+          default: 1
+        resources:
+          $ref: "#/$defs/ResourceRequirements"
+          default: {}
+        imagePullPolicy:
+          type: string
+          default: "IfNotPresent"
+        # Environment-specific autoscaling overrides - allows tuning replica bounds per environment
+        # Note: targetCPUUtilizationPercentage is locked by PE at 75%, not overridable
+        autoscaling:
+          type: object
+          required:
+            - minReplicas
+            - maxReplicas
+          properties:
+            minReplicas:
+              type: integer
+              minimum: 1
+            maxReplicas:
+              type: integer
+              minimum: 1
 
   # Embedded traits - automatically applied to all Components of this type
   traits:

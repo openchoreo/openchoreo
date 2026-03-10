@@ -10,7 +10,6 @@ import (
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/internal/schema"
 )
@@ -20,29 +19,6 @@ type schemaProcessingResult struct {
 	jsonSchema   *extv1.JSONSchemaProps
 	structural   *apiextschema.Structural
 	defaultedObj map[string]any
-}
-
-// extractAndConvertSchema converts OpenChoreo schema parameters to JSONSchemaProps.
-// This is a convenience function for extracting and converting schemas without applying defaults.
-func extractAndConvertSchema(parameters *runtime.RawExtension) (*extv1.JSONSchemaProps, error) {
-	def := schema.Definition{
-		Schemas: []map[string]any{},
-	}
-
-	if parameters != nil {
-		paramsMap, err := rawExtensionToMap(parameters)
-		if err != nil {
-			return nil, fmt.Errorf("converting parameters: %w", err)
-		}
-		def.Schemas = append(def.Schemas, paramsMap)
-	}
-
-	jsonSchema, err := schema.ToJSONSchema(def)
-	if err != nil {
-		return nil, fmt.Errorf("converting to JSON schema: %w", err)
-	}
-
-	return jsonSchema, nil
 }
 
 // applyDefaultsToSchema takes a JSONSchemaProps and applies defaults to create a schemaProcessingResult.

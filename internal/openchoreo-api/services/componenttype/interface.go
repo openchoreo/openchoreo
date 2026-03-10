@@ -6,8 +6,6 @@ package componenttype
 import (
 	"context"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -22,5 +20,5 @@ type Service interface {
 	ListComponentTypes(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ComponentType], error)
 	GetComponentType(ctx context.Context, namespaceName, ctName string) (*openchoreov1alpha1.ComponentType, error)
 	DeleteComponentType(ctx context.Context, namespaceName, ctName string) error
-	GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (*extv1.JSONSchemaProps, error)
+	GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (map[string]any, error)
 }

@@ -125,17 +125,41 @@ spec:
       message: "Worker components must not have endpoints. Use 'deployment/service' for components with endpoints."
 
   environmentConfigs:
-    ocSchema:
-      $types:
-        ResourceRequirements:
-          requests: "ResourceQuantity | default={}"
-          limits: "ResourceQuantity | default={}"
+    openAPIV3Schema:
+      type: object
+      $defs:
         ResourceQuantity:
-          cpu: "string | default=100m"
-          memory: "string | default=256Mi"
-      replicas: "integer | default=1"
-      resources: "ResourceRequirements | default={}"
-      imagePullPolicy: "string | default=IfNotPresent"
+          type: object
+          default: {}
+          properties:
+            cpu:
+              type: string
+              default: "100m"
+            memory:
+              type: string
+              default: "256Mi"
+        ResourceRequirements:
+          type: object
+          properties:
+            requests:
+              $ref: "#/$defs/ResourceQuantity"
+            limits:
+              $ref: "#/$defs/ResourceQuantity"
+          default: {}
+      properties:
+        replicas:
+          type: integer
+          default: 1
+          minimum: 0
+        resources:
+          $ref: "#/$defs/ResourceRequirements"
+        imagePullPolicy:
+          type: string
+          default: IfNotPresent
+          enum:
+            - Always
+            - IfNotPresent
+            - Never
 
   resources:
     - id: deployment
@@ -276,17 +300,41 @@ spec:
       message: "Service components must have at least one endpoint. Use 'deployment/worker' for components without endpoints."
 
   environmentConfigs:
-    ocSchema:
-      $types:
-        ResourceRequirements:
-          requests: "ResourceQuantity | default={}"
-          limits: "ResourceQuantity | default={}"
+    openAPIV3Schema:
+      type: object
+      $defs:
         ResourceQuantity:
-          cpu: "string | default=100m"
-          memory: "string | default=256Mi"
-      replicas: "integer | default=1"
-      resources: "ResourceRequirements | default={}"
-      imagePullPolicy: "string | default=IfNotPresent"
+          type: object
+          default: {}
+          properties:
+            cpu:
+              type: string
+              default: "100m"
+            memory:
+              type: string
+              default: "256Mi"
+        ResourceRequirements:
+          type: object
+          properties:
+            requests:
+              $ref: "#/$defs/ResourceQuantity"
+            limits:
+              $ref: "#/$defs/ResourceQuantity"
+          default: {}
+      properties:
+        replicas:
+          type: integer
+          default: 1
+          minimum: 0
+        resources:
+          $ref: "#/$defs/ResourceRequirements"
+        imagePullPolicy:
+          type: string
+          default: IfNotPresent
+          enum:
+            - Always
+            - IfNotPresent
+            - Never
 
   resources:
     - id: deployment
@@ -502,17 +550,41 @@ spec:
       message: "Web-application components must have at least one HTTP."
 
   environmentConfigs:
-    ocSchema:
-      $types:
-        ResourceRequirements:
-          requests: "ResourceQuantity | default={}"
-          limits: "ResourceQuantity | default={}"
+    openAPIV3Schema:
+      type: object
+      $defs:
         ResourceQuantity:
-          cpu: "string | default=100m"
-          memory: "string | default=256Mi"
-      replicas: "integer | default=1"
-      resources: "ResourceRequirements | default={}"
-      imagePullPolicy: "string | default=IfNotPresent"
+          type: object
+          default: {}
+          properties:
+            cpu:
+              type: string
+              default: "100m"
+            memory:
+              type: string
+              default: "256Mi"
+        ResourceRequirements:
+          type: object
+          properties:
+            requests:
+              $ref: "#/$defs/ResourceQuantity"
+            limits:
+              $ref: "#/$defs/ResourceQuantity"
+          default: {}
+      properties:
+        replicas:
+          type: integer
+          default: 1
+          minimum: 0
+        resources:
+          $ref: "#/$defs/ResourceRequirements"
+        imagePullPolicy:
+          type: string
+          default: IfNotPresent
+          enum:
+            - Always
+            - IfNotPresent
+            - Never
 
   resources:
     - id: deployment
@@ -703,26 +775,63 @@ spec:
   allowedTraits: []
 
   parameters:
-    ocSchema:
-      successfulJobsHistoryLimit: "integer | default=3"
-      failedJobsHistoryLimit: "integer | default=1"
-      concurrencyPolicy: "string | default=Forbid"
-      backoffLimit: "integer | default=3"
-      activeDeadlineSeconds: "integer | default=300"
-      restartPolicy: "string | default=OnFailure"
+    openAPIV3Schema:
+      type: object
+      properties:
+        successfulJobsHistoryLimit:
+          type: integer
+          default: 3
+        failedJobsHistoryLimit:
+          type: integer
+          default: 1
+        concurrencyPolicy:
+          type: string
+          default: Forbid
+        backoffLimit:
+          type: integer
+          default: 3
+        activeDeadlineSeconds:
+          type: integer
+          default: 300
+        restartPolicy:
+          type: string
+          default: OnFailure
 
   environmentConfigs:
-    ocSchema:
-      $types:
-        ResourceRequirements:
-          requests: "ResourceQuantity | default={}"
-          limits: "ResourceQuantity | default={}"
+    openAPIV3Schema:
+      type: object
+      $defs:
         ResourceQuantity:
-          cpu: "string | default=100m"
-          memory: "string | default=128Mi"
-      schedule: 'string | default="0 0 31 2 *"'
-      resources: "ResourceRequirements | default={}"
-      imagePullPolicy: "string | default=IfNotPresent"
+          type: object
+          default: {}
+          properties:
+            cpu:
+              type: string
+              default: "100m"
+            memory:
+              type: string
+              default: "128Mi"
+        ResourceRequirements:
+          type: object
+          properties:
+            requests:
+              $ref: "#/$defs/ResourceQuantity"
+            limits:
+              $ref: "#/$defs/ResourceQuantity"
+          default: {}
+      properties:
+        schedule:
+          type: string
+          default: "0 0 31 2 *"
+        resources:
+          $ref: "#/$defs/ResourceRequirements"
+        imagePullPolicy:
+          type: string
+          default: IfNotPresent
+          enum:
+            - Always
+            - IfNotPresent
+            - Never
 
   resources:
     - id: cronjob
@@ -864,22 +973,54 @@ spec:
   ttlAfterCompletion: "1d"
 
   parameters:
-    ocSchema:
-      $types:
-        BuildEnvVar:
-          name: "string | description='Environment variable name'"
-          value: "string | description='Environment variable value'"
-
-      repository:
-        url: string | description="Git repository URL"
-        secretRef: string | default="" description="Secret reference name for private repository Git credentials (optional for public repos)"
-        revision:
-          branch: string | default=main description="Git branch to checkout"
-          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest commit on branch)"
-        appPath: string | default=. description="Path to the application directory within the repository"
-
-      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack (e.g. BP_JVM_VERSION=21, BP_NODE_RUN_SCRIPTS=build, BP_WEB_SERVER=nginx). Reference: https://paketo.io/docs/howto/configuration/#environment-variables"'
-
+    openAPIV3Schema:
+      type: object
+      required:
+        - repository
+      properties:
+        repository:
+          type: object
+          description: "Git repository configuration"
+          required:
+            - url
+          properties:
+            url:
+              type: string
+              description: "Git repository URL"
+            secretRef:
+              type: string
+              default: ""
+              description: "Secret reference name for private repository Git credentials (optional for public repos)"
+            revision:
+              type: object
+              default: {}
+              properties:
+                branch:
+                  type: string
+                  default: main
+                  description: "Git branch to checkout"
+                commit:
+                  type: string
+                  default: ""
+                  description: "Git commit SHA or reference (optional, defaults to latest commit on branch)"
+            appPath:
+              type: string
+              default: "."
+              description: "Path to the application directory within the repository"
+        buildEnv:
+          type: array
+          default: []
+          description: "Build-time environment variables passed to the buildpack (e.g. BP_JVM_VERSION=21, BP_NODE_RUN_SCRIPTS=build, BP_WEB_SERVER=nginx). Reference: https://paketo.io/docs/howto/configuration/#environment-variables"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Environment variable name"
+              value:
+                type: string
+                description: "Environment variable value"
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -1045,22 +1186,54 @@ spec:
     name: default
   ttlAfterCompletion: "1d"
   parameters:
-    ocSchema:
-      $types:
-        BuildEnvVar:
-          name: "string | description='Environment variable name'"
-          value: "string | description='Environment variable value'"
-
-      repository:
-        url: string | description="Git repository URL"
-        secretRef: string | default="" description="Secret reference name for Git credentials"
-        revision:
-          branch: string | default=main description="Git branch to checkout"
-          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
-        appPath: string | default=. description="Path to the application directory within the repository"
-
-      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack (e.g. GOOGLE_RUNTIME_VERSION=21). Reference: https://docs.cloud.google.com/docs/buildpacks/set-environment-variables"'
-
+    openAPIV3Schema:
+      type: object
+      required:
+        - repository
+      properties:
+        repository:
+          type: object
+          description: "Git repository configuration"
+          required:
+            - url
+          properties:
+            url:
+              type: string
+              description: "Git repository URL"
+            secretRef:
+              type: string
+              default: ""
+              description: "Secret reference name for Git credentials"
+            revision:
+              type: object
+              default: {}
+              properties:
+                branch:
+                  type: string
+                  default: main
+                  description: "Git branch to checkout"
+                commit:
+                  type: string
+                  default: ""
+                  description: "Git commit SHA or reference (optional, defaults to latest)"
+            appPath:
+              type: string
+              default: "."
+              description: "Path to the application directory within the repository"
+        buildEnv:
+          type: array
+          default: []
+          description: "Build-time environment variables passed to the buildpack (e.g. GOOGLE_RUNTIME_VERSION=21). Reference: https://docs.cloud.google.com/docs/buildpacks/set-environment-variables"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Environment variable name"
+              value:
+                type: string
+                description: "Environment variable value"
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -1222,22 +1395,54 @@ spec:
     name: default
   ttlAfterCompletion: "1d"
   parameters:
-    ocSchema:
-      $types:
-        BuildEnvVar:
-          name: "string | description='Environment variable name'"
-          value: "string | description='Environment variable value'"
-
-      repository:
-        url: string | description="Git repository URL"
-        secretRef: string | default="" description="Secret reference name for Git credentials"
-        revision:
-          branch: string | default=main description="Git branch to checkout"
-          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
-        appPath: string | default=. description="Path to the Ballerina application directory within the repository"
-
-      buildEnv: '[]BuildEnvVar | default=[] description="Environment variables to be passed into the buildpack"'
-
+    openAPIV3Schema:
+      type: object
+      required:
+        - repository
+      properties:
+        repository:
+          type: object
+          description: "Git repository configuration"
+          required:
+            - url
+          properties:
+            url:
+              type: string
+              description: "Git repository URL"
+            secretRef:
+              type: string
+              default: ""
+              description: "Secret reference name for Git credentials"
+            revision:
+              type: object
+              default: {}
+              properties:
+                branch:
+                  type: string
+                  default: main
+                  description: "Git branch to checkout"
+                commit:
+                  type: string
+                  default: ""
+                  description: "Git commit SHA or reference (optional, defaults to latest)"
+            appPath:
+              type: string
+              default: "."
+              description: "Path to the Ballerina application directory within the repository"
+        buildEnv:
+          type: array
+          default: []
+          description: "Environment variables to be passed into the buildpack"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Environment variable name"
+              value:
+                type: string
+                description: "Environment variable value"
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -1401,28 +1606,81 @@ spec:
     name: default
   ttlAfterCompletion: "1d"
   parameters:
-    ocSchema:
-      $types:
-        BuildEnvVar:
-          name: "string | description='Environment variable name'"
-          value: "string | description='Environment variable value'"
-        DockerBuildArg:
-          name: "string | description='Build argument name'"
-          value: "string | description='Build argument value'"
-
-      repository:
-        url: string | description="Git repository URL"
-        secretRef: string | default="" description="Secret reference name for Git credentials"
-        revision:
-          branch: string | default=main description="Git branch to checkout"
-          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
-        appPath: string | default=. description="Path to the application directory within the repository"
-      docker:
-        context: string | default=. description="Docker build context path relative to the repository root"
-        filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
-
-      buildEnv: '[]BuildEnvVar | default=[] description="Environment variables available during the build (passed as --env to podman build). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#env-env-value"'
-      buildArgs: '[]DockerBuildArg | default=[] description="Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#build-arg-arg-value"'
+    openAPIV3Schema:
+      type: object
+      required:
+        - repository
+      properties:
+        repository:
+          type: object
+          description: "Git repository configuration"
+          required:
+            - url
+          properties:
+            url:
+              type: string
+              description: "Git repository URL"
+            secretRef:
+              type: string
+              default: ""
+              description: "Secret reference name for Git credentials"
+            revision:
+              type: object
+              default: {}
+              properties:
+                branch:
+                  type: string
+                  default: main
+                  description: "Git branch to checkout"
+                commit:
+                  type: string
+                  default: ""
+                  description: "Git commit SHA or reference (optional, defaults to latest)"
+            appPath:
+              type: string
+              default: "."
+              description: "Path to the application directory within the repository"
+        docker:
+          type: object
+          default: {}
+          description: "Docker build configuration"
+          properties:
+            context:
+              type: string
+              default: "."
+              description: "Docker build context path relative to the repository root"
+            filePath:
+              type: string
+              default: "./Dockerfile"
+              description: "Path to the Dockerfile relative to the repository root"
+        buildEnv:
+          type: array
+          default: []
+          description: "Environment variables available during the build (passed as --env to podman build). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#env-env-value"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Environment variable name"
+              value:
+                type: string
+                description: "Environment variable value"
+        buildArgs:
+          type: array
+          default: []
+          description: "Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#build-arg-arg-value"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Build argument name"
+              value:
+                type: string
+                description: "Build argument value"
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -1581,15 +1839,48 @@ metadata:
   namespace: default
 spec:
   parameters:
-    ocSchema:
-      apiName: "string"
-      apiVersion: "string | default=v1.0"
-      context: "string"
-      upstreamPort: "integer | default=80"
-      operations:
-        'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
-      policies:
-        "array<map<string>> | default=[]"
+    openAPIV3Schema:
+      type: object
+      properties:
+        apiName:
+          type: string
+        apiVersion:
+          type: string
+          default: "v1.0"
+        context:
+          type: string
+        upstreamPort:
+          type: integer
+          default: 80
+        operations:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+          default:
+            - method: "GET"
+              path: "/*"
+            - method: "POST"
+              path: "/*"
+            - method: "PUT"
+              path: "/*"
+            - method: "DELETE"
+              path: "/*"
+            - method: "PATCH"
+              path: "/*"
+            - method: "OPTIONS"
+              path: "/*"
+        policies:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+          default: []
+      required:
+        - apiName
+        - context
 
   creates:
     - template:
@@ -1650,30 +1941,100 @@ metadata:
   namespace: default
 spec:
   parameters:
-    ocSchema:
-      # Developer-facing parameters - static across environments
-      description: "string | description=\"A human-readable description of what this alert rule monitors and when it triggers.\""
-      severity: "string | enum=info,warning,critical | default=warning | description=\"The severity level of alerts triggered by this rule. Determines alert priority and notification urgency.\""
-      source:
-        type: "string | enum=log,metric | description=\"The data source type for the alert rule.\""
-        query: "string | default=\"\" | description=\"The query expression for log-based alerts. Required when source type is 'log'.\""
-        metric: "string | default=\"\" | description=\"The predefined metric to monitor for metric-based alerts. Must be one of: cpu_usage, memory_usage. Required when source type is 'metric'.\""
-      condition:
-        window: "string | default=5m | description=\"The time window over which data is aggregated before evaluating the alert condition (e.g. 5m, 10m, 30m, 1h).\""
-        interval: "string | default=1m | description=\"The frequency at which the alert rule is evaluated (e.g. 1m, 5m, 15m, 30m).\""
-        operator: "string | enum=gt,lt,gte,lte,eq | default=gt | description=\"The comparison operator used to evaluate the condition against the threshold (gt: greater than, lt: less than, gte: greater than or equal, lte: less than or equal, eq: equal).\""
-        threshold: "integer | default=10 | description=\"The numeric threshold value used with the operator to determine when the alert triggers.\""
+    openAPIV3Schema:
+      type: object
+      properties:
+        description:
+          type: string
+          description: "A human-readable description of what this alert rule monitors and when it triggers."
+        severity:
+          type: string
+          enum:
+            - info
+            - warning
+            - critical
+          default: warning
+          description: "The severity level of alerts triggered by this rule. Determines alert priority and notification urgency."
+        source:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - log
+                - metric
+              description: "The data source type for the alert rule."
+            query:
+              type: string
+              default: ""
+              description: "The query expression for log-based alerts. Required when source type is 'log'."
+            metric:
+              type: string
+              default: ""
+              description: "The predefined metric to monitor for metric-based alerts. Must be one of: cpu_usage, memory_usage. Required when source type is 'metric'."
+          required:
+            - type
+        condition:
+          type: object
+          properties:
+            window:
+              type: string
+              default: "5m"
+              description: "The time window over which data is aggregated before evaluating the alert condition (e.g. 5m, 10m, 30m, 1h)."
+            interval:
+              type: string
+              default: "1m"
+              description: "The frequency at which the alert rule is evaluated (e.g. 1m, 5m, 15m, 30m)."
+            operator:
+              type: string
+              enum:
+                - gt
+                - lt
+                - gte
+                - lte
+                - eq
+              default: gt
+              description: "The comparison operator used to evaluate the condition against the threshold."
+            threshold:
+              type: integer
+              default: 10
+              description: "The numeric threshold value used with the operator to determine when the alert triggers."
+      required:
+        - description
+        - source
+        - condition
 
   environmentConfigs:
-    ocSchema:
-      # Platform engineers can override per environment
-      enabled: "boolean | default=true | description=\"Controls whether this alert rule is active. When disabled, the rule will not trigger alerts.\""
-      actions:
-        notifications:
-          channels: "[]string | default=[] | description=\"The notification channel identifiers where alerts should be delivered. Configured per environment by platform engineers. If not provided, defaults to the environment's default notification channel.\""
-        incident:
-          enabled: "boolean | default=false | description=\"Enables incident creation when this alert fires. When enabled, a corresponding incident will be created in the incident management system.\""
-          triggerAiRca: "boolean | default=false | description=\"Enables AI-powered root cause analysis when an incident is created. When enabled, provides automated reports of root causes for alert conditions. Requires incident.enabled to also be true.\""
+    openAPIV3Schema:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: "Controls whether this alert rule is active. When disabled, the rule will not trigger alerts."
+        actions:
+          type: object
+          properties:
+            notifications:
+              type: object
+              properties:
+                channels:
+                  type: array
+                  items:
+                    type: string
+                  default: []
+                  description: "The notification channel identifiers where alerts should be delivered."
+            incident:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  default: false
+                  description: "Enables incident creation when this alert fires."
+                triggerAiRca:
+                  type: boolean
+                  default: false
+                  description: "Enables AI-powered root cause analysis when an incident is created."
 
   validations:
     - rule: "${(has(environmentConfigs.actions) && has(environmentConfigs.actions.notifications) && environmentConfigs.actions.notifications.channels.size() > 0) || (has(environment.defaultNotificationChannel) && environment.defaultNotificationChannel != '')}"

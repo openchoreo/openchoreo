@@ -48,8 +48,9 @@ workflow.openchoreo.dev/docker                          10s
 workflow.openchoreo.dev/google-cloud-buildpacks         10s
 workflow.openchoreo.dev/react                           10s
 
-NAME                                        AGE
-trait.openchoreo.dev/api-configuration      10s
+NAME                                               AGE
+trait.openchoreo.dev/api-configuration               10s
+trait.openchoreo.dev/observability-alert-rule         10s
 ```
 
 ## What Gets Created
@@ -89,6 +90,7 @@ trait.openchoreo.dev/api-configuration      10s
 | Name | Description |
 |------|-------------|
 | api-configuration | Configure API gateway routing and policies |
+| observability-alert-rule | Define alert rules for log and metric monitoring |
 
 ## Individual Files
 
@@ -111,7 +113,8 @@ getting-started/
 │   ├── ballerina-buildpack.yaml
 │   └── google-cloud-buildpacks.yaml
 └── component-traits/
-    └── api-management.yaml
+    ├── api-management.yaml
+    └── alert-rule-trait.yaml
 ```
 
 ## Customization

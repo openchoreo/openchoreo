@@ -7,7 +7,6 @@ import (
 	"context"
 	"log/slog"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -105,7 +104,7 @@ func (s *traitServiceWithAuthz) DeleteTrait(ctx context.Context, namespaceName, 
 	return s.internal.DeleteTrait(ctx, namespaceName, traitName)
 }
 
-func (s *traitServiceWithAuthz) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (*extv1.JSONSchemaProps, error) {
+func (s *traitServiceWithAuthz) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (map[string]any, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewTrait,
 		ResourceType: resourceTypeTrait,

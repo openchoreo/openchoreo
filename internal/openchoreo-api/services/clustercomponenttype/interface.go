@@ -6,8 +6,6 @@ package clustercomponenttype
 import (
 	"context"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -22,5 +20,5 @@ type Service interface {
 	ListClusterComponentTypes(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterComponentType], error)
 	GetClusterComponentType(ctx context.Context, cctName string) (*openchoreov1alpha1.ClusterComponentType, error)
 	DeleteClusterComponentType(ctx context.Context, cctName string) error
-	GetClusterComponentTypeSchema(ctx context.Context, cctName string) (*extv1.JSONSchemaProps, error)
+	GetClusterComponentTypeSchema(ctx context.Context, cctName string) (map[string]any, error)
 }

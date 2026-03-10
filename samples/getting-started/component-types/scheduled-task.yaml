@@ -19,26 +19,63 @@ spec:
   allowedTraits: []
 
   parameters:
-    ocSchema:
-      successfulJobsHistoryLimit: "integer | default=3"
-      failedJobsHistoryLimit: "integer | default=1"
-      concurrencyPolicy: "string | default=Forbid"
-      backoffLimit: "integer | default=3"
-      activeDeadlineSeconds: "integer | default=300"
-      restartPolicy: "string | default=OnFailure"
+    openAPIV3Schema:
+      type: object
+      properties:
+        successfulJobsHistoryLimit:
+          type: integer
+          default: 3
+        failedJobsHistoryLimit:
+          type: integer
+          default: 1
+        concurrencyPolicy:
+          type: string
+          default: Forbid
+        backoffLimit:
+          type: integer
+          default: 3
+        activeDeadlineSeconds:
+          type: integer
+          default: 300
+        restartPolicy:
+          type: string
+          default: OnFailure
 
   environmentConfigs:
-    ocSchema:
-      $types:
-        ResourceRequirements:
-          requests: "ResourceQuantity | default={}"
-          limits: "ResourceQuantity | default={}"
+    openAPIV3Schema:
+      type: object
+      $defs:
         ResourceQuantity:
-          cpu: "string | default=100m"
-          memory: "string | default=128Mi"
-      schedule: 'string | default="0 0 31 2 *"'
-      resources: "ResourceRequirements | default={}"
-      imagePullPolicy: "string | default=IfNotPresent"
+          type: object
+          default: {}
+          properties:
+            cpu:
+              type: string
+              default: "100m"
+            memory:
+              type: string
+              default: "128Mi"
+        ResourceRequirements:
+          type: object
+          properties:
+            requests:
+              $ref: "#/$defs/ResourceQuantity"
+            limits:
+              $ref: "#/$defs/ResourceQuantity"
+          default: {}
+      properties:
+        schedule:
+          type: string
+          default: "0 0 31 2 *"
+        resources:
+          $ref: "#/$defs/ResourceRequirements"
+        imagePullPolicy:
+          type: string
+          default: IfNotPresent
+          enum:
+            - Always
+            - IfNotPresent
+            - Never
 
   resources:
     - id: cronjob

@@ -5,7 +5,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -189,7 +188,7 @@ func (h *Handler) GetClusterComponentTypeSchema(
 ) (gen.GetClusterComponentTypeSchemaResponseObject, error) {
 	h.logger.Debug("GetClusterComponentTypeSchema called", "name", request.CctName)
 
-	jsonSchema, err := h.services.ClusterComponentTypeService.GetClusterComponentTypeSchema(ctx, request.CctName)
+	rawSchema, err := h.services.ClusterComponentTypeService.GetClusterComponentTypeSchema(ctx, request.CctName)
 	if err != nil {
 		if errors.Is(err, clustercomponenttypesvc.ErrClusterComponentTypeNotFound) {
 			return gen.GetClusterComponentTypeSchema404JSONResponse{NotFoundJSONResponse: notFound("ClusterComponentType")}, nil
@@ -201,18 +200,5 @@ func (h *Handler) GetClusterComponentTypeSchema(
 		return gen.GetClusterComponentTypeSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert JSONSchemaProps to SchemaResponse (map[string]interface{})
-	data, err := json.Marshal(jsonSchema)
-	if err != nil {
-		h.logger.Error("Failed to marshal schema", "error", err)
-		return gen.GetClusterComponentTypeSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	var schemaResp gen.SchemaResponse
-	if err := json.Unmarshal(data, &schemaResp); err != nil {
-		h.logger.Error("Failed to unmarshal schema response", "error", err)
-		return gen.GetClusterComponentTypeSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	return gen.GetClusterComponentTypeSchema200JSONResponse(schemaResp), nil
+	return gen.GetClusterComponentTypeSchema200JSONResponse(rawSchema), nil
 }

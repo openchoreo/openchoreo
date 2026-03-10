@@ -1,0 +1,21 @@
+# Invalid OpenAPI V3 Schema with circular $ref
+# Used for error testing - should fail with circular reference error
+type: object
+$defs:
+  NodeA:
+    type: object
+    properties:
+      name:
+        type: string
+      child:
+        $ref: "#/$defs/NodeB"
+  NodeB:
+    type: object
+    properties:
+      name:
+        type: string
+      parent:
+        $ref: "#/$defs/NodeA"
+properties:
+  root:
+    $ref: "#/$defs/NodeA"

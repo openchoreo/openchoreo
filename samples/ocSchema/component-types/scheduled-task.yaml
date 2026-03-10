@@ -1,0 +1,156 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: scheduled-task
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Component type for scheduled tasks"
+spec:
+  workloadType: cronjob
+
+  allowedWorkflows:
+    - kind: Workflow
+      name: google-cloud-buildpacks
+    - kind: Workflow
+      name: docker
+
+  allowedTraits: []
+
+  parameters:
+    ocSchema:
+      successfulJobsHistoryLimit: "integer | default=3"
+      failedJobsHistoryLimit: "integer | default=1"
+      concurrencyPolicy: "string | default=Forbid"
+      backoffLimit: "integer | default=3"
+      activeDeadlineSeconds: "integer | default=300"
+      restartPolicy: "string | default=OnFailure"
+
+  environmentConfigs:
+    ocSchema:
+      $types:
+        ResourceRequirements:
+          requests: "ResourceQuantity | default={}"
+          limits: "ResourceQuantity | default={}"
+        ResourceQuantity:
+          cpu: "string | default=100m"
+          memory: "string | default=128Mi"
+      schedule: 'string | default="0 0 31 2 *"'
+      resources: "ResourceRequirements | default={}"
+      imagePullPolicy: "string | default=IfNotPresent"
+
+  resources:
+    - id: cronjob
+      template:
+        apiVersion: batch/v1
+        kind: CronJob
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          schedule: ${environmentConfigs.schedule}
+          successfulJobsHistoryLimit: ${parameters.successfulJobsHistoryLimit}
+          failedJobsHistoryLimit: ${parameters.failedJobsHistoryLimit}
+          concurrencyPolicy: ${parameters.concurrencyPolicy}
+          jobTemplate:
+            metadata:
+              labels: ${metadata.labels}
+            spec:
+              backoffLimit: ${parameters.backoffLimit}
+              activeDeadlineSeconds: ${parameters.activeDeadlineSeconds}
+              template:
+                metadata:
+                  labels: ${metadata.podSelectors}
+                spec:
+                  restartPolicy: ${parameters.restartPolicy}
+                  containers:
+                    - name: main
+                      image: ${workload.container.image}
+                      imagePullPolicy: ${environmentConfigs.imagePullPolicy}
+                      command: |
+                        ${has(workload.container.command) ? workload.container.command : oc_omit()}
+                      args: |
+                        ${has(workload.container.args) ? workload.container.args : oc_omit()}
+                      resources:
+                        requests:
+                          cpu: ${environmentConfigs.resources.requests.cpu}
+                          memory: ${environmentConfigs.resources.requests.memory}
+                        limits:
+                          cpu: ${environmentConfigs.resources.limits.cpu}
+                          memory: ${environmentConfigs.resources.limits.memory}
+                      env: ${connections.toContainerEnv()}
+                      envFrom: ${configurations.toContainerEnvFrom()}
+                      volumeMounts: ${configurations.toContainerVolumeMounts()}
+                  volumes: ${configurations.toVolumes()}
+
+    - id: env-config
+      forEach: ${configurations.toConfigEnvsByContainer()}
+      var: envConfig
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${envConfig.resourceName}
+          namespace: ${metadata.namespace}
+        data: |
+          ${envConfig.envs.transformMapEntry(index, env, {env.name: env.value})}
+    - id: file-config
+      forEach: ${configurations.toConfigFileList()}
+      var: config
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${config.resourceName}
+          namespace: ${metadata.namespace}
+        data:
+          ${config.name}: |
+            ${config.value}
+    - id: secret-env-external
+      forEach: ${configurations.toSecretEnvsByContainer()}
+      var: secretEnv
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${secretEnv.resourceName}
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name: ${secretEnv.resourceName}
+            creationPolicy: Owner
+          data: |
+            ${secretEnv.envs.map(secret, {
+              "secretKey": secret.name,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": has(secret.remoteRef.property) ? secret.remoteRef.property : oc_omit()
+              }
+            })}
+    - id: secret-file-external
+      forEach: ${configurations.toSecretFileList()}
+      var: file
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${file.resourceName}
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name: ${file.resourceName}
+            creationPolicy: Owner
+          data:
+            - secretKey: ${file.name}
+              remoteRef:
+                key: ${file.remoteRef.key}
+                property: |
+                  ${has(file.remoteRef.property) ? file.remoteRef.property : oc_omit()}

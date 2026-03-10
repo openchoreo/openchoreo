@@ -7,7 +7,6 @@ import (
 	"context"
 	"log/slog"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -69,7 +68,7 @@ func (s *workflowServiceWithAuthz) GetWorkflow(ctx context.Context, namespaceNam
 	return s.internal.GetWorkflow(ctx, namespaceName, workflowName)
 }
 
-func (s *workflowServiceWithAuthz) GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (*extv1.JSONSchemaProps, error) {
+func (s *workflowServiceWithAuthz) GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (map[string]any, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewWorkflow,
 		ResourceType: resourceTypeWorkflow,

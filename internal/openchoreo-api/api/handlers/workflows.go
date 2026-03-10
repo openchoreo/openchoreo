@@ -5,7 +5,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -189,7 +188,7 @@ func (h *Handler) GetWorkflowSchema(
 ) (gen.GetWorkflowSchemaResponseObject, error) {
 	h.logger.Debug("GetWorkflowSchema called", "namespaceName", request.NamespaceName, "workflowName", request.WorkflowName)
 
-	jsonSchema, err := h.services.WorkflowService.GetWorkflowSchema(ctx, request.NamespaceName, request.WorkflowName)
+	rawSchema, err := h.services.WorkflowService.GetWorkflowSchema(ctx, request.NamespaceName, request.WorkflowName)
 	if err != nil {
 		if errors.Is(err, workflowsvc.ErrWorkflowNotFound) {
 			return gen.GetWorkflowSchema404JSONResponse{NotFoundJSONResponse: notFound("Workflow")}, nil
@@ -201,20 +200,7 @@ func (h *Handler) GetWorkflowSchema(
 		return gen.GetWorkflowSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert JSONSchemaProps to SchemaResponse (map[string]interface{})
-	data, err := json.Marshal(jsonSchema)
-	if err != nil {
-		h.logger.Error("Failed to marshal schema", "error", err)
-		return gen.GetWorkflowSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	var schemaResp gen.SchemaResponse
-	if err := json.Unmarshal(data, &schemaResp); err != nil {
-		h.logger.Error("Failed to unmarshal schema response", "error", err)
-		return gen.GetWorkflowSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	return gen.GetWorkflowSchema200JSONResponse(schemaResp), nil
+	return gen.GetWorkflowSchema200JSONResponse(rawSchema), nil
 }
 
 // ListWorkflowRuns returns a list of workflow runs

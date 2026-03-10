@@ -26,6 +26,9 @@ func ExtractStructuralSchemas(
 ) (*apiextschema.Structural, *apiextschema.Structural, field.ErrorList) {
 	allErrs := field.ErrorList{}
 
+	// Validate that parameters and environmentConfigs use the same schema format
+	allErrs = append(allErrs, validateSchemaFormatConsistency(parameters, environmentConfigs, basePath)...)
+
 	// Extract and build parameters structural schema
 	parametersSchema, err := schema.ResolveSectionToStructural(parameters)
 	if err != nil {
@@ -45,4 +48,34 @@ func ExtractStructuralSchemas(
 	}
 
 	return parametersSchema, envConfigsSchema, allErrs
+}
+
+// validateSchemaFormatConsistency checks that when both parameters and environmentConfigs are
+// provided, they use the same schema format (both ocSchema or both openAPIV3Schema).
+func validateSchemaFormatConsistency(
+	parameters *v1alpha1.SchemaSection,
+	environmentConfigs *v1alpha1.SchemaSection,
+	basePath *field.Path,
+) field.ErrorList {
+	// Only validate when both sections are provided
+	if parameters == nil || environmentConfigs == nil {
+		return nil
+	}
+	// Only validate when both sections have a schema set
+	if parameters.GetRaw() == nil || environmentConfigs.GetRaw() == nil {
+		return nil
+	}
+
+	paramsIsV3 := parameters.IsOpenAPIV3()
+	envIsV3 := environmentConfigs.IsOpenAPIV3()
+
+	if paramsIsV3 != envIsV3 {
+		return field.ErrorList{field.Invalid(
+			basePath.Child("environmentConfigs"),
+			omitValue,
+			"parameters and environmentConfigs must use the same schema format (both ocSchema or both openAPIV3Schema)",
+		)}
+	}
+
+	return nil
 }

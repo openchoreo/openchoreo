@@ -5,7 +5,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -189,7 +188,7 @@ func (h *Handler) GetClusterTraitSchema(
 ) (gen.GetClusterTraitSchemaResponseObject, error) {
 	h.logger.Debug("GetClusterTraitSchema called", "name", request.ClusterTraitName)
 
-	jsonSchema, err := h.services.ClusterTraitService.GetClusterTraitSchema(ctx, request.ClusterTraitName)
+	rawSchema, err := h.services.ClusterTraitService.GetClusterTraitSchema(ctx, request.ClusterTraitName)
 	if err != nil {
 		if errors.Is(err, clustertraitsvc.ErrClusterTraitNotFound) {
 			return gen.GetClusterTraitSchema404JSONResponse{NotFoundJSONResponse: notFound("ClusterTrait")}, nil
@@ -201,18 +200,5 @@ func (h *Handler) GetClusterTraitSchema(
 		return gen.GetClusterTraitSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert JSONSchemaProps to SchemaResponse (map[string]interface{})
-	data, err := json.Marshal(jsonSchema)
-	if err != nil {
-		h.logger.Error("Failed to marshal schema", "error", err)
-		return gen.GetClusterTraitSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	var schemaResp gen.SchemaResponse
-	if err := json.Unmarshal(data, &schemaResp); err != nil {
-		h.logger.Error("Failed to unmarshal schema response", "error", err)
-		return gen.GetClusterTraitSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	return gen.GetClusterTraitSchema200JSONResponse(schemaResp), nil
+	return gen.GetClusterTraitSchema200JSONResponse(rawSchema), nil
 }

@@ -6,8 +6,6 @@ package workflow
 import (
 	"context"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -19,7 +17,7 @@ import (
 type Service interface {
 	ListWorkflows(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Workflow], error)
 	GetWorkflow(ctx context.Context, namespaceName, workflowName string) (*openchoreov1alpha1.Workflow, error)
-	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (*extv1.JSONSchemaProps, error)
+	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (map[string]any, error)
 	CreateWorkflow(ctx context.Context, namespaceName string, wf *openchoreov1alpha1.Workflow) (*openchoreov1alpha1.Workflow, error)
 	UpdateWorkflow(ctx context.Context, namespaceName string, wf *openchoreov1alpha1.Workflow) (*openchoreov1alpha1.Workflow, error)
 	DeleteWorkflow(ctx context.Context, namespaceName, workflowName string) error

@@ -4,6 +4,7 @@
 package schema
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -19,6 +20,12 @@ import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/clone"
 	"github.com/openchoreo/openchoreo/internal/schema/extractor"
+)
+
+const (
+	typeString  = "string"
+	typeInteger = "integer"
+	typeObject  = "object"
 )
 
 // Definition represents a schematized object assembled from one or more field maps.
@@ -41,6 +48,10 @@ func ResolveSectionToStructural(section *v1alpha1.SchemaSection) (*apiextschema.
 		return nil, err
 	}
 
+	if section.IsOpenAPIV3() {
+		return OpenAPIV3ToStructural(fields)
+	}
+
 	return ToStructural(Definition{Schemas: []map[string]any{fields}})
 }
 
@@ -57,7 +68,78 @@ func ResolveSectionToBundle(section *v1alpha1.SchemaSection) (*apiextschema.Stru
 		return nil, nil, err
 	}
 
+	if section.IsOpenAPIV3() {
+		return OpenAPIV3ToStructuralAndJSONSchema(fields)
+	}
+
 	return ToStructuralAndJSONSchema(Definition{Schemas: []map[string]any{fields}})
+}
+
+// SectionToJSONSchema converts a SchemaSection to JSON Schema for API responses.
+// Handles both ocSchema (via extractor) and openAPIV3Schema (via ref resolution).
+func SectionToJSONSchema(section *v1alpha1.SchemaSection) (*extv1.JSONSchemaProps, error) {
+	raw := sectionRaw(section)
+	if raw == nil || len(raw.Raw) == 0 {
+		return &extv1.JSONSchemaProps{
+			Type:       "object",
+			Properties: map[string]extv1.JSONSchemaProps{},
+		}, nil
+	}
+
+	fields, err := unmarshalSection(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	if section.IsOpenAPIV3() {
+		return OpenAPIV3ToJSONSchema(fields)
+	}
+
+	return ToJSONSchema(Definition{Schemas: []map[string]any{fields}})
+}
+
+// SectionToRawJSONSchema converts a SchemaSection to a raw map for API responses.
+// For openAPIV3Schema, this preserves vendor extensions (x-*) that are lost when
+// converting through extv1.JSONSchemaProps. For ocSchema, it falls back to
+// ToJSONSchema and re-marshals the result.
+func SectionToRawJSONSchema(section *v1alpha1.SchemaSection) (map[string]any, error) {
+	raw := sectionRaw(section)
+	if raw == nil || len(raw.Raw) == 0 {
+		return map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		}, nil
+	}
+
+	fields, err := unmarshalSection(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	if section.IsOpenAPIV3() {
+		return OpenAPIV3ToResolvedSchema(fields)
+	}
+
+	// For ocSchema, convert through the extractor and re-marshal to map
+	jsonSchema, err := ToJSONSchema(Definition{Schemas: []map[string]any{fields}})
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonSchemaToMap(jsonSchema)
+}
+
+// jsonSchemaToMap converts extv1.JSONSchemaProps to a raw map via JSON round-trip.
+func jsonSchemaToMap(schema *extv1.JSONSchemaProps) (map[string]any, error) {
+	data, err := json.Marshal(schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal schema: %w", err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal schema to map: %w", err)
+	}
+	return result, nil
 }
 
 // sectionRaw returns the raw extension from a SchemaSection, or nil if empty.
@@ -318,72 +400,6 @@ func sortRequiredFields(schema *extv1.JSONSchemaProps) {
 	if schema.AdditionalProperties != nil && schema.AdditionalProperties.Schema != nil {
 		sortRequiredFields(schema.AdditionalProperties.Schema)
 	}
-}
-
-// ValidateAgainstSchema validates that provided values conform to the expected schema structure.
-//
-// This function checks that all fields in the provided values exist in the schema definition
-// and reports any unknown fields that are not defined in the schema.
-//
-// Parameters:
-//   - values: The developer-provided values to validate (typically from Component.Spec.Workflow.Schema)
-//   - structural: The structural schema to validate against (typically from Workflow.Spec.Schema)
-//
-// Returns:
-//   - error: nil if validation passes, or an error describing which fields are invalid
-//
-// Validation rules:
-//  1. All top-level fields in values must exist in the schema properties
-//  2. Nested object validation is performed recursively
-//  3. Unknown fields (not defined in schema) are reported as errors
-//
-// Example:
-//
-//	Schema defines: {repository: {url: string}, version: integer}
-//	Valid input:    {repository: {url: "..."}, version: 1}
-//	Invalid input:  {repository: {url: "..."}, unknownField: "x"}  // unknownField not in schema
-func ValidateAgainstSchema(values map[string]any, structural *apiextschema.Structural) error {
-	if structural == nil {
-		return fmt.Errorf("schema is nil")
-	}
-
-	if len(values) == 0 {
-		// Empty values are valid - defaults will be applied
-		return nil
-	}
-
-	// Collect unknown fields (fields in values but not in schema)
-	var unknownFields []string
-
-	for key := range values {
-		// Check if the field exists in the schema properties
-		if structural.Properties == nil {
-			unknownFields = append(unknownFields, key)
-			continue
-		}
-
-		propSchema, exists := structural.Properties[key]
-		if !exists {
-			unknownFields = append(unknownFields, key)
-			continue
-		}
-
-		// Recursively validate nested objects
-		if valueMap, ok := values[key].(map[string]any); ok {
-			if propSchema.Type == "object" {
-				if err := ValidateAgainstSchema(valueMap, &propSchema); err != nil {
-					return fmt.Errorf("%s.%w", key, err)
-				}
-			}
-		}
-	}
-
-	if len(unknownFields) > 0 {
-		sort.Strings(unknownFields)
-		return fmt.Errorf("unknown fields: %v", unknownFields)
-	}
-
-	return nil
 }
 
 // ValidateWithJSONSchema validates values against a JSONSchemaProps using Kubernetes validation.

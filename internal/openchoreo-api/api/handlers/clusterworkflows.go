@@ -5,7 +5,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -181,7 +180,7 @@ func (h *Handler) GetClusterWorkflowSchema(
 ) (gen.GetClusterWorkflowSchemaResponseObject, error) {
 	h.logger.Debug("GetClusterWorkflowSchema called", "name", request.ClusterWorkflowName)
 
-	jsonSchema, err := h.services.ClusterWorkflowService.GetClusterWorkflowSchema(ctx, request.ClusterWorkflowName)
+	rawSchema, err := h.services.ClusterWorkflowService.GetClusterWorkflowSchema(ctx, request.ClusterWorkflowName)
 	if err != nil {
 		if errors.Is(err, clusterworkflowsvc.ErrClusterWorkflowNotFound) {
 			return gen.GetClusterWorkflowSchema404JSONResponse{NotFoundJSONResponse: notFound("ClusterWorkflow")}, nil
@@ -193,18 +192,5 @@ func (h *Handler) GetClusterWorkflowSchema(
 		return gen.GetClusterWorkflowSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert JSONSchemaProps to SchemaResponse (map[string]interface{})
-	data, err := json.Marshal(jsonSchema)
-	if err != nil {
-		h.logger.Error("Failed to marshal schema", "error", err)
-		return gen.GetClusterWorkflowSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	var schemaResp gen.SchemaResponse
-	if err := json.Unmarshal(data, &schemaResp); err != nil {
-		h.logger.Error("Failed to unmarshal schema response", "error", err)
-		return gen.GetClusterWorkflowSchema500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	return gen.GetClusterWorkflowSchema200JSONResponse(schemaResp), nil
+	return gen.GetClusterWorkflowSchema200JSONResponse(rawSchema), nil
 }

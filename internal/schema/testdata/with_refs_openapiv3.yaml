@@ -1,0 +1,42 @@
+# OpenAPI V3 Schema with $defs/$ref
+# Tests reference resolution across multiple definitions
+type: object
+$defs:
+  ResourceQuantity:
+    type: object
+    default: {}
+    properties:
+      cpu:
+        type: string
+        default: "100m"
+      memory:
+        type: string
+        default: "256Mi"
+  ResourceRequirements:
+    type: object
+    properties:
+      requests:
+        $ref: "#/$defs/ResourceQuantity"
+      limits:
+        $ref: "#/$defs/ResourceQuantity"
+    default: {}
+  Port:
+    type: integer
+    minimum: 1
+    maximum: 65535
+    default: 8080
+properties:
+  replicas:
+    type: integer
+    default: 1
+  resources:
+    $ref: "#/$defs/ResourceRequirements"
+  port:
+    $ref: "#/$defs/Port"
+  imagePullPolicy:
+    type: string
+    default: IfNotPresent
+    enum:
+      - Always
+      - IfNotPresent
+      - Never

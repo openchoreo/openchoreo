@@ -165,22 +165,11 @@ func (s *ComponentService) fetchTraitSpec(ctx context.Context, kind openchoreov1
 // buildTraitEnvironmentConfigsSchema extracts and converts a TraitSpec's environmentConfigs to JSON schema
 // Returns nil if the trait has no environmentConfigs
 func (s *ComponentService) buildTraitEnvironmentConfigsSchema(traitSpec openchoreov1alpha1.TraitSpec, traitName string) (*extv1.JSONSchemaProps, error) {
-	var traitEnvConfigs map[string]any
-	if envRaw := traitSpec.EnvironmentConfigs.GetRaw(); envRaw != nil && envRaw.Raw != nil {
-		if err := json.Unmarshal(envRaw.Raw, &traitEnvConfigs); err != nil {
-			return nil, fmt.Errorf("failed to extract environmentConfigs for trait %s: %w", traitName, err)
-		}
-	}
-
-	if traitEnvConfigs == nil {
+	if envRaw := traitSpec.EnvironmentConfigs.GetRaw(); envRaw == nil || envRaw.Raw == nil {
 		return nil, nil
 	}
 
-	traitDef := openchoreoschema.Definition{
-		Schemas: []map[string]any{traitEnvConfigs},
-	}
-
-	traitJSONSchema, err := openchoreoschema.ToJSONSchema(traitDef)
+	traitJSONSchema, err := openchoreoschema.SectionToJSONSchema(traitSpec.EnvironmentConfigs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert trait %s to JSON schema: %w", traitName, err)
 	}
@@ -588,15 +577,6 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 		return nil, ErrComponentReleaseNotFound
 	}
 
-	var def openchoreoschema.Definition
-
-	var componentTypeEnvConfigs map[string]any
-	if envRaw := release.Spec.ComponentType.EnvironmentConfigs.GetRaw(); envRaw != nil && envRaw.Raw != nil {
-		if err := json.Unmarshal(envRaw.Raw, &componentTypeEnvConfigs); err != nil {
-			return nil, fmt.Errorf("failed to extract environmentConfigs: %w", err)
-		}
-	}
-
 	// Build the wrapped schema properties
 	wrappedSchema := &extv1.JSONSchemaProps{
 		Type:       "object",
@@ -604,9 +584,8 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 	}
 
 	// Only add componentTypeEnvironmentConfigs if there are actual environmentConfigs
-	if componentTypeEnvConfigs != nil {
-		def.Schemas = []map[string]any{componentTypeEnvConfigs}
-		jsonSchema, err := openchoreoschema.ToJSONSchema(def)
+	if envRaw := release.Spec.ComponentType.EnvironmentConfigs.GetRaw(); envRaw != nil && envRaw.Raw != nil {
+		jsonSchema, err := openchoreoschema.SectionToJSONSchema(release.Spec.ComponentType.EnvironmentConfigs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 		}
@@ -642,7 +621,7 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 		}
 	}
 
-	s.logger.Debug("Retrieved component release schema successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "release", releaseName, "hasComponentTypeEnvironmentConfigs", componentTypeEnvConfigs != nil, "traitCount", len(traitSchemas))
+	s.logger.Debug("Retrieved component release schema successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "release", releaseName, "traitCount", len(traitSchemas))
 	return wrappedSchema, nil
 }
 
@@ -722,15 +701,6 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 		}
 	}
 
-	var def openchoreoschema.Definition
-
-	var envConfigs map[string]any
-	if envRaw := ct.Spec.EnvironmentConfigs.GetRaw(); envRaw != nil && envRaw.Raw != nil {
-		if err := json.Unmarshal(envRaw.Raw, &envConfigs); err != nil {
-			return nil, fmt.Errorf("failed to extract environmentConfigs: %w", err)
-		}
-	}
-
 	// Build the wrapped schema properties
 	wrappedSchema := &extv1.JSONSchemaProps{
 		Type:       "object",
@@ -738,9 +708,8 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 	}
 
 	// Only add componentTypeEnvironmentConfigs if there are actual environmentConfigs
-	if envConfigs != nil {
-		def.Schemas = []map[string]any{envConfigs}
-		jsonSchema, err := openchoreoschema.ToJSONSchema(def)
+	if envRaw := ct.Spec.EnvironmentConfigs.GetRaw(); envRaw != nil && envRaw.Raw != nil {
+		jsonSchema, err := openchoreoschema.SectionToJSONSchema(ct.Spec.EnvironmentConfigs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 		}
@@ -778,7 +747,7 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 		}
 	}
 
-	s.logger.Debug("Retrieved component schema successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "hasComponentTypeEnvironmentConfigs", envConfigs != nil, "traitCount", len(traitSchemas))
+	s.logger.Debug("Retrieved component schema successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "traitCount", len(traitSchemas))
 	return wrappedSchema, nil
 }
 
@@ -2737,13 +2706,6 @@ func (s *ComponentService) validateWorkflowParameters(ctx context.Context, names
 		return nil
 	}
 
-	// Unmarshal the workflow's parameter schema definition
-	var parameterSchemaMap map[string]any
-	if err := json.Unmarshal(workflowSpec.Parameters.GetRaw().Raw, &parameterSchemaMap); err != nil {
-		s.logger.Error("Failed to unmarshal workflow parameter schema", "error", err)
-		return fmt.Errorf("failed to parse workflow parameter schema: %w", err)
-	}
-
 	// Unmarshal the provided parameter values
 	var providedValues map[string]any
 	if err := json.Unmarshal(providedParameters.Raw, &providedValues); err != nil {
@@ -2751,19 +2713,16 @@ func (s *ComponentService) validateWorkflowParameters(ctx context.Context, names
 		return fmt.Errorf("failed to parse provided parameters: %w", err)
 	}
 
-	// Build structural schema from workflow parameter schema
-	def := openchoreoschema.Definition{
-		Schemas: []map[string]any{parameterSchemaMap},
-	}
-
-	structural, err := openchoreoschema.ToStructural(def)
+	// Build JSON schema — handles both ocSchema and openAPIV3Schema formats
+	jsonSchema, err := openchoreoschema.SectionToJSONSchema(workflowSpec.Parameters)
 	if err != nil {
-		s.logger.Error("Failed to build structural schema", "error", err)
-		return fmt.Errorf("failed to build workflow parameter schema structure: %w", err)
+		s.logger.Error("Failed to build JSON schema", "error", err)
+		return fmt.Errorf("failed to build workflow parameter schema: %w", err)
 	}
 
-	// Validate the provided values against the structural schema
-	if err := openchoreoschema.ValidateAgainstSchema(providedValues, structural); err != nil {
+	// Validate the provided values using standard JSON Schema validation.
+	// Unknown field rejection is controlled by the schema author via additionalProperties.
+	if err := openchoreoschema.ValidateWithJSONSchema(providedValues, jsonSchema); err != nil {
 		return fmt.Errorf("%w: %w", ErrWorkflowSchemaInvalid, err)
 	}
 

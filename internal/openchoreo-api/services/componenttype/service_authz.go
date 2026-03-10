@@ -7,7 +7,6 @@ import (
 	"context"
 	"log/slog"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -105,7 +104,7 @@ func (s *componentTypeServiceWithAuthz) DeleteComponentType(ctx context.Context,
 	return s.internal.DeleteComponentType(ctx, namespaceName, ctName)
 }
 
-func (s *componentTypeServiceWithAuthz) GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (*extv1.JSONSchemaProps, error) {
+func (s *componentTypeServiceWithAuthz) GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (map[string]any, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewComponentType,
 		ResourceType: resourceTypeComponentType,

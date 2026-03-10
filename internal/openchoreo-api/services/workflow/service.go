@@ -8,11 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
@@ -98,7 +96,7 @@ func (s *workflowService) GetWorkflow(ctx context.Context, namespaceName, workfl
 	return wf, nil
 }
 
-func (s *workflowService) GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (*extv1.JSONSchemaProps, error) {
+func (s *workflowService) GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (map[string]any, error) {
 	s.logger.Debug("Getting workflow schema", "namespace", namespaceName, "workflow", workflowName)
 
 	wf, err := s.GetWorkflow(ctx, namespaceName, workflowName)
@@ -106,22 +104,14 @@ func (s *workflowService) GetWorkflowSchema(ctx context.Context, namespaceName, 
 		return nil, err
 	}
 
-	var def schema.Definition
-	if paramsRaw := wf.Spec.Parameters.GetRaw(); paramsRaw != nil && paramsRaw.Raw != nil {
-		var schemaMap map[string]any
-		if err := yaml.Unmarshal(paramsRaw.Raw, &schemaMap); err != nil {
-			return nil, fmt.Errorf("failed to extract schema: %w", err)
-		}
-		def.Schemas = []map[string]any{schemaMap}
-	}
-
-	jsonSchema, err := schema.ToJSONSchema(def)
+	// Convert to raw JSON Schema map, preserving vendor extensions (x-*) for frontend consumers
+	rawSchema, err := schema.SectionToRawJSONSchema(wf.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
 
 	s.logger.Debug("Retrieved workflow schema successfully", "namespace", namespaceName, "workflow", workflowName)
-	return jsonSchema, nil
+	return rawSchema, nil
 }
 
 func (s *workflowService) CreateWorkflow(ctx context.Context, namespaceName string, wf *openchoreov1alpha1.Workflow) (*openchoreov1alpha1.Workflow, error) {
