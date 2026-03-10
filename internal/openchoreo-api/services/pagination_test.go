@@ -11,9 +11,10 @@ import (
 	"strconv"
 	"testing"
 
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
 // we will not test the limits in this file as those are handled in the handlers/pagination_test.go file.
