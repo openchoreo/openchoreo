@@ -20,7 +20,7 @@ func (h *Handler) ListClusterWorkflowPlanes(
 ) (gen.ListClusterWorkflowPlanesResponseObject, error) {
 	h.logger.Debug("ListClusterWorkflowPlanes called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ClusterWorkflowPlaneService.ListClusterWorkflowPlanes(ctx, opts)
 	if err != nil {

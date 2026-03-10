@@ -20,7 +20,7 @@ func (h *Handler) ListWorkflowPlanes(
 ) (gen.ListWorkflowPlanesResponseObject, error) {
 	h.logger.Debug("ListWorkflowPlanes called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.WorkflowPlaneService.ListWorkflowPlanes(ctx, request.NamespaceName, opts)
 	if err != nil {

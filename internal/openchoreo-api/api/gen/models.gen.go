@@ -21,6 +21,11 @@ const (
 	AuthzClusterRoleBindingSpecEffectDeny  AuthzClusterRoleBindingSpecEffect = "deny"
 )
 
+// Defines values for AuthzClusterRoleMappingRoleRefKind.
+const (
+	AuthzClusterRoleMappingRoleRefKindAuthzClusterRole AuthzClusterRoleMappingRoleRefKind = "AuthzClusterRole"
+)
+
 // Defines values for AuthzRoleBindingSpecEffect.
 const (
 	AuthzRoleBindingSpecEffectAllow AuthzRoleBindingSpecEffect = "allow"
@@ -31,17 +36,6 @@ const (
 const (
 	AuthzRoleRefKindAuthzClusterRole AuthzRoleRefKind = "AuthzClusterRole"
 	AuthzRoleRefKindAuthzRole        AuthzRoleRefKind = "AuthzRole"
-)
-
-// Defines values for BuildPlaneRefKind.
-const (
-	BuildPlaneRefKindBuildPlane        BuildPlaneRefKind = "BuildPlane"
-	BuildPlaneRefKindClusterBuildPlane BuildPlaneRefKind = "ClusterBuildPlane"
-)
-
-// Defines values for ClusterBuildPlaneRefKind.
-const (
-	ClusterBuildPlaneRefKindClusterBuildPlane ClusterBuildPlaneRefKind = "ClusterBuildPlane"
 )
 
 // Defines values for ClusterComponentTypeSpecAllowedTraitsKind.
@@ -96,6 +90,11 @@ const (
 const (
 	ClusterTraitSpecPatchesTargetPlaneDataplane          ClusterTraitSpecPatchesTargetPlane = "dataplane"
 	ClusterTraitSpecPatchesTargetPlaneObservabilityplane ClusterTraitSpecPatchesTargetPlane = "observabilityplane"
+)
+
+// Defines values for ClusterWorkflowPlaneRefKind.
+const (
+	ClusterWorkflowPlaneRefKindClusterWorkflowPlane ClusterWorkflowPlaneRefKind = "ClusterWorkflowPlane"
 )
 
 // Defines values for ComponentSpecComponentTypeKind.
@@ -229,6 +228,11 @@ const (
 	ProjectSpecDeploymentPipelineRefKindDeploymentPipeline ProjectSpecDeploymentPipelineRefKind = "DeploymentPipeline"
 )
 
+// Defines values for PromotionPathSourceEnvironmentRefKind.
+const (
+	PromotionPathSourceEnvironmentRefKindEnvironment PromotionPathSourceEnvironmentRefKind = "Environment"
+)
+
 // Defines values for ReleaseBindingSpecState.
 const (
 	ReleaseBindingSpecStateActive   ReleaseBindingSpecState = "Active"
@@ -314,6 +318,12 @@ const (
 const (
 	UpdateRoleMappingRequestEffectAllow UpdateRoleMappingRequestEffect = "allow"
 	UpdateRoleMappingRequestEffectDeny  UpdateRoleMappingRequestEffect = "deny"
+)
+
+// Defines values for WorkflowPlaneRefKind.
+const (
+	WorkflowPlaneRefKindClusterWorkflowPlane WorkflowPlaneRefKind = "ClusterWorkflowPlane"
+	WorkflowPlaneRefKindWorkflowPlane        WorkflowPlaneRefKind = "WorkflowPlane"
 )
 
 // Defines values for WorkflowRunStatusResponseStatus.
@@ -450,8 +460,8 @@ type AuthzClusterRoleBindingSpec struct {
 	// Entitlement Entitlement claim-value pair for subject identification
 	Entitlement AuthzEntitlementClaim `json:"entitlement"`
 
-	// RoleRef Reference to an AuthzRole or AuthzClusterRole
-	RoleRef AuthzRoleRef `json:"roleRef"`
+	// RoleMappings List of cluster role mappings this binding grants
+	RoleMappings []AuthzClusterRoleMapping `json:"roleMappings"`
 }
 
 // AuthzClusterRoleBindingSpecEffect Policy effect (allow or deny)
@@ -465,6 +475,19 @@ type AuthzClusterRoleList struct {
 	// for efficient pagination through large result sets.
 	Pagination Pagination `json:"pagination"`
 }
+
+// AuthzClusterRoleMapping Pairs a role reference for cluster-scoped bindings
+type AuthzClusterRoleMapping struct {
+	RoleRef struct {
+		Kind AuthzClusterRoleMappingRoleRefKind `json:"kind"`
+
+		// Name Name of the role
+		Name string `json:"name"`
+	} `json:"roleRef"`
+}
+
+// AuthzClusterRoleMappingRoleRefKind defines model for AuthzClusterRoleMapping.RoleRef.Kind.
+type AuthzClusterRoleMappingRoleRefKind string
 
 // AuthzClusterRoleSpec Specification for a cluster-scoped authorization role
 type AuthzClusterRoleSpec struct {
@@ -538,11 +561,8 @@ type AuthzRoleBindingSpec struct {
 	// Entitlement Entitlement claim-value pair for subject identification
 	Entitlement AuthzEntitlementClaim `json:"entitlement"`
 
-	// RoleRef Reference to an AuthzRole or AuthzClusterRole
-	RoleRef AuthzRoleRef `json:"roleRef"`
-
-	// TargetPath Target resource path within a namespace (project/component scope)
-	TargetPath *AuthzTargetPath `json:"targetPath,omitempty"`
+	// RoleMappings List of role-scope pair mappings this binding grants
+	RoleMappings []AuthzRoleMapping `json:"roleMappings"`
 }
 
 // AuthzRoleBindingSpecEffect Policy effect (allow or deny)
@@ -555,6 +575,15 @@ type AuthzRoleList struct {
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
 	Pagination Pagination `json:"pagination"`
+}
+
+// AuthzRoleMapping Pairs a role reference with an optional target path scope
+type AuthzRoleMapping struct {
+	// RoleRef Reference to an AuthzRole or AuthzClusterRole
+	RoleRef AuthzRoleRef `json:"roleRef"`
+
+	// TargetPath Target resource path within a namespace (project/component scope)
+	TargetPath *AuthzTargetPath `json:"targetPath,omitempty"`
 }
 
 // AuthzRoleRef Reference to an AuthzRole or AuthzClusterRole
@@ -587,73 +616,6 @@ type AuthzTargetPath struct {
 	Project *string `json:"project,omitempty"`
 }
 
-// BuildPlane BuildPlane resource.
-// Represents CI/CD build infrastructure within a namespace.
-type BuildPlane struct {
-	// ApiVersion API version of the resource
-	ApiVersion *string `json:"apiVersion,omitempty"`
-
-	// Kind Kind of the resource
-	Kind *string `json:"kind,omitempty"`
-
-	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
-	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
-	Metadata ObjectMeta `json:"metadata"`
-
-	// Spec Desired state of a BuildPlane
-	Spec   *BuildPlaneSpec   `json:"spec,omitempty"`
-	Status *BuildPlaneStatus `json:"status,omitempty"`
-}
-
-// BuildPlaneList Paginated list of build planes
-type BuildPlaneList struct {
-	Items []BuildPlane `json:"items"`
-
-	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
-	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
-}
-
-// BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
-type BuildPlaneRef struct {
-	// Kind Kind of build plane
-	Kind BuildPlaneRefKind `json:"kind"`
-
-	// Name Name of the build plane resource
-	Name string `json:"name"`
-}
-
-// BuildPlaneRefKind Kind of build plane
-type BuildPlaneRefKind string
-
-// BuildPlaneSpec Desired state of a BuildPlane
-type BuildPlaneSpec struct {
-	// ClusterAgent Configuration for cluster agent-based communication
-	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
-
-	// ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
-	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
-
-	// PlaneID Logical plane identifier for the physical cluster.
-	// Multiple BuildPlane CRs can share the same planeID.
-	PlaneID *string `json:"planeID,omitempty"`
-
-	// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
-	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
-}
-
-// BuildPlaneStatus Observed state of a BuildPlane
-type BuildPlaneStatus struct {
-	// AgentConnection Status of cluster agent connections
-	AgentConnection *AgentConnectionStatus `json:"agentConnection,omitempty"`
-
-	// Conditions Current state conditions of the BuildPlane
-	Conditions *[]Condition `json:"conditions,omitempty"`
-
-	// ObservedGeneration Generation of the most recently observed BuildPlane
-	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
-}
-
 // CapabilityResource Resource with permission details
 type CapabilityResource struct {
 	// Constraints Additional instance-level restrictions
@@ -667,73 +629,6 @@ type CapabilityResource struct {
 type ClusterAgentConfig struct {
 	// ClientCA Reference to a secret or inline value
 	ClientCA *ValueFrom `json:"clientCA,omitempty"`
-}
-
-// ClusterBuildPlane ClusterBuildPlane resource.
-// Represents cluster-scoped CI/CD build infrastructure.
-type ClusterBuildPlane struct {
-	// ApiVersion API version of the resource
-	ApiVersion *string `json:"apiVersion,omitempty"`
-
-	// Kind Kind of the resource
-	Kind *string `json:"kind,omitempty"`
-
-	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
-	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
-	Metadata ObjectMeta `json:"metadata"`
-
-	// Spec Desired state of a ClusterBuildPlane
-	Spec   *ClusterBuildPlaneSpec   `json:"spec,omitempty"`
-	Status *ClusterBuildPlaneStatus `json:"status,omitempty"`
-}
-
-// ClusterBuildPlaneList List of cluster-scoped build planes
-type ClusterBuildPlaneList struct {
-	Items []ClusterBuildPlane `json:"items"`
-
-	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
-	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
-}
-
-// ClusterBuildPlaneRef Reference to a ClusterBuildPlane
-type ClusterBuildPlaneRef struct {
-	// Kind Kind of build plane (must be ClusterBuildPlane)
-	Kind ClusterBuildPlaneRefKind `json:"kind"`
-
-	// Name Name of the cluster build plane resource
-	Name string `json:"name"`
-}
-
-// ClusterBuildPlaneRefKind Kind of build plane (must be ClusterBuildPlane)
-type ClusterBuildPlaneRefKind string
-
-// ClusterBuildPlaneSpec Desired state of a ClusterBuildPlane
-type ClusterBuildPlaneSpec struct {
-	// ClusterAgent Configuration for cluster agent-based communication
-	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
-
-	// ObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
-	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
-
-	// PlaneID Logical plane identifier for the physical cluster.
-	// Multiple ClusterBuildPlane CRs can share the same planeID.
-	PlaneID *string `json:"planeID,omitempty"`
-
-	// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
-	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
-}
-
-// ClusterBuildPlaneStatus Observed state of a ClusterBuildPlane
-type ClusterBuildPlaneStatus struct {
-	// AgentConnection Status of cluster agent connections
-	AgentConnection *AgentConnectionStatus `json:"agentConnection,omitempty"`
-
-	// Conditions Current state conditions of the ClusterBuildPlane
-	Conditions *[]Condition `json:"conditions,omitempty"`
-
-	// ObservedGeneration Generation of the most recently observed ClusterBuildPlane
-	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // ClusterComponentType ClusterComponentType resource.
@@ -1119,11 +1014,75 @@ type ClusterWorkflowList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
+// ClusterWorkflowPlane ClusterWorkflowPlane resource.
+// Represents cluster-scoped CI/CD build infrastructure.
+type ClusterWorkflowPlane struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a ClusterWorkflowPlane
+	Spec   *ClusterWorkflowPlaneSpec   `json:"spec,omitempty"`
+	Status *ClusterWorkflowPlaneStatus `json:"status,omitempty"`
+}
+
+// ClusterWorkflowPlaneList List of cluster-scoped workflow planes
+type ClusterWorkflowPlaneList struct {
+	Items []ClusterWorkflowPlane `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ClusterWorkflowPlaneRef Reference to a ClusterWorkflowPlane
+type ClusterWorkflowPlaneRef struct {
+	// Kind Kind of workflow plane (must be ClusterWorkflowPlane)
+	Kind ClusterWorkflowPlaneRefKind `json:"kind"`
+
+	// Name Name of the cluster workflow plane resource
+	Name string `json:"name"`
+}
+
+// ClusterWorkflowPlaneRefKind Kind of workflow plane (must be ClusterWorkflowPlane)
+type ClusterWorkflowPlaneRefKind string
+
+// ClusterWorkflowPlaneSpec Desired state of a ClusterWorkflowPlane
+type ClusterWorkflowPlaneSpec struct {
+	// ClusterAgent Configuration for cluster agent-based communication
+	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
+
+	// ObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
+	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+
+	// PlaneID Logical plane identifier for the physical cluster.
+	// Multiple ClusterWorkflowPlane CRs can share the same planeID.
+	PlaneID *string `json:"planeID,omitempty"`
+
+	// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
+}
+
+// ClusterWorkflowPlaneStatus Observed state of a ClusterWorkflowPlane
+type ClusterWorkflowPlaneStatus struct {
+	// AgentConnection Status of cluster agent connections
+	AgentConnection *AgentConnectionStatus `json:"agentConnection,omitempty"`
+
+	// Conditions Current state conditions of the ClusterWorkflowPlane
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed ClusterWorkflowPlane
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
+
 // ClusterWorkflowSpec Desired state of a ClusterWorkflow
 type ClusterWorkflowSpec struct {
-	// BuildPlaneRef Reference to the ClusterBuildPlane for this workflow's build operations. Defaults to the ClusterBuildPlane named "default" when omitted.
-	BuildPlaneRef *ClusterBuildPlaneRef `json:"buildPlaneRef,omitempty"`
-
 	// ExternalRefs External CR references resolved and injected into the CEL context under their id.
 	ExternalRefs *[]ExternalRef `json:"externalRefs,omitempty"`
 
@@ -1138,6 +1097,9 @@ type ClusterWorkflowSpec struct {
 
 	// TtlAfterCompletion Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
 	TtlAfterCompletion *string `json:"ttlAfterCompletion,omitempty"`
+
+	// WorkflowPlaneRef Reference to the ClusterWorkflowPlane for this workflow's build operations. Defaults to the ClusterWorkflowPlane named "default" when omitted.
+	WorkflowPlaneRef *ClusterWorkflowPlaneRef `json:"workflowPlaneRef,omitempty"`
 }
 
 // ClusterWorkflowStatus Observed state of a ClusterWorkflow
@@ -1540,7 +1502,7 @@ type ContainerOverride struct {
 	Files *[]FileVar `json:"files,omitempty"`
 }
 
-// CreateClusterRoleBindingRequest Request to create a cluster-scoped role binding (legacy)
+// CreateClusterRoleBindingRequest Request to create a cluster-scoped role binding (legacy, single mapping only)
 type CreateClusterRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
 	Effect *CreateClusterRoleBindingRequestEffect `json:"effect,omitempty"`
@@ -1625,7 +1587,7 @@ type CreateGitSecretRequest struct {
 // CreateGitSecretRequestSecretType Authentication type
 type CreateGitSecretRequestSecretType string
 
-// CreateNamespaceRoleBindingRequest Request to create a namespace-scoped role binding (legacy)
+// CreateNamespaceRoleBindingRequest Request to create a namespace-scoped role binding (legacy, single mapping only)
 type CreateNamespaceRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
 	Effect *CreateNamespaceRoleBindingRequestEffect `json:"effect,omitempty"`
@@ -1735,12 +1697,6 @@ type Decision struct {
 
 	// Decision Authorization result (true = allowed)
 	Decision bool `json:"decision"`
-}
-
-// DeployReleaseRequest Request to deploy a release
-type DeployReleaseRequest struct {
-	// ReleaseName Component release name to deploy
-	ReleaseName string `json:"releaseName"`
 }
 
 // DeploymentPipeline DeploymentPipeline resource.
@@ -2496,23 +2452,23 @@ type ProjectStatus struct {
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
-// PromoteComponentRequest Request to promote a component between environments
-type PromoteComponentRequest struct {
-	// SourceEnv Source environment name
-	SourceEnv string `json:"sourceEnv"`
-
-	// TargetEnv Target environment name
-	TargetEnv string `json:"targetEnv"`
-}
-
 // PromotionPath Promotion path between environments
 type PromotionPath struct {
-	// SourceEnvironmentRef Source environment name
-	SourceEnvironmentRef string `json:"sourceEnvironmentRef"`
+	// SourceEnvironmentRef Reference to the source environment for this promotion path.
+	SourceEnvironmentRef struct {
+		// Kind Kind of environment resource
+		Kind *PromotionPathSourceEnvironmentRefKind `json:"kind,omitempty"`
+
+		// Name Name of the environment resource
+		Name string `json:"name"`
+	} `json:"sourceEnvironmentRef"`
 
 	// TargetEnvironmentRefs Target environments for promotion
 	TargetEnvironmentRefs []TargetEnvironmentRef `json:"targetEnvironmentRefs"`
 }
+
+// PromotionPathSourceEnvironmentRefKind Kind of environment resource
+type PromotionPathSourceEnvironmentRefKind string
 
 // ReleaseBinding ReleaseBinding resource.
 // Binds a ComponentRelease to a specific environment.
@@ -3161,7 +3117,7 @@ type TraitSpecPatchesTargetPlane string
 // TraitStatus Observed state of a Trait
 type TraitStatus = map[string]interface{}
 
-// UpdateClusterRoleBindingRequest Request to update a cluster role binding (legacy)
+// UpdateClusterRoleBindingRequest Request to update a cluster role binding (legacy, single mapping only)
 type UpdateClusterRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
 	Effect UpdateClusterRoleBindingRequestEffect `json:"effect"`
@@ -3185,7 +3141,7 @@ type UpdateClusterRoleRequest struct {
 	Description *string `json:"description,omitempty"`
 }
 
-// UpdateNamespaceRoleBindingRequest Request to update a namespace role binding (legacy)
+// UpdateNamespaceRoleBindingRequest Request to update a namespace role binding (legacy, single mapping only)
 type UpdateNamespaceRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
 	Effect UpdateNamespaceRoleBindingRequestEffect `json:"effect"`
@@ -3334,6 +3290,73 @@ type WorkflowList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
+// WorkflowPlane WorkflowPlane resource.
+// Represents CI/CD build infrastructure within a namespace.
+type WorkflowPlane struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a WorkflowPlane
+	Spec   *WorkflowPlaneSpec   `json:"spec,omitempty"`
+	Status *WorkflowPlaneStatus `json:"status,omitempty"`
+}
+
+// WorkflowPlaneList Paginated list of workflow planes
+type WorkflowPlaneList struct {
+	Items []WorkflowPlane `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// WorkflowPlaneRef Reference to a WorkflowPlane or ClusterWorkflowPlane
+type WorkflowPlaneRef struct {
+	// Kind Kind of workflow plane
+	Kind WorkflowPlaneRefKind `json:"kind"`
+
+	// Name Name of the workflow plane resource
+	Name string `json:"name"`
+}
+
+// WorkflowPlaneRefKind Kind of workflow plane
+type WorkflowPlaneRefKind string
+
+// WorkflowPlaneSpec Desired state of a WorkflowPlane
+type WorkflowPlaneSpec struct {
+	// ClusterAgent Configuration for cluster agent-based communication
+	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
+
+	// ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
+	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+
+	// PlaneID Logical plane identifier for the physical cluster.
+	// Multiple WorkflowPlane CRs can share the same planeID.
+	PlaneID *string `json:"planeID,omitempty"`
+
+	// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
+}
+
+// WorkflowPlaneStatus Observed state of a WorkflowPlane
+type WorkflowPlaneStatus struct {
+	// AgentConnection Status of cluster agent connections
+	AgentConnection *AgentConnectionStatus `json:"agentConnection,omitempty"`
+
+	// Conditions Current state conditions of the WorkflowPlane
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed WorkflowPlane
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
+
 // WorkflowResource Template for generating an additional Kubernetes resource for a workflow run.
 type WorkflowResource struct {
 	// Id Unique identifier for this resource within the workflow.
@@ -3430,7 +3453,7 @@ type WorkflowRunStatus struct {
 
 // WorkflowRunStatusResponse Status of a workflow run including per-step details
 type WorkflowRunStatusResponse struct {
-	// HasLiveObservability Whether live logs/events are available from the build plane
+	// HasLiveObservability Whether live logs/events are available from the workflow plane
 	HasLiveObservability bool `json:"hasLiveObservability"`
 
 	// Status Overall workflow run status
@@ -3445,9 +3468,6 @@ type WorkflowRunStatusResponseStatus string
 
 // WorkflowSpec Desired state of a Workflow
 type WorkflowSpec struct {
-	// BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
-	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
-
 	// ExternalRefs External CR references resolved and injected into the CEL context under their id.
 	ExternalRefs *[]ExternalRef `json:"externalRefs,omitempty"`
 
@@ -3462,6 +3482,9 @@ type WorkflowSpec struct {
 
 	// TtlAfterCompletion Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
 	TtlAfterCompletion *string `json:"ttlAfterCompletion,omitempty"`
+
+	// WorkflowPlaneRef Reference to a WorkflowPlane or ClusterWorkflowPlane
+	WorkflowPlaneRef *WorkflowPlaneRef `json:"workflowPlaneRef,omitempty"`
 }
 
 // WorkflowStatus Observed state of a Workflow
@@ -3631,9 +3654,6 @@ type WorkloadSpec struct {
 // WorkloadStatus Observed state of a Workload
 type WorkloadStatus = map[string]interface{}
 
-// BuildPlaneNameParam defines model for BuildPlaneNameParam.
-type BuildPlaneNameParam = string
-
 // ClusterComponentTypeNameParam defines model for ClusterComponentTypeNameParam.
 type ClusterComponentTypeNameParam = string
 
@@ -3679,6 +3699,9 @@ type EnvironmentQueryParam = string
 // GitSecretNameParam defines model for GitSecretNameParam.
 type GitSecretNameParam = string
 
+// LabelSelectorParam defines model for LabelSelectorParam.
+type LabelSelectorParam = string
+
 // LimitParam defines model for LimitParam.
 type LimitParam = int
 
@@ -3714,6 +3737,9 @@ type TraitNameParam = string
 
 // WorkflowNameParam defines model for WorkflowNameParam.
 type WorkflowNameParam = string
+
+// WorkflowPlaneNameParam defines model for WorkflowPlaneNameParam.
+type WorkflowPlaneNameParam = string
 
 // WorkflowQueryParam defines model for WorkflowQueryParam.
 type WorkflowQueryParam = string
@@ -3757,18 +3783,15 @@ type GetSubjectProfileParams struct {
 	Component *string `form:"component,omitempty" json:"component,omitempty"`
 }
 
-// ListClusterBuildPlanesParams defines parameters for ListClusterBuildPlanes.
-type ListClusterBuildPlanesParams struct {
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
 // ListClusterComponentTypesParams defines parameters for ListClusterComponentTypes.
 type ListClusterComponentTypesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3779,6 +3802,13 @@ type ListClusterComponentTypesParams struct {
 
 // ListClusterDataPlanesParams defines parameters for ListClusterDataPlanes.
 type ListClusterDataPlanesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3789,6 +3819,13 @@ type ListClusterDataPlanesParams struct {
 
 // ListClusterObservabilityPlanesParams defines parameters for ListClusterObservabilityPlanes.
 type ListClusterObservabilityPlanesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3799,6 +3836,13 @@ type ListClusterObservabilityPlanesParams struct {
 
 // ListClusterRoleBindingsParams defines parameters for ListClusterRoleBindings.
 type ListClusterRoleBindingsParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3809,6 +3853,13 @@ type ListClusterRoleBindingsParams struct {
 
 // ListClusterRolesParams defines parameters for ListClusterRoles.
 type ListClusterRolesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3819,6 +3870,30 @@ type ListClusterRolesParams struct {
 
 // ListClusterTraitsParams defines parameters for ListClusterTraits.
 type ListClusterTraitsParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListClusterWorkflowPlanesParams defines parameters for ListClusterWorkflowPlanes.
+type ListClusterWorkflowPlanesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3829,6 +3904,13 @@ type ListClusterTraitsParams struct {
 
 // ListClusterWorkflowsParams defines parameters for ListClusterWorkflows.
 type ListClusterWorkflowsParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3839,16 +3921,13 @@ type ListClusterWorkflowsParams struct {
 
 // ListNamespacesParams defines parameters for ListNamespaces.
 type ListNamespacesParams struct {
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
 
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
-// ListBuildPlanesParams defines parameters for ListBuildPlanes.
-type ListBuildPlanesParams struct {
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3861,6 +3940,13 @@ type ListBuildPlanesParams struct {
 type ListComponentReleasesParams struct {
 	// Component Filter resources by component name
 	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
 
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
@@ -3875,6 +3961,13 @@ type ListComponentsParams struct {
 	// Project Filter resources by project name
 	Project *ProjectQueryParam `form:"project,omitempty" json:"project,omitempty"`
 
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3885,6 +3978,13 @@ type ListComponentsParams struct {
 
 // ListComponentTypesParams defines parameters for ListComponentTypes.
 type ListComponentTypesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3895,6 +3995,13 @@ type ListComponentTypesParams struct {
 
 // ListDataPlanesParams defines parameters for ListDataPlanes.
 type ListDataPlanesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3905,6 +4012,13 @@ type ListDataPlanesParams struct {
 
 // ListDeploymentPipelinesParams defines parameters for ListDeploymentPipelines.
 type ListDeploymentPipelinesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3915,6 +4029,13 @@ type ListDeploymentPipelinesParams struct {
 
 // ListEnvironmentsParams defines parameters for ListEnvironments.
 type ListEnvironmentsParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3925,6 +4046,13 @@ type ListEnvironmentsParams struct {
 
 // ListObservabilityAlertsNotificationChannelsParams defines parameters for ListObservabilityAlertsNotificationChannels.
 type ListObservabilityAlertsNotificationChannelsParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3935,6 +4063,13 @@ type ListObservabilityAlertsNotificationChannelsParams struct {
 
 // ListObservabilityPlanesParams defines parameters for ListObservabilityPlanes.
 type ListObservabilityPlanesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3945,6 +4080,13 @@ type ListObservabilityPlanesParams struct {
 
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3957,6 +4099,13 @@ type ListProjectsParams struct {
 type ListReleaseBindingsParams struct {
 	// Component Filter resources by component name
 	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
 
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
@@ -3992,6 +4141,13 @@ type GetReleaseBindingK8sResourceLogsParams struct {
 
 // ListNamespaceRoleBindingsParams defines parameters for ListNamespaceRoleBindings.
 type ListNamespaceRoleBindingsParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -4002,6 +4158,13 @@ type ListNamespaceRoleBindingsParams struct {
 
 // ListNamespaceRolesParams defines parameters for ListNamespaceRoles.
 type ListNamespaceRolesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -4012,6 +4175,13 @@ type ListNamespaceRolesParams struct {
 
 // ListSecretReferencesParams defines parameters for ListSecretReferences.
 type ListSecretReferencesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -4022,6 +4192,30 @@ type ListSecretReferencesParams struct {
 
 // ListTraitsParams defines parameters for ListTraits.
 type ListTraitsParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListWorkflowPlanesParams defines parameters for ListWorkflowPlanes.
+type ListWorkflowPlanesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -4034,6 +4228,13 @@ type ListTraitsParams struct {
 type ListWorkflowRunsParams struct {
 	// Workflow Filter workflow runs by workflow name
 	Workflow *WorkflowQueryParam `form:"workflow,omitempty" json:"workflow,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
 
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
@@ -4060,6 +4261,13 @@ type GetWorkflowRunLogsParams struct {
 
 // ListWorkflowsParams defines parameters for ListWorkflows.
 type ListWorkflowsParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -4072,6 +4280,13 @@ type ListWorkflowsParams struct {
 type ListWorkloadsParams struct {
 	// Component Filter resources by component name
 	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
 
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
@@ -4098,12 +4313,6 @@ type HandleAutoBuildParams struct {
 
 // EvaluatesJSONRequestBody defines body for Evaluates for application/json ContentType.
 type EvaluatesJSONRequestBody = EvaluatesJSONBody
-
-// CreateClusterBuildPlaneJSONRequestBody defines body for CreateClusterBuildPlane for application/json ContentType.
-type CreateClusterBuildPlaneJSONRequestBody = ClusterBuildPlane
-
-// UpdateClusterBuildPlaneJSONRequestBody defines body for UpdateClusterBuildPlane for application/json ContentType.
-type UpdateClusterBuildPlaneJSONRequestBody = ClusterBuildPlane
 
 // CreateClusterComponentTypeJSONRequestBody defines body for CreateClusterComponentType for application/json ContentType.
 type CreateClusterComponentTypeJSONRequestBody = ClusterComponentType
@@ -4141,6 +4350,12 @@ type CreateClusterTraitJSONRequestBody = ClusterTrait
 // UpdateClusterTraitJSONRequestBody defines body for UpdateClusterTrait for application/json ContentType.
 type UpdateClusterTraitJSONRequestBody = ClusterTrait
 
+// CreateClusterWorkflowPlaneJSONRequestBody defines body for CreateClusterWorkflowPlane for application/json ContentType.
+type CreateClusterWorkflowPlaneJSONRequestBody = ClusterWorkflowPlane
+
+// UpdateClusterWorkflowPlaneJSONRequestBody defines body for UpdateClusterWorkflowPlane for application/json ContentType.
+type UpdateClusterWorkflowPlaneJSONRequestBody = ClusterWorkflowPlane
+
 // CreateClusterWorkflowJSONRequestBody defines body for CreateClusterWorkflow for application/json ContentType.
 type CreateClusterWorkflowJSONRequestBody = ClusterWorkflow
 
@@ -4153,26 +4368,14 @@ type CreateNamespaceJSONRequestBody = Namespace
 // UpdateNamespaceJSONRequestBody defines body for UpdateNamespace for application/json ContentType.
 type UpdateNamespaceJSONRequestBody = Namespace
 
-// CreateBuildPlaneJSONRequestBody defines body for CreateBuildPlane for application/json ContentType.
-type CreateBuildPlaneJSONRequestBody = BuildPlane
-
-// UpdateBuildPlaneJSONRequestBody defines body for UpdateBuildPlane for application/json ContentType.
-type UpdateBuildPlaneJSONRequestBody = BuildPlane
-
 // CreateComponentJSONRequestBody defines body for CreateComponent for application/json ContentType.
 type CreateComponentJSONRequestBody = Component
 
 // UpdateComponentJSONRequestBody defines body for UpdateComponent for application/json ContentType.
 type UpdateComponentJSONRequestBody = Component
 
-// DeployReleaseJSONRequestBody defines body for DeployRelease for application/json ContentType.
-type DeployReleaseJSONRequestBody = DeployReleaseRequest
-
 // GenerateReleaseJSONRequestBody defines body for GenerateRelease for application/json ContentType.
 type GenerateReleaseJSONRequestBody = GenerateReleaseRequest
-
-// PromoteComponentJSONRequestBody defines body for PromoteComponent for application/json ContentType.
-type PromoteComponentJSONRequestBody = PromoteComponentRequest
 
 // CreateComponentTypeJSONRequestBody defines body for CreateComponentType for application/json ContentType.
 type CreateComponentTypeJSONRequestBody = ComponentType
@@ -4245,6 +4448,12 @@ type CreateTraitJSONRequestBody = Trait
 
 // UpdateTraitJSONRequestBody defines body for UpdateTrait for application/json ContentType.
 type UpdateTraitJSONRequestBody = Trait
+
+// CreateWorkflowPlaneJSONRequestBody defines body for CreateWorkflowPlane for application/json ContentType.
+type CreateWorkflowPlaneJSONRequestBody = WorkflowPlane
+
+// UpdateWorkflowPlaneJSONRequestBody defines body for UpdateWorkflowPlane for application/json ContentType.
+type UpdateWorkflowPlaneJSONRequestBody = WorkflowPlane
 
 // CreateWorkflowRunJSONRequestBody defines body for CreateWorkflowRun for application/json ContentType.
 type CreateWorkflowRunJSONRequestBody = WorkflowRun

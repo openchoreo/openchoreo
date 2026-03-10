@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	testRepoURL    = "https://github.com/org/repo"
-	testBranchMain = "main"
+	testRepoURL            = "https://github.com/org/repo"
+	testBranchMain         = "main"
+	testWorkflowsNamespace = "workflows-my-namespace"
 )
 
 func TestPipeline_Render(t *testing.T) {
@@ -1608,7 +1609,7 @@ func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
 		}
 
 		metadata := output.Resources[0].Resource["metadata"].(map[string]any)
-		if metadata["namespace"] != "workflows-my-namespace" {
+		if metadata["namespace"] != testWorkflowsNamespace {
 			t.Errorf("expected namespace to be enforced to 'workflows-my-namespace', got %v", metadata["namespace"])
 		}
 	})
@@ -1639,7 +1640,7 @@ func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
 		}
 
 		metadata := output.Resources[0].Resource["metadata"].(map[string]any)
-		if metadata["namespace"] != "workflows-my-namespace" {
+		if metadata["namespace"] != testWorkflowsNamespace {
 			t.Errorf("expected namespace 'workflows-my-namespace', got %v", metadata["namespace"])
 		}
 	})
@@ -1669,7 +1670,7 @@ func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
 		}
 
 		metadata := output.Resources[0].Resource["metadata"].(map[string]any)
-		if metadata["namespace"] != "workflows-my-namespace" {
+		if metadata["namespace"] != testWorkflowsNamespace {
 			t.Errorf("expected namespace 'workflows-my-namespace', got %v", metadata["namespace"])
 		}
 	})
@@ -1712,7 +1713,7 @@ func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
 
 		for i, res := range output.Resources {
 			metadata := res.Resource["metadata"].(map[string]any)
-			if metadata["namespace"] != "workflows-my-namespace" {
+			if metadata["namespace"] != testWorkflowsNamespace {
 				t.Errorf("resource[%d] (%s): expected namespace 'workflows-my-namespace', got %v", i, res.ID, metadata["namespace"])
 			}
 		}

@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package clusterworkflowplane
+package clusterworkflowplane_test
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller/clusterworkflowplane"
 )
 
 var _ = Describe("ClusterWorkflowPlane Controller", func() {
@@ -25,11 +26,11 @@ var _ = Describe("ClusterWorkflowPlane Controller", func() {
 		typeNamespacedName := types.NamespacedName{
 			Name: resourceName,
 		}
-		clusterworkflowplane := &openchoreov1alpha1.ClusterWorkflowPlane{}
+		cwp := &openchoreov1alpha1.ClusterWorkflowPlane{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind ClusterWorkflowPlane")
-			err := k8sClient.Get(ctx, typeNamespacedName, clusterworkflowplane)
+			err := k8sClient.Get(ctx, typeNamespacedName, cwp)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &openchoreov1alpha1.ClusterWorkflowPlane{
 					ObjectMeta: metav1.ObjectMeta{
@@ -44,7 +45,6 @@ var _ = Describe("ClusterWorkflowPlane Controller", func() {
 		})
 
 		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
 			resource := &openchoreov1alpha1.ClusterWorkflowPlane{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
@@ -54,7 +54,7 @@ var _ = Describe("ClusterWorkflowPlane Controller", func() {
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
-			controllerReconciler := &Reconciler{
+			controllerReconciler := &clusterworkflowplane.Reconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}
@@ -63,8 +63,6 @@ var _ = Describe("ClusterWorkflowPlane Controller", func() {
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
 		})
 	})
 })
