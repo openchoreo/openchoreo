@@ -179,6 +179,7 @@ var systemActions = []Action{
 
 	// incidents
 	{Name: "incidents:view", IsInternal: false},
+	{Name: "incidents:update", IsInternal: false},
 
 	// RCA Report
 	{Name: "rcareport:view", IsInternal: false},
