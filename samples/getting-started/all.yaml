@@ -878,7 +878,7 @@ spec:
           commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest commit on branch)"
         appPath: string | default=. description="Path to the application directory within the repository"
 
-      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack (e.g. BP_JVM_VERSION=21, BP_NODE_RUN_SCRIPTS=build, BP_WEB_SERVER=nginx)"'
+      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack (e.g. BP_JVM_VERSION=21, BP_NODE_RUN_SCRIPTS=build, BP_WEB_SERVER=nginx). Reference: https://paketo.io/docs/howto/configuration/#environment-variables"'
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
@@ -1059,7 +1059,7 @@ spec:
           commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
         appPath: string | default=. description="Path to the application directory within the repository"
 
-      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack (e.g. GOOGLE_RUNTIME_VERSION=21)"'
+      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack (e.g. GOOGLE_RUNTIME_VERSION=21). Reference: https://docs.cloud.google.com/docs/buildpacks/set-environment-variables"'
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
@@ -1236,7 +1236,7 @@ spec:
           commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
         appPath: string | default=. description="Path to the Ballerina application directory within the repository"
 
-      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack"'
+      buildEnv: '[]BuildEnvVar | default=[] description="Environment variables to be passed into the buildpack"'
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
@@ -1421,8 +1421,8 @@ spec:
         context: string | default=. description="Docker build context path relative to the repository root"
         filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
 
-      buildEnv: '[]BuildEnvVar | default=[] description="Environment variables available during the build (passed as --env to podman build)"'
-      buildArgs: '[]DockerBuildArg | default=[] description="Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg)"'
+      buildEnv: '[]BuildEnvVar | default=[] description="Environment variables available during the build (passed as --env to podman build). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#env-env-value"'
+      buildArgs: '[]DockerBuildArg | default=[] description="Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#build-arg-arg-value"'
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
