@@ -227,20 +227,6 @@ func (m *MockCoreToolsetHandler) PatchReleaseBinding(
 	return `{"status":"updated"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) DeployRelease(
-	ctx context.Context, namespaceName, projectName, componentName string, req *models.DeployReleaseRequest,
-) (any, error) {
-	m.recordCall("DeployRelease", namespaceName, projectName, componentName, req)
-	return `{"environment":"dev"}`, nil
-}
-
-func (m *MockCoreToolsetHandler) PromoteComponent(
-	ctx context.Context, namespaceName, projectName, componentName string, req *models.PromoteComponentRequest,
-) (any, error) {
-	m.recordCall("PromoteComponent", namespaceName, projectName, componentName, req)
-	return `{"environment":"staging"}`, nil
-}
-
 func (m *MockCoreToolsetHandler) CreateWorkload(
 	ctx context.Context, namespaceName, projectName, componentName string, workloadSpec interface{},
 ) (any, error) {

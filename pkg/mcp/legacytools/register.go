@@ -42,8 +42,6 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterGetComponentReleaseSchema,
 		t.RegisterListReleaseBindings,
 		t.RegisterPatchReleaseBinding,
-		t.RegisterDeployRelease,
-		t.RegisterPromoteComponent,
 		t.RegisterCreateWorkload,
 		t.RegisterListComponentTraits,
 		t.RegisterUpdateComponentTraits,

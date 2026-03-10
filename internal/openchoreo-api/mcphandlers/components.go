@@ -226,36 +226,6 @@ func (h *MCPHandler) PatchReleaseBinding(
 	return mutationResult(updated, "patched"), nil
 }
 
-func (h *MCPHandler) DeployRelease(
-	ctx context.Context, namespaceName, componentName string, req *gen.DeployReleaseRequest,
-) (any, error) {
-	rb, err := h.services.ComponentService.DeployRelease(ctx, namespaceName, componentName, &componentsvc.DeployReleaseRequest{
-		ReleaseName: req.ReleaseName,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return mutationResult(rb, "deployed", map[string]any{
-		"environment": rb.Spec.Environment,
-		"releaseName": rb.Spec.ReleaseName,
-	}), nil
-}
-
-func (h *MCPHandler) PromoteComponent(
-	ctx context.Context, namespaceName, componentName string, req *gen.PromoteComponentRequest,
-) (any, error) {
-	rb, err := h.services.ComponentService.PromoteComponent(ctx, namespaceName, componentName, &componentsvc.PromoteComponentRequest{
-		SourceEnvironment: req.SourceEnv,
-		TargetEnvironment: req.TargetEnv,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return mutationResult(rb, "promoted", map[string]any{
-		"environment": rb.Spec.Environment,
-	}), nil
-}
-
 func (h *MCPHandler) CreateWorkload(
 	ctx context.Context, namespaceName, componentName string, workloadSpec any,
 ) (any, error) {

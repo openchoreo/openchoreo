@@ -76,13 +76,6 @@ type ComponentToolsetHandler interface {
 		ctx context.Context, namespaceName, projectName, componentName, bindingName string,
 		req *models.PatchReleaseBindingRequest,
 	) (any, error)
-	// Deployment operations
-	DeployRelease(
-		ctx context.Context, namespaceName, projectName, componentName string, req *models.DeployReleaseRequest,
-	) (any, error)
-	PromoteComponent(
-		ctx context.Context, namespaceName, projectName, componentName string, req *models.PromoteComponentRequest,
-	) (any, error)
 	// Workload operations
 	CreateWorkload(
 		ctx context.Context, namespaceName, projectName, componentName string, workloadSpec interface{},

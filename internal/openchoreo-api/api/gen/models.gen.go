@@ -1737,12 +1737,6 @@ type Decision struct {
 	Decision bool `json:"decision"`
 }
 
-// DeployReleaseRequest Request to deploy a release
-type DeployReleaseRequest struct {
-	// ReleaseName Component release name to deploy
-	ReleaseName string `json:"releaseName"`
-}
-
 // DeploymentPipeline DeploymentPipeline resource.
 // Defines promotion paths between environments for component deployments.
 type DeploymentPipeline struct {
@@ -2494,15 +2488,6 @@ type ProjectStatus struct {
 
 	// ObservedGeneration Generation of the most recently observed Project
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
-}
-
-// PromoteComponentRequest Request to promote a component between environments
-type PromoteComponentRequest struct {
-	// SourceEnv Source environment name
-	SourceEnv string `json:"sourceEnv"`
-
-	// TargetEnv Target environment name
-	TargetEnv string `json:"targetEnv"`
 }
 
 // PromotionPath Promotion path between environments
@@ -4357,14 +4342,8 @@ type CreateComponentJSONRequestBody = Component
 // UpdateComponentJSONRequestBody defines body for UpdateComponent for application/json ContentType.
 type UpdateComponentJSONRequestBody = Component
 
-// DeployReleaseJSONRequestBody defines body for DeployRelease for application/json ContentType.
-type DeployReleaseJSONRequestBody = DeployReleaseRequest
-
 // GenerateReleaseJSONRequestBody defines body for GenerateRelease for application/json ContentType.
 type GenerateReleaseJSONRequestBody = GenerateReleaseRequest
-
-// PromoteComponentJSONRequestBody defines body for PromoteComponent for application/json ContentType.
-type PromoteComponentJSONRequestBody = PromoteComponentRequest
 
 // CreateComponentTypeJSONRequestBody defines body for CreateComponentType for application/json ContentType.
 type CreateComponentTypeJSONRequestBody = ComponentType

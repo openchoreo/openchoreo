@@ -472,60 +472,6 @@ func parseFileVars(container map[string]interface{}) ([]gen.FileVar, error) {
 	return fileVars, nil
 }
 
-func (t *Toolsets) RegisterDeployRelease(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "deploy_release",
-		Description: "Deploy a component release to the lowest environment in the deployment pipeline. " +
-			"This creates or updates a release binding in the first environment of the pipeline. " +
-			"If the source repository does not contain a workload descriptor (workload.yaml), use update_workload " +
-			"to configure the workload before deploying.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"component_name": defaultStringProperty(),
-			"release_name":   stringProperty("The release to deploy. Use list_component_releases to discover valid names"),
-		}, []string{"namespace_name", "component_name", "release_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		ComponentName string `json:"component_name"`
-		ReleaseName   string `json:"release_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		deployReq := &gen.DeployReleaseRequest{
-			ReleaseName: args.ReleaseName,
-		}
-		result, err := t.DeploymentToolset.DeployRelease(
-			ctx, args.NamespaceName, args.ComponentName, deployReq,
-		)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPromoteComponent(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "promote_component",
-		Description: "Promote a component release from one environment to another following the deployment " +
-			"pipeline. Validates that the promotion path exists in the pipeline configuration.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"component_name": defaultStringProperty(),
-			"source_env":     stringProperty("Source environment name (e.g., 'dev')"),
-			"target_env":     stringProperty("Target environment name (e.g., 'staging')"),
-		}, []string{"namespace_name", "component_name", "source_env", "target_env"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		ComponentName string `json:"component_name"`
-		SourceEnv     string `json:"source_env"`
-		TargetEnv     string `json:"target_env"`
-	}) (*mcp.CallToolResult, any, error) {
-		promoteReq := &gen.PromoteComponentRequest{
-			SourceEnv: args.SourceEnv,
-			TargetEnv: args.TargetEnv,
-		}
-		result, err := t.DeploymentToolset.PromoteComponent(
-			ctx, args.NamespaceName, args.ComponentName, promoteReq)
-		return handleToolResult(result, err)
-	})
-}
-
 func (t *Toolsets) RegisterCreateWorkload(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_workload",

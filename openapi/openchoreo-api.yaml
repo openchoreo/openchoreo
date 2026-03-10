@@ -2795,72 +2795,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/components/{componentName}/deploy:
-    post:
-      operationId: deployRelease
-      summary: Deploy release
-      description: Deploys a component release to an environment.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeployReleaseRequest'
-      responses:
-        '201':
-          description: Release deployed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReleaseBinding'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/namespaces/{namespaceName}/components/{componentName}/promote:
-    post:
-      operationId: promoteComponent
-      summary: Promote component
-      description: Promotes a component release from one environment to another.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PromoteComponentRequest'
-      responses:
-        '200':
-          description: Component promoted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReleaseBinding'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
   /api/v1/namespaces/{namespaceName}/components/{componentName}/generate-release:
     post:
       operationId: generateRelease
@@ -8390,36 +8324,6 @@ components:
             Full RenderedRelease CR (metadata + spec + status).
           allOf:
             - $ref: '#/components/schemas/RenderedRelease'
-
-    # -------------------------------------------------------------------------
-    # Deploy/Promote Requests
-    # -------------------------------------------------------------------------
-    DeployReleaseRequest:
-      type: object
-      description: Request to deploy a release
-      required:
-        - releaseName
-      properties:
-        releaseName:
-          type: string
-          description: Component release name to deploy
-          example: v1.0.0
-
-    PromoteComponentRequest:
-      type: object
-      description: Request to promote a component between environments
-      required:
-        - sourceEnv
-        - targetEnv
-      properties:
-        sourceEnv:
-          type: string
-          description: Source environment name
-          example: dev
-        targetEnv:
-          type: string
-          description: Target environment name
-          example: staging
 
     GenerateReleaseRequest:
       type: object
