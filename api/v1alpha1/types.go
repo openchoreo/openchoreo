@@ -3,6 +3,8 @@
 
 package v1alpha1
 
+import "encoding/json"
+
 // This file contains common types shared across multiple OpenChoreo CRDs
 
 // EndpointStatus represents the observed state of an endpoint.
@@ -382,6 +384,25 @@ type DeploymentPipelineRef struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
 	Name string `json:"name"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler to support both legacy string format
+// (e.g. "my-pipeline") and the current object format (e.g. {"name":"my-pipeline"}).
+func (r *DeploymentPipelineRef) UnmarshalJSON(data []byte) error {
+	// Legacy format: plain string containing just the pipeline name
+	if len(data) > 0 && data[0] == '"' {
+		var name string
+		if err := json.Unmarshal(data, &name); err != nil {
+			return err
+		}
+		r.Name = name
+		r.Kind = DeploymentPipelineRefKindDeploymentPipeline
+		return nil
+	}
+	// Current format: object with name and optional kind fields.
+	// Use an alias to avoid infinite recursion.
+	type Alias DeploymentPipelineRef
+	return json.Unmarshal(data, (*Alias)(r))
 }
 
 // EffectType defines whether to allow or deny access

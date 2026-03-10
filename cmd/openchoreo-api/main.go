@@ -278,9 +278,12 @@ func buildMCPToolsets(cfg *config.Config, svc *handlerservices.Services, logger 
 		case tools.ToolsetComponent:
 			toolsets.ComponentToolset = handler
 			logger.Debug("Enabled MCP toolset", slog.String("toolset", "component"))
-		case tools.ToolsetInfrastructure:
-			toolsets.InfrastructureToolset = handler
-			logger.Debug("Enabled MCP toolset", slog.String("toolset", "infrastructure"))
+		case tools.ToolsetDeployment:
+			toolsets.DeploymentToolset = handler
+			logger.Debug("Enabled MCP toolset", slog.String("toolset", "deployment"))
+		case tools.ToolsetBuild:
+			toolsets.BuildToolset = handler
+			logger.Debug("Enabled MCP toolset", slog.String("toolset", "build"))
 		case tools.ToolsetPE:
 			toolsets.PEToolset = handler
 			logger.Debug("Enabled MCP toolset", slog.String("toolset", "pe"))
