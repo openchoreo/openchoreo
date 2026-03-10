@@ -17,7 +17,7 @@ spec:
   # Workflow configuration (developer-provided)
   workflow:
     # Reference to Workflow
-    name: ballerina-buildpack
+    name: ballerina-buildpack-builder
 
     # Parameters required by the Workflow
     parameters:
@@ -43,7 +43,7 @@ metadata:
 spec:
   workflow:
     # Reference to Workflow
-    name: ballerina-buildpack
+    name: ballerina-buildpack-builder
 
     # Parameters required by the Workflow
     parameters:

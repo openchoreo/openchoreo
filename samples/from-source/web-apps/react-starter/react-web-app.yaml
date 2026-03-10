@@ -16,13 +16,10 @@ spec:
   # Workflow configuration
   workflow:
     # Reference to Workflow
-    name: react
+    name: paketo-buildpacks-builder
 
     # Parameters required by the Workflow
     parameters:
-      scope:
-        projectName: "default"
-        componentName: "react-starter-from-source"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
@@ -30,26 +27,31 @@ spec:
           # Optional commit hash, should be a valid git commit
           # commit: ""
         appPath: "/webapp-react-nginx"
-      nodeVersion: "20"
+      buildEnv:
+        - name: BP_NODE_RUN_SCRIPTS
+          value: "build"
+        - name: BP_WEB_SERVER
+          value: "nginx"
+        - name: BP_WEB_SERVER_ROOT
+          value: "build"
+        - name: BP_WEB_SERVER_ENABLE_PUSH_STATE
+          value: "true"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowRun
 metadata:
-  name: react-starter-build-01
+  name: react-starter-build-02
   labels:
     openchoreo.dev/project: "default"
     openchoreo.dev/component: "react-starter-from-source"
 spec:
   workflow:
     # Reference to Workflow
-    name: react
+    name: paketo-buildpacks-builder
 
     # Parameters required by the Workflow
     parameters:
-      scope:
-        projectName: "default"
-        componentName: "react-starter-from-source"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
@@ -57,4 +59,12 @@ spec:
           # Optional commit hash, should be a valid git commit
           # commit: ""
         appPath: "/webapp-react-nginx"
-      nodeVersion: "20"
+      buildEnv:
+        - name: BP_NODE_RUN_SCRIPTS
+          value: "build"
+        - name: BP_WEB_SERVER
+          value: "nginx"
+        - name: BP_WEB_SERVER_ROOT
+          value: "build"
+        - name: BP_WEB_SERVER_ENABLE_PUSH_STATE
+          value: "true"

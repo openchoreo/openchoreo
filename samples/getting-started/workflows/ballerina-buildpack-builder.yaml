@@ -1,10 +1,10 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workflow
 metadata:
-  name: docker
+  name: ballerina-buildpack-builder
   namespace: default
   annotations:
-    openchoreo.dev/description: "Docker build workflow for containerized builds using Dockerfile"
+    openchoreo.dev/description: "Workflow for building applications written in Ballerina"
     openchoreo.dev/workflow-scope: "component"
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
@@ -19,16 +19,21 @@ spec:
   ttlAfterCompletion: "1d"
   parameters:
     ocSchema:
+      $types:
+        BuildEnvVar:
+          name: "string | description='Environment variable name'"
+          value: "string | description='Environment variable value'"
+
       repository:
         url: string | description="Git repository URL"
         secretRef: string | default="" description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
-        appPath: string | default=. description="Path to the application directory within the repository"
-      docker:
-        context: string | default=. description="Docker build context path relative to the repository root"
-        filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
+        appPath: string | default=. description="Path to the Ballerina application directory within the repository"
+
+      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack"'
+
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -54,10 +59,8 @@ spec:
             value: ${parameters.repository.revision.commit}
           - name: app-path
             value: ${parameters.repository.appPath}
-          - name: docker-context
-            value: ${parameters.docker.context}
-          - name: dockerfile-path
-            value: ${parameters.docker.filePath}
+          - name: build-env
+            value: ${parameters.buildEnv}
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
@@ -71,23 +74,25 @@ spec:
       templates:
         - name: build-workflow
           steps:
-            - - name: checkout-source
+            - - name: checkout-source-build-step
                 templateRef:
-                  name: checkout-source
+                  name: checkout-source-build-step
                   clusterScope: true
                   template: checkout
             - - name: build-image
                 templateRef:
-                  name: docker
+                  name: ballerina-buildpack-build-step
                   clusterScope: true
                   template: build-image
                 arguments:
                   parameters:
                     - name: git-revision
                       value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
-            - - name: publish-image
+                    - name: build-env
+                      value: '{{workflow.parameters.build-env}}'
+            - - name: publish-image-build-step
                 templateRef:
-                  name: publish-image
+                  name: publish-image-build-step
                   clusterScope: true
                   template: publish-image
                 arguments:
@@ -96,7 +101,7 @@ spec:
                       value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
             - - name: generate-workload-cr
                 templateRef:
-                  name: generate-workload
+                  name: generate-workload-build-step
                   clusterScope: true
                   template: generate-workload-cr
                 arguments:

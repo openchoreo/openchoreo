@@ -1,10 +1,10 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workflow
 metadata:
-  name: google-cloud-buildpacks
+  name: paketo-buildpacks-builder
   namespace: default
   annotations:
-    openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
+    openchoreo.dev/description: "Supports building Java, Node.js, Python, Go, .NET, Ruby, PHP, and more. See https://paketo.io/docs/"
     openchoreo.dev/workflow-scope: "component"
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
@@ -16,23 +16,32 @@ spec:
   buildPlaneRef:
     kind: BuildPlane
     name: default
+
   ttlAfterCompletion: "1d"
+
   parameters:
     ocSchema:
+      $types:
+        BuildEnvVar:
+          name: "string | description='Environment variable name'"
+          value: "string | description='Environment variable value'"
+
       repository:
         url: string | description="Git repository URL"
-        secretRef: string | default="" description="Secret reference name for Git credentials"
+        secretRef: string | default="" description="Secret reference name for private repository Git credentials (optional for public repos)"
         revision:
           branch: string | default=main description="Git branch to checkout"
-          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
+          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest commit on branch)"
         appPath: string | default=. description="Path to the application directory within the repository"
+
+      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack (e.g. BP_JVM_VERSION=21, BP_NODE_RUN_SCRIPTS=build, BP_WEB_SERVER=nginx)"'
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: ${metadata.namespace}
+      namespace: openchoreo-ci-${metadata.namespaceName}
     spec:
       arguments:
         parameters:
@@ -52,6 +61,9 @@ spec:
             value: ${parameters.repository.revision.commit}
           - name: app-path
             value: ${parameters.repository.appPath}
+          - name: build-env
+            value: ${parameters.buildEnv}
+          # PE-controlled parameters
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
@@ -65,40 +77,40 @@ spec:
       templates:
         - name: build-workflow
           steps:
-            - - name: checkout-source
+            - - name: checkout-source-build-step
                 templateRef:
-                  name: checkout-source
+                  name: checkout-source-build-step
                   clusterScope: true
                   template: checkout
             - - name: build-image
                 templateRef:
-                  name: google-cloud-buildpacks
+                  name: paketo-buildpack-build-step
                   clusterScope: true
                   template: build-image
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
-            - - name: publish-image
+                      value: "{{steps.checkout-source.outputs.parameters.git-revision}}"
+            - - name: publish-image-build-step
                 templateRef:
-                  name: publish-image
+                  name: publish-image-build-step
                   clusterScope: true
                   template: publish-image
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                      value: "{{steps.checkout-source.outputs.parameters.git-revision}}"
             - - name: generate-workload-cr
                 templateRef:
-                  name: generate-workload
+                  name: generate-workload-build-step
                   clusterScope: true
                   template: generate-workload-cr
                 arguments:
                   parameters:
                     - name: image
-                      value: '{{steps.publish-image.outputs.parameters.image}}'
+                      value: "{{steps.publish-image.outputs.parameters.image}}"
                     - name: run-name
-                      value: '{{workflow.parameters.workflowrun-name}}'
+                      value: "{{workflow.parameters.workflowrun-name}}"
       volumeClaimTemplates:
         - metadata:
             name: workspace
@@ -108,11 +120,13 @@ spec:
             resources:
               requests:
                 storage: 2Gi
+
   externalRefs:
     - id: git-secret-reference
       apiVersion: openchoreo.dev/v1alpha1
       kind: SecretReference
       name: ${parameters.repository.secretRef}
+
   resources:
     - id: git-secret
       includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
@@ -140,6 +154,7 @@ spec:
                 "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
               }
             })}
+
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1

@@ -10,9 +10,11 @@ spec:
 
   allowedWorkflows:
     - kind: Workflow
-      name: react
+      name: paketo-buildpacks-builder
     - kind: Workflow
-      name: docker
+      name: gcp-buildpacks-builder
+    - kind: Workflow
+      name: dockerfile-builder
 
   allowedTraits:
     - name: api-configuration

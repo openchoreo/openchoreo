@@ -10,7 +10,7 @@ spec:
     - kind: Workflow
       name: google-cloud-buildpacks
     - kind: Workflow
-      name: ballerina-buildpack
+      name: ballerina-buildpack-builder
     - kind: Workflow
       name: docker
 

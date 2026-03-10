@@ -1,10 +1,10 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workflow
 metadata:
-  name: ballerina-buildpack
+  name: dockerfile-builder
   namespace: default
   annotations:
-    openchoreo.dev/description: "Ballerina build workflow for containerized builds using Ballerina Buildpack"
+    openchoreo.dev/description: "Build with a provided Dockerfile/Containerfile/Podmanfile"
     openchoreo.dev/workflow-scope: "component"
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
@@ -19,14 +19,27 @@ spec:
   ttlAfterCompletion: "1d"
   parameters:
     ocSchema:
+      $types:
+        BuildEnvVar:
+          name: "string | description='Environment variable name'"
+          value: "string | description='Environment variable value'"
+        DockerBuildArg:
+          name: "string | description='Build argument name'"
+          value: "string | description='Build argument value'"
+
       repository:
         url: string | description="Git repository URL"
         secretRef: string | default="" description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
-        appPath: string | default=. description="Path to the Ballerina application directory within the repository"
+        appPath: string | default=. description="Path to the application directory within the repository"
+      docker:
+        context: string | default=. description="Docker build context path relative to the repository root"
+        filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
 
+      buildEnv: '[]BuildEnvVar | default=[] description="Environment variables available during the build (passed as --env to podman build)"'
+      buildArgs: '[]DockerBuildArg | default=[] description="Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg)"'
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -52,6 +65,14 @@ spec:
             value: ${parameters.repository.revision.commit}
           - name: app-path
             value: ${parameters.repository.appPath}
+          - name: docker-context
+            value: ${parameters.docker.context}
+          - name: dockerfile-path
+            value: ${parameters.docker.filePath}
+          - name: build-env
+            value: ${parameters.buildEnv}
+          - name: build-args
+            value: ${parameters.buildArgs}
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
@@ -65,23 +86,27 @@ spec:
       templates:
         - name: build-workflow
           steps:
-            - - name: checkout-source
+            - - name: checkout-source-build-step
                 templateRef:
-                  name: checkout-source
+                  name: checkout-source-build-step
                   clusterScope: true
                   template: checkout
             - - name: build-image
                 templateRef:
-                  name: ballerina-buildpack
+                  name: docker-build-step
                   clusterScope: true
                   template: build-image
                 arguments:
                   parameters:
                     - name: git-revision
                       value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
-            - - name: publish-image
+                    - name: build-env
+                      value: '{{workflow.parameters.build-env}}'
+                    - name: build-args
+                      value: '{{workflow.parameters.build-args}}'
+            - - name: publish-image-build-step
                 templateRef:
-                  name: publish-image
+                  name: publish-image-build-step
                   clusterScope: true
                   template: publish-image
                 arguments:
@@ -90,7 +115,7 @@ spec:
                       value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
             - - name: generate-workload-cr
                 templateRef:
-                  name: generate-workload
+                  name: generate-workload-build-step
                   clusterScope: true
                   template: generate-workload-cr
                 arguments:

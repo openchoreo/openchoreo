@@ -16,7 +16,7 @@ spec:
   # Workflow configuration
   workflow:
     # Reference to Workflow
-    name: google-cloud-buildpacks
+    name: gcp-buildpacks-builder
 
     # Parameters required by the Workflow
     parameters:
@@ -43,7 +43,7 @@ metadata:
 spec:
   workflow:
     # Reference to Workflow
-    name: google-cloud-buildpacks
+    name: gcp-buildpacks-builder
 
     # Parameters required by the Workflow
     parameters:

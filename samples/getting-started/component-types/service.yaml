@@ -10,11 +10,13 @@ spec:
 
   allowedWorkflows:
     - kind: Workflow
-      name: google-cloud-buildpacks
+      name: paketo-buildpacks-builder
     - kind: Workflow
-      name: ballerina-buildpack
+      name: gcp-buildpacks-builder
     - kind: Workflow
-      name: docker
+      name: ballerina-buildpack-builder
+    - kind: Workflow
+      name: dockerfile-builder
 
   allowedTraits:
     - name: api-configuration
