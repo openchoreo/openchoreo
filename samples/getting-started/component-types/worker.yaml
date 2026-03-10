@@ -14,6 +14,8 @@ spec:
       name: gcp-buildpacks-builder
     - kind: ClusterWorkflow
       name: dockerfile-builder
+    - kind: ClusterWorkflow
+      name: ballerina-buildpack-builder
 
   allowedTraits:
     - kind: ClusterTrait
