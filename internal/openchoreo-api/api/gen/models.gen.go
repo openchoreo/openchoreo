@@ -21,6 +21,11 @@ const (
 	AuthzClusterRoleBindingSpecEffectDeny  AuthzClusterRoleBindingSpecEffect = "deny"
 )
 
+// Defines values for AuthzClusterRoleMappingRoleRefKind.
+const (
+	AuthzClusterRoleMappingRoleRefKindAuthzClusterRole AuthzClusterRoleMappingRoleRefKind = "AuthzClusterRole"
+)
+
 // Defines values for AuthzRoleBindingSpecEffect.
 const (
 	AuthzRoleBindingSpecEffectAllow AuthzRoleBindingSpecEffect = "allow"
@@ -473,9 +478,16 @@ type AuthzClusterRoleList struct {
 
 // AuthzClusterRoleMapping Pairs a role reference for cluster-scoped bindings
 type AuthzClusterRoleMapping struct {
-	// RoleRef Reference to an AuthzRole or AuthzClusterRole
-	RoleRef AuthzRoleRef `json:"roleRef"`
+	RoleRef struct {
+		Kind AuthzClusterRoleMappingRoleRefKind `json:"kind"`
+
+		// Name Name of the role
+		Name string `json:"name"`
+	} `json:"roleRef"`
 }
+
+// AuthzClusterRoleMappingRoleRefKind defines model for AuthzClusterRoleMapping.RoleRef.Kind.
+type AuthzClusterRoleMappingRoleRefKind string
 
 // AuthzClusterRoleSpec Specification for a cluster-scoped authorization role
 type AuthzClusterRoleSpec struct {

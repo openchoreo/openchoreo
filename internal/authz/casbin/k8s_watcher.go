@@ -510,7 +510,7 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 
 	if len(removed) > 0 {
 		if _, err := h.enforcer.RemovePolicies(removed); err != nil {
-			h.logger.Warn("failed to remove old binding policies", "binding", oldBinding.Name, "error", err)
+			return fmt.Errorf("failed to remove old binding policies: %w", err)
 		}
 	}
 	if len(added) > 0 {
@@ -576,7 +576,7 @@ func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interfa
 
 	if len(removed) > 0 {
 		if _, err := h.enforcer.RemovePolicies(removed); err != nil {
-			h.logger.Warn("failed to remove old cluster binding policies", "binding", oldBinding.Name, "error", err)
+			return fmt.Errorf("failed to remove old cluster binding policies: %w", err)
 		}
 	}
 	if len(added) > 0 {

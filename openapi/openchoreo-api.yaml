@@ -8640,7 +8640,14 @@ components:
         - roleRef
       properties:
         roleRef:
-          $ref: '#/components/schemas/AuthzRoleRef'
+          allOf:
+            - $ref: '#/components/schemas/AuthzRoleRef'
+            - type: object
+              properties:
+                kind:
+                  type: string
+                  enum: [AuthzClusterRole]
+                  example: AuthzClusterRole
 
     Entitlement:
       type: object
