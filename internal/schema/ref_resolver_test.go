@@ -27,7 +27,7 @@ func TestResolveRefs_SimpleRef(t *testing.T) {
 
 	props := result["properties"].(map[string]any)
 	name := props["name"].(map[string]any)
-	if name["type"] != "string" {
+	if name["type"] != typeString {
 		t.Fatalf("expected type=string, got %v", name["type"])
 	}
 
@@ -57,7 +57,7 @@ func TestResolveRefs_NestedRefChain(t *testing.T) {
 
 	props := result["properties"].(map[string]any)
 	val := props["val"].(map[string]any)
-	if val["type"] != "integer" {
+	if val["type"] != typeInteger {
 		t.Fatalf("expected type=integer after chain resolution, got %v", val["type"])
 	}
 }
@@ -83,7 +83,7 @@ func TestResolveRefs_RefWithSiblings(t *testing.T) {
 
 	props := result["properties"].(map[string]any)
 	name := props["name"].(map[string]any)
-	if name["type"] != "string" {
+	if name["type"] != typeString {
 		t.Fatalf("expected type=string, got %v", name["type"])
 	}
 	if name["default"] != "bar" {
@@ -169,7 +169,7 @@ func TestResolveRefs_RefInItems(t *testing.T) {
 	props := result["properties"].(map[string]any)
 	list := props["list"].(map[string]any)
 	items := list["items"].(map[string]any)
-	if items["type"] != "string" {
+	if items["type"] != typeString {
 		t.Fatalf("expected items type=string, got %v", items["type"])
 	}
 }
@@ -192,7 +192,7 @@ func TestResolveRefs_RefInAllOf(t *testing.T) {
 
 	allOf := result["allOf"].([]any)
 	first := allOf[0].(map[string]any)
-	if first["type"] != "object" {
+	if first["type"] != typeObject {
 		t.Fatalf("expected first allOf element to have type=object, got %v", first["type"])
 	}
 }
@@ -212,7 +212,7 @@ func TestResolveRefs_NoRefsPresent(t *testing.T) {
 
 	props := result["properties"].(map[string]any)
 	name := props["name"].(map[string]any)
-	if name["type"] != "string" {
+	if name["type"] != typeString {
 		t.Fatalf("expected type=string, got %v", name["type"])
 	}
 }
@@ -304,7 +304,7 @@ func TestResolveRefs_RefInAdditionalProperties(t *testing.T) {
 	props := result["properties"].(map[string]any)
 	labels := props["labels"].(map[string]any)
 	ap := labels["additionalProperties"].(map[string]any)
-	if ap["type"] != "string" {
+	if ap["type"] != typeString {
 		t.Fatalf("expected additionalProperties type=string, got %v", ap["type"])
 	}
 }
@@ -329,10 +329,10 @@ func TestResolveRefs_RefInOneOf(t *testing.T) {
 	oneOf := result["oneOf"].([]any)
 	first := oneOf[0].(map[string]any)
 	second := oneOf[1].(map[string]any)
-	if first["type"] != "string" {
+	if first["type"] != typeString {
 		t.Fatalf("expected first oneOf type=string, got %v", first["type"])
 	}
-	if second["type"] != "integer" {
+	if second["type"] != typeInteger {
 		t.Fatalf("expected second oneOf type=integer, got %v", second["type"])
 	}
 }
@@ -430,7 +430,7 @@ func TestResolveRefs_BothDefsAndDefinitions(t *testing.T) {
 	props := result["properties"].(map[string]any)
 	val := props["val"].(map[string]any)
 	// Should resolve from $defs (string), not definitions (integer)
-	if val["type"] != "string" {
+	if val["type"] != typeString {
 		t.Fatalf("expected type=string from $defs (priority), got %v", val["type"])
 	}
 
@@ -467,7 +467,7 @@ func TestResolveRefs_RefInAnyOf(t *testing.T) {
 		t.Fatalf("expected 3 anyOf elements, got %d", len(anyOf))
 	}
 
-	expected := []string{"string", "integer", "boolean"}
+	expected := []string{typeString, typeInteger, "boolean"}
 	for i, exp := range expected {
 		elem := anyOf[i].(map[string]any)
 		if elem["type"] != exp {
@@ -516,7 +516,7 @@ func TestResolveRefs_SpecialCharactersInDefName(t *testing.T) {
 
 	props := result["properties"].(map[string]any)
 	val := props["val"].(map[string]any)
-	if val["type"] != "string" {
+	if val["type"] != typeString {
 		t.Fatalf("expected type=string, got %v", val["type"])
 	}
 }
@@ -556,7 +556,7 @@ func TestResolveRefs_LargeSchemaWithManyRefs(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected field %s", fieldName)
 		}
-		if field["type"] != "object" {
+		if field["type"] != typeObject {
 			t.Fatalf("expected %s type=object, got %v", fieldName, field["type"])
 		}
 		innerProps := field["properties"].(map[string]any)
@@ -608,7 +608,7 @@ func TestResolveRefs_RefInPatternProperties(t *testing.T) {
 
 	pp := result["patternProperties"].(map[string]any)
 	xProp := pp["^x-"].(map[string]any)
-	if xProp["type"] != "integer" {
+	if xProp["type"] != typeInteger {
 		t.Fatalf("expected patternProperties type=integer, got %v", xProp["type"])
 	}
 }
@@ -727,15 +727,15 @@ func TestResolveRefs_RefInIfThenElse(t *testing.T) {
 	}
 
 	ifSchema := result["if"].(map[string]any)
-	if ifSchema["type"] != "string" {
+	if ifSchema["type"] != typeString {
 		t.Fatalf("expected if type=string, got %v", ifSchema["type"])
 	}
 	thenSchema := result["then"].(map[string]any)
-	if thenSchema["type"] != "integer" {
+	if thenSchema["type"] != typeInteger {
 		t.Fatalf("expected then type=integer, got %v", thenSchema["type"])
 	}
 	elseSchema := result["else"].(map[string]any)
-	if elseSchema["type"] != "string" {
+	if elseSchema["type"] != typeString {
 		t.Fatalf("expected else type=string, got %v", elseSchema["type"])
 	}
 }

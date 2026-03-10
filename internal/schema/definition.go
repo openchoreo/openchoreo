@@ -22,6 +22,12 @@ import (
 	"github.com/openchoreo/openchoreo/internal/schema/extractor"
 )
 
+const (
+	typeString  = "string"
+	typeInteger = "integer"
+	typeObject  = "object"
+)
+
 // Definition represents a schematized object assembled from one or more field maps.
 type Definition struct {
 	Schemas []map[string]any
@@ -446,7 +452,7 @@ func ValidateAgainstSchema(values map[string]any, structural *apiextschema.Struc
 
 		// Recursively validate nested objects
 		if valueMap, ok := values[key].(map[string]any); ok {
-			if propSchema.Type == "object" {
+			if propSchema.Type == typeObject {
 				if err := ValidateAgainstSchema(valueMap, &propSchema); err != nil {
 					return fmt.Errorf("%s.%w", key, err)
 				}

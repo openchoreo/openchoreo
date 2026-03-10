@@ -13,6 +13,11 @@ import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
+const (
+	testRepoURL    = "https://github.com/org/repo"
+	testBranchMain = "main"
+)
+
 func TestPipeline_Render(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1037,7 +1042,7 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 							Name: "test-workflow",
 							Parameters: mustRawExtension(t, map[string]interface{}{
 								"repository": map[string]interface{}{
-									"url": "https://github.com/org/repo",
+									"url": testRepoURL,
 									"revision": map[string]interface{}{
 										"branch": "feature-branch",
 										"commit": "abc123def456",
@@ -1074,7 +1079,7 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 			check: func(t *testing.T, output *RenderOutput) {
 				data := output.Resource["data"].(map[string]interface{})
 
-				if data["repo_url"] != "https://github.com/org/repo" {
+				if data["repo_url"] != testRepoURL {
 					t.Errorf("expected repo_url, got %v", data["repo_url"])
 				}
 
@@ -1573,7 +1578,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 					Workflow: v1alpha1.WorkflowRunConfig{
 						Name: "test-workflow",
 						Parameters: mustRawExtension(t, map[string]any{
-							"repo": "https://github.com/org/repo",
+							"repo": testRepoURL,
 						}),
 					},
 				},
@@ -1630,11 +1635,11 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		params := args["parameters"].([]any)
 
 		branchParam := params[0].(map[string]any)
-		if branchParam["value"] != "main" {
+		if branchParam["value"] != testBranchMain {
 			t.Errorf("expected branch default 'main', got %v", branchParam["value"])
 		}
 		repoParam := params[1].(map[string]any)
-		if repoParam["value"] != "https://github.com/org/repo" {
+		if repoParam["value"] != testRepoURL {
 			t.Errorf("expected repo value, got %v", repoParam["value"])
 		}
 	})
@@ -1647,7 +1652,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 						Name: "test-workflow",
 						Parameters: mustRawExtension(t, map[string]any{
 							"repository": map[string]any{
-								"url": "https://github.com/org/repo",
+								"url": testRepoURL,
 							},
 						}),
 					},
@@ -1721,11 +1726,11 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		params := args["parameters"].([]any)
 
 		urlParam := params[0].(map[string]any)
-		if urlParam["value"] != "https://github.com/org/repo" {
+		if urlParam["value"] != testRepoURL {
 			t.Errorf("expected url, got %v", urlParam["value"])
 		}
 		branchParam := params[1].(map[string]any)
-		if branchParam["value"] != "main" {
+		if branchParam["value"] != testBranchMain {
 			t.Errorf("expected branch default 'main' via $ref, got %v", branchParam["value"])
 		}
 	})
@@ -1737,7 +1742,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 					Workflow: v1alpha1.WorkflowRunConfig{
 						Name: "test-workflow",
 						Parameters: mustRawExtension(t, map[string]any{
-							"repo": "https://github.com/org/repo",
+							"repo": testRepoURL,
 						}),
 					},
 				},
@@ -1784,11 +1789,11 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		params := args["parameters"].([]any)
 
 		branchParam := params[0].(map[string]any)
-		if branchParam["value"] != "main" {
+		if branchParam["value"] != testBranchMain {
 			t.Errorf("expected branch default 'main', got %v", branchParam["value"])
 		}
 		repoParam := params[1].(map[string]any)
-		if repoParam["value"] != "https://github.com/org/repo" {
+		if repoParam["value"] != testRepoURL {
 			t.Errorf("expected repo value, got %v", repoParam["value"])
 		}
 	})
@@ -1859,7 +1864,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 					Workflow: v1alpha1.WorkflowRunConfig{
 						Name: "test-workflow",
 						Parameters: mustRawExtension(t, map[string]any{
-							"repo": "https://github.com/org/repo",
+							"repo": testRepoURL,
 						}),
 					},
 				},
@@ -1898,7 +1903,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		params := args["parameters"].([]any)
 
 		repoParam := params[0].(map[string]any)
-		if repoParam["value"] != "https://github.com/org/repo" {
+		if repoParam["value"] != testRepoURL {
 			t.Errorf("expected repo value, got %v", repoParam["value"])
 		}
 	})

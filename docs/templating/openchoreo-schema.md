@@ -2,7 +2,7 @@
 
 This guide explains how to define schemas for ComponentTypes, Traits, and Workflows using OpenChoreo's compact schema syntax (`ocSchema`). The syntax provides a concise, readable shorthand for defining schemas.
 
-> **Alternative format:** OpenChoreo also supports standard [OpenAPI V3 Schema](openapiv3-schema.md) (`openAPIV3Schema`) for full JSON Schema compatibility, vendor extensions (`x-*`), and `$defs`/`$ref` reusable types.
+> **Alternative format:** OpenChoreo also supports standard [OpenAPI V3 Schema](openapiv3-schema.md) (`openAPIV3Schema`) for full JSON Schema compatibility, vendor extensions (`x-*`), and `$defs`/`$ref` reusable types. The two formats are mutually exclusive within each schema section. When a resource defines both `parameters` and `environmentConfigs`, they **must** use the same format — mixing `ocSchema` in one section and `openAPIV3Schema` in the other is rejected by validation.
 
 ## Overview
 

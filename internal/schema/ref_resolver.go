@@ -158,7 +158,7 @@ func resolveRef(ref string, node map[string]any, defs map[string]any, visiting [
 
 	// Cycle detection
 	if slices.Contains(visiting, defName) {
-		cycle := append(visiting, defName)
+		cycle := append(slices.Clone(visiting), defName)
 		return nil, fmt.Errorf("circular $ref: %s", strings.Join(cycle, " → "))
 	}
 

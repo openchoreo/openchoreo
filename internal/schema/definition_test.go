@@ -16,6 +16,8 @@ import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
+const repoURLPicker = "RepoUrlPicker"
+
 func TestApplyDefaults_ArrayFieldBehaviour(t *testing.T) {
 	def := Definition{
 		Schemas: []map[string]any{
@@ -191,7 +193,7 @@ func TestResolveSectionToStructural_OpenAPIV3_WithRefs(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'port' property")
 	}
-	if portProp.Type != "integer" {
+	if portProp.Type != typeInteger {
 		t.Fatalf("expected port type=integer, got %s", portProp.Type)
 	}
 }
@@ -260,7 +262,7 @@ func TestSectionToJSONSchema_OpenAPIV3(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'env' property")
 	}
-	if envProp.Type != "string" {
+	if envProp.Type != typeString {
 		t.Fatalf("expected env type=string, got %s", envProp.Type)
 	}
 }
@@ -278,7 +280,7 @@ func TestSectionToJSONSchema_OCSchema(t *testing.T) {
 	if jsonSchema == nil {
 		t.Fatal("expected non-nil jsonSchema")
 	}
-	if jsonSchema.Type != "object" {
+	if jsonSchema.Type != typeObject {
 		t.Fatalf("expected type=object, got %s", jsonSchema.Type)
 	}
 	if _, ok := jsonSchema.Properties["replicas"]; !ok {
@@ -294,7 +296,7 @@ func TestSectionToJSONSchema_NilSection(t *testing.T) {
 	if jsonSchema == nil {
 		t.Fatal("expected non-nil jsonSchema for nil section")
 	}
-	if jsonSchema.Type != "object" {
+	if jsonSchema.Type != typeObject {
 		t.Fatalf("expected type=object, got %s", jsonSchema.Type)
 	}
 }
@@ -481,7 +483,7 @@ func TestTestdata_SimpleOpenAPIV3_JSONSchema(t *testing.T) {
 	if jsonSchema == nil {
 		t.Fatal("expected non-nil jsonSchema")
 	}
-	if jsonSchema.Type != "object" {
+	if jsonSchema.Type != typeObject {
 		t.Fatalf("expected type=object, got %s", jsonSchema.Type)
 	}
 
@@ -507,7 +509,7 @@ func TestSectionToJSONSchema_PreservesVendorExtensions(t *testing.T) {
 				"type":        "string",
 				"description": "Git repository URL",
 				"x-openchoreo-backstage-portal": map[string]any{
-					"ui:field": "RepoUrlPicker",
+					"ui:field": repoURLPicker,
 					"ui:options": map[string]any{
 						"allowedHosts": []any{"github.com"},
 					},
@@ -690,7 +692,7 @@ func TestSectionToJSONSchema_EmptyOpenAPIV3(t *testing.T) {
 	if jsonSchema == nil {
 		t.Fatal("expected non-nil jsonSchema")
 	}
-	if jsonSchema.Type != "object" {
+	if jsonSchema.Type != typeObject {
 		t.Fatalf("expected type=object, got %s", jsonSchema.Type)
 	}
 }
@@ -782,7 +784,7 @@ func TestTestdata_WithRefsOpenAPIV3_JSONSchemaPreservesFields(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'port' property")
 	}
-	if portProp.Type != "integer" {
+	if portProp.Type != typeInteger {
 		t.Fatalf("expected port type=integer, got %s", portProp.Type)
 	}
 }
@@ -823,7 +825,7 @@ properties:
 	if !ok {
 		t.Fatal("expected x-openchoreo-backstage-portal on replicas")
 	}
-	if ext["ui:field"] != "RepoUrlPicker" {
+	if ext["ui:field"] != repoURLPicker {
 		t.Fatalf("expected ui:field=RepoUrlPicker, got %v", ext["ui:field"])
 	}
 
@@ -833,7 +835,7 @@ properties:
 	if !ok {
 		t.Fatal("expected x-openchoreo-pull-portal on imagePullPolicy")
 	}
-	if ext2["ui:field"] != "RepoUrlPicker" {
+	if ext2["ui:field"] != repoURLPicker {
 		t.Fatalf("expected ui:field=RepoUrlPicker, got %v", ext2["ui:field"])
 	}
 }
@@ -874,7 +876,7 @@ properties:
 	resources := props["resources"].(map[string]any)
 
 	// $ref resolved
-	if resources["type"] != "object" {
+	if resources["type"] != typeObject {
 		t.Fatalf("expected type=object from resolved $ref, got %v", resources["type"])
 	}
 
@@ -893,7 +895,7 @@ func TestSectionToRawJSONSchema_NilSection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result["type"] != "object" {
+	if result["type"] != typeObject {
 		t.Fatalf("expected type=object for nil section, got %v", result["type"])
 	}
 }
@@ -912,7 +914,7 @@ name: "string"
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result["type"] != "object" {
+	if result["type"] != typeObject {
 		t.Fatalf("expected type=object, got %v", result["type"])
 	}
 	props, ok := result["properties"].(map[string]any)
@@ -1026,7 +1028,7 @@ func TestSectionToJSONSchema_ComplexNestedOpenAPIV3(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'database' property")
 	}
-	if dbProp.Type != "object" {
+	if dbProp.Type != typeObject {
 		t.Fatalf("expected database type=object, got %s", dbProp.Type)
 	}
 
@@ -1339,7 +1341,7 @@ func TestSectionToRawJSONSchema_EmptyOpenAPIV3(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result["type"] != "object" {
+	if result["type"] != typeObject {
 		t.Fatalf("expected type=object, got %v", result["type"])
 	}
 }

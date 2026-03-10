@@ -29,7 +29,7 @@ func TestOpenAPIV3ToStructural_Primitives(t *testing.T) {
 	if structural == nil {
 		t.Fatal("expected non-nil structural schema")
 	}
-	if structural.Type != "object" {
+	if structural.Type != typeObject {
 		t.Fatalf("expected type=object, got %s", structural.Type)
 	}
 	if _, ok := structural.Properties["name"]; !ok {
@@ -68,7 +68,7 @@ func TestOpenAPIV3ToStructural_WithRefs(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'port' property")
 	}
-	if portProp.Type != "integer" {
+	if portProp.Type != typeInteger {
 		t.Fatalf("expected port type=integer, got %s", portProp.Type)
 	}
 }
@@ -93,7 +93,7 @@ func TestOpenAPIV3ToJSONSchema_Primitives(t *testing.T) {
 	if jsonSchema == nil {
 		t.Fatal("expected non-nil JSON schema")
 	}
-	if jsonSchema.Type != "object" {
+	if jsonSchema.Type != typeObject {
 		t.Fatalf("expected type=object, got %s", jsonSchema.Type)
 	}
 
@@ -101,7 +101,7 @@ func TestOpenAPIV3ToJSONSchema_Primitives(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'name' property")
 	}
-	if nameProp.Type != "string" {
+	if nameProp.Type != typeString {
 		t.Fatalf("expected name type=string, got %s", nameProp.Type)
 	}
 	if len(jsonSchema.Required) != 1 || jsonSchema.Required[0] != "name" {
@@ -216,7 +216,7 @@ func TestOpenAPIV3ToStructural_NestedObject(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'database' property")
 	}
-	if dbProp.Type != "object" {
+	if dbProp.Type != typeObject {
 		t.Fatalf("expected database type=object, got %s", dbProp.Type)
 	}
 	if _, ok := dbProp.Properties["host"]; !ok {
@@ -271,7 +271,7 @@ func TestOpenAPIV3ToStructural_Enum(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'env' property")
 	}
-	if envProp.Type != "string" {
+	if envProp.Type != typeString {
 		t.Fatalf("expected env type=string, got %s", envProp.Type)
 	}
 }
@@ -296,7 +296,7 @@ func TestOpenAPIV3ToStructural_MapType(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'labels' property")
 	}
-	if labelsProp.Type != "object" {
+	if labelsProp.Type != typeObject {
 		t.Fatalf("expected labels type=object, got %s", labelsProp.Type)
 	}
 }
@@ -597,7 +597,7 @@ func TestOpenAPIV3ToResolvedSchema_PreservesVendorExtensions(t *testing.T) {
 	}
 
 	// Standard fields should also be present
-	if replicas["type"] != "integer" {
+	if replicas["type"] != typeInteger {
 		t.Fatalf("expected type=integer, got %v", replicas["type"])
 	}
 }
@@ -640,7 +640,7 @@ func TestOpenAPIV3ToResolvedSchema_VendorExtensionsWithRefSiblings(t *testing.T)
 	resources := props["resources"].(map[string]any)
 
 	// $ref should be resolved — type and properties from the definition
-	if resources["type"] != "object" {
+	if resources["type"] != typeObject {
 		t.Fatalf("expected type=object from resolved $ref, got %v", resources["type"])
 	}
 	resProp := resources["properties"].(map[string]any)
@@ -855,13 +855,13 @@ func TestOpenAPIV3ToStructural_OnlyAdditionalProperties(t *testing.T) {
 	if structural == nil {
 		t.Fatal("expected non-nil structural schema")
 	}
-	if structural.Type != "object" {
+	if structural.Type != typeObject {
 		t.Fatalf("expected type=object, got %s", structural.Type)
 	}
 	if structural.AdditionalProperties == nil || structural.AdditionalProperties.Structural == nil {
 		t.Fatal("expected additionalProperties to be set")
 	}
-	if structural.AdditionalProperties.Structural.Type != "string" {
+	if structural.AdditionalProperties.Structural.Type != typeString {
 		t.Fatalf("expected additionalProperties type=string, got %s",
 			structural.AdditionalProperties.Structural.Type)
 	}
@@ -925,13 +925,13 @@ func TestOpenAPIV3ToResolvedSchema_NoVendorExtensions(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if resolved["type"] != "object" {
+	if resolved["type"] != typeObject {
 		t.Fatalf("expected type=object, got %v", resolved["type"])
 	}
 
 	props := resolved["properties"].(map[string]any)
 	name := props["name"].(map[string]any)
-	if name["type"] != "string" {
+	if name["type"] != typeString {
 		t.Fatalf("expected name type=string, got %v", name["type"])
 	}
 	if name["default"] != "hello" {
@@ -994,17 +994,17 @@ func TestOpenAPIV3ToStructural_FormatField(t *testing.T) {
 	}
 
 	emailProp := structural.Properties["email"]
-	if emailProp.Type != "string" {
+	if emailProp.Type != typeString {
 		t.Fatalf("expected email type=string, got %s", emailProp.Type)
 	}
 
 	createdProp := structural.Properties["created"]
-	if createdProp.Type != "string" {
+	if createdProp.Type != typeString {
 		t.Fatalf("expected created type=string, got %s", createdProp.Type)
 	}
 
 	ageProp := structural.Properties["age"]
-	if ageProp.Type != "integer" {
+	if ageProp.Type != typeInteger {
 		t.Fatalf("expected age type=integer, got %s", ageProp.Type)
 	}
 }
@@ -1033,7 +1033,7 @@ func TestStripVendorExtensions_NestedInArray(t *testing.T) {
 	if _, ok := first["x-internal"]; ok {
 		t.Fatal("expected x-internal to be stripped from allOf element")
 	}
-	if first["type"] != "object" {
+	if first["type"] != typeObject {
 		t.Fatal("expected type to be preserved in allOf element")
 	}
 
