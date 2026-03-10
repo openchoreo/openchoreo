@@ -21,9 +21,10 @@ import (
 // NewReleaseBindingCmd creates the release-binding command group
 func NewReleaseBindingCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   constants.ReleaseBindingRoot.Use,
-		Short: constants.ReleaseBindingRoot.Short,
-		Long:  constants.ReleaseBindingRoot.Long,
+		Use:     constants.ReleaseBindingRoot.Use,
+		Aliases: constants.ReleaseBindingRoot.Aliases,
+		Short:   constants.ReleaseBindingRoot.Short,
+		Long:    constants.ReleaseBindingRoot.Long,
 	}
 
 	cmd.AddCommand(

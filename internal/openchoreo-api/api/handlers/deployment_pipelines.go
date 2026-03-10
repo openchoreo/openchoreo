@@ -20,12 +20,16 @@ func (h *Handler) ListDeploymentPipelines(
 ) (gen.ListDeploymentPipelinesResponseObject, error) {
 	h.logger.Debug("ListDeploymentPipelines called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.DeploymentPipelineService.ListDeploymentPipelines(ctx, request.NamespaceName, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListDeploymentPipelines403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListDeploymentPipelines400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list deployment pipelines", "error", err)
 		return gen.ListDeploymentPipelines500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

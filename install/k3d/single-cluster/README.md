@@ -193,10 +193,9 @@ AGENT_CA=$(kubectl get secret cluster-agent-tls \
 
 kubectl apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
-kind: DataPlane
+kind: ClusterDataPlane
 metadata:
   name: default
-  namespace: default
 spec:
   planeID: default
   clusterAgent:
@@ -368,8 +367,8 @@ EOF
 ### Link Other Planes
 
 ```bash
-kubectl patch dataplane default -n default --type merge \
-  -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
+kubectl patch clusterdataplane default --type merge \
+  -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}'
 
 # If workflow plane is installed:
 kubectl patch workflowplane default -n default --type merge \
@@ -415,7 +414,7 @@ kubectl get pods -n openchoreo-workflow-plane
 kubectl get pods -n openchoreo-observability-plane
 
 # Plane resources
-kubectl get dataplane,workflowplane,observabilityplane -n default
+kubectl get clusterdataplane,workflowplane,observabilityplane -n default
 
 # Agent connections
 kubectl logs -n openchoreo-data-plane -l app=cluster-agent --tail=5

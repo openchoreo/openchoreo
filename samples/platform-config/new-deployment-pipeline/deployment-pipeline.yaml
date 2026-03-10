@@ -10,15 +10,18 @@ metadata:
   namespace: default
 spec:
   promotionPaths:
-    - sourceEnvironmentRef: development
+    - sourceEnvironmentRef:
+        name: development
       targetEnvironmentRefs:
         - name: qa
           requiresApproval: false
-    - sourceEnvironmentRef: qa
+    - sourceEnvironmentRef:
+        name: qa
       targetEnvironmentRefs:
         - name: preproduction
           requiresApproval: true
-    - sourceEnvironmentRef: preproduction
+    - sourceEnvironmentRef:
+        name: preproduction
       targetEnvironmentRefs:
         - name: production
           requiresApproval: true

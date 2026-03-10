@@ -442,7 +442,7 @@ This command allows you to:
 
 	CreateDeploymentPipeline = Command{
 		Use:     "deploymentpipeline",
-		Aliases: []string{"deppipe", "deppipes", "deploymentpipelines"},
+		Aliases: []string{"deppipe", "deploymentpipelines"},
 		Short:   "Create a deployment pipeline",
 		Long:    `Create a deployment pipeline in the specified namespace.`,
 		Example: `  # Create a deployment pipeline with specific parameters
@@ -452,7 +452,7 @@ This command allows you to:
 
 	ListDeploymentPipeline = Command{
 		Use:     "deploymentpipeline [name]",
-		Aliases: []string{"deppipe", "deppipes", "deploymentpipelines"},
+		Aliases: []string{"deppipe", "deploymentpipelines"},
 		Short:   "List deployment pipelines",
 		Long:    `List all deployment pipelines or a specific deployment pipeline in a namespace.`,
 		Example: `  # List all deployment pipelines
@@ -467,7 +467,7 @@ This command allows you to:
 
 	DeploymentPipelineRoot = Command{
 		Use:     "deploymentpipeline",
-		Aliases: []string{"deppipe", "deppipes", "deploymentpipelines"},
+		Aliases: []string{"deppipe", "deploymentpipelines"},
 		Short:   "Manage deployment pipelines",
 		Long:    `Manage deployment pipelines for OpenChoreo.`,
 	}
@@ -755,7 +755,7 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
 
 	AuthzClusterRole = Command{
 		Use:     "authzclusterrole",
-		Aliases: []string{"authzclusterroles", "cr"},
+		Aliases: []string{"authzclusterroles", "acr"},
 		Short:   "Manage authz cluster roles",
 		Long:    `Manage cluster-scoped authorization roles for OpenChoreo.`,
 	}
@@ -786,7 +786,7 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
 
 	AuthzClusterRoleBinding = Command{
 		Use:     "authzclusterrolebinding",
-		Aliases: []string{"authzclusterrolebindings", "crb"},
+		Aliases: []string{"authzclusterrolebindings", "acrb"},
 		Short:   "Manage authz cluster role bindings",
 		Long:    `Manage cluster-scoped authorization role bindings for OpenChoreo.`,
 	}
@@ -817,7 +817,7 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
 
 	AuthzRole = Command{
 		Use:     "authzrole",
-		Aliases: []string{"authzroles"},
+		Aliases: []string{"authzroles", "ar"},
 		Short:   "Manage authz roles",
 		Long:    `Manage namespace-scoped authorization roles for OpenChoreo.`,
 	}
@@ -848,7 +848,7 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
 
 	AuthzRoleBinding = Command{
 		Use:     "authzrolebinding",
-		Aliases: []string{"authzrolebindings", "rb"},
+		Aliases: []string{"authzrolebindings", "arb"},
 		Short:   "Manage authz role bindings",
 		Long:    `Manage namespace-scoped authorization role bindings for OpenChoreo.`,
 	}
@@ -916,7 +916,7 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
 
 	SecretReference = Command{
 		Use:     "secretreference",
-		Aliases: []string{"sr", "secretreferences", "secret-ref"},
+		Aliases: []string{"sr", "secretreferences", "secretref"},
 		Short:   "Manage secret references",
 		Long:    `Manage secret references for OpenChoreo.`,
 	}
@@ -1212,7 +1212,7 @@ Use --workflowrun to specify a particular run.`,
 
 	ComponentReleaseRoot = Command{
 		Use:     "componentrelease",
-		Aliases: []string{"component-release"},
+		Aliases: []string{"componentreleases", "cr"},
 		Short:   "Manage component releases",
 		Long:    "Commands for managing component releases in file-system mode",
 	}
@@ -1243,7 +1243,7 @@ Use --workflowrun to specify a particular run.`,
 
 	ReleaseBindingRoot = Command{
 		Use:     "releasebinding",
-		Aliases: []string{"release-binding"},
+		Aliases: []string{"releasebindings", "rb"},
 		Short:   "Manage release bindings",
 		Long:    "Commands for managing release bindings in file-system mode",
 	}
@@ -1346,7 +1346,7 @@ Use --workflowrun to specify a particular run.`,
 
 	ObservabilityAlertsNotificationChannel = Command{
 		Use:     "observabilityalertsnotificationchannel",
-		Aliases: []string{"oanc", "obsnotifchannel"},
+		Aliases: []string{"oanc", "obsnotificationchannel", "observabilityalertsnotificationchannels"},
 		Short:   "Manage observability alerts notification channels",
 		Long:    `Manage observability alerts notification channels for OpenChoreo.`,
 	}

@@ -177,12 +177,6 @@ type DeploymentToolsetHandler interface {
 		ctx context.Context, namespaceName, bindingName string,
 		state *gen.ReleaseBindingSpecState,
 	) (any, error)
-	DeployRelease(
-		ctx context.Context, namespaceName, componentName string, req *gen.DeployReleaseRequest,
-	) (any, error)
-	PromoteComponent(
-		ctx context.Context, namespaceName, componentName string, req *gen.PromoteComponentRequest,
-	) (any, error)
 	ListDeploymentPipelines(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetDeploymentPipeline(ctx context.Context, namespaceName, pipelineName string) (any, error)
 	ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error)

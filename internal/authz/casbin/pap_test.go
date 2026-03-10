@@ -6,6 +6,7 @@ package casbin
 import (
 	"context"
 	"errors"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -595,8 +596,8 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 		if crd.Spec.Entitlement.Value != "test-group" {
 			t.Errorf("CRD entitlement value = %s, want test-group", crd.Spec.Entitlement.Value)
 		}
-		if crd.Spec.RoleRef.Name != "binding-test-role" {
-			t.Errorf("CRD roleRef name = %s, want binding-test-role", crd.Spec.RoleRef.Name)
+		if crd.Spec.RoleMappings[0].RoleRef.Name != "binding-test-role" {
+			t.Errorf("CRD roleRef name = %s, want binding-test-role", crd.Spec.RoleMappings[0].RoleRef.Name)
 		}
 		if crd.Spec.Effect != openchoreov1alpha1.EffectAllow {
 			t.Errorf("CRD effect = %s, want allow", crd.Spec.Effect)
@@ -643,8 +644,8 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 		if crd.Spec.Entitlement.Value != "admin-group" {
 			t.Errorf("CRD entitlement value = %s, want admin-group", crd.Spec.Entitlement.Value)
 		}
-		if crd.Spec.RoleRef.Name != "cluster-binding-test-role" {
-			t.Errorf("CRD roleRef name = %s, want cluster-binding-test-role", crd.Spec.RoleRef.Name)
+		if crd.Spec.RoleMappings[0].RoleRef.Name != "cluster-binding-test-role" {
+			t.Errorf("CRD roleRef name = %s, want cluster-binding-test-role", crd.Spec.RoleMappings[0].RoleRef.Name)
 		}
 	})
 
@@ -684,8 +685,8 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 		}
 
 		// Verify CRD spec has targetPath with project
-		if crd.Spec.TargetPath.Project != "project1" {
-			t.Errorf("CRD targetPath.project = %s, want project1", crd.Spec.TargetPath.Project)
+		if crd.Spec.RoleMappings[0].TargetPath.Project != "project1" {
+			t.Errorf("CRD targetPath.project = %s, want project1", crd.Spec.RoleMappings[0].TargetPath.Project)
 		}
 	})
 
@@ -917,8 +918,8 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 		if crd.Spec.Entitlement.Value != "prod-group" {
 			t.Errorf("UpdateRoleEntitlementMapping() CRD entitlement value = %s, want prod-group", crd.Spec.Entitlement.Value)
 		}
-		if crd.Spec.TargetPath.Project != "p1" {
-			t.Errorf("UpdateRoleEntitlementMapping() CRD targetPath.project = %s, want p1", crd.Spec.TargetPath.Project)
+		if crd.Spec.RoleMappings[0].TargetPath.Project != "p1" {
+			t.Errorf("UpdateRoleEntitlementMapping() CRD targetPath.project = %s, want p1", crd.Spec.RoleMappings[0].TargetPath.Project)
 		}
 		if crd.Spec.Effect != openchoreov1alpha1.EffectDeny {
 			t.Errorf("UpdateRoleEntitlementMapping() CRD effect = %s, want deny", crd.Spec.Effect)
@@ -1318,13 +1319,16 @@ func TestCasbinEnforcer_CreateClusterRoleBinding(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
 
-	t.Run("create cluster role binding", func(t *testing.T) {
+	t.Run("create cluster role binding with single mapping", func(t *testing.T) {
+		wantMappings := []openchoreov1alpha1.ClusterRoleMapping{{
+			RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "admin"},
+		}}
 		binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: "crd-crb-1"},
 			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
-				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "admins"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "admin"},
-				Effect:      openchoreov1alpha1.EffectAllow,
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "admins"},
+				RoleMappings: wantMappings,
+				Effect:       openchoreov1alpha1.EffectAllow,
 			},
 		}
 		created, err := enforcer.CreateClusterRoleBinding(ctx, binding)
@@ -1337,6 +1341,15 @@ func TestCasbinEnforcer_CreateClusterRoleBinding(t *testing.T) {
 		if created.Spec.Entitlement.Value != "admins" {
 			t.Errorf("entitlement value = %s, want admins", created.Spec.Entitlement.Value)
 		}
+		if len(created.Spec.RoleMappings) != 1 {
+			t.Fatalf("RoleMappings length = %d, want 1", len(created.Spec.RoleMappings))
+		}
+		if !reflect.DeepEqual(created.Spec.RoleMappings, wantMappings) {
+			t.Errorf("RoleMappings = %v, want %v", created.Spec.RoleMappings, wantMappings)
+		}
+		if created.Spec.Effect != openchoreov1alpha1.EffectAllow {
+			t.Errorf("effect = %s, want allow", created.Spec.Effect)
+		}
 	})
 
 	t.Run("create duplicate cluster role binding", func(t *testing.T) {
@@ -1344,8 +1357,10 @@ func TestCasbinEnforcer_CreateClusterRoleBinding(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "dup-crb"},
 			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
 				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "devs"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "dev"},
-				Effect:      openchoreov1alpha1.EffectAllow,
+				RoleMappings: []openchoreov1alpha1.ClusterRoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "dev"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
 			},
 		}
 		if _, err := enforcer.CreateClusterRoleBinding(ctx, binding); err != nil {
@@ -1355,12 +1370,58 @@ func TestCasbinEnforcer_CreateClusterRoleBinding(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "dup-crb"},
 			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
 				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "devs"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "dev"},
-				Effect:      openchoreov1alpha1.EffectAllow,
+				RoleMappings: []openchoreov1alpha1.ClusterRoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "dev"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
 			},
 		})
 		if !errors.Is(err, authzcore.ErrRoleMappingAlreadyExists) {
 			t.Errorf("duplicate error = %v, want ErrRoleMappingAlreadyExists", err)
+		}
+	})
+
+	t.Run("create cluster role binding with multiple role mappings", func(t *testing.T) {
+		wantMappings := []openchoreov1alpha1.ClusterRoleMapping{
+			{RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "admin"}},
+			{RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "viewer"}},
+			{RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "editor"}},
+		}
+		binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "multi-crb"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "multi-group"},
+				RoleMappings: wantMappings,
+				Effect:       openchoreov1alpha1.EffectAllow,
+			},
+		}
+		created, err := enforcer.CreateClusterRoleBinding(ctx, binding)
+		if err != nil {
+			t.Fatalf("CreateClusterRoleBinding() error = %v", err)
+		}
+		if len(created.Spec.RoleMappings) != len(wantMappings) {
+			t.Fatalf("RoleMappings length = %d, want %d", len(created.Spec.RoleMappings), len(wantMappings))
+		}
+		if !reflect.DeepEqual(created.Spec.RoleMappings, wantMappings) {
+			t.Errorf("RoleMappings = %v, want %v", created.Spec.RoleMappings, wantMappings)
+		}
+		if created.Spec.Effect != openchoreov1alpha1.EffectAllow {
+			t.Errorf("effect = %s, want allow", created.Spec.Effect)
+		}
+
+		// Verify round-trip via Get
+		fetched, err := enforcer.GetClusterRoleBinding(ctx, "multi-crb")
+		if err != nil {
+			t.Fatalf("GetClusterRoleBinding() error = %v", err)
+		}
+		if len(fetched.Spec.RoleMappings) != len(wantMappings) {
+			t.Fatalf("fetched RoleMappings length = %d, want %d", len(fetched.Spec.RoleMappings), len(wantMappings))
+		}
+		if !reflect.DeepEqual(fetched.Spec.RoleMappings, wantMappings) {
+			t.Errorf("fetched RoleMappings = %v, want %v", fetched.Spec.RoleMappings, wantMappings)
+		}
+		if fetched.Spec.Effect != openchoreov1alpha1.EffectAllow {
+			t.Errorf("fetched effect = %s, want allow", fetched.Spec.Effect)
 		}
 	})
 
@@ -1377,25 +1438,66 @@ func TestCasbinEnforcer_GetClusterRoleBinding(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
 
-	binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: "get-crb"},
-		Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
-			Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "ops"},
-			RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "ops-role"},
-			Effect:      openchoreov1alpha1.EffectAllow,
-		},
-	}
-	if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
-		t.Fatalf("setup: %v", err)
-	}
+	t.Run("get existing with single mapping", func(t *testing.T) {
+		wantMappings := []openchoreov1alpha1.ClusterRoleMapping{{
+			RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "ops-role"},
+		}}
+		binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "get-crb"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "ops"},
+				RoleMappings: wantMappings,
+				Effect:       openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
 
-	t.Run("get existing", func(t *testing.T) {
 		fetched, err := enforcer.GetClusterRoleBinding(ctx, "get-crb")
 		if err != nil {
 			t.Fatalf("GetClusterRoleBinding() error = %v", err)
 		}
-		if fetched.Spec.RoleRef.Name != "ops-role" {
-			t.Errorf("roleRef name = %s, want ops-role", fetched.Spec.RoleRef.Name)
+		if len(fetched.Spec.RoleMappings) != 1 {
+			t.Fatalf("RoleMappings length = %d, want 1", len(fetched.Spec.RoleMappings))
+		}
+		if !reflect.DeepEqual(fetched.Spec.RoleMappings, wantMappings) {
+			t.Errorf("RoleMappings = %v, want %v", fetched.Spec.RoleMappings, wantMappings)
+		}
+		if fetched.Spec.Effect != openchoreov1alpha1.EffectAllow {
+			t.Errorf("effect = %s, want allow", fetched.Spec.Effect)
+		}
+	})
+
+	t.Run("get existing with multiple mappings", func(t *testing.T) {
+		wantMappings := []openchoreov1alpha1.ClusterRoleMapping{
+			{RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "role-x"}},
+			{RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "role-y"}},
+		}
+		binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "get-multi-crb"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "multi-ops"},
+				RoleMappings: wantMappings,
+				Effect:       openchoreov1alpha1.EffectDeny,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		fetched, err := enforcer.GetClusterRoleBinding(ctx, "get-multi-crb")
+		if err != nil {
+			t.Fatalf("GetClusterRoleBinding() error = %v", err)
+		}
+		if len(fetched.Spec.RoleMappings) != len(wantMappings) {
+			t.Fatalf("RoleMappings length = %d, want %d", len(fetched.Spec.RoleMappings), len(wantMappings))
+		}
+		if !reflect.DeepEqual(fetched.Spec.RoleMappings, wantMappings) {
+			t.Errorf("RoleMappings = %v, want %v", fetched.Spec.RoleMappings, wantMappings)
+		}
+		if fetched.Spec.Effect != openchoreov1alpha1.EffectDeny {
+			t.Errorf("effect = %s, want deny", fetched.Spec.Effect)
 		}
 	})
 
@@ -1417,8 +1519,10 @@ func TestCasbinEnforcer_ListClusterRoleBindings(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: name},
 			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
 				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "g"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "r"},
-				Effect:      openchoreov1alpha1.EffectAllow,
+				RoleMappings: []openchoreov1alpha1.ClusterRoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "r"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
 			},
 		}
 		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
@@ -1440,25 +1544,30 @@ func TestCasbinEnforcer_UpdateClusterRoleBinding(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
 
-	t.Run("update existing cluster role binding", func(t *testing.T) {
+	t.Run("update existing cluster role binding with single mapping", func(t *testing.T) {
 		binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: "update-crb"},
 			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
 				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "old-group"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "old-role"},
-				Effect:      openchoreov1alpha1.EffectAllow,
+				RoleMappings: []openchoreov1alpha1.ClusterRoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "old-role"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
 			},
 		}
 		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
 			t.Fatalf("setup: %v", err)
 		}
 
+		wantMappings := []openchoreov1alpha1.ClusterRoleMapping{{
+			RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "new-role"},
+		}}
 		updated, err := enforcer.UpdateClusterRoleBinding(ctx, &openchoreov1alpha1.AuthzClusterRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: "update-crb"},
 			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
-				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "new-group"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "new-role"},
-				Effect:      openchoreov1alpha1.EffectDeny,
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "new-group"},
+				RoleMappings: wantMappings,
+				Effect:       openchoreov1alpha1.EffectDeny,
 			},
 		})
 		if err != nil {
@@ -1467,11 +1576,72 @@ func TestCasbinEnforcer_UpdateClusterRoleBinding(t *testing.T) {
 		if updated.Spec.Entitlement.Value != "new-group" {
 			t.Errorf("entitlement value = %s, want new-group", updated.Spec.Entitlement.Value)
 		}
-		if updated.Spec.RoleRef.Name != "new-role" {
-			t.Errorf("roleRef name = %s, want new-role", updated.Spec.RoleRef.Name)
+		if len(updated.Spec.RoleMappings) != 1 {
+			t.Fatalf("RoleMappings length = %d, want 1", len(updated.Spec.RoleMappings))
+		}
+		if !reflect.DeepEqual(updated.Spec.RoleMappings, wantMappings) {
+			t.Errorf("RoleMappings = %v, want %v", updated.Spec.RoleMappings, wantMappings)
 		}
 		if updated.Spec.Effect != openchoreov1alpha1.EffectDeny {
 			t.Errorf("effect = %s, want deny", updated.Spec.Effect)
+		}
+	})
+
+	t.Run("update cluster role binding with multiple role mappings", func(t *testing.T) {
+		// Create with a single mapping first
+		binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "update-multi-crb"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "team"},
+				RoleMappings: []openchoreov1alpha1.ClusterRoleMapping{
+					{RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "initial-role"}},
+				},
+				Effect: openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		// Update to multiple mappings and change effect
+		wantMappings := []openchoreov1alpha1.ClusterRoleMapping{
+			{RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "role-a"}},
+			{RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "role-b"}},
+		}
+		updated, err := enforcer.UpdateClusterRoleBinding(ctx, &openchoreov1alpha1.AuthzClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "update-multi-crb"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "team"},
+				RoleMappings: wantMappings,
+				Effect:       openchoreov1alpha1.EffectDeny,
+			},
+		})
+		if err != nil {
+			t.Fatalf("UpdateClusterRoleBinding() error = %v", err)
+		}
+		if len(updated.Spec.RoleMappings) != len(wantMappings) {
+			t.Fatalf("RoleMappings length = %d, want %d", len(updated.Spec.RoleMappings), len(wantMappings))
+		}
+		if !reflect.DeepEqual(updated.Spec.RoleMappings, wantMappings) {
+			t.Errorf("RoleMappings = %v, want %v", updated.Spec.RoleMappings, wantMappings)
+		}
+		if updated.Spec.Effect != openchoreov1alpha1.EffectDeny {
+			t.Errorf("effect = %s, want deny", updated.Spec.Effect)
+		}
+
+		// Verify round-trip via Get
+		fetched, err := enforcer.GetClusterRoleBinding(ctx, "update-multi-crb")
+		if err != nil {
+			t.Fatalf("GetClusterRoleBinding() error = %v", err)
+		}
+		if len(fetched.Spec.RoleMappings) != len(wantMappings) {
+			t.Fatalf("fetched RoleMappings length = %d, want %d", len(fetched.Spec.RoleMappings), len(wantMappings))
+		}
+		if !reflect.DeepEqual(fetched.Spec.RoleMappings, wantMappings) {
+			t.Errorf("fetched RoleMappings = %v, want %v", fetched.Spec.RoleMappings, wantMappings)
+		}
+		if fetched.Spec.Effect != openchoreov1alpha1.EffectDeny {
+			t.Errorf("fetched effect = %s, want deny", fetched.Spec.Effect)
 		}
 	})
 
@@ -1480,8 +1650,10 @@ func TestCasbinEnforcer_UpdateClusterRoleBinding(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "no-exist-crb"},
 			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
 				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "g"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "r"},
-				Effect:      openchoreov1alpha1.EffectAllow,
+				RoleMappings: []openchoreov1alpha1.ClusterRoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "r"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
 			},
 		})
 		if !errors.Is(err, authzcore.ErrRoleMappingNotFound) {
@@ -1506,14 +1678,17 @@ func TestCasbinEnforcer_CreateNamespacedRoleBinding(t *testing.T) {
 	ctx := context.Background()
 	const testNs = "acme"
 
-	t.Run("create namespaced role binding", func(t *testing.T) {
+	t.Run("create namespaced role binding with single mapping", func(t *testing.T) {
+		wantMappings := []openchoreov1alpha1.RoleMapping{{
+			RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "dev-role"},
+			TargetPath: openchoreov1alpha1.TargetPath{Project: "p1"},
+		}}
 		binding := &openchoreov1alpha1.AuthzRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: "crd-rb-1", Namespace: testNs},
 			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
-				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "devs"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "dev-role"},
-				TargetPath:  openchoreov1alpha1.TargetPath{Project: "p1"},
-				Effect:      openchoreov1alpha1.EffectAllow,
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "devs"},
+				RoleMappings: wantMappings,
+				Effect:       openchoreov1alpha1.EffectAllow,
 			},
 		}
 		created, err := enforcer.CreateNamespacedRoleBinding(ctx, binding)
@@ -1523,8 +1698,63 @@ func TestCasbinEnforcer_CreateNamespacedRoleBinding(t *testing.T) {
 		if created.Name != "crd-rb-1" || created.Namespace != testNs {
 			t.Errorf("result = %s/%s, want %s/crd-rb-1", created.Namespace, created.Name, testNs)
 		}
-		if created.Spec.TargetPath.Project != "p1" {
-			t.Errorf("targetPath.project = %s, want p1", created.Spec.TargetPath.Project)
+		if len(created.Spec.RoleMappings) != 1 {
+			t.Fatalf("RoleMappings length = %d, want 1", len(created.Spec.RoleMappings))
+		}
+		if !reflect.DeepEqual(created.Spec.RoleMappings, wantMappings) {
+			t.Errorf("RoleMappings = %v, want %v", created.Spec.RoleMappings, wantMappings)
+		}
+		if created.Spec.Effect != openchoreov1alpha1.EffectAllow {
+			t.Errorf("effect = %s, want allow", created.Spec.Effect)
+		}
+	})
+
+	t.Run("create namespaced role binding with multiple mappings", func(t *testing.T) {
+		wantMappings := []openchoreov1alpha1.RoleMapping{
+			{
+				RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "viewer-role"},
+				TargetPath: openchoreov1alpha1.TargetPath{Project: "proj-a"},
+			},
+			{
+				RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "admin-role"},
+				TargetPath: openchoreov1alpha1.TargetPath{Project: "proj-b", Component: "comp-1"},
+			},
+			{
+				RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "editor-role"},
+			},
+		}
+		binding := &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "multi-rb", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "multi-devs"},
+				RoleMappings: wantMappings,
+				Effect:       openchoreov1alpha1.EffectAllow,
+			},
+		}
+		created, err := enforcer.CreateNamespacedRoleBinding(ctx, binding)
+		if err != nil {
+			t.Fatalf("CreateNamespacedRoleBinding() error = %v", err)
+		}
+		if len(created.Spec.RoleMappings) != len(wantMappings) {
+			t.Fatalf("RoleMappings length = %d, want %d", len(created.Spec.RoleMappings), len(wantMappings))
+		}
+		if !reflect.DeepEqual(created.Spec.RoleMappings, wantMappings) {
+			t.Errorf("RoleMappings = %v, want %v", created.Spec.RoleMappings, wantMappings)
+		}
+		if created.Spec.Effect != openchoreov1alpha1.EffectAllow {
+			t.Errorf("effect = %s, want allow", created.Spec.Effect)
+		}
+
+		// Verify round-trip via Get
+		fetched, err := enforcer.GetNamespacedRoleBinding(ctx, "multi-rb", testNs)
+		if err != nil {
+			t.Fatalf("GetNamespacedRoleBinding() error = %v", err)
+		}
+		if len(fetched.Spec.RoleMappings) != len(wantMappings) {
+			t.Fatalf("fetched RoleMappings length = %d, want %d", len(fetched.Spec.RoleMappings), len(wantMappings))
+		}
+		if !reflect.DeepEqual(fetched.Spec.RoleMappings, wantMappings) {
+			t.Errorf("fetched RoleMappings = %v, want %v", fetched.Spec.RoleMappings, wantMappings)
 		}
 	})
 
@@ -1533,8 +1763,10 @@ func TestCasbinEnforcer_CreateNamespacedRoleBinding(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "dup-rb", Namespace: testNs},
 			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
 				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "g"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "r"},
-				Effect:      openchoreov1alpha1.EffectAllow,
+				RoleMappings: []openchoreov1alpha1.RoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "r"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
 			},
 		}
 		if _, err := enforcer.CreateNamespacedRoleBinding(ctx, binding); err != nil {
@@ -1544,8 +1776,10 @@ func TestCasbinEnforcer_CreateNamespacedRoleBinding(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "dup-rb", Namespace: testNs},
 			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
 				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "g"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "r"},
-				Effect:      openchoreov1alpha1.EffectAllow,
+				RoleMappings: []openchoreov1alpha1.RoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "r"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
 			},
 		})
 		if !errors.Is(err, authzcore.ErrRoleMappingAlreadyExists) {
@@ -1566,25 +1800,72 @@ func TestCasbinEnforcer_GetNamespacedRoleBinding(t *testing.T) {
 	ctx := context.Background()
 	const testNs = "acme"
 
-	binding := &openchoreov1alpha1.AuthzRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: "get-rb", Namespace: testNs},
-		Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
-			Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "ops"},
-			RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "ops-role"},
-			Effect:      openchoreov1alpha1.EffectAllow,
-		},
-	}
-	if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
-		t.Fatalf("setup: %v", err)
-	}
+	t.Run("get existing with single mapping", func(t *testing.T) {
+		wantMappings := []openchoreov1alpha1.RoleMapping{{
+			RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "ops-role"},
+		}}
+		binding := &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "get-rb", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "ops"},
+				RoleMappings: wantMappings,
+				Effect:       openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
 
-	t.Run("get existing", func(t *testing.T) {
 		fetched, err := enforcer.GetNamespacedRoleBinding(ctx, "get-rb", testNs)
 		if err != nil {
 			t.Fatalf("GetNamespacedRoleBinding() error = %v", err)
 		}
-		if fetched.Spec.RoleRef.Name != "ops-role" {
-			t.Errorf("roleRef name = %s, want ops-role", fetched.Spec.RoleRef.Name)
+		if len(fetched.Spec.RoleMappings) != 1 {
+			t.Fatalf("RoleMappings length = %d, want 1", len(fetched.Spec.RoleMappings))
+		}
+		if !reflect.DeepEqual(fetched.Spec.RoleMappings, wantMappings) {
+			t.Errorf("RoleMappings = %v, want %v", fetched.Spec.RoleMappings, wantMappings)
+		}
+		if fetched.Spec.Effect != openchoreov1alpha1.EffectAllow {
+			t.Errorf("effect = %s, want allow", fetched.Spec.Effect)
+		}
+	})
+
+	t.Run("get existing with multiple mappings", func(t *testing.T) {
+		wantMappings := []openchoreov1alpha1.RoleMapping{
+			{
+				RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "role-a"},
+				TargetPath: openchoreov1alpha1.TargetPath{Project: "proj-1"},
+			},
+			{
+				RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "role-b"},
+				TargetPath: openchoreov1alpha1.TargetPath{Project: "proj-2", Component: "comp-x"},
+			},
+		}
+		binding := &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "get-multi-rb", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "multi-ops"},
+				RoleMappings: wantMappings,
+				Effect:       openchoreov1alpha1.EffectDeny,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		fetched, err := enforcer.GetNamespacedRoleBinding(ctx, "get-multi-rb", testNs)
+		if err != nil {
+			t.Fatalf("GetNamespacedRoleBinding() error = %v", err)
+		}
+		if len(fetched.Spec.RoleMappings) != len(wantMappings) {
+			t.Fatalf("RoleMappings length = %d, want %d", len(fetched.Spec.RoleMappings), len(wantMappings))
+		}
+		if !reflect.DeepEqual(fetched.Spec.RoleMappings, wantMappings) {
+			t.Errorf("RoleMappings = %v, want %v", fetched.Spec.RoleMappings, wantMappings)
+		}
+		if fetched.Spec.Effect != openchoreov1alpha1.EffectDeny {
+			t.Errorf("effect = %s, want deny", fetched.Spec.Effect)
 		}
 	})
 
@@ -1620,8 +1901,10 @@ func TestCasbinEnforcer_ListNamespacedRoleBindings(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: r.name, Namespace: r.ns},
 			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
 				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "g"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "r"},
-				Effect:      openchoreov1alpha1.EffectAllow,
+				RoleMappings: []openchoreov1alpha1.RoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "r"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
 			},
 		}
 		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
@@ -1660,26 +1943,31 @@ func TestCasbinEnforcer_UpdateNamespacedRoleBinding(t *testing.T) {
 	ctx := context.Background()
 	const testNs = "acme"
 
-	t.Run("update existing namespaced role binding", func(t *testing.T) {
+	t.Run("update existing namespaced role binding with single mapping", func(t *testing.T) {
 		binding := &openchoreov1alpha1.AuthzRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: "update-rb", Namespace: testNs},
 			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
 				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "old-group"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "old-role"},
-				Effect:      openchoreov1alpha1.EffectAllow,
+				RoleMappings: []openchoreov1alpha1.RoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "old-role"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
 			},
 		}
 		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
 			t.Fatalf("setup: %v", err)
 		}
 
+		wantMappings := []openchoreov1alpha1.RoleMapping{{
+			RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "new-role"},
+			TargetPath: openchoreov1alpha1.TargetPath{Project: "p1", Component: "c1"},
+		}}
 		updated, err := enforcer.UpdateNamespacedRoleBinding(ctx, &openchoreov1alpha1.AuthzRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: "update-rb", Namespace: testNs},
 			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
-				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "new-group"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "new-role"},
-				TargetPath:  openchoreov1alpha1.TargetPath{Project: "p1", Component: "c1"},
-				Effect:      openchoreov1alpha1.EffectDeny,
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "new-group"},
+				RoleMappings: wantMappings,
+				Effect:       openchoreov1alpha1.EffectDeny,
 			},
 		})
 		if err != nil {
@@ -1688,17 +1976,78 @@ func TestCasbinEnforcer_UpdateNamespacedRoleBinding(t *testing.T) {
 		if updated.Spec.Entitlement.Value != "new-group" {
 			t.Errorf("entitlement value = %s, want new-group", updated.Spec.Entitlement.Value)
 		}
-		if updated.Spec.RoleRef.Name != "new-role" {
-			t.Errorf("roleRef name = %s, want new-role", updated.Spec.RoleRef.Name)
+		if len(updated.Spec.RoleMappings) != 1 {
+			t.Fatalf("RoleMappings length = %d, want 1", len(updated.Spec.RoleMappings))
 		}
-		if updated.Spec.TargetPath.Project != "p1" {
-			t.Errorf("targetPath.project = %s, want p1", updated.Spec.TargetPath.Project)
-		}
-		if updated.Spec.TargetPath.Component != "c1" {
-			t.Errorf("targetPath.component = %s, want c1", updated.Spec.TargetPath.Component)
+		if !reflect.DeepEqual(updated.Spec.RoleMappings, wantMappings) {
+			t.Errorf("RoleMappings = %v, want %v", updated.Spec.RoleMappings, wantMappings)
 		}
 		if updated.Spec.Effect != openchoreov1alpha1.EffectDeny {
 			t.Errorf("effect = %s, want deny", updated.Spec.Effect)
+		}
+	})
+
+	t.Run("update namespaced role binding with multiple mappings", func(t *testing.T) {
+		// Create with a single mapping
+		binding := &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "update-multi-rb", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "team"},
+				RoleMappings: []openchoreov1alpha1.RoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "initial"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		// Update to multiple mappings and change effect
+		wantMappings := []openchoreov1alpha1.RoleMapping{
+			{
+				RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "role-a"},
+				TargetPath: openchoreov1alpha1.TargetPath{Project: "proj-1"},
+			},
+			{
+				RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "role-b"},
+				TargetPath: openchoreov1alpha1.TargetPath{Project: "proj-2", Component: "comp-1"},
+			},
+		}
+		updated, err := enforcer.UpdateNamespacedRoleBinding(ctx, &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "update-multi-rb", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "team"},
+				RoleMappings: wantMappings,
+				Effect:       openchoreov1alpha1.EffectDeny,
+			},
+		})
+		if err != nil {
+			t.Fatalf("UpdateNamespacedRoleBinding() error = %v", err)
+		}
+		if len(updated.Spec.RoleMappings) != len(wantMappings) {
+			t.Fatalf("RoleMappings length = %d, want %d", len(updated.Spec.RoleMappings), len(wantMappings))
+		}
+		if !reflect.DeepEqual(updated.Spec.RoleMappings, wantMappings) {
+			t.Errorf("RoleMappings = %v, want %v", updated.Spec.RoleMappings, wantMappings)
+		}
+		if updated.Spec.Effect != openchoreov1alpha1.EffectDeny {
+			t.Errorf("effect = %s, want deny", updated.Spec.Effect)
+		}
+
+		// Verify round-trip via Get
+		fetched, err := enforcer.GetNamespacedRoleBinding(ctx, "update-multi-rb", testNs)
+		if err != nil {
+			t.Fatalf("GetNamespacedRoleBinding() error = %v", err)
+		}
+		if len(fetched.Spec.RoleMappings) != len(wantMappings) {
+			t.Fatalf("fetched RoleMappings length = %d, want %d", len(fetched.Spec.RoleMappings), len(wantMappings))
+		}
+		if !reflect.DeepEqual(fetched.Spec.RoleMappings, wantMappings) {
+			t.Errorf("fetched RoleMappings = %v, want %v", fetched.Spec.RoleMappings, wantMappings)
+		}
+		if fetched.Spec.Effect != openchoreov1alpha1.EffectDeny {
+			t.Errorf("fetched effect = %s, want deny", fetched.Spec.Effect)
 		}
 	})
 
@@ -1707,8 +2056,10 @@ func TestCasbinEnforcer_UpdateNamespacedRoleBinding(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "no-exist-rb", Namespace: testNs},
 			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
 				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "g"},
-				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "r"},
-				Effect:      openchoreov1alpha1.EffectAllow,
+				RoleMappings: []openchoreov1alpha1.RoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "r"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
 			},
 		})
 		if !errors.Is(err, authzcore.ErrRoleMappingNotFound) {

@@ -1,10 +1,9 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
-  name: ballerina-buildpack
-  namespace: default
+  name: dockerfile-builder
   annotations:
-    openchoreo.dev/description: "Ballerina build workflow for containerized builds using Ballerina Buildpack"
+    openchoreo.dev/description: "Build with a provided Dockerfile/Containerfile/Podmanfile"
     openchoreo.dev/workflow-scope: "component"
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
@@ -14,7 +13,7 @@ metadata:
       secretRef: parameters.repository.secretRef
 spec:
   workflowPlaneRef:
-    kind: WorkflowPlane
+    kind: ClusterWorkflowPlane
     name: default
   ttlAfterCompletion: "1d"
   parameters:
@@ -51,7 +50,48 @@ spec:
             appPath:
               type: string
               default: "."
-              description: "Path to the Ballerina application directory within the repository"
+              description: "Path to the application directory within the repository"
+        docker:
+          type: object
+          default: {}
+          description: "Docker build configuration"
+          properties:
+            context:
+              type: string
+              default: "."
+              description: "Docker build context path relative to the repository root"
+            filePath:
+              type: string
+              default: "./Dockerfile"
+              description: "Path to the Dockerfile relative to the repository root"
+        buildEnv:
+          type: array
+          default: []
+          description: "Environment variables available during the build (passed as --env to podman build). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#env-env-value"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Environment variable name"
+              value:
+                type: string
+                description: "Environment variable value"
+        buildArgs:
+          type: array
+          default: []
+          description: "Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#build-arg-arg-value"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Build argument name"
+              value:
+                type: string
+                description: "Build argument value"
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -77,6 +117,14 @@ spec:
             value: ${parameters.repository.revision.commit}
           - name: app-path
             value: ${parameters.repository.appPath}
+          - name: docker-context
+            value: ${parameters.docker.context}
+          - name: dockerfile-path
+            value: ${parameters.docker.filePath}
+          - name: build-env
+            value: ${parameters.buildEnv}
+          - name: build-args
+            value: ${parameters.buildArgs}
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
@@ -97,13 +145,17 @@ spec:
                   template: checkout
             - - name: build-image
                 templateRef:
-                  name: ballerina-buildpack
+                  name: containerfile-build
                   clusterScope: true
                   template: build-image
                 arguments:
                   parameters:
                     - name: git-revision
                       value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                    - name: build-env
+                      value: '{{workflow.parameters.build-env}}'
+                    - name: build-args
+                      value: '{{workflow.parameters.build-args}}'
             - - name: publish-image
                 templateRef:
                   name: publish-image

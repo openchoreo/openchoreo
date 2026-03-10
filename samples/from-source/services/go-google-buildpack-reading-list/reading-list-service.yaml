@@ -2,52 +2,42 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: reading-list-service
+  namespace: default
 spec:
   owner:
     projectName: default
 
-  # References the ComponentType
   componentType:
-    kind: ComponentType
+    kind: ClusterComponentType
     name: deployment/service
 
   autoDeploy: true
 
-  # Workflow configuration
   workflow:
-    # Reference to Workflow
-    name: google-cloud-buildpacks
-
-    # Parameters required by the Workflow
+    kind: ClusterWorkflow
+    name: gcp-buildpacks-builder
     parameters:
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
-          # Optional commit hash, should be a valid git commit
-          # commit: ""
         appPath: "/service-go-reading-list"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowRun
 metadata:
-  # Should be unique per execution
   name: reading-list-service-build-01
   labels:
     openchoreo.dev/project: "default"
     openchoreo.dev/component: "reading-list-service"
 spec:
   workflow:
-    # Reference to Workflow
-    name: google-cloud-buildpacks
-
-    # Parameters required by the Workflow
+    kind: ClusterWorkflow
+    name: gcp-buildpacks-builder
     parameters:
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
-          # Optional commit hash, should be a valid git commit
-          # commit: ""
         appPath: "/service-go-reading-list"

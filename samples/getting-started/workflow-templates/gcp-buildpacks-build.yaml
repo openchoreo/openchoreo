@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: ballerina-buildpack
+  name: gcp-buildpacks-build
 spec:
   templates:
     - name: build-image
@@ -21,6 +21,7 @@ spec:
 
             IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
             APP_PATH="{{workflow.parameters.app-path}}"
+            BUILD_ENV_JSON='{{workflow.parameters.build-env}}'
 
             mkdir -p /etc/containers
             cat > /etc/containers/storage.conf <<EOF
@@ -35,16 +36,24 @@ spec:
             podman system service --time=0 &
             until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
 
-            BUILDER="ghcr.io/openchoreo/buildpack/ballerina:18"
-            RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina:18-run"
+            BUILDER="gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
+            RUN_IMG="gcr.io/buildpacks/google-22/run:latest"
+
+            # Build --env flags from the buildEnv JSON array (e.g. [{"name":"GOOGLE_RUNTIME_VERSION","value":"21"}])
+            ENV_ARGS=""
+            if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
+              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
+                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
+                tr '\n' ' ')
+            fi
 
             /usr/local/bin/pack build "$IMAGE" \
               --builder "$BUILDER" \
-              --run-image "$RUN_IMAGE" \
+              --run-image "$RUN_IMG" \
               --docker-host inherit \
               --path "$WORKDIR/$APP_PATH" \
-              --volume "/mnt/vol:/app/generated-artifacts:rw" \
-              --pull-policy if-not-present
+              --pull-policy always \
+              $ENV_ARGS
 
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:

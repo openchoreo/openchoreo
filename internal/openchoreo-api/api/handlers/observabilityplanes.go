@@ -20,12 +20,16 @@ func (h *Handler) ListObservabilityPlanes(
 ) (gen.ListObservabilityPlanesResponseObject, error) {
 	h.logger.Debug("ListObservabilityPlanes called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ObservabilityPlaneService.ListObservabilityPlanes(ctx, request.NamespaceName, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListObservabilityPlanes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListObservabilityPlanes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list observability planes", "error", err)
 		return gen.ListObservabilityPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

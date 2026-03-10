@@ -20,10 +20,14 @@ func (h *Handler) ListObservabilityAlertsNotificationChannels(
 ) (gen.ListObservabilityAlertsNotificationChannelsResponseObject, error) {
 	h.logger.Debug("ListObservabilityAlertsNotificationChannels called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ObservabilityAlertsNotificationChannelService.ListObservabilityAlertsNotificationChannels(ctx, request.NamespaceName, opts)
 	if err != nil {
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListObservabilityAlertsNotificationChannels400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list observability alerts notification channels", "error", err)
 		return gen.ListObservabilityAlertsNotificationChannels500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

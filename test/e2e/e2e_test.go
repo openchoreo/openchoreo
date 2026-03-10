@@ -44,14 +44,19 @@ var _ = Describe("Platform Health", Ordered, func() {
 			"projects.openchoreo.dev",
 			"components.openchoreo.dev",
 			"componenttypes.openchoreo.dev",
+			"clustercomponenttypes.openchoreo.dev",
 			"traits.openchoreo.dev",
+			"clustertraits.openchoreo.dev",
 			"environments.openchoreo.dev",
 			"dataplanes.openchoreo.dev",
+			"clusterdataplanes.openchoreo.dev",
 			"deploymentpipelines.openchoreo.dev",
 			"componentreleases.openchoreo.dev",
 			"releasebindings.openchoreo.dev",
 			"renderedreleases.openchoreo.dev",
 			"workloads.openchoreo.dev",
+			"workflows.openchoreo.dev",
+			"clusterworkflows.openchoreo.dev",
 		}
 
 		for _, crd := range crds {
@@ -78,27 +83,35 @@ var _ = Describe("Platform Health", Ordered, func() {
 			})
 		}
 
-		componentTypes := []string{"worker", "service", "web-application", "scheduled-task"}
-		for _, ct := range componentTypes {
-			It("should have ComponentType '"+ct+"'", func() {
-				framework.AssertResourceExists(Default, kubeContext, defaultNS, "componenttype", ct)
+		clusterComponentTypes := []string{"worker", "service", "web-application", "scheduled-task"}
+		for _, ct := range clusterComponentTypes {
+			It("should have ClusterComponentType '"+ct+"'", func() {
+				framework.AssertClusterResourceExists(Default, kubeContext, "clustercomponenttype", ct)
 			})
 		}
 
-		traits := []string{"api-configuration", "observability-alert-rule"}
-		for _, trait := range traits {
-			It("should have Trait '"+trait+"'", func() {
-				framework.AssertResourceExists(Default, kubeContext, defaultNS, "trait", trait)
+		clusterTraits := []string{"api-configuration", "observability-alert-rule"}
+		for _, trait := range clusterTraits {
+			It("should have ClusterTrait '"+trait+"'", func() {
+				framework.AssertClusterResourceExists(Default, kubeContext, "clustertrait", trait)
+			})
+		}
+
+		clusterWorkflows := []string{"docker", "react", "ballerina-buildpack", "google-cloud-buildpacks"}
+		for _, wf := range clusterWorkflows {
+			It("should have ClusterWorkflow '"+wf+"'", func() {
+				framework.AssertClusterResourceExists(Default, kubeContext, "clusterworkflow", wf)
 			})
 		}
 	})
 
 	Context("DataPlane Connectivity", func() {
-		It("should have DataPlane 'default' with agent connected", func() {
+		It("should have ClusterDataPlane 'default' with agent connected", func() {
 			Eventually(func(g Gomega) {
-				framework.AssertJsonpathEquals(g, kubeContext, defaultNS,
-					"dataplane", "default",
-					"{.status.agentConnection.connected}", "true")
+				output, err := framework.Kubectl(kubeContext, "get", "clusterdataplane", "default",
+					"-o", "jsonpath={.status.agentConnection.connected}")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(output).To(Equal("true"))
 			}, 5*time.Minute).Should(Succeed())
 		})
 

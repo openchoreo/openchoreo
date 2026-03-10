@@ -25,7 +25,7 @@ type TargetEnvironmentRef struct {
 // PromotionPath defines a path for promoting between environments
 type PromotionPath struct {
 	// SourceEnvironmentRef is the reference to the source environment
-	SourceEnvironmentRef string `json:"sourceEnvironmentRef"`
+	SourceEnvironmentRef EnvironmentRef `json:"sourceEnvironmentRef"`
 	// TargetEnvironmentRefs is the list of target environments and their approval requirements
 	TargetEnvironmentRefs []TargetEnvironmentRef `json:"targetEnvironmentRefs"`
 }

@@ -129,7 +129,9 @@ func (d *DeploymentPipelineResource) CreateDeploymentPipeline(params api.CreateD
 		}
 
 		promotionPaths = append(promotionPaths, openchoreov1alpha1.PromotionPath{
-			SourceEnvironmentRef:  path.SourceEnvironment,
+			SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{
+				Name: path.SourceEnvironment,
+			},
 			TargetEnvironmentRefs: targetEnvRefs,
 		})
 	}

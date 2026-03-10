@@ -135,17 +135,52 @@ spec:
   ttlAfterCompletion: "1d"
 
   parameters:
-    ocSchema:
-      github:
-        owner: string | description="GitHub organization that will own the repository"
-        tokenSecret: string | description="Name of the Kubernetes Secret in the namespace containing the GitHub token under the key 'token'"
-      repo:
-        name: string | description="Name of the repository to create"
-        description: string | default="" description="Short description of the repository"
-        visibility: string | default="private" enum=public,private description="Repository visibility"
-        autoInit: string | default="true" enum=true,false description="Initialize the repository with a README"
-        gitignoreTemplate: string | default="" description="Gitignore template to apply (e.g. Go, Python, Node)"
-        licenseTemplate: string | default="" description="License template to apply (e.g. mit, apache-2.0)"
+    openAPIV3Schema:
+      type: object
+      properties:
+        github:
+          type: object
+          default: {}
+          properties:
+            owner:
+              type: string
+              description: "GitHub organization that will own the repository"
+            tokenSecret:
+              type: string
+              description: "Name of the Kubernetes Secret in the namespace containing the GitHub token under the key 'token'"
+        repo:
+          type: object
+          default: {}
+          properties:
+            name:
+              type: string
+              description: "Name of the repository to create"
+            description:
+              type: string
+              default: ""
+              description: "Short description of the repository"
+            visibility:
+              type: string
+              default: "private"
+              enum:
+                - public
+                - private
+              description: "Repository visibility"
+            autoInit:
+              type: string
+              default: "true"
+              enum:
+                - "true"
+                - "false"
+              description: "Initialize the repository with a README"
+            gitignoreTemplate:
+              type: string
+              default: ""
+              description: "Gitignore template to apply (e.g. Go, Python, Node)"
+            licenseTemplate:
+              type: string
+              default: ""
+              description: "License template to apply (e.g. mit, apache-2.0)"
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1

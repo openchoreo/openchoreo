@@ -57,6 +57,8 @@ tags:
     description: ComponentType templates defined by platform engineers
   - name: Traits
     description: Trait templates for composable cross-cutting concerns
+  - name: ClusterWorkflows
+    description: Cluster-scoped workflow templates for building and automating tasks
   - name: Workflows
     description: Generic workflow templates
   - name: Authorization
@@ -179,10 +181,11 @@ paths:
       description: |
         Returns a paginated list of OpenChoreo control plane namespaces the user has access to.
         Only namespaces with the label `openchoreo.dev/controlplane-namespace=true` are returned.
-        This filters out system namespaces (e.g., openchoreo-control-plane, kube-system) and 
+        This filters out system namespaces (e.g., openchoreo-control-plane, kube-system) and
         data plane runtime namespaces.
       tags: [Namespaces]
       parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -192,6 +195,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NamespaceList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -316,6 +321,7 @@ paths:
       tags: [Projects]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -325,6 +331,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProjectList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -457,6 +465,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -466,6 +475,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ComponentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -518,6 +529,7 @@ paths:
       tags: [Environments]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -527,6 +539,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EnvironmentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -656,6 +670,7 @@ paths:
       tags: [DataPlanes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -665,6 +680,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DataPlaneList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -794,6 +811,7 @@ paths:
       tags: [WorkflowPlanes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -803,6 +821,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WorkflowPlaneList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -932,6 +952,7 @@ paths:
       tags: [ObservabilityPlanes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -941,6 +962,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ObservabilityPlaneList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1069,6 +1092,7 @@ paths:
       description: Returns a paginated list of cluster-scoped data planes.
       tags: [ClusterDataPlanes]
       parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -1203,6 +1227,7 @@ paths:
       description: Returns a list of cluster-scoped workflow planes.
       tags: [ClusterWorkflowPlanes]
       parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -1212,6 +1237,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterWorkflowPlaneList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1350,6 +1377,7 @@ paths:
       description: Returns a paginated list of cluster-scoped observability planes.
       tags: [ClusterObservabilityPlanes]
       parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -1359,6 +1387,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterObservabilityPlaneList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1482,6 +1512,7 @@ paths:
       description: Returns a list of cluster-scoped component types.
       tags: [ClusterComponentTypes]
       parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -1491,6 +1522,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterComponentTypeList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1638,6 +1671,7 @@ paths:
       description: Returns a list of cluster-scoped traits.
       tags: [ClusterTraits]
       parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -1647,6 +1681,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterTraitList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1795,6 +1831,7 @@ paths:
       tags: [ComponentTypes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -1804,6 +1841,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ComponentTypeList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1958,6 +1997,7 @@ paths:
       tags: [Traits]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -1967,6 +2007,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TraitList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2120,6 +2162,7 @@ paths:
       description: Returns a list of cluster-scoped workflows.
       tags: [ClusterWorkflows]
       parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -2129,6 +2172,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterWorkflowList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2277,6 +2322,7 @@ paths:
       tags: [Workflows]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -2286,6 +2332,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WorkflowList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2441,6 +2489,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/WorkflowQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -2450,6 +2499,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WorkflowRunList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2746,72 +2797,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/components/{componentName}/deploy:
-    post:
-      operationId: deployRelease
-      summary: Deploy release
-      description: Deploys a component release to an environment.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeployReleaseRequest'
-      responses:
-        '201':
-          description: Release deployed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReleaseBinding'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/namespaces/{namespaceName}/components/{componentName}/promote:
-    post:
-      operationId: promoteComponent
-      summary: Promote component
-      description: Promotes a component release from one environment to another.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PromoteComponentRequest'
-      responses:
-        '200':
-          description: Component promoted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReleaseBinding'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
   /api/v1/namespaces/{namespaceName}/components/{componentName}/generate-release:
     post:
       operationId: generateRelease
@@ -2948,6 +2933,7 @@ paths:
       description: Returns all cluster-scoped authorization roles.
       tags: [Authorization]
       parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -2957,6 +2943,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthzClusterRoleList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3094,6 +3082,7 @@ paths:
       description: Returns all cluster-scoped role bindings.
       tags: [Authorization]
       parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -3103,6 +3092,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthzClusterRoleBindingList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3241,6 +3232,7 @@ paths:
       tags: [Authorization]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -3399,6 +3391,7 @@ paths:
       tags: [Authorization]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -3642,6 +3635,7 @@ paths:
       tags: [SecretReferences]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -3651,6 +3645,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SecretReferenceList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3779,6 +3775,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ComponentQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -3788,6 +3785,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WorkloadList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3918,6 +3917,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ComponentQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -3927,6 +3927,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ComponentReleaseList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3974,6 +3976,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ComponentQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -3983,6 +3986,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReleaseBindingList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -4231,6 +4236,7 @@ paths:
       tags: [DeploymentPipelines]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -4240,6 +4246,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeploymentPipelineList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -4367,6 +4375,7 @@ paths:
       tags: [ObservabilityAlertsNotificationChannels]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -4376,6 +4385,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ObservabilityAlertsNotificationChannelList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -4850,6 +4861,20 @@ components:
       schema:
         type: string
         example: my-git-secret
+
+    LabelSelectorParam:
+      name: labelSelector
+      in: query
+      required: false
+      description: |
+        A label selector to filter resources using Kubernetes label selector syntax.
+        Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+        Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+        Supports existence checks: "key" (label exists), "!key" (label does not exist).
+        Multiple requirements are comma-separated and ANDed together.
+      schema:
+        type: string
+        example: "app=frontend,environment notin (staging,qa),tier!=backend,!deprecated"
 
     LimitParam:
       name: limit
@@ -8302,36 +8327,6 @@ components:
           allOf:
             - $ref: '#/components/schemas/RenderedRelease'
 
-    # -------------------------------------------------------------------------
-    # Deploy/Promote Requests
-    # -------------------------------------------------------------------------
-    DeployReleaseRequest:
-      type: object
-      description: Request to deploy a release
-      required:
-        - releaseName
-      properties:
-        releaseName:
-          type: string
-          description: Component release name to deploy
-          example: v1.0.0
-
-    PromoteComponentRequest:
-      type: object
-      description: Request to promote a component between environments
-      required:
-        - sourceEnv
-        - targetEnv
-      properties:
-        sourceEnv:
-          type: string
-          description: Source environment name
-          example: dev
-        targetEnv:
-          type: string
-          description: Target environment name
-          example: staging
-
     GenerateReleaseRequest:
       type: object
       description: Request to generate an immutable release snapshot from the current component state
@@ -8491,12 +8486,16 @@ components:
       description: Specification for a cluster-scoped role binding
       required:
         - entitlement
-        - roleRef
+        - roleMappings
       properties:
         entitlement:
           $ref: '#/components/schemas/AuthzEntitlementClaim'
-        roleRef:
-          $ref: '#/components/schemas/AuthzRoleRef'
+        roleMappings:
+          type: array
+          description: List of cluster role mappings this binding grants
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AuthzClusterRoleMapping'
         effect:
           type: string
           description: Policy effect (allow or deny)
@@ -8546,14 +8545,16 @@ components:
       description: Specification for a namespace-scoped role binding
       required:
         - entitlement
-        - roleRef
+        - roleMappings
       properties:
         entitlement:
           $ref: '#/components/schemas/AuthzEntitlementClaim'
-        roleRef:
-          $ref: '#/components/schemas/AuthzRoleRef'
-        targetPath:
-          $ref: '#/components/schemas/AuthzTargetPath'
+        roleMappings:
+          type: array
+          description: List of role-scope pair mappings this binding grants
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AuthzRoleMapping'
         effect:
           type: string
           description: Policy effect (allow or deny)
@@ -8620,6 +8621,33 @@ components:
           type: string
           description: Component name
           example: api-service
+
+    AuthzRoleMapping:
+      type: object
+      description: Pairs a role reference with an optional target path scope
+      required:
+        - roleRef
+      properties:
+        roleRef:
+          $ref: '#/components/schemas/AuthzRoleRef'
+        targetPath:
+          $ref: '#/components/schemas/AuthzTargetPath'
+
+    AuthzClusterRoleMapping:
+      type: object
+      description: Pairs a role reference for cluster-scoped bindings
+      required:
+        - roleRef
+      properties:
+        roleRef:
+          allOf:
+            - $ref: '#/components/schemas/AuthzRoleRef'
+            - type: object
+              properties:
+                kind:
+                  type: string
+                  enum: [AuthzClusterRole]
+                  example: AuthzClusterRole
 
     Entitlement:
       type: object
@@ -8960,9 +8988,10 @@ components:
           description: Human-readable description of the role
           example: Updated cluster admin role
 
+    # NOTE: Legacy single-mapping endpoints. Multi-mapping is handled via the CRD API directly.
     CreateClusterRoleBindingRequest:
       type: object
-      description: Request to create a cluster-scoped role binding (legacy)
+      description: Request to create a cluster-scoped role binding (legacy, single mapping only)
       required:
         - name
         - entitlement
@@ -8987,7 +9016,7 @@ components:
 
     UpdateClusterRoleBindingRequest:
       type: object
-      description: Request to update a cluster role binding (legacy)
+      description: Request to update a cluster role binding (legacy, single mapping only)
       required:
         - entitlement
         - role
@@ -9045,9 +9074,10 @@ components:
           description: Human-readable description of the role
           example: Updated developer role
 
+    # NOTE: Legacy single-mapping endpoints. Multi-mapping is handled via the CRD API directly.
     CreateNamespaceRoleBindingRequest:
       type: object
-      description: Request to create a namespace-scoped role binding (legacy)
+      description: Request to create a namespace-scoped role binding (legacy, single mapping only)
       required:
         - name
         - entitlement
@@ -9072,7 +9102,7 @@ components:
 
     UpdateNamespaceRoleBindingRequest:
       type: object
-      description: Request to update a namespace role binding (legacy)
+      description: Request to update a namespace role binding (legacy, single mapping only)
       required:
         - entitlement
         - role
@@ -9567,9 +9597,23 @@ components:
         - targetEnvironmentRefs
       properties:
         sourceEnvironmentRef:
-          type: string
-          description: Source environment name
-          example: dev
+          type: object
+          description: |
+            Reference to the source environment for this promotion path.
+          properties:
+            kind:
+              type: string
+              description: Kind of environment resource
+              enum: [Environment]
+              default: Environment
+            name:
+              type: string
+              description: Name of the environment resource
+              minLength: 1
+              maxLength: 63
+              example: dev
+          required:
+            - name
         targetEnvironmentRefs:
           type: array
           description: Target environments for promotion

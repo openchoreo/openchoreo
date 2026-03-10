@@ -25,10 +25,14 @@ func (h *Handler) ListComponentReleases(
 		componentName = *request.Params.Component
 	}
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ComponentReleaseService.ListComponentReleases(ctx, request.NamespaceName, componentName, opts)
 	if err != nil {
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListComponentReleases400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list component releases", "error", err)
 		return gen.ListComponentReleases500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

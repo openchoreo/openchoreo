@@ -1375,14 +1375,14 @@ func (s *ComponentService) findLowestEnvironment(promotionPaths []openchoreov1al
 
 	// Find a source environment that is not a target
 	for _, path := range promotionPaths {
-		if !targets[path.SourceEnvironmentRef] {
-			return path.SourceEnvironmentRef
+		if !targets[path.SourceEnvironmentRef.Name] {
+			return path.SourceEnvironmentRef.Name
 		}
 	}
 
 	// If all sources are targets (circular), return the first source
 	if len(promotionPaths) > 0 {
-		return promotionPaths[0].SourceEnvironmentRef
+		return promotionPaths[0].SourceEnvironmentRef.Name
 	}
 
 	return ""
@@ -1974,7 +1974,7 @@ func (s *ComponentService) getEnvironmentsFromDeploymentPipeline(ctx context.Con
 	environmentSet := make(map[string]bool)
 	for _, path := range pipeline.Spec.PromotionPaths {
 		// Add source environment
-		environmentSet[path.SourceEnvironmentRef] = true
+		environmentSet[path.SourceEnvironmentRef.Name] = true
 
 		// Add target environments
 		for _, target := range path.TargetEnvironmentRefs {
@@ -2057,7 +2057,7 @@ func (s *ComponentService) validatePromotionPath(ctx context.Context, namespaceN
 
 	// Check if the promotion path is valid
 	for _, path := range pipeline.Spec.PromotionPaths {
-		if path.SourceEnvironmentRef == sourceEnv {
+		if path.SourceEnvironmentRef.Name == sourceEnv {
 			s.logger.Info("Source environment", "source", sourceEnv)
 			for _, target := range path.TargetEnvironmentRefs {
 				s.logger.Info("Target environment", "target", target.Name)

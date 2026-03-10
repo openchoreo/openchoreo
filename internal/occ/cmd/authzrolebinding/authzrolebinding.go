@@ -116,20 +116,15 @@ func printList(items []gen.AuthzRoleBinding) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tROLE\tAGE")
+	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, rb := range items {
-		roleRef := ""
-		if rb.Spec != nil {
-			roleRef = string(rb.Spec.RoleRef.Kind) + "/" + rb.Spec.RoleRef.Name
-		}
 		age := ""
 		if rb.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*rb.Metadata.CreationTimestamp)
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\n",
 			rb.Metadata.Name,
-			roleRef,
 			age)
 	}
 

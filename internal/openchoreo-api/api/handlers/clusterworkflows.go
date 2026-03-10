@@ -20,12 +20,16 @@ func (h *Handler) ListClusterWorkflows(
 ) (gen.ListClusterWorkflowsResponseObject, error) {
 	h.logger.Debug("ListClusterWorkflows called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ClusterWorkflowService.ListClusterWorkflows(ctx, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListClusterWorkflows403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListClusterWorkflows400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list cluster workflows", "error", err)
 		return gen.ListClusterWorkflows500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

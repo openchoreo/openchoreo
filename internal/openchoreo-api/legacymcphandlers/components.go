@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -92,20 +91,6 @@ func (h *MCPHandler) ListReleaseBindings(ctx context.Context, namespaceName, pro
 
 func (h *MCPHandler) PatchReleaseBinding(ctx context.Context, namespaceName, projectName, componentName, bindingName string, req *models.PatchReleaseBindingRequest) (any, error) {
 	return h.Services.ComponentService.PatchReleaseBinding(ctx, namespaceName, projectName, componentName, bindingName, req)
-}
-
-func (h *MCPHandler) DeployRelease(ctx context.Context, namespaceName, projectName, componentName string, req *models.DeployReleaseRequest) (any, error) {
-	return h.Services.ComponentService.DeployRelease(ctx, namespaceName, projectName, componentName, req)
-}
-
-func (h *MCPHandler) PromoteComponent(ctx context.Context, namespaceName, projectName, componentName string, req *models.PromoteComponentRequest) (any, error) {
-	binding, err := h.Services.ComponentService.PromoteComponent(ctx, &services.PromoteComponentPayload{
-		PromoteComponentRequest: *req,
-		ComponentName:           componentName,
-		ProjectName:             projectName,
-		NamespaceName:           namespaceName,
-	})
-	return binding, err
 }
 
 func (h *MCPHandler) CreateWorkload(ctx context.Context, namespaceName, projectName, componentName string, workloadSpec interface{}) (any, error) {

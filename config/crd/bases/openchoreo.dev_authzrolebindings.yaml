@@ -66,41 +66,50 @@ spec:
                 - claim
                 - value
                 type: object
-              roleRef:
-                description: |-
-                  RoleRef references the role to bind
-                  Can reference AuthzClusterRole (platform-wide) or AuthzRole (same namespace only)
-                properties:
-                  kind:
-                    description: |-
-                      Kind is the kind of role (AuthzRole or AuthzClusterRole)
-                      For AuthzRoleBinding: AuthzRole must be in the same namespace
-                    enum:
-                    - AuthzRole
-                    - AuthzClusterRole
-                    type: string
-                  name:
-                    description: Name is the name of the role
-                    type: string
-                required:
-                - kind
-                - name
-                type: object
-              targetPath:
-                description: |-
-                  TargetPath defines which resources this binding applies to within the ownership hierarchy
-                  All fields are optional - omitted fields mean "all" at that level
-                properties:
-                  component:
-                    description: Component scopes to a specific component (optional)
-                    type: string
-                  project:
-                    description: Project scopes to a specific project (optional)
-                    type: string
-                type: object
+              roleMappings:
+                description: RoleMappings is the list of role-scope pairs this binding
+                  grants
+                items:
+                  description: RoleMapping pairs a role reference with an optional
+                    target path scope
+                  properties:
+                    roleRef:
+                      description: RoleRef references the role to bind
+                      properties:
+                        kind:
+                          description: |-
+                            Kind is the kind of role (AuthzRole or AuthzClusterRole)
+                            For AuthzRoleBinding: AuthzRole must be in the same namespace
+                          enum:
+                          - AuthzRole
+                          - AuthzClusterRole
+                          type: string
+                        name:
+                          description: Name is the name of the role
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      type: object
+                    targetPath:
+                      description: TargetPath scopes this mapping within the ownership
+                        hierarchy
+                      properties:
+                        component:
+                          description: Component scopes to a specific component (optional)
+                          type: string
+                        project:
+                          description: Project scopes to a specific project (optional)
+                          type: string
+                      type: object
+                  required:
+                  - roleRef
+                  type: object
+                minItems: 1
+                type: array
             required:
             - entitlement
-            - roleRef
+            - roleMappings
             type: object
         type: object
     served: true

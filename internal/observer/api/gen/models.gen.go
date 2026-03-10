@@ -27,14 +27,36 @@ const (
 
 // Defines values for AlertRuleRequestSourceMetric.
 const (
-	CpuUsage    AlertRuleRequestSourceMetric = "cpu_usage"
-	MemoryUsage AlertRuleRequestSourceMetric = "memory_usage"
+	AlertRuleRequestSourceMetricCpuUsage    AlertRuleRequestSourceMetric = "cpu_usage"
+	AlertRuleRequestSourceMetricMemoryUsage AlertRuleRequestSourceMetric = "memory_usage"
 )
 
 // Defines values for AlertRuleRequestSourceType.
 const (
 	AlertRuleRequestSourceTypeLog    AlertRuleRequestSourceType = "log"
 	AlertRuleRequestSourceTypeMetric AlertRuleRequestSourceType = "metric"
+)
+
+// Defines values for AlertRuleResponseConditionOperator.
+const (
+	AlertRuleResponseConditionOperatorEq  AlertRuleResponseConditionOperator = "eq"
+	AlertRuleResponseConditionOperatorGt  AlertRuleResponseConditionOperator = "gt"
+	AlertRuleResponseConditionOperatorGte AlertRuleResponseConditionOperator = "gte"
+	AlertRuleResponseConditionOperatorLt  AlertRuleResponseConditionOperator = "lt"
+	AlertRuleResponseConditionOperatorLte AlertRuleResponseConditionOperator = "lte"
+	AlertRuleResponseConditionOperatorNeq AlertRuleResponseConditionOperator = "neq"
+)
+
+// Defines values for AlertRuleResponseSourceMetric.
+const (
+	AlertRuleResponseSourceMetricCpuUsage    AlertRuleResponseSourceMetric = "cpu_usage"
+	AlertRuleResponseSourceMetricMemoryUsage AlertRuleResponseSourceMetric = "memory_usage"
+)
+
+// Defines values for AlertRuleResponseSourceType.
+const (
+	AlertRuleResponseSourceTypeLog    AlertRuleResponseSourceType = "log"
+	AlertRuleResponseSourceTypeMetric AlertRuleResponseSourceType = "metric"
 )
 
 // Defines values for AlertWebhookResponseStatus.
@@ -65,12 +87,12 @@ const (
 
 // Defines values for AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator.
 const (
-	AlertsQueryResponseAlertsMetadataAlertRuleConditionOperatorEq  AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "eq"
-	AlertsQueryResponseAlertsMetadataAlertRuleConditionOperatorGt  AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "gt"
-	AlertsQueryResponseAlertsMetadataAlertRuleConditionOperatorGte AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "gte"
-	AlertsQueryResponseAlertsMetadataAlertRuleConditionOperatorLt  AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "lt"
-	AlertsQueryResponseAlertsMetadataAlertRuleConditionOperatorLte AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "lte"
-	AlertsQueryResponseAlertsMetadataAlertRuleConditionOperatorNeq AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "neq"
+	Eq  AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "eq"
+	Gt  AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "gt"
+	Gte AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "gte"
+	Lt  AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "lt"
+	Lte AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "lte"
+	Neq AlertsQueryResponseAlertsMetadataAlertRuleConditionOperator = "neq"
 )
 
 // Defines values for AlertsQueryResponseAlertsMetadataAlertRuleSeverity.
@@ -82,8 +104,8 @@ const (
 
 // Defines values for AlertsQueryResponseAlertsMetadataAlertRuleSourceType.
 const (
-	AlertsQueryResponseAlertsMetadataAlertRuleSourceTypeLog    AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "log"
-	AlertsQueryResponseAlertsMetadataAlertRuleSourceTypeMetric AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "metric"
+	Log    AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "log"
+	Metric AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "metric"
 )
 
 // Defines values for ErrorResponseTitle.
@@ -96,6 +118,20 @@ const (
 	Unauthorized        ErrorResponseTitle = "unauthorized"
 )
 
+// Defines values for IncidentPutRequestStatus.
+const (
+	IncidentPutRequestStatusAcknowledged IncidentPutRequestStatus = "acknowledged"
+	IncidentPutRequestStatusActive       IncidentPutRequestStatus = "active"
+	IncidentPutRequestStatusResolved     IncidentPutRequestStatus = "resolved"
+)
+
+// Defines values for IncidentPutResponseStatus.
+const (
+	IncidentPutResponseStatusAcknowledged IncidentPutResponseStatus = "acknowledged"
+	IncidentPutResponseStatusActive       IncidentPutResponseStatus = "active"
+	IncidentPutResponseStatusResolved     IncidentPutResponseStatus = "resolved"
+)
+
 // Defines values for IncidentsQueryRequestSortOrder.
 const (
 	IncidentsQueryRequestSortOrderAsc  IncidentsQueryRequestSortOrder = "asc"
@@ -105,8 +141,8 @@ const (
 // Defines values for IncidentsQueryResponseIncidentsStatus.
 const (
 	Acknowledged IncidentsQueryResponseIncidentsStatus = "acknowledged"
+	Active       IncidentsQueryResponseIncidentsStatus = "active"
 	Resolved     IncidentsQueryResponseIncidentsStatus = "resolved"
-	Triggered    IncidentsQueryResponseIncidentsStatus = "triggered"
 )
 
 // Defines values for LogsQueryRequestLogLevels.
@@ -192,12 +228,58 @@ type AlertRuleRequestSourceType string
 
 // AlertRuleResponse defines model for AlertRuleResponse.
 type AlertRuleResponse struct {
-	// RuleBackendId The backend ID (UID from observability backend) of the alert rule
-	RuleBackendId *string `json:"ruleBackendId,omitempty"`
+	Condition *struct {
+		// Enabled Whether the alert rule is enabled
+		Enabled *bool `json:"enabled,omitempty"`
 
-	// RuleLogicalId The logical ID (name) of the alert rule
-	RuleLogicalId *string `json:"ruleLogicalId,omitempty"`
+		// Interval The interval of time to query for the alert rule
+		Interval *string `json:"interval,omitempty"`
+
+		// Operator The operator to use for the alert rule
+		Operator *AlertRuleResponseConditionOperator `json:"operator,omitempty"`
+
+		// Threshold The threshold value to use for the alert rule
+		Threshold *float32 `json:"threshold,omitempty"`
+
+		// Window The window of time to query for the alert rule
+		Window *string `json:"window,omitempty"`
+	} `json:"condition,omitempty"`
+	Metadata *struct {
+		// ComponentUid The OpenChoreo component UID to query
+		ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
+
+		// EnvironmentUid The OpenChoreo environment UID to query
+		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
+
+		// Name The name of the alert rule
+		Name *string `json:"name,omitempty"`
+
+		// Namespace The namespace of the alert rule CR
+		Namespace *string `json:"namespace,omitempty"`
+
+		// ProjectUid The OpenChoreo project UID to query
+		ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+	} `json:"metadata,omitempty"`
+	Source *struct {
+		// Metric The metric to query for metric based alerts
+		Metric *AlertRuleResponseSourceMetric `json:"metric,omitempty"`
+
+		// Query The query to execute for log based alerts
+		Query *string `json:"query,omitempty"`
+
+		// Type The type of the source
+		Type *AlertRuleResponseSourceType `json:"type,omitempty"`
+	} `json:"source,omitempty"`
 }
+
+// AlertRuleResponseConditionOperator The operator to use for the alert rule
+type AlertRuleResponseConditionOperator string
+
+// AlertRuleResponseSourceMetric The metric to query for metric based alerts
+type AlertRuleResponseSourceMetric string
+
+// AlertRuleResponseSourceType The type of the source
+type AlertRuleResponseSourceType string
 
 // AlertWebhookRequest defines model for AlertWebhookRequest.
 type AlertWebhookRequest struct {
@@ -278,7 +360,10 @@ type AlertsQueryResponse struct {
 
 		// AlertValue The value of the alert
 		AlertValue *string `json:"alertValue,omitempty"`
-		Metadata   *struct {
+
+		// IncidentEnabled Whether the alert rule is configured to trigger incidents when fired
+		IncidentEnabled *bool `json:"incidentEnabled,omitempty"`
+		Metadata        *struct {
 			AlertRule *struct {
 				// Condition The condition configuration of the alert rule
 				Condition *struct {
@@ -441,6 +526,76 @@ type HttpMetricsTimeSeries struct {
 	SuccessfulRequestCount   *[]MetricsTimeSeriesItem `json:"successfulRequestCount,omitempty"`
 	UnsuccessfulRequestCount *[]MetricsTimeSeriesItem `json:"unsuccessfulRequestCount,omitempty"`
 }
+
+// IncidentPutRequest defines model for IncidentPutRequest.
+type IncidentPutRequest struct {
+	// Description The description of the incident
+	Description *string `json:"description,omitempty"`
+
+	// Notes Notes associated with the incident
+	Notes *string `json:"notes,omitempty"`
+
+	// Status The status of the incident
+	Status IncidentPutRequestStatus `json:"status"`
+}
+
+// IncidentPutRequestStatus The status of the incident
+type IncidentPutRequestStatus string
+
+// IncidentPutResponse defines model for IncidentPutResponse.
+type IncidentPutResponse struct {
+	// AcknowledgedAt The timestamp when the incident was acknowledged
+	AcknowledgedAt *time.Time `json:"acknowledgedAt,omitempty"`
+
+	// AlertId The ID of the alert that triggered the incident
+	AlertId *string `json:"alertId,omitempty"`
+
+	// Description The description of the incident
+	Description *string `json:"description,omitempty"`
+
+	// IncidentId The ID of the incident
+	IncidentId *string `json:"incidentId,omitempty"`
+
+	// IncidentTriggerAiRca Whether AI RCA was triggered for the incident
+	IncidentTriggerAiRca *bool `json:"incidentTriggerAiRca,omitempty"`
+	Labels               *struct {
+		// ComponentName The name of the component
+		ComponentName *string `json:"componentName,omitempty"`
+
+		// ComponentUid The UID of the component
+		ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
+
+		// EnvironmentName The name of the environment
+		EnvironmentName *string `json:"environmentName,omitempty"`
+
+		// EnvironmentUid The UID of the environment
+		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
+
+		// NamespaceName The name of the namespace
+		NamespaceName *string `json:"namespaceName,omitempty"`
+
+		// ProjectName The name of the project
+		ProjectName *string `json:"projectName,omitempty"`
+
+		// ProjectUid The UID of the project
+		ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+	} `json:"labels,omitempty"`
+
+	// Notes Notes associated with the incident
+	Notes *string `json:"notes,omitempty"`
+
+	// ResolvedAt The timestamp when the incident was resolved
+	ResolvedAt *time.Time `json:"resolvedAt,omitempty"`
+
+	// Status The status of the incident
+	Status *IncidentPutResponseStatus `json:"status,omitempty"`
+
+	// TriggeredAt The timestamp when the incident was triggered
+	TriggeredAt *time.Time `json:"triggeredAt,omitempty"`
+}
+
+// IncidentPutResponseStatus The status of the incident
+type IncidentPutResponseStatus string
 
 // IncidentsQueryRequest defines model for IncidentsQueryRequest.
 type IncidentsQueryRequest struct {
@@ -773,6 +928,9 @@ type HandleAlertWebhookJSONRequestBody = AlertWebhookRequest
 
 // QueryIncidentsJSONRequestBody defines body for QueryIncidents for application/json ContentType.
 type QueryIncidentsJSONRequestBody = IncidentsQueryRequest
+
+// UpdateIncidentJSONRequestBody defines body for UpdateIncident for application/json ContentType.
+type UpdateIncidentJSONRequestBody = IncidentPutRequest
 
 // QueryTracesJSONRequestBody defines body for QueryTraces for application/json ContentType.
 type QueryTracesJSONRequestBody = TracesQueryRequest

@@ -21,9 +21,10 @@ import (
 // NewComponentReleaseCmd creates the component-release command group
 func NewComponentReleaseCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   constants.ComponentReleaseRoot.Use,
-		Short: constants.ComponentReleaseRoot.Short,
-		Long:  constants.ComponentReleaseRoot.Long,
+		Use:     constants.ComponentReleaseRoot.Use,
+		Aliases: constants.ComponentReleaseRoot.Aliases,
+		Short:   constants.ComponentReleaseRoot.Short,
+		Long:    constants.ComponentReleaseRoot.Long,
 	}
 
 	cmd.AddCommand(

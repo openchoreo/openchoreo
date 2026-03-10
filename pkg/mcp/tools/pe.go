@@ -233,8 +233,15 @@ func (t *Toolsets) RegisterCreateDeploymentPipeline(s *mcp.Server) {
 						RequiresApproval: &requiresApproval,
 					})
 				}
+				kind := gen.PromotionPathSourceEnvironmentRefKindEnvironment
 				paths = append(paths, gen.PromotionPath{
-					SourceEnvironmentRef:  p.SourceEnvironmentRef,
+					SourceEnvironmentRef: struct {
+						Kind *gen.PromotionPathSourceEnvironmentRefKind `json:"kind,omitempty"`
+						Name string                                     `json:"name"`
+					}{
+						Kind: &kind,
+						Name: p.SourceEnvironmentRef,
+					},
 					TargetEnvironmentRefs: targets,
 				})
 			}

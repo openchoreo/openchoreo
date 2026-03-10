@@ -21,12 +21,16 @@ func (h *Handler) ListDataPlanes(
 ) (gen.ListDataPlanesResponseObject, error) {
 	h.logger.Debug("ListDataPlanes called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.DataPlaneService.ListDataPlanes(ctx, request.NamespaceName, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListDataPlanes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListDataPlanes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list data planes", "error", err)
 		return gen.ListDataPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

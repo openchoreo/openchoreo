@@ -20,10 +20,14 @@ func (h *Handler) ListSecretReferences(
 ) (gen.ListSecretReferencesResponseObject, error) {
 	h.logger.Debug("ListSecretReferences called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.SecretReferenceService.ListSecretReferences(ctx, request.NamespaceName, opts)
 	if err != nil {
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListSecretReferences400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list secret references", "error", err)
 		return gen.ListSecretReferences500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

@@ -2,32 +2,37 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: react-starter-from-source
+  namespace: default
 spec:
   owner:
     projectName: default
 
-  # References the ComponentType
   componentType:
-    kind: ComponentType
+    kind: ClusterComponentType
     name: deployment/web-application
 
   autoDeploy: true
 
-  # Workflow configuration
   workflow:
-    # Reference to Workflow
-    name: react
-
-    # Parameters required by the Workflow
+    kind: ClusterWorkflow
+    name: paketo-buildpacks-builder
     parameters:
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
-          # Optional commit hash, should be a valid git commit
-          # commit: ""
         appPath: "/webapp-react-nginx"
-      nodeVersion: "20"
+      buildEnv:
+        - name: BP_NODE_RUN_SCRIPTS
+          value: "build"
+        - name: BP_WEB_SERVER
+          value: "nginx"
+        - name: BP_WEB_SERVER_ROOT
+          value: "build"
+        - name: BP_WEB_SERVER_ENABLE_PUSH_STATE
+          value: "true"
+        - name: PORT # Overrides listening port. paketo-buildpack/nginx defaults to 8080
+          value: "80"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -39,16 +44,11 @@ metadata:
     openchoreo.dev/component: "react-starter-from-source"
 spec:
   workflow:
-    # Reference to Workflow
-    name: react
-
-    # Parameters required by the Workflow
+    kind: ClusterWorkflow
+    name: paketo-buildpacks-builder
     parameters:
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
-          # Optional commit hash, should be a valid git commit
-          # commit: ""
         appPath: "/webapp-react-nginx"
-      nodeVersion: "20"

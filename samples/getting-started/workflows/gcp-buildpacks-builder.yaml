@@ -1,10 +1,9 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
-  name: google-cloud-buildpacks
-  namespace: default
+  name: gcp-buildpacks-builder
   annotations:
-    openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
+    openchoreo.dev/description: "Supports building Go, Java, Node.js, Python, and .NET applications. See https://cloud.google.com/docs/buildpacks/overview"
     openchoreo.dev/workflow-scope: "component"
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
@@ -14,7 +13,7 @@ metadata:
       secretRef: parameters.repository.secretRef
 spec:
   workflowPlaneRef:
-    kind: WorkflowPlane
+    kind: ClusterWorkflowPlane
     name: default
   ttlAfterCompletion: "1d"
   parameters:
@@ -52,6 +51,20 @@ spec:
               type: string
               default: "."
               description: "Path to the application directory within the repository"
+        buildEnv:
+          type: array
+          default: []
+          description: "Build-time environment variables passed to the buildpack (e.g. GOOGLE_RUNTIME_VERSION=21). Reference: https://docs.cloud.google.com/docs/buildpacks/set-environment-variables"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Environment variable name"
+              value:
+                type: string
+                description: "Environment variable value"
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -77,6 +90,8 @@ spec:
             value: ${parameters.repository.revision.commit}
           - name: app-path
             value: ${parameters.repository.appPath}
+          - name: build-env
+            value: ${parameters.buildEnv}
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
@@ -97,13 +112,13 @@ spec:
                   template: checkout
             - - name: build-image
                 templateRef:
-                  name: google-cloud-buildpacks
+                  name: gcp-buildpacks-build
                   clusterScope: true
                   template: build-image
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                      value: "{{steps.checkout-source.outputs.parameters.git-revision}}"
             - - name: publish-image
                 templateRef:
                   name: publish-image
@@ -112,7 +127,7 @@ spec:
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                      value: "{{steps.checkout-source.outputs.parameters.git-revision}}"
             - - name: generate-workload-cr
                 templateRef:
                   name: generate-workload
@@ -121,9 +136,9 @@ spec:
                 arguments:
                   parameters:
                     - name: image
-                      value: '{{steps.publish-image.outputs.parameters.image}}'
+                      value: "{{steps.publish-image.outputs.parameters.image}}"
                     - name: run-name
-                      value: '{{workflow.parameters.workflowrun-name}}'
+                      value: "{{workflow.parameters.workflowrun-name}}"
       volumeClaimTemplates:
         - metadata:
             name: workspace

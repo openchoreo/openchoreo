@@ -251,11 +251,15 @@ func (h *Handler) ListClusterRoles(
 ) (gen.ListClusterRolesResponseObject, error) {
 	h.logger.Debug("ListClusterRoles called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 	result, err := h.services.AuthzService.ListClusterRoles(ctx, opts)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListClusterRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		var validationErr *svcpkg.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListClusterRoles400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list cluster roles", "error", err)
 		return gen.ListClusterRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -294,6 +298,10 @@ func (h *Handler) CreateClusterRole(
 		}
 		if errors.Is(err, authzsvc.ErrRoleAlreadyExists) {
 			return gen.CreateClusterRole409JSONResponse{ConflictJSONResponse: conflict("Cluster role already exists")}, nil
+		}
+		var validationErr *svcpkg.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create cluster role", "error", err)
 		return gen.CreateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -364,6 +372,10 @@ func (h *Handler) UpdateClusterRole(
 		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.UpdateClusterRole404JSONResponse{NotFoundJSONResponse: notFound("Cluster role")}, nil
 		}
+		var validationErr *svcpkg.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to update cluster role", "error", err)
 		return gen.UpdateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -413,11 +425,15 @@ func (h *Handler) ListClusterRoleBindings(
 ) (gen.ListClusterRoleBindingsResponseObject, error) {
 	h.logger.Debug("ListClusterRoleBindings called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 	result, err := h.services.AuthzService.ListClusterRoleBindings(ctx, opts)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListClusterRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		var validationErr *svcpkg.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListClusterRoleBindings400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list cluster role bindings", "error", err)
 		return gen.ListClusterRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -459,6 +475,10 @@ func (h *Handler) CreateClusterRoleBinding(
 		}
 		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.CreateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Referenced role not found")}, nil
+		}
+		var validationErr *svcpkg.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create cluster role binding", "error", err)
 		return gen.CreateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -529,6 +549,10 @@ func (h *Handler) UpdateClusterRoleBinding(
 		if errors.Is(err, authzsvc.ErrRoleBindingNotFound) {
 			return gen.UpdateClusterRoleBinding404JSONResponse{NotFoundJSONResponse: notFound("Cluster role binding")}, nil
 		}
+		var validationErr *svcpkg.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to update cluster role binding", "error", err)
 		return gen.UpdateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -575,11 +599,15 @@ func (h *Handler) ListNamespaceRoles(
 ) (gen.ListNamespaceRolesResponseObject, error) {
 	h.logger.Debug("ListNamespaceRoles called", "namespace", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 	result, err := h.services.AuthzService.ListNamespaceRoles(ctx, request.NamespaceName, opts)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListNamespaceRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		var validationErr *svcpkg.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListNamespaceRoles400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list namespace roles", "error", err)
 		return gen.ListNamespaceRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -618,6 +646,10 @@ func (h *Handler) CreateNamespaceRole(
 		}
 		if errors.Is(err, authzsvc.ErrRoleAlreadyExists) {
 			return gen.CreateNamespaceRole409JSONResponse{ConflictJSONResponse: conflict("Namespace role already exists")}, nil
+		}
+		var validationErr *svcpkg.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateNamespaceRole400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create namespace role", "error", err)
 		return gen.CreateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -688,6 +720,10 @@ func (h *Handler) UpdateNamespaceRole(
 		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.UpdateNamespaceRole404JSONResponse{NotFoundJSONResponse: notFound("Namespace role")}, nil
 		}
+		var validationErr *svcpkg.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateNamespaceRole400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to update namespace role", "error", err)
 		return gen.UpdateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -737,11 +773,15 @@ func (h *Handler) ListNamespaceRoleBindings(
 ) (gen.ListNamespaceRoleBindingsResponseObject, error) {
 	h.logger.Debug("ListNamespaceRoleBindings called", "namespace", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 	result, err := h.services.AuthzService.ListNamespaceRoleBindings(ctx, request.NamespaceName, opts)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListNamespaceRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		var validationErr *svcpkg.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListNamespaceRoleBindings400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list namespace role bindings", "error", err)
 		return gen.ListNamespaceRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -780,6 +820,10 @@ func (h *Handler) CreateNamespaceRoleBinding(
 		}
 		if errors.Is(err, authzsvc.ErrRoleBindingAlreadyExists) {
 			return gen.CreateNamespaceRoleBinding409JSONResponse{ConflictJSONResponse: conflict("Namespace role binding already exists")}, nil
+		}
+		var validationErr *svcpkg.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateNamespaceRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create namespace role binding", "error", err)
 		return gen.CreateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -849,6 +893,10 @@ func (h *Handler) UpdateNamespaceRoleBinding(
 		}
 		if errors.Is(err, authzsvc.ErrRoleBindingNotFound) {
 			return gen.UpdateNamespaceRoleBinding404JSONResponse{NotFoundJSONResponse: notFound("Namespace role binding")}, nil
+		}
+		var validationErr *svcpkg.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.UpdateNamespaceRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update namespace role binding", "error", err)
 		return gen.UpdateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

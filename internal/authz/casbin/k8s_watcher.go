@@ -256,61 +256,36 @@ func (h *authzInformerHandler) handleAddBinding(obj interface{}) error {
 		return fmt.Errorf("failed to format subject in handleAddBinding: %w", err)
 	}
 
-	// Convert targetPath to resource path
-	resourcePath := resourceHierarchyToPath(authzcore.ResourceHierarchy{
-		Namespace: binding.Namespace,
-		Project:   binding.Spec.TargetPath.Project,
-		Component: binding.Spec.TargetPath.Component,
-	})
-
-	// Determine role namespace based on roleRef.Kind
-	roleNamespace := binding.Namespace
-	if binding.Spec.RoleRef.Kind == CRDTypeAuthzClusterRole {
-		roleNamespace = "*"
-	}
-
 	// Get effect (default to "allow" if not specified)
 	effect := string(binding.Spec.Effect)
 	if effect == "" {
 		return fmt.Errorf("effect not specified in binding %s", binding.Name)
 	}
 
-	// Check existence
-	exists, err := h.enforcer.HasPolicy(
-		subject,
-		resourcePath,
-		binding.Spec.RoleRef.Name,
-		roleNamespace,
-		effect,
-		emptyContextJSON,
-		binding.Name,
-	)
-	if err != nil {
-		h.logger.Warn("failed to check policy for binding", "binding", binding.Name, "error", err)
-	}
-	if exists {
-		return nil
+	// Build policy tuples for all role mappings
+	rules := make([][]string, 0, len(binding.Spec.RoleMappings))
+	for _, mapping := range binding.Spec.RoleMappings {
+		resourcePath := resourceHierarchyToPath(authzcore.ResourceHierarchy{
+			Namespace: binding.Namespace,
+			Project:   mapping.TargetPath.Project,
+			Component: mapping.TargetPath.Component,
+		})
+		roleNamespace := binding.Namespace
+		if mapping.RoleRef.Kind == CRDTypeAuthzClusterRole {
+			roleNamespace = "*"
+		}
+		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, roleNamespace, effect, emptyContextJSON, binding.Name})
 	}
 
-	// Format: p, subject, resourcePath, roleName, roleNamespace, effect, context, binding_name
-	if _, err := h.enforcer.AddPolicy(
-		subject,
-		resourcePath,
-		binding.Spec.RoleRef.Name,
-		roleNamespace,
-		effect,
-		emptyContextJSON,
-		binding.Name,
-	); err != nil {
-		return fmt.Errorf("failed to add policy for binding %s: %w", binding.Name, err)
+	// AddPoliciesEx skips duplicates and adds the rest in a single lock
+	if _, err := h.enforcer.AddPoliciesEx(rules); err != nil {
+		return fmt.Errorf("failed to add policies for binding %s: %w", binding.Name, err)
 	}
 
-	h.logger.Debug("binding policy added successfully",
+	h.logger.Debug("binding policies added successfully",
 		"binding", binding.Name,
 		"namespace", binding.Namespace,
-		"subject", subject,
-		"resource", resourcePath,
-		"role", binding.Spec.RoleRef.Name)
+		"count", len(rules))
 
 	return nil
 }
@@ -328,50 +303,26 @@ func (h *authzInformerHandler) handleAddClusterBinding(obj interface{}) error {
 		return fmt.Errorf("failed to format subject in handleAddClusterBinding: %w", err)
 	}
 
-	// Cluster bindings apply to all resources
-	resourcePath := "*"
-	roleNamespace := "*"
-
 	// Get effect (default to "allow" if not specified)
 	effect := string(binding.Spec.Effect)
 	if effect == "" {
 		return fmt.Errorf("effect not specified in cluster binding %s", binding.Name)
 	}
 
-	// Check existence first (read lock) to avoid unnecessary write locks
-	exists, err := h.enforcer.HasPolicy(
-		subject,
-		resourcePath,
-		binding.Spec.RoleRef.Name,
-		roleNamespace,
-		effect,
-		emptyContextJSON,
-		binding.Name,
-	)
-	if err != nil {
-		h.logger.Warn("failed to check policy for cluster binding", "binding", binding.Name, "error", err)
-	}
-	if exists {
-		return nil
+	// Build policy tuples for all role mappings
+	rules := make([][]string, 0, len(binding.Spec.RoleMappings))
+	for _, mapping := range binding.Spec.RoleMappings {
+		rules = append(rules, []string{subject, "*", mapping.RoleRef.Name, "*", effect, emptyContextJSON, binding.Name})
 	}
 
-	// Format: p, subject, resourcePath, roleName, "*", effect, context, binding_name
-	if _, err := h.enforcer.AddPolicy(
-		subject,
-		resourcePath,
-		binding.Spec.RoleRef.Name,
-		roleNamespace,
-		effect,
-		emptyContextJSON,
-		binding.Name,
-	); err != nil {
-		return fmt.Errorf("failed to add policy for cluster binding %s: %w", binding.Name, err)
+	// AddPoliciesEx skips duplicates and adds the rest in a single lock
+	if _, err := h.enforcer.AddPoliciesEx(rules); err != nil {
+		return fmt.Errorf("failed to add policies for cluster binding %s: %w", binding.Name, err)
 	}
 
-	h.logger.Debug("cluster binding policy added successfully",
+	h.logger.Debug("cluster binding policies added successfully",
 		"binding", binding.Name,
-		"subject", subject,
-		"role", binding.Spec.RoleRef.Name)
+		"count", len(rules))
 
 	return nil
 }
@@ -512,74 +463,67 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 		return nil
 	}
 
-	//  existing policy
+	// Build old policy tuples
 	oldSubject, err := formatSubject(oldBinding.Spec.Entitlement.Claim, oldBinding.Spec.Entitlement.Value)
 	if err != nil {
 		return fmt.Errorf("failed to format old subject: %w", err)
-	}
-	oldResourcePath := resourceHierarchyToPath(authzcore.ResourceHierarchy{
-		Namespace: oldBinding.Namespace,
-		Project:   oldBinding.Spec.TargetPath.Project,
-		Component: oldBinding.Spec.TargetPath.Component,
-	})
-	oldRoleNamespace := oldBinding.Namespace
-	if oldBinding.Spec.RoleRef.Kind == CRDTypeAuthzClusterRole {
-		oldRoleNamespace = "*"
 	}
 	oldEffect := string(oldBinding.Spec.Effect)
 	if oldEffect == "" {
 		return fmt.Errorf("old binding effect not specified")
 	}
-	existingPolicy := []string{
-		oldSubject,
-		oldResourcePath,
-		oldBinding.Spec.RoleRef.Name,
-		oldRoleNamespace,
-		oldEffect,
-		string(emptyContextJSON),
-		oldBinding.Name,
+	oldPolicies := make([][]string, 0, len(oldBinding.Spec.RoleMappings))
+	for _, m := range oldBinding.Spec.RoleMappings {
+		rp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
+			Namespace: oldBinding.Namespace, Project: m.TargetPath.Project, Component: m.TargetPath.Component,
+		})
+		rns := oldBinding.Namespace
+		if m.RoleRef.Kind == CRDTypeAuthzClusterRole {
+			rns = "*"
+		}
+		oldPolicies = append(oldPolicies, []string{oldSubject, rp, m.RoleRef.Name, rns, oldEffect, emptyContextJSON, oldBinding.Name})
 	}
 
-	//  new policy
+	// Build new policy tuples
 	newSubject, err := formatSubject(newBinding.Spec.Entitlement.Claim, newBinding.Spec.Entitlement.Value)
 	if err != nil {
 		return fmt.Errorf("failed to format new subject: %w", err)
-	}
-
-	newResourcePath := resourceHierarchyToPath(authzcore.ResourceHierarchy{
-		Namespace: newBinding.Namespace,
-		Project:   newBinding.Spec.TargetPath.Project,
-		Component: newBinding.Spec.TargetPath.Component,
-	})
-	newRoleNamespace := newBinding.Namespace
-	if newBinding.Spec.RoleRef.Kind == CRDTypeAuthzClusterRole {
-		newRoleNamespace = "*"
 	}
 	newEffect := string(newBinding.Spec.Effect)
 	if newEffect == "" {
 		return fmt.Errorf("new binding effect not specified")
 	}
-	newPolicy := []string{
-		newSubject,
-		newResourcePath,
-		newBinding.Spec.RoleRef.Name,
-		newRoleNamespace,
-		newEffect,
-		string(emptyContextJSON),
-		newBinding.Name,
+	newPolicies := make([][]string, 0, len(newBinding.Spec.RoleMappings))
+	for _, m := range newBinding.Spec.RoleMappings {
+		rp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
+			Namespace: newBinding.Namespace, Project: m.TargetPath.Project, Component: m.TargetPath.Component,
+		})
+		rns := newBinding.Namespace
+		if m.RoleRef.Kind == CRDTypeAuthzClusterRole {
+			rns = "*"
+		}
+		newPolicies = append(newPolicies, []string{newSubject, rp, m.RoleRef.Name, rns, newEffect, emptyContextJSON, newBinding.Name})
 	}
 
-	ok, err := h.enforcer.UpdatePolicy(existingPolicy, newPolicy)
-	if err != nil {
-		return fmt.Errorf("failed to update binding policy: %w", err)
+	// Compute diff and apply only the delta
+	added, removed := computePolicyDiff(oldPolicies, newPolicies)
+
+	if len(removed) > 0 {
+		if _, err := h.enforcer.RemovePolicies(removed); err != nil {
+			return fmt.Errorf("failed to remove old binding policies: %w", err)
+		}
 	}
-	if !ok {
-		h.logger.Debug("Binding policy did not exist to update", "binding", newBinding.Name)
+	if len(added) > 0 {
+		if _, err := h.enforcer.AddPoliciesEx(added); err != nil {
+			return fmt.Errorf("failed to add new binding policies: %w", err)
+		}
 	}
 
 	h.logger.Debug("binding policy updated successfully",
 		"binding", newBinding.Name,
-		"namespace", newBinding.Namespace)
+		"namespace", newBinding.Namespace,
+		"added", len(added),
+		"removed", len(removed))
 
 	return nil
 }
@@ -599,7 +543,7 @@ func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interfa
 		return nil
 	}
 
-	// Build existing policy
+	// Build old policy tuples
 	oldSubject, err := formatSubject(oldBinding.Spec.Entitlement.Claim, oldBinding.Spec.Entitlement.Value)
 	if err != nil {
 		return fmt.Errorf("failed to format old subject: %w", err)
@@ -608,17 +552,12 @@ func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interfa
 	if oldEffect == "" {
 		return fmt.Errorf("effect not specified in cluster binding %s", oldBinding.Name)
 	}
-	existingPolicy := []string{
-		oldSubject,
-		"*",
-		oldBinding.Spec.RoleRef.Name,
-		"*",
-		oldEffect,
-		string(emptyContextJSON),
-		oldBinding.Name,
+	oldPolicies := make([][]string, 0, len(oldBinding.Spec.RoleMappings))
+	for _, m := range oldBinding.Spec.RoleMappings {
+		oldPolicies = append(oldPolicies, []string{oldSubject, "*", m.RoleRef.Name, "*", oldEffect, emptyContextJSON, oldBinding.Name})
 	}
 
-	// Build new policy
+	// Build new policy tuples
 	newSubject, err := formatSubject(newBinding.Spec.Entitlement.Claim, newBinding.Spec.Entitlement.Value)
 	if err != nil {
 		return fmt.Errorf("failed to format new subject: %w", err)
@@ -627,26 +566,29 @@ func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interfa
 	if newEffect == "" {
 		return fmt.Errorf("effect not specified in cluster binding %s", newBinding.Name)
 	}
-	newPolicy := []string{
-		newSubject,
-		"*",
-		newBinding.Spec.RoleRef.Name,
-		"*",
-		newEffect,
-		string(emptyContextJSON),
-		newBinding.Name,
+	newPolicies := make([][]string, 0, len(newBinding.Spec.RoleMappings))
+	for _, m := range newBinding.Spec.RoleMappings {
+		newPolicies = append(newPolicies, []string{newSubject, "*", m.RoleRef.Name, "*", newEffect, emptyContextJSON, newBinding.Name})
 	}
 
-	ok, err := h.enforcer.UpdatePolicy(existingPolicy, newPolicy)
-	if err != nil {
-		return fmt.Errorf("failed to update cluster binding policy: %w", err)
+	// Compute diff and apply only the delta
+	added, removed := computePolicyDiff(oldPolicies, newPolicies)
+
+	if len(removed) > 0 {
+		if _, err := h.enforcer.RemovePolicies(removed); err != nil {
+			return fmt.Errorf("failed to remove old cluster binding policies: %w", err)
+		}
 	}
-	if !ok {
-		h.logger.Debug("Cluster binding policy did not exist to update", "binding", newBinding.Name)
+	if len(added) > 0 {
+		if _, err := h.enforcer.AddPoliciesEx(added); err != nil {
+			return fmt.Errorf("failed to add new cluster binding policies: %w", err)
+		}
 	}
 
 	h.logger.Debug("cluster binding policy updated successfully",
-		"binding", newBinding.Name)
+		"binding", newBinding.Name,
+		"added", len(added),
+		"removed", len(removed))
 
 	return nil
 }
@@ -738,39 +680,34 @@ func (h *authzInformerHandler) handleDeleteBinding(obj interface{}) error {
 	if err != nil {
 		return fmt.Errorf("failed to format subject in binding %s: %w", binding.Name, err)
 	}
-	resourcePath := resourceHierarchyToPath(authzcore.ResourceHierarchy{
-		Namespace: binding.Namespace,
-		Project:   binding.Spec.TargetPath.Project,
-		Component: binding.Spec.TargetPath.Component,
-	})
-	roleNamespace := binding.Namespace
-	if binding.Spec.RoleRef.Kind == CRDTypeAuthzClusterRole {
-		roleNamespace = "*"
-	}
 	effect := string(binding.Spec.Effect)
 	if effect == "" {
 		return fmt.Errorf("effect not specified in binding %s", binding.Name)
 	}
 
-	removed, err := h.enforcer.RemovePolicy(
-		subject,
-		resourcePath,
-		binding.Spec.RoleRef.Name,
-		roleNamespace,
-		effect,
-		emptyContextJSON,
-		binding.Name,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to remove binding policy: %w", err)
-	}
-	if !removed {
-		h.logger.Debug("Policy did not exist", "binding", binding.Name)
+	// Build policy tuples for all role mappings
+	rules := make([][]string, 0, len(binding.Spec.RoleMappings))
+	for _, mapping := range binding.Spec.RoleMappings {
+		resourcePath := resourceHierarchyToPath(authzcore.ResourceHierarchy{
+			Namespace: binding.Namespace,
+			Project:   mapping.TargetPath.Project,
+			Component: mapping.TargetPath.Component,
+		})
+		roleNamespace := binding.Namespace
+		if mapping.RoleRef.Kind == CRDTypeAuthzClusterRole {
+			roleNamespace = "*"
+		}
+		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, roleNamespace, effect, emptyContextJSON, binding.Name})
 	}
 
-	h.logger.Debug("binding policy removed successfully",
+	if _, err := h.enforcer.RemovePolicies(rules); err != nil {
+		return fmt.Errorf("failed to remove binding policies: %w", err)
+	}
+
+	h.logger.Debug("binding policies removed successfully",
 		"binding", binding.Name,
-		"namespace", binding.Namespace)
+		"namespace", binding.Namespace,
+		"count", len(rules))
 
 	return nil
 }
@@ -791,24 +728,19 @@ func (h *authzInformerHandler) handleDeleteClusterBinding(obj interface{}) error
 		return fmt.Errorf("effect not specified in cluster binding %s", binding.Name)
 	}
 
-	removed, err := h.enforcer.RemovePolicy(
-		subject,
-		"*",
-		binding.Spec.RoleRef.Name,
-		"*",
-		effect,
-		emptyContextJSON,
-		binding.Name,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to remove cluster binding policy: %w", err)
-	}
-	if !removed {
-		h.logger.Debug("Cluster policy did not exist", "binding", binding.Name)
+	// Build policy tuples for all role mappings
+	rules := make([][]string, 0, len(binding.Spec.RoleMappings))
+	for _, mapping := range binding.Spec.RoleMappings {
+		rules = append(rules, []string{subject, "*", mapping.RoleRef.Name, "*", effect, emptyContextJSON, binding.Name})
 	}
 
-	h.logger.Debug("cluster binding policy removed successfully",
-		"binding", binding.Name)
+	if _, err := h.enforcer.RemovePolicies(rules); err != nil {
+		return fmt.Errorf("failed to remove cluster binding policies: %w", err)
+	}
+
+	h.logger.Debug("cluster binding policies removed successfully",
+		"binding", binding.Name,
+		"count", len(rules))
 
 	return nil
 }

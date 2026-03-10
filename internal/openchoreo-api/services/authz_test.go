@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	disabledAuthz "github.com/openchoreo/openchoreo/internal/authz"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
@@ -65,49 +67,59 @@ func newTestChecker(pdp authz.PDP) *AuthzChecker {
 // Check tests
 // ---------------------------------------------------------------------------
 
-func TestCheck_Allow(t *testing.T) {
-	pdp := &mockPDP{
-		evaluateFunc: func(_ context.Context, _ *authz.EvaluateRequest) (*authz.Decision, error) {
-			return &authz.Decision{Decision: true, Context: &authz.DecisionContext{Reason: "allowed"}}, nil
-		},
-	}
-	checker := newTestChecker(pdp)
-
-	err := checker.Check(ctxWithSubject(testSubjectContext()), testCheckRequest())
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
-	}
-}
-
-func TestCheck_Deny(t *testing.T) {
-	pdp := &mockPDP{
-		evaluateFunc: func(_ context.Context, _ *authz.EvaluateRequest) (*authz.Decision, error) {
-			return &authz.Decision{Decision: false, Context: &authz.DecisionContext{Reason: "denied"}}, nil
-		},
-	}
-	checker := newTestChecker(pdp)
-
-	err := checker.Check(ctxWithSubject(testSubjectContext()), testCheckRequest())
-	if !errors.Is(err, ErrForbidden) {
-		t.Fatalf("expected ErrForbidden, got %v", err)
-	}
-}
-
-func TestCheck_EvaluateError(t *testing.T) {
+func TestCheck(t *testing.T) {
 	evalErr := errors.New("pdp unavailable")
-	pdp := &mockPDP{
-		evaluateFunc: func(_ context.Context, _ *authz.EvaluateRequest) (*authz.Decision, error) {
-			return nil, evalErr
+
+	tests := []struct {
+		name     string
+		decision *authz.Decision
+		evalErr  error
+		checkErr func(t *testing.T, err error)
+	}{
+		{
+			name: "allow",
+			decision: &authz.Decision{
+				Decision: true,
+				Context:  &authz.DecisionContext{Reason: "allowed"},
+			},
+			checkErr: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "deny",
+			decision: &authz.Decision{
+				Decision: false,
+				Context:  &authz.DecisionContext{Reason: "denied"},
+			},
+			checkErr: func(t *testing.T, err error) {
+				require.ErrorIs(t, err, ErrForbidden)
+			},
+		},
+		{
+			name:    "evaluate error",
+			evalErr: evalErr,
+			checkErr: func(t *testing.T, err error) {
+				require.ErrorIs(t, err, evalErr)
+			},
 		},
 	}
-	checker := newTestChecker(pdp)
 
-	err := checker.Check(ctxWithSubject(testSubjectContext()), testCheckRequest())
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !errors.Is(err, evalErr) {
-		t.Fatalf("expected wrapped evalErr, got %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pdp := &mockPDP{
+				evaluateFunc: func(_ context.Context, _ *authz.EvaluateRequest) (*authz.Decision, error) {
+					if tt.evalErr != nil {
+						return nil, tt.evalErr
+					}
+					return tt.decision, nil
+				},
+			}
+			checker := newTestChecker(pdp)
+
+			err := checker.Check(ctxWithSubject(testSubjectContext()), testCheckRequest())
+			tt.checkErr(t, err)
+		})
 	}
 }
 
@@ -116,9 +128,7 @@ func TestCheck_NilSubject_DisabledAuthz(t *testing.T) {
 
 	// context.Background() has no SubjectContext — disabled authorizer should still allow.
 	err := checker.Check(context.Background(), testCheckRequest())
-	if err != nil {
-		t.Fatalf("expected nil error with disabled authz, got %v", err)
-	}
+	require.NoError(t, err, "expected nil error with disabled authz")
 }
 
 // ---------------------------------------------------------------------------
@@ -135,12 +145,8 @@ func TestBatchCheck_EmptyRequests(t *testing.T) {
 	checker := newTestChecker(pdp)
 
 	results, err := checker.BatchCheck(ctxWithSubject(testSubjectContext()), []CheckRequest{})
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
-	}
-	if results != nil {
-		t.Fatalf("expected nil results, got %v", results)
-	}
+	require.NoError(t, err)
+	require.Nil(t, results)
 }
 
 func TestBatchCheck_AllAllowed(t *testing.T) {
@@ -157,16 +163,10 @@ func TestBatchCheck_AllAllowed(t *testing.T) {
 
 	requests := []CheckRequest{testCheckRequest(), testCheckRequest()}
 	results, err := checker.BatchCheck(ctxWithSubject(testSubjectContext()), requests)
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
-	}
-	if len(results) != 2 {
-		t.Fatalf("expected 2 results, got %d", len(results))
-	}
+	require.NoError(t, err)
+	require.Len(t, results, 2)
 	for i, r := range results {
-		if !r {
-			t.Errorf("expected results[%d] to be true", i)
-		}
+		require.Truef(t, r, "expected results[%d] to be true", i)
 	}
 }
 
@@ -186,18 +186,9 @@ func TestBatchCheck_MixedDecisions(t *testing.T) {
 
 	requests := []CheckRequest{testCheckRequest(), testCheckRequest(), testCheckRequest()}
 	results, err := checker.BatchCheck(ctxWithSubject(testSubjectContext()), requests)
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
-	}
+	require.NoError(t, err)
 	expected := []bool{true, false, true}
-	if len(results) != len(expected) {
-		t.Fatalf("expected %d results, got %d", len(expected), len(results))
-	}
-	for i, want := range expected {
-		if results[i] != want {
-			t.Errorf("results[%d] = %v, want %v", i, results[i], want)
-		}
-	}
+	require.Equal(t, expected, results)
 }
 
 func TestBatchCheck_EvaluateError(t *testing.T) {
@@ -210,12 +201,8 @@ func TestBatchCheck_EvaluateError(t *testing.T) {
 	checker := newTestChecker(pdp)
 
 	_, err := checker.BatchCheck(ctxWithSubject(testSubjectContext()), []CheckRequest{testCheckRequest()})
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !errors.Is(err, batchErr) {
-		t.Fatalf("expected wrapped batchErr, got %v", err)
-	}
+	require.Error(t, err)
+	require.ErrorIs(t, err, batchErr)
 }
 
 func TestBatchCheck_NilSubject_DisabledAuthz(t *testing.T) {
@@ -223,12 +210,8 @@ func TestBatchCheck_NilSubject_DisabledAuthz(t *testing.T) {
 
 	// context.Background() has no SubjectContext — disabled authorizer should still allow.
 	results, err := checker.BatchCheck(context.Background(), []CheckRequest{testCheckRequest()})
-	if err != nil {
-		t.Fatalf("expected nil error with disabled authz, got %v", err)
-	}
-	if len(results) != 1 || !results[0] {
-		t.Fatalf("expected [true], got %v", results)
-	}
+	require.NoError(t, err, "expected nil error with disabled authz")
+	require.Equal(t, []bool{true}, results)
 }
 
 func TestBatchCheck_SingleRequest(t *testing.T) {
@@ -242,13 +225,7 @@ func TestBatchCheck_SingleRequest(t *testing.T) {
 	checker := newTestChecker(pdp)
 
 	results, err := checker.BatchCheck(ctxWithSubject(testSubjectContext()), []CheckRequest{testCheckRequest()})
-	if err != nil {
-		t.Fatalf("expected nil error, got %v", err)
-	}
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
-	}
-	if results[0] {
-		t.Error("expected results[0] to be false")
-	}
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.False(t, results[0], "expected results[0] to be false")
 }

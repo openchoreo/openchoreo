@@ -1,10 +1,9 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
-  name: react
-  namespace: default
+  name: ballerina-buildpack-builder
   annotations:
-    openchoreo.dev/description: "Build workflow for React web applications"
+    openchoreo.dev/description: "Workflow for building applications written in Ballerina"
     openchoreo.dev/workflow-scope: "component"
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
@@ -14,7 +13,7 @@ metadata:
       secretRef: parameters.repository.secretRef
 spec:
   workflowPlaneRef:
-    kind: WorkflowPlane
+    kind: ClusterWorkflowPlane
     name: default
   ttlAfterCompletion: "1d"
   parameters:
@@ -51,16 +50,21 @@ spec:
             appPath:
               type: string
               default: "."
-              description: "Path to the React application directory within the repository"
-        nodeVersion:
-          type: string
-          default: "18"
-          enum:
-            - "16"
-            - "18"
-            - "20"
-            - "22"
-          description: "Node.js version to use for building the React application"
+              description: "Path to the Ballerina application directory within the repository"
+        buildEnv:
+          type: array
+          default: []
+          description: "Environment variables to be passed into the buildpack"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Environment variable name"
+              value:
+                type: string
+                description: "Environment variable value"
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -86,8 +90,8 @@ spec:
             value: ${parameters.repository.revision.commit}
           - name: app-path
             value: ${parameters.repository.appPath}
-          - name: node-version
-            value: ${parameters.nodeVersion}
+          - name: build-env
+            value: ${parameters.buildEnv}
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
@@ -108,13 +112,15 @@ spec:
                   template: checkout
             - - name: build-image
                 templateRef:
-                  name: react
+                  name: ballerina-buildpack-build
                   clusterScope: true
                   template: build-image
                 arguments:
                   parameters:
                     - name: git-revision
                       value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                    - name: build-env
+                      value: '{{workflow.parameters.build-env}}'
             - - name: publish-image
                 templateRef:
                   name: publish-image

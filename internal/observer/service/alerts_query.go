@@ -197,11 +197,67 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 	return &response, nil
 }
 
+func (s *AlertService) UpdateIncident(ctx context.Context, id string, req gen.IncidentPutRequest) (*gen.IncidentPutResponse, error) {
+	if s.incidentEntryStore == nil {
+		return nil, fmt.Errorf("incident entry store is not initialized")
+	}
+
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return nil, fmt.Errorf("incident id is required")
+	}
+
+	status := strings.TrimSpace(string(req.Status))
+	if status == "" {
+		return nil, fmt.Errorf("incident status is required")
+	}
+	if status != incidententry.StatusActive && status != incidententry.StatusAcknowledged && status != incidententry.StatusResolved {
+		return nil, fmt.Errorf("unsupported incident status %q", status)
+	}
+
+	entry, err := s.incidentEntryStore.UpdateIncidentEntry(ctx, id, status, req.Notes, req.Description, time.Now().UTC())
+	if err != nil {
+		return nil, fmt.Errorf("update incident entry: %w", err)
+	}
+
+	payload := incidentPutResponsePayload{
+		IncidentID:           stringPtr(strings.TrimSpace(entry.ID)),
+		AlertID:              stringPtr(strings.TrimSpace(entry.AlertID)),
+		Status:               stringPtr(strings.TrimSpace(entry.Status)),
+		TriggeredAt:          parseTimePtr(entry.TriggeredAt),
+		AcknowledgedAt:       parseTimePtr(entry.AcknowledgedAt),
+		ResolvedAt:           parseTimePtr(entry.ResolvedAt),
+		Notes:                stringPtr(strings.TrimSpace(entry.Notes)),
+		Description:          stringPtr(strings.TrimSpace(entry.Description)),
+		IncidentTriggerAiRca: boolPtr(entry.TriggerAiRca),
+		Labels: buildLabelsPayload(
+			entry.NamespaceName,
+			entry.ProjectName,
+			entry.ComponentName,
+			entry.EnvironmentName,
+			entry.ProjectID,
+			entry.ComponentID,
+			entry.EnvironmentID,
+		),
+	}
+
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal incident put response payload: %w", err)
+	}
+	var response gen.IncidentPutResponse
+	if err := json.Unmarshal(raw, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal incident put response payload: %w", err)
+	}
+	return &response, nil
+}
+
 func (s *AlertService) buildAlertQueryItem(entry alertentry.AlertEntry) alertQueryItemPayload {
 	item := alertQueryItemPayload{
-		Timestamp:  parseTimePtr(entry.Timestamp),
-		AlertID:    stringPtr(strings.TrimSpace(entry.ID)),
-		AlertValue: stringPtr(strings.TrimSpace(entry.AlertValue)),
+		Timestamp:       parseTimePtr(entry.Timestamp),
+		AlertID:         stringPtr(strings.TrimSpace(entry.ID)),
+		AlertValue:      stringPtr(strings.TrimSpace(entry.AlertValue)),
+		IncidentEnabled: boolPtr(entry.IncidentEnabled),
 		Metadata: alertMetadataPayload{
 			Labels: buildLabelsPayload(
 				entry.NamespaceName,
@@ -361,6 +417,7 @@ type alertQueryItemPayload struct {
 	AlertID              *string              `json:"alertId,omitempty"`
 	AlertValue           *string              `json:"alertValue,omitempty"`
 	NotificationChannels []string             `json:"notificationChannels,omitempty"`
+	IncidentEnabled      *bool                `json:"incidentEnabled,omitempty"`
 	Metadata             alertMetadataPayload `json:"metadata,omitempty"`
 }
 
@@ -417,6 +474,19 @@ type incidentQueryItemPayload struct {
 	ResolvedAt           *time.Time     `json:"resolvedAt,omitempty"`
 	Notes                *string        `json:"notes,omitempty"`
 	Description          *string        `json:"description,omitempty"`
+	Labels               *labelsPayload `json:"labels,omitempty"`
+}
+
+type incidentPutResponsePayload struct {
+	IncidentID           *string        `json:"incidentId,omitempty"`
+	AlertID              *string        `json:"alertId,omitempty"`
+	Status               *string        `json:"status,omitempty"`
+	TriggeredAt          *time.Time     `json:"triggeredAt,omitempty"`
+	AcknowledgedAt       *time.Time     `json:"acknowledgedAt,omitempty"`
+	ResolvedAt           *time.Time     `json:"resolvedAt,omitempty"`
+	Notes                *string        `json:"notes,omitempty"`
+	Description          *string        `json:"description,omitempty"`
+	IncidentTriggerAiRca *bool          `json:"incidentTriggerAiRca,omitempty"`
 	Labels               *labelsPayload `json:"labels,omitempty"`
 }
 

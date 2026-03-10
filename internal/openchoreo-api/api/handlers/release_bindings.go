@@ -25,7 +25,7 @@ func (h *Handler) ListReleaseBindings(
 		componentName = *request.Params.Component
 	}
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ReleaseBindingService.ListReleaseBindings(ctx, request.NamespaceName, componentName, opts)
 	if err != nil {
@@ -34,6 +34,10 @@ func (h *Handler) ListReleaseBindings(
 		}
 		if errors.Is(err, releasebindingsvc.ErrComponentNotFound) {
 			return gen.ListReleaseBindings404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListReleaseBindings400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list release bindings", "error", err)
 		return gen.ListReleaseBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

@@ -143,15 +143,11 @@ func (s *workloadService) ListWorkloads(ctx context.Context, namespaceName, comp
 	s.logger.Debug("Listing workloads", "namespace", namespaceName, "component", componentName, "limit", opts.Limit, "cursor", opts.Cursor)
 
 	listFn := func(ctx context.Context, pageOpts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Workload], error) {
-		listOpts := []client.ListOption{
-			client.InNamespace(namespaceName),
+		commonOpts, err := services.BuildListOptions(pageOpts)
+		if err != nil {
+			return nil, err
 		}
-		if pageOpts.Limit > 0 {
-			listOpts = append(listOpts, client.Limit(int64(pageOpts.Limit)))
-		}
-		if pageOpts.Cursor != "" {
-			listOpts = append(listOpts, client.Continue(pageOpts.Cursor))
-		}
+		listOpts := append([]client.ListOption{client.InNamespace(namespaceName)}, commonOpts...)
 
 		var wList openchoreov1alpha1.WorkloadList
 		if err := s.k8sClient.List(ctx, &wList, listOpts...); err != nil {

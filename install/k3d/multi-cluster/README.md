@@ -217,10 +217,9 @@ AGENT_CA=$(kubectl --context k3d-openchoreo-dp get secret cluster-agent-tls \
 
 kubectl --context k3d-openchoreo-cp apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
-kind: DataPlane
+kind: ClusterDataPlane
 metadata:
   name: default
-  namespace: default
 spec:
   planeID: default
   clusterAgent:
@@ -492,8 +491,8 @@ EOF
 ### Link Other Planes
 
 ```bash
-kubectl --context k3d-openchoreo-cp patch dataplane default -n default --type merge \
-  -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
+kubectl --context k3d-openchoreo-cp patch clusterdataplane default --type merge \
+  -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}'
 
 # If workflow plane is installed:
 kubectl --context k3d-openchoreo-cp patch workflowplane default -n default --type merge \
@@ -547,7 +546,7 @@ kubectl --context k3d-openchoreo-wp get pods -n openchoreo-workflow-plane
 kubectl --context k3d-openchoreo-op get pods -n openchoreo-observability-plane
 
 # Plane resources
-kubectl --context k3d-openchoreo-cp get dataplane,workflowplane,observabilityplane -n default
+kubectl --context k3d-openchoreo-cp get clusterdataplane,workflowplane,observabilityplane
 
 # Agent connections
 kubectl --context k3d-openchoreo-dp logs -n openchoreo-data-plane -l app.kubernetes.io/component=cluster-agent --tail=5

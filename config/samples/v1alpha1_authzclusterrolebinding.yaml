@@ -10,7 +10,11 @@ spec:
   entitlement:
     claim: groups
     value: admins
-  roleRef:
-    kind: AuthzClusterRole
-    name: platform-admin
+  roleMappings:
+    - roleRef:
+        kind: AuthzClusterRole
+        name: platform-admin
+    - roleRef:
+        kind: AuthzClusterRole
+        name: audit-viewer
   effect: allow

@@ -75,7 +75,9 @@ func (h *MCPHandler) CreateDeploymentPipeline(ctx context.Context, namespaceName
 				targets = append(targets, ref)
 			}
 			paths = append(paths, openchoreov1alpha1.PromotionPath{
-				SourceEnvironmentRef:  p.SourceEnvironmentRef,
+				SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{
+					Name: p.SourceEnvironmentRef.Name,
+				},
 				TargetEnvironmentRefs: targets,
 			})
 		}

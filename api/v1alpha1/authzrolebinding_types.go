@@ -19,21 +19,26 @@ type TargetPath struct {
 	Component string `json:"component,omitempty"`
 }
 
+// RoleMapping pairs a role reference with an optional target path scope
+type RoleMapping struct {
+	// RoleRef references the role to bind
+	RoleRef RoleRef `json:"roleRef"`
+
+	// TargetPath scopes this mapping within the ownership hierarchy
+	// +optional
+	TargetPath TargetPath `json:"targetPath,omitempty"`
+}
+
 // AuthzRoleBindingSpec defines the desired state of AuthzRoleBinding
 type AuthzRoleBindingSpec struct {
 	// Entitlement defines the subject (from JWT claims) to grant the role to
 	// +required
 	Entitlement EntitlementClaim `json:"entitlement"`
 
-	// RoleRef references the role to bind
-	// Can reference AuthzClusterRole (platform-wide) or AuthzRole (same namespace only)
+	// RoleMappings is the list of role-scope pairs this binding grants
 	// +required
-	RoleRef RoleRef `json:"roleRef"`
-
-	// TargetPath defines which resources this binding applies to within the ownership hierarchy
-	// All fields are optional - omitted fields mean "all" at that level
-	// +optional
-	TargetPath TargetPath `json:"targetPath,omitempty"`
+	// +kubebuilder:validation:MinItems=1
+	RoleMappings []RoleMapping `json:"roleMappings"`
 
 	// Effect indicates whether this binding allows or denies access (default: allow)
 	// +kubebuilder:default=allow

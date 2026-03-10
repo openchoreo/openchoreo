@@ -1,10 +1,8 @@
 ---
-# Trait for Alert Rules - reusable across any component type
 apiVersion: openchoreo.dev/v1alpha1
-kind: Trait
+kind: ClusterTrait
 metadata:
   name: observability-alert-rule
-  namespace: default
 spec:
   parameters:
     openAPIV3Schema:

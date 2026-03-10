@@ -20,10 +20,14 @@ func (h *Handler) ListTraits(
 ) (gen.ListTraitsResponseObject, error) {
 	h.logger.Debug("ListTraits called", "namespaceName", request.NamespaceName)
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.TraitService.ListTraits(ctx, request.NamespaceName, opts)
 	if err != nil {
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListTraits400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list traits", "error", err)
 		return gen.ListTraits500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

@@ -32,8 +32,8 @@ func (r *Reconciler) findEnvironmentsForDeploymentPipeline(ctx context.Context, 
 	// Collect all environments currently referenced by this pipeline.
 	envNames := make(map[string]struct{})
 	for _, path := range pipeline.Spec.PromotionPaths {
-		if path.SourceEnvironmentRef != "" {
-			envNames[path.SourceEnvironmentRef] = struct{}{}
+		if path.SourceEnvironmentRef.Name != "" {
+			envNames[path.SourceEnvironmentRef.Name] = struct{}{}
 		}
 		for _, target := range path.TargetEnvironmentRefs {
 			if target.Name != "" {

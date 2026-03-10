@@ -12,61 +12,80 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 )
 
-// Handler contains the HTTP handlers for the new observer API (v1).
-// Authorization is enforced by the service layer — pass authz-wrapped services
-// (e.g. service.NewLogsServiceWithAuthz) rather than bare service instances.
-type Handler struct {
-	healthService    *service.HealthService
-	logsService      service.LogsQuerier
-	metricsService   service.MetricsQuerier
-	alertService     *service.AlertService
-	alertsQuerier    service.AlertsQuerier
-	incidentsQuerier service.IncidentsQuerier
-	tracesService    service.TracesQuerier
-	logger           *slog.Logger
+// baseHandler holds helpers shared by Handler and InternalHandler.
+type baseHandler struct {
+	logger *slog.Logger
 }
 
-// NewHandler creates a new handler instance for the new API.
-func NewHandler(
-	healthService *service.HealthService,
-	logsService service.LogsQuerier,
-	metricsService service.MetricsQuerier,
-	alertService *service.AlertService,
-	alertsQuerier service.AlertsQuerier,
-	incidentsQuerier service.IncidentsQuerier,
-	tracesService service.TracesQuerier,
-	logger *slog.Logger,
-) *Handler {
-	return &Handler{
-		healthService:    healthService,
-		logsService:      logsService,
-		metricsService:   metricsService,
-		alertService:     alertService,
-		alertsQuerier:    alertsQuerier,
-		incidentsQuerier: incidentsQuerier,
-		tracesService:    tracesService,
-		logger:           logger,
-	}
-}
-
-// writeJSON writes JSON response and logs any error
-func (h *Handler) writeJSON(w http.ResponseWriter, status int, v any) {
+// writeJSON writes JSON response and logs any error.
+func (b *baseHandler) writeJSON(w http.ResponseWriter, status int, v any) {
 	if err := httputil.WriteJSON(w, status, v); err != nil {
-		h.logger.Error("Failed to write JSON response", "error", err)
+		b.logger.Error("Failed to write JSON response", "error", err)
 	}
 }
 
-// writeErrorResponse writes a standardized error response for the new API
-func (h *Handler) writeErrorResponse(
+// writeErrorResponse writes a standardized error response.
+func (b *baseHandler) writeErrorResponse(
 	w http.ResponseWriter,
 	status int,
 	title gen.ErrorResponseTitle,
 	errorCode string,
 	message string,
 ) {
-	h.writeJSON(w, status, gen.ErrorResponse{
+	b.writeJSON(w, status, gen.ErrorResponse{
 		Title:     &title,
 		ErrorCode: &errorCode,
 		Message:   &message,
 	})
+}
+
+// Handler contains the HTTP handlers for the public observer API (v1/v1alpha1).
+// Routes are JWT-protected. Authorization is enforced by the service layer —
+// pass authz-wrapped services (e.g. NewAlertIncidentServiceWithAuthz) rather
+// than bare service instances.
+type Handler struct {
+	baseHandler
+	healthService        *service.HealthService
+	logsService          service.LogsQuerier
+	metricsService       service.MetricsQuerier
+	alertIncidentService service.AlertIncidentService
+	tracesService        service.TracesQuerier
+}
+
+// NewHandler creates a new public Handler instance.
+func NewHandler(
+	healthService *service.HealthService,
+	logsService service.LogsQuerier,
+	metricsService service.MetricsQuerier,
+	alertIncidentService service.AlertIncidentService,
+	tracesService service.TracesQuerier,
+	logger *slog.Logger,
+) *Handler {
+	return &Handler{
+		baseHandler:          baseHandler{logger: logger},
+		healthService:        healthService,
+		logsService:          logsService,
+		metricsService:       metricsService,
+		alertIncidentService: alertIncidentService,
+		tracesService:        tracesService,
+	}
+}
+
+// InternalHandler contains the HTTP handlers that run on the internal port (8081)
+// without JWT authentication. Only the concrete *AlertService is needed here because
+// these handlers manage alert rules and process incoming webhooks.
+type InternalHandler struct {
+	baseHandler
+	alertService *service.AlertService
+}
+
+// NewInternalHandler creates a new InternalHandler instance.
+func NewInternalHandler(
+	alertService *service.AlertService,
+	logger *slog.Logger,
+) *InternalHandler {
+	return &InternalHandler{
+		baseHandler:  baseHandler{logger: logger},
+		alertService: alertService,
+	}
 }

@@ -25,10 +25,14 @@ func (h *Handler) ListWorkloads(
 		componentName = *request.Params.Component
 	}
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.WorkloadService.ListWorkloads(ctx, request.NamespaceName, componentName, opts)
 	if err != nil {
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListWorkloads400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to list workloads", "error", err)
 		return gen.ListWorkloads500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

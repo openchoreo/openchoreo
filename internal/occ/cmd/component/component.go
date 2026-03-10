@@ -390,13 +390,13 @@ func findLowestEnvironment(pipeline *gen.DeploymentPipeline) (string, error) {
 	}
 
 	for _, path := range *pipeline.Spec.PromotionPaths {
-		if !targets[path.SourceEnvironmentRef] {
-			return path.SourceEnvironmentRef, nil
+		if !targets[path.SourceEnvironmentRef.Name] {
+			return path.SourceEnvironmentRef.Name, nil
 		}
 	}
 
 	// Fallback: return the first source
-	return (*pipeline.Spec.PromotionPaths)[0].SourceEnvironmentRef, nil
+	return (*pipeline.Spec.PromotionPaths)[0].SourceEnvironmentRef.Name, nil
 }
 
 // findSourceEnvironment finds the source environment for a given target environment in the pipeline
@@ -409,7 +409,7 @@ func findSourceEnvironment(pipeline *gen.DeploymentPipeline, targetEnv string) (
 	for _, path := range *pipeline.Spec.PromotionPaths {
 		for _, targetRef := range path.TargetEnvironmentRefs {
 			if targetRef.Name == targetEnv {
-				return path.SourceEnvironmentRef, nil
+				return path.SourceEnvironmentRef.Name, nil
 			}
 		}
 	}

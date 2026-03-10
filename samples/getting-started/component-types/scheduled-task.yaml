@@ -1,18 +1,21 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
+kind: ClusterComponentType
 metadata:
   name: scheduled-task
-  namespace: default
   annotations:
     openchoreo.dev/description: "Component type for scheduled tasks"
 spec:
   workloadType: cronjob
 
   allowedWorkflows:
-    - kind: Workflow
-      name: google-cloud-buildpacks
-    - kind: Workflow
-      name: docker
+    - kind: ClusterWorkflow
+      name: paketo-buildpacks-builder
+    - kind: ClusterWorkflow
+      name: gcp-buildpacks-builder
+    - kind: ClusterWorkflow
+      name: dockerfile-builder
+    - kind: ClusterWorkflow
+      name: ballerina-buildpack-builder
 
   allowedTraits: []
 

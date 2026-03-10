@@ -13,8 +13,8 @@ const (
 	maxPageLimit     = 100
 )
 
-// NormalizeListOptions clamps the limit to [1, maxPageLimit] and extracts the cursor.
-func NormalizeListOptions(limit *gen.LimitParam, cursor *gen.CursorParam) services.ListOptions {
+// NormalizeListOptions clamps the limit to [1, maxPageLimit] and extracts the cursor and label selector.
+func NormalizeListOptions(limit *gen.LimitParam, cursor *gen.CursorParam, labelSelector *gen.LabelSelectorParam) services.ListOptions {
 	l := defaultPageLimit
 	if limit != nil {
 		l = *limit
@@ -30,9 +30,15 @@ func NormalizeListOptions(limit *gen.LimitParam, cursor *gen.CursorParam) servic
 		c = *cursor
 	}
 
+	var ls string
+	if labelSelector != nil {
+		ls = *labelSelector
+	}
+
 	return services.ListOptions{
-		Limit:  l,
-		Cursor: c,
+		Limit:         l,
+		Cursor:        c,
+		LabelSelector: ls,
 	}
 }
 

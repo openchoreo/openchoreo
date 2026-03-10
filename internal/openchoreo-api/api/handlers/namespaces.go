@@ -21,12 +21,16 @@ func (h *Handler) ListNamespaces(
 ) (gen.ListNamespacesResponseObject, error) {
 	h.logger.Debug("ListNamespaces called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.NamespaceService.ListNamespaces(ctx, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListNamespaces403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListNamespaces400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list namespaces", "error", err)
 		return gen.ListNamespaces500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

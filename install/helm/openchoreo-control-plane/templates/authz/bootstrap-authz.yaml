@@ -68,9 +68,12 @@ metadata:
     openchoreo.io/system: "true"
     {{- end }}
 spec:
-  roleRef:
-    name: {{ .roleRef.name }}
-    kind: AuthzClusterRole
+  roleMappings:
+    {{- range .roleMappings }}
+    - roleRef:
+        name: {{ .roleRef.name }}
+        kind: AuthzClusterRole
+    {{- end }}
   entitlement:
     claim: {{ .entitlement.claim }}
     value: {{ .entitlement.value }}
@@ -90,22 +93,25 @@ metadata:
     openchoreo.io/system: "true"
     {{- end }}
 spec:
-  roleRef:
-    name: {{ .roleRef.name }}
-    kind: {{ if eq (default "" .roleRef.namespace) "" }}AuthzClusterRole{{ else }}AuthzRole{{ end }}
+  roleMappings:
+    {{- range .roleMappings }}
+    - roleRef:
+        name: {{ .roleRef.name }}
+        kind: {{ if eq (default "" .roleRef.namespace) "" }}AuthzClusterRole{{ else }}AuthzRole{{ end }}
+      {{- if and .targetPath (or .targetPath.project .targetPath.component) }}
+      targetPath:
+        {{- if .targetPath.project }}
+        project: {{ .targetPath.project }}
+        {{- end }}
+        {{- if .targetPath.component }}
+        component: {{ .targetPath.component }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
   entitlement:
     claim: {{ .entitlement.claim }}
     value: {{ .entitlement.value }}
   effect: {{ .effect }}
-  {{- if and .hierarchy (or .hierarchy.project .hierarchy.component) }}
-  targetPath:
-    {{- if .hierarchy.project }}
-    project: {{ .hierarchy.project }}
-    {{- end }}
-    {{- if .hierarchy.component }}
-    component: {{ .hierarchy.component }}
-    {{- end }}
-  {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

@@ -103,20 +103,15 @@ func printList(items []gen.AuthzClusterRoleBinding) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tROLE\tAGE")
+	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, crb := range items {
-		roleRef := ""
-		if crb.Spec != nil {
-			roleRef = string(crb.Spec.RoleRef.Kind) + "/" + crb.Spec.RoleRef.Name
-		}
 		age := ""
 		if crb.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*crb.Metadata.CreationTimestamp)
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\n",
 			crb.Metadata.Name,
-			roleRef,
 			age)
 	}
 

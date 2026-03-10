@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -65,6 +66,9 @@ func (s *authzService) CreateClusterRole(ctx context.Context, role *openchoreov1
 	s.logger.Debug("Creating cluster role", "name", role.Name)
 	created, err := s.pap.CreateClusterRole(ctx, role)
 	if err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		return nil, err
 	}
 	created.TypeMeta = authzClusterRoleTypeMeta
@@ -103,6 +107,9 @@ func (s *authzService) UpdateClusterRole(ctx context.Context, role *openchoreov1
 	s.logger.Debug("Updating cluster role", "name", role.Name)
 	updated, err := s.pap.UpdateClusterRole(ctx, role)
 	if err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		return nil, err
 	}
 	updated.TypeMeta = authzClusterRoleTypeMeta
@@ -133,6 +140,9 @@ func (s *authzService) CreateNamespaceRole(ctx context.Context, namespace string
 	s.logger.Debug("Creating namespace role", "namespace", namespace, "name", role.Name)
 	created, err := s.pap.CreateNamespacedRole(ctx, role)
 	if err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		return nil, err
 	}
 	created.TypeMeta = authzRoleTypeMeta
@@ -172,6 +182,9 @@ func (s *authzService) UpdateNamespaceRole(ctx context.Context, namespace string
 	s.logger.Debug("Updating namespace role", "namespace", namespace, "name", role.Name)
 	updated, err := s.pap.UpdateNamespacedRole(ctx, role)
 	if err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		return nil, err
 	}
 	updated.TypeMeta = authzRoleTypeMeta
@@ -201,6 +214,9 @@ func (s *authzService) CreateClusterRoleBinding(ctx context.Context, binding *op
 	s.logger.Debug("Creating cluster role binding", "name", binding.Name)
 	created, err := s.pap.CreateClusterRoleBinding(ctx, binding)
 	if err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		return nil, err
 	}
 	created.TypeMeta = authzClusterRoleBindingTypeMeta
@@ -239,6 +255,9 @@ func (s *authzService) UpdateClusterRoleBinding(ctx context.Context, binding *op
 	s.logger.Debug("Updating cluster role binding", "name", binding.Name)
 	updated, err := s.pap.UpdateClusterRoleBinding(ctx, binding)
 	if err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		return nil, err
 	}
 	updated.TypeMeta = authzClusterRoleBindingTypeMeta
@@ -269,6 +288,9 @@ func (s *authzService) CreateNamespaceRoleBinding(ctx context.Context, namespace
 	s.logger.Debug("Creating namespace role binding", "namespace", namespace, "name", binding.Name)
 	created, err := s.pap.CreateNamespacedRoleBinding(ctx, binding)
 	if err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		return nil, err
 	}
 	created.TypeMeta = authzRoleBindingTypeMeta
@@ -308,6 +330,9 @@ func (s *authzService) UpdateNamespaceRoleBinding(ctx context.Context, namespace
 	s.logger.Debug("Updating namespace role binding", "namespace", namespace, "name", binding.Name)
 	updated, err := s.pap.UpdateNamespacedRoleBinding(ctx, binding)
 	if err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
 		return nil, err
 	}
 	updated.TypeMeta = authzRoleBindingTypeMeta

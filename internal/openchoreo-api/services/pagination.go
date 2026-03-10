@@ -10,14 +10,41 @@ import (
 	"errors"
 	"fmt"
 	"math"
+
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ListOptions controls pagination for list operations.
+// ListOptions controls pagination and filtering for list operations.
 type ListOptions struct {
 	// Limit is the maximum number of items to return per page.
 	Limit int
 	// Cursor is an opaque pagination cursor from a previous response.
 	Cursor string
+	// LabelSelector is an optional label selector string to filter resources server-side
+	// (e.g., "app=frontend,tier=backend").
+	LabelSelector string
+}
+
+// BuildListOptions converts ListOptions into controller-runtime client.ListOption slice
+// containing pagination (limit, cursor) and label selector options.
+// Callers should prepend namespace-scoping or other options as needed.
+func BuildListOptions(opts ListOptions) ([]client.ListOption, error) {
+	var listOpts []client.ListOption
+	if opts.Limit > 0 {
+		listOpts = append(listOpts, client.Limit(int64(opts.Limit)))
+	}
+	if opts.Cursor != "" {
+		listOpts = append(listOpts, client.Continue(opts.Cursor))
+	}
+	if opts.LabelSelector != "" {
+		selector, err := labels.Parse(opts.LabelSelector)
+		if err != nil {
+			return nil, &ValidationError{Msg: fmt.Sprintf("invalid label selector: %v", err)}
+		}
+		listOpts = append(listOpts, client.MatchingLabelsSelector{Selector: selector})
+	}
+	return listOpts, nil
 }
 
 // ListResult holds a page of items along with pagination metadata.
@@ -99,8 +126,9 @@ func PreFilteredList[T any](
 
 		for len(filtered) < limit {
 			page, err := listResource(ctx, ListOptions{
-				Limit:  opts.Limit,
-				Cursor: k8sContinue,
+				Limit:         opts.Limit,
+				Cursor:        k8sContinue,
+				LabelSelector: opts.LabelSelector,
 			})
 			if err != nil {
 				return nil, err
@@ -231,8 +259,9 @@ func FilteredList[T any](
 
 	for len(authorized) < limit {
 		page, err := listResource(ctx, ListOptions{
-			Limit:  batchSize,
-			Cursor: k8sContinue,
+			Limit:         batchSize,
+			Cursor:        k8sContinue,
+			LabelSelector: opts.LabelSelector,
 		})
 		if err != nil {
 			return nil, err

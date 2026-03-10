@@ -52,7 +52,21 @@ spec:
                     sourceEnvironmentRef:
                       description: SourceEnvironmentRef is the reference to the source
                         environment
-                      type: string
+                      properties:
+                        kind:
+                          default: Environment
+                          description: Kind is the kind of environment (Environment)
+                          enum:
+                          - Environment
+                          type: string
+                        name:
+                          description: Name is the name of the environment resource
+                          maxLength: 63
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      type: object
                     targetEnvironmentRefs:
                       description: TargetEnvironmentRefs is the list of target environments
                         and their approval requirements

@@ -6,7 +6,6 @@ package dataplane
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -57,31 +56,24 @@ func (r *Reconciler) GetDataPlaneForEnvironment(ctx context.Context, obj client.
 		return nil
 	}
 
-	dataplane, err := controller.GetDataplaneOfEnv(ctx, r.Client, environment)
+	result, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, r.Client, environment)
 	if err != nil {
-		// If the dataplane is not found, return an empty request
-		if errors.IsNotFound(err) {
-			return nil
-		}
-		// If there is an error other than not found, log it and return an empty request
-		log.FromContext(ctx).Error(err, "Failed to get dataplane for environment", "environment", environment.Name)
+		log.FromContext(ctx).Error(err, "Failed to resolve dataplane for environment",
+			"environment", environment.Name, "namespace", environment.Namespace)
 		return nil
 	}
 
-	// If the dataplane is not found, return an empty request
-	if dataplane == nil {
+	// Only enqueue if the result is a namespace-scoped DataPlane (this controller reconciles DataPlane, not ClusterDataPlane)
+	if result.DataPlane == nil {
 		return nil
 	}
 
-	// Create a request for the dataplane
-	requests := []reconcile.Request{
+	return []reconcile.Request{
 		{
 			NamespacedName: client.ObjectKey{
-				Name:      dataplane.Name,
-				Namespace: dataplane.Namespace,
+				Name:      result.DataPlane.Name,
+				Namespace: result.DataPlane.Namespace,
 			},
 		},
 	}
-
-	return requests
 }

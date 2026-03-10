@@ -20,12 +20,16 @@ func (h *Handler) ListClusterTraits(
 ) (gen.ListClusterTraitsResponseObject, error) {
 	h.logger.Debug("ListClusterTraits called")
 
-	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor, request.Params.LabelSelector)
 
 	result, err := h.services.ClusterTraitService.ListClusterTraits(ctx, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListClusterTraits403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.ListClusterTraits400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list cluster traits", "error", err)
 		return gen.ListClusterTraits500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

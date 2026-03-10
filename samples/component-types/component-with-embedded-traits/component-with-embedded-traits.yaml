@@ -168,11 +168,11 @@ spec:
 
   allowedWorkflows:
     - kind: Workflow
-      name: google-cloud-buildpacks
+      name: gcp-buildpacks-builder
     - kind: Workflow
-      name: ballerina-buildpack
+      name: ballerina-buildpack-builder
     - kind: Workflow
-      name: docker
+      name: dockerfile-builder
 
   allowedTraits:
     - name: api-configuration

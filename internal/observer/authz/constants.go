@@ -6,11 +6,12 @@ package authz
 type Action string
 
 const (
-	ActionViewLogs      Action = "logs:view"
-	ActionViewTraces    Action = "traces:view"
-	ActionViewMetrics   Action = "metrics:view"
-	ActionViewAlerts    Action = "alerts:view"
-	ActionViewIncidents Action = "incidents:view"
+	ActionViewLogs        Action = "logs:view"
+	ActionViewTraces      Action = "traces:view"
+	ActionViewMetrics     Action = "metrics:view"
+	ActionViewAlerts      Action = "alerts:view"
+	ActionViewIncidents   Action = "incidents:view"
+	ActionUpdateIncidents Action = "incidents:update"
 )
 
 type ResourceType string

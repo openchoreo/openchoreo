@@ -1,10 +1,9 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
-  name: docker
-  namespace: default
+  name: paketo-buildpacks-builder
   annotations:
-    openchoreo.dev/description: "Docker build workflow for containerized builds using Dockerfile"
+    openchoreo.dev/description: "Supports building Java, Node.js, Python, Go, .NET, Ruby, PHP, and more. See https://paketo.io/docs/"
     openchoreo.dev/workflow-scope: "component"
     openchoreo.dev/component-workflow-parameters: |
       repoUrl: parameters.repository.url
@@ -14,9 +13,11 @@ metadata:
       secretRef: parameters.repository.secretRef
 spec:
   workflowPlaneRef:
-    kind: WorkflowPlane
+    kind: ClusterWorkflowPlane
     name: default
+
   ttlAfterCompletion: "1d"
+
   parameters:
     openAPIV3Schema:
       type: object
@@ -35,7 +36,7 @@ spec:
             secretRef:
               type: string
               default: ""
-              description: "Secret reference name for Git credentials"
+              description: "Secret reference name for private repository Git credentials (optional for public repos)"
             revision:
               type: object
               default: {}
@@ -47,24 +48,25 @@ spec:
                 commit:
                   type: string
                   default: ""
-                  description: "Git commit SHA or reference (optional, defaults to latest)"
+                  description: "Git commit SHA or reference (optional, defaults to latest commit on branch)"
             appPath:
               type: string
               default: "."
               description: "Path to the application directory within the repository"
-        docker:
-          type: object
-          default: {}
-          description: "Docker build configuration"
-          properties:
-            context:
-              type: string
-              default: "."
-              description: "Docker build context path relative to the repository root"
-            filePath:
-              type: string
-              default: "./Dockerfile"
-              description: "Path to the Dockerfile relative to the repository root"
+        buildEnv:
+          type: array
+          default: []
+          description: "Build-time environment variables passed to the buildpack (e.g. BP_JVM_VERSION=21, BP_NODE_RUN_SCRIPTS=build, BP_WEB_SERVER=nginx). Reference: https://paketo.io/docs/howto/configuration/#environment-variables"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Environment variable name"
+              value:
+                type: string
+                description: "Environment variable value"
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -90,10 +92,9 @@ spec:
             value: ${parameters.repository.revision.commit}
           - name: app-path
             value: ${parameters.repository.appPath}
-          - name: docker-context
-            value: ${parameters.docker.context}
-          - name: dockerfile-path
-            value: ${parameters.docker.filePath}
+          - name: build-env
+            value: ${parameters.buildEnv}
+          # PE-controlled parameters
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
@@ -114,13 +115,13 @@ spec:
                   template: checkout
             - - name: build-image
                 templateRef:
-                  name: docker
+                  name: paketo-buildpacks-build
                   clusterScope: true
                   template: build-image
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                      value: "{{steps.checkout-source.outputs.parameters.git-revision}}"
             - - name: publish-image
                 templateRef:
                   name: publish-image
@@ -129,7 +130,7 @@ spec:
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                      value: "{{steps.checkout-source.outputs.parameters.git-revision}}"
             - - name: generate-workload-cr
                 templateRef:
                   name: generate-workload
@@ -138,9 +139,9 @@ spec:
                 arguments:
                   parameters:
                     - name: image
-                      value: '{{steps.publish-image.outputs.parameters.image}}'
+                      value: "{{steps.publish-image.outputs.parameters.image}}"
                     - name: run-name
-                      value: '{{workflow.parameters.workflowrun-name}}'
+                      value: "{{workflow.parameters.workflowrun-name}}"
       volumeClaimTemplates:
         - metadata:
             name: workspace
@@ -150,11 +151,13 @@ spec:
             resources:
               requests:
                 storage: 2Gi
+
   externalRefs:
     - id: git-secret-reference
       apiVersion: openchoreo.dev/v1alpha1
       kind: SecretReference
       name: ${parameters.repository.secretRef}
+
   resources:
     - id: git-secret
       includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
@@ -182,6 +185,7 @@ spec:
                 "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
               }
             })}
+
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1

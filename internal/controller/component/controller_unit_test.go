@@ -91,7 +91,7 @@ func TestFindRootEnvironment(t *testing.T) {
 			name: "single path dev to staging",
 			paths: []openchoreov1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef: "dev",
+					SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "dev"},
 					TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 						{Name: "staging"},
 					},
@@ -103,13 +103,13 @@ func TestFindRootEnvironment(t *testing.T) {
 			name: "linear chain dev to staging to prod",
 			paths: []openchoreov1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef: "dev",
+					SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "dev"},
 					TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 						{Name: "staging"},
 					},
 				},
 				{
-					SourceEnvironmentRef: "staging",
+					SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "staging"},
 					TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 						{Name: "prod"},
 					},
@@ -121,7 +121,7 @@ func TestFindRootEnvironment(t *testing.T) {
 			name: "circular all sources are targets",
 			paths: []openchoreov1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef: "staging",
+					SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "staging"},
 					TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 						{Name: "staging"},
 					},
@@ -133,7 +133,7 @@ func TestFindRootEnvironment(t *testing.T) {
 			name: "empty source ref is skipped",
 			paths: []openchoreov1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef: "",
+					SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: ""},
 					TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 						{Name: "staging"},
 					},

@@ -14,43 +14,54 @@ openchoreoApi:
           # The chart defaults provide the first 3; quick-start adds the CLI binding.
           mappings:
             - name: super-admin-binding
-              roleRef:
-                name: super-admin
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: super-admin
               entitlement:
                 claim: groups
                 value: admins
               effect: allow
             - name: backstage-catalog-reader-binding
-              roleRef:
-                name: backstage-catalog-reader
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: backstage-catalog-reader
               entitlement:
                 claim: sub
                 value: openchoreo-backstage-client
               effect: allow
             - name: rca-agent-binding
-              roleRef:
-                name: rca-agent
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: rca-agent
               entitlement:
                 claim: sub
                 value: openchoreo-rca-agent
               effect: allow
             - name: quickstart-cli-super-admin-binding
-              roleRef:
-                name: super-admin
+              roleMappings:
+                - roleRef:
+                    name: super-admin
               entitlement:
                 claim: sub
                 value: openchoreo-cli-quickstart
               effect: allow
             - name: workload-publisher-binding
-              roleRef:
-                name: workload-publisher
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: workload-publisher
               entitlement:
                 claim: sub
                 value: openchoreo-workload-publisher-client
               effect: allow
             - name: observer-binding
-              roleRef:
-                name: observer
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: observer
               entitlement:
                 claim: sub
                 value: openchoreo-observer
