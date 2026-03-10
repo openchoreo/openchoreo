@@ -24,6 +24,7 @@ rules:
   - clustertraits
   - clusterobservabilityplanes
   - clustertraits
+  - clusterworkflows
   - componentreleases
   - components
   - componenttypes
@@ -86,6 +87,7 @@ rules:
   - clustertraits/status
   - clusterobservabilityplanes/status
   - clustertraits/status
+  - clusterworkflows/status
   - componentreleases/status
   - components/status
   - componenttypes/status
