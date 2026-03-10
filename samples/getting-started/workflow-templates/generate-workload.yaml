@@ -94,7 +94,7 @@ spec:
                > /mnt/vol/workload-cr-raw.json
              podman run --rm \
                -v /mnt/vol:/data:rw \
-               ghcr.io/jqlang/jq:latest -c '.' /data/workload-cr-raw.json \
+               ghcr.io/jqlang/jq:1.7.1 -c '.' /data/workload-cr-raw.json \
                > /mnt/vol/workload-cr.json
             echo "Generated workload JSON payload:"
             cat /mnt/vol/workload-cr.json
@@ -185,7 +185,7 @@ spec:
             echo "${WF_RUN_BODY}" > /mnt/vol/workflowrun-get.json
             podman run --rm \
               -v /mnt/vol:/data:rw \
-              ghcr.io/jqlang/jq:latest \
+              ghcr.io/jqlang/jq:1.7.1 \
               --rawfile wl /data/workload-cr.json \
               '.metadata.annotations["openchoreo.dev/workload"] = ($wl | rtrimstr("\n"))' \
               /data/workflowrun-get.json \

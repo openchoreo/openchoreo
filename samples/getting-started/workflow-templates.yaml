@@ -110,7 +110,7 @@ spec:
                > /mnt/vol/workload-cr-raw.json
              podman run --rm \
                -v /mnt/vol:/data:rw \
-               ghcr.io/jqlang/jq:latest -c '.' /data/workload-cr-raw.json \
+               ghcr.io/jqlang/jq:1.7.1 -c '.' /data/workload-cr-raw.json \
                > /mnt/vol/workload-cr.json
             echo "Generated workload JSON payload:"
             cat /mnt/vol/workload-cr.json
@@ -201,7 +201,7 @@ spec:
             echo "${WF_RUN_BODY}" > /mnt/vol/workflowrun-get.json
             podman run --rm \
               -v /mnt/vol:/data:rw \
-              ghcr.io/jqlang/jq:latest \
+              ghcr.io/jqlang/jq:1.7.1 \
               --rawfile wl /data/workload-cr.json \
               '.metadata.annotations["openchoreo.dev/workload"] = ($wl | rtrimstr("\n"))' \
               /data/workflowrun-get.json \
@@ -276,7 +276,7 @@ spec:
             ENV_ARGS=""
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
               ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:latest -r '.[] | "--env \(.name)=\(.value)"' | \
+                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
                 tr '\n' ' ')
             fi
 
@@ -341,7 +341,7 @@ spec:
             ENV_ARGS=""
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
               ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:latest -r '.[] | "--env \(.name)=\(.value)"' | \
+                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
                 tr '\n' ' ')
             fi
 
@@ -407,7 +407,7 @@ spec:
             ENV_ARGS=""
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
               ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:latest -r '.[] | "--env \(.name)=\(.value)"' | \
+                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
                 tr '\n' ' ')
             fi
 
@@ -470,7 +470,7 @@ spec:
             ENV_ARGS=""
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
               ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:latest -r '.[] | "--env \(.name)=\(.value)"' | \
+                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
                 tr '\n' ' ')
             fi
 
@@ -478,7 +478,7 @@ spec:
             BUILD_ARG_ARGS=""
             if [ -n "$BUILD_ARGS_JSON" ] && [ "$BUILD_ARGS_JSON" != "[]" ]; then
               BUILD_ARG_ARGS=$(echo "$BUILD_ARGS_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:latest -r '.[] | "--build-arg \(.name)=\(.value)"' | \
+                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--build-arg \(.name)=\(.value)"' | \
                 tr '\n' ' ')
             fi
 

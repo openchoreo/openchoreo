@@ -106,7 +106,7 @@ spec:
       templates:
         - name: build-workflow
           steps:
-            - - name: checkout-source-step
+            - - name: checkout-source
                 templateRef:
                   name: checkout-source
                   clusterScope: true
@@ -119,10 +119,10 @@ spec:
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source-step.outputs.parameters.git-revision}}'
+                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
                     - name: build-env
                       value: '{{workflow.parameters.build-env}}'
-            - - name: publish-image-step
+            - - name: publish-image
                 templateRef:
                   name: publish-image
                   clusterScope: true
@@ -130,7 +130,7 @@ spec:
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source-step.outputs.parameters.git-revision}}'
+                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
             - - name: generate-workload-cr
                 templateRef:
                   name: generate-workload
@@ -139,7 +139,7 @@ spec:
                 arguments:
                   parameters:
                     - name: image
-                      value: '{{steps.publish-image-step.outputs.parameters.image}}'
+                      value: '{{steps.publish-image.outputs.parameters.image}}'
                     - name: run-name
                       value: '{{workflow.parameters.workflowrun-name}}'
       volumeClaimTemplates:
