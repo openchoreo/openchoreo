@@ -14,21 +14,19 @@ import (
 )
 
 type MCPHandler struct {
-	healthService    *service.HealthService
-	logsService      service.LogsQuerier
-	metricsService   service.MetricsQuerier
-	alertsQuerier    service.AlertsQuerier
-	incidentsQuerier service.IncidentsQuerier
-	tracesService    service.TracesQuerier
-	logger           *slog.Logger
+	healthService        *service.HealthService
+	logsService          service.LogsQuerier
+	metricsService       service.MetricsQuerier
+	alertIncidentService service.AlertIncidentService
+	tracesService        service.TracesQuerier
+	logger               *slog.Logger
 }
 
 func NewMCPHandler(
 	healthService *service.HealthService,
 	logsService service.LogsQuerier,
 	metricsService service.MetricsQuerier,
-	alertsQuerier service.AlertsQuerier,
-	incidentsQuerier service.IncidentsQuerier,
+	alertIncidentService service.AlertIncidentService,
 	tracesService service.TracesQuerier,
 	logger *slog.Logger,
 ) (*MCPHandler, error) {
@@ -41,11 +39,8 @@ func NewMCPHandler(
 	if metricsService == nil {
 		return nil, fmt.Errorf("missing metricsService")
 	}
-	if alertsQuerier == nil {
-		return nil, fmt.Errorf("missing alertsQuerier")
-	}
-	if incidentsQuerier == nil {
-		return nil, fmt.Errorf("missing incidentsQuerier")
+	if alertIncidentService == nil {
+		return nil, fmt.Errorf("missing alertIncidentService")
 	}
 	if tracesService == nil {
 		return nil, fmt.Errorf("missing tracesService")
@@ -54,13 +49,12 @@ func NewMCPHandler(
 		return nil, fmt.Errorf("missing logger")
 	}
 	return &MCPHandler{
-		healthService:    healthService,
-		logsService:      logsService,
-		metricsService:   metricsService,
-		alertsQuerier:    alertsQuerier,
-		incidentsQuerier: incidentsQuerier,
-		tracesService:    tracesService,
-		logger:           logger,
+		healthService:        healthService,
+		logsService:          logsService,
+		metricsService:       metricsService,
+		alertIncidentService: alertIncidentService,
+		tracesService:        tracesService,
+		logger:               logger,
 	}, nil
 }
 

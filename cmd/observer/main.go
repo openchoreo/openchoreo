@@ -219,21 +219,23 @@ func main() {
 		metricsService, authzClient, logger.With("component", "authz-metrics"))
 	authzTracesService := service.NewTracesServiceWithAuthz(
 		tracesService, authzClient, logger.With("component", "authz-traces"))
-	authzAlertsService := service.NewAlertsServiceWithAuthz(
-		alertService, authzClient, logger.With("component", "authz-alerts"))
-	authzIncidentsService := service.NewIncidentsServiceWithAuthz(
-		alertService, authzClient, logger.With("component", "authz-incidents"))
+	authzAlertIncidentService := service.NewAlertIncidentServiceWithAuthz(
+		alertService, authzClient, logger.With("component", "authz-alerts-incidents"))
 
 	// Initialize new API handler
 	newAPIHandler := apihandler.NewHandler(
 		healthService,
 		authzLogsService,
 		authzMetricsService,
-		alertService,
-		authzAlertsService,
-		authzIncidentsService,
+		authzAlertIncidentService,
 		authzTracesService,
 		logger.With("component", "api-handler"),
+	)
+
+	// Initialize internal handler for alert CRUD and webhook (no auth, port 8081)
+	internalHandler := apihandler.NewInternalHandler(
+		alertService,
+		logger.With("component", "internal-handler"),
 	)
 
 	// ===== Initialize Middlewares =====
@@ -265,20 +267,20 @@ func main() {
 	api.HandleFunc("POST /api/v1/logs/query", newAPIHandler.QueryLogs)
 	api.HandleFunc("POST /api/v1/metrics/query", newAPIHandler.QueryMetrics)
 
-	// ===== New API Routes (v1alpha1) - Traces =====
+	// ===== New API Routes (v1alpha1) - Traces & Incidents =====
 	api.HandleFunc("POST /api/v1alpha1/traces/query", newAPIHandler.QueryTraces)
 	api.HandleFunc("POST /api/v1alpha1/traces/{traceId}/spans/query", newAPIHandler.QuerySpansForTrace)
 	api.HandleFunc("GET /api/v1alpha1/traces/{traceId}/spans/{spanId}", newAPIHandler.GetSpanDetailsForTrace)
 	api.HandleFunc("POST /api/v1alpha1/alerts/query", newAPIHandler.QueryAlerts)
 	api.HandleFunc("POST /api/v1alpha1/incidents/query", newAPIHandler.QueryIncidents)
+	api.HandleFunc("PUT /api/v1alpha1/incidents/{incidentId}", newAPIHandler.UpdateIncident)
 
 	// Initialize new MCP handler backed by the authz-wrapped service layer
 	newMCPHandler, err := observermcp.NewMCPHandler(
 		healthService,
 		authzLogsService,
 		authzMetricsService,
-		authzAlertsService,
-		authzIncidentsService,
+		authzAlertIncidentService,
 		authzTracesService,
 		logger.With("component", "mcp-handler"),
 	)
@@ -307,16 +309,16 @@ func main() {
 	internalMux := http.NewServeMux()
 	internalRoutes := middleware.NewRouteBuilder(internalMux).With(loggerMiddleware, recoveryMiddleware)
 	internalRoutes.HandleFunc(
-		"POST /api/v1alpha1/alerts/sources/{sourceType}/rules", newAPIHandler.CreateAlertRule)
+		"POST /api/v1alpha1/alerts/sources/{sourceType}/rules", internalHandler.CreateAlertRule)
 	internalRoutes.HandleFunc(
-		"GET /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", newAPIHandler.GetAlertRule)
+		"GET /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", internalHandler.GetAlertRule)
 	internalRoutes.HandleFunc(
-		"PUT /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", newAPIHandler.UpdateAlertRule)
+		"PUT /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", internalHandler.UpdateAlertRule)
 	internalRoutes.HandleFunc(
-		"DELETE /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", newAPIHandler.DeleteAlertRule)
+		"DELETE /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", internalHandler.DeleteAlertRule)
 
 	// ===== v1alpha1 Alert Webhook Endpoint  =====
-	internalRoutes.HandleFunc("POST /api/v1alpha1/alerts/webhook", newAPIHandler.HandleAlertWebhook)
+	internalRoutes.HandleFunc("POST /api/v1alpha1/alerts/webhook", internalHandler.HandleAlertWebhook)
 
 	internalAddr := fmt.Sprintf(":%d", cfg.Server.InternalPort)
 	internalServer := &http.Server{

@@ -459,3 +459,23 @@ func ValidateIncidentsQueryRequest(req *gen.IncidentsQueryRequest) error {
 	}
 	return nil
 }
+
+// ValidateIncidentPutRequest validates an incident update (PUT) request.
+func ValidateIncidentPutRequest(req *gen.IncidentPutRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+	status := strings.TrimSpace(string(req.Status))
+	if status == "" {
+		return fmt.Errorf("status is required")
+	}
+	switch status {
+	case string(gen.IncidentPutRequestStatusActive),
+		string(gen.IncidentPutRequestStatusAcknowledged),
+		string(gen.IncidentPutRequestStatusResolved):
+		// valid
+	default:
+		return fmt.Errorf("status must be one of 'active', 'acknowledged', or 'resolved'")
+	}
+	return nil
+}

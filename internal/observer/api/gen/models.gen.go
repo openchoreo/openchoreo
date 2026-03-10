@@ -118,6 +118,20 @@ const (
 	Unauthorized        ErrorResponseTitle = "unauthorized"
 )
 
+// Defines values for IncidentPutRequestStatus.
+const (
+	IncidentPutRequestStatusAcknowledged IncidentPutRequestStatus = "acknowledged"
+	IncidentPutRequestStatusActive       IncidentPutRequestStatus = "active"
+	IncidentPutRequestStatusResolved     IncidentPutRequestStatus = "resolved"
+)
+
+// Defines values for IncidentPutResponseStatus.
+const (
+	IncidentPutResponseStatusAcknowledged IncidentPutResponseStatus = "acknowledged"
+	IncidentPutResponseStatusActive       IncidentPutResponseStatus = "active"
+	IncidentPutResponseStatusResolved     IncidentPutResponseStatus = "resolved"
+)
+
 // Defines values for IncidentsQueryRequestSortOrder.
 const (
 	IncidentsQueryRequestSortOrderAsc  IncidentsQueryRequestSortOrder = "asc"
@@ -127,8 +141,8 @@ const (
 // Defines values for IncidentsQueryResponseIncidentsStatus.
 const (
 	Acknowledged IncidentsQueryResponseIncidentsStatus = "acknowledged"
+	Active       IncidentsQueryResponseIncidentsStatus = "active"
 	Resolved     IncidentsQueryResponseIncidentsStatus = "resolved"
-	Triggered    IncidentsQueryResponseIncidentsStatus = "triggered"
 )
 
 // Defines values for LogsQueryRequestLogLevels.
@@ -346,7 +360,10 @@ type AlertsQueryResponse struct {
 
 		// AlertValue The value of the alert
 		AlertValue *string `json:"alertValue,omitempty"`
-		Metadata   *struct {
+
+		// IncidentEnabled Whether the alert rule is configured to trigger incidents when fired
+		IncidentEnabled *bool `json:"incidentEnabled,omitempty"`
+		Metadata        *struct {
 			AlertRule *struct {
 				// Condition The condition configuration of the alert rule
 				Condition *struct {
@@ -509,6 +526,76 @@ type HttpMetricsTimeSeries struct {
 	SuccessfulRequestCount   *[]MetricsTimeSeriesItem `json:"successfulRequestCount,omitempty"`
 	UnsuccessfulRequestCount *[]MetricsTimeSeriesItem `json:"unsuccessfulRequestCount,omitempty"`
 }
+
+// IncidentPutRequest defines model for IncidentPutRequest.
+type IncidentPutRequest struct {
+	// Description The description of the incident
+	Description *string `json:"description,omitempty"`
+
+	// Notes Notes associated with the incident
+	Notes *string `json:"notes,omitempty"`
+
+	// Status The status of the incident
+	Status IncidentPutRequestStatus `json:"status"`
+}
+
+// IncidentPutRequestStatus The status of the incident
+type IncidentPutRequestStatus string
+
+// IncidentPutResponse defines model for IncidentPutResponse.
+type IncidentPutResponse struct {
+	// AcknowledgedAt The timestamp when the incident was acknowledged
+	AcknowledgedAt *time.Time `json:"acknowledgedAt,omitempty"`
+
+	// AlertId The ID of the alert that triggered the incident
+	AlertId *string `json:"alertId,omitempty"`
+
+	// Description The description of the incident
+	Description *string `json:"description,omitempty"`
+
+	// IncidentId The ID of the incident
+	IncidentId *string `json:"incidentId,omitempty"`
+
+	// IncidentTriggerAiRca Whether AI RCA was triggered for the incident
+	IncidentTriggerAiRca *bool `json:"incidentTriggerAiRca,omitempty"`
+	Labels               *struct {
+		// ComponentName The name of the component
+		ComponentName *string `json:"componentName,omitempty"`
+
+		// ComponentUid The UID of the component
+		ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
+
+		// EnvironmentName The name of the environment
+		EnvironmentName *string `json:"environmentName,omitempty"`
+
+		// EnvironmentUid The UID of the environment
+		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
+
+		// NamespaceName The name of the namespace
+		NamespaceName *string `json:"namespaceName,omitempty"`
+
+		// ProjectName The name of the project
+		ProjectName *string `json:"projectName,omitempty"`
+
+		// ProjectUid The UID of the project
+		ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+	} `json:"labels,omitempty"`
+
+	// Notes Notes associated with the incident
+	Notes *string `json:"notes,omitempty"`
+
+	// ResolvedAt The timestamp when the incident was resolved
+	ResolvedAt *time.Time `json:"resolvedAt,omitempty"`
+
+	// Status The status of the incident
+	Status *IncidentPutResponseStatus `json:"status,omitempty"`
+
+	// TriggeredAt The timestamp when the incident was triggered
+	TriggeredAt *time.Time `json:"triggeredAt,omitempty"`
+}
+
+// IncidentPutResponseStatus The status of the incident
+type IncidentPutResponseStatus string
 
 // IncidentsQueryRequest defines model for IncidentsQueryRequest.
 type IncidentsQueryRequest struct {
@@ -841,6 +928,9 @@ type HandleAlertWebhookJSONRequestBody = AlertWebhookRequest
 
 // QueryIncidentsJSONRequestBody defines body for QueryIncidents for application/json ContentType.
 type QueryIncidentsJSONRequestBody = IncidentsQueryRequest
+
+// UpdateIncidentJSONRequestBody defines body for UpdateIncident for application/json ContentType.
+type UpdateIncidentJSONRequestBody = IncidentPutRequest
 
 // QueryTracesJSONRequestBody defines body for QueryTraces for application/json ContentType.
 type QueryTracesJSONRequestBody = TracesQueryRequest

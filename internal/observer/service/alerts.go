@@ -307,7 +307,7 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 			if _, err := s.incidentEntryStore.WriteIncidentEntry(bgCtx, &incidententry.IncidentEntry{
 				AlertID:         alertID,
 				Timestamp:       alertDetails.AlertTimestamp,
-				Status:          incidententry.StatusTriggered,
+				Status:          incidententry.StatusActive,
 				TriggerAiRca:    alertDetails.TriggerAiRca,
 				TriggeredAt:     alertDetails.AlertTimestamp,
 				Description:     alertDetails.AlertDescription,

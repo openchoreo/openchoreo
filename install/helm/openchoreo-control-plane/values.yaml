@@ -1105,6 +1105,7 @@ openchoreoApi:
                 - "metrics:view"
                 - "alerts:view"
                 - "incidents:view"
+                - "incidents:update"
                 - "traces:view"
 
             # Workload publisher role for creating workloads from CI workflows

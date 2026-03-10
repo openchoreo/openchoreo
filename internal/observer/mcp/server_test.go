@@ -213,7 +213,7 @@ func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
 		return nil, err
 	}
 	alertSvc := service.NewAlertService(nil, nil, nil, nil, nil, nil, logger, "", false, nil)
-	return NewMCPHandler(healthSvc, svcs.logs, svcs.metrics, alertSvc, alertSvc, svcs.traces, logger)
+	return NewMCPHandler(healthSvc, svcs.logs, svcs.metrics, alertSvc, svcs.traces, logger)
 }
 
 func setupTestServer(t *testing.T) (*mcpsdk.ClientSession, *testServices) {
@@ -589,27 +589,25 @@ func TestNewMCPHandlerValidation(t *testing.T) {
 	traces := NewMockTracesQuerier()
 
 	tests := []struct {
-		name             string
-		health           *service.HealthService
-		logs             service.LogsQuerier
-		metrics          service.MetricsQuerier
-		alertsQuerier    service.AlertsQuerier
-		incidentsQuerier service.IncidentsQuerier
-		traces           service.TracesQuerier
-		log              *slog.Logger
+		name                 string
+		health               *service.HealthService
+		logs                 service.LogsQuerier
+		metrics              service.MetricsQuerier
+		alertIncidentService service.AlertIncidentService
+		traces               service.TracesQuerier
+		log                  *slog.Logger
 	}{
-		{"nil healthService", nil, logs, metrics, alertSvc, alertSvc, traces, logger},
-		{"nil logsService", healthSvc, nil, metrics, alertSvc, alertSvc, traces, logger},
-		{"nil metricsService", healthSvc, logs, nil, alertSvc, alertSvc, traces, logger},
-		{"nil alertsQuerier", healthSvc, logs, metrics, nil, alertSvc, traces, logger},
-		{"nil incidentsQuerier", healthSvc, logs, metrics, alertSvc, nil, traces, logger},
-		{"nil tracesService", healthSvc, logs, metrics, alertSvc, alertSvc, nil, logger},
-		{"nil logger", healthSvc, logs, metrics, alertSvc, alertSvc, traces, nil},
+		{"nil healthService", nil, logs, metrics, alertSvc, traces, logger},
+		{"nil logsService", healthSvc, nil, metrics, alertSvc, traces, logger},
+		{"nil metricsService", healthSvc, logs, nil, alertSvc, traces, logger},
+		{"nil alertIncidentService", healthSvc, logs, metrics, nil, traces, logger},
+		{"nil tracesService", healthSvc, logs, metrics, alertSvc, nil, logger},
+		{"nil logger", healthSvc, logs, metrics, alertSvc, traces, nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewMCPHandler(tt.health, tt.logs, tt.metrics, tt.alertsQuerier, tt.incidentsQuerier, tt.traces, tt.log)
+			_, err := NewMCPHandler(tt.health, tt.logs, tt.metrics, tt.alertIncidentService, tt.traces, tt.log)
 			if err == nil {
 				t.Errorf("Expected error for %s, got nil", tt.name)
 			}

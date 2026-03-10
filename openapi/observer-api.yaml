@@ -558,6 +558,64 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1alpha1/incidents/{incidentId}:
+    parameters:
+      - name: incidentId
+        in: path
+        required: true
+        description: The ID of the incident to update
+        schema:
+          type: string
+    put:
+      tags:
+        - Incidents
+      summary: Update incident
+      description: Update an incident in the observer service
+      operationId: updateIncident
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IncidentPutRequest"
+      responses:
+        "200":
+          description: Incident updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentPutResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Incident not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # Triggered alerts query endpoint
   /api/v1alpha1/alerts/query:
     post:
@@ -1256,6 +1314,9 @@ components:
                 items:
                   type: string
                   description: The name of the notification channel
+              incidentEnabled:
+                type: boolean
+                description: Whether the alert rule is configured to trigger incidents when fired
               metadata:
                 type: object
                 properties:
@@ -1404,7 +1465,7 @@ components:
                 type: string
                 description: The status of the incident
                 enum:
-                  - triggered
+                  - active
                   - acknowledged
                   - resolved
               triggeredAt:
@@ -1458,6 +1519,91 @@ components:
         tookMs:
           type: integer
           description: The time taken to query the incidents in milliseconds
+
+    # Request schema for incident update (PUT)
+    IncidentPutRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          description: The status of the incident
+          enum:
+            - active
+            - acknowledged
+            - resolved
+        notes:
+          type: string
+          description: Notes associated with the incident
+        description:
+          type: string
+          description: The description of the incident
+      required: [status]
+
+    # Response schema for incident update (PUT)
+    IncidentPutResponse:
+      type: object
+      properties:
+        incidentId:
+          type: string
+          description: The ID of the incident
+        alertId:
+          type: string
+          description: The ID of the alert that triggered the incident
+        status:
+          type: string
+          description: The status of the incident
+          enum:
+            - active
+            - acknowledged
+            - resolved
+        triggeredAt:
+          type: string
+          description: The timestamp when the incident was triggered
+          format: date-time
+        acknowledgedAt:
+          type: string
+          description: The timestamp when the incident was acknowledged
+          format: date-time
+        resolvedAt:
+          type: string
+          description: The timestamp when the incident was resolved
+          format: date-time
+        notes:
+          type: string
+          description: Notes associated with the incident
+        description:
+          type: string
+          description: The description of the incident
+        incidentTriggerAiRca:
+          type: boolean
+          description: Whether AI RCA was triggered for the incident
+        labels:
+          type: object
+          properties:
+            componentName:
+              type: string
+              description: The name of the component
+            environmentName:
+              type: string
+              description: The name of the environment
+            projectName:
+              type: string
+              description: The name of the project
+            namespaceName:
+              type: string
+              description: The name of the namespace
+            componentUid:
+              type: string
+              description: The UID of the component
+              format: uuid
+            environmentUid:
+              type: string
+              description: The UID of the environment
+              format: uuid
+            projectUid:
+              type: string
+              description: The UID of the project
+              format: uuid
 
     # New error response schema
     ErrorResponse:

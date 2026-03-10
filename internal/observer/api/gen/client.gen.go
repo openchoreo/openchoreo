@@ -130,6 +130,11 @@ type ClientInterface interface {
 
 	QueryIncidents(ctx context.Context, body QueryIncidentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// UpdateIncidentWithBody request with any body
+	UpdateIncidentWithBody(ctx context.Context, incidentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateIncident(ctx context.Context, incidentId string, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// QueryTracesWithBody request with any body
 	QueryTracesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -329,6 +334,30 @@ func (c *Client) QueryIncidentsWithBody(ctx context.Context, contentType string,
 
 func (c *Client) QueryIncidents(ctx context.Context, body QueryIncidentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryIncidentsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateIncidentWithBody(ctx context.Context, incidentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateIncidentRequestWithBody(c.Server, incidentId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateIncident(ctx context.Context, incidentId string, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateIncidentRequest(c.Server, incidentId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -794,6 +823,53 @@ func NewQueryIncidentsRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
+// NewUpdateIncidentRequest calls the generic UpdateIncident builder with application/json body
+func NewUpdateIncidentRequest(server string, incidentId string, body UpdateIncidentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateIncidentRequestWithBody(server, incidentId, "application/json", bodyReader)
+}
+
+// NewUpdateIncidentRequestWithBody generates requests for UpdateIncident with any type of body
+func NewUpdateIncidentRequestWithBody(server string, incidentId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "incidentId", runtime.ParamLocationPath, incidentId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/incidents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewQueryTracesRequest calls the generic QueryTraces builder with application/json body
 func NewQueryTracesRequest(server string, body QueryTracesJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1033,6 +1109,11 @@ type ClientWithResponsesInterface interface {
 
 	QueryIncidentsWithResponse(ctx context.Context, body QueryIncidentsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryIncidentsResp, error)
 
+	// UpdateIncidentWithBodyWithResponse request with any body
+	UpdateIncidentWithBodyWithResponse(ctx context.Context, incidentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIncidentResp, error)
+
+	UpdateIncidentWithResponse(ctx context.Context, incidentId string, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIncidentResp, error)
+
 	// QueryTracesWithBodyWithResponse request with any body
 	QueryTracesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryTracesResp, error)
 
@@ -1271,6 +1352,33 @@ func (r QueryIncidentsResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r QueryIncidentsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateIncidentResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *IncidentPutResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateIncidentResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateIncidentResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1518,6 +1626,23 @@ func (c *ClientWithResponses) QueryIncidentsWithResponse(ctx context.Context, bo
 		return nil, err
 	}
 	return ParseQueryIncidentsResp(rsp)
+}
+
+// UpdateIncidentWithBodyWithResponse request with arbitrary body returning *UpdateIncidentResp
+func (c *ClientWithResponses) UpdateIncidentWithBodyWithResponse(ctx context.Context, incidentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIncidentResp, error) {
+	rsp, err := c.UpdateIncidentWithBody(ctx, incidentId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateIncidentResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateIncidentWithResponse(ctx context.Context, incidentId string, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIncidentResp, error) {
+	rsp, err := c.UpdateIncident(ctx, incidentId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateIncidentResp(rsp)
 }
 
 // QueryTracesWithBodyWithResponse request with arbitrary body returning *QueryTracesResp
@@ -1996,6 +2121,67 @@ func ParseQueryIncidentsResp(rsp *http.Response) (*QueryIncidentsResp, error) {
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateIncidentResp parses an HTTP response from a UpdateIncidentWithResponse call
+func ParseUpdateIncidentResp(rsp *http.Response) (*UpdateIncidentResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateIncidentResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IncidentPutResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
