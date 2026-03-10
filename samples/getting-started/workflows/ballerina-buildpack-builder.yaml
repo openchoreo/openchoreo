@@ -1,11 +1,7 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
-<<<<<<< HEAD:samples/getting-started/workflows/ballerina-buildpack-builder.yaml
   name: ballerina-buildpack-builder
-=======
-  name: ballerina-buildpack
->>>>>>> upstream/main:samples/getting-started/workflows/ballerina-buildpack.yaml
   annotations:
     openchoreo.dev/description: "Workflow for building applications written in Ballerina"
     openchoreo.dev/workflow-scope: "component"

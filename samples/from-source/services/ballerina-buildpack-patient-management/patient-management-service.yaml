@@ -14,6 +14,7 @@ spec:
   autoDeploy: true
 
   workflow:
+    kind: ClusterWorkflow
     name: ballerina-buildpack-builder
     parameters:
       repository:
@@ -32,6 +33,7 @@ metadata:
     openchoreo.dev/component: "patient-management-service"
 spec:
   workflow:
+    kind: ClusterWorkflow
     name: ballerina-buildpack-builder
     parameters:
       repository:

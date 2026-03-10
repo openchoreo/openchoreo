@@ -1,11 +1,7 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
-<<<<<<< HEAD:samples/getting-started/workflows/paketo-buildpacks-builder.yaml
   name: paketo-buildpacks-builder
-=======
-  name: google-cloud-buildpacks
->>>>>>> upstream/main:samples/getting-started/workflows/google-cloud-buildpacks.yaml
   annotations:
     openchoreo.dev/description: "Supports building Java, Node.js, Python, Go, .NET, Ruby, PHP, and more. See https://paketo.io/docs/"
     openchoreo.dev/workflow-scope: "component"
