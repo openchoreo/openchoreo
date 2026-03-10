@@ -191,6 +191,7 @@ spec:
         # Developers can configure min/max replicas; CPU threshold is locked by PE
         autoscaling:
           type: object
+          default: {}
           properties:
             enabled:
               type: boolean

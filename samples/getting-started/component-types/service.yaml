@@ -23,36 +23,6 @@ spec:
   validations:
     - rule: "${size(workload.endpoints) > 0}"
       message: "Service components must have at least one endpoint. Use 'deployment/worker' for components without endpoints."
-  parameters:
-    openAPIV3Schema:
-      type: object
-      $defs:
-        ResourceQuantity:
-          type: object
-          properties:
-            cpu:
-              type: string
-              default: "100m"
-            memory:
-              type: string
-              default: "256Mi"
-        ResourceRequirements:
-          type: object
-          properties:
-            requests:
-              $ref: "#/$defs/ResourceQuantity"
-            limits:
-              $ref: "#/$defs/ResourceQuantity"
-          default: {}
-      properties:
-        replicas:
-          type: integer
-          default: 1
-        resources:
-          $ref: "#/$defs/ResourceRequirements"
-        imagePullPolicy:
-          type: string
-          default: IfNotPresent
 
   environmentConfigs:
     openAPIV3Schema:
@@ -60,6 +30,7 @@ spec:
       $defs:
         ResourceQuantity:
           type: object
+          default: {}
           properties:
             cpu:
               type: string
@@ -79,11 +50,16 @@ spec:
         replicas:
           type: integer
           default: 1
+          minimum: 0
         resources:
           $ref: "#/$defs/ResourceRequirements"
         imagePullPolicy:
           type: string
           default: IfNotPresent
+          enum:
+            - Always
+            - IfNotPresent
+            - Never
 
   resources:
     - id: deployment

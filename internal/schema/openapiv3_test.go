@@ -104,7 +104,7 @@ func TestOpenAPIV3ToJSONSchema_Primitives(t *testing.T) {
 	if nameProp.Type != typeString {
 		t.Fatalf("expected name type=string, got %s", nameProp.Type)
 	}
-	if len(jsonSchema.Required) != 1 || jsonSchema.Required[0] != "name" {
+	if len(jsonSchema.Required) != 1 || jsonSchema.Required[0] != "name" { //nolint:goconst // test assertion
 		t.Fatalf("expected required=[name], got %v", jsonSchema.Required)
 	}
 }
@@ -129,6 +129,17 @@ func TestOpenAPIV3ToJSONSchema_VendorExtensionsLost(t *testing.T) {
 	if jsonSchema == nil {
 		t.Fatal("expected non-nil JSON schema")
 	}
+
+	// Verify the vendor extension is not present in the output
+	nameProp, ok := jsonSchema.Properties["name"]
+	if !ok {
+		t.Fatal("expected 'name' property")
+	}
+	if nameProp.Type != typeString {
+		t.Fatalf("expected name type=string, got %s", nameProp.Type)
+	}
+	// extv1.JSONSchemaProps does not have a field for arbitrary x-* keys,
+	// so they are silently dropped during JSON unmarshal.
 }
 
 func TestOpenAPIV3ToStructural_VendorExtensionsStripped(t *testing.T) {
@@ -142,7 +153,9 @@ func TestOpenAPIV3ToStructural_VendorExtensionsStripped(t *testing.T) {
 		},
 	}
 
-	// Structural path should work even with vendor extensions in input
+	// Structural path should work even with vendor extensions in input.
+	// stripVendorExtensions removes x-* keys before conversion so that
+	// Kubernetes structural schema validation does not reject them.
 	structural, err := OpenAPIV3ToStructural(schema)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -150,6 +163,17 @@ func TestOpenAPIV3ToStructural_VendorExtensionsStripped(t *testing.T) {
 	if structural == nil {
 		t.Fatal("expected non-nil structural schema")
 	}
+
+	// Verify the property survived and the structural schema has no extension data
+	nameProp, ok := structural.Properties["name"]
+	if !ok {
+		t.Fatal("expected 'name' property in structural schema")
+	}
+	if nameProp.Type != typeString {
+		t.Fatalf("expected name type=string, got %s", nameProp.Type)
+	}
+	// Kubernetes Structural type has no field for vendor extensions,
+	// so if we reach here without error, x-ui-widget was successfully stripped.
 }
 
 func TestOpenAPIV3ToStructuralAndJSONSchema(t *testing.T) {
@@ -1076,6 +1100,122 @@ func TestOpenAPIV3ToStructuralAndJSONSchema_WithVendorExtensions(t *testing.T) {
 	nameProp := jsonSchema.Properties["name"]
 	if nameProp.Description != "Component name" {
 		t.Fatalf("expected description preserved in JSON schema, got %q", nameProp.Description)
+	}
+}
+
+func TestStripVendorExtensions_PreservesXKubernetes(t *testing.T) {
+	schema := map[string]any{
+		"type":                                 "object",
+		"x-ui-widget":                          "form",
+		"x-kubernetes-preserve-unknown-fields": true,
+		"properties": map[string]any{
+			"data": map[string]any{
+				"type":                  "object",
+				"x-openchoreo-ui":       "custom",
+				"x-kubernetes-map-type": "granular",
+				"additionalProperties":  map[string]any{"type": "string"},
+			},
+			"items": map[string]any{
+				"type":                       "array",
+				"x-kubernetes-list-type":     "map",
+				"x-kubernetes-list-map-keys": []any{"name"},
+				"x-custom-display":           "hidden",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"name": map[string]any{"type": "string"},
+					},
+				},
+			},
+		},
+	}
+
+	result := stripVendorExtensions(schema)
+
+	// Custom vendor extensions should be stripped
+	if _, ok := result["x-ui-widget"]; ok {
+		t.Fatal("expected x-ui-widget to be stripped")
+	}
+
+	// x-kubernetes-* should be preserved at top level
+	if v, ok := result["x-kubernetes-preserve-unknown-fields"]; !ok || v != true {
+		t.Fatal("expected x-kubernetes-preserve-unknown-fields to be preserved")
+	}
+
+	props := result["properties"].(map[string]any)
+
+	// Nested: custom stripped, x-kubernetes-* preserved
+	data := props["data"].(map[string]any)
+	if _, ok := data["x-openchoreo-ui"]; ok {
+		t.Fatal("expected x-openchoreo-ui to be stripped")
+	}
+	if v, ok := data["x-kubernetes-map-type"]; !ok || v != "granular" {
+		t.Fatal("expected x-kubernetes-map-type to be preserved")
+	}
+
+	items := props["items"].(map[string]any)
+	if _, ok := items["x-custom-display"]; ok {
+		t.Fatal("expected x-custom-display to be stripped")
+	}
+	if v, ok := items["x-kubernetes-list-type"]; !ok || v != "map" {
+		t.Fatal("expected x-kubernetes-list-type to be preserved")
+	}
+	if _, ok := items["x-kubernetes-list-map-keys"]; !ok {
+		t.Fatal("expected x-kubernetes-list-map-keys to be preserved")
+	}
+}
+
+func TestOpenAPIV3ToStructural_XKubernetesPreserveUnknownFields(t *testing.T) {
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"metadata": map[string]any{
+				"type":                                 "object",
+				"x-kubernetes-preserve-unknown-fields": true,
+			},
+			"items": map[string]any{
+				"type":                       "array",
+				"x-kubernetes-list-type":     "map",
+				"x-kubernetes-list-map-keys": []any{"name"},
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"name": map[string]any{"type": "string"},
+					},
+				},
+			},
+			"labels": map[string]any{
+				"type":                  "object",
+				"x-kubernetes-map-type": "granular",
+				"additionalProperties":  map[string]any{"type": "string"},
+			},
+		},
+	}
+
+	structural, err := OpenAPIV3ToStructural(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// x-kubernetes-preserve-unknown-fields should survive into structural schema
+	metaProp := structural.Properties["metadata"]
+	if metaProp.XPreserveUnknownFields != true {
+		t.Fatal("expected x-kubernetes-preserve-unknown-fields=true on metadata")
+	}
+
+	// x-kubernetes-list-type should survive
+	itemsProp := structural.Properties["items"]
+	if itemsProp.XListType == nil || *itemsProp.XListType != "map" {
+		t.Fatal("expected x-kubernetes-list-type=map on items")
+	}
+	if len(itemsProp.XListMapKeys) != 1 || itemsProp.XListMapKeys[0] != "name" {
+		t.Fatalf("expected x-kubernetes-list-map-keys=[name], got %v", itemsProp.XListMapKeys)
+	}
+
+	// x-kubernetes-map-type should survive
+	labelsProp := structural.Properties["labels"]
+	if labelsProp.XMapType == nil || *labelsProp.XMapType != "granular" {
+		t.Fatal("expected x-kubernetes-map-type=granular on labels")
 	}
 }
 

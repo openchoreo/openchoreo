@@ -45,6 +45,7 @@ spec:
       $defs:
         ResourceQuantity:
           type: object
+          default: {}
           properties:
             cpu:
               type: string
@@ -69,6 +70,10 @@ spec:
         imagePullPolicy:
           type: string
           default: IfNotPresent
+          enum:
+            - Always
+            - IfNotPresent
+            - Never
 
   resources:
     - id: cronjob

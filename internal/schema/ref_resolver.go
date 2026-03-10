@@ -5,7 +5,6 @@ package schema
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 
@@ -18,6 +17,7 @@ const maxRefDepth = 64
 // never sees $ref. Supports both $defs (JSON Schema 2020-12) and definitions (Draft 4/7).
 // Circular references and remote refs are rejected with descriptive errors.
 // The input is not mutated; a deep copy is returned.
+// Only $defs (JSON Schema 2020-12) is supported; the older "definitions" keyword is not.
 func ResolveRefs(schema map[string]any) (map[string]any, error) {
 	if schema == nil {
 		return nil, nil
@@ -25,7 +25,6 @@ func ResolveRefs(schema map[string]any) (map[string]any, error) {
 
 	result := clone.DeepCopyMap(schema)
 
-	// Extract definitions from $defs or definitions
 	defs := extractDefs(result)
 	if len(defs) == 0 {
 		// No definitions — still walk tree to reject any $ref usage
@@ -43,16 +42,12 @@ func ResolveRefs(schema map[string]any) (map[string]any, error) {
 
 	out := resolved.(map[string]any)
 	delete(out, "$defs")
-	delete(out, "definitions")
 	return out, nil
 }
 
-// extractDefs extracts the definitions map from $defs or definitions.
+// extractDefs extracts the definitions map from $defs.
 func extractDefs(schema map[string]any) map[string]any {
 	if defs, ok := schema["$defs"].(map[string]any); ok {
-		return defs
-	}
-	if defs, ok := schema["definitions"].(map[string]any); ok {
 		return defs
 	}
 	return nil
@@ -190,11 +185,20 @@ func resolveRef(ref string, node map[string]any, defs map[string]any, visiting [
 	}
 	resolved = resolvedNode.(map[string]any)
 
-	// Handle sibling keys (JSON Schema 2020-12 allows $ref with siblings)
+	// Handle sibling keys (JSON Schema 2020-12 allows $ref with siblings).
+	// Merge siblings into the resolved definition, then re-resolve the merged
+	// result so any $ref within sibling subtrees (e.g., properties, items) are
+	// fully inlined.
 	siblings := collectSiblings(node)
 	if len(siblings) > 0 {
-		// Merge: resolved definition as base, sibling keys override on conflict
-		maps.Copy(resolved, siblings)
+		for k, v := range siblings {
+			resolved[k] = v
+		}
+		merged, err := resolveNode(resolved, defs, visiting, depth+1)
+		if err != nil {
+			return nil, err
+		}
+		return merged, nil
 	}
 
 	return resolved, nil
@@ -224,12 +228,12 @@ func parseLocalRef(ref string) (string, error) {
 
 	parts := strings.Split(ref[2:], "/")
 	if len(parts) != 2 {
-		return "", fmt.Errorf("unsupported $ref path %q: expected #/$defs/Name or #/definitions/Name", ref)
+		return "", fmt.Errorf("unsupported $ref path %q: expected #/$defs/Name", ref)
 	}
 
 	prefix := parts[0]
-	if prefix != "$defs" && prefix != "definitions" {
-		return "", fmt.Errorf("unsupported $ref path %q: expected #/$defs/Name or #/definitions/Name", ref)
+	if prefix != "$defs" {
+		return "", fmt.Errorf("unsupported $ref path %q: expected #/$defs/Name", ref)
 	}
 
 	name := parts[1]

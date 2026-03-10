@@ -20,9 +20,6 @@ spec:
 
     # Parameters required by the Workflow
     parameters:
-      scope:
-        projectName: "default"
-        componentName: "react-starter-from-source"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
@@ -47,9 +44,6 @@ spec:
 
     # Parameters required by the Workflow
     parameters:
-      scope:
-        projectName: "default"
-        componentName: "react-starter-from-source"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:

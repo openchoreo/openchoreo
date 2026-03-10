@@ -79,13 +79,13 @@ spec:
           description: "Git repository configuration"
           required:
             - url
-            - secretRef
           properties:
             url:
               type: string
               description: "Git repository URL"
             secretRef:
               type: string
+              default: ""
               description: "Secret reference name for private repository Git credentials (optional for public repos)"
             revision:
               type: object
@@ -97,6 +97,7 @@ spec:
                   description: "Git branch to checkout"
                 commit:
                   type: string
+                  default: ""
                   description: "Git commit SHA or reference (optional, defaults to latest commit on branch)"
             appPath:
               type: string

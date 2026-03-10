@@ -20,6 +20,7 @@ spec:
       properties:
         source:
           type: object
+          default: {}
           properties:
             org:
               type: string
@@ -31,6 +32,7 @@ spec:
               description: "GitHub repository name"
         output:
           type: object
+          default: {}
           properties:
             format:
               type: string

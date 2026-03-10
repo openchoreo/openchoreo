@@ -27,6 +27,7 @@ spec:
       $defs:
         ResourceQuantity:
           type: object
+          default: {}
           properties:
             cpu:
               type: string
@@ -46,11 +47,16 @@ spec:
         replicas:
           type: integer
           default: 1
+          minimum: 0
         resources:
           $ref: "#/$defs/ResourceRequirements"
         imagePullPolicy:
           type: string
           default: IfNotPresent
+          enum:
+            - Always
+            - IfNotPresent
+            - Never
 
   resources:
     - id: deployment

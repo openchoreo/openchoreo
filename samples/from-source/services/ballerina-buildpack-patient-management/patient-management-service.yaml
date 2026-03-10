@@ -21,9 +21,6 @@ spec:
 
     # Parameters required by the Workflow
     parameters:
-      scope:
-        projectName: "default"
-        componentName: "patient-management-service"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
@@ -47,9 +44,6 @@ spec:
 
     # Parameters required by the Workflow
     parameters:
-      scope:
-        projectName: "default"
-        componentName: "patient-management-service"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:

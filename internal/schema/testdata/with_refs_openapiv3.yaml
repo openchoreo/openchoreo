@@ -4,6 +4,7 @@ type: object
 $defs:
   ResourceQuantity:
     type: object
+    default: {}
     properties:
       cpu:
         type: string

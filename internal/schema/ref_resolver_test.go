@@ -91,6 +91,50 @@ func TestResolveRefs_RefWithSiblings(t *testing.T) {
 	}
 }
 
+func TestResolveRefs_RefWithSiblingsContainingRef(t *testing.T) {
+	// Sibling keys of a $ref may themselves contain nested $ref that must be resolved.
+	schema := map[string]any{
+		"$defs": map[string]any{
+			"Base":    map[string]any{"type": "object"},
+			"Address": map[string]any{"type": "string", "default": "localhost"},
+		},
+		"type": "object",
+		"properties": map[string]any{
+			"server": map[string]any{
+				"$ref": "#/$defs/Base",
+				"properties": map[string]any{
+					"host": map[string]any{"$ref": "#/$defs/Address"},
+				},
+			},
+		},
+	}
+
+	result, err := ResolveRefs(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	props := result["properties"].(map[string]any)
+	server := props["server"].(map[string]any)
+	if server["type"] != typeObject {
+		t.Fatalf("expected server type=object, got %v", server["type"])
+	}
+
+	serverProps := server["properties"].(map[string]any)
+	host := serverProps["host"].(map[string]any)
+	if host["type"] != typeString {
+		t.Fatalf("expected host type=string (resolved from $ref), got %v", host["type"])
+	}
+	if host["default"] != "localhost" {
+		t.Fatalf("expected host default=localhost, got %v", host["default"])
+	}
+
+	// Verify no $ref remains in the output
+	if _, hasRef := host["$ref"]; hasRef {
+		t.Fatal("expected $ref to be resolved in sibling value, but it was left un-inlined")
+	}
+}
+
 func TestResolveRefs_CircularRef(t *testing.T) {
 	schema := map[string]any{
 		"$defs": map[string]any{
@@ -217,7 +261,7 @@ func TestResolveRefs_NoRefsPresent(t *testing.T) {
 	}
 }
 
-func TestResolveRefs_BackwardCompatDefinitions(t *testing.T) {
+func TestResolveRefs_DefinitionsNotSupported(t *testing.T) {
 	schema := map[string]any{
 		"definitions": map[string]any{
 			"Foo": map[string]any{"type": "boolean"},
@@ -228,19 +272,9 @@ func TestResolveRefs_BackwardCompatDefinitions(t *testing.T) {
 		},
 	}
 
-	result, err := ResolveRefs(schema)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	props := result["properties"].(map[string]any)
-	flag := props["flag"].(map[string]any)
-	if flag["type"] != "boolean" {
-		t.Fatalf("expected type=boolean, got %v", flag["type"])
-	}
-
-	if _, ok := result["definitions"]; ok {
-		t.Fatal("definitions should be removed from output")
+	_, err := ResolveRefs(schema)
+	if err == nil {
+		t.Fatal("expected error for #/definitions/ ref, got nil")
 	}
 }
 
@@ -407,8 +441,7 @@ func TestResolveRefs_EmptyRefString(t *testing.T) {
 }
 
 func TestResolveRefs_BothDefsAndDefinitions(t *testing.T) {
-	// When both $defs and definitions are present, $defs should take priority
-	// (extractDefs checks $defs first).
+	// Only $defs is supported; "definitions" is ignored (kept as-is in output).
 	schema := map[string]any{
 		"$defs": map[string]any{
 			"Foo": map[string]any{"type": "string"},
@@ -429,17 +462,14 @@ func TestResolveRefs_BothDefsAndDefinitions(t *testing.T) {
 
 	props := result["properties"].(map[string]any)
 	val := props["val"].(map[string]any)
-	// Should resolve from $defs (string), not definitions (integer)
+	// Should resolve from $defs
 	if val["type"] != typeString {
-		t.Fatalf("expected type=string from $defs (priority), got %v", val["type"])
+		t.Fatalf("expected type=string from $defs, got %v", val["type"])
 	}
 
-	// Both $defs and definitions should be removed from output
+	// $defs should be removed from output
 	if _, ok := result["$defs"]; ok {
 		t.Fatal("$defs should be removed from output")
-	}
-	if _, ok := result["definitions"]; ok {
-		t.Fatal("definitions should be removed from output")
 	}
 }
 
@@ -651,7 +681,7 @@ func TestResolveRefs_HttpsRemoteRef(t *testing.T) {
 }
 
 func TestResolveRefs_RefWithInvalidPrefix(t *testing.T) {
-	// $ref with a path that doesn't use $defs or definitions
+	// $ref with a path that doesn't use $defs
 	schema := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
@@ -692,7 +722,7 @@ func TestResolveRefs_ThreeWayCircularRef(t *testing.T) {
 }
 
 func TestResolveRefs_RefWithNoDefsAvailable(t *testing.T) {
-	// $ref used but no $defs or definitions section at all
+	// $ref used but no $defs section at all
 	schema := map[string]any{
 		"type": "object",
 		"properties": map[string]any{

@@ -6,6 +6,7 @@ package schema
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -129,8 +130,8 @@ func mapToV1JSONSchema(schema map[string]any) (*extv1.JSONSchemaProps, error) {
 	return v1Schema, nil
 }
 
-// stripVendorExtensions recursively removes all keys starting with "x-" from a schema tree.
-// This is necessary because Kubernetes structural schema rejects vendor extensions.
+// stripVendorExtensions recursively removes vendor extension keys (x-*) from a schema tree,
+// but preserves x-kubernetes-* keys which are supported by Kubernetes structural schemas.
 func stripVendorExtensions(schema map[string]any) map[string]any {
 	if schema == nil {
 		return nil
@@ -138,7 +139,7 @@ func stripVendorExtensions(schema map[string]any) map[string]any {
 
 	result := make(map[string]any, len(schema))
 	for k, v := range schema {
-		if len(k) > 1 && k[0] == 'x' && k[1] == '-' {
+		if len(k) > 2 && k[0] == 'x' && k[1] == '-' && !strings.HasPrefix(k, "x-kubernetes-") {
 			continue
 		}
 		result[k] = stripVendorExtensionsValue(v)

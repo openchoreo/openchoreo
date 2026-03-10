@@ -2713,15 +2713,16 @@ func (s *ComponentService) validateWorkflowParameters(ctx context.Context, names
 		return fmt.Errorf("failed to parse provided parameters: %w", err)
 	}
 
-	// Build structural schema — handles both ocSchema and openAPIV3Schema formats
-	structural, err := openchoreoschema.ResolveSectionToStructural(workflowSpec.Parameters)
+	// Build JSON schema — handles both ocSchema and openAPIV3Schema formats
+	jsonSchema, err := openchoreoschema.SectionToJSONSchema(workflowSpec.Parameters)
 	if err != nil {
-		s.logger.Error("Failed to build structural schema", "error", err)
-		return fmt.Errorf("failed to build workflow parameter schema structure: %w", err)
+		s.logger.Error("Failed to build JSON schema", "error", err)
+		return fmt.Errorf("failed to build workflow parameter schema: %w", err)
 	}
 
-	// Validate the provided values against the structural schema
-	if err := openchoreoschema.ValidateAgainstSchema(providedValues, structural); err != nil {
+	// Validate the provided values using standard JSON Schema validation.
+	// Unknown field rejection is controlled by the schema author via additionalProperties.
+	if err := openchoreoschema.ValidateWithJSONSchema(providedValues, jsonSchema); err != nil {
 		return fmt.Errorf("%w: %w", ErrWorkflowSchemaInvalid, err)
 	}
 

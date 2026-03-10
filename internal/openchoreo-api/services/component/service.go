@@ -881,7 +881,14 @@ func (s *componentService) GetComponentSchema(ctx context.Context, namespaceName
 		}
 	}
 
-	s.logger.Debug("Retrieved component schema successfully", "namespace", namespaceName, "component", componentName, "hasComponentTypeEnvironmentConfigs", len(wrappedSchema.Properties) > 0, "traitCount", len(traitSchemas))
+	hasComponentTypeEnvironmentConfigs := false
+	for key := range wrappedSchema.Properties {
+		if key != "traitOverrides" {
+			hasComponentTypeEnvironmentConfigs = true
+			break
+		}
+	}
+	s.logger.Debug("Retrieved component schema successfully", "namespace", namespaceName, "component", componentName, "hasComponentTypeEnvironmentConfigs", hasComponentTypeEnvironmentConfigs, "traitCount", len(traitSchemas))
 	return wrappedSchema, nil
 }
 

@@ -95,7 +95,8 @@ openAPIV3Schema:
       type: array
       items:
         type: string
-      default: []
+      default:
+        - default
       minItems: 1
       maxItems: 10
     containers:
@@ -206,12 +207,13 @@ properties:
 
 ### $ref Resolution Rules
 
-- Only **local** `$ref` paths are supported: `#/$defs/Name` or `#/definitions/Name`
+- Only **local** `$ref` paths are supported: `#/$defs/Name`
+- The older `definitions` keyword (JSON Schema Draft 4/7) is **not** supported — use `$defs` (JSON Schema 2020-12)
 - Remote/URL refs (e.g., `http://...`) are rejected
 - **Circular references** are detected and rejected with descriptive errors
 - References are resolved recursively (chained refs like `A -> B -> C` work)
 - Maximum resolution depth is 64 levels
-- After resolution, `$defs`/`definitions` sections are removed from the output
+- After resolution, `$defs` is removed from the output
 
 ## Vendor Extensions (x-*)
 
@@ -220,6 +222,16 @@ You can add custom `x-*` keys to any schema node. These are preserved in API res
 ```yaml
 openAPIV3Schema:
   type: object
+  $defs:
+    ResourceRequirements:
+      type: object
+      properties:
+        cpu:
+          type: string
+          default: "250m"
+        memory:
+          type: string
+          default: "256Mi"
   properties:
     repository:
       type: object

@@ -16,7 +16,10 @@ import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-const repoURLPicker = "RepoUrlPicker"
+const (
+	repoURLPicker      = "RepoUrlPicker"
+	defaultCPUQuantity = "100m"
+)
 
 func TestApplyDefaults_ArrayFieldBehaviour(t *testing.T) {
 	def := Definition{
@@ -418,6 +421,22 @@ func TestTestdata_WithRefsOpenAPIV3_Structural(t *testing.T) {
 	if result["imagePullPolicy"] != "IfNotPresent" {
 		t.Errorf("expected imagePullPolicy default=IfNotPresent, got %v", result["imagePullPolicy"])
 	}
+
+	// Verify nested defaults applied through $ref (ResourceRequirements -> ResourceQuantity)
+	resMap, ok := result["resources"].(map[string]any)
+	if !ok {
+		t.Fatal("expected 'resources' to be a map after defaulting")
+	}
+	limitsMap, ok := resMap["limits"].(map[string]any)
+	if !ok {
+		t.Fatal("expected 'resources.limits' to be a map after defaulting")
+	}
+	if limitsMap["cpu"] != defaultCPUQuantity {
+		t.Errorf("expected resources.limits.cpu default='100m', got %v", limitsMap["cpu"])
+	}
+	if limitsMap["memory"] != "256Mi" {
+		t.Errorf("expected resources.limits.memory default='256Mi', got %v", limitsMap["memory"])
+	}
 }
 
 func TestTestdata_NestedOpenAPIV3_Structural(t *testing.T) {
@@ -636,36 +655,6 @@ func TestValidateWithJSONSchema_OpenAPIV3(t *testing.T) {
 	}
 }
 
-func TestValidateAgainstSchema_OpenAPIV3(t *testing.T) {
-	// Validate unknown field detection with openAPIV3Schema
-	section := makeSchemaSection(true, map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"replicas": map[string]any{"type": "integer"},
-			"image":    map[string]any{"type": "string"},
-		},
-	})
-
-	structural, err := ResolveSectionToStructural(section)
-	if err != nil {
-		t.Fatalf("ResolveSectionToStructural error: %v", err)
-	}
-
-	// Valid fields should pass
-	validValues := map[string]any{"replicas": 1, "image": "nginx"}
-	if err := ValidateAgainstSchema(validValues, structural); err != nil {
-		t.Fatalf("expected valid values to pass, got: %v", err)
-	}
-
-	// Unknown field should fail
-	unknownField := map[string]any{"replicas": 1, "unknownField": "value"}
-	if err := ValidateAgainstSchema(unknownField, structural); err == nil {
-		t.Fatal("expected error for unknown field")
-	} else if !strings.Contains(err.Error(), "unknownField") {
-		t.Fatalf("expected error to mention unknownField, got: %v", err)
-	}
-}
-
 func TestResolveSectionToBundle_NilSection(t *testing.T) {
 	structural, jsonSchema, err := ResolveSectionToBundle(nil)
 	if err != nil {
@@ -744,18 +733,13 @@ func TestOpenAPIV3_EndToEnd_DefaultsAndValidation(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected resources to be map after defaulting, got %T", result["resources"])
 	}
-	if resources["cpu"] != "100m" {
+	if resources["cpu"] != defaultCPUQuantity {
 		t.Errorf("expected resources.cpu=100m, got %v", resources["cpu"])
 	}
 
 	// Step 2: Validate the defaulted values
 	if err := ValidateWithJSONSchema(result, jsonSchema); err != nil {
 		t.Fatalf("expected defaulted values to pass validation, got: %v", err)
-	}
-
-	// Step 3: Validate unknown fields
-	if err := ValidateAgainstSchema(result, structural); err != nil {
-		t.Fatalf("expected defaulted values to pass structural validation, got: %v", err)
 	}
 }
 
@@ -1279,40 +1263,6 @@ func TestValidateWithJSONSchema_NilSchema(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "schema is nil") {
 		t.Fatalf("expected 'schema is nil' error, got: %v", err)
-	}
-}
-
-func TestValidateAgainstSchema_NilStructural(t *testing.T) {
-	err := ValidateAgainstSchema(map[string]any{"name": "test"}, nil)
-	if err == nil {
-		t.Fatal("expected error for nil structural")
-	}
-	if !strings.Contains(err.Error(), "schema is nil") {
-		t.Fatalf("expected 'schema is nil' error, got: %v", err)
-	}
-}
-
-func TestValidateAgainstSchema_EmptyValues(t *testing.T) {
-	section := makeSchemaSection(true, map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"name": map[string]any{"type": "string"},
-		},
-	})
-
-	structural, err := ResolveSectionToStructural(section)
-	if err != nil {
-		t.Fatalf("ResolveSectionToStructural error: %v", err)
-	}
-
-	// Empty values should be valid
-	if err := ValidateAgainstSchema(map[string]any{}, structural); err != nil {
-		t.Fatalf("expected empty values to pass, got: %v", err)
-	}
-
-	// Nil values should also be valid (len(nil map) == 0)
-	if err := ValidateAgainstSchema(nil, structural); err != nil {
-		t.Fatalf("expected nil values to pass, got: %v", err)
 	}
 }
 
