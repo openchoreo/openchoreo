@@ -48,8 +48,8 @@ func newObservabilityPlane(name, namespace string) *openchoreov1alpha1.Observabi
 }
 
 // newObservabilityPlaneWithFinalizer creates an ObservabilityPlane with the cleanup finalizer pre-set.
-func newObservabilityPlaneWithFinalizer(name, namespace string) *openchoreov1alpha1.ObservabilityPlane {
-	op := newObservabilityPlane(name, namespace)
+func newObservabilityPlaneWithFinalizer(name string) *openchoreov1alpha1.ObservabilityPlane {
+	op := newObservabilityPlane(name, "default")
 	op.Finalizers = []string{ObservabilityPlaneCleanupFinalizer}
 	return op
 }
@@ -114,7 +114,7 @@ var _ = Describe("ObservabilityPlane Controller", func() {
 		nn := types.NamespacedName{Name: opName, Namespace: "default"}
 
 		BeforeEach(func() {
-			op := newObservabilityPlaneWithFinalizer(opName, "default")
+			op := newObservabilityPlaneWithFinalizer(opName)
 			Expect(k8sClient.Create(ctx, op)).To(Succeed())
 		})
 
@@ -152,7 +152,7 @@ var _ = Describe("ObservabilityPlane Controller", func() {
 		nn := types.NamespacedName{Name: opName, Namespace: "default"}
 
 		BeforeEach(func() {
-			op := newObservabilityPlaneWithFinalizer(opName, "default")
+			op := newObservabilityPlaneWithFinalizer(opName)
 			Expect(k8sClient.Create(ctx, op)).To(Succeed())
 
 			// Manually set the Created condition so shouldIgnoreReconcile returns true
@@ -193,7 +193,7 @@ var _ = Describe("ObservabilityPlane Controller", func() {
 		nn := types.NamespacedName{Name: opName, Namespace: "default"}
 
 		BeforeEach(func() {
-			op := newObservabilityPlaneWithFinalizer(opName, "default")
+			op := newObservabilityPlaneWithFinalizer(opName)
 			Expect(k8sClient.Create(ctx, op)).To(Succeed())
 		})
 
@@ -243,7 +243,7 @@ var _ = Describe("ObservabilityPlane Controller", func() {
 		nn := types.NamespacedName{Name: opName, Namespace: "default"}
 
 		BeforeEach(func() {
-			op := newObservabilityPlaneWithFinalizer(opName, "default")
+			op := newObservabilityPlaneWithFinalizer(opName)
 			Expect(k8sClient.Create(ctx, op)).To(Succeed())
 		})
 

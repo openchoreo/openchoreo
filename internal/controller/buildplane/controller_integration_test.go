@@ -47,8 +47,8 @@ func newBuildPlane(name, namespace string) *openchoreov1alpha1.BuildPlane {
 }
 
 // newBuildPlaneWithFinalizer creates a BuildPlane with the cleanup finalizer pre-set.
-func newBuildPlaneWithFinalizer(name, namespace string) *openchoreov1alpha1.BuildPlane {
-	bp := newBuildPlane(name, namespace)
+func newBuildPlaneWithFinalizer(name string) *openchoreov1alpha1.BuildPlane {
+	bp := newBuildPlane(name, "default")
 	bp.Finalizers = []string{BuildPlaneCleanupFinalizer}
 	return bp
 }
@@ -113,7 +113,7 @@ var _ = Describe("BuildPlane Controller", func() {
 		nn := types.NamespacedName{Name: bpName, Namespace: "default"}
 
 		BeforeEach(func() {
-			bp := newBuildPlaneWithFinalizer(bpName, "default")
+			bp := newBuildPlaneWithFinalizer(bpName)
 			Expect(k8sClient.Create(ctx, bp)).To(Succeed())
 		})
 
@@ -151,7 +151,7 @@ var _ = Describe("BuildPlane Controller", func() {
 		nn := types.NamespacedName{Name: bpName, Namespace: "default"}
 
 		BeforeEach(func() {
-			bp := newBuildPlaneWithFinalizer(bpName, "default")
+			bp := newBuildPlaneWithFinalizer(bpName)
 			Expect(k8sClient.Create(ctx, bp)).To(Succeed())
 
 			// Manually set the Created condition so shouldIgnoreReconcile returns true
@@ -192,7 +192,7 @@ var _ = Describe("BuildPlane Controller", func() {
 		nn := types.NamespacedName{Name: bpName, Namespace: "default"}
 
 		BeforeEach(func() {
-			bp := newBuildPlaneWithFinalizer(bpName, "default")
+			bp := newBuildPlaneWithFinalizer(bpName)
 			Expect(k8sClient.Create(ctx, bp)).To(Succeed())
 		})
 
@@ -242,7 +242,7 @@ var _ = Describe("BuildPlane Controller", func() {
 		nn := types.NamespacedName{Name: bpName, Namespace: "default"}
 
 		BeforeEach(func() {
-			bp := newBuildPlaneWithFinalizer(bpName, "default")
+			bp := newBuildPlaneWithFinalizer(bpName)
 			Expect(k8sClient.Create(ctx, bp)).To(Succeed())
 		})
 

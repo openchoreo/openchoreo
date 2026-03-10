@@ -35,7 +35,7 @@ var _ = Describe("BuildPlane Controller — gateway paths", func() {
 		nn := types.NamespacedName{Name: bpName, Namespace: "default"}
 
 		BeforeEach(func() {
-			Expect(k8sClient.Create(ctx, newBuildPlaneWithFinalizer(bpName, "default"))).To(Succeed())
+			Expect(k8sClient.Create(ctx, newBuildPlaneWithFinalizer(bpName))).To(Succeed())
 		})
 		AfterEach(func() { forceDeleteBP(ctx, nn) })
 
@@ -81,7 +81,7 @@ var _ = Describe("BuildPlane Controller — gateway paths", func() {
 		nn := types.NamespacedName{Name: bpName, Namespace: "default"}
 
 		BeforeEach(func() {
-			bp := newBuildPlaneWithFinalizer(bpName, "default")
+			bp := newBuildPlaneWithFinalizer(bpName)
 			Expect(k8sClient.Create(ctx, bp)).To(Succeed())
 			Expect(k8sClient.Get(ctx, nn, bp)).To(Succeed())
 			bp.Status.Conditions = []metav1.Condition{NewBuildPlaneCreatedCondition(bp.Generation)}
@@ -112,7 +112,7 @@ var _ = Describe("BuildPlane Controller — gateway paths", func() {
 		nn := types.NamespacedName{Name: bpName, Namespace: "default"}
 
 		BeforeEach(func() {
-			Expect(k8sClient.Create(ctx, newBuildPlaneWithFinalizer(bpName, "default"))).To(Succeed())
+			Expect(k8sClient.Create(ctx, newBuildPlaneWithFinalizer(bpName))).To(Succeed())
 		})
 		AfterEach(func() { forceDeleteBP(ctx, nn) })
 

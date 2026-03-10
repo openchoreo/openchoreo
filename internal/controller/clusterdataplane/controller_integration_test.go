@@ -406,7 +406,7 @@ var _ = Describe("ClusterDataPlane Controller", func() {
 			condAfterSecond := apimeta.FindStatusCondition(fresh.Status.Conditions, string(controller.TypeCreated))
 			Expect(condAfterSecond).NotTo(BeNil())
 			Expect(condAfterSecond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(len(fresh.Status.Conditions)).To(Equal(1))
+			Expect(fresh.Status.Conditions).To(HaveLen(1))
 		})
 	})
 })
