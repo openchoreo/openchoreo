@@ -41,3 +41,12 @@ type IncidentsQuerier interface {
 type IncidentsUpdater interface {
 	UpdateIncident(ctx context.Context, incidentID string, req gen.IncidentPutRequest) (*gen.IncidentPutResponse, error)
 }
+
+// AlertIncidentService is a composite interface combining alert query, incident query,
+// and incident update operations. The concrete *AlertService satisfies this interface.
+// The individual sub-interfaces are kept for consumers that only need a subset.
+type AlertIncidentService interface {
+	AlertsQuerier
+	IncidentsQuerier
+	IncidentsUpdater
+}

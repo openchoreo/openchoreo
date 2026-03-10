@@ -6,6 +6,7 @@ package incidententry
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -385,21 +386,84 @@ func (s *sqlStore) UpdateIncidentEntry(ctx context.Context, id string, status st
 		return IncidentEntry{}, fmt.Errorf("unsupported incident status %q", status)
 	}
 
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return IncidentEntry{}, fmt.Errorf("failed to begin transaction for incident update: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	entry, ackOutNS, resolvedOutNS, err := s.loadAndPrepareIncidentEntryForUpdate(ctx, tx, id, status, notes, description, now)
+	if err != nil {
+		return IncidentEntry{}, err
+	}
+
+	updateQuery, args := buildUpdateIncidentEntryQuery(s.backend, entry, ackOutNS, resolvedOutNS)
+
+	result, execErr := tx.ExecContext(ctx, updateQuery, args...)
+	if execErr != nil {
+		err = fmt.Errorf("failed to update incident entry %q: %w", id, execErr)
+		return IncidentEntry{}, err
+	}
+
+	rowsAffected, raErr := result.RowsAffected()
+	if raErr != nil {
+		err = fmt.Errorf("failed to check rows affected for incident entry %q: %w", id, raErr)
+		return IncidentEntry{}, err
+	}
+	if rowsAffected == 0 {
+		err = fmt.Errorf("%w: %s", ErrIncidentNotFound, id)
+		return IncidentEntry{}, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		err = fmt.Errorf("failed to commit incident entry update %q: %w", id, err)
+		return IncidentEntry{}, err
+	}
+
+	return entry, nil
+}
+
+// loadAndPrepareIncidentEntryForUpdate loads the existing incident entry within the given transaction
+// and applies status, timestamp, and notes/description changes. It returns the updated entry along with
+// the nanosecond values to be written for acknowledged/resolved timestamps.
+func (s *sqlStore) loadAndPrepareIncidentEntryForUpdate(
+	ctx context.Context,
+	tx *sql.Tx,
+	id string,
+	status string,
+	notes, description *string,
+	now time.Time,
+) (IncidentEntry, int64, int64, error) {
 	placeholder := "?"
 	if s.backend == BackendPostgreSQL {
 		placeholder = "$1"
 	}
 
+	var selectQuery string
 	// #nosec G202 -- id value is always passed as a parameter via placeholder; query text concatenation is limited to backend-specific placeholder.
-	selectQuery := `SELECT
+	if s.backend == BackendPostgreSQL {
+		selectQuery = `SELECT
+		id, alert_id, timestamp_ns, status, trigger_ai_rca,
+		triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
+		notes, description,
+		namespace_name, component_name, environment_name, project_name,
+		component_id, environment_id, project_id
+	FROM incident_entries WHERE id = ` + placeholder + ` FOR UPDATE`
+	} else {
+		selectQuery = `SELECT
 		id, alert_id, timestamp_ns, status, trigger_ai_rca,
 		triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
 		notes, description,
 		namespace_name, component_name, environment_name, project_name,
 		component_id, environment_id, project_id
 	FROM incident_entries WHERE id = ` + placeholder
+	}
 
-	row := s.db.QueryRowContext(ctx, selectQuery, id)
+	row := tx.QueryRowContext(ctx, selectQuery, id)
 
 	var entry IncidentEntry
 	var tsNS int64
@@ -428,10 +492,16 @@ func (s *sqlStore) UpdateIncidentEntry(ctx context.Context, id string, status st
 		&entry.EnvironmentID,
 		&entry.ProjectID,
 	); err != nil {
-		if err == sql.ErrNoRows {
-			return IncidentEntry{}, fmt.Errorf("%w: %s", ErrIncidentNotFound, id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return IncidentEntry{}, 0, 0, fmt.Errorf("%w: %s", ErrIncidentNotFound, id)
 		}
-		return IncidentEntry{}, fmt.Errorf("failed to load incident entry %q: %w", id, err)
+		return IncidentEntry{}, 0, 0, fmt.Errorf("failed to load incident entry %q: %w", id, err)
+	}
+
+	// Enforce forward-only status transitions.
+	oldStatus := entry.Status
+	if !isValidStatusTransition(oldStatus, status) {
+		return IncidentEntry{}, 0, 0, fmt.Errorf("%w: %q → %q", ErrInvalidStatusTransition, oldStatus, status)
 	}
 
 	// Base timestamps from existing row.
@@ -482,9 +552,10 @@ func (s *sqlStore) UpdateIncidentEntry(ctx context.Context, id string, status st
 		entry.ResolvedAt = time.Unix(0, resolvedOutNS).UTC().Format(time.RFC3339Nano)
 	}
 
-	var updateQuery string
-	var args []any
+	return entry, ackOutNS, resolvedOutNS, nil
+}
 
+func buildUpdateIncidentEntryQuery(backend string, entry IncidentEntry, ackOutNS, resolvedOutNS int64) (string, []any) {
 	ackParam := any(nil)
 	if ackOutNS != 0 {
 		ackParam = ackOutNS
@@ -494,8 +565,8 @@ func (s *sqlStore) UpdateIncidentEntry(ctx context.Context, id string, status st
 		resolvedParam = resolvedOutNS
 	}
 
-	if s.backend == BackendPostgreSQL {
-		updateQuery = `
+	if backend == BackendPostgreSQL {
+		updateQuery := `
 UPDATE incident_entries
 SET status = $1,
     acknowledged_at_ns = $2,
@@ -503,7 +574,7 @@ SET status = $1,
     notes = $4,
     description = $5
 WHERE id = $6;`
-		args = []any{
+		args := []any{
 			entry.Status,
 			ackParam,
 			resolvedParam,
@@ -511,8 +582,10 @@ WHERE id = $6;`
 			nullableString(entry.Description),
 			entry.ID,
 		}
-	} else {
-		updateQuery = `
+		return updateQuery, args
+	}
+
+	updateQuery := `
 UPDATE incident_entries
 SET status = ?,
     acknowledged_at_ns = ?,
@@ -520,21 +593,33 @@ SET status = ?,
     notes = ?,
     description = ?
 WHERE id = ?;`
-		args = []any{
-			entry.Status,
-			ackParam,
-			resolvedParam,
-			nullableString(entry.Notes),
-			nullableString(entry.Description),
-			entry.ID,
-		}
+	args := []any{
+		entry.Status,
+		ackParam,
+		resolvedParam,
+		nullableString(entry.Notes),
+		nullableString(entry.Description),
+		entry.ID,
 	}
+	return updateQuery, args
+}
 
-	if _, err := s.db.ExecContext(ctx, updateQuery, args...); err != nil {
-		return IncidentEntry{}, fmt.Errorf("failed to update incident entry %q: %w", id, err)
+// isValidStatusTransition reports whether the transition from oldStatus to newStatus is allowed.
+// Allowed transitions: active → acknowledged, active → resolved, acknowledged → resolved.
+// Re-applying the same status is also permitted (idempotent).
+func isValidStatusTransition(oldStatus, newStatus string) bool {
+	if oldStatus == newStatus {
+		return true
 	}
-
-	return entry, nil
+	switch oldStatus {
+	case StatusActive:
+		return newStatus == StatusAcknowledged || newStatus == StatusResolved
+	case StatusAcknowledged:
+		return newStatus == StatusResolved
+	default:
+		// resolved is a terminal state; no forward transitions allowed.
+		return false
+	}
 }
 
 func (s *sqlStore) Close() error {

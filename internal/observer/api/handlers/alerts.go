@@ -14,7 +14,7 @@ import (
 )
 
 // CreateAlertRule handles POST /api/v1alpha1/alerts/sources/{sourceType}/rules
-func (h *Handler) CreateAlertRule(w http.ResponseWriter, r *http.Request) {
+func (h *InternalHandler) CreateAlertRule(w http.ResponseWriter, r *http.Request) {
 	sourceType := r.PathValue("sourceType")
 
 	if err := validateSourceType(sourceType); err != nil {
@@ -58,7 +58,7 @@ func (h *Handler) CreateAlertRule(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetAlertRule handles GET /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}
-func (h *Handler) GetAlertRule(w http.ResponseWriter, r *http.Request) {
+func (h *InternalHandler) GetAlertRule(w http.ResponseWriter, r *http.Request) {
 	sourceType := r.PathValue("sourceType")
 	ruleName := r.PathValue("ruleName")
 
@@ -87,7 +87,7 @@ func (h *Handler) GetAlertRule(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateAlertRule handles PUT /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}
-func (h *Handler) UpdateAlertRule(w http.ResponseWriter, r *http.Request) {
+func (h *InternalHandler) UpdateAlertRule(w http.ResponseWriter, r *http.Request) {
 	sourceType := r.PathValue("sourceType")
 	ruleName := r.PathValue("ruleName")
 
@@ -137,7 +137,7 @@ func (h *Handler) UpdateAlertRule(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteAlertRule handles DELETE /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}
-func (h *Handler) DeleteAlertRule(w http.ResponseWriter, r *http.Request) {
+func (h *InternalHandler) DeleteAlertRule(w http.ResponseWriter, r *http.Request) {
 	sourceType := r.PathValue("sourceType")
 	ruleName := r.PathValue("ruleName")
 
@@ -166,7 +166,7 @@ func (h *Handler) DeleteAlertRule(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleAlertWebhook handles POST /api/v1alpha1/alerts/webhook
-func (h *Handler) HandleAlertWebhook(w http.ResponseWriter, r *http.Request) {
+func (h *InternalHandler) HandleAlertWebhook(w http.ResponseWriter, r *http.Request) {
 	var req gen.AlertWebhookRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "INVALID_REQUEST_BODY", "invalid request body: "+err.Error())

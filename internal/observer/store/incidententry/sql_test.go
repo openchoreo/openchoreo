@@ -5,6 +5,7 @@ package incidententry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -285,8 +286,12 @@ func TestUpdateIncidentEntry_NotFound(t *testing.T) {
 	}
 
 	sqlStore := store.(*sqlStore)
-	if _, err := sqlStore.UpdateIncidentEntry(ctx, "non-existent-id", StatusActive, nil, nil, time.Now()); err == nil {
+	_, err = sqlStore.UpdateIncidentEntry(ctx, "non-existent-id", StatusActive, nil, nil, time.Now())
+	if err == nil {
 		t.Fatal("expected error for non-existent incident id")
+	}
+	if !errors.Is(err, ErrIncidentNotFound) {
+		t.Fatalf("expected ErrIncidentNotFound, got %v", err)
 	}
 }
 
@@ -366,5 +371,191 @@ func TestUpdateIncidentEntry_PreservesOmittedFields(t *testing.T) {
 	}
 	if found.Description != "original-description" {
 		t.Fatalf("expected persisted description %q, got %q", "original-description", found.Description)
+	}
+}
+
+func TestUpdateIncidentEntry_ForwardOnlyTransitions(t *testing.T) {
+	t.Parallel()
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	store, err := New(BackendSQLite, dsn, slog.Default())
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := store.Close(); closeErr != nil {
+			t.Fatalf("failed to close store: %v", closeErr)
+		}
+	})
+
+	ctx := context.Background()
+	if err := store.Initialize(ctx); err != nil {
+		t.Fatalf("failed to initialize store: %v", err)
+	}
+
+	createdAt := time.Date(2026, 3, 7, 10, 20, 30, 0, time.UTC)
+	sqlStore := store.(*sqlStore)
+
+	// Write an already-resolved incident.
+	resolvedID, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
+		AlertID:         "a-resolved",
+		Timestamp:       createdAt.Format(time.RFC3339Nano),
+		Status:          StatusResolved,
+		TriggerAiRca:    false,
+		TriggeredAt:     createdAt.Format(time.RFC3339Nano),
+		ResolvedAt:      createdAt.Add(time.Minute).Format(time.RFC3339Nano),
+		NamespaceName:   "ns",
+		ComponentName:   "comp",
+		EnvironmentName: "env",
+		ProjectName:     "proj",
+	})
+	if err != nil {
+		t.Fatalf("failed to write resolved incident: %v", err)
+	}
+
+	// Backward transition: resolved → acknowledged should fail.
+	_, err = sqlStore.UpdateIncidentEntry(ctx, resolvedID, StatusAcknowledged, nil, nil, time.Now())
+	if !errors.Is(err, ErrInvalidStatusTransition) {
+		t.Fatalf("expected ErrInvalidStatusTransition for resolved→acknowledged, got %v", err)
+	}
+
+	// Backward transition: resolved → active should fail.
+	_, err = sqlStore.UpdateIncidentEntry(ctx, resolvedID, StatusActive, nil, nil, time.Now())
+	if !errors.Is(err, ErrInvalidStatusTransition) {
+		t.Fatalf("expected ErrInvalidStatusTransition for resolved→active, got %v", err)
+	}
+
+	// Write an acknowledged incident.
+	ackID, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
+		AlertID:         "a-ack",
+		Timestamp:       createdAt.Format(time.RFC3339Nano),
+		Status:          StatusAcknowledged,
+		TriggerAiRca:    false,
+		TriggeredAt:     createdAt.Format(time.RFC3339Nano),
+		AcknowledgedAt:  createdAt.Add(30 * time.Second).Format(time.RFC3339Nano),
+		NamespaceName:   "ns",
+		ComponentName:   "comp",
+		EnvironmentName: "env",
+		ProjectName:     "proj",
+	})
+	if err != nil {
+		t.Fatalf("failed to write acknowledged incident: %v", err)
+	}
+
+	// Backward transition: acknowledged → active should fail.
+	_, err = sqlStore.UpdateIncidentEntry(ctx, ackID, StatusActive, nil, nil, time.Now())
+	if !errors.Is(err, ErrInvalidStatusTransition) {
+		t.Fatalf("expected ErrInvalidStatusTransition for acknowledged→active, got %v", err)
+	}
+
+	// Allowed transition: acknowledged → resolved should succeed.
+	updated, err := sqlStore.UpdateIncidentEntry(ctx, ackID, StatusResolved, nil, nil, time.Now())
+	if err != nil {
+		t.Fatalf("expected acknowledged→resolved to succeed, got %v", err)
+	}
+	if updated.Status != StatusResolved {
+		t.Fatalf("expected status %q, got %q", StatusResolved, updated.Status)
+	}
+}
+
+func TestUpdateIncidentEntry_TimestampsSetOnce(t *testing.T) {
+	t.Parallel()
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	store, err := New(BackendSQLite, dsn, slog.Default())
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := store.Close(); closeErr != nil {
+			t.Fatalf("failed to close store: %v", closeErr)
+		}
+	})
+
+	ctx := context.Background()
+	if err := store.Initialize(ctx); err != nil {
+		t.Fatalf("failed to initialize store: %v", err)
+	}
+
+	createdAt := time.Date(2026, 3, 7, 10, 20, 30, 0, time.UTC)
+	id, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
+		AlertID:         "a-ts-once",
+		Timestamp:       createdAt.Format(time.RFC3339Nano),
+		Status:          StatusActive,
+		TriggerAiRca:    false,
+		TriggeredAt:     createdAt.Format(time.RFC3339Nano),
+		NamespaceName:   "ns",
+		ComponentName:   "comp",
+		EnvironmentName: "env",
+		ProjectName:     "proj",
+	})
+	if err != nil {
+		t.Fatalf("failed to write incident: %v", err)
+	}
+
+	sqlStore := store.(*sqlStore)
+	ackTime1 := time.Date(2026, 3, 7, 10, 21, 0, 0, time.UTC)
+	first, err := sqlStore.UpdateIncidentEntry(ctx, id, StatusAcknowledged, nil, nil, ackTime1)
+	if err != nil {
+		t.Fatalf("first acknowledge failed: %v", err)
+	}
+	firstAckAt := first.AcknowledgedAt
+
+	// Re-acknowledge with a later time; acknowledgedAt must NOT change.
+	ackTime2 := ackTime1.Add(10 * time.Minute)
+	second, err := sqlStore.UpdateIncidentEntry(ctx, id, StatusAcknowledged, nil, nil, ackTime2)
+	if err != nil {
+		t.Fatalf("second acknowledge failed: %v", err)
+	}
+	if second.AcknowledgedAt != firstAckAt {
+		t.Fatalf("expected acknowledgedAt to remain %q, got %q", firstAckAt, second.AcknowledgedAt)
+	}
+}
+
+func TestUpdateIncidentEntry_RowsAffectedZeroIsNotFound(t *testing.T) {
+	t.Parallel()
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	store, err := New(BackendSQLite, dsn, slog.Default())
+	if err != nil {
+		t.Fatalf("failed to create store: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := store.Close(); closeErr != nil {
+			t.Fatalf("failed to close store: %v", closeErr)
+		}
+	})
+
+	ctx := context.Background()
+	if err := store.Initialize(ctx); err != nil {
+		t.Fatalf("failed to initialize store: %v", err)
+	}
+
+	// Write then hard-delete a row to simulate a row disappearing between SELECT and UPDATE.
+	createdAt := time.Date(2026, 3, 7, 10, 20, 30, 0, time.UTC)
+	id, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
+		AlertID:         "a-deleted",
+		Timestamp:       createdAt.Format(time.RFC3339Nano),
+		Status:          StatusActive,
+		TriggerAiRca:    false,
+		TriggeredAt:     createdAt.Format(time.RFC3339Nano),
+		NamespaceName:   "ns",
+		ComponentName:   "comp",
+		EnvironmentName: "env",
+		ProjectName:     "proj",
+	})
+	if err != nil {
+		t.Fatalf("failed to write incident: %v", err)
+	}
+
+	// Delete the row directly so the UPDATE inside the transaction finds 0 rows.
+	sqlStore := store.(*sqlStore)
+	if _, err := sqlStore.db.ExecContext(ctx, "DELETE FROM incident_entries WHERE id = ?", id); err != nil {
+		t.Fatalf("failed to delete row: %v", err)
+	}
+
+	_, err = sqlStore.UpdateIncidentEntry(ctx, id, StatusAcknowledged, nil, nil, time.Now())
+	if !errors.Is(err, ErrIncidentNotFound) {
+		t.Fatalf("expected ErrIncidentNotFound when row deleted between SELECT and UPDATE, got %v", err)
 	}
 }

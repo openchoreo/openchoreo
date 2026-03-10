@@ -47,6 +47,9 @@ type IncidentEntry struct {
 // ErrIncidentNotFound is returned when an incident with the given ID does not exist.
 var ErrIncidentNotFound = errors.New("incident not found")
 
+// ErrInvalidStatusTransition is returned when the requested status transition is not allowed.
+var ErrInvalidStatusTransition = errors.New("invalid incident status transition")
+
 // QueryParams contains filters and pagination for querying incident entries.
 type QueryParams struct {
 	StartTime     string

@@ -28,12 +28,12 @@ func (h *Handler) QueryAlerts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.alertsQuerier == nil {
+	if h.alertIncidentService == nil {
 		h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "SERVICE_NOT_READY", "alerts querier is not initialized")
 		return
 	}
 
-	resp, err := h.alertsQuerier.QueryAlerts(r.Context(), req)
+	resp, err := h.alertIncidentService.QueryAlerts(r.Context(), req)
 	if err != nil {
 		switch {
 		case errors.Is(err, observerAuthz.ErrAuthzForbidden):
@@ -73,12 +73,12 @@ func (h *Handler) QueryIncidents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.incidentsQuerier == nil {
+	if h.alertIncidentService == nil {
 		h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "SERVICE_NOT_READY", "incidents querier is not initialized")
 		return
 	}
 
-	resp, err := h.incidentsQuerier.QueryIncidents(r.Context(), req)
+	resp, err := h.alertIncidentService.QueryIncidents(r.Context(), req)
 	if err != nil {
 		switch {
 		case errors.Is(err, observerAuthz.ErrAuthzForbidden):
@@ -118,16 +118,25 @@ func (h *Handler) UpdateIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.alertService == nil {
+	if h.alertIncidentService == nil {
 		h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "SERVICE_NOT_READY", "incident update service is not initialized")
 		return
 	}
 
-	resp, err := h.alertService.UpdateIncident(r.Context(), id, req)
+	resp, err := h.alertIncidentService.UpdateIncident(r.Context(), id, req)
 	if err != nil {
 		switch {
+		case errors.Is(err, observerAuthz.ErrAuthzForbidden):
+			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
+		case errors.Is(err, observerAuthz.ErrAuthzUnauthorized):
+			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
+		case errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable),
+			errors.Is(err, observerAuthz.ErrAuthzTimeout):
+			h.writeErrorResponse(w, http.StatusServiceUnavailable, gen.InternalServerError, "AUTHZ_UNAVAILABLE", "authorization service temporarily unavailable")
 		case errors.Is(err, incidententry.ErrIncidentNotFound):
 			h.writeErrorResponse(w, http.StatusNotFound, gen.NotFound, "INCIDENT_NOT_FOUND", "incident not found")
+		case errors.Is(err, incidententry.ErrInvalidStatusTransition):
+			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "INVALID_STATUS_TRANSITION", err.Error())
 		default:
 			h.logger.Error("Failed to update incident", "error", err)
 			h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "UPDATE_INCIDENT_FAILED", "failed to update incident")

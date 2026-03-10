@@ -7,10 +7,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,23 +19,36 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 )
 
-type fakeIncidentsUpdater struct {
+// fakeAlertIncidentService implements service.AlertIncidentService for tests.
+// Only UpdateIncident is exercised by the incident handler tests; the alert/incident
+// query methods are stubs that panic so accidental calls are caught immediately.
+type fakeAlertIncidentService struct {
 	updateResp *gen.IncidentPutResponse
 	updateErr  error
 
-	lastCtx context.Context
 	lastID  string
 	lastReq gen.IncidentPutRequest
 }
 
-func (f *fakeIncidentsUpdater) UpdateIncident(ctx context.Context, id string, req gen.IncidentPutRequest) (*gen.IncidentPutResponse, error) {
-	f.lastCtx = ctx
+func (f *fakeAlertIncidentService) QueryAlerts(_ context.Context, _ gen.AlertsQueryRequest) (*gen.AlertsQueryResponse, error) {
+	panic("unexpected call to QueryAlerts in incident handler test")
+}
+
+func (f *fakeAlertIncidentService) QueryIncidents(_ context.Context, _ gen.IncidentsQueryRequest) (*gen.IncidentsQueryResponse, error) {
+	panic("unexpected call to QueryIncidents in incident handler test")
+}
+
+func (f *fakeAlertIncidentService) UpdateIncident(_ context.Context, id string, req gen.IncidentPutRequest) (*gen.IncidentPutResponse, error) {
 	f.lastID = id
 	f.lastReq = req
 	if f.updateErr != nil {
 		return nil, f.updateErr
 	}
 	return f.updateResp, nil
+}
+
+func noopLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
 func TestUpdateIncident_Success(t *testing.T) {
@@ -54,34 +68,14 @@ func TestUpdateIncident_Success(t *testing.T) {
 		AcknowledgedAt:       &now,
 	}
 
-	updater := &fakeIncidentsUpdater{
+	updater := &fakeAlertIncidentService{
 		updateResp: respBody,
 	}
 
 	h := &Handler{
-		logger: nil,
+		baseHandler:          baseHandler{logger: noopLogger()},
+		alertIncidentService: updater,
 	}
-
-	// Build handler that uses the fake updater via a wrapper.
-	handlerWithFake := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Use the fake updater directly instead of alertService.
-		id := "inc-1"
-		var req gen.IncidentPutRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "INVALID_REQUEST_BODY", "invalid request body: "+err.Error())
-			return
-		}
-		if err := ValidateIncidentPutRequest(&req); err != nil {
-			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "VALIDATION_ERROR", err.Error())
-			return
-		}
-		resp, err := updater.UpdateIncident(r.Context(), id, req)
-		if err != nil {
-			h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "UPDATE_INCIDENT_FAILED", "failed to update incident")
-			return
-		}
-		h.writeJSON(w, http.StatusOK, resp)
-	})
 
 	body := gen.IncidentPutRequest{
 		Status:      gen.IncidentPutRequestStatusAcknowledged,
@@ -94,9 +88,10 @@ func TestUpdateIncident_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1", bytes.NewReader(raw))
+	req.SetPathValue("incidentId", "inc-1")
 	rr := httptest.NewRecorder()
 
-	handlerWithFake.ServeHTTP(rr, req)
+	h.UpdateIncident(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", rr.Code)
@@ -112,31 +107,33 @@ func TestUpdateIncident_Success(t *testing.T) {
 			t.Fatalf("expected %q in response: %s", expected, out)
 		}
 	}
+
+	// Assert the fake updater received the correct ID and request.
+	if updater.lastID != "inc-1" {
+		t.Fatalf("expected lastID %q, got %q", "inc-1", updater.lastID)
+	}
+	if updater.lastReq.Status != gen.IncidentPutRequestStatusAcknowledged {
+		t.Fatalf("expected status %q passed through, got %q", gen.IncidentPutRequestStatusAcknowledged, updater.lastReq.Status)
+	}
 }
 
 func TestUpdateIncident_NotFound(t *testing.T) {
 	t.Parallel()
 
-	h := &Handler{}
+	updater := &fakeAlertIncidentService{
+		updateErr: incidententry.ErrIncidentNotFound,
+	}
 
-	notFoundErr := incidententry.ErrIncidentNotFound
-	h.alertService = nil
-
-	// Minimal handler using the same error mapping logic as UpdateIncident.
-	handlerWithError := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err := notFoundErr
-		switch {
-		case errors.Is(err, incidententry.ErrIncidentNotFound):
-			h.writeErrorResponse(w, http.StatusNotFound, gen.NotFound, "INCIDENT_NOT_FOUND", "incident not found")
-		default:
-			h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "UPDATE_INCIDENT_FAILED", "failed to update incident")
-		}
-	})
+	h := &Handler{
+		baseHandler:          baseHandler{logger: noopLogger()},
+		alertIncidentService: updater,
+	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/non-existent", bytes.NewReader([]byte(`{"status":"active"}`)))
+	req.SetPathValue("incidentId", "non-existent")
 	rr := httptest.NewRecorder()
 
-	handlerWithError.ServeHTTP(rr, req)
+	h.UpdateIncident(rr, req)
 
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("expected status 404, got %d", rr.Code)
@@ -154,5 +151,5 @@ func ptrIncidentPutStatus(s gen.IncidentPutResponseStatus) *gen.IncidentPutRespo
 }
 
 func contains(s, substr string) bool {
-	return bytes.Contains([]byte(s), []byte(substr))
+	return strings.Contains(s, substr)
 }
