@@ -38,8 +38,8 @@ spec:
         context: string | default=. description="Docker build context path relative to the repository root"
         filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
 
-      buildEnv: '[]BuildEnvVar | default=[] description="Environment variables available during the build (passed as --env to podman build)"'
-      buildArgs: '[]DockerBuildArg | default=[] description="Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg)"'
+      buildEnv: '[]BuildEnvVar | default=[] description="Environment variables available during the build (passed as --env to podman build). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#env-env-value"'
+      buildArgs: '[]DockerBuildArg | default=[] description="Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#build-arg-arg-value"'
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow

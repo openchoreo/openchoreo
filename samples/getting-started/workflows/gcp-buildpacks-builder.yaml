@@ -32,7 +32,7 @@ spec:
           commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
         appPath: string | default=. description="Path to the application directory within the repository"
 
-      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack (e.g. GOOGLE_RUNTIME_VERSION=21)"'
+      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack (e.g. GOOGLE_RUNTIME_VERSION=21). Reference: https://docs.cloud.google.com/docs/buildpacks/set-environment-variables"'
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1

@@ -32,7 +32,7 @@ spec:
           commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
         appPath: string | default=. description="Path to the Ballerina application directory within the repository"
 
-      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack"'
+      buildEnv: '[]BuildEnvVar | default=[] description="Environment variables to be passed into the buildpack"'
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1

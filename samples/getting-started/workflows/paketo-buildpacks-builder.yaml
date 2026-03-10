@@ -34,7 +34,7 @@ spec:
           commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest commit on branch)"
         appPath: string | default=. description="Path to the application directory within the repository"
 
-      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack (e.g. BP_JVM_VERSION=21, BP_NODE_RUN_SCRIPTS=build, BP_WEB_SERVER=nginx)"'
+      buildEnv: '[]BuildEnvVar | default=[] description="Build-time environment variables passed to the buildpack (e.g. BP_JVM_VERSION=21, BP_NODE_RUN_SCRIPTS=build, BP_WEB_SERVER=nginx). Reference: https://paketo.io/docs/howto/configuration/#environment-variables"'
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
