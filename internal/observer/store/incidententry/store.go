@@ -5,9 +5,11 @@ package incidententry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 )
 
 const (
@@ -16,7 +18,7 @@ const (
 )
 
 const (
-	StatusTriggered    = "triggered"
+	StatusActive       = "active"
 	StatusAcknowledged = "acknowledged"
 	StatusResolved     = "resolved"
 )
@@ -42,6 +44,9 @@ type IncidentEntry struct {
 	ProjectID       string
 }
 
+// ErrIncidentNotFound is returned when an incident with the given ID does not exist.
+var ErrIncidentNotFound = errors.New("incident not found")
+
 // QueryParams contains filters and pagination for querying incident entries.
 type QueryParams struct {
 	StartTime     string
@@ -59,6 +64,7 @@ type IncidentEntryStore interface {
 	Initialize(ctx context.Context) error
 	WriteIncidentEntry(ctx context.Context, entry *IncidentEntry) (id string, err error)
 	QueryIncidentEntries(ctx context.Context, params QueryParams) ([]IncidentEntry, int, error)
+	UpdateIncidentEntry(ctx context.Context, id string, status string, notes, description *string, now time.Time) (IncidentEntry, error)
 	Close() error
 }
 

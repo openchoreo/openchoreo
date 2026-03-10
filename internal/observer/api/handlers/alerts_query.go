@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 )
 
 // QueryAlerts handles POST /api/v1alpha1/alerts/query
@@ -89,6 +91,46 @@ func (h *Handler) QueryIncidents(w http.ResponseWriter, r *http.Request) {
 		default:
 			h.logger.Error("Failed to query incidents", "error", err)
 			h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "QUERY_INCIDENTS_FAILED", "failed to query incidents")
+		}
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, resp)
+}
+
+// UpdateIncident handles PUT /api/v1alpha1/incidents/{incidentId}
+// Note: the incident ID is read from the path via r.PathValue to be compatible with http.ServeMux routing.
+func (h *Handler) UpdateIncident(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("incidentId"))
+	if id == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "INVALID_INCIDENT_ID", "incidentId path parameter is required")
+		return
+	}
+
+	var req gen.IncidentPutRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "INVALID_REQUEST_BODY", "invalid request body: "+err.Error())
+		return
+	}
+
+	if err := ValidateIncidentPutRequest(&req); err != nil {
+		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "VALIDATION_ERROR", err.Error())
+		return
+	}
+
+	if h.alertService == nil {
+		h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "SERVICE_NOT_READY", "incident update service is not initialized")
+		return
+	}
+
+	resp, err := h.alertService.UpdateIncident(r.Context(), id, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, incidententry.ErrIncidentNotFound):
+			h.writeErrorResponse(w, http.StatusNotFound, gen.NotFound, "INCIDENT_NOT_FOUND", "incident not found")
+		default:
+			h.logger.Error("Failed to update incident", "error", err)
+			h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "UPDATE_INCIDENT_FAILED", "failed to update incident")
 		}
 		return
 	}

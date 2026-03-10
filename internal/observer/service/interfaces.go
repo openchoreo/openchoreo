@@ -36,3 +36,8 @@ type AlertsQuerier interface {
 type IncidentsQuerier interface {
 	QueryIncidents(ctx context.Context, req gen.IncidentsQueryRequest) (*gen.IncidentsQueryResponse, error)
 }
+
+// IncidentsUpdater is the interface for updating incidents.
+type IncidentsUpdater interface {
+	UpdateIncident(ctx context.Context, incidentID string, req gen.IncidentPutRequest) (*gen.IncidentPutResponse, error)
+}

@@ -106,9 +106,9 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 
 	status := strings.TrimSpace(entry.Status)
 	if status == "" {
-		status = StatusTriggered
+		status = StatusActive
 	}
-	if status != StatusTriggered && status != StatusAcknowledged && status != StatusResolved {
+	if status != StatusActive && status != StatusAcknowledged && status != StatusResolved {
 		return "", fmt.Errorf("unsupported incident status %q", status)
 	}
 
@@ -369,6 +369,172 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 	}
 
 	return entries, total, nil
+}
+
+func (s *sqlStore) UpdateIncidentEntry(ctx context.Context, id string, status string, notes, description *string, now time.Time) (IncidentEntry, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return IncidentEntry{}, fmt.Errorf("incident id is required")
+	}
+
+	status = strings.TrimSpace(status)
+	if status == "" {
+		return IncidentEntry{}, fmt.Errorf("incident status is required")
+	}
+	if status != StatusActive && status != StatusAcknowledged && status != StatusResolved {
+		return IncidentEntry{}, fmt.Errorf("unsupported incident status %q", status)
+	}
+
+	placeholder := "?"
+	if s.backend == BackendPostgreSQL {
+		placeholder = "$1"
+	}
+
+	// #nosec G202 -- id value is always passed as a parameter via placeholder; query text concatenation is limited to backend-specific placeholder.
+	selectQuery := `SELECT
+		id, alert_id, timestamp_ns, status, trigger_ai_rca,
+		triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
+		notes, description,
+		namespace_name, component_name, environment_name, project_name,
+		component_id, environment_id, project_id
+	FROM incident_entries WHERE id = ` + placeholder
+
+	row := s.db.QueryRowContext(ctx, selectQuery, id)
+
+	var entry IncidentEntry
+	var tsNS int64
+	var triggeredNS int64
+	var acknowledgedNS sql.NullInt64
+	var resolvedNS sql.NullInt64
+	var existingNotes sql.NullString
+	var existingDescription sql.NullString
+
+	if err := row.Scan(
+		&entry.ID,
+		&entry.AlertID,
+		&tsNS,
+		&entry.Status,
+		&entry.TriggerAiRca,
+		&triggeredNS,
+		&acknowledgedNS,
+		&resolvedNS,
+		&existingNotes,
+		&existingDescription,
+		&entry.NamespaceName,
+		&entry.ComponentName,
+		&entry.EnvironmentName,
+		&entry.ProjectName,
+		&entry.ComponentID,
+		&entry.EnvironmentID,
+		&entry.ProjectID,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return IncidentEntry{}, fmt.Errorf("%w: %s", ErrIncidentNotFound, id)
+		}
+		return IncidentEntry{}, fmt.Errorf("failed to load incident entry %q: %w", id, err)
+	}
+
+	// Base timestamps from existing row.
+	entry.Timestamp = time.Unix(0, tsNS).UTC().Format(time.RFC3339Nano)
+	entry.TriggeredAt = time.Unix(0, triggeredNS).UTC().Format(time.RFC3339Nano)
+
+	var ackOutNS int64
+	if acknowledgedNS.Valid {
+		ackOutNS = acknowledgedNS.Int64
+	}
+	var resolvedOutNS int64
+	if resolvedNS.Valid {
+		resolvedOutNS = resolvedNS.Int64
+	}
+
+	now = now.UTC()
+	nowNS := now.UnixNano()
+
+	// Update status and manage acknowledged/resolved timestamps.
+	entry.Status = status
+	if status == StatusAcknowledged && ackOutNS == 0 {
+		ackOutNS = nowNS
+	}
+	if status == StatusResolved && resolvedOutNS == 0 {
+		resolvedOutNS = nowNS
+	}
+
+	// Preserve existing notes/description when omitted (nil); apply when provided.
+	entry.Notes = ""
+	if existingNotes.Valid {
+		entry.Notes = existingNotes.String
+	}
+	entry.Description = ""
+	if existingDescription.Valid {
+		entry.Description = existingDescription.String
+	}
+	if notes != nil {
+		entry.Notes = strings.TrimSpace(*notes)
+	}
+	if description != nil {
+		entry.Description = strings.TrimSpace(*description)
+	}
+
+	if ackOutNS != 0 {
+		entry.AcknowledgedAt = time.Unix(0, ackOutNS).UTC().Format(time.RFC3339Nano)
+	}
+	if resolvedOutNS != 0 {
+		entry.ResolvedAt = time.Unix(0, resolvedOutNS).UTC().Format(time.RFC3339Nano)
+	}
+
+	var updateQuery string
+	var args []any
+
+	ackParam := any(nil)
+	if ackOutNS != 0 {
+		ackParam = ackOutNS
+	}
+	resolvedParam := any(nil)
+	if resolvedOutNS != 0 {
+		resolvedParam = resolvedOutNS
+	}
+
+	if s.backend == BackendPostgreSQL {
+		updateQuery = `
+UPDATE incident_entries
+SET status = $1,
+    acknowledged_at_ns = $2,
+    resolved_at_ns = $3,
+    notes = $4,
+    description = $5
+WHERE id = $6;`
+		args = []any{
+			entry.Status,
+			ackParam,
+			resolvedParam,
+			nullableString(entry.Notes),
+			nullableString(entry.Description),
+			entry.ID,
+		}
+	} else {
+		updateQuery = `
+UPDATE incident_entries
+SET status = ?,
+    acknowledged_at_ns = ?,
+    resolved_at_ns = ?,
+    notes = ?,
+    description = ?
+WHERE id = ?;`
+		args = []any{
+			entry.Status,
+			ackParam,
+			resolvedParam,
+			nullableString(entry.Notes),
+			nullableString(entry.Description),
+			entry.ID,
+		}
+	}
+
+	if _, err := s.db.ExecContext(ctx, updateQuery, args...); err != nil {
+		return IncidentEntry{}, fmt.Errorf("failed to update incident entry %q: %w", id, err)
+	}
+
+	return entry, nil
 }
 
 func (s *sqlStore) Close() error {
