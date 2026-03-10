@@ -639,6 +639,271 @@ var _ = Describe("ComponentType Webhook", func() {
 		})
 	})
 
+	Context("OpenAPIV3Schema Support", func() {
+		It("should admit valid ComponentType with openAPIV3Schema parameters", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1},"image":{"type":"string"}}}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: deploymentTemplateWithCEL("${parameters.replicas}"),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit valid ComponentType with openAPIV3Schema parameters and environmentConfigs", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"name":{"type":"string","default":"app"}}}`),
+				},
+			}
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit openAPIV3Schema with $defs and $ref", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","$defs":{"Port":{"type":"integer","minimum":1,"maximum":65535,"default":8080}},"properties":{"port":{"$ref":"#/$defs/Port"}}}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit openAPIV3Schema with vendor extensions (x-*)", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"url":{"type":"string","x-openchoreo-backstage-portal":{"ui:field":"RepoUrlPicker"}}}}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject openAPIV3Schema with circular $ref", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","$defs":{"A":{"$ref":"#/$defs/B"},"B":{"$ref":"#/$defs/A"}},"properties":{"val":{"$ref":"#/$defs/A"}}}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
+		})
+
+		It("should reject malformed openAPIV3Schema JSON", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{not valid json`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
+		})
+
+		It("should validate CEL expressions against openAPIV3Schema types", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1},"enabled":{"type":"boolean","default":true}}}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:          "deployment",
+					IncludeWhen: "${parameters.enabled}",
+					Template:    deploymentTemplateWithCEL("${parameters.replicas}"),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject forEach with non-iterable openAPIV3Schema type", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer"}}}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:      "deployment",
+					ForEach: "${parameters.replicas}",
+					Var:     "item",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "test"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("forEach expression must return list or map"))
+		})
+
+		It("should validate boolean validation rules with openAPIV3Schema", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: deploymentTemplateWithCEL("${parameters.replicas}"),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.replicas > 0}", Message: "replicas must be positive"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject non-boolean validation rule with openAPIV3Schema", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"name":{"type":"string","default":"app"}}}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.name}", Message: "returns string not bool"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("rule must return boolean"))
+		})
+
+		It("should admit valid update with openAPIV3Schema", func() {
+			oldObj.Spec.WorkloadType = workloadTypeDeployment
+			oldObj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":2}}}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+
+			_, err := validator.ValidateUpdate(ctx, oldObj, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit openAPIV3Schema with nested objects and required fields", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"database":{"type":"object","properties":{"host":{"type":"string"},"port":{"type":"integer","default":5432}},"required":["host"]}}}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject openAPIV3Schema in environmentConfigs with circular ref", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","$defs":{"X":{"$ref":"#/$defs/Y"},"Y":{"$ref":"#/$defs/X"}},"properties":{"val":{"$ref":"#/$defs/X"}}}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse environmentConfigs schema"))
+		})
+	})
+
 	Context("AllowedTraits Validation", func() {
 		BeforeEach(func() {
 			obj.Spec.WorkloadType = workloadTypeDeployment

@@ -257,7 +257,7 @@ func TestResolveRefs_NilInput(t *testing.T) {
 func TestResolveRefs_DepthLimitExceeded(t *testing.T) {
 	// Build a deeply nested chain of refs that exceeds maxRefDepth (64).
 	defs := map[string]any{}
-	for i := 0; i < 70; i++ {
+	for i := range 70 {
 		name := fmt.Sprintf("D%d", i)
 		if i < 69 {
 			defs[name] = map[string]any{"$ref": fmt.Sprintf("#/$defs/D%d", i+1)}
@@ -358,5 +358,384 @@ func TestResolveRefs_DoesNotMutateInput(t *testing.T) {
 	name := props["name"].(map[string]any)
 	if _, ok := name["$ref"]; !ok {
 		t.Fatal("original input was mutated: $ref should still be present")
+	}
+}
+
+func TestResolveRefs_DeeplyNestedDefPath(t *testing.T) {
+	// $ref pointing to a deeply nested definition path like #/$defs/Parent/$defs/Child
+	// should fail because only top-level defs are supported (exactly 2 path parts).
+	schema := map[string]any{
+		"$defs": map[string]any{
+			"Parent": map[string]any{
+				"type": "object",
+				"$defs": map[string]any{
+					"Child": map[string]any{"type": "string"},
+				},
+			},
+		},
+		"type": "object",
+		"properties": map[string]any{
+			"val": map[string]any{"$ref": "#/$defs/Parent/$defs/Child"},
+		},
+	}
+
+	_, err := ResolveRefs(schema)
+	if err == nil {
+		t.Fatal("expected error for deeply nested $ref path")
+	}
+	if !strings.Contains(err.Error(), "unsupported $ref path") {
+		t.Fatalf("expected unsupported $ref path error, got: %v", err)
+	}
+}
+
+func TestResolveRefs_EmptyRefString(t *testing.T) {
+	// $ref with an empty string value should fail
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"val": map[string]any{"$ref": ""},
+		},
+	}
+
+	_, err := ResolveRefs(schema)
+	if err == nil {
+		t.Fatal("expected error for empty $ref string")
+	}
+	if !strings.Contains(err.Error(), "only local $ref supported") {
+		t.Fatalf("expected local ref error, got: %v", err)
+	}
+}
+
+func TestResolveRefs_BothDefsAndDefinitions(t *testing.T) {
+	// When both $defs and definitions are present, $defs should take priority
+	// (extractDefs checks $defs first).
+	schema := map[string]any{
+		"$defs": map[string]any{
+			"Foo": map[string]any{"type": "string"},
+		},
+		"definitions": map[string]any{
+			"Foo": map[string]any{"type": "integer"},
+		},
+		"type": "object",
+		"properties": map[string]any{
+			"val": map[string]any{"$ref": "#/$defs/Foo"},
+		},
+	}
+
+	result, err := ResolveRefs(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	props := result["properties"].(map[string]any)
+	val := props["val"].(map[string]any)
+	// Should resolve from $defs (string), not definitions (integer)
+	if val["type"] != "string" {
+		t.Fatalf("expected type=string from $defs (priority), got %v", val["type"])
+	}
+
+	// Both $defs and definitions should be removed from output
+	if _, ok := result["$defs"]; ok {
+		t.Fatal("$defs should be removed from output")
+	}
+	if _, ok := result["definitions"]; ok {
+		t.Fatal("definitions should be removed from output")
+	}
+}
+
+func TestResolveRefs_RefInAnyOf(t *testing.T) {
+	schema := map[string]any{
+		"$defs": map[string]any{
+			"StringVal": map[string]any{"type": "string"},
+			"IntVal":    map[string]any{"type": "integer"},
+			"BoolVal":   map[string]any{"type": "boolean"},
+		},
+		"anyOf": []any{
+			map[string]any{"$ref": "#/$defs/StringVal"},
+			map[string]any{"$ref": "#/$defs/IntVal"},
+			map[string]any{"$ref": "#/$defs/BoolVal"},
+		},
+	}
+
+	result, err := ResolveRefs(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	anyOf := result["anyOf"].([]any)
+	if len(anyOf) != 3 {
+		t.Fatalf("expected 3 anyOf elements, got %d", len(anyOf))
+	}
+
+	expected := []string{"string", "integer", "boolean"}
+	for i, exp := range expected {
+		elem := anyOf[i].(map[string]any)
+		if elem["type"] != exp {
+			t.Fatalf("expected anyOf[%d] type=%s, got %v", i, exp, elem["type"])
+		}
+	}
+}
+
+func TestResolveRefs_SelfReferencingRef(t *testing.T) {
+	// A definition that references itself should be detected as circular.
+	schema := map[string]any{
+		"$defs": map[string]any{
+			"A": map[string]any{"$ref": "#/$defs/A"},
+		},
+		"type": "object",
+		"properties": map[string]any{
+			"val": map[string]any{"$ref": "#/$defs/A"},
+		},
+	}
+
+	_, err := ResolveRefs(schema)
+	if err == nil {
+		t.Fatal("expected error for self-referencing $ref")
+	}
+	if !strings.Contains(err.Error(), "circular $ref") {
+		t.Fatalf("expected circular ref error, got: %v", err)
+	}
+}
+
+func TestResolveRefs_SpecialCharactersInDefName(t *testing.T) {
+	// Definition names with special characters (dots, hyphens, underscores)
+	schema := map[string]any{
+		"$defs": map[string]any{
+			"my-type_v1.0": map[string]any{"type": "string"},
+		},
+		"type": "object",
+		"properties": map[string]any{
+			"val": map[string]any{"$ref": "#/$defs/my-type_v1.0"},
+		},
+	}
+
+	result, err := ResolveRefs(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	props := result["properties"].(map[string]any)
+	val := props["val"].(map[string]any)
+	if val["type"] != "string" {
+		t.Fatalf("expected type=string, got %v", val["type"])
+	}
+}
+
+func TestResolveRefs_LargeSchemaWithManyRefs(t *testing.T) {
+	// Schema with many definitions and references to verify correctness at scale.
+	defs := map[string]any{}
+	properties := map[string]any{}
+	const numDefs = 50
+	for i := range numDefs {
+		name := fmt.Sprintf("Type%d", i)
+		defs[name] = map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"value": map[string]any{"type": "integer", "default": float64(i)},
+			},
+		}
+		properties[fmt.Sprintf("field%d", i)] = map[string]any{"$ref": fmt.Sprintf("#/$defs/%s", name)}
+	}
+
+	schema := map[string]any{
+		"$defs":      defs,
+		"type":       "object",
+		"properties": properties,
+	}
+
+	result, err := ResolveRefs(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify all refs resolved correctly
+	props := result["properties"].(map[string]any)
+	for i := range numDefs {
+		fieldName := fmt.Sprintf("field%d", i)
+		field, ok := props[fieldName].(map[string]any)
+		if !ok {
+			t.Fatalf("expected field %s", fieldName)
+		}
+		if field["type"] != "object" {
+			t.Fatalf("expected %s type=object, got %v", fieldName, field["type"])
+		}
+		innerProps := field["properties"].(map[string]any)
+		valueProp := innerProps["value"].(map[string]any)
+		if valueProp["default"] != float64(i) {
+			t.Fatalf("expected %s default=%d, got %v", fieldName, i, valueProp["default"])
+		}
+	}
+
+	// $defs should be removed
+	if _, ok := result["$defs"]; ok {
+		t.Fatal("$defs should be removed from output")
+	}
+}
+
+func TestResolveRefs_RefNonStringValue(t *testing.T) {
+	// $ref with a non-string value should produce an error
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"val": map[string]any{"$ref": 42},
+		},
+	}
+
+	_, err := ResolveRefs(schema)
+	if err == nil {
+		t.Fatal("expected error for non-string $ref")
+	}
+	if !strings.Contains(err.Error(), "$ref must be a string") {
+		t.Fatalf("expected '$ref must be a string' error, got: %v", err)
+	}
+}
+
+func TestResolveRefs_RefInPatternProperties(t *testing.T) {
+	schema := map[string]any{
+		"$defs": map[string]any{
+			"Value": map[string]any{"type": "integer"},
+		},
+		"type": "object",
+		"patternProperties": map[string]any{
+			"^x-": map[string]any{"$ref": "#/$defs/Value"},
+		},
+	}
+
+	result, err := ResolveRefs(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	pp := result["patternProperties"].(map[string]any)
+	xProp := pp["^x-"].(map[string]any)
+	if xProp["type"] != "integer" {
+		t.Fatalf("expected patternProperties type=integer, got %v", xProp["type"])
+	}
+}
+
+func TestResolveRefs_EmptyDefinitionName(t *testing.T) {
+	// $ref with an empty definition name: "#/$defs/"
+	schema := map[string]any{
+		"$defs": map[string]any{},
+		"type":  "object",
+		"properties": map[string]any{
+			"val": map[string]any{"$ref": "#/$defs/"},
+		},
+	}
+
+	_, err := ResolveRefs(schema)
+	if err == nil {
+		t.Fatal("expected error for empty definition name")
+	}
+	if !strings.Contains(err.Error(), "empty definition name") {
+		t.Fatalf("expected empty definition name error, got: %v", err)
+	}
+}
+
+func TestResolveRefs_HttpsRemoteRef(t *testing.T) {
+	// HTTPS remote refs should also be rejected
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"val": map[string]any{"$ref": "https://example.com/schema.json"},
+		},
+	}
+
+	_, err := ResolveRefs(schema)
+	if err == nil {
+		t.Fatal("expected error for HTTPS remote ref")
+	}
+	if !strings.Contains(err.Error(), "only local $ref supported") {
+		t.Fatalf("expected remote ref error, got: %v", err)
+	}
+}
+
+func TestResolveRefs_RefWithInvalidPrefix(t *testing.T) {
+	// $ref with a path that doesn't use $defs or definitions
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"val": map[string]any{"$ref": "#/components/Foo"},
+		},
+	}
+
+	_, err := ResolveRefs(schema)
+	if err == nil {
+		t.Fatal("expected error for invalid $ref prefix")
+	}
+	if !strings.Contains(err.Error(), "unsupported $ref path") {
+		t.Fatalf("expected unsupported $ref path error, got: %v", err)
+	}
+}
+
+func TestResolveRefs_ThreeWayCircularRef(t *testing.T) {
+	// A -> B -> C -> A should be detected as circular
+	schema := map[string]any{
+		"$defs": map[string]any{
+			"A": map[string]any{"$ref": "#/$defs/B"},
+			"B": map[string]any{"$ref": "#/$defs/C"},
+			"C": map[string]any{"$ref": "#/$defs/A"},
+		},
+		"type": "object",
+		"properties": map[string]any{
+			"val": map[string]any{"$ref": "#/$defs/A"},
+		},
+	}
+
+	_, err := ResolveRefs(schema)
+	if err == nil {
+		t.Fatal("expected error for three-way circular ref")
+	}
+	if !strings.Contains(err.Error(), "circular $ref") {
+		t.Fatalf("expected circular ref error, got: %v", err)
+	}
+}
+
+func TestResolveRefs_RefWithNoDefsAvailable(t *testing.T) {
+	// $ref used but no $defs or definitions section at all
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"val": map[string]any{"$ref": "#/$defs/Missing"},
+		},
+	}
+
+	_, err := ResolveRefs(schema)
+	if err == nil {
+		t.Fatal("expected error for ref with no definitions")
+	}
+	if !strings.Contains(err.Error(), "no definitions available") {
+		t.Fatalf("expected 'no definitions available' error, got: %v", err)
+	}
+}
+
+func TestResolveRefs_RefInIfThenElse(t *testing.T) {
+	schema := map[string]any{
+		"$defs": map[string]any{
+			"StringSchema": map[string]any{"type": "string"},
+			"IntSchema":    map[string]any{"type": "integer"},
+		},
+		"type": "object",
+		"if":   map[string]any{"$ref": "#/$defs/StringSchema"},
+		"then": map[string]any{"$ref": "#/$defs/IntSchema"},
+		"else": map[string]any{"$ref": "#/$defs/StringSchema"},
+	}
+
+	result, err := ResolveRefs(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ifSchema := result["if"].(map[string]any)
+	if ifSchema["type"] != "string" {
+		t.Fatalf("expected if type=string, got %v", ifSchema["type"])
+	}
+	thenSchema := result["then"].(map[string]any)
+	if thenSchema["type"] != "integer" {
+		t.Fatalf("expected then type=integer, got %v", thenSchema["type"])
+	}
+	elseSchema := result["else"].(map[string]any)
+	if elseSchema["type"] != "string" {
+		t.Fatalf("expected else type=string, got %v", elseSchema["type"])
 	}
 }

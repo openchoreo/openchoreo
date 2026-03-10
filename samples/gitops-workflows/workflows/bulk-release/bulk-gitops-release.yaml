@@ -13,15 +13,39 @@ spec:
 
   # Developer-configurable parameters
   parameters:
-    ocSchema:
-      scope:
-        all: boolean | default=false description="Release all components across all projects"
-        projectName: string | description="Project name to release (ignored if all=true)"
-      gitops:
-        repositoryUrl: string | description="GitOps repository URL"
-        branch: string | default=main description="GitOps repository branch"
-        targetEnvironment: string | default=development description="Target environment name for deployment"
-        deploymentPipeline: string | description="Deployment pipeline name for the target environment"
+    openAPIV3Schema:
+      type: object
+      properties:
+        scope:
+          type: object
+          properties:
+            all:
+              type: boolean
+              default: false
+              description: "Release all components across all projects"
+            projectName:
+              type: string
+              description: "Project name to release (ignored if all=true)"
+        gitops:
+          type: object
+          required:
+            - repositoryUrl
+            - deploymentPipeline
+          properties:
+            repositoryUrl:
+              type: string
+              description: "GitOps repository URL"
+            branch:
+              type: string
+              default: "main"
+              description: "GitOps repository branch"
+            targetEnvironment:
+              type: string
+              default: "development"
+              description: "Target environment name for deployment"
+            deploymentPipeline:
+              type: string
+              description: "Deployment pipeline name for the target environment"
 
   # Rendered workflow resource for WorkflowRun executions
   runTemplate:

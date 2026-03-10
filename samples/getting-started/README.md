@@ -111,7 +111,8 @@ getting-started/
 │   ├── ballerina-buildpack.yaml
 │   └── google-cloud-buildpacks.yaml
 └── component-traits/
-    └── api-management.yaml
+    ├── api-management.yaml
+    └── alert-rule-trait.yaml
 ```
 
 ## Customization

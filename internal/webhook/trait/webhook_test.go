@@ -98,6 +98,144 @@ var _ = Describe("Trait Webhook", func() {
 		})
 	})
 
+	Context("OpenAPIV3Schema Support", func() {
+		It("should admit trait with openAPIV3Schema parameters and environmentConfigs", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"}},"required":["mountPath"]}`),
+				},
+			}
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"size":{"type":"string","default":"10Gi"},"storageClass":{"type":"string"}},"required":["storageClass"]}`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit trait with only openAPIV3Schema environmentConfigs (no parameters)", func() {
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"size":{"type":"string","default":"10Gi"},"storageClass":{"type":"string","default":"local-path"}}}`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit openAPIV3Schema with $defs and $ref", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","$defs":{"ResourceQuantity":{"type":"object","properties":{"cpu":{"type":"string","default":"100m"},"memory":{"type":"string","default":"256Mi"}}}},"properties":{"resources":{"$ref":"#/$defs/ResourceQuantity","default":{}}}}`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit openAPIV3Schema with vendor extensions", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"url":{"type":"string","x-openchoreo-ui":{"widget":"text"}}}}`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject malformed openAPIV3Schema in parameters", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{not valid`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
+		})
+
+		It("should reject malformed openAPIV3Schema in environmentConfigs", func() {
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{malformed yaml`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse environmentConfigs schema"))
+		})
+
+		It("should reject openAPIV3Schema with circular $ref", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","$defs":{"A":{"$ref":"#/$defs/B"},"B":{"$ref":"#/$defs/A"}},"properties":{"val":{"$ref":"#/$defs/A"}}}`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
+		})
+
+		It("should validate boolean validation rules with openAPIV3Schema", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"}},"required":["mountPath"]}`),
+				},
+			}
+			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"size":{"type":"string","default":"10Gi"}}}`),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.mountPath != ''}", Message: "mountPath must not be empty"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject non-boolean validation rule with openAPIV3Schema", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"name":{"type":"string","default":"app"}}}`),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.name}", Message: "returns string not bool"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("rule must return boolean"))
+		})
+
+		It("should validate creates templates with openAPIV3Schema on update", func() {
+			oldObj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"size":{"type":"string","default":"10Gi"}}}`),
+				},
+			}
+
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"size":{"type":"string","default":"20Gi"}}}`),
+				},
+			}
+
+			_, err := validator.ValidateUpdate(ctx, oldObj, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
 	Context("Creates Template Structure Validation", func() {
 		It("should admit valid creates with proper template structure", func() {
 			obj.Spec.Creates = []openchoreodevv1alpha1.TraitCreate{

@@ -18,17 +18,53 @@ spec:
     name: default
   ttlAfterCompletion: "1d"
   parameters:
-    ocSchema:
-      repository:
-        url: string | description="Git repository URL"
-        secretRef: string | default="" description="Secret reference name for Git credentials"
-        revision:
-          branch: string | default=main description="Git branch to checkout"
-          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
-        appPath: string | default=. description="Path to the application directory within the repository"
-      docker:
-        context: string | default=. description="Docker build context path relative to the repository root"
-        filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
+    openAPIV3Schema:
+      type: object
+      required:
+        - repository
+      properties:
+        repository:
+          type: object
+          description: "Git repository configuration"
+          required:
+            - url
+          properties:
+            url:
+              type: string
+              description: "Git repository URL"
+            secretRef:
+              type: string
+              default: ""
+              description: "Secret reference name for Git credentials"
+            revision:
+              type: object
+              default: {}
+              properties:
+                branch:
+                  type: string
+                  default: main
+                  description: "Git branch to checkout"
+                commit:
+                  type: string
+                  default: ""
+                  description: "Git commit SHA or reference (optional, defaults to latest)"
+            appPath:
+              type: string
+              default: "."
+              description: "Path to the application directory within the repository"
+        docker:
+          type: object
+          default: {}
+          description: "Docker build configuration"
+          properties:
+            context:
+              type: string
+              default: "."
+              description: "Docker build context path relative to the repository root"
+            filePath:
+              type: string
+              default: "./Dockerfile"
+              description: "Path to the Dockerfile relative to the repository root"
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow

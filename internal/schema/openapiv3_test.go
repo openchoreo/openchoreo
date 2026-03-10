@@ -666,7 +666,7 @@ func TestOpenAPIV3ToResolvedSchema_NestedVendorExtensions(t *testing.T) {
 				"type": "object",
 				"properties": map[string]any{
 					"host": map[string]any{
-						"type": "string",
+						"type":            "string",
 						"x-openchoreo-ui": map[string]any{"widget": "text"},
 					},
 				},
@@ -731,5 +731,375 @@ func TestOpenAPIV3ToResolvedSchema_DoesNotMutateInput(t *testing.T) {
 	port := schema["properties"].(map[string]any)["port"].(map[string]any)
 	if _, ok := port["$ref"]; !ok {
 		t.Fatal("input schema was mutated: $ref removed")
+	}
+}
+
+func TestOpenAPIV3ToStructural_RequiredFieldValidation(t *testing.T) {
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"name":  map[string]any{"type": "string"},
+			"image": map[string]any{"type": "string"},
+			"port":  map[string]any{"type": "integer", "default": float64(8080)},
+		},
+		"required": []any{"name", "image"},
+	}
+
+	structural, err := OpenAPIV3ToStructural(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if structural == nil {
+		t.Fatal("expected non-nil structural schema")
+	}
+
+	// Structural schema should have the required fields tracked via ValueValidation
+	if structural.ValueValidation == nil {
+		t.Fatal("expected ValueValidation to be set for required fields")
+	}
+	requiredFields := structural.ValueValidation.Required
+	if len(requiredFields) != 2 {
+		t.Fatalf("expected 2 required fields, got %d", len(requiredFields))
+	}
+
+	// Verify both required fields are present
+	requiredMap := map[string]bool{}
+	for _, r := range requiredFields {
+		requiredMap[r] = true
+	}
+	if !requiredMap["name"] {
+		t.Fatal("expected 'name' in required fields")
+	}
+	if !requiredMap["image"] {
+		t.Fatal("expected 'image' in required fields")
+	}
+}
+
+func TestOpenAPIV3ToResolvedSchema_DeeplyNestedVendorExtensions(t *testing.T) {
+	// Vendor extensions nested 3+ levels deep should all be preserved
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"config": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"database": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"host": map[string]any{
+								"type": "string",
+								"x-level3-extension": map[string]any{
+									"widget": "text",
+									"nested": map[string]any{
+										"x-level4-marker": true,
+									},
+								},
+							},
+						},
+						"x-level2-extension": "database-section",
+					},
+				},
+				"x-level1-extension": "config-section",
+			},
+		},
+		"x-top-level": "root",
+	}
+
+	resolved, err := OpenAPIV3ToResolvedSchema(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Top level
+	if resolved["x-top-level"] != "root" {
+		t.Fatalf("expected x-top-level=root, got %v", resolved["x-top-level"])
+	}
+
+	// Level 1
+	props := resolved["properties"].(map[string]any)
+	config := props["config"].(map[string]any)
+	if config["x-level1-extension"] != "config-section" {
+		t.Fatalf("expected x-level1-extension=config-section, got %v", config["x-level1-extension"])
+	}
+
+	// Level 2
+	configProps := config["properties"].(map[string]any)
+	db := configProps["database"].(map[string]any)
+	if db["x-level2-extension"] != "database-section" {
+		t.Fatalf("expected x-level2-extension=database-section, got %v", db["x-level2-extension"])
+	}
+
+	// Level 3
+	dbProps := db["properties"].(map[string]any)
+	host := dbProps["host"].(map[string]any)
+	ext, ok := host["x-level3-extension"].(map[string]any)
+	if !ok {
+		t.Fatal("expected x-level3-extension on host")
+	}
+	if ext["widget"] != "text" {
+		t.Fatalf("expected widget=text at level 3, got %v", ext["widget"])
+	}
+}
+
+func TestOpenAPIV3ToStructural_OnlyAdditionalProperties(t *testing.T) {
+	// Schema with additionalProperties but no properties — a pure map type
+	schema := map[string]any{
+		"type":                 "object",
+		"additionalProperties": map[string]any{"type": "string"},
+	}
+
+	structural, err := OpenAPIV3ToStructural(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if structural == nil {
+		t.Fatal("expected non-nil structural schema")
+	}
+	if structural.Type != "object" {
+		t.Fatalf("expected type=object, got %s", structural.Type)
+	}
+	if structural.AdditionalProperties == nil || structural.AdditionalProperties.Structural == nil {
+		t.Fatal("expected additionalProperties to be set")
+	}
+	if structural.AdditionalProperties.Structural.Type != "string" {
+		t.Fatalf("expected additionalProperties type=string, got %s",
+			structural.AdditionalProperties.Structural.Type)
+	}
+}
+
+func TestOpenAPIV3ToJSONSchema_DescriptionPreserved(t *testing.T) {
+	schema := map[string]any{
+		"type":        "object",
+		"description": "Top-level schema description",
+		"properties": map[string]any{
+			"name": map[string]any{
+				"type":        "string",
+				"description": "The name of the component",
+			},
+			"port": map[string]any{
+				"type":        "integer",
+				"description": "The port number to listen on",
+			},
+		},
+	}
+
+	jsonSchema, err := OpenAPIV3ToJSONSchema(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if jsonSchema.Description != "Top-level schema description" {
+		t.Fatalf("expected top-level description preserved, got %q", jsonSchema.Description)
+	}
+
+	nameProp := jsonSchema.Properties["name"]
+	if nameProp.Description != "The name of the component" {
+		t.Fatalf("expected name description preserved, got %q", nameProp.Description)
+	}
+
+	portProp := jsonSchema.Properties["port"]
+	if portProp.Description != "The port number to listen on" {
+		t.Fatalf("expected port description preserved, got %q", portProp.Description)
+	}
+}
+
+func TestOpenAPIV3ToResolvedSchema_NoVendorExtensions(t *testing.T) {
+	// Schema with no vendor extensions should pass through unchanged (minus $defs)
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"name": map[string]any{
+				"type":    "string",
+				"default": "hello",
+			},
+			"count": map[string]any{
+				"type":    "integer",
+				"minimum": float64(0),
+			},
+		},
+		"required": []any{"name"},
+	}
+
+	resolved, err := OpenAPIV3ToResolvedSchema(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resolved["type"] != "object" {
+		t.Fatalf("expected type=object, got %v", resolved["type"])
+	}
+
+	props := resolved["properties"].(map[string]any)
+	name := props["name"].(map[string]any)
+	if name["type"] != "string" {
+		t.Fatalf("expected name type=string, got %v", name["type"])
+	}
+	if name["default"] != "hello" {
+		t.Fatalf("expected name default=hello, got %v", name["default"])
+	}
+
+	req := resolved["required"].([]any)
+	if len(req) != 1 || req[0] != "name" {
+		t.Fatalf("expected required=[name], got %v", req)
+	}
+}
+
+func TestOpenAPIV3ToJSONSchema_EmptyDefs(t *testing.T) {
+	// Schema with an empty $defs section should not cause errors
+	schema := map[string]any{
+		"type":  "object",
+		"$defs": map[string]any{},
+		"properties": map[string]any{
+			"name": map[string]any{"type": "string"},
+		},
+	}
+
+	jsonSchema, err := OpenAPIV3ToJSONSchema(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if jsonSchema == nil {
+		t.Fatal("expected non-nil JSON schema")
+	}
+	if _, ok := jsonSchema.Properties["name"]; !ok {
+		t.Fatal("expected 'name' property")
+	}
+}
+
+func TestOpenAPIV3ToStructural_FormatField(t *testing.T) {
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"email": map[string]any{
+				"type":   "string",
+				"format": "email",
+			},
+			"created": map[string]any{
+				"type":   "string",
+				"format": "date-time",
+			},
+			"age": map[string]any{
+				"type":   "integer",
+				"format": "int32",
+			},
+		},
+	}
+
+	structural, err := OpenAPIV3ToStructural(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if structural == nil {
+		t.Fatal("expected non-nil structural schema")
+	}
+
+	emailProp := structural.Properties["email"]
+	if emailProp.Type != "string" {
+		t.Fatalf("expected email type=string, got %s", emailProp.Type)
+	}
+
+	createdProp := structural.Properties["created"]
+	if createdProp.Type != "string" {
+		t.Fatalf("expected created type=string, got %s", createdProp.Type)
+	}
+
+	ageProp := structural.Properties["age"]
+	if ageProp.Type != "integer" {
+		t.Fatalf("expected age type=integer, got %s", ageProp.Type)
+	}
+}
+
+func TestStripVendorExtensions_NestedInArray(t *testing.T) {
+	schema := map[string]any{
+		"type": "object",
+		"allOf": []any{
+			map[string]any{
+				"type":       "object",
+				"x-internal": true,
+				"properties": map[string]any{
+					"a": map[string]any{
+						"type":     "string",
+						"x-hidden": true,
+					},
+				},
+			},
+		},
+	}
+
+	result := stripVendorExtensions(schema)
+
+	allOf := result["allOf"].([]any)
+	first := allOf[0].(map[string]any)
+	if _, ok := first["x-internal"]; ok {
+		t.Fatal("expected x-internal to be stripped from allOf element")
+	}
+	if first["type"] != "object" {
+		t.Fatal("expected type to be preserved in allOf element")
+	}
+
+	props := first["properties"].(map[string]any)
+	a := props["a"].(map[string]any)
+	if _, ok := a["x-hidden"]; ok {
+		t.Fatal("expected x-hidden to be stripped from nested property in array")
+	}
+}
+
+func TestOpenAPIV3ToStructuralAndJSONSchema_WithVendorExtensions(t *testing.T) {
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"name": map[string]any{
+				"type":        "string",
+				"description": "Component name",
+				"x-ui-hint":   "Enter the component name",
+			},
+		},
+	}
+
+	structural, jsonSchema, err := OpenAPIV3ToStructuralAndJSONSchema(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Structural should work (x-* stripped internally)
+	if structural == nil {
+		t.Fatal("expected non-nil structural schema")
+	}
+	if _, ok := structural.Properties["name"]; !ok {
+		t.Fatal("structural: expected 'name' property")
+	}
+
+	// JSON schema should preserve standard fields
+	if jsonSchema == nil {
+		t.Fatal("expected non-nil JSON schema")
+	}
+	nameProp := jsonSchema.Properties["name"]
+	if nameProp.Description != "Component name" {
+		t.Fatalf("expected description preserved in JSON schema, got %q", nameProp.Description)
+	}
+}
+
+func TestOpenAPIV3ToJSONSchema_RequiredFieldsSorted(t *testing.T) {
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"z_field": map[string]any{"type": "string"},
+			"a_field": map[string]any{"type": "string"},
+			"m_field": map[string]any{"type": "string"},
+		},
+		"required": []any{"z_field", "a_field", "m_field"},
+	}
+
+	jsonSchema, err := OpenAPIV3ToJSONSchema(schema)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Required fields should be sorted for deterministic output
+	if len(jsonSchema.Required) != 3 {
+		t.Fatalf("expected 3 required fields, got %d", len(jsonSchema.Required))
+	}
+	if jsonSchema.Required[0] != "a_field" || jsonSchema.Required[1] != "m_field" || jsonSchema.Required[2] != "z_field" {
+		t.Fatalf("expected sorted required=[a_field, m_field, z_field], got %v", jsonSchema.Required)
 	}
 }

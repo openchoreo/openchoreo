@@ -22,17 +22,35 @@ spec:
       message: "Worker components must not have endpoints. Use 'deployment/service' for components with endpoints."
 
   environmentConfigs:
-    ocSchema:
-      $types:
-        ResourceRequirements:
-          requests: "ResourceQuantity | default={}"
-          limits: "ResourceQuantity | default={}"
+    openAPIV3Schema:
+      type: object
+      $defs:
         ResourceQuantity:
-          cpu: "string | default=100m"
-          memory: "string | default=256Mi"
-      replicas: "integer | default=1"
-      resources: "ResourceRequirements | default={}"
-      imagePullPolicy: "string | default=IfNotPresent"
+          type: object
+          properties:
+            cpu:
+              type: string
+              default: "100m"
+            memory:
+              type: string
+              default: "256Mi"
+        ResourceRequirements:
+          type: object
+          properties:
+            requests:
+              $ref: "#/$defs/ResourceQuantity"
+            limits:
+              $ref: "#/$defs/ResourceQuantity"
+          default: {}
+      properties:
+        replicas:
+          type: integer
+          default: 1
+        resources:
+          $ref: "#/$defs/ResourceRequirements"
+        imagePullPolicy:
+          type: string
+          default: IfNotPresent
 
   resources:
     - id: deployment

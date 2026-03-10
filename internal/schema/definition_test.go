@@ -6,6 +6,7 @@ package schema
 import (
 	"encoding/json"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -485,14 +486,7 @@ func TestTestdata_SimpleOpenAPIV3_JSONSchema(t *testing.T) {
 	}
 
 	// Verify required fields preserved
-	found := false
-	for _, r := range jsonSchema.Required {
-		if r == "image" {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !slices.Contains(jsonSchema.Required, "image") {
 		t.Fatal("expected 'image' in required fields")
 	}
 
@@ -930,5 +924,482 @@ name: "string"
 	}
 	if _, ok := props["name"]; !ok {
 		t.Fatal("expected 'name' property")
+	}
+}
+
+func TestResolveSectionToStructural_BothSchemasSet(t *testing.T) {
+	// When both ocSchema and openAPIV3Schema are set, openAPIV3Schema takes priority
+	// because GetRaw() returns openAPIV3Schema first and IsOpenAPIV3() returns true.
+	section := &v1alpha1.SchemaSection{
+		OCSchema: &runtime.RawExtension{Raw: []byte(`{"replicas": "integer | default=1"}`)},
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{
+			"type": "object",
+			"properties": {
+				"image": {"type": "string", "default": "nginx"}
+			}
+		}`)},
+	}
+
+	structural, err := ResolveSectionToStructural(section)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if structural == nil {
+		t.Fatal("expected non-nil structural")
+	}
+
+	// Should have "image" from openAPIV3Schema, not "replicas" from ocSchema
+	if _, ok := structural.Properties["image"]; !ok {
+		t.Fatal("expected 'image' property from openAPIV3Schema")
+	}
+	if _, ok := structural.Properties["replicas"]; ok {
+		t.Fatal("did not expect 'replicas' from ocSchema when openAPIV3Schema is set")
+	}
+}
+
+func TestSectionToJSONSchema_ComplexNestedOpenAPIV3(t *testing.T) {
+	section := makeSchemaSection(true, map[string]any{
+		"type": "object",
+		"$defs": map[string]any{
+			"Credentials": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"username": map[string]any{"type": "string"},
+					"password": map[string]any{"type": "string"},
+				},
+				"required": []any{"username", "password"},
+			},
+		},
+		"properties": map[string]any{
+			"database": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"host": map[string]any{
+						"type":        "string",
+						"description": "Database hostname",
+					},
+					"port": map[string]any{
+						"type":    "integer",
+						"default": float64(5432),
+						"minimum": float64(1),
+						"maximum": float64(65535),
+					},
+					"credentials": map[string]any{
+						"$ref": "#/$defs/Credentials",
+					},
+					"options": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"ssl": map[string]any{
+								"type":    "boolean",
+								"default": true,
+							},
+							"poolSize": map[string]any{
+								"type":    "integer",
+								"default": float64(10),
+								"minimum": float64(1),
+							},
+						},
+					},
+				},
+				"required": []any{"host", "credentials"},
+			},
+		},
+		"required": []any{"database"},
+	})
+
+	jsonSchema, err := SectionToJSONSchema(section)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if jsonSchema == nil {
+		t.Fatal("expected non-nil jsonSchema")
+	}
+
+	// Top-level required
+	if len(jsonSchema.Required) != 1 || jsonSchema.Required[0] != "database" {
+		t.Fatalf("expected required=[database], got %v", jsonSchema.Required)
+	}
+
+	// Database property
+	dbProp, ok := jsonSchema.Properties["database"]
+	if !ok {
+		t.Fatal("expected 'database' property")
+	}
+	if dbProp.Type != "object" {
+		t.Fatalf("expected database type=object, got %s", dbProp.Type)
+	}
+
+	// Database.host description
+	hostProp, ok := dbProp.Properties["host"]
+	if !ok {
+		t.Fatal("expected 'host' property in database")
+	}
+	if hostProp.Description != "Database hostname" {
+		t.Fatalf("expected host description preserved, got %q", hostProp.Description)
+	}
+
+	// $ref resolved: credentials should have username/password
+	credsProp, ok := dbProp.Properties["credentials"]
+	if !ok {
+		t.Fatal("expected 'credentials' property in database")
+	}
+	if _, ok := credsProp.Properties["username"]; !ok {
+		t.Fatal("expected 'username' in credentials after $ref resolution")
+	}
+	if _, ok := credsProp.Properties["password"]; !ok {
+		t.Fatal("expected 'password' in credentials after $ref resolution")
+	}
+
+	// Nested options
+	optionsProp, ok := dbProp.Properties["options"]
+	if !ok {
+		t.Fatal("expected 'options' property in database")
+	}
+	if _, ok := optionsProp.Properties["ssl"]; !ok {
+		t.Fatal("expected 'ssl' in options")
+	}
+}
+
+func TestOpenAPIV3_EndToEnd_DefaultsThenValidation(t *testing.T) {
+	// Full end-to-end: openAPIV3Schema with defaults applied, then validated
+	section := makeSchemaSection(true, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"replicas": map[string]any{
+				"type":    "integer",
+				"default": float64(3),
+				"minimum": float64(1),
+				"maximum": float64(100),
+			},
+			"name": map[string]any{
+				"type":      "string",
+				"minLength": float64(1),
+			},
+			"config": map[string]any{
+				"type":    "object",
+				"default": map[string]any{},
+				"properties": map[string]any{
+					"timeout": map[string]any{
+						"type":    "integer",
+						"default": float64(30),
+						"minimum": float64(1),
+					},
+					"retries": map[string]any{
+						"type":    "integer",
+						"default": float64(3),
+						"minimum": float64(0),
+					},
+				},
+			},
+		},
+		"required": []any{"name"},
+	})
+
+	structural, jsonSchema, err := ResolveSectionToBundle(section)
+	if err != nil {
+		t.Fatalf("ResolveSectionToBundle error: %v", err)
+	}
+
+	// Apply defaults to partial values
+	values := map[string]any{"name": "my-service"}
+	result := ApplyDefaults(values, structural)
+
+	// Verify defaults were applied
+	if result["replicas"] != int64(3) {
+		t.Errorf("expected replicas=3, got %v", result["replicas"])
+	}
+	config, ok := result["config"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected config to be map, got %T", result["config"])
+	}
+	if config["timeout"] != int64(30) {
+		t.Errorf("expected config.timeout=30, got %v", config["timeout"])
+	}
+	if config["retries"] != int64(3) {
+		t.Errorf("expected config.retries=3, got %v", config["retries"])
+	}
+
+	// Validate the defaulted values should pass
+	if err := ValidateWithJSONSchema(result, jsonSchema); err != nil {
+		t.Fatalf("expected defaulted values to pass validation, got: %v", err)
+	}
+}
+
+func TestValidateWithJSONSchema_OpenAPIV3_WrongType(t *testing.T) {
+	section := makeSchemaSection(true, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"replicas": map[string]any{"type": "integer"},
+			"name":     map[string]any{"type": "string"},
+		},
+	})
+
+	jsonSchema, err := SectionToJSONSchema(section)
+	if err != nil {
+		t.Fatalf("SectionToJSONSchema error: %v", err)
+	}
+
+	// Wrong type: string instead of integer
+	wrongType := map[string]any{
+		"replicas": "not-a-number",
+		"name":     "test",
+	}
+	if err := ValidateWithJSONSchema(wrongType, jsonSchema); err == nil {
+		t.Fatal("expected error for wrong type (string instead of integer)")
+	}
+}
+
+func TestValidateWithJSONSchema_OpenAPIV3_ExtraFields(t *testing.T) {
+	section := makeSchemaSection(true, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"name": map[string]any{"type": "string"},
+		},
+		"additionalProperties": false,
+	})
+
+	jsonSchema, err := SectionToJSONSchema(section)
+	if err != nil {
+		t.Fatalf("SectionToJSONSchema error: %v", err)
+	}
+
+	// Extra field when additionalProperties=false
+	extraField := map[string]any{
+		"name":         "test",
+		"unknownField": "unexpected",
+	}
+	if err := ValidateWithJSONSchema(extraField, jsonSchema); err == nil {
+		t.Fatal("expected error for extra field with additionalProperties=false")
+	}
+}
+
+func TestValidateWithJSONSchema_OpenAPIV3_MissingRequired(t *testing.T) {
+	section := makeSchemaSection(true, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"name":  map[string]any{"type": "string"},
+			"image": map[string]any{"type": "string"},
+		},
+		"required": []any{"name", "image"},
+	})
+
+	jsonSchema, err := SectionToJSONSchema(section)
+	if err != nil {
+		t.Fatalf("SectionToJSONSchema error: %v", err)
+	}
+
+	// Missing both required fields
+	empty := map[string]any{}
+	err = ValidateWithJSONSchema(empty, jsonSchema)
+	if err == nil {
+		t.Fatal("expected error for missing required fields")
+	}
+	if !strings.Contains(err.Error(), "name") {
+		t.Fatalf("expected error to mention 'name', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "image") {
+		t.Fatalf("expected error to mention 'image', got: %v", err)
+	}
+
+	// Missing one required field
+	partial := map[string]any{"name": "test"}
+	err = ValidateWithJSONSchema(partial, jsonSchema)
+	if err == nil {
+		t.Fatal("expected error for missing required field 'image'")
+	}
+	if !strings.Contains(err.Error(), "image") {
+		t.Fatalf("expected error to mention 'image', got: %v", err)
+	}
+}
+
+func TestSectionToRawJSONSchema_DeeplyNestedVendorExtensions(t *testing.T) {
+	rawYAML := `
+type: object
+properties:
+  config:
+    type: object
+    x-section: main
+    properties:
+      database:
+        type: object
+        x-category: storage
+        properties:
+          host:
+            type: string
+            x-widget: text-input
+            x-validation:
+              pattern: "^[a-z]+$"
+              message: "Only lowercase letters"
+`
+	section := &v1alpha1.SchemaSection{
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(rawYAML)},
+	}
+
+	result, err := SectionToRawJSONSchema(section)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Level 1
+	props := result["properties"].(map[string]any)
+	config := props["config"].(map[string]any)
+	if config["x-section"] != "main" {
+		t.Fatalf("expected x-section=main, got %v", config["x-section"])
+	}
+
+	// Level 2
+	configProps := config["properties"].(map[string]any)
+	db := configProps["database"].(map[string]any)
+	if db["x-category"] != "storage" {
+		t.Fatalf("expected x-category=storage, got %v", db["x-category"])
+	}
+
+	// Level 3
+	dbProps := db["properties"].(map[string]any)
+	host := dbProps["host"].(map[string]any)
+	if host["x-widget"] != "text-input" {
+		t.Fatalf("expected x-widget=text-input, got %v", host["x-widget"])
+	}
+	xVal, ok := host["x-validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected x-validation on host")
+	}
+	if xVal["pattern"] != "^[a-z]+$" {
+		t.Fatalf("expected x-validation.pattern=^[a-z]+$, got %v", xVal["pattern"])
+	}
+}
+
+func TestValidateWithJSONSchema_NilSchema(t *testing.T) {
+	err := ValidateWithJSONSchema(map[string]any{"name": "test"}, nil)
+	if err == nil {
+		t.Fatal("expected error for nil schema")
+	}
+	if !strings.Contains(err.Error(), "schema is nil") {
+		t.Fatalf("expected 'schema is nil' error, got: %v", err)
+	}
+}
+
+func TestValidateAgainstSchema_NilStructural(t *testing.T) {
+	err := ValidateAgainstSchema(map[string]any{"name": "test"}, nil)
+	if err == nil {
+		t.Fatal("expected error for nil structural")
+	}
+	if !strings.Contains(err.Error(), "schema is nil") {
+		t.Fatalf("expected 'schema is nil' error, got: %v", err)
+	}
+}
+
+func TestValidateAgainstSchema_EmptyValues(t *testing.T) {
+	section := makeSchemaSection(true, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"name": map[string]any{"type": "string"},
+		},
+	})
+
+	structural, err := ResolveSectionToStructural(section)
+	if err != nil {
+		t.Fatalf("ResolveSectionToStructural error: %v", err)
+	}
+
+	// Empty values should be valid
+	if err := ValidateAgainstSchema(map[string]any{}, structural); err != nil {
+		t.Fatalf("expected empty values to pass, got: %v", err)
+	}
+
+	// Nil values should also be valid (len(nil map) == 0)
+	if err := ValidateAgainstSchema(nil, structural); err != nil {
+		t.Fatalf("expected nil values to pass, got: %v", err)
+	}
+}
+
+func TestResolveSectionToStructural_EmptyRaw(t *testing.T) {
+	// SchemaSection with empty raw data should return nil
+	section := &v1alpha1.SchemaSection{
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte{}},
+	}
+
+	structural, err := ResolveSectionToStructural(section)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if structural != nil {
+		t.Fatal("expected nil structural for empty raw data")
+	}
+}
+
+func TestSectionToRawJSONSchema_EmptyOpenAPIV3(t *testing.T) {
+	// OpenAPIV3Schema with just "type: object" and no properties
+	section := makeSchemaSection(true, map[string]any{
+		"type": "object",
+	})
+
+	result, err := SectionToRawJSONSchema(section)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result["type"] != "object" {
+		t.Fatalf("expected type=object, got %v", result["type"])
+	}
+}
+
+func TestSectionToJSONSchema_BothSchemasSet(t *testing.T) {
+	// When both are set, openAPIV3Schema should take priority
+	section := &v1alpha1.SchemaSection{
+		OCSchema: &runtime.RawExtension{Raw: []byte(`{"count": "integer | default=5"}`)},
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{
+			"type": "object",
+			"properties": {
+				"name": {"type": "string"}
+			}
+		}`)},
+	}
+
+	jsonSchema, err := SectionToJSONSchema(section)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should use openAPIV3Schema path
+	if _, ok := jsonSchema.Properties["name"]; !ok {
+		t.Fatal("expected 'name' from openAPIV3Schema")
+	}
+	if _, ok := jsonSchema.Properties["count"]; ok {
+		t.Fatal("did not expect 'count' from ocSchema when openAPIV3Schema is set")
+	}
+}
+
+func TestMergeFieldMaps_EmptyInput(t *testing.T) {
+	result := mergeFieldMaps(nil)
+	if len(result) != 0 {
+		t.Fatalf("expected empty map, got %v", result)
+	}
+
+	result = mergeFieldMaps([]map[string]any{})
+	if len(result) != 0 {
+		t.Fatalf("expected empty map, got %v", result)
+	}
+}
+
+func TestMergeFieldMaps_NestedMerge(t *testing.T) {
+	maps := []map[string]any{
+		{"db": map[string]any{"host": "localhost"}},
+		{"db": map[string]any{"port": "5432"}, "name": "test"},
+	}
+
+	result := mergeFieldMaps(maps)
+	db, ok := result["db"].(map[string]any)
+	if !ok {
+		t.Fatal("expected db to be map")
+	}
+	if db["host"] != "localhost" {
+		t.Fatalf("expected db.host=localhost, got %v", db["host"])
+	}
+	if db["port"] != "5432" {
+		t.Fatalf("expected db.port=5432, got %v", db["port"])
+	}
+	if result["name"] != "test" {
+		t.Fatalf("expected name=test, got %v", result["name"])
 	}
 }
