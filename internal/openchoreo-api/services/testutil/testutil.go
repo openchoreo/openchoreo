@@ -83,7 +83,7 @@ func NewProject(namespace, name string) *openchoreov1alpha1.Project {
 			Namespace: namespace,
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
-			DeploymentPipelineRef: "default",
+			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "default"},
 		},
 	}
 }
