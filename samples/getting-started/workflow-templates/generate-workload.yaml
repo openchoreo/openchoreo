@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: generate-workload-build-step
+  name: generate-workload
 spec:
   templates:
     - name: generate-workload-cr

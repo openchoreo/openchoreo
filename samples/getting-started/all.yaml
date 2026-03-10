@@ -921,38 +921,38 @@ spec:
       templates:
         - name: build-workflow
           steps:
-            - - name: checkout-source-build-step
+            - - name: checkout-source-step
                 templateRef:
-                  name: checkout-source-build-step
+                  name: checkout-source
                   clusterScope: true
                   template: checkout
             - - name: build-image
                 templateRef:
-                  name: paketo-buildpack-build-step
+                  name: paketo-buildpacks-build
                   clusterScope: true
                   template: build-image
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: "{{steps.checkout-source.outputs.parameters.git-revision}}"
-            - - name: publish-image-build-step
+                      value: "{{steps.checkout-source-step.outputs.parameters.git-revision}}"
+            - - name: publish-image-step
                 templateRef:
-                  name: publish-image-build-step
+                  name: publish-image
                   clusterScope: true
                   template: publish-image
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: "{{steps.checkout-source.outputs.parameters.git-revision}}"
+                      value: "{{steps.checkout-source-step.outputs.parameters.git-revision}}"
             - - name: generate-workload-cr
                 templateRef:
-                  name: generate-workload-build-step
+                  name: generate-workload
                   clusterScope: true
                   template: generate-workload-cr
                 arguments:
                   parameters:
                     - name: image
-                      value: "{{steps.publish-image.outputs.parameters.image}}"
+                      value: "{{steps.publish-image-step.outputs.parameters.image}}"
                     - name: run-name
                       value: "{{workflow.parameters.workflowrun-name}}"
       volumeClaimTemplates:
@@ -1101,38 +1101,38 @@ spec:
       templates:
         - name: build-workflow
           steps:
-            - - name: checkout-source-build-step
+            - - name: checkout-source-step
                 templateRef:
-                  name: checkout-source-build-step
+                  name: checkout-source
                   clusterScope: true
                   template: checkout
             - - name: build-image
                 templateRef:
-                  name: gcp-buildpack-build-step
+                  name: gcp-buildpacks-build
                   clusterScope: true
                   template: build-image
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
-            - - name: publish-image-build-step
+                      value: '{{steps.checkout-source-step.outputs.parameters.git-revision}}'
+            - - name: publish-image-step
                 templateRef:
-                  name: publish-image-build-step
+                  name: publish-image
                   clusterScope: true
                   template: publish-image
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                      value: '{{steps.checkout-source-step.outputs.parameters.git-revision}}'
             - - name: generate-workload-cr
                 templateRef:
-                  name: generate-workload-build-step
+                  name: generate-workload
                   clusterScope: true
                   template: generate-workload-cr
                 arguments:
                   parameters:
                     - name: image
-                      value: '{{steps.publish-image.outputs.parameters.image}}'
+                      value: '{{steps.publish-image-step.outputs.parameters.image}}'
                     - name: run-name
                       value: '{{workflow.parameters.workflowrun-name}}'
       volumeClaimTemplates:
@@ -1278,40 +1278,40 @@ spec:
       templates:
         - name: build-workflow
           steps:
-            - - name: checkout-source-build-step
+            - - name: checkout-source-step
                 templateRef:
-                  name: checkout-source-build-step
+                  name: checkout-source
                   clusterScope: true
                   template: checkout
             - - name: build-image
                 templateRef:
-                  name: ballerina-buildpack-build-step
+                  name: ballerina-buildpack-build
                   clusterScope: true
                   template: build-image
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                      value: '{{steps.checkout-source-step.outputs.parameters.git-revision}}'
                     - name: build-env
                       value: '{{workflow.parameters.build-env}}'
-            - - name: publish-image-build-step
+            - - name: publish-image-step
                 templateRef:
-                  name: publish-image-build-step
+                  name: publish-image
                   clusterScope: true
                   template: publish-image
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                      value: '{{steps.checkout-source-step.outputs.parameters.git-revision}}'
             - - name: generate-workload-cr
                 templateRef:
-                  name: generate-workload-build-step
+                  name: generate-workload
                   clusterScope: true
                   template: generate-workload-cr
                 arguments:
                   parameters:
                     - name: image
-                      value: '{{steps.publish-image.outputs.parameters.image}}'
+                      value: '{{steps.publish-image-step.outputs.parameters.image}}'
                     - name: run-name
                       value: '{{workflow.parameters.workflowrun-name}}'
       volumeClaimTemplates:
@@ -1469,42 +1469,42 @@ spec:
       templates:
         - name: build-workflow
           steps:
-            - - name: checkout-source-build-step
+            - - name: checkout-source-step
                 templateRef:
-                  name: checkout-source-build-step
+                  name: checkout-source
                   clusterScope: true
                   template: checkout
             - - name: build-image
                 templateRef:
-                  name: docker-build-step
+                  name: containerfile-build
                   clusterScope: true
                   template: build-image
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                      value: '{{steps.checkout-source-step.outputs.parameters.git-revision}}'
                     - name: build-env
                       value: '{{workflow.parameters.build-env}}'
                     - name: build-args
                       value: '{{workflow.parameters.build-args}}'
-            - - name: publish-image-build-step
+            - - name: publish-image-step
                 templateRef:
-                  name: publish-image-build-step
+                  name: publish-image
                   clusterScope: true
                   template: publish-image
                 arguments:
                   parameters:
                     - name: git-revision
-                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                      value: '{{steps.checkout-source-step.outputs.parameters.git-revision}}'
             - - name: generate-workload-cr
                 templateRef:
-                  name: generate-workload-build-step
+                  name: generate-workload
                   clusterScope: true
                   template: generate-workload-cr
                 arguments:
                   parameters:
                     - name: image
-                      value: '{{steps.publish-image.outputs.parameters.image}}'
+                      value: '{{steps.publish-image-step.outputs.parameters.image}}'
                     - name: run-name
                       value: '{{workflow.parameters.workflowrun-name}}'
       volumeClaimTemplates:

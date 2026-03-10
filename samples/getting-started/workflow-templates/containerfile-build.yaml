@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: docker-build-step
+  name: containerfile-build
 spec:
   templates:
     - name: build-image

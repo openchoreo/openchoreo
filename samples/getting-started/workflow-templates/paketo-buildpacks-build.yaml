@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: gcp-buildpack-build-step
+  name: paketo-buildpacks-build
 spec:
   templates:
     - name: build-image
@@ -36,10 +36,10 @@ spec:
             podman system service --time=0 &
             until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
 
-            BUILDER="gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
-            RUN_IMG="gcr.io/buildpacks/google-22/run:latest"
+            BUILDER="docker.io/paketobuildpacks/builder-jammy-full:latest"
+            RUN_IMG="docker.io/paketobuildpacks/run-jammy-full:latest"
 
-            # Build --env flags from the buildEnv JSON array (e.g. [{"name":"GOOGLE_RUNTIME_VERSION","value":"21"}])
+            # Build --env flags from the buildEnv JSON array (e.g. [{"name":"BP_NODE_RUN_SCRIPTS","value":"build"}])
             ENV_ARGS=""
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
               ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \

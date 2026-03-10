@@ -2,34 +2,24 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: patient-management-service
+  namespace: default
 spec:
   owner:
     projectName: default
 
-  # References the ComponentType
   componentType:
     kind: ComponentType
     name: deployment/service
 
-  # Set auto-deploy to true
   autoDeploy: true
 
-  # Workflow configuration (developer-provided)
   workflow:
-    # Reference to Workflow
     name: ballerina-buildpack-builder
-
-    # Parameters required by the Workflow
     parameters:
-      scope:
-        projectName: "default"
-        componentName: "patient-management-service"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
-          # Optional commit hash, should be a valid git commit
-          # commit: ""
         appPath: "/service-ballerina-patient-management"
 
 ---
@@ -42,18 +32,10 @@ metadata:
     openchoreo.dev/component: "patient-management-service"
 spec:
   workflow:
-    # Reference to Workflow
     name: ballerina-buildpack-builder
-
-    # Parameters required by the Workflow
     parameters:
-      scope:
-        projectName: "default"
-        componentName: "patient-management-service"
       repository:
         url: "https://github.com/openchoreo/sample-workloads"
         revision:
           branch: "main"
-          # Optional commit hash, should be a valid git commit
-          # commit: ""
         appPath: "/service-ballerina-patient-management"
