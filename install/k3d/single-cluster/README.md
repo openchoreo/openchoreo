@@ -408,8 +408,8 @@ EOF
 kubectl patch clusterdataplane default --type merge \
   -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}'
 
-# If workflow plane is installed:
-kubectl patch workflowplane default -n default --type merge \
+# If cluster workflow plane is installed:
+kubectl patch clusterworkflowplane default -n default --type merge \
   -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}'
 ```
 
@@ -464,7 +464,7 @@ kubectl get pods -n openchoreo-workflow-plane
 kubectl get pods -n openchoreo-observability-plane
 
 # Plane resources
-kubectl get clusterdataplane,workflowplane,clusterobservabilityplane -n default
+kubectl get clusterdataplane,clusterworkflowplane,clusterobservabilityplane -n default
 
 # Agent connections
 kubectl logs -n openchoreo-data-plane -l app=cluster-agent --tail=5
