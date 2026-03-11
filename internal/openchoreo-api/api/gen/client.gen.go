@@ -12049,7 +12049,7 @@ func (r ListSubjectTypesResp) StatusCode() int {
 type ListActionsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *[]string
+	JSON200      *[]ActionInfo
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -18089,7 +18089,7 @@ func ParseListActionsResp(rsp *http.Response) (*ListActionsResp, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []string
+		var dest []ActionInfo
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

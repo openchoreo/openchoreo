@@ -349,14 +349,9 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context, filte
 	return mappings, nil
 }
 
-// ListActions returns all available actions in the system
-func (ce *CasbinEnforcer) ListActions(ctx context.Context) ([]string, error) {
-	actions := authzcore.PublicActions()
-	names := make([]string, len(actions))
-	for i, action := range actions {
-		names[i] = action.Name
-	}
-	return names, nil
+// ListActions returns all public actions in the system
+func (ce *CasbinEnforcer) ListActions(ctx context.Context) ([]authzcore.Action, error) {
+	return authzcore.PublicActions(), nil
 }
 
 // CreateClusterRole creates a new cluster-scoped role and returns the full CRD object

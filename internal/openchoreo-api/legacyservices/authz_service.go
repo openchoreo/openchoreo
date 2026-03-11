@@ -376,8 +376,13 @@ func (s *AuthzService) ListActions(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to list actions: %w", err)
 	}
 
-	s.logger.Debug("Listed authorization actions", "count", len(actions))
-	return actions, nil
+	names := make([]string, len(actions))
+	for i, a := range actions {
+		names[i] = a.Name
+	}
+
+	s.logger.Debug("Listed authorization actions", "count", len(names))
+	return names, nil
 }
 
 // Evaluate evaluates an authorization request using the PDP

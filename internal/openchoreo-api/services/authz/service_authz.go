@@ -287,7 +287,7 @@ func (s *authzServiceWithAuthz) Evaluate(ctx context.Context, requests []authzco
 }
 
 // ListActions delegates to the internal service without authz checks (actions are public metadata).
-func (s *authzServiceWithAuthz) ListActions(ctx context.Context) ([]string, error) {
+func (s *authzServiceWithAuthz) ListActions(ctx context.Context) ([]authzcore.Action, error) {
 	return s.internal.ListActions(ctx)
 }
 

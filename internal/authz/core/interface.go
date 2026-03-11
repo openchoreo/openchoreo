@@ -60,8 +60,8 @@ type PAP interface {
 	// Deprecated: Use ListClusterRoleBindings or ListNamespacedRoleBindings instead.
 	ListRoleEntitlementMappings(ctx context.Context, filter *RoleEntitlementMappingFilter) ([]*RoleEntitlementMapping, error)
 
-	// ListActions lists all defined actions in the system
-	ListActions(ctx context.Context) ([]string, error)
+	// ListActions lists all public actions in the system
+	ListActions(ctx context.Context) ([]Action, error)
 
 	// Roles - Cluster scoped
 

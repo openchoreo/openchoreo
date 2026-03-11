@@ -44,6 +44,6 @@ type Service interface {
 
 	// Evaluation & Profile
 	Evaluate(ctx context.Context, requests []authzcore.EvaluateRequest) ([]authzcore.Decision, error)
-	ListActions(ctx context.Context) ([]string, error)
+	ListActions(ctx context.Context) ([]authzcore.Action, error)
 	GetSubjectProfile(ctx context.Context, request *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error)
 }

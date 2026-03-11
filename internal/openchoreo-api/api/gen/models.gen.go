@@ -15,6 +15,14 @@ const (
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
+// Defines values for ActionInfoScope.
+const (
+	ActionInfoScopeCluster   ActionInfoScope = "cluster"
+	ActionInfoScopeComponent ActionInfoScope = "component"
+	ActionInfoScopeNamespace ActionInfoScope = "namespace"
+	ActionInfoScopeProject   ActionInfoScope = "project"
+)
+
 // Defines values for AuthzClusterRoleBindingSpecEffect.
 const (
 	AuthzClusterRoleBindingSpecEffectAllow AuthzClusterRoleBindingSpecEffect = "allow"
@@ -383,6 +391,18 @@ type ActionCapability struct {
 	// Denied Resources where action is denied
 	Denied *[]CapabilityResource `json:"denied,omitempty"`
 }
+
+// ActionInfo An authorization action with its scope in the resource hierarchy.
+type ActionInfo struct {
+	// Name The action identifier (e.g. "component:create").
+	Name string `json:"name"`
+
+	// Scope The lowest resource hierarchy level at which this action is evaluated. One of cluster, namespace, project, or component.
+	Scope ActionInfoScope `json:"scope"`
+}
+
+// ActionInfoScope The lowest resource hierarchy level at which this action is evaluated. One of cluster, namespace, project, or component.
+type ActionInfoScope string
 
 // AgentConnectionStatus Status of cluster agent connections
 type AgentConnectionStatus struct {

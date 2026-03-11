@@ -39,8 +39,16 @@ func (h *Handler) ListActions(
 		return gen.ListActions500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Debug("Listed actions successfully", "count", len(actions))
-	return gen.ListActions200JSONResponse(actions), nil
+	result := make([]gen.ActionInfo, len(actions))
+	for i, a := range actions {
+		result[i] = gen.ActionInfo{
+			Name:  a.Name,
+			Scope: gen.ActionInfoScope(a.Scope),
+		}
+	}
+
+	h.logger.Debug("Listed actions successfully", "count", len(result))
+	return gen.ListActions200JSONResponse(result), nil
 }
 
 // Evaluates evaluates one or more authorization requests.

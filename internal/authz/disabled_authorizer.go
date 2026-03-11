@@ -134,7 +134,7 @@ func (da *DisabledAuthorizer) ListRoleEntitlementMappings(ctx context.Context, f
 }
 
 // ListActions fails with error
-func (da *DisabledAuthorizer) ListActions(ctx context.Context) ([]string, error) {
+func (da *DisabledAuthorizer) ListActions(ctx context.Context) ([]authz.Action, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 

@@ -365,8 +365,8 @@ func (s *authzService) Evaluate(ctx context.Context, requests []authzcore.Evalua
 	return batchResp.Decisions, nil
 }
 
-// ListActions lists all defined actions in the system.
-func (s *authzService) ListActions(ctx context.Context) ([]string, error) {
+// ListActions lists all public actions in the system.
+func (s *authzService) ListActions(ctx context.Context) ([]authzcore.Action, error) {
 	s.logger.Debug("Listing actions")
 	return s.pap.ListActions(ctx)
 }
