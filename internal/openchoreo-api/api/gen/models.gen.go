@@ -476,7 +476,7 @@ type AuthzClusterRoleList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
-// AuthzClusterRoleMapping Pairs a role reference for cluster-scoped bindings
+// AuthzClusterRoleMapping Pairs a role reference with an optional scope for cluster-scoped bindings
 type AuthzClusterRoleMapping struct {
 	RoleRef struct {
 		Kind AuthzClusterRoleMappingRoleRefKind `json:"kind"`
@@ -484,6 +484,9 @@ type AuthzClusterRoleMapping struct {
 		// Name Name of the role
 		Name string `json:"name"`
 	} `json:"roleRef"`
+
+	// Scope Target resource scope for cluster-scoped bindings (namespace/project/component)
+	Scope *AuthzClusterScope `json:"scope,omitempty"`
 }
 
 // AuthzClusterRoleMappingRoleRefKind defines model for AuthzClusterRoleMapping.RoleRef.Kind.
@@ -496,6 +499,18 @@ type AuthzClusterRoleSpec struct {
 
 	// Description Human-readable description of the role
 	Description *string `json:"description,omitempty"`
+}
+
+// AuthzClusterScope Target resource scope for cluster-scoped bindings (namespace/project/component)
+type AuthzClusterScope struct {
+	// Component Component name
+	Component *string `json:"component,omitempty"`
+
+	// Namespace Namespace name
+	Namespace *string `json:"namespace,omitempty"`
+
+	// Project Project name
+	Project *string `json:"project,omitempty"`
 }
 
 // AuthzContext Additional context for authorization

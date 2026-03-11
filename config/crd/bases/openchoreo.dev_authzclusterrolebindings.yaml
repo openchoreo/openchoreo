@@ -72,8 +72,8 @@ spec:
                 description: RoleMappings is the list of cluster roles this binding
                   grants
                 items:
-                  description: ClusterRoleMapping pairs a role reference for cluster-scoped
-                    bindings (no target path)
+                  description: ClusterRoleMapping pairs a role reference with an optional
+                    scope for cluster-scoped bindings
                   properties:
                     roleRef:
                       description: RoleRef references the AuthzClusterRole to bind
@@ -92,6 +92,22 @@ spec:
                       required:
                       - kind
                       - name
+                      type: object
+                    scope:
+                      description: Scope defines the target scope within the ownership
+                        hierarchy
+                      properties:
+                        component:
+                          description: Component scopes to a specific component (optional,
+                            requires project)
+                          type: string
+                        namespace:
+                          description: Namespace scopes to a specific namespace (optional)
+                          type: string
+                        project:
+                          description: Project scopes to a specific project (optional,
+                            requires namespace)
+                          type: string
                       type: object
                   required:
                   - roleRef

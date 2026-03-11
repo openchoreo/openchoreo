@@ -615,6 +615,101 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 				{"groups:platform-admins", "*", "global-viewer", "*", "allow", "{}", "multi-cluster-binding"},
 			},
 		},
+		{
+			name: "add cluster binding scoped to namespace",
+			binding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "ns-scoped-binding"},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{
+						Claim: "groups",
+						Value: "acme-admins",
+					},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{
+							Kind: CRDTypeAuthzClusterRole,
+							Name: "ns-admin",
+						},
+						Scope: authzv1alpha1.ClusterTargetScope{Namespace: "acme"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:acme-admins", "ns/acme", "ns-admin", "*", "allow", "{}", "ns-scoped-binding"},
+			},
+		},
+		{
+			name: "add cluster binding scoped to namespace and project",
+			binding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "proj-scoped-binding"},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{
+						Claim: "groups",
+						Value: "proj-team",
+					},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{
+							Kind: CRDTypeAuthzClusterRole,
+							Name: "proj-editor",
+						},
+						Scope: authzv1alpha1.ClusterTargetScope{Namespace: "acme", Project: "p1"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:proj-team", "ns/acme/project/p1", "proj-editor", "*", "allow", "{}", "proj-scoped-binding"},
+			},
+		},
+		{
+			name: "add cluster binding scoped to full hierarchy",
+			binding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "full-scoped-binding"},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{
+						Claim: "groups",
+						Value: "comp-team",
+					},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{
+							Kind: CRDTypeAuthzClusterRole,
+							Name: "comp-viewer",
+						},
+						Scope: authzv1alpha1.ClusterTargetScope{Namespace: "acme", Project: "p1", Component: "c1"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:comp-team", "ns/acme/project/p1/component/c1", "comp-viewer", "*", "allow", "{}", "full-scoped-binding"},
+			},
+		},
+		{
+			name: "add cluster binding with mixed scoped and unscoped mappings",
+			binding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "mixed-scope-binding"},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{
+						Claim: "groups",
+						Value: "mixed-team",
+					},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{
+						{
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "global-viewer"},
+						},
+						{
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "ns-editor"},
+							Scope:   authzv1alpha1.ClusterTargetScope{Namespace: "acme"},
+						},
+					},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:mixed-team", "*", "global-viewer", "*", "allow", "{}", "mixed-scope-binding"},
+				{"groups:mixed-team", "ns/acme", "ns-editor", "*", "allow", "{}", "mixed-scope-binding"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1177,6 +1272,107 @@ func TestAuthzInformerHandler_HandleUpdateClusterBinding(t *testing.T) {
 			},
 			wantPolicyCount: 1,
 		},
+		{
+			name: "update unscoped to namespace-scoped",
+			seedPolicies: [][]string{
+				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "scope-change-binding"},
+			},
+			oldBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "scope-change-binding", Generation: 1},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			newBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "scope-change-binding", Generation: 2},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+						Scope:   authzv1alpha1.ClusterTargetScope{Namespace: "acme"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:admins", "ns/acme", "super-admin", "*", "allow", "{}", "scope-change-binding"},
+			},
+			wantPolicyCount: 1,
+		},
+		{
+			name: "add scoped mapping to existing binding",
+			seedPolicies: [][]string{
+				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "add-scope-binding"},
+			},
+			oldBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "add-scope-binding", Generation: 1},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			newBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "add-scope-binding", Generation: 2},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{
+						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"}},
+						{
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "ns-viewer"},
+							Scope:   authzv1alpha1.ClusterTargetScope{Namespace: "acme"},
+						},
+					},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "add-scope-binding"},
+				{"groups:admins", "ns/acme", "ns-viewer", "*", "allow", "{}", "add-scope-binding"},
+			},
+			wantPolicyCount: 2,
+		},
+		{
+			name: "remove scoped mapping from binding",
+			seedPolicies: [][]string{
+				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "rm-scope-binding"},
+				{"groups:admins", "ns/acme", "ns-viewer", "*", "allow", "{}", "rm-scope-binding"},
+			},
+			oldBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "rm-scope-binding", Generation: 1},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{
+						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"}},
+						{
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "ns-viewer"},
+							Scope:   authzv1alpha1.ClusterTargetScope{Namespace: "acme"},
+						},
+					},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			newBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "rm-scope-binding", Generation: 2},
+				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+					}},
+					Effect: authzv1alpha1.EffectAllow,
+				},
+			},
+			wantPolicies: [][]string{
+				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "rm-scope-binding"},
+			},
+			wantPolicyCount: 1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1486,6 +1682,51 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding_MultipleRoleMappings(t 
 	}
 
 	// Verify both policies are removed
+	policies, err := enforcer.GetPolicy()
+	if err != nil {
+		t.Fatalf("GetPolicy() error = %v", err)
+	}
+	if len(policies) != 0 {
+		t.Errorf("expected 0 policies after delete, got %d. All policies: %v", len(policies), policies)
+	}
+}
+
+func TestAuthzInformerHandler_HandleDeleteClusterBinding_Scoped(t *testing.T) {
+	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
+
+	// Pre-add scoped policies
+	_, err := enforcer.AddPolicies([][]string{
+		{"groups:admins", "*", "global-admin", "*", "allow", "{}", "scoped-del-binding"},
+		{"groups:admins", "ns/acme", "ns-viewer", "*", "allow", "{}", "scoped-del-binding"},
+	})
+	if err != nil {
+		t.Fatalf("AddPolicies() error = %v", err)
+	}
+
+	binding := &authzv1alpha1.AuthzClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "scoped-del-binding"},
+		Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{
+				Claim: "groups",
+				Value: "admins",
+			},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{
+				{
+					RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "global-admin"},
+				},
+				{
+					RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "ns-viewer"},
+					Scope:   authzv1alpha1.ClusterTargetScope{Namespace: "acme"},
+				},
+			},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+
+	if err := handler.handleDeleteClusterBinding(binding); err != nil {
+		t.Fatalf("handleDeleteClusterBinding() error = %v", err)
+	}
+
 	policies, err := enforcer.GetPolicy()
 	if err != nil {
 		t.Fatalf("GetPolicy() error = %v", err)

@@ -1292,3 +1292,109 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 		})
 	}
 }
+
+// TestCasbinEnforcer_Evaluate_ScopedClusterBinding tests enforcement with scoped cluster role bindings
+func TestCasbinEnforcer_Evaluate_ScopedClusterBinding(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Setup: cluster roles with specific actions (no wildcards to properly test scope enforcement)
+	syncGroupingPolicies(t, enforcer, [][]string{
+		{"ns-viewer", "namespace:view", "*"},
+		{"ns-viewer", "project:view", "*"},
+		{"global-editor", "namespace:view", "*"},
+		{"global-editor", "project:view", "*"},
+		{"global-editor", "project:update", "*"},
+	})
+
+	// Scoped cluster binding: allows ns-viewer only within ns/acme
+	// Unscoped cluster binding: allows global-editor everywhere (but with explicit actions, not wildcard)
+	syncPolicies(t, enforcer, [][]string{
+		{"groups:scoped-team", "ns/acme", "ns-viewer", "*", "allow", "{}", "scoped-crb"},
+		{"groups:global-team", "*", "global-editor", "*", "allow", "{}", "global-crb"},
+	})
+
+	tests := []struct {
+		name              string
+		entitlementValues []string
+		resource          authzcore.ResourceHierarchy
+		action            string
+		want              bool
+		reason            string
+	}{
+		{
+			name:              "scoped cluster binding allows within scope",
+			entitlementValues: []string{"scoped-team"},
+			resource:          authzcore.ResourceHierarchy{Namespace: "acme", Project: "p1"},
+			action:            "project:view",
+			want:              true,
+			reason:            "scoped binding at ns/acme should allow access to ns/acme/project/p1",
+		},
+		{
+			name:              "scoped cluster binding denies outside scope",
+			entitlementValues: []string{"scoped-team"},
+			resource:          authzcore.ResourceHierarchy{Namespace: "other", Project: "p1"},
+			action:            "project:view",
+			want:              false,
+			reason:            "scoped binding at ns/acme should not allow access in ns/other",
+		},
+		{
+			name:              "unscoped cluster binding allows within any namespace",
+			entitlementValues: []string{"global-team"},
+			resource:          authzcore.ResourceHierarchy{Namespace: "anything", Project: "p1"},
+			action:            "project:view",
+			want:              true,
+			reason:            "unscoped binding with * should allow access everywhere",
+		},
+		{
+			name:              "unscoped cluster binding allows action not in scoped role",
+			entitlementValues: []string{"global-team"},
+			resource:          authzcore.ResourceHierarchy{Namespace: "acme", Project: "p1"},
+			action:            "project:update",
+			want:              true,
+			reason:            "global-editor has project:update, unscoped binding should allow it",
+		},
+		{
+			name:              "scoped cluster binding denies action not in its role",
+			entitlementValues: []string{"scoped-team"},
+			resource:          authzcore.ResourceHierarchy{Namespace: "acme", Project: "p1"},
+			action:            "project:update",
+			want:              false,
+			reason:            "ns-viewer does not have project:update, scoped binding should deny it even within scope",
+		},
+		{
+			name:              "unscoped cluster binding denies action not in its role",
+			entitlementValues: []string{"global-team"},
+			resource:          authzcore.ResourceHierarchy{Namespace: "acme", Project: "p1"},
+			action:            "project:delete",
+			want:              false,
+			reason:            "global-editor does not have project:delete, should deny even though binding is unscoped",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := &authzcore.EvaluateRequest{
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              "user",
+					EntitlementClaim:  "groups",
+					EntitlementValues: tt.entitlementValues,
+				},
+				Resource: authzcore.Resource{
+					Type:      "test-resource",
+					Hierarchy: tt.resource,
+				},
+				Action: tt.action,
+			}
+
+			decision, err := enforcer.Evaluate(ctx, request)
+			if err != nil {
+				t.Fatalf("Evaluate() error = %v", err)
+			}
+			if decision.Decision != tt.want {
+				t.Errorf("Evaluate() decision = %v, want %v\nExpected: %s\nActual: %s",
+					decision.Decision, tt.want, tt.reason, decision.Context.Reason)
+			}
+		})
+	}
+}

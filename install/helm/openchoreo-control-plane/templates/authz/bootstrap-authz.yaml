@@ -73,6 +73,18 @@ spec:
     - roleRef:
         name: {{ .roleRef.name }}
         kind: AuthzClusterRole
+      {{- if and .scope (or .scope.namespace .scope.project .scope.component) }}
+      scope:
+        {{- if .scope.namespace }}
+        namespace: {{ .scope.namespace }}
+        {{- end }}
+        {{- if .scope.project }}
+        project: {{ .scope.project }}
+        {{- end }}
+        {{- if .scope.component }}
+        component: {{ .scope.component }}
+        {{- end }}
+      {{- end }}
     {{- end }}
   entitlement:
     claim: {{ .entitlement.claim }}

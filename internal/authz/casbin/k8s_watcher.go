@@ -312,7 +312,12 @@ func (h *authzInformerHandler) handleAddClusterBinding(obj interface{}) error {
 	// Build policy tuples for all role mappings
 	rules := make([][]string, 0, len(binding.Spec.RoleMappings))
 	for _, mapping := range binding.Spec.RoleMappings {
-		rules = append(rules, []string{subject, "*", mapping.RoleRef.Name, "*", effect, emptyContextJSON, binding.Name})
+		resourcePath := resourceHierarchyToPath(authzcore.ResourceHierarchy{
+			Namespace: mapping.Scope.Namespace,
+			Project:   mapping.Scope.Project,
+			Component: mapping.Scope.Component,
+		})
+		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, "*", effect, emptyContextJSON, binding.Name})
 	}
 
 	// AddPoliciesEx skips duplicates and adds the rest in a single lock
@@ -554,7 +559,10 @@ func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interfa
 	}
 	oldPolicies := make([][]string, 0, len(oldBinding.Spec.RoleMappings))
 	for _, m := range oldBinding.Spec.RoleMappings {
-		oldPolicies = append(oldPolicies, []string{oldSubject, "*", m.RoleRef.Name, "*", oldEffect, emptyContextJSON, oldBinding.Name})
+		rp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
+			Namespace: m.Scope.Namespace, Project: m.Scope.Project, Component: m.Scope.Component,
+		})
+		oldPolicies = append(oldPolicies, []string{oldSubject, rp, m.RoleRef.Name, "*", oldEffect, emptyContextJSON, oldBinding.Name})
 	}
 
 	// Build new policy tuples
@@ -568,7 +576,10 @@ func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interfa
 	}
 	newPolicies := make([][]string, 0, len(newBinding.Spec.RoleMappings))
 	for _, m := range newBinding.Spec.RoleMappings {
-		newPolicies = append(newPolicies, []string{newSubject, "*", m.RoleRef.Name, "*", newEffect, emptyContextJSON, newBinding.Name})
+		rp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
+			Namespace: m.Scope.Namespace, Project: m.Scope.Project, Component: m.Scope.Component,
+		})
+		newPolicies = append(newPolicies, []string{newSubject, rp, m.RoleRef.Name, "*", newEffect, emptyContextJSON, newBinding.Name})
 	}
 
 	// Compute diff and apply only the delta
@@ -731,7 +742,12 @@ func (h *authzInformerHandler) handleDeleteClusterBinding(obj interface{}) error
 	// Build policy tuples for all role mappings
 	rules := make([][]string, 0, len(binding.Spec.RoleMappings))
 	for _, mapping := range binding.Spec.RoleMappings {
-		rules = append(rules, []string{subject, "*", mapping.RoleRef.Name, "*", effect, emptyContextJSON, binding.Name})
+		resourcePath := resourceHierarchyToPath(authzcore.ResourceHierarchy{
+			Namespace: mapping.Scope.Namespace,
+			Project:   mapping.Scope.Project,
+			Component: mapping.Scope.Component,
+		})
+		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, "*", effect, emptyContextJSON, binding.Name})
 	}
 
 	if _, err := h.enforcer.RemovePolicies(rules); err != nil {

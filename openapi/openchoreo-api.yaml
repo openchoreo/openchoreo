@@ -8633,9 +8633,26 @@ components:
         scope:
           $ref: '#/components/schemas/AuthzScope'
 
+    AuthzClusterScope:
+      type: object
+      description: Target resource scope for cluster-scoped bindings (namespace/project/component)
+      properties:
+        namespace:
+          type: string
+          description: Namespace name
+          example: acme
+        project:
+          type: string
+          description: Project name
+          example: my-project
+        component:
+          type: string
+          description: Component name
+          example: api-service
+
     AuthzClusterRoleMapping:
       type: object
-      description: Pairs a role reference for cluster-scoped bindings
+      description: Pairs a role reference with an optional scope for cluster-scoped bindings
       required:
         - roleRef
       properties:
@@ -8648,6 +8665,8 @@ components:
                   type: string
                   enum: [AuthzClusterRole]
                   example: AuthzClusterRole
+        scope:
+          $ref: '#/components/schemas/AuthzClusterScope'
 
     Entitlement:
       type: object
