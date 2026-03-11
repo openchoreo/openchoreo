@@ -33,7 +33,6 @@ var systemActions = []Action{
 	{Name: "component:view", IsInternal: false},
 	{Name: "component:create", IsInternal: false},
 	{Name: "component:update", IsInternal: false},
-	{Name: "component:deploy", IsInternal: false},
 	{Name: "component:delete", IsInternal: false},
 
 	// ComponentRelease
