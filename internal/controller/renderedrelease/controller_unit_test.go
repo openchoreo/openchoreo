@@ -1063,7 +1063,7 @@ func TestMakeDesiredNamespaces(t *testing.T) {
 			labels.LabelKeyRenderedReleaseName:      "my-release",
 			labels.LabelKeyRenderedReleaseNamespace: "cp-ns",
 			labels.LabelKeyRenderedReleaseUID:       "uid-xyz",
-			labels.LabelKeyControlPlaneNamespace:    "cp-ns",
+			labels.LabelKeyNamespaceName:            "cp-ns",
 			labels.LabelKeyEnvironmentName:          "prod-env",
 			labels.LabelKeyProjectName:              "proj-alpha",
 		}

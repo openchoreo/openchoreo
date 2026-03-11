@@ -61,7 +61,7 @@ func cpNamespacesYAML() string {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cpNsAcme,
 			Labels: map[string]string{
-				"openchoreo.dev/controlplane-namespace": "true",
+				"openchoreo.dev/namespace": "true",
 			},
 		},
 	}
@@ -70,7 +70,7 @@ func cpNamespacesYAML() string {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cpNsBeta,
 			Labels: map[string]string{
-				"openchoreo.dev/controlplane-namespace": "true",
+				"openchoreo.dev/namespace": "true",
 			},
 		},
 	}

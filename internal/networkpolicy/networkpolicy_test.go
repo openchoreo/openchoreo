@@ -78,12 +78,12 @@ spec:
     - to:
         - namespaceSelector:
             matchExpressions:
-              - key: openchoreo.dev/controlplane-namespace
+              - key: openchoreo.dev/namespace
                 operator: DoesNotExist
     - to:
         - namespaceSelector:
             matchLabels:
-              openchoreo.dev/controlplane-namespace: acme-corp
+              openchoreo.dev/namespace: acme-corp
               openchoreo.dev/environment: development
 `)
 }
@@ -194,7 +194,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              openchoreo.dev/controlplane-namespace: cp-ns
+              openchoreo.dev/namespace: cp-ns
               openchoreo.dev/environment: development
       ports:
         - protocol: TCP
@@ -242,7 +242,7 @@ spec:
     - from:
         - namespaceSelector:
             matchExpressions:
-              - key: openchoreo.dev/controlplane-namespace
+              - key: openchoreo.dev/namespace
                 operator: DoesNotExist
       ports:
         - protocol: TCP
@@ -290,7 +290,7 @@ spec:
     - from:
         - namespaceSelector:
             matchExpressions:
-              - key: openchoreo.dev/controlplane-namespace
+              - key: openchoreo.dev/namespace
                 operator: DoesNotExist
       ports:
         - protocol: TCP
@@ -353,7 +353,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              openchoreo.dev/controlplane-namespace: cp-ns
+              openchoreo.dev/namespace: cp-ns
               openchoreo.dev/environment: development
       ports:
         - protocol: TCP
@@ -361,7 +361,7 @@ spec:
     - from:
         - namespaceSelector:
             matchExpressions:
-              - key: openchoreo.dev/controlplane-namespace
+              - key: openchoreo.dev/namespace
                 operator: DoesNotExist
       ports:
         - protocol: TCP

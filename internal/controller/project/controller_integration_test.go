@@ -23,7 +23,6 @@ import (
 	deppip "github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
 	env "github.com/openchoreo/openchoreo/internal/controller/environment"
 	"github.com/openchoreo/openchoreo/internal/controller/testutils"
-	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // ── test helpers ─────────────────────────────────────────────────────────────
@@ -85,10 +84,7 @@ func setupDependencies(namespaceName, dpName, envName, deppipName string) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      envName,
 			Namespace: namespaceName,
-			Labels: map[string]string{
-				labels.LabelKeyNamespaceName: namespaceName,
-				labels.LabelKeyName:          envName,
-			},
+			Labels:    map[string]string{},
 			Annotations: map[string]string{
 				controller.AnnotationKeyDisplayName: "Test Environment",
 				controller.AnnotationKeyDescription: "Test Environment Description",
@@ -115,10 +111,7 @@ func setupDependencies(namespaceName, dpName, envName, deppipName string) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deppipName,
 			Namespace: namespaceName,
-			Labels: map[string]string{
-				labels.LabelKeyNamespaceName: namespaceName,
-				labels.LabelKeyName:          deppipName,
-			},
+			Labels:    map[string]string{},
 			Annotations: map[string]string{
 				controller.AnnotationKeyDisplayName: "Test Deployment Pipeline",
 				controller.AnnotationKeyDescription: "Test Deployment Pipeline Description",
@@ -185,10 +178,7 @@ var _ = Describe("Project Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      projName,
 					Namespace: nsName,
-					Labels: map[string]string{
-						labels.LabelKeyNamespaceName: nsName,
-						labels.LabelKeyName:          projName,
-					},
+					Labels:    map[string]string{},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
@@ -234,10 +224,7 @@ var _ = Describe("Project Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      projName,
 					Namespace: nsName,
-					Labels: map[string]string{
-						labels.LabelKeyNamespaceName: nsName,
-						labels.LabelKeyName:          projName,
-					},
+					Labels:    map[string]string{},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
@@ -273,10 +260,7 @@ var _ = Describe("Project Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      projName,
 					Namespace: nsName,
-					Labels: map[string]string{
-						labels.LabelKeyNamespaceName: nsName,
-						labels.LabelKeyName:          projName,
-					},
+					Labels:    map[string]string{},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
@@ -329,10 +313,7 @@ var _ = Describe("Project Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      projName,
 					Namespace: nsName,
-					Labels: map[string]string{
-						labels.LabelKeyNamespaceName: nsName,
-						labels.LabelKeyName:          projName,
-					},
+					Labels:    map[string]string{},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
@@ -387,10 +368,7 @@ var _ = Describe("Project Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      projName,
 					Namespace: nsName,
-					Labels: map[string]string{
-						labels.LabelKeyNamespaceName: nsName,
-						labels.LabelKeyName:          projName,
-					},
+					Labels:    map[string]string{},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
@@ -512,10 +490,7 @@ var _ = Describe("Project Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      projName,
 					Namespace: nsName,
-					Labels: map[string]string{
-						labels.LabelKeyNamespaceName: nsName,
-						labels.LabelKeyName:          projName,
-					},
+					Labels:    map[string]string{},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
@@ -567,10 +542,7 @@ var _ = Describe("Project Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      projName,
 					Namespace: nsName,
-					Labels: map[string]string{
-						labels.LabelKeyNamespaceName: nsName,
-						labels.LabelKeyName:          projName,
-					},
+					Labels:    map[string]string{},
 					Annotations: map[string]string{
 						controller.AnnotationKeyDisplayName: "Lifecycle Test Project",
 						controller.AnnotationKeyDescription: "A project for lifecycle testing",
@@ -654,12 +626,8 @@ var _ = Describe("Project Controller", func() {
 		It("should set Created condition on first reconcile if finalizer is pre-set", func() {
 			project := &openchoreov1alpha1.Project{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      projName,
-					Namespace: nsName,
-					Labels: map[string]string{
-						labels.LabelKeyNamespaceName: nsName,
-						labels.LabelKeyName:          projName,
-					},
+					Name:       projName,
+					Namespace:  nsName,
 					Finalizers: []string{ProjectCleanupFinalizer},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{

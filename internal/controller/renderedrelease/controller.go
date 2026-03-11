@@ -341,9 +341,9 @@ func (r *Reconciler) makeDesiredNamespaces(release *openchoreov1alpha1.RenderedR
 							labels.LabelKeyRenderedReleaseUID:       string(release.UID),
 
 							// Identification labels - track where this namespace belongs
-							labels.LabelKeyControlPlaneNamespace: release.Namespace,
-							labels.LabelKeyEnvironmentName:       release.Spec.EnvironmentName,
-							labels.LabelKeyProjectName:           release.Spec.Owner.ProjectName,
+							labels.LabelKeyNamespaceName:   release.Namespace,
+							labels.LabelKeyEnvironmentName: release.Spec.EnvironmentName,
+							labels.LabelKeyProjectName:     release.Spec.Owner.ProjectName,
 						},
 					},
 				}

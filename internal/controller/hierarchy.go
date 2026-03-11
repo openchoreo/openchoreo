@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // This file contains the helper functions to get the Choreo specific parent objects from the Kubernetes objects.
@@ -86,123 +85,6 @@ func objWithName(obj client.Object, name string) client.Object {
 	return obj
 }
 
-func GetDeploymentPipeline(ctx context.Context, c client.Client, obj client.Object, dpName string) (*openchoreov1alpha1.DeploymentPipeline, error) {
-	deploymentPipelineList := &openchoreov1alpha1.DeploymentPipelineList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
-			labels.LabelKeyName:          dpName,
-		},
-	}
-
-	if err := c.List(ctx, deploymentPipelineList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list projects: %w", err)
-	}
-
-	if len(deploymentPipelineList.Items) > 0 {
-		return &deploymentPipelineList.Items[0], nil
-	}
-
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.DeploymentPipeline{}, dpName),
-		objWithName(&corev1.Namespace{}, obj.GetNamespace()),
-	)
-}
-
-func GetProject(ctx context.Context, c client.Client, obj client.Object) (*openchoreov1alpha1.Project, error) {
-	projectList := &openchoreov1alpha1.ProjectList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
-			labels.LabelKeyName:          GetProjectName(obj),
-		},
-	}
-
-	if err := c.List(ctx, projectList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list projects: %w", err)
-	}
-
-	if len(projectList.Items) > 0 {
-		return &projectList.Items[0], nil
-	}
-
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.Project{}, GetProjectName(obj)),
-		objWithName(&corev1.Namespace{}, obj.GetNamespace()),
-	)
-}
-
-func GetComponent(ctx context.Context, c client.Client, obj client.Object) (*openchoreov1alpha1.Component, error) {
-	componentList := &openchoreov1alpha1.ComponentList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
-			labels.LabelKeyProjectName:   GetProjectName(obj),
-			labels.LabelKeyName:          GetComponentName(obj),
-		},
-	}
-
-	if err := c.List(ctx, componentList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list components: %w", err)
-	}
-
-	if len(componentList.Items) > 0 {
-		return &componentList.Items[0], nil
-	}
-
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.Component{}, GetComponentName(obj)),
-		objWithName(&corev1.Namespace{}, obj.GetNamespace()),
-		objWithName(&openchoreov1alpha1.Project{}, GetProjectName(obj)),
-	)
-}
-
-func GetEnvironment(ctx context.Context, c client.Client, obj client.Object) (*openchoreov1alpha1.Environment, error) {
-	environmentList := &openchoreov1alpha1.EnvironmentList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
-			labels.LabelKeyName:          GetEnvironmentName(obj),
-		},
-	}
-
-	if err := c.List(ctx, environmentList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list environments: %w", err)
-	}
-
-	if len(environmentList.Items) > 0 {
-		return &environmentList.Items[0], nil
-	}
-
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.Environment{}, GetEnvironmentName(obj)),
-		objWithName(&corev1.Namespace{}, obj.GetNamespace()),
-	)
-}
-
-func GetEnvironmentByName(ctx context.Context, c client.Client, obj client.Object, envName string) (*openchoreov1alpha1.Environment, error) {
-	environmentList := &openchoreov1alpha1.EnvironmentList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
-			labels.LabelKeyName:          envName,
-		},
-	}
-
-	if err := c.List(ctx, environmentList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list environments: %w", err)
-	}
-
-	if len(environmentList.Items) > 0 {
-		return &environmentList.Items[0], nil
-	}
-
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.Environment{}, envName),
-		objWithName(&corev1.Namespace{}, obj.GetNamespace()),
-	)
-}
-
 // GetDataPlaneByEnvironment retrieves the DataPlane object for the given Environment.
 // It uses the DataPlaneRef field in the Environment to find the DataPlane object.
 // Note: This function only returns DataPlane, not ClusterDataPlane. For environments
@@ -243,26 +125,4 @@ func GetDataPlaneByEnvironment(ctx context.Context, c client.Client, env *opench
 	}
 
 	return dataPlane, nil
-}
-
-func GetDataPlane(ctx context.Context, c client.Client, obj client.Object) (*openchoreov1alpha1.DataPlane, error) {
-	dataPlaneList := &openchoreov1alpha1.DataPlaneList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(obj.GetNamespace()),
-		client.MatchingLabels{
-			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
-		},
-	}
-
-	if err := c.List(ctx, dataPlaneList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list data planes: %w", err)
-	}
-
-	if len(dataPlaneList.Items) > 0 {
-		return &dataPlaneList.Items[0], nil
-	}
-
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.DataPlane{}, GetDataPlaneName(obj)),
-		objWithName(&corev1.Namespace{}, obj.GetNamespace()),
-	)
 }

@@ -16,7 +16,6 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -212,10 +211,7 @@ func (s *EnvironmentService) buildEnvironmentCR(namespaceName string, req *model
 				controller.AnnotationKeyDisplayName: displayName,
 				controller.AnnotationKeyDescription: description,
 			},
-			Labels: map[string]string{
-				labels.LabelKeyNamespaceName: namespaceName,
-				labels.LabelKeyName:          req.Name,
-			},
+			Labels: map[string]string{},
 		},
 		Spec: openchoreov1alpha1.EnvironmentSpec{
 			DataPlaneRef: dataPlaneRef,

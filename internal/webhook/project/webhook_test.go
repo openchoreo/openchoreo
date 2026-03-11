@@ -9,13 +9,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
 	testNamespace = "test-namespace"
 	testPipeline  = "test-pipeline"
-	testOrg       = "test-namespace"
 )
 
 var _ = Describe("Project Webhook", func() {
@@ -40,15 +38,12 @@ var _ = Describe("Project Webhook", func() {
 	AfterEach(func() {
 	})
 
-	createValidProject := func(name string, namespaceName string, namespace string, pipelineName string) *openchoreov1alpha1.Project {
+	createValidProject := func(name string, namespace string, pipelineName string) *openchoreov1alpha1.Project {
 		project := &openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
-				Labels: map[string]string{
-					labels.LabelKeyName:          name,
-					labels.LabelKeyNamespaceName: namespaceName,
-				},
+				Labels:    map[string]string{},
 			},
 			Spec: openchoreov1alpha1.ProjectSpec{
 				DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
@@ -62,7 +57,7 @@ var _ = Describe("Project Webhook", func() {
 	Context("When creating Project under Defaulting Webhook", func() {
 		It("Should apply defaults correctly", func() {
 			By("Creating a basic project")
-			obj = createValidProject("test-project", testOrg, testNamespace, testPipeline)
+			obj = createValidProject("test-project", testNamespace, testPipeline)
 
 			By("Calling the Default method")
 			err := defaulter.Default(ctx, obj)
@@ -75,7 +70,7 @@ var _ = Describe("Project Webhook", func() {
 	Context("When validating Project creation", func() {
 		It("Should allow creation of a valid project", func() {
 			By("Creating a valid project")
-			obj = createValidProject("test-project", testOrg, testNamespace, testPipeline)
+			obj = createValidProject("test-project", testNamespace, testPipeline)
 
 			By("Validating the project creation")
 			_, err := validator.ValidateCreate(ctx, obj)
@@ -88,8 +83,8 @@ var _ = Describe("Project Webhook", func() {
 	Context("When validating Project updates", func() {
 		It("Should validate project updates correctly", func() {
 			By("Creating old and new versions of the project")
-			oldObj = createValidProject("test-project", testOrg, testNamespace, testPipeline)
-			obj = createValidProject("test-project", testOrg, testNamespace, testPipeline)
+			oldObj = createValidProject("test-project", testNamespace, testPipeline)
+			obj = createValidProject("test-project", testNamespace, testPipeline)
 
 			By("Validating the project update")
 			_, err := validator.ValidateUpdate(ctx, oldObj, obj)

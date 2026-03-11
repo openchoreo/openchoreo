@@ -15,7 +15,6 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -181,10 +180,7 @@ func (s *ProjectService) buildProjectCR(namespaceName string, req *models.Create
 				controller.AnnotationKeyDisplayName: req.DisplayName,
 				controller.AnnotationKeyDescription: req.Description,
 			},
-			Labels: map[string]string{
-				labels.LabelKeyNamespaceName: namespaceName,
-				labels.LabelKeyName:          req.Name,
-			},
+			Labels: map[string]string{},
 		},
 		Spec: projectSpec,
 	}

@@ -76,7 +76,7 @@ func AssertAllPodsRunning(g gomega.Gomega, kubeContext, namespace string) {
 // query by label selectors instead.
 func GetDPNamespace(kubeContext, cpNamespace, project, environment string) (string, error) {
 	selector := fmt.Sprintf(
-		"openchoreo.dev/controlplane-namespace=%s,openchoreo.dev/project=%s,openchoreo.dev/environment=%s",
+		"openchoreo.dev/namespace=%s,openchoreo.dev/project=%s,openchoreo.dev/environment=%s",
 		cpNamespace, project, environment,
 	)
 	output, err := Kubectl(kubeContext,

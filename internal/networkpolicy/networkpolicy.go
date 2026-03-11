@@ -77,7 +77,7 @@ func MakeBaselinePolicies(params BaselinePolicyParams) []map[string]any {
 							"namespaceSelector": map[string]any{
 								"matchExpressions": []any{
 									map[string]any{
-										"key":      labels.LabelKeyControlPlaneNamespace,
+										"key":      labels.LabelKeyNamespaceName,
 										"operator": "DoesNotExist",
 									},
 								},
@@ -91,8 +91,8 @@ func MakeBaselinePolicies(params BaselinePolicyParams) []map[string]any {
 						map[string]any{
 							"namespaceSelector": map[string]any{
 								"matchLabels": map[string]any{
-									labels.LabelKeyControlPlaneNamespace: params.CPNamespace,
-									labels.LabelKeyEnvironmentName:       params.Environment,
+									labels.LabelKeyNamespaceName:   params.CPNamespace,
+									labels.LabelKeyEnvironmentName: params.Environment,
 								},
 							},
 						},
@@ -182,8 +182,8 @@ func MakeComponentPolicies(params ComponentPolicyParams) []map[string]any {
 				map[string]any{
 					"namespaceSelector": map[string]any{
 						"matchLabels": map[string]any{
-							labels.LabelKeyControlPlaneNamespace: params.CPNamespace,
-							labels.LabelKeyEnvironmentName:       params.Environment,
+							labels.LabelKeyNamespaceName:   params.CPNamespace,
+							labels.LabelKeyEnvironmentName: params.Environment,
 						},
 					},
 				},
@@ -200,7 +200,7 @@ func MakeComponentPolicies(params ComponentPolicyParams) []map[string]any {
 					"namespaceSelector": map[string]any{
 						"matchExpressions": []any{
 							map[string]any{
-								"key":      labels.LabelKeyControlPlaneNamespace,
+								"key":      labels.LabelKeyNamespaceName,
 								"operator": "DoesNotExist",
 							},
 						},
