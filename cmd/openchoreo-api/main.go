@@ -31,7 +31,6 @@ import (
 	openapihandlers "github.com/openchoreo/openchoreo/internal/openchoreo-api/api/handlers"
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
@@ -40,7 +39,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 	apilogger "github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
-	"github.com/openchoreo/openchoreo/internal/server/middleware/router"
 	"github.com/openchoreo/openchoreo/internal/version"
 	"github.com/openchoreo/openchoreo/pkg/mcp"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
@@ -166,17 +164,15 @@ func main() {
 		k8sClient, runtime.pap, runtime.pdp, planeK8sClientMgr, gatewayURL, logger, gwClient, legacySvc.WebhookService,
 	)
 
-	// Initialize legacy HTTP handlers with unified config
-	legacyHandler := handlers.New(legacySvc, &cfg, logger.With("component", "legacy-handlers"))
-	legacyRoutes := legacyHandler.Routes()
-
 	// Initialize OpenAPI handlers
 	openapiHandler := openapihandlers.New(legacySvc, services, logger.With("component", "openapi-handlers"), &cfg)
 	strictHandler := gen.NewStrictHandler(openapiHandler, nil)
 
+	// Initialize JWT middleware
+	jwtMiddleware := openapihandlers.InitJWTMiddleware(&cfg, logger)
+
 	// Initialize middlewares for OpenAPI handler
 	loggerMiddleware := apilogger.LoggerMiddleware(logger.With("component", "openapi"))
-	jwtMiddleware := legacyHandler.InitJWTMiddleware()
 	authMiddleware := auth.OpenAPIAuth(jwtMiddleware, gen.BearerAuthScopes)
 
 	// Create base mux for the OpenAPI router.
@@ -204,18 +200,13 @@ func main() {
 	// webhookRawBodyMiddleware must run innermost (before the strict handler decodes the body)
 	// so that HMAC signature validation can access the original raw bytes.
 	// The generated routes are registered on the baseMux alongside /mcp.
-	openapiRoutes := gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
+	handler := gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
 		BaseRouter:  baseMux,
 		Middlewares: []gen.MiddlewareFunc{openapihandlers.WebhookRawBodyMiddleware, loggerMiddleware, authMiddleware},
 	})
 
-	// Create migration router that routes based on X-Use-Legacy-Routes header
-	// - X-Use-Legacy-Routes: true → Legacy handlers (existing implementation)
-	// - Header absent → OpenAPI handlers (new spec-first implementation)
-	migrationRouter := router.OpenAPIMigrationRouter(openapiRoutes, legacyRoutes)
-
 	// Create server from configuration
-	srv := server.New(cfg.Server.ToServerConfig(), migrationRouter, logger)
+	srv := server.New(cfg.Server.ToServerConfig(), handler, logger)
 
 	// Start server
 	if err := srv.Run(ctx); err != nil {

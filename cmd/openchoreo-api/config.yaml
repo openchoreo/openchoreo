@@ -144,22 +144,6 @@ identity:
         - "profile"
         - "email"
 
-legacy_mcp:
-  # Enable the legacy Model Context Protocol (MCP) server.
-  # MCP provides AI-friendly tool interfaces for the API.
-  enabled: true
-
-  # List of enabled MCP legacy toolsets.
-  # Each toolset exposes a group of related operations.
-  toolsets:
-    - namespace
-    - project
-    - component
-    - deployment
-    - infrastructure
-    - schema
-    - resource
-
 mcp:
   # Enable the Model Context Protocol (MCP) server.
   # MCP provides AI-friendly tool interfaces for the API.

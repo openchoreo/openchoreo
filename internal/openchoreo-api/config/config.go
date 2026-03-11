@@ -19,9 +19,7 @@ type Config struct {
 	Security SecurityConfig `koanf:"security"`
 	// Identity defines identity provider settings.
 	Identity IdentityConfig `koanf:"identity"`
-	// LegacyMCP defines Model Context Protocol server settings.
-	LegacyMCP LegacyMCPConfig `koanf:"legacy_mcp"`
-	// MCP defines the new Model Context Protocol server settings.
+	// MCP defines Model Context Protocol server settings.
 	MCP MCPConfig `koanf:"mcp"`
 	// Logging defines logging settings.
 	Logging LoggingConfig `koanf:"logging"`
@@ -35,7 +33,6 @@ func Defaults() Config {
 		Server:         ServerDefaults(),
 		Security:       SecurityDefaults(),
 		Identity:       IdentityDefaults(),
-		LegacyMCP:      LegacyMCPDefaults(),
 		MCP:            MCPDefaults(),
 		Logging:        LoggingDefaults(),
 		ClusterGateway: ClusterGatewayDefaults(),
@@ -81,7 +78,6 @@ func (c *Config) Validate() error {
 	errs = append(errs, c.Server.Validate(coreconfig.NewPath("server"))...)
 	errs = append(errs, c.Security.Validate(coreconfig.NewPath("security"))...)
 	errs = append(errs, c.Identity.Validate(coreconfig.NewPath("identity"))...)
-	errs = append(errs, c.LegacyMCP.ValidateLegacyMCPConfig(coreconfig.NewPath("legacy_mcp"))...)
 	errs = append(errs, c.MCP.ValidateMCPConfig(coreconfig.NewPath("mcp"))...)
 	errs = append(errs, c.Logging.Validate(coreconfig.NewPath("logging"))...)
 	errs = append(errs, c.ClusterGateway.Validate(coreconfig.NewPath("cluster_gateway"))...)
