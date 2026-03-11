@@ -389,48 +389,21 @@ func (s *componentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 			}
 			return nil, fmt.Errorf("failed to get ClusterComponentType: %w", err)
 		}
-		// Convert ClusterTraitRef to TraitRef for allowedTraits
-		allowedTraits := make([]openchoreov1alpha1.TraitRef, len(cct.Spec.AllowedTraits))
-		for i, ref := range cct.Spec.AllowedTraits {
-			allowedTraits[i] = openchoreov1alpha1.TraitRef{
-				Kind: openchoreov1alpha1.TraitRefKind(ref.Kind),
-				Name: ref.Name,
-			}
-		}
-		// Convert ClusterComponentTypeTrait to ComponentTypeTrait
-		traits := make([]openchoreov1alpha1.ComponentTypeTrait, len(cct.Spec.Traits))
-		for i, t := range cct.Spec.Traits {
-			traits[i] = openchoreov1alpha1.ComponentTypeTrait{
-				Kind:               openchoreov1alpha1.TraitRefKind(t.Kind),
-				Name:               t.Name,
-				InstanceName:       t.InstanceName,
-				Parameters:         t.Parameters,
-				EnvironmentConfigs: t.EnvironmentConfigs,
-			}
-		}
-		allowedWorkflows := make([]openchoreov1alpha1.WorkflowRef, len(cct.Spec.AllowedWorkflows))
-		for i, ref := range cct.Spec.AllowedWorkflows {
-			allowedWorkflows[i] = openchoreov1alpha1.WorkflowRef{
-				Kind: openchoreov1alpha1.WorkflowRefKind(ref.Kind),
-				Name: ref.Name,
-			}
-		}
-		spec := openchoreov1alpha1.ComponentTypeSpec{
-			WorkloadType:       cct.Spec.WorkloadType,
-			AllowedWorkflows:   allowedWorkflows,
-			Parameters:         cct.Spec.Parameters,
-			EnvironmentConfigs: cct.Spec.EnvironmentConfigs,
-			Traits:             traits,
-			AllowedTraits:      allowedTraits,
-			Validations:        cct.Spec.Validations,
-			Resources:          cct.Spec.Resources,
-		}
-		return &spec, nil
+		return clusterComponentTypeSpec(cct), nil
 	default:
 		ct := &openchoreov1alpha1.ComponentType{}
 		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: componentTypeName, Namespace: namespaceName}, ct); err != nil {
 			if client.IgnoreNotFound(err) == nil {
-				return nil, fmt.Errorf("ComponentType %q: %w", componentTypeName, ErrComponentTypeNotFound)
+				// Fall back to ClusterComponentType — the component may have been created
+				// without an explicit kind, which defaults to namespace-scoped ComponentType.
+				cct := &openchoreov1alpha1.ClusterComponentType{}
+				if cctErr := s.k8sClient.Get(ctx, client.ObjectKey{Name: componentTypeName}, cct); cctErr != nil {
+					if client.IgnoreNotFound(cctErr) == nil {
+						return nil, fmt.Errorf("component type %q not found: no ComponentType in namespace %q or ClusterComponentType with that name", componentTypeName, namespaceName)
+					}
+					return nil, fmt.Errorf("failed to get ClusterComponentType: %w", cctErr)
+				}
+				return clusterComponentTypeSpec(cct), nil
 			}
 			return nil, fmt.Errorf("failed to get ComponentType: %w", err)
 		}
