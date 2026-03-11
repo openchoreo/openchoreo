@@ -19,12 +19,12 @@ dependencies:
   version: 3.3.0
 - name: observability-logs-opensearch
   repository: oci://ghcr.io/openchoreo/helm-charts
-  version: 0.3.3
+  version: 0.3.4
 - name: observability-metrics-prometheus
   repository: oci://ghcr.io/openchoreo/helm-charts
   version: 0.2.3
 - name: observability-tracing-opensearch
   repository: oci://ghcr.io/openchoreo/helm-charts
-  version: 0.3.3
-digest: sha256:05b7faecb07891f3717b13722f4b515ff65f4eb3aa9a8537e8264a84e98f1431
-generated: "2026-03-10T17:23:36.424169+05:30"
+  version: 0.3.4
+digest: sha256:5f6350f0f4b36118a67df738f1ca34966a23f8017550213e1319a646401a6978
+generated: "2026-03-11T15:08:13.283025+05:30"
