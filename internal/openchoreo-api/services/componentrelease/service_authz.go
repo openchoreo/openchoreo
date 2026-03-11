@@ -16,6 +16,8 @@ import (
 
 const (
 	actionViewComponentRelease   = "componentrelease:view"
+	actionCreateComponentRelease = "componentrelease:create"
+	actionDeleteComponentRelease = "componentrelease:delete"
 	resourceTypeComponentRelease = "componentrelease"
 )
 
@@ -78,4 +80,45 @@ func (s *componentReleaseServiceWithAuthz) GetComponentRelease(ctx context.Conte
 		return nil, err
 	}
 	return cr, nil
+}
+
+func (s *componentReleaseServiceWithAuthz) CreateComponentRelease(ctx context.Context, namespaceName string, cr *openchoreov1alpha1.ComponentRelease) (*openchoreov1alpha1.ComponentRelease, error) {
+	if cr == nil {
+		return nil, ErrComponentReleaseNil
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionCreateComponentRelease,
+		ResourceType: resourceTypeComponentRelease,
+		ResourceID:   cr.Name,
+		Hierarchy: authz.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   cr.Spec.Owner.ProjectName,
+			Component: cr.Spec.Owner.ComponentName,
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.CreateComponentRelease(ctx, namespaceName, cr)
+}
+
+func (s *componentReleaseServiceWithAuthz) DeleteComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) error {
+	// Fetch first to get owner info for authz
+	cr, err := s.internal.GetComponentRelease(ctx, namespaceName, componentReleaseName)
+	if err != nil {
+		return err
+	}
+
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionDeleteComponentRelease,
+		ResourceType: resourceTypeComponentRelease,
+		ResourceID:   componentReleaseName,
+		Hierarchy: authz.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   cr.Spec.Owner.ProjectName,
+			Component: cr.Spec.Owner.ComponentName,
+		},
+	}); err != nil {
+		return err
+	}
+	return s.internal.DeleteComponentRelease(ctx, namespaceName, componentReleaseName)
 }

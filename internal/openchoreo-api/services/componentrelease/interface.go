@@ -14,4 +14,6 @@ import (
 type Service interface {
 	ListComponentReleases(ctx context.Context, namespaceName, componentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ComponentRelease], error)
 	GetComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) (*openchoreov1alpha1.ComponentRelease, error)
+	CreateComponentRelease(ctx context.Context, namespaceName string, cr *openchoreov1alpha1.ComponentRelease) (*openchoreov1alpha1.ComponentRelease, error)
+	DeleteComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) error
 }

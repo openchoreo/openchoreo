@@ -4426,6 +4426,9 @@ type CreateNamespaceRoleJSONRequestBody = AuthzRole
 // UpdateNamespaceRoleJSONRequestBody defines body for UpdateNamespaceRole for application/json ContentType.
 type UpdateNamespaceRoleJSONRequestBody = AuthzRole
 
+// CreateComponentReleaseJSONRequestBody defines body for CreateComponentRelease for application/json ContentType.
+type CreateComponentReleaseJSONRequestBody = ComponentRelease
+
 // CreateComponentJSONRequestBody defines body for CreateComponent for application/json ContentType.
 type CreateComponentJSONRequestBody = Component
 

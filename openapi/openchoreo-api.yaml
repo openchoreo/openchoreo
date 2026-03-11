@@ -3937,6 +3937,36 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createComponentRelease
+      summary: Create component release
+      description: Creates a new component release within a namespace.
+      tags: [ComponentReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComponentRelease'
+      responses:
+        '201':
+          description: Component release created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentRelease'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/v1/namespaces/{namespaceName}/componentreleases/{componentReleaseName}:
     get:
@@ -3954,6 +3984,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ComponentRelease'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: deleteComponentRelease
+      summary: Delete component release
+      description: Deletes a component release by name.
+      tags: [ComponentReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentReleaseNameParam'
+      responses:
+        '204':
+          description: Component release deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':

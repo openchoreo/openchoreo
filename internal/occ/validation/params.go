@@ -794,6 +794,28 @@ func validateComponentReleaseParams(cmdType CommandType, params interface{}) err
 		if p, ok := params.(namespaceParams); ok {
 			return validateNamespace(CmdGet, ResourceComponentRelease, p.GetNamespace())
 		}
+	case CmdDelete:
+		return validateDeleteComponentReleaseParams(params)
+	}
+	return nil
+}
+
+// deleteComponentReleaseParams is an interface for delete component release parameter validation
+type deleteComponentReleaseParams interface {
+	GetNamespace() string
+	GetComponentReleaseName() string
+}
+
+// validateDeleteComponentReleaseParams validates parameters for delete component release operations
+func validateDeleteComponentReleaseParams(params interface{}) error {
+	if p, ok := params.(deleteComponentReleaseParams); ok {
+		fields := map[string]string{
+			"namespace": p.GetNamespace(),
+			"name":      p.GetComponentReleaseName(),
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDelete, ResourceComponentRelease, fields)
+		}
 	}
 	return nil
 }

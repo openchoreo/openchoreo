@@ -915,6 +915,30 @@ func (c *Client) GetComponentRelease(ctx context.Context, namespaceName, compone
 	return resp.JSON200, nil
 }
 
+// CreateComponentRelease creates a new component release
+func (c *Client) CreateComponentRelease(ctx context.Context, namespaceName string, cr gen.ComponentRelease) (*gen.ComponentRelease, error) {
+	resp, err := c.client.CreateComponentReleaseWithResponse(ctx, namespaceName, cr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create component release: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON201, nil
+}
+
+// DeleteComponentRelease deletes a component release
+func (c *Client) DeleteComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) error {
+	resp, err := c.client.DeleteComponentReleaseWithResponse(ctx, namespaceName, componentReleaseName)
+	if err != nil {
+		return fmt.Errorf("failed to delete component release: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
 // ListObservabilityAlertsNotificationChannels retrieves all observability alerts notification channels for a namespace
 func (c *Client) ListObservabilityAlertsNotificationChannels(ctx context.Context, namespaceName string, params *gen.ListObservabilityAlertsNotificationChannelsParams) (*gen.ObservabilityAlertsNotificationChannelList, error) {
 	if params == nil {

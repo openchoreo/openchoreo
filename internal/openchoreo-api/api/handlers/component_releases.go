@@ -78,3 +78,69 @@ func (h *Handler) GetComponentRelease(
 
 	return gen.GetComponentRelease200JSONResponse(genCR), nil
 }
+
+// CreateComponentRelease creates a new component release within a namespace.
+func (h *Handler) CreateComponentRelease(
+	ctx context.Context,
+	request gen.CreateComponentReleaseRequestObject,
+) (gen.CreateComponentReleaseResponseObject, error) {
+	h.logger.Info("CreateComponentRelease called", "namespaceName", request.NamespaceName)
+
+	if request.Body == nil {
+		return gen.CreateComponentRelease400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	crCR, err := convert[gen.ComponentRelease, openchoreov1alpha1.ComponentRelease](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert create request", "error", err)
+		return gen.CreateComponentRelease400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+
+	created, err := h.services.ComponentReleaseService.CreateComponentRelease(ctx, request.NamespaceName, &crCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.CreateComponentRelease403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, componentreleasesvc.ErrComponentReleaseAlreadyExists) {
+			return gen.CreateComponentRelease409JSONResponse{ConflictJSONResponse: conflict("ComponentRelease already exists")}, nil
+		}
+		var validationErr *services.ValidationError
+		if errors.As(err, &validationErr) {
+			return gen.CreateComponentRelease400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
+		h.logger.Error("Failed to create component release", "error", err)
+		return gen.CreateComponentRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genCR, err := convert[openchoreov1alpha1.ComponentRelease, gen.ComponentRelease](*created)
+	if err != nil {
+		h.logger.Error("Failed to convert created component release", "error", err)
+		return gen.CreateComponentRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("ComponentRelease created successfully", "namespaceName", request.NamespaceName, "componentRelease", created.Name)
+	return gen.CreateComponentRelease201JSONResponse(genCR), nil
+}
+
+// DeleteComponentRelease deletes a component release by name.
+func (h *Handler) DeleteComponentRelease(
+	ctx context.Context,
+	request gen.DeleteComponentReleaseRequestObject,
+) (gen.DeleteComponentReleaseResponseObject, error) {
+	h.logger.Info("DeleteComponentRelease called", "namespaceName", request.NamespaceName, "componentReleaseName", request.ComponentReleaseName)
+
+	err := h.services.ComponentReleaseService.DeleteComponentRelease(ctx, request.NamespaceName, request.ComponentReleaseName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.DeleteComponentRelease403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, componentreleasesvc.ErrComponentReleaseNotFound) {
+			return gen.DeleteComponentRelease404JSONResponse{NotFoundJSONResponse: notFound("ComponentRelease")}, nil
+		}
+		h.logger.Error("Failed to delete component release", "error", err)
+		return gen.DeleteComponentRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("ComponentRelease deleted successfully", "namespaceName", request.NamespaceName, "componentRelease", request.ComponentReleaseName)
+	return gen.DeleteComponentRelease204Response{}, nil
+}

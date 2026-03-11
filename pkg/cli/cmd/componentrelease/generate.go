@@ -31,6 +31,7 @@ func NewComponentReleaseCmd() *cobra.Command {
 		newGenerateCmd(),
 		newListCmd(),
 		newGetCmd(),
+		newDeleteCmd(),
 	)
 	return cmd
 }
@@ -163,6 +164,26 @@ func newGetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 			return componentrelease.New().Get(componentrelease.GetParams{
+				Namespace:            namespace,
+				ComponentReleaseName: args[0],
+			})
+		},
+	}
+	flags.AddFlags(cmd, flags.Namespace)
+	return cmd
+}
+
+func newDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteComponentRelease.Use,
+		Short:   constants.DeleteComponentRelease.Short,
+		Long:    constants.DeleteComponentRelease.Long,
+		Example: constants.DeleteComponentRelease.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			return componentrelease.New().Delete(componentrelease.DeleteParams{
 				Namespace:            namespace,
 				ComponentReleaseName: args[0],
 			})

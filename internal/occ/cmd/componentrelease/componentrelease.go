@@ -179,6 +179,27 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 	return nil
 }
 
+// Delete deletes a single component release
+func (cr *ComponentRelease) Delete(params DeleteParams) error {
+	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceComponentRelease, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := c.DeleteComponentRelease(ctx, params.Namespace, params.ComponentReleaseName); err != nil {
+		return err
+	}
+
+	fmt.Printf("ComponentRelease '%s' deleted\n", params.ComponentReleaseName)
+	return nil
+}
+
 // Get retrieves a single component release and outputs it as YAML
 func (cr *ComponentRelease) Get(params GetParams) error {
 	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponentRelease, params); err != nil {

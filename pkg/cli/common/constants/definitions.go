@@ -1326,6 +1326,14 @@ Use --workflowrun to specify a particular run.`,
   %[1]s componentrelease get my-release --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
+	DeleteComponentRelease = Command{
+		Use:   "delete [COMPONENT_RELEASE_NAME]",
+		Short: "Delete a component release",
+		Long:  `Delete a component release by name.`,
+		Example: fmt.Sprintf(`  # Delete a component release
+  %[1]s componentrelease delete my-release --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
 	ListReleaseBinding = Command{
 		Use:   "list",
 		Short: "List release bindings",

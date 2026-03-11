@@ -6,5 +6,7 @@ package componentrelease
 import "errors"
 
 var (
-	ErrComponentReleaseNotFound = errors.New("component release not found")
+	ErrComponentReleaseNil           = errors.New("component release is nil")
+	ErrComponentReleaseNotFound      = errors.New("component release not found")
+	ErrComponentReleaseAlreadyExists = errors.New("component release already exists")
 )

@@ -33,3 +33,12 @@ type GetParams struct {
 }
 
 func (p GetParams) GetNamespace() string { return p.Namespace }
+
+// DeleteParams defines parameters for deleting a single component release
+type DeleteParams struct {
+	Namespace            string
+	ComponentReleaseName string
+}
+
+func (p DeleteParams) GetNamespace() string            { return p.Namespace }
+func (p DeleteParams) GetComponentReleaseName() string { return p.ComponentReleaseName }

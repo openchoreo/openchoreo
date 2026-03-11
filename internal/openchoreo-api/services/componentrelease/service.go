@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -102,4 +103,58 @@ func (s *componentReleaseService) GetComponentRelease(ctx context.Context, names
 
 	cr.TypeMeta = componentReleaseTypeMeta
 	return cr, nil
+}
+
+func (s *componentReleaseService) CreateComponentRelease(ctx context.Context, namespaceName string, cr *openchoreov1alpha1.ComponentRelease) (*openchoreov1alpha1.ComponentRelease, error) {
+	if cr == nil {
+		return nil, ErrComponentReleaseNil
+	}
+
+	s.logger.Debug("Creating component release", "namespace", namespaceName, "componentRelease", cr.Name)
+
+	// Check if component release already exists
+	existing := &openchoreov1alpha1.ComponentRelease{}
+	key := client.ObjectKey{
+		Name:      cr.Name,
+		Namespace: namespaceName,
+	}
+	if err := s.k8sClient.Get(ctx, key, existing); err == nil {
+		return nil, ErrComponentReleaseAlreadyExists
+	} else if client.IgnoreNotFound(err) != nil {
+		return nil, fmt.Errorf("failed to check component release existence: %w", err)
+	}
+
+	cr.Namespace = namespaceName
+	cr.Status = openchoreov1alpha1.ComponentReleaseStatus{}
+
+	if err := s.k8sClient.Create(ctx, cr); err != nil {
+		if apierrors.IsInvalid(err) {
+			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		}
+		s.logger.Error("Failed to create component release CR", "error", err)
+		return nil, fmt.Errorf("failed to create component release: %w", err)
+	}
+
+	cr.TypeMeta = componentReleaseTypeMeta
+	s.logger.Debug("Component release created successfully", "namespace", namespaceName, "componentRelease", cr.Name)
+	return cr, nil
+}
+
+func (s *componentReleaseService) DeleteComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) error {
+	s.logger.Debug("Deleting component release", "namespace", namespaceName, "componentRelease", componentReleaseName)
+
+	cr := &openchoreov1alpha1.ComponentRelease{}
+	cr.Name = componentReleaseName
+	cr.Namespace = namespaceName
+
+	if err := s.k8sClient.Delete(ctx, cr); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrComponentReleaseNotFound
+		}
+		s.logger.Error("Failed to delete component release CR", "error", err)
+		return fmt.Errorf("failed to delete component release: %w", err)
+	}
+
+	s.logger.Debug("Component release deleted successfully", "namespace", namespaceName, "componentRelease", componentReleaseName)
+	return nil
 }
