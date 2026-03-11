@@ -45,8 +45,8 @@ func NewFakeClient(objects ...client.Object) client.Client {
 func statusSubresourceObjects() []client.Object {
 	return []client.Object{
 		&corev1.Namespace{},
-		&openchoreov1alpha1.BuildPlane{},
-		&openchoreov1alpha1.ClusterBuildPlane{},
+		&openchoreov1alpha1.WorkflowPlane{},
+		&openchoreov1alpha1.ClusterWorkflowPlane{},
 		&openchoreov1alpha1.ClusterComponentType{},
 		&openchoreov1alpha1.ClusterDataPlane{},
 		&openchoreov1alpha1.ClusterObservabilityPlane{},
@@ -116,26 +116,26 @@ func NewComponent(namespace, projectName, name string) *openchoreov1alpha1.Compo
 	}
 }
 
-// NewBuildPlane creates a BuildPlane test fixture.
-func NewBuildPlane(namespace, name string) *openchoreov1alpha1.BuildPlane {
-	return &openchoreov1alpha1.BuildPlane{
+// NewWorkflowPlane creates a WorkflowPlane test fixture.
+func NewWorkflowPlane(namespace, name string) *openchoreov1alpha1.WorkflowPlane {
+	return &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: openchoreov1alpha1.BuildPlaneSpec{
+		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: testClusterAgentConfig(),
 		},
 	}
 }
 
-// NewClusterBuildPlane creates a ClusterBuildPlane test fixture.
-func NewClusterBuildPlane(name string) *openchoreov1alpha1.ClusterBuildPlane {
-	return &openchoreov1alpha1.ClusterBuildPlane{
+// NewClusterWorkflowPlane creates a ClusterWorkflowPlane test fixture.
+func NewClusterWorkflowPlane(name string) *openchoreov1alpha1.ClusterWorkflowPlane {
+	return &openchoreov1alpha1.ClusterWorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: openchoreov1alpha1.ClusterBuildPlaneSpec{
+		Spec: openchoreov1alpha1.ClusterWorkflowPlaneSpec{
 			PlaneID:      name,
 			ClusterAgent: testClusterAgentConfig(),
 		},
@@ -262,7 +262,7 @@ func NewDeploymentPipeline(namespace, name string) *openchoreov1alpha1.Deploymen
 		Spec: openchoreov1alpha1.DeploymentPipelineSpec{
 			PromotionPaths: []openchoreov1alpha1.PromotionPath{
 				{
-					SourceEnvironmentRef: "dev",
+					SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "dev"},
 					TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{
 						{Name: "prod"},
 					},
