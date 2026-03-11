@@ -55,10 +55,6 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 // deploymentToolRegistrations returns the list of deployment toolset registration functions
 func (t *Toolsets) deploymentToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
-		t.RegisterListComponentReleases,
-		t.RegisterCreateComponentRelease,
-		t.RegisterGetComponentRelease,
-		t.RegisterGetComponentReleaseSchema,
 		t.RegisterListReleaseBindings,
 		t.RegisterGetReleaseBinding,
 		t.RegisterPatchReleaseBinding,
@@ -95,6 +91,14 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 
 		// Deployment pipeline management
 		t.RegisterCreateDeploymentPipeline,
+		t.RegisterUpdateDeploymentPipeline,
+		t.RegisterDeleteDeploymentPipeline,
+
+		// Component releases
+		t.RegisterPEListComponentReleases,
+		t.RegisterPECreateComponentRelease,
+		t.RegisterPEGetComponentRelease,
+		t.RegisterPEGetComponentReleaseSchema,
 
 		// DataPlane read
 		t.RegisterListDataPlanes,
@@ -112,7 +116,9 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterListClusterDataPlanes,
 		t.RegisterGetClusterDataPlane,
 		t.RegisterListClusterWorkflowPlanes,
+		t.RegisterGetClusterWorkflowPlane,
 		t.RegisterListClusterObservabilityPlanes,
+		t.RegisterGetClusterObservabilityPlane,
 
 		// Platform standards read (namespace-scoped)
 		t.RegisterPEListComponentTypes,
@@ -122,6 +128,17 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterPEListWorkflows,
 		t.RegisterPEGetWorkflowSchema,
 
+		// Platform standards write (namespace-scoped)
+		t.RegisterCreateComponentType,
+		t.RegisterUpdateComponentType,
+		t.RegisterDeleteComponentType,
+		t.RegisterCreateTrait,
+		t.RegisterUpdateTrait,
+		t.RegisterDeleteTrait,
+		t.RegisterPECreateWorkflow,
+		t.RegisterPEUpdateWorkflow,
+		t.RegisterPEDeleteWorkflow,
+
 		// Platform standards read (cluster-scoped)
 		t.RegisterPEListClusterComponentTypes,
 		t.RegisterPEGetClusterComponentType,
@@ -129,6 +146,17 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterPEListClusterTraits,
 		t.RegisterPEGetClusterTrait,
 		t.RegisterPEGetClusterTraitSchema,
+
+		// Platform standards write (cluster-scoped)
+		t.RegisterCreateClusterComponentType,
+		t.RegisterUpdateClusterComponentType,
+		t.RegisterDeleteClusterComponentType,
+		t.RegisterCreateClusterTrait,
+		t.RegisterUpdateClusterTrait,
+		t.RegisterDeleteClusterTrait,
+		t.RegisterCreateClusterWorkflow,
+		t.RegisterUpdateClusterWorkflow,
+		t.RegisterDeleteClusterWorkflow,
 
 		// Diagnostics
 		t.RegisterGetResourceEvents,

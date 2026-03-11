@@ -99,6 +99,57 @@ func (h *MCPHandler) CreateDeploymentPipeline(ctx context.Context, namespaceName
 	return mutationResult(created, "created"), nil
 }
 
+func (h *MCPHandler) UpdateDeploymentPipeline(ctx context.Context, namespaceName string, req *gen.UpdateDeploymentPipelineJSONRequestBody) (any, error) {
+	existing, err := h.services.DeploymentPipelineService.GetDeploymentPipeline(ctx, namespaceName, req.Metadata.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Metadata.Annotations != nil {
+		if existing.Annotations == nil {
+			existing.Annotations = map[string]string{}
+		}
+		maps.Copy(existing.Annotations, *req.Metadata.Annotations)
+	}
+	if req.Spec != nil && req.Spec.PromotionPaths != nil {
+		paths := make([]openchoreov1alpha1.PromotionPath, 0, len(*req.Spec.PromotionPaths))
+		for _, p := range *req.Spec.PromotionPaths {
+			targets := make([]openchoreov1alpha1.TargetEnvironmentRef, 0, len(p.TargetEnvironmentRefs))
+			for _, t := range p.TargetEnvironmentRefs {
+				ref := openchoreov1alpha1.TargetEnvironmentRef{Name: t.Name}
+				if t.RequiresApproval != nil {
+					ref.RequiresApproval = *t.RequiresApproval
+				}
+				targets = append(targets, ref)
+			}
+			paths = append(paths, openchoreov1alpha1.PromotionPath{
+				SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{
+					Name: p.SourceEnvironmentRef.Name,
+				},
+				TargetEnvironmentRefs: targets,
+			})
+		}
+		existing.Spec.PromotionPaths = paths
+	}
+
+	updated, err := h.services.DeploymentPipelineService.UpdateDeploymentPipeline(ctx, namespaceName, existing)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(updated, "updated"), nil
+}
+
+func (h *MCPHandler) DeleteDeploymentPipeline(ctx context.Context, namespaceName, dpName string) (any, error) {
+	if err := h.services.DeploymentPipelineService.DeleteDeploymentPipeline(ctx, namespaceName, dpName); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name":      dpName,
+		"namespace": namespaceName,
+		"action":    "deleted",
+	}, nil
+}
+
 func (h *MCPHandler) ListWorkflowPlanes(ctx context.Context, namespaceName string, opts tools.ListOpts) (any, error) {
 	result, err := h.services.WorkflowPlaneService.ListWorkflowPlanes(ctx, namespaceName, toServiceListOptions(opts))
 	if err != nil {

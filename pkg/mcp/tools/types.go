@@ -60,9 +60,20 @@ type PEToolsetHandler interface {
 	UpdateEnvironment(ctx context.Context, namespaceName string, req *gen.UpdateEnvironmentJSONRequestBody) (any, error)
 	DeleteEnvironment(ctx context.Context, namespaceName, envName string) (any, error)
 
+	// Component release operations
+	ListComponentReleases(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
+	CreateComponentRelease(ctx context.Context, namespaceName, componentName, releaseName string) (any, error)
+	GetComponentRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
+	GetComponentReleaseSchema(
+		ctx context.Context, namespaceName, componentName, releaseName string,
+	) (any, error)
+
 	// DeploymentPipeline operations
 	CreateDeploymentPipeline(ctx context.Context, namespaceName string,
 		req *gen.CreateDeploymentPipelineJSONRequestBody) (any, error)
+	UpdateDeploymentPipeline(ctx context.Context, namespaceName string,
+		req *gen.UpdateDeploymentPipelineJSONRequestBody) (any, error)
+	DeleteDeploymentPipeline(ctx context.Context, namespaceName, dpName string) (any, error)
 
 	// DataPlane operations
 	ListDataPlanes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
@@ -82,11 +93,13 @@ type PEToolsetHandler interface {
 
 	// ClusterWorkflowPlane operations
 	ListClusterWorkflowPlanes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterWorkflowPlane(ctx context.Context, cbpName string) (any, error)
 
 	// ClusterObservabilityPlane operations
 	ListClusterObservabilityPlanes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterObservabilityPlane(ctx context.Context, copName string) (any, error)
 
-	// Platform standards (read-only, namespace-scoped)
+	// Platform standards (namespace-scoped) — read
 	ListComponentTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (any, error)
 	ListTraits(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
@@ -94,13 +107,35 @@ type PEToolsetHandler interface {
 	ListWorkflows(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error)
 
-	// Platform standards (read-only, cluster-scoped)
+	// Platform standards (namespace-scoped) — write
+	CreateComponentType(ctx context.Context, namespaceName string, req *gen.CreateComponentTypeJSONRequestBody) (any, error)
+	UpdateComponentType(ctx context.Context, namespaceName string, req *gen.UpdateComponentTypeJSONRequestBody) (any, error)
+	DeleteComponentType(ctx context.Context, namespaceName, ctName string) (any, error)
+	CreateTrait(ctx context.Context, namespaceName string, req *gen.CreateTraitJSONRequestBody) (any, error)
+	UpdateTrait(ctx context.Context, namespaceName string, req *gen.UpdateTraitJSONRequestBody) (any, error)
+	DeleteTrait(ctx context.Context, namespaceName, traitName string) (any, error)
+	CreateWorkflow(ctx context.Context, namespaceName string, req *gen.CreateWorkflowJSONRequestBody) (any, error)
+	UpdateWorkflow(ctx context.Context, namespaceName string, req *gen.UpdateWorkflowJSONRequestBody) (any, error)
+	DeleteWorkflow(ctx context.Context, namespaceName, workflowName string) (any, error)
+
+	// Platform standards (cluster-scoped) — read
 	ListClusterComponentTypes(ctx context.Context, opts ListOpts) (any, error)
 	GetClusterComponentType(ctx context.Context, cctName string) (any, error)
 	GetClusterComponentTypeSchema(ctx context.Context, cctName string) (any, error)
 	ListClusterTraits(ctx context.Context, opts ListOpts) (any, error)
 	GetClusterTrait(ctx context.Context, ctName string) (any, error)
 	GetClusterTraitSchema(ctx context.Context, ctName string) (any, error)
+
+	// Platform standards (cluster-scoped) — write
+	CreateClusterComponentType(ctx context.Context, req *gen.CreateClusterComponentTypeJSONRequestBody) (any, error)
+	UpdateClusterComponentType(ctx context.Context, req *gen.UpdateClusterComponentTypeJSONRequestBody) (any, error)
+	DeleteClusterComponentType(ctx context.Context, cctName string) (any, error)
+	CreateClusterTrait(ctx context.Context, req *gen.CreateClusterTraitJSONRequestBody) (any, error)
+	UpdateClusterTrait(ctx context.Context, req *gen.UpdateClusterTraitJSONRequestBody) (any, error)
+	DeleteClusterTrait(ctx context.Context, clusterTraitName string) (any, error)
+	CreateClusterWorkflow(ctx context.Context, req *gen.CreateClusterWorkflowJSONRequestBody) (any, error)
+	UpdateClusterWorkflow(ctx context.Context, req *gen.UpdateClusterWorkflowJSONRequestBody) (any, error)
+	DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName string) (any, error)
 
 	// Diagnostics
 	GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName,

@@ -5,6 +5,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -38,27 +39,37 @@ func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_environment",
 		Description: "Create a new environment in a namespace. Environments are deployment targets representing " +
-			"pipeline stages (dev, staging, production) or isolated tenants.",
+			"pipeline stages (dev, qa, prod) or isolated tenants.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"display_name":   stringProperty("Human-readable display name"),
 			"description":    stringProperty("Human-readable description"),
-			"data_plane_ref": stringProperty("Associated data plane reference. Use list_dataplanes to discover valid names"),
+			"data_plane_ref": stringProperty("Associated data plane reference name." +
+				" Use list_dataplanes to discover namespace-scoped names," +
+				" or list_cluster_dataplanes to discover cluster-scoped names"),
+			"data_plane_ref_kind": map[string]any{
+				"type": "string",
+				"enum": []string{
+					string(gen.EnvironmentSpecDataPlaneRefKindDataPlane),
+					string(gen.EnvironmentSpecDataPlaneRefKindClusterDataPlane),
+				},
+				"description": "Kind of the data plane reference." +
+					" Use 'DataPlane' for namespace-scoped (default) or 'ClusterDataPlane' for cluster-scoped",
+			},
 			"is_production": map[string]any{
 				"type":        "boolean",
 				"description": "Whether this is a production environment",
 			},
-			"dns_prefix": stringProperty("Optional: DNS prefix for this environment"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		Name          string `json:"name"`
-		DisplayName   string `json:"display_name"`
-		Description   string `json:"description"`
-		DataPlaneRef  string `json:"data_plane_ref"`
-		IsProduction  bool   `json:"is_production"`
-		DNSPrefix     string `json:"dns_prefix"`
+		NamespaceName    string `json:"namespace_name"`
+		Name             string `json:"name"`
+		DisplayName      string `json:"display_name"`
+		Description      string `json:"description"`
+		DataPlaneRef     string `json:"data_plane_ref"`
+		DataPlaneRefKind string `json:"data_plane_ref_kind"`
+		IsProduction     bool   `json:"is_production"`
 	}) (*mcp.CallToolResult, any, error) {
 		annotations := map[string]string{}
 		if args.DisplayName != "" {
@@ -78,11 +89,15 @@ func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
 			},
 		}
 		if args.DataPlaneRef != "" {
+			kind := gen.EnvironmentSpecDataPlaneRefKindDataPlane
+			if args.DataPlaneRefKind == string(gen.EnvironmentSpecDataPlaneRefKindClusterDataPlane) {
+				kind = gen.EnvironmentSpecDataPlaneRefKindClusterDataPlane
+			}
 			envReq.Spec.DataPlaneRef = &struct {
 				Kind gen.EnvironmentSpecDataPlaneRefKind `json:"kind"`
 				Name string                              `json:"name"`
 			}{
-				Kind: gen.EnvironmentSpecDataPlaneRefKindDataPlane,
+				Kind: kind,
 				Name: args.DataPlaneRef,
 			}
 		}
@@ -251,6 +266,94 @@ func (t *Toolsets) RegisterCreateDeploymentPipeline(s *mcp.Server) {
 		}
 
 		result, err := t.PEToolset.CreateDeploymentPipeline(ctx, args.NamespaceName, dpReq)
+		return handleToolResult(result, err)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// PE Toolset — Component releases
+// ---------------------------------------------------------------------------
+
+func (t *Toolsets) RegisterPEListComponentReleases(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_component_releases",
+		Description: "List all releases for a component. Releases are immutable snapshots of a component at a " +
+			"specific build, ready for deployment to environments. Supports pagination via limit and cursor.",
+		InputSchema: createSchema(addPaginationProperties(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"component_name": defaultStringProperty(),
+		}), []string{"namespace_name", "component_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		ComponentName string `json:"component_name"`
+		Limit         int    `json:"limit,omitempty"`
+		Cursor        string `json:"cursor,omitempty"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.ListComponentReleases(
+			ctx, args.NamespaceName, args.ComponentName,
+			ListOpts{Limit: args.Limit, Cursor: args.Cursor})
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterPECreateComponentRelease(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "create_component_release",
+		Description: "Create a new release from the latest build of a component. Releases are immutable " +
+			"snapshots that can be deployed to environments. The component must have at least one successful build. " +
+			"If the source repository does not contain a workload descriptor (workload.yaml), use update_workload " +
+			"to configure the workload before creating a release.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"component_name": defaultStringProperty(),
+			"release_name":   stringProperty("Optional release name. If omitted, a name will be auto-generated"),
+		}, []string{"namespace_name", "component_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		ComponentName string `json:"component_name"`
+		ReleaseName   string `json:"release_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.CreateComponentRelease(
+			ctx, args.NamespaceName, args.ComponentName, args.ReleaseName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterPEGetComponentRelease(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_component_release",
+		Description: "Get detailed information about a specific component release including build information, " +
+			"image tags, and deployment status.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"release_name":   stringProperty("Use list_component_releases to discover valid names"),
+		}, []string{"namespace_name", "release_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		ReleaseName   string `json:"release_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.GetComponentRelease(ctx, args.NamespaceName, args.ReleaseName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterPEGetComponentReleaseSchema(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_component_release_schema",
+		Description: "Get the release schema for a component. Returns the JSON schema showing the configuration " +
+			"options available when creating or deploying releases for this component.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"component_name": stringProperty("Use list_components to discover valid names"),
+			"release_name":   stringProperty("Use list_component_releases to discover valid names"),
+		}, []string{"namespace_name", "component_name", "release_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		ComponentName string `json:"component_name"`
+		ReleaseName   string `json:"release_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.GetComponentReleaseSchema(
+			ctx, args.NamespaceName, args.ComponentName, args.ReleaseName)
 		return handleToolResult(result, err)
 	})
 }
@@ -1122,6 +1225,855 @@ func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server) {
 		CtName string `json:"ct_name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.ComponentToolset.GetClusterTraitSchema(ctx, args.CtName)
+		return handleToolResult(result, err)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// PE Toolset — Deployment pipeline write operations
+// ---------------------------------------------------------------------------
+
+func (t *Toolsets) RegisterUpdateDeploymentPipeline(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_deployment_pipeline",
+		Description: "Update an existing deployment pipeline in a namespace. Allows modifying promotion paths " +
+			"between environments and approval requirements. Use list_deployment_pipelines to discover valid names " +
+			"and list_environments to discover valid environment names.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"name":           stringProperty("Name of the deployment pipeline to update. Use list_deployment_pipelines to discover valid names"),
+			"display_name":   stringProperty("Updated human-readable display name"),
+			"description":    stringProperty("Updated human-readable description"),
+			"promotion_paths": map[string]any{
+				"type": "array",
+				"description": "Updated promotion paths defining environment progression. " +
+					"Each path has a source environment and target environments with optional approval requirements",
+				"items": map[string]any{
+					"type":     "object",
+					"required": []string{"source_environment_ref", "target_environment_refs"},
+					"properties": map[string]any{
+						"source_environment_ref": stringProperty("Source environment name"),
+						"target_environment_refs": map[string]any{
+							"type": "array",
+							"items": map[string]any{
+								"type":     "object",
+								"required": []string{"name"},
+								"properties": map[string]any{
+									"name": stringProperty("Target environment name"),
+									"requires_approval": map[string]any{
+										"type":        "boolean",
+										"description": "Whether promotion to this environment requires approval",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, []string{"namespace_name", "name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName  string `json:"namespace_name"`
+		Name           string `json:"name"`
+		DisplayName    string `json:"display_name"`
+		Description    string `json:"description"`
+		PromotionPaths []struct {
+			SourceEnvironmentRef  string `json:"source_environment_ref"`
+			TargetEnvironmentRefs []struct {
+				Name             string `json:"name"`
+				RequiresApproval bool   `json:"requires_approval"`
+			} `json:"target_environment_refs"`
+		} `json:"promotion_paths"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		dpReq := &gen.UpdateDeploymentPipelineJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+		}
+		if len(args.PromotionPaths) > 0 {
+			paths := make([]gen.PromotionPath, 0, len(args.PromotionPaths))
+			for _, p := range args.PromotionPaths {
+				targets := make([]gen.TargetEnvironmentRef, 0, len(p.TargetEnvironmentRefs))
+				for _, t := range p.TargetEnvironmentRefs {
+					requiresApproval := t.RequiresApproval
+					targets = append(targets, gen.TargetEnvironmentRef{
+						Name:             t.Name,
+						RequiresApproval: &requiresApproval,
+					})
+				}
+				kind := gen.PromotionPathSourceEnvironmentRefKindEnvironment
+				paths = append(paths, gen.PromotionPath{
+					SourceEnvironmentRef: struct {
+						Kind *gen.PromotionPathSourceEnvironmentRefKind `json:"kind,omitempty"`
+						Name string                                     `json:"name"`
+					}{
+						Kind: &kind,
+						Name: p.SourceEnvironmentRef,
+					},
+					TargetEnvironmentRefs: targets,
+				})
+			}
+			dpReq.Spec = &gen.DeploymentPipelineSpec{
+				PromotionPaths: &paths,
+			}
+		}
+		result, err := t.PEToolset.UpdateDeploymentPipeline(ctx, args.NamespaceName, dpReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterDeleteDeploymentPipeline(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "delete_deployment_pipeline",
+		Description: "Delete a deployment pipeline from a namespace. " +
+			"Use list_deployment_pipelines to discover valid names.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"pipeline_name":  stringProperty("Name of the deployment pipeline to delete. Use list_deployment_pipelines to discover valid names"),
+		}, []string{"namespace_name", "pipeline_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		PipelineName  string `json:"pipeline_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.DeleteDeploymentPipeline(ctx, args.NamespaceName, args.PipelineName)
+		return handleToolResult(result, err)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// PE Toolset — Cluster-scoped plane read (Get additions)
+// ---------------------------------------------------------------------------
+
+func (t *Toolsets) RegisterGetClusterWorkflowPlane(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_cluster_workflowplane",
+		Description: "Get detailed information about a cluster-scoped workflow plane including cluster details, " +
+			"health status, and agent connection state.",
+		InputSchema: createSchema(map[string]any{
+			"cbp_name": stringProperty("Cluster workflow plane name. Use list_cluster_workflowplanes to discover valid names"),
+		}, []string{"cbp_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		CbpName string `json:"cbp_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.GetClusterWorkflowPlane(ctx, args.CbpName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetClusterObservabilityPlane(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_cluster_observability_plane",
+		Description: "Get detailed information about a cluster-scoped observability plane including " +
+			"observer URL, health status, and agent connection state.",
+		InputSchema: createSchema(map[string]any{
+			"cop_name": stringProperty("Cluster observability plane name. Use list_cluster_observability_planes to discover valid names"),
+		}, []string{"cop_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		CopName string `json:"cop_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.GetClusterObservabilityPlane(ctx, args.CopName)
+		return handleToolResult(result, err)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// PE Toolset — Platform standards write (namespace-scoped)
+// ---------------------------------------------------------------------------
+
+func (t *Toolsets) RegisterCreateComponentType(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "create_component_type",
+		Description: "Create a new component type in a namespace. Component types define the structure, " +
+			"workload type, allowed traits, and allowed workflows for components. " +
+			"Use get_cluster_component_type_schema to understand the spec structure before creating.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
+			"display_name":   stringProperty("Human-readable display name"),
+			"description":    stringProperty("Human-readable description"),
+			"spec": map[string]any{
+				"type": "object",
+				"description": "Component type specification. Required fields: workloadType (one of: deployment|statefulset|cronjob|job|proxy), " +
+					"resources (array of resource templates). Use get_cluster_component_type_schema on an existing type to see the full structure.",
+			},
+		}, []string{"namespace_name", "name", "spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string                 `json:"namespace_name"`
+		Name          string                 `json:"name"`
+		DisplayName   string                 `json:"display_name"`
+		Description   string                 `json:"description"`
+		Spec          map[string]interface{} `json:"spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		specJSON, err := json.Marshal(args.Spec)
+		if err != nil {
+			return handleToolResult(nil, err)
+		}
+		var spec gen.ComponentTypeSpec
+		if err := json.Unmarshal(specJSON, &spec); err != nil {
+			return handleToolResult(nil, err)
+		}
+		ctReq := &gen.CreateComponentTypeJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &spec,
+		}
+		result, err := t.PEToolset.CreateComponentType(ctx, args.NamespaceName, ctReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterUpdateComponentType(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_component_type",
+		Description: "Update an existing component type in a namespace (full replacement). " +
+			"Use get_component_type_schema to retrieve the current spec first, then pass the modified spec here.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"name":           stringProperty("Name of the component type to update. Use list_component_types to discover valid names"),
+			"display_name":   stringProperty("Updated human-readable display name"),
+			"description":    stringProperty("Updated human-readable description"),
+			"spec": map[string]any{
+				"type":        "object",
+				"description": "Full component type spec to replace the existing one. Use get_component_type_schema to retrieve the current spec first.",
+			},
+		}, []string{"namespace_name", "name", "spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string                 `json:"namespace_name"`
+		Name          string                 `json:"name"`
+		DisplayName   string                 `json:"display_name"`
+		Description   string                 `json:"description"`
+		Spec          map[string]interface{} `json:"spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		specJSON, err := json.Marshal(args.Spec)
+		if err != nil {
+			return handleToolResult(nil, err)
+		}
+		var spec gen.ComponentTypeSpec
+		if err := json.Unmarshal(specJSON, &spec); err != nil {
+			return handleToolResult(nil, err)
+		}
+		ctReq := &gen.UpdateComponentTypeJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &spec,
+		}
+		result, err := t.PEToolset.UpdateComponentType(ctx, args.NamespaceName, ctReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterDeleteComponentType(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "delete_component_type",
+		Description: "Delete a component type from a namespace. Use list_component_types to discover valid names.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"ct_name":        stringProperty("Name of the component type to delete. Use list_component_types to discover valid names"),
+		}, []string{"namespace_name", "ct_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		CtName        string `json:"ct_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.DeleteComponentType(ctx, args.NamespaceName, args.CtName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterCreateTrait(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "create_trait",
+		Description: "Create a new trait in a namespace. Traits add capabilities to components by creating " +
+			"additional Kubernetes resources or patching existing ones (e.g., autoscaling, ingress, service mesh). " +
+			"Use get_cluster_trait_schema to understand the spec structure before creating.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
+			"display_name":   stringProperty("Human-readable display name"),
+			"description":    stringProperty("Human-readable description"),
+			"spec": map[string]any{
+				"type": "object",
+				"description": "Trait specification defining what resources the trait creates or patches. " +
+					"Use get_cluster_trait_schema on an existing trait to see the full structure.",
+			},
+		}, []string{"namespace_name", "name", "spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string                 `json:"namespace_name"`
+		Name          string                 `json:"name"`
+		DisplayName   string                 `json:"display_name"`
+		Description   string                 `json:"description"`
+		Spec          map[string]interface{} `json:"spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		specJSON, err := json.Marshal(args.Spec)
+		if err != nil {
+			return handleToolResult(nil, err)
+		}
+		var spec gen.TraitSpec
+		if err := json.Unmarshal(specJSON, &spec); err != nil {
+			return handleToolResult(nil, err)
+		}
+		traitReq := &gen.CreateTraitJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &spec,
+		}
+		result, err := t.PEToolset.CreateTrait(ctx, args.NamespaceName, traitReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterUpdateTrait(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_trait",
+		Description: "Update an existing trait in a namespace (full replacement). " +
+			"Use get_trait_schema to retrieve the current spec first, then pass the modified spec here.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"name":           stringProperty("Name of the trait to update. Use list_traits to discover valid names"),
+			"display_name":   stringProperty("Updated human-readable display name"),
+			"description":    stringProperty("Updated human-readable description"),
+			"spec": map[string]any{
+				"type":        "object",
+				"description": "Full trait spec to replace the existing one. Use get_trait_schema to retrieve the current spec first.",
+			},
+		}, []string{"namespace_name", "name", "spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string                 `json:"namespace_name"`
+		Name          string                 `json:"name"`
+		DisplayName   string                 `json:"display_name"`
+		Description   string                 `json:"description"`
+		Spec          map[string]interface{} `json:"spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		specJSON, err := json.Marshal(args.Spec)
+		if err != nil {
+			return handleToolResult(nil, err)
+		}
+		var spec gen.TraitSpec
+		if err := json.Unmarshal(specJSON, &spec); err != nil {
+			return handleToolResult(nil, err)
+		}
+		traitReq := &gen.UpdateTraitJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &spec,
+		}
+		result, err := t.PEToolset.UpdateTrait(ctx, args.NamespaceName, traitReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterDeleteTrait(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "delete_trait",
+		Description: "Delete a trait from a namespace. Use list_traits to discover valid names.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"trait_name":     stringProperty("Name of the trait to delete. Use list_traits to discover valid names"),
+		}, []string{"namespace_name", "trait_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		TraitName     string `json:"trait_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.DeleteTrait(ctx, args.NamespaceName, args.TraitName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterPECreateWorkflow(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "create_workflow",
+		Description: "Create a new workflow in a namespace. Workflows are reusable CI/CD pipeline templates " +
+			"that execute on the workflow plane. Use get_cluster_workflow_schema on an existing workflow to " +
+			"understand the spec structure (runTemplate, resources, parameters).",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
+			"display_name":   stringProperty("Human-readable display name"),
+			"description":    stringProperty("Human-readable description"),
+			"spec": map[string]any{
+				"type": "object",
+				"description": "Workflow specification. Required field: runTemplate (Argo Workflow template definition). " +
+					"Use get_cluster_workflow_schema on an existing workflow to see the full structure.",
+			},
+		}, []string{"namespace_name", "name", "spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string                 `json:"namespace_name"`
+		Name          string                 `json:"name"`
+		DisplayName   string                 `json:"display_name"`
+		Description   string                 `json:"description"`
+		Spec          map[string]interface{} `json:"spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		specJSON, err := json.Marshal(args.Spec)
+		if err != nil {
+			return handleToolResult(nil, err)
+		}
+		var spec gen.WorkflowSpec
+		if err := json.Unmarshal(specJSON, &spec); err != nil {
+			return handleToolResult(nil, err)
+		}
+		wfReq := &gen.CreateWorkflowJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &spec,
+		}
+		result, err := t.PEToolset.CreateWorkflow(ctx, args.NamespaceName, wfReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterPEUpdateWorkflow(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_workflow",
+		Description: "Update an existing workflow in a namespace (full replacement). " +
+			"Use get_workflow_schema to retrieve the current spec first, then pass the modified spec here.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"name":           stringProperty("Name of the workflow to update. Use list_workflows to discover valid names"),
+			"display_name":   stringProperty("Updated human-readable display name"),
+			"description":    stringProperty("Updated human-readable description"),
+			"spec": map[string]any{
+				"type":        "object",
+				"description": "Full workflow spec to replace the existing one. Use get_workflow_schema to retrieve the current spec first.",
+			},
+		}, []string{"namespace_name", "name", "spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string                 `json:"namespace_name"`
+		Name          string                 `json:"name"`
+		DisplayName   string                 `json:"display_name"`
+		Description   string                 `json:"description"`
+		Spec          map[string]interface{} `json:"spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		specJSON, err := json.Marshal(args.Spec)
+		if err != nil {
+			return handleToolResult(nil, err)
+		}
+		var spec gen.WorkflowSpec
+		if err := json.Unmarshal(specJSON, &spec); err != nil {
+			return handleToolResult(nil, err)
+		}
+		wfReq := &gen.UpdateWorkflowJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &spec,
+		}
+		result, err := t.PEToolset.UpdateWorkflow(ctx, args.NamespaceName, wfReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterPEDeleteWorkflow(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "delete_workflow",
+		Description: "Delete a workflow from a namespace. Use list_workflows to discover valid names.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"workflow_name":  stringProperty("Name of the workflow to delete. Use list_workflows to discover valid names"),
+		}, []string{"namespace_name", "workflow_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		WorkflowName  string `json:"workflow_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.DeleteWorkflow(ctx, args.NamespaceName, args.WorkflowName)
+		return handleToolResult(result, err)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// PE Toolset — Platform standards write (cluster-scoped)
+// ---------------------------------------------------------------------------
+
+func (t *Toolsets) RegisterCreateClusterComponentType(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "create_cluster_component_type",
+		Description: "Create a new cluster-scoped component type. Cluster component types are the platform-wide " +
+			"golden path templates available to all namespaces. Use get_cluster_component_type_schema on an " +
+			"existing type to understand the spec structure before creating.",
+		InputSchema: createSchema(map[string]any{
+			"name":         stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
+			"display_name": stringProperty("Human-readable display name"),
+			"description":  stringProperty("Human-readable description"),
+			"spec": map[string]any{
+				"type": "object",
+				"description": "Cluster component type specification. Required fields: workloadType (one of: deployment|statefulset|cronjob|job|proxy), " +
+					"resources (array of resource templates). Use get_cluster_component_type_schema on an existing type to see the full structure.",
+			},
+		}, []string{"name", "spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		Name        string                 `json:"name"`
+		DisplayName string                 `json:"display_name"`
+		Description string                 `json:"description"`
+		Spec        map[string]interface{} `json:"spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		specJSON, err := json.Marshal(args.Spec)
+		if err != nil {
+			return handleToolResult(nil, err)
+		}
+		var spec gen.ClusterComponentTypeSpec
+		if err := json.Unmarshal(specJSON, &spec); err != nil {
+			return handleToolResult(nil, err)
+		}
+		cctReq := &gen.CreateClusterComponentTypeJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &spec,
+		}
+		result, err := t.PEToolset.CreateClusterComponentType(ctx, cctReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterUpdateClusterComponentType(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_cluster_component_type",
+		Description: "Update an existing cluster-scoped component type (full replacement). " +
+			"Use get_cluster_component_type and get_cluster_component_type_schema to retrieve the current " +
+			"definition first, then pass the modified spec here.",
+		InputSchema: createSchema(map[string]any{
+			"name":         stringProperty("Name of the cluster component type to update. Use list_cluster_component_types to discover valid names"),
+			"display_name": stringProperty("Updated human-readable display name"),
+			"description":  stringProperty("Updated human-readable description"),
+			"spec": map[string]any{
+				"type":        "object",
+				"description": "Full cluster component type spec to replace the existing one. Use get_cluster_component_type_schema to retrieve the current spec first.",
+			},
+		}, []string{"name", "spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		Name        string                 `json:"name"`
+		DisplayName string                 `json:"display_name"`
+		Description string                 `json:"description"`
+		Spec        map[string]interface{} `json:"spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		specJSON, err := json.Marshal(args.Spec)
+		if err != nil {
+			return handleToolResult(nil, err)
+		}
+		var spec gen.ClusterComponentTypeSpec
+		if err := json.Unmarshal(specJSON, &spec); err != nil {
+			return handleToolResult(nil, err)
+		}
+		cctReq := &gen.UpdateClusterComponentTypeJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &spec,
+		}
+		result, err := t.PEToolset.UpdateClusterComponentType(ctx, cctReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterDeleteClusterComponentType(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "delete_cluster_component_type",
+		Description: "Delete a cluster-scoped component type. Use list_cluster_component_types to discover valid names.",
+		InputSchema: createSchema(map[string]any{
+			"cct_name": stringProperty("Name of the cluster component type to delete. Use list_cluster_component_types to discover valid names"),
+		}, []string{"cct_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		CctName string `json:"cct_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.DeleteClusterComponentType(ctx, args.CctName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterCreateClusterTrait(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "create_cluster_trait",
+		Description: "Create a new cluster-scoped trait. Cluster traits are platform-wide capability definitions " +
+			"available to all namespaces (e.g., autoscaling, ingress, service mesh). " +
+			"Use get_cluster_trait_schema on an existing trait to understand the spec structure before creating.",
+		InputSchema: createSchema(map[string]any{
+			"name":         stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
+			"display_name": stringProperty("Human-readable display name"),
+			"description":  stringProperty("Human-readable description"),
+			"spec": map[string]any{
+				"type": "object",
+				"description": "Cluster trait specification defining what resources the trait creates or patches. " +
+					"Use get_cluster_trait_schema on an existing trait to see the full structure.",
+			},
+		}, []string{"name", "spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		Name        string                 `json:"name"`
+		DisplayName string                 `json:"display_name"`
+		Description string                 `json:"description"`
+		Spec        map[string]interface{} `json:"spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		specJSON, err := json.Marshal(args.Spec)
+		if err != nil {
+			return handleToolResult(nil, err)
+		}
+		var spec gen.ClusterTraitSpec
+		if err := json.Unmarshal(specJSON, &spec); err != nil {
+			return handleToolResult(nil, err)
+		}
+		ctReq := &gen.CreateClusterTraitJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &spec,
+		}
+		result, err := t.PEToolset.CreateClusterTrait(ctx, ctReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterUpdateClusterTrait(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_cluster_trait",
+		Description: "Update an existing cluster-scoped trait (full replacement). " +
+			"Use get_cluster_trait and get_cluster_trait_schema to retrieve the current definition first, " +
+			"then pass the modified spec here.",
+		InputSchema: createSchema(map[string]any{
+			"name":         stringProperty("Name of the cluster trait to update. Use list_cluster_traits to discover valid names"),
+			"display_name": stringProperty("Updated human-readable display name"),
+			"description":  stringProperty("Updated human-readable description"),
+			"spec": map[string]any{
+				"type":        "object",
+				"description": "Full cluster trait spec to replace the existing one. Use get_cluster_trait_schema to retrieve the current spec first.",
+			},
+		}, []string{"name", "spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		Name        string                 `json:"name"`
+		DisplayName string                 `json:"display_name"`
+		Description string                 `json:"description"`
+		Spec        map[string]interface{} `json:"spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		specJSON, err := json.Marshal(args.Spec)
+		if err != nil {
+			return handleToolResult(nil, err)
+		}
+		var spec gen.ClusterTraitSpec
+		if err := json.Unmarshal(specJSON, &spec); err != nil {
+			return handleToolResult(nil, err)
+		}
+		ctReq := &gen.UpdateClusterTraitJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &spec,
+		}
+		result, err := t.PEToolset.UpdateClusterTrait(ctx, ctReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterDeleteClusterTrait(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "delete_cluster_trait",
+		Description: "Delete a cluster-scoped trait. Use list_cluster_traits to discover valid names.",
+		InputSchema: createSchema(map[string]any{
+			"ct_name": stringProperty("Name of the cluster trait to delete. Use list_cluster_traits to discover valid names"),
+		}, []string{"ct_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		CtName string `json:"ct_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.DeleteClusterTrait(ctx, args.CtName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterCreateClusterWorkflow(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "create_cluster_workflow",
+		Description: "Create a new cluster-scoped workflow. Cluster workflows are platform-wide CI/CD pipeline " +
+			"templates available to all namespaces. Use get_cluster_workflow_schema on an existing workflow " +
+			"to understand the spec structure (runTemplate, resources, parameters) before creating.",
+		InputSchema: createSchema(map[string]any{
+			"name":         stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
+			"display_name": stringProperty("Human-readable display name"),
+			"description":  stringProperty("Human-readable description"),
+			"spec": map[string]any{
+				"type": "object",
+				"description": "Cluster workflow specification. Required field: runTemplate (Argo Workflow template definition). " +
+					"Use get_cluster_workflow_schema on an existing workflow to see the full structure.",
+			},
+		}, []string{"name", "spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		Name        string                 `json:"name"`
+		DisplayName string                 `json:"display_name"`
+		Description string                 `json:"description"`
+		Spec        map[string]interface{} `json:"spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		specJSON, err := json.Marshal(args.Spec)
+		if err != nil {
+			return handleToolResult(nil, err)
+		}
+		var spec gen.ClusterWorkflowSpec
+		if err := json.Unmarshal(specJSON, &spec); err != nil {
+			return handleToolResult(nil, err)
+		}
+		cwfReq := &gen.CreateClusterWorkflowJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &spec,
+		}
+		result, err := t.PEToolset.CreateClusterWorkflow(ctx, cwfReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterUpdateClusterWorkflow(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_cluster_workflow",
+		Description: "Update an existing cluster-scoped workflow (full replacement). " +
+			"Use get_cluster_workflow and get_cluster_workflow_schema to retrieve the current definition first, " +
+			"then pass the modified spec here.",
+		InputSchema: createSchema(map[string]any{
+			"name":         stringProperty("Name of the cluster workflow to update. Use list_cluster_workflows to discover valid names"),
+			"display_name": stringProperty("Updated human-readable display name"),
+			"description":  stringProperty("Updated human-readable description"),
+			"spec": map[string]any{
+				"type":        "object",
+				"description": "Full cluster workflow spec to replace the existing one. Use get_cluster_workflow_schema to retrieve the current spec first.",
+			},
+		}, []string{"name", "spec"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		Name        string                 `json:"name"`
+		DisplayName string                 `json:"display_name"`
+		Description string                 `json:"description"`
+		Spec        map[string]interface{} `json:"spec"`
+	}) (*mcp.CallToolResult, any, error) {
+		annotations := map[string]string{}
+		if args.DisplayName != "" {
+			annotations["openchoreo.dev/display-name"] = args.DisplayName
+		}
+		if args.Description != "" {
+			annotations["openchoreo.dev/description"] = args.Description
+		}
+		specJSON, err := json.Marshal(args.Spec)
+		if err != nil {
+			return handleToolResult(nil, err)
+		}
+		var spec gen.ClusterWorkflowSpec
+		if err := json.Unmarshal(specJSON, &spec); err != nil {
+			return handleToolResult(nil, err)
+		}
+		cwfReq := &gen.UpdateClusterWorkflowJSONRequestBody{
+			Metadata: gen.ObjectMeta{
+				Name:        args.Name,
+				Annotations: &annotations,
+			},
+			Spec: &spec,
+		}
+		result, err := t.PEToolset.UpdateClusterWorkflow(ctx, cwfReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterDeleteClusterWorkflow(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "delete_cluster_workflow",
+		Description: "Delete a cluster-scoped workflow. Use list_cluster_workflows to discover valid names.",
+		InputSchema: createSchema(map[string]any{
+			"cwf_name": stringProperty("Name of the cluster workflow to delete. Use list_cluster_workflows to discover valid names"),
+		}, []string{"cwf_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		CwfName string `json:"cwf_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.DeleteClusterWorkflow(ctx, args.CwfName)
 		return handleToolResult(result, err)
 	})
 }

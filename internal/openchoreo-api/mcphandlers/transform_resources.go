@@ -575,6 +575,19 @@ func clusterWorkflowPlaneSummary(cwp openchoreov1alpha1.ClusterWorkflowPlane) ma
 	return m
 }
 
+func clusterWorkflowPlaneDetail(cbp *openchoreov1alpha1.ClusterWorkflowPlane) map[string]any {
+	m := extractCommonMeta(cbp)
+	setIfNotEmpty(m, "planeID", cbp.Spec.PlaneID)
+	if cbp.Status.AgentConnection != nil {
+		m["agentConnection"] = agentConnectionToMap(cbp.Status.AgentConnection)
+	}
+	setIfNotEmpty(m, "status", readyStatus(cbp.Status.Conditions))
+	if conds := conditionsSummary(cbp.Status.Conditions); conds != nil {
+		m["conditions"] = conds
+	}
+	return m
+}
+
 // ---------------------------------------------------------------------------
 // ClusterObservabilityPlane
 // ---------------------------------------------------------------------------
@@ -585,6 +598,20 @@ func clusterObservabilityPlaneSummary(cop openchoreov1alpha1.ClusterObservabilit
 	setIfNotEmpty(m, "observerURL", cop.Spec.ObserverURL)
 	if cop.Status.AgentConnection != nil {
 		m["agentConnected"] = cop.Status.AgentConnection.Connected
+	}
+	return m
+}
+
+func clusterObservabilityPlaneDetail(cop *openchoreov1alpha1.ClusterObservabilityPlane) map[string]any {
+	m := extractCommonMeta(cop)
+	setIfNotEmpty(m, "planeID", cop.Spec.PlaneID)
+	setIfNotEmpty(m, "observerURL", cop.Spec.ObserverURL)
+	if cop.Status.AgentConnection != nil {
+		m["agentConnection"] = agentConnectionToMap(cop.Status.AgentConnection)
+	}
+	setIfNotEmpty(m, "status", readyStatus(cop.Status.Conditions))
+	if conds := conditionsSummary(cop.Status.Conditions); conds != nil {
+		m["conditions"] = conds
 	}
 	return m
 }

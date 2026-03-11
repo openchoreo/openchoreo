@@ -37,6 +37,14 @@ func (h *MCPHandler) ListClusterWorkflowPlanes(ctx context.Context, opts tools.L
 	return wrapTransformedList("cluster_workflow_planes", result.Items, result.NextCursor, clusterWorkflowPlaneSummary), nil
 }
 
+func (h *MCPHandler) GetClusterWorkflowPlane(ctx context.Context, cbpName string) (any, error) {
+	cbp, err := h.services.ClusterWorkflowPlaneService.GetClusterWorkflowPlane(ctx, cbpName)
+	if err != nil {
+		return nil, err
+	}
+	return clusterWorkflowPlaneDetail(cbp), nil
+}
+
 // ClusterObservabilityPlane operations
 
 func (h *MCPHandler) ListClusterObservabilityPlanes(ctx context.Context, opts tools.ListOpts) (any, error) {
@@ -45,4 +53,12 @@ func (h *MCPHandler) ListClusterObservabilityPlanes(ctx context.Context, opts to
 		return nil, err
 	}
 	return wrapTransformedList("cluster_observability_planes", result.Items, result.NextCursor, clusterObservabilityPlaneSummary), nil
+}
+
+func (h *MCPHandler) GetClusterObservabilityPlane(ctx context.Context, copName string) (any, error) {
+	cop, err := h.services.ClusterObservabilityPlaneService.GetClusterObservabilityPlane(ctx, copName)
+	if err != nil {
+		return nil, err
+	}
+	return clusterObservabilityPlaneDetail(cop), nil
 }
