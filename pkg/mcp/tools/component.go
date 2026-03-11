@@ -309,7 +309,7 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 				"type":        "object",
 				"description": "Optional: environment-specific overrides for component type parameters",
 			},
-			"trait_overrides": map[string]any{
+			"trait_environment_configs": map[string]any{
 				"type":        "object",
 				"description": "Optional: environment-specific trait configuration overrides",
 			},
@@ -324,7 +324,7 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 		ReleaseName                     string                 `json:"release_name"`
 		Environment                     string                 `json:"environment"`
 		ComponentTypeEnvironmentConfigs map[string]interface{} `json:"component_type_env_overrides"`
-		TraitOverrides                  map[string]interface{} `json:"trait_overrides"`
+		TraitEnvironmentConfigs         map[string]interface{} `json:"trait_environment_configs"`
 		WorkloadOverrides               map[string]interface{} `json:"workload_overrides"`
 	}) (*mcp.CallToolResult, any, error) {
 		patchReq := &gen.ReleaseBindingSpec{}
@@ -337,12 +337,12 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 		if args.ComponentTypeEnvironmentConfigs != nil {
 			patchReq.ComponentTypeEnvironmentConfigs = &args.ComponentTypeEnvironmentConfigs
 		}
-		if args.TraitOverrides != nil {
-			traitOverrides := make(map[string]interface{}, len(args.TraitOverrides))
-			for k, v := range args.TraitOverrides {
-				traitOverrides[k] = v
+		if args.TraitEnvironmentConfigs != nil {
+			traitEnvironmentConfigs := make(map[string]interface{}, len(args.TraitEnvironmentConfigs))
+			for k, v := range args.TraitEnvironmentConfigs {
+				traitEnvironmentConfigs[k] = v
 			}
-			patchReq.TraitOverrides = &traitOverrides
+			patchReq.TraitEnvironmentConfigs = &traitEnvironmentConfigs
 		}
 		if args.WorkloadOverrides != nil {
 			workloadOverrides, err := parseWorkloadOverrides(args.WorkloadOverrides)

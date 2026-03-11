@@ -358,11 +358,11 @@ type PatchReleaseBindingRequest struct {
 	// +optional
 	ComponentTypeEnvironmentConfigs map[string]interface{} `json:"componentTypeEnvironmentConfigs,omitempty"`
 
-	// TraitOverrides provides environment-specific overrides for trait configurations
+	// TraitEnvironmentConfigs provides environment-specific overrides for trait configurations
 	// Keyed by instanceName (which must be unique across all traits in the component)
 	// Structure: map[instanceName]overrideValues
 	// +optional
-	TraitOverrides map[string]map[string]interface{} `json:"traitOverrides,omitempty"`
+	TraitEnvironmentConfigs map[string]map[string]interface{} `json:"traitEnvironmentConfigs,omitempty"`
 
 	// WorkloadOverrides provides environment-specific overrides for the entire workload spec
 	// These values override the workload specification for this specific environment

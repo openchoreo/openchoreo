@@ -3263,8 +3263,8 @@ func (in *ReleaseBindingSpec) DeepCopyInto(out *ReleaseBindingSpec) {
 		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.TraitOverrides != nil {
-		in, out := &in.TraitOverrides, &out.TraitOverrides
+	if in.TraitEnvironmentConfigs != nil {
+		in, out := &in.TraitEnvironmentConfigs, &out.TraitEnvironmentConfigs
 		*out = make(map[string]runtime.RawExtension, len(*in))
 		for key, val := range *in {
 			(*out)[key] = *val.DeepCopy()

@@ -11,7 +11,7 @@
 #    - Locked: `targetCPUUtilizationPercentage: 75` - PE enforces a fixed value (platform policy)
 #    - Developer-configurable: Developers set replica bounds (minReplicas, maxReplicas) via parameters
 #    - Environment-tunable: Platform teams can override replica bounds per environment via componentTypeEnvironmentConfigs
-# 5. Environment-specific tuning via componentTypeEnvironmentConfigs (for embedded traits) or traitOverrides (for developer traits)
+# 5. Environment-specific tuning via componentTypeEnvironmentConfigs (for embedded traits) or traitEnvironmentConfigs (for developer traits)
 
 ---
 # HorizontalPodAutoscaler Trait - demonstrates developer-configurable parameters with PE overrides
@@ -542,7 +542,7 @@ spec:
       minReplicas: 1
       maxReplicas: 5
 
-  traitOverrides:
+  traitEnvironmentConfigs:
     # Override persistent volume size for dev
     data-storage:
       size: "10Mi"

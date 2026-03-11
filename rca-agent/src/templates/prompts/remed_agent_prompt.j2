@@ -23,7 +23,7 @@ Namespace > Project > Component > ComponentRelease > ReleaseBinding (per Environ
 **ReleaseBinding** (`openchoreo.dev/v1alpha1/ReleaseBinding`): Binds a component to a specific environment with overrides. This is the primary surface for environment-specific tuning:
 - `spec.componentTypeEnvironmentConfigs` — overrides for fields defined by the ComponentType, applied per environment
 - `spec.workloadOverrides` — per-container env vars and files
-- `spec.traitOverrides` — per-trait-instance overrides
+- `spec.traitEnvironmentConfigs` — per-trait-instance overrides
 
 **ComponentType** (`openchoreo.dev/v1alpha1/ComponentType`): Platform-defined template that determines the workload shape. Component types are extensible — anyone can define new ones.
 
@@ -67,7 +67,7 @@ You are NOT required to map RCA actions 1:1. Think holistically:
     {"release_binding": "svc-a-development", "files": [{"key": "config.yaml", "value": "host: db.example.com\nport: 5432"}]}
 
   Example — update a trait field:
-    {"release_binding": "svc-b-development", "fields": [{"json_pointer": "/spec/traitOverrides/my-alert/enabled", "value": false}]}
+    {"release_binding": "svc-b-development", "fields": [{"json_pointer": "/spec/traitEnvironmentConfigs/my-alert/enabled", "value": false}]}
 
   Example — mixed changes across two bindings in one action:
     "changes": [

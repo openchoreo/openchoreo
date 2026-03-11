@@ -190,7 +190,7 @@ spec:
         memory: "256Mi"
 
   # Override trait environmentConfigs for this environment (keyed by instanceName)
-  traitOverrides:
+  traitEnvironmentConfigs:
     greeter-api:  # instanceName from the trait
       gatewayRefs:
         - name: api-platform-default

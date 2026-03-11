@@ -18,13 +18,13 @@ import (
 //
 // The context includes:
 //   - parameters: From TraitInstance.Parameters (pruned to Trait.Spec.Parameters schema) - access via ${parameters.*}
-//   - environmentConfigs: From ReleaseBinding.Spec.TraitOverrides[instanceName] (pruned to Trait.Spec.EnvironmentConfigs schema) - access via ${environmentConfigs.*}
+//   - environmentConfigs: From ReleaseBinding.Spec.TraitEnvironmentConfigs[instanceName] (pruned to Trait.Spec.EnvironmentConfigs schema) - access via ${environmentConfigs.*}
 //   - trait: Trait metadata (name, instanceName) - access via ${trait.*}
 //   - metadata: Structured naming and labeling information - access via ${metadata.*}
 //
 // Schema defaults are applied to both parameters and environmentConfigs sections.
 //
-// Note: TraitOverrides is keyed by instanceName (not traitName), as instanceNames
+// Note: TraitEnvironmentConfigs is keyed by instanceName (not traitName), as instanceNames
 // must be unique across all traits in a component.
 func BuildTraitContext(input *TraitContextInput) (*TraitContext, error) {
 	if err := validate.Struct(input); err != nil {
@@ -87,7 +87,7 @@ func (t *TraitContext) ToMap() map[string]any {
 // processTraitParameters processes trait parameters and environmentConfigs separately,
 // validates each against their respective schemas, and returns them as separate maps.
 // Parameters come from TraitInstance.Parameters only.
-// EnvironmentConfigs come from ReleaseBinding.Spec.TraitOverrides[instanceName] only.
+// EnvironmentConfigs come from ReleaseBinding.Spec.TraitEnvironmentConfigs[instanceName] only.
 func processTraitParameters(input *TraitContextInput) (map[string]any, map[string]any, error) {
 	traitName := input.Trait.Name
 
@@ -134,8 +134,8 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, map[strin
 	// Process environmentConfigs: ONLY from ReleaseBinding (no merging with trait instance)
 	var envConfigs map[string]any
 	instanceName := input.Instance.InstanceName
-	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.TraitOverrides != nil {
-		if instanceOverride, ok := input.ReleaseBinding.Spec.TraitOverrides[instanceName]; ok {
+	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.TraitEnvironmentConfigs != nil {
+		if instanceOverride, ok := input.ReleaseBinding.Spec.TraitEnvironmentConfigs[instanceName]; ok {
 			envConfigs, err = extractParameters(&instanceOverride)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to extract trait environment configs: %w", err)

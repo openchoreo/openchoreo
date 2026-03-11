@@ -86,7 +86,7 @@ type ComponentTypeSpec struct {
 	// +optional
 	Parameters *SchemaSection `json:"parameters,omitempty"`
 
-	// EnvironmentConfigs defines per-environment overrides developers can set via ReleaseBinding.
+	// EnvironmentConfigs defines per-environment configs developers can set via ReleaseBinding.
 	// +optional
 	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
 

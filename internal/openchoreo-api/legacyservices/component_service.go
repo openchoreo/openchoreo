@@ -615,7 +615,7 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 	}
 
 	if len(traitSchemas) > 0 {
-		wrappedSchema.Properties["traitOverrides"] = extv1.JSONSchemaProps{
+		wrappedSchema.Properties["traitEnvironmentConfigs"] = extv1.JSONSchemaProps{
 			Type:       "object",
 			Properties: traitSchemas,
 		}
@@ -741,7 +741,7 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 	}
 
 	if len(traitSchemas) > 0 {
-		wrappedSchema.Properties["traitOverrides"] = extv1.JSONSchemaProps{
+		wrappedSchema.Properties["traitEnvironmentConfigs"] = extv1.JSONSchemaProps{
 			Type:       "object",
 			Properties: traitSchemas,
 		}
@@ -982,15 +982,15 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, namespaceNam
 		binding.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: envConfigsJSON}
 	}
 
-	if req.TraitOverrides != nil {
-		binding.Spec.TraitOverrides = make(map[string]runtime.RawExtension)
-		for instanceName, overrides := range req.TraitOverrides {
+	if req.TraitEnvironmentConfigs != nil {
+		binding.Spec.TraitEnvironmentConfigs = make(map[string]runtime.RawExtension)
+		for instanceName, overrides := range req.TraitEnvironmentConfigs {
 			overridesJSON, err := json.Marshal(overrides)
 			if err != nil {
-				s.logger.Error("Failed to marshal trait overrides", "error", err, "instanceName", instanceName)
-				return nil, fmt.Errorf("failed to marshal trait overrides for %s: %w", instanceName, err)
+				s.logger.Error("Failed to marshal trait environment configs", "error", err, "instanceName", instanceName)
+				return nil, fmt.Errorf("failed to marshal trait environment configs for %s: %w", instanceName, err)
 			}
-			binding.Spec.TraitOverrides[instanceName] = runtime.RawExtension{Raw: overridesJSON}
+			binding.Spec.TraitEnvironmentConfigs[instanceName] = runtime.RawExtension{Raw: overridesJSON}
 		}
 	}
 
@@ -1037,12 +1037,12 @@ func (s *ComponentService) toReleaseBindingResponse(binding *openchoreov1alpha1.
 		}
 	}
 
-	if len(binding.Spec.TraitOverrides) > 0 {
-		response.TraitOverrides = make(map[string]interface{})
-		for instanceName, rawExt := range binding.Spec.TraitOverrides {
+	if len(binding.Spec.TraitEnvironmentConfigs) > 0 {
+		response.TraitEnvironmentConfigs = make(map[string]interface{})
+		for instanceName, rawExt := range binding.Spec.TraitEnvironmentConfigs {
 			var overrides map[string]interface{}
 			if err := json.Unmarshal(rawExt.Raw, &overrides); err == nil {
-				response.TraitOverrides[instanceName] = overrides
+				response.TraitEnvironmentConfigs[instanceName] = overrides
 			}
 		}
 	}

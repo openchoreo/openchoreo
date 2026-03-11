@@ -698,15 +698,15 @@ func TestPatchReleaseBindingRequest(t *testing.T) {
 			description: "Should accept component type overrides",
 		},
 		{
-			name: "With trait overrides",
+			name: "With trait environment configs",
 			req: &PatchReleaseBindingRequest{
-				TraitOverrides: map[string]map[string]interface{}{
+				TraitEnvironmentConfigs: map[string]map[string]interface{}{
 					"ingress": {
 						"host": "example.com",
 					},
 				},
 			},
-			description: "Should accept trait overrides",
+			description: "Should accept trait environment configs",
 		},
 		{
 			name: "With workload overrides",
@@ -745,10 +745,10 @@ func TestPatchReleaseBindingRequest(t *testing.T) {
 				}
 			}
 
-			// For trait overrides
-			if tt.req.TraitOverrides != nil {
-				if len(tt.req.TraitOverrides) == 0 {
-					t.Error("TraitOverrides should not be empty when set")
+			// For trait environment configs
+			if tt.req.TraitEnvironmentConfigs != nil {
+				if len(tt.req.TraitEnvironmentConfigs) == 0 {
+					t.Error("TraitEnvironmentConfigs should not be empty when set")
 				}
 			}
 

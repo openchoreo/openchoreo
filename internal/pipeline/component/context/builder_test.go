@@ -504,7 +504,7 @@ kind: ReleaseBinding
 metadata:
   name: test-component-prod
 spec:
-  traitOverrides:
+  traitEnvironmentConfigs:
     db-1:
       size: large
 `,
@@ -514,7 +514,7 @@ spec:
 					"database": "mydb",
 				},
 				"environmentConfigs": map[string]any{
-					"size": "large", // From ReleaseBinding.Spec.TraitOverrides
+					"size": "large", // From ReleaseBinding.Spec.TraitEnvironmentConfigs
 				},
 				"trait": map[string]any{
 					"name":         "mysql-trait",

@@ -924,7 +924,7 @@ components:
       properties:
         json_pointer:
           type: string
-          description: "RFC 6901 JSON Pointer for non-array fields. Example: /spec/traitOverrides/my-trait/enabled"
+          description: "RFC 6901 JSON Pointer for non-array fields. Example: /spec/traitEnvironmentConfigs/my-trait/enabled"
         value:
           description: Value to set at the JSON Pointer location
           oneOf:

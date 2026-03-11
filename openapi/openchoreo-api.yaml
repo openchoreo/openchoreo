@@ -7821,9 +7821,9 @@ components:
           type: object
           description: Environment-specific ComponentType overrides
           additionalProperties: true
-        traitOverrides:
+        traitEnvironmentConfigs:
           type: object
-          description: Environment-specific trait overrides
+          description: Environment-specific trait environment configs
           additionalProperties: true
         workloadOverrides:
           $ref: '#/components/schemas/WorkloadOverrides'

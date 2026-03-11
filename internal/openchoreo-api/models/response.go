@@ -367,7 +367,7 @@ type ReleaseBindingResponse struct {
 	Environment                     string                 `json:"environment"`
 	ReleaseName                     string                 `json:"releaseName,omitempty"`
 	ComponentTypeEnvironmentConfigs map[string]interface{} `json:"componentTypeEnvironmentConfigs,omitempty"`
-	TraitOverrides                  map[string]interface{} `json:"traitOverrides,omitempty"`
+	TraitEnvironmentConfigs         map[string]interface{} `json:"traitEnvironmentConfigs,omitempty"`
 	WorkloadOverrides               *WorkloadOverrides     `json:"workloadOverrides,omitempty"`
 	CreatedAt                       time.Time              `json:"createdAt"`
 	Status                          string                 `json:"status,omitempty"`

@@ -643,7 +643,7 @@ func (s *componentService) GetComponentSchema(ctx context.Context, namespaceName
 	}
 
 	if len(traitSchemas) > 0 {
-		wrappedSchema.Properties["traitOverrides"] = extv1.JSONSchemaProps{
+		wrappedSchema.Properties["traitEnvironmentConfigs"] = extv1.JSONSchemaProps{
 			Type:       "object",
 			Properties: traitSchemas,
 		}
@@ -651,7 +651,7 @@ func (s *componentService) GetComponentSchema(ctx context.Context, namespaceName
 
 	hasComponentTypeEnvironmentConfigs := false
 	for key := range wrappedSchema.Properties {
-		if key != "traitOverrides" {
+		if key != "traitEnvironmentConfigs" {
 			hasComponentTypeEnvironmentConfigs = true
 			break
 		}
@@ -720,7 +720,7 @@ func (s *componentService) GetComponentReleaseSchema(ctx context.Context, namesp
 	}
 
 	if len(traitSchemas) > 0 {
-		wrappedSchema.Properties["traitOverrides"] = extv1.JSONSchemaProps{
+		wrappedSchema.Properties["traitEnvironmentConfigs"] = extv1.JSONSchemaProps{
 			Type:       "object",
 			Properties: traitSchemas,
 		}

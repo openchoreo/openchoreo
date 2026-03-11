@@ -22,7 +22,7 @@ spec:
         cpu: "60m"
       limits:
         cpu: "250m"
-  traitOverrides:
+  traitEnvironmentConfigs:
     frontend-rpc-unavailable-error-log-alert:
       enabled: true                                                 # Alert rules can be enabled/disabled per environment. Default is true.
       actions:
@@ -52,7 +52,7 @@ spec:
         cpu: "10m"
       limits:
         cpu: "10m"
-  traitOverrides:
+  traitEnvironmentConfigs:
     recommendation-high-cpu-alert:
       enabled: true
       actions:
@@ -82,4 +82,4 @@ spec:
         memory: "100Mi"
       limits:
         memory: "150Mi"
-  # No traitOverrides are specified here. Using the defaults.
+  # No traitEnvironmentConfigs are specified here. Using the defaults.

@@ -702,9 +702,9 @@ func TestGetComponentSchema(t *testing.T) {
 
 		schema, err := svc.GetComponentSchema(ctx, testNamespace, testComponentName)
 		require.NoError(t, err)
-		traitOverrides, has := schema.Properties["traitOverrides"]
+		traitEnvironmentConfigs, has := schema.Properties["traitEnvironmentConfigs"]
 		require.True(t, has)
-		_, hasInstance := traitOverrides.Properties["my-ingress"]
+		_, hasInstance := traitEnvironmentConfigs.Properties["my-ingress"]
 		assert.True(t, hasInstance)
 	})
 
@@ -820,9 +820,9 @@ func TestGetComponentReleaseSchema(t *testing.T) {
 
 		schema, err := svc.GetComponentReleaseSchema(ctx, testNamespace, "rel-3", testComponentName)
 		require.NoError(t, err)
-		traitOverrides, has := schema.Properties["traitOverrides"]
+		traitEnvironmentConfigs, has := schema.Properties["traitEnvironmentConfigs"]
 		require.True(t, has)
-		_, hasInstance := traitOverrides.Properties["my-ingress"]
+		_, hasInstance := traitEnvironmentConfigs.Properties["my-ingress"]
 		assert.True(t, hasInstance)
 	})
 

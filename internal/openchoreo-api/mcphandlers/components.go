@@ -196,16 +196,16 @@ func (h *MCPHandler) PatchReleaseBinding(
 		}
 		rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: overrideBytes}
 	}
-	if req.TraitOverrides != nil {
-		traitOverrides := make(map[string]runtime.RawExtension, len(*req.TraitOverrides))
-		for k, v := range *req.TraitOverrides {
+	if req.TraitEnvironmentConfigs != nil {
+		traitEnvironmentConfigs := make(map[string]runtime.RawExtension, len(*req.TraitEnvironmentConfigs))
+		for k, v := range *req.TraitEnvironmentConfigs {
 			overrideBytes, err := json.Marshal(v)
 			if err != nil {
 				return nil, err
 			}
-			traitOverrides[k] = runtime.RawExtension{Raw: overrideBytes}
+			traitEnvironmentConfigs[k] = runtime.RawExtension{Raw: overrideBytes}
 		}
-		rb.Spec.TraitOverrides = traitOverrides
+		rb.Spec.TraitEnvironmentConfigs = traitEnvironmentConfigs
 	}
 	if req.WorkloadOverrides != nil {
 		overrideBytes, err := json.Marshal(req.WorkloadOverrides)

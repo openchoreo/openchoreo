@@ -395,7 +395,7 @@ type TraitContext struct {
 	// Accessed via ${parameters.*}
 	Parameters map[string]any `json:"parameters"`
 
-	// EnvironmentConfigs from ReleaseBinding.Spec.TraitOverrides[instanceName], pruned to Trait.Spec.EnvironmentConfigs schema.
+	// EnvironmentConfigs from ReleaseBinding.Spec.TraitEnvironmentConfigs[instanceName], pruned to Trait.Spec.EnvironmentConfigs schema.
 	// Accessed via ${environmentConfigs.*}
 	EnvironmentConfigs map[string]any `json:"environmentConfigs"`
 

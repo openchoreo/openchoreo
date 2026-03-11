@@ -1105,7 +1105,7 @@ spec:
       ocSchema:
         storageClass: string
 `,
-			releaseBindingYAML: `spec: {traitOverrides: {vol1: {}}}`,
+			releaseBindingYAML: `spec: {traitEnvironmentConfigs: {vol1: {}}}`,
 			wantErrMsg:         "environmentConfigs validation failed",
 		},
 	}

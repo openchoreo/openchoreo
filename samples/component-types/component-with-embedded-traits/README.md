@@ -82,7 +82,7 @@ Defines deployment settings for the `development` environment:
 - Reduces resource requests/limits for cost savings via `componentTypeEnvironmentConfigs.resources`
 - Overrides autoscaling replica bounds to 1-5 via `componentTypeEnvironmentConfigs.autoscaling` (environment-tunable)
 - Note: `targetCPUUtilizationPercentage` is locked by PE at 75% and cannot be changed per environment
-- Overrides PVC size to 10Mi via `traitOverrides.data-storage`
+- Overrides PVC size to 10Mi via `traitEnvironmentConfigs.data-storage`
 
 ## How It Works
 
@@ -159,7 +159,7 @@ Hello, Alice!
 
 - **Environment-tunable overrides**: Use `componentTypeEnvironmentConfigs` to override replica bounds per environment (e.g., `autoscaling.minReplicas`, `autoscaling.maxReplicas`)
 - **Locked parameters**: Set by PE in embedded trait, cannot be changed per environment (e.g., `targetCPUUtilizationPercentage: 75`)
-- **Developer trait overrides**: Use `traitOverrides[instanceName]` to override developer-added traits (e.g., `data-storage.size`)
+- **Developer trait overrides**: Use `traitEnvironmentConfigs[instanceName]` to override developer-added traits (e.g., `data-storage.size`)
 
 ## Cleanup
 

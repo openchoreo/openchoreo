@@ -139,7 +139,7 @@ This Backend resource is created in the component's namespace and references the
 Platform engineers can override per environment:
 
 ```yaml
-traitOverrides:
+traitEnvironmentConfigs:
   greeter-api:
     gatewayRefs:
       - name: api-platform-default

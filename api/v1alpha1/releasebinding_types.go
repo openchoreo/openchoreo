@@ -128,11 +128,11 @@ type ReleaseBindingSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	ComponentTypeEnvironmentConfigs *runtime.RawExtension `json:"componentTypeEnvironmentConfigs,omitempty"`
 
-	// TraitOverrides provides environment-specific overrides for trait configurations
+	// TraitEnvironmentConfigs provides environment-specific overrides for trait configurations
 	// Keyed by instanceName (which must be unique across all traits in the component)
 	// Structure: map[instanceName]overrideValues
 	// +optional
-	TraitOverrides map[string]runtime.RawExtension `json:"traitOverrides,omitempty"`
+	TraitEnvironmentConfigs map[string]runtime.RawExtension `json:"traitEnvironmentConfigs,omitempty"`
 
 	// WorkloadOverrides provides environment-specific overrides for the entire workload spec
 	// These values override the workload specification for this specific environment

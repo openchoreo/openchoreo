@@ -99,12 +99,12 @@ spec:
                 - Active
                 - Undeploy
                 type: string
-              traitOverrides:
+              traitEnvironmentConfigs:
                 additionalProperties:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
                 description: |-
-                  TraitOverrides provides environment-specific overrides for trait configurations
+                  TraitEnvironmentConfigs provides environment-specific overrides for trait configurations
                   Keyed by instanceName (which must be unique across all traits in the component)
                   Structure: map[instanceName]overrideValues
                 type: object

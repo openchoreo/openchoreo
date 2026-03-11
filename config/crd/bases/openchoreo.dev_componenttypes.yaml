@@ -98,8 +98,8 @@ spec:
                   type: object
                 type: array
               environmentConfigs:
-                description: EnvironmentConfigs defines per-environment overrides
-                  developers can set via ReleaseBinding.
+                description: EnvironmentConfigs defines per-environment configs developers
+                  can set via ReleaseBinding.
                 properties:
                   ocSchema:
                     description: |-

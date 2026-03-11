@@ -145,7 +145,7 @@ func deploymentBindingSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "binding_name"},
 			optionalParams: []string{
 				"release_name", "environment", "component_type_env_overrides",
-				"trait_overrides", "workload_overrides",
+				"trait_environment_configs", "workload_overrides",
 			},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,

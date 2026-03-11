@@ -585,7 +585,7 @@ parameters:
 
 ### environmentConfigs
 
-Environment-specific overrides from `ReleaseBinding.Spec.TraitOverrides[instanceName]`, pruned to the Trait's `schema.environmentConfigs` section with defaults applied. Use for values that vary per environment.
+Environment-specific overrides from `ReleaseBinding.Spec.TraitEnvironmentConfigs[instanceName]`, pruned to the Trait's `schema.environmentConfigs` section with defaults applied. Use for values that vary per environment.
 
 ```yaml
 # Given this schema in Trait:
@@ -596,7 +596,7 @@ schema:
 
 # And this ReleaseBinding:
 spec:
-  traitOverrides:
+  traitEnvironmentConfigs:
     data-storage:              # keyed by instanceName
       size: "50Gi"
       storageClass: "fast-ssd"
@@ -744,7 +744,7 @@ The entire rendered Kubernetes resource is available, including:
 |----------|------------------|--------------|
 | `metadata.*` | ✅ | ✅ |
 | `parameters.*` | ✅ (from Component.Spec.Parameters) | ✅ (from Trait instance) |
-| `environmentConfigs.*` | ✅ (from ReleaseBinding.ComponentTypeEnvironmentConfigs) | ✅ (from ReleaseBinding.TraitOverrides) |
+| `environmentConfigs.*` | ✅ (from ReleaseBinding.ComponentTypeEnvironmentConfigs) | ✅ (from ReleaseBinding.TraitEnvironmentConfigs) |
 | `dataplane.*` | ✅ | ✅ |
 | `workload.*` | ✅ | ✅ |
 | `configurations.*` | ✅ | ✅ |

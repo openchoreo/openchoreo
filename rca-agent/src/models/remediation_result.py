@@ -45,7 +45,7 @@ class FieldChange(BaseModel):
         description=(
             "RFC 6901 JSON Pointer for non-array fields. "
             "Example: '/spec/componentTypeEnvironmentConfigs/replicas', "
-            "'/spec/traitOverrides/my-trait/enabled'"
+            "'/spec/traitEnvironmentConfigs/my-trait/enabled'"
         ),
     )
     value: Any = Field(..., description="Value to set at the JSON Pointer location")

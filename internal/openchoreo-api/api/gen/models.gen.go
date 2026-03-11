@@ -2560,8 +2560,8 @@ type ReleaseBindingSpec struct {
 	// State Controls the state of the Release created by this binding
 	State *ReleaseBindingSpecState `json:"state,omitempty"`
 
-	// TraitOverrides Environment-specific trait overrides
-	TraitOverrides *map[string]interface{} `json:"traitOverrides,omitempty"`
+	// TraitEnvironmentConfigs Environment-specific trait environment configs
+	TraitEnvironmentConfigs *map[string]interface{} `json:"traitEnvironmentConfigs,omitempty"`
 
 	// WorkloadOverrides Environment-specific workload overrides
 	WorkloadOverrides *WorkloadOverrides `json:"workloadOverrides,omitempty"`
