@@ -16,7 +16,7 @@ spec:
     projectName: default
   autoDeploy: true
   componentType:
-    kind: ComponentType
+    kind: ClusterComponentType
     name: deployment/service
 
 ---

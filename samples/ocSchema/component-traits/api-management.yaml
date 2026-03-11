@@ -1,5 +1,5 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: Trait
+kind: ClusterTrait
 metadata:
   name: api-configuration
   namespace: default

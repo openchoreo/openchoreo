@@ -13,7 +13,7 @@
 ---
 # API Configuration Trait - adds API management capabilities to services
 apiVersion: openchoreo.dev/v1alpha1
-kind: Trait
+kind: ClusterTrait
 metadata:
   name: api-configuration
   namespace: default
@@ -126,7 +126,7 @@ spec:
     projectName: default
   autoDeploy: true
   componentType:
-    kind: ComponentType
+    kind: ClusterComponentType
     name: deployment/service
 
   # Traits - API Configuration is added as a trait

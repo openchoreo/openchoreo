@@ -119,7 +119,7 @@ spec:
 # Deploy this to the Control Plane cluster
 # ============================================================
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
   name: scm-github-create-repo
   namespace: default

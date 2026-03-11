@@ -1,5 +1,5 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
+kind: ClusterComponentType
 metadata:
   name: worker
   namespace: default
@@ -9,9 +9,9 @@ spec:
   workloadType: deployment
 
   allowedWorkflows:
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: google-cloud-buildpacks
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: docker
 
   allowedTraits:

@@ -9,7 +9,7 @@ spec:
 
   autoDeploy: true
   componentType:
-    kind: ComponentType
+    kind: ClusterComponentType
     name: cronjob/scheduled-task
 
   parameters:

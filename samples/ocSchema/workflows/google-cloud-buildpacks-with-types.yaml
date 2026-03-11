@@ -1,5 +1,5 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
   name: google-cloud-buildpacks
   namespace: default
@@ -14,7 +14,7 @@ metadata:
       secretRef: parameters.repository.secretRef
 spec:
   workflowPlaneRef:
-    kind: WorkflowPlane
+    kind: ClusterWorkflowPlane
     name: default
 
   # Template Variable Reference (processed by WorkflowRun controller):

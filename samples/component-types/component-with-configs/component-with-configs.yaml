@@ -1,5 +1,5 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
+kind: ClusterComponentType
 metadata:
   name: service-with-configs
   namespace: default
@@ -7,11 +7,11 @@ spec:
   workloadType: deployment
 
   allowedWorkflows:
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: gcp-buildpacks-builder
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: ballerina-buildpack-builder
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: dockerfile-builder
 
   allowedTraits:
@@ -280,7 +280,7 @@ spec:
     projectName: default
 
   componentType:
-    kind: ComponentType
+    kind: ClusterComponentType
     name: deployment/service-with-configs
   autoDeploy: true
 

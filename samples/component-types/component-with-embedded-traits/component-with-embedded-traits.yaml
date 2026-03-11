@@ -16,7 +16,7 @@
 ---
 # HorizontalPodAutoscaler Trait - demonstrates developer-configurable parameters with PE overrides
 apiVersion: openchoreo.dev/v1alpha1
-kind: Trait
+kind: ClusterTrait
 metadata:
   name: horizontal-pod-autoscaler
   namespace: default
@@ -85,7 +85,7 @@ spec:
 ---
 # Persistent Volume Trait - reused from component-with-traits sample
 apiVersion: openchoreo.dev/v1alpha1
-kind: Trait
+kind: ClusterTrait
 metadata:
   name: persistent-volume
   namespace: default
@@ -159,7 +159,7 @@ spec:
 # ComponentType extending the default service type structure with embedded HPA trait
 # The PE exposes autoscaling parameters through ComponentType schema, wired to the embedded HPA trait
 apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
+kind: ClusterComponentType
 metadata:
   name: service-with-autoscaling
   namespace: default
@@ -167,11 +167,11 @@ spec:
   workloadType: deployment
 
   allowedWorkflows:
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: gcp-buildpacks-builder
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: ballerina-buildpack-builder
-    - kind: Workflow
+    - kind: ClusterWorkflow
       name: dockerfile-builder
 
   allowedTraits:
@@ -467,7 +467,7 @@ spec:
     projectName: default
 
   componentType:
-    kind: ComponentType
+    kind: ClusterComponentType
     name: deployment/service-with-autoscaling
   autoDeploy: true
 

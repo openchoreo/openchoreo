@@ -1,5 +1,5 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workflow
+kind: ClusterWorkflow
 metadata:
   name: bulk-gitops-release
   namespace: default
