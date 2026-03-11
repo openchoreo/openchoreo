@@ -17,7 +17,7 @@ import (
 )
 
 // Config holds configuration for authorization initialization.
-// Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.
+// Policies are loaded from ClusterAuthzRole, AuthzRole, ClusterAuthzRoleBinding, and AuthzRoleBinding CRDs.
 type Config struct {
 	// Enabled enables or disables authorization enforcement.
 	Enabled bool

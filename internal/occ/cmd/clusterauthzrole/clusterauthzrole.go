@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package authzclusterrole
+package clusterauthzrole
 
 import (
 	"context"
@@ -17,16 +17,16 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// AuthzClusterRole implements authz cluster role operations
-type AuthzClusterRole struct{}
+// ClusterAuthzRole implements authz cluster role operations
+type ClusterAuthzRole struct{}
 
 // New creates a new authz cluster role implementation
-func New() *AuthzClusterRole {
-	return &AuthzClusterRole{}
+func New() *ClusterAuthzRole {
+	return &ClusterAuthzRole{}
 }
 
 // List lists all cluster-scoped authorization roles
-func (c *AuthzClusterRole) List() error {
+func (c *ClusterAuthzRole) List() error {
 	ctx := context.Background()
 
 	cl, err := client.NewClient()
@@ -34,7 +34,7 @@ func (c *AuthzClusterRole) List() error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.AuthzClusterRole, string, error) {
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ClusterAuthzRole, string, error) {
 		p := &gen.ListClusterRolesParams{}
 		p.Limit = &limit
 		if cursor != "" {
@@ -57,7 +57,7 @@ func (c *AuthzClusterRole) List() error {
 }
 
 // Get retrieves a single authz cluster role and outputs it as YAML
-func (c *AuthzClusterRole) Get(params GetParams) error {
+func (c *ClusterAuthzRole) Get(params GetParams) error {
 	ctx := context.Background()
 
 	cl, err := client.NewClient()
@@ -80,7 +80,7 @@ func (c *AuthzClusterRole) Get(params GetParams) error {
 }
 
 // Delete deletes a single authz cluster role
-func (c *AuthzClusterRole) Delete(params DeleteParams) error {
+func (c *ClusterAuthzRole) Delete(params DeleteParams) error {
 	ctx := context.Background()
 
 	cl, err := client.NewClient()
@@ -96,7 +96,7 @@ func (c *AuthzClusterRole) Delete(params DeleteParams) error {
 	return nil
 }
 
-func printList(items []gen.AuthzClusterRole) error {
+func printList(items []gen.ClusterAuthzRole) error {
 	if len(items) == 0 {
 		fmt.Println("No authz cluster roles found")
 		return nil

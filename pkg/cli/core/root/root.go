@@ -7,10 +7,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/apply"
-	"github.com/openchoreo/openchoreo/pkg/cli/cmd/authzclusterrole"
-	"github.com/openchoreo/openchoreo/pkg/cli/cmd/authzclusterrolebinding"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/authzrole"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/authzrolebinding"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clusterauthzrole"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clusterauthzrolebinding"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clustertrait"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clusterworkflow"
@@ -69,8 +69,8 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		trait.NewTraitCmd(),
 		clustertrait.NewClusterTraitCmd(),
 		clusterworkflow.NewClusterWorkflowCmd(),
-		authzclusterrole.NewAuthzClusterRoleCmd(),
-		authzclusterrolebinding.NewAuthzClusterRoleBindingCmd(),
+		clusterauthzrole.NewClusterAuthzRoleCmd(),
+		clusterauthzrolebinding.NewClusterAuthzRoleBindingCmd(),
 		authzrole.NewAuthzRoleCmd(),
 		authzrolebinding.NewAuthzRoleBindingCmd(),
 		workflow.NewWorkflowCmd(),

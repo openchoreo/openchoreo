@@ -2926,7 +2926,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/clusterroles:
+  /api/v1/clusterauthzroles:
     get:
       operationId: listClusterRoles
       summary: List cluster roles
@@ -2942,7 +2942,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthzClusterRoleList'
+                $ref: '#/components/schemas/ClusterAuthzRoleList'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2962,14 +2962,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AuthzClusterRole'
+              $ref: '#/components/schemas/ClusterAuthzRole'
       responses:
         '201':
           description: Cluster role created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthzClusterRole'
+                $ref: '#/components/schemas/ClusterAuthzRole'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2981,7 +2981,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/clusterroles/{name}:
+  /api/v1/clusterauthzroles/{name}:
     get:
       operationId: getClusterRole
       summary: Get cluster role
@@ -3001,7 +3001,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthzClusterRole'
+                $ref: '#/components/schemas/ClusterAuthzRole'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3029,14 +3029,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AuthzClusterRole'
+              $ref: '#/components/schemas/ClusterAuthzRole'
       responses:
         '200':
           description: Cluster role updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthzClusterRole'
+                $ref: '#/components/schemas/ClusterAuthzRole'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3075,7 +3075,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/clusterrolebindings:
+  /api/v1/clusterauthzrolebindings:
     get:
       operationId: listClusterRoleBindings
       summary: List cluster role bindings
@@ -3091,7 +3091,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthzClusterRoleBindingList'
+                $ref: '#/components/schemas/ClusterAuthzRoleBindingList'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3111,14 +3111,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AuthzClusterRoleBinding'
+              $ref: '#/components/schemas/ClusterAuthzRoleBinding'
       responses:
         '201':
           description: Cluster role binding created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthzClusterRoleBinding'
+                $ref: '#/components/schemas/ClusterAuthzRoleBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3130,7 +3130,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/clusterrolebindings/{name}:
+  /api/v1/clusterauthzrolebindings/{name}:
     get:
       operationId: getClusterRoleBinding
       summary: Get cluster role binding
@@ -3150,7 +3150,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthzClusterRoleBinding'
+                $ref: '#/components/schemas/ClusterAuthzRoleBinding'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3178,14 +3178,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AuthzClusterRoleBinding'
+              $ref: '#/components/schemas/ClusterAuthzRoleBinding'
       responses:
         '200':
           description: Cluster role binding updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthzClusterRoleBinding'
+                $ref: '#/components/schemas/ClusterAuthzRoleBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3224,7 +3224,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/roles:
+  /api/v1/namespaces/{namespaceName}/authzroles:
     get:
       operationId: listNamespaceRoles
       summary: List namespace roles
@@ -3282,7 +3282,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/roles/{name}:
+  /api/v1/namespaces/{namespaceName}/authzroles/{name}:
     get:
       operationId: getNamespaceRole
       summary: Get namespace role
@@ -3383,7 +3383,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/rolebindings:
+  /api/v1/namespaces/{namespaceName}/authzrolebindings:
     get:
       operationId: listNamespaceRoleBindings
       summary: List namespace role bindings
@@ -3441,7 +3441,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/rolebindings/{name}:
+  /api/v1/namespaces/{namespaceName}/authzrolebindings/{name}:
     get:
       operationId: getNamespaceRoleBinding
       summary: Get namespace role binding
@@ -8350,7 +8350,7 @@ components:
           description: Response message
           example: Operation completed successfully
 
-    AuthzClusterRole:
+    ClusterAuthzRole:
       type: object
       description: |
         Cluster-scoped authorization role (Kubernetes CRD).
@@ -8367,13 +8367,13 @@ components:
           type: string
           readOnly: true
           description: Kind of the resource
-          example: AuthzClusterRole
+          example: ClusterAuthzRole
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
-          $ref: '#/components/schemas/AuthzClusterRoleSpec'
+          $ref: '#/components/schemas/ClusterAuthzRoleSpec'
 
-    AuthzClusterRoleSpec:
+    ClusterAuthzRoleSpec:
       type: object
       description: Specification for a cluster-scoped authorization role
       required:
@@ -8390,7 +8390,7 @@ components:
           description: Human-readable description of the role
           example: Full cluster administration access
 
-    AuthzClusterRoleList:
+    ClusterAuthzRoleList:
       type: object
       description: List of cluster-scoped authorization roles
       required:
@@ -8400,7 +8400,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/AuthzClusterRole'
+            $ref: '#/components/schemas/ClusterAuthzRole'
         pagination:
           $ref: '#/components/schemas/Pagination'
 
@@ -8458,7 +8458,7 @@ components:
         pagination:
           $ref: '#/components/schemas/Pagination'
 
-    AuthzClusterRoleBinding:
+    ClusterAuthzRoleBinding:
       type: object
       description: |
         Cluster-scoped role binding (Kubernetes CRD).
@@ -8475,13 +8475,13 @@ components:
           type: string
           readOnly: true
           description: Kind of the resource
-          example: AuthzClusterRoleBinding
+          example: ClusterAuthzRoleBinding
         metadata:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
-          $ref: '#/components/schemas/AuthzClusterRoleBindingSpec'
+          $ref: '#/components/schemas/ClusterAuthzRoleBindingSpec'
 
-    AuthzClusterRoleBindingSpec:
+    ClusterAuthzRoleBindingSpec:
       type: object
       description: Specification for a cluster-scoped role binding
       required:
@@ -8495,7 +8495,7 @@ components:
           description: List of cluster role mappings this binding grants
           minItems: 1
           items:
-            $ref: '#/components/schemas/AuthzClusterRoleMapping'
+            $ref: '#/components/schemas/ClusterAuthzRoleMapping'
         effect:
           type: string
           description: Policy effect (allow or deny)
@@ -8503,7 +8503,7 @@ components:
           default: allow
           example: allow
 
-    AuthzClusterRoleBindingList:
+    ClusterAuthzRoleBindingList:
       type: object
       description: List of cluster-scoped role bindings
       required:
@@ -8513,7 +8513,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/AuthzClusterRoleBinding'
+            $ref: '#/components/schemas/ClusterAuthzRoleBinding'
         pagination:
           $ref: '#/components/schemas/Pagination'
 
@@ -8594,16 +8594,16 @@ components:
 
     AuthzRoleRef:
       type: object
-      description: Reference to an AuthzRole or AuthzClusterRole
+      description: Reference to an AuthzRole or ClusterAuthzRole
       required:
         - kind
         - name
       properties:
         kind:
           type: string
-          description: Kind of role (AuthzRole or AuthzClusterRole)
-          enum: [AuthzRole, AuthzClusterRole]
-          example: AuthzClusterRole
+          description: Kind of role (AuthzRole or ClusterAuthzRole)
+          enum: [AuthzRole, ClusterAuthzRole]
+          example: ClusterAuthzRole
         name:
           type: string
           description: Name of the role
@@ -8650,7 +8650,7 @@ components:
           description: Component name
           example: api-service
 
-    AuthzClusterRoleMapping:
+    ClusterAuthzRoleMapping:
       type: object
       description: Pairs a role reference with an optional scope for cluster-scoped bindings
       required:
@@ -8663,8 +8663,8 @@ components:
               properties:
                 kind:
                   type: string
-                  enum: [AuthzClusterRole]
-                  example: AuthzClusterRole
+                  enum: [ClusterAuthzRole]
+                  example: ClusterAuthzRole
         scope:
           $ref: '#/components/schemas/AuthzClusterScope'
 

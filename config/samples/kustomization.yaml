@@ -39,8 +39,8 @@ resources:
   - v1alpha1_observabilityalertrule.yaml
   - v1alpha1_authzrole.yaml
   - v1alpha1_authzrolebinding.yaml
-  - v1alpha1_authzclusterrole.yaml
-  - v1alpha1_authzclusterrolebinding.yaml
+  - v1alpha1_clusterauthzrole.yaml
+  - v1alpha1_clusterauthzrolebinding.yaml
   - openchoreo_v1alpha1_clusterdataplane.yaml
   - openchoreo_v1alpha1_clusterworkflowplane.yaml
   - openchoreo_v1alpha1_clusterobservabilityplane.yaml

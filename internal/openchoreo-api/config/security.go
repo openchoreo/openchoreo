@@ -275,7 +275,7 @@ func (c *SecurityConfig) ToSubjectUserTypeConfigs() []subject.UserTypeConfig {
 }
 
 // AuthorizationConfig defines authorization (Casbin) settings.
-// Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.
+// Policies are loaded from ClusterAuthzRole, AuthzRole, ClusterAuthzRoleBinding, and AuthzRoleBinding CRDs.
 type AuthorizationConfig struct {
 	// Enabled enables authorization enforcement.
 	Enabled bool `koanf:"enabled"`

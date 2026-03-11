@@ -955,7 +955,7 @@ func (c *Client) DeleteObservabilityAlertsNotificationChannel(ctx context.Contex
 }
 
 // ListClusterRoles retrieves all cluster-scoped authorization roles
-func (c *Client) ListClusterRoles(ctx context.Context, params *gen.ListClusterRolesParams) (*gen.AuthzClusterRoleList, error) {
+func (c *Client) ListClusterRoles(ctx context.Context, params *gen.ListClusterRolesParams) (*gen.ClusterAuthzRoleList, error) {
 	if params == nil {
 		params = &gen.ListClusterRolesParams{}
 	}
@@ -970,7 +970,7 @@ func (c *Client) ListClusterRoles(ctx context.Context, params *gen.ListClusterRo
 }
 
 // GetClusterRole retrieves a specific cluster-scoped authorization role
-func (c *Client) GetClusterRole(ctx context.Context, name string) (*gen.AuthzClusterRole, error) {
+func (c *Client) GetClusterRole(ctx context.Context, name string) (*gen.ClusterAuthzRole, error) {
 	resp, err := c.client.GetClusterRoleWithResponse(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster role: %w", err)
@@ -982,7 +982,7 @@ func (c *Client) GetClusterRole(ctx context.Context, name string) (*gen.AuthzClu
 }
 
 // ListClusterRoleBindings retrieves all cluster-scoped role bindings
-func (c *Client) ListClusterRoleBindings(ctx context.Context, params *gen.ListClusterRoleBindingsParams) (*gen.AuthzClusterRoleBindingList, error) {
+func (c *Client) ListClusterRoleBindings(ctx context.Context, params *gen.ListClusterRoleBindingsParams) (*gen.ClusterAuthzRoleBindingList, error) {
 	if params == nil {
 		params = &gen.ListClusterRoleBindingsParams{}
 	}
@@ -997,7 +997,7 @@ func (c *Client) ListClusterRoleBindings(ctx context.Context, params *gen.ListCl
 }
 
 // GetClusterRoleBinding retrieves a specific cluster-scoped role binding
-func (c *Client) GetClusterRoleBinding(ctx context.Context, name string) (*gen.AuthzClusterRoleBinding, error) {
+func (c *Client) GetClusterRoleBinding(ctx context.Context, name string) (*gen.ClusterAuthzRoleBinding, error) {
 	resp, err := c.client.GetClusterRoleBindingWithResponse(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster role binding: %w", err)

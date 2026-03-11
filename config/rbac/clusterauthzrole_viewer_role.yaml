@@ -11,12 +11,12 @@ metadata:
   labels:
     app.kubernetes.io/name: openchoreo
     app.kubernetes.io/managed-by: kustomize
-  name: authzclusterrolebinding-viewer-role
+  name: clusterauthzrole-viewer-role
 rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - authzclusterrolebindings
+  - clusterauthzroles
   verbs:
   - get
   - list
@@ -24,6 +24,6 @@ rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - authzclusterrolebindings/status
+  - clusterauthzroles/status
   verbs:
   - get

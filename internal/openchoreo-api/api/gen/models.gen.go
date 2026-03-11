@@ -23,17 +23,6 @@ const (
 	ActionInfoLowestScopeProject   ActionInfoLowestScope = "project"
 )
 
-// Defines values for AuthzClusterRoleBindingSpecEffect.
-const (
-	AuthzClusterRoleBindingSpecEffectAllow AuthzClusterRoleBindingSpecEffect = "allow"
-	AuthzClusterRoleBindingSpecEffectDeny  AuthzClusterRoleBindingSpecEffect = "deny"
-)
-
-// Defines values for AuthzClusterRoleMappingRoleRefKind.
-const (
-	AuthzClusterRoleMappingRoleRefKindAuthzClusterRole AuthzClusterRoleMappingRoleRefKind = "AuthzClusterRole"
-)
-
 // Defines values for AuthzRoleBindingSpecEffect.
 const (
 	AuthzRoleBindingSpecEffectAllow AuthzRoleBindingSpecEffect = "allow"
@@ -42,8 +31,19 @@ const (
 
 // Defines values for AuthzRoleRefKind.
 const (
-	AuthzRoleRefKindAuthzClusterRole AuthzRoleRefKind = "AuthzClusterRole"
 	AuthzRoleRefKindAuthzRole        AuthzRoleRefKind = "AuthzRole"
+	AuthzRoleRefKindClusterAuthzRole AuthzRoleRefKind = "ClusterAuthzRole"
+)
+
+// Defines values for ClusterAuthzRoleBindingSpecEffect.
+const (
+	ClusterAuthzRoleBindingSpecEffectAllow ClusterAuthzRoleBindingSpecEffect = "allow"
+	ClusterAuthzRoleBindingSpecEffectDeny  ClusterAuthzRoleBindingSpecEffect = "deny"
+)
+
+// Defines values for ClusterAuthzRoleMappingRoleRefKind.
+const (
+	ClusterAuthzRoleMappingRoleRefKindClusterAuthzRole ClusterAuthzRoleMappingRoleRefKind = "ClusterAuthzRole"
 )
 
 // Defines values for ClusterComponentTypeSpecAllowedTraitsKind.
@@ -434,98 +434,6 @@ type AuthMechanismConfig struct {
 	Type string `json:"type"`
 }
 
-// AuthzClusterRole Cluster-scoped authorization role (Kubernetes CRD).
-// Defines a set of actions that can be assigned to subjects via role bindings.
-type AuthzClusterRole struct {
-	// ApiVersion API version of the resource
-	ApiVersion *string `json:"apiVersion,omitempty"`
-
-	// Kind Kind of the resource
-	Kind *string `json:"kind,omitempty"`
-
-	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
-	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
-	Metadata ObjectMeta `json:"metadata"`
-
-	// Spec Specification for a cluster-scoped authorization role
-	Spec *AuthzClusterRoleSpec `json:"spec,omitempty"`
-}
-
-// AuthzClusterRoleBinding Cluster-scoped role binding (Kubernetes CRD).
-// Binds a cluster role to a subject identified by an entitlement claim.
-type AuthzClusterRoleBinding struct {
-	// ApiVersion API version of the resource
-	ApiVersion *string `json:"apiVersion,omitempty"`
-
-	// Kind Kind of the resource
-	Kind *string `json:"kind,omitempty"`
-
-	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
-	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
-	Metadata ObjectMeta `json:"metadata"`
-
-	// Spec Specification for a cluster-scoped role binding
-	Spec *AuthzClusterRoleBindingSpec `json:"spec,omitempty"`
-}
-
-// AuthzClusterRoleBindingList List of cluster-scoped role bindings
-type AuthzClusterRoleBindingList struct {
-	Items []AuthzClusterRoleBinding `json:"items"`
-
-	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
-	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
-}
-
-// AuthzClusterRoleBindingSpec Specification for a cluster-scoped role binding
-type AuthzClusterRoleBindingSpec struct {
-	// Effect Policy effect (allow or deny)
-	Effect *AuthzClusterRoleBindingSpecEffect `json:"effect,omitempty"`
-
-	// Entitlement Entitlement claim-value pair for subject identification
-	Entitlement AuthzEntitlementClaim `json:"entitlement"`
-
-	// RoleMappings List of cluster role mappings this binding grants
-	RoleMappings []AuthzClusterRoleMapping `json:"roleMappings"`
-}
-
-// AuthzClusterRoleBindingSpecEffect Policy effect (allow or deny)
-type AuthzClusterRoleBindingSpecEffect string
-
-// AuthzClusterRoleList List of cluster-scoped authorization roles
-type AuthzClusterRoleList struct {
-	Items []AuthzClusterRole `json:"items"`
-
-	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
-	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
-}
-
-// AuthzClusterRoleMapping Pairs a role reference with an optional scope for cluster-scoped bindings
-type AuthzClusterRoleMapping struct {
-	RoleRef struct {
-		Kind AuthzClusterRoleMappingRoleRefKind `json:"kind"`
-
-		// Name Name of the role
-		Name string `json:"name"`
-	} `json:"roleRef"`
-
-	// Scope Target resource scope for cluster-scoped bindings (namespace/project/component)
-	Scope *AuthzClusterScope `json:"scope,omitempty"`
-}
-
-// AuthzClusterRoleMappingRoleRefKind defines model for AuthzClusterRoleMapping.RoleRef.Kind.
-type AuthzClusterRoleMappingRoleRefKind string
-
-// AuthzClusterRoleSpec Specification for a cluster-scoped authorization role
-type AuthzClusterRoleSpec struct {
-	// Actions List of actions this role permits
-	Actions []string `json:"actions"`
-
-	// Description Human-readable description of the role
-	Description *string `json:"description,omitempty"`
-}
-
 // AuthzClusterScope Target resource scope for cluster-scoped bindings (namespace/project/component)
 type AuthzClusterScope struct {
 	// Component Component name
@@ -619,23 +527,23 @@ type AuthzRoleList struct {
 
 // AuthzRoleMapping Pairs a role reference with an optional scope
 type AuthzRoleMapping struct {
-	// RoleRef Reference to an AuthzRole or AuthzClusterRole
+	// RoleRef Reference to an AuthzRole or ClusterAuthzRole
 	RoleRef AuthzRoleRef `json:"roleRef"`
 
 	// Scope Target resource scope within a namespace (project/component scope)
 	Scope *AuthzScope `json:"scope,omitempty"`
 }
 
-// AuthzRoleRef Reference to an AuthzRole or AuthzClusterRole
+// AuthzRoleRef Reference to an AuthzRole or ClusterAuthzRole
 type AuthzRoleRef struct {
-	// Kind Kind of role (AuthzRole or AuthzClusterRole)
+	// Kind Kind of role (AuthzRole or ClusterAuthzRole)
 	Kind AuthzRoleRefKind `json:"kind"`
 
 	// Name Name of the role
 	Name string `json:"name"`
 }
 
-// AuthzRoleRefKind Kind of role (AuthzRole or AuthzClusterRole)
+// AuthzRoleRefKind Kind of role (AuthzRole or ClusterAuthzRole)
 type AuthzRoleRefKind string
 
 // AuthzRoleSpec Specification for a namespace-scoped authorization role
@@ -669,6 +577,98 @@ type CapabilityResource struct {
 type ClusterAgentConfig struct {
 	// ClientCA Reference to a secret or inline value
 	ClientCA *ValueFrom `json:"clientCA,omitempty"`
+}
+
+// ClusterAuthzRole Cluster-scoped authorization role (Kubernetes CRD).
+// Defines a set of actions that can be assigned to subjects via role bindings.
+type ClusterAuthzRole struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Specification for a cluster-scoped authorization role
+	Spec *ClusterAuthzRoleSpec `json:"spec,omitempty"`
+}
+
+// ClusterAuthzRoleBinding Cluster-scoped role binding (Kubernetes CRD).
+// Binds a cluster role to a subject identified by an entitlement claim.
+type ClusterAuthzRoleBinding struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Specification for a cluster-scoped role binding
+	Spec *ClusterAuthzRoleBindingSpec `json:"spec,omitempty"`
+}
+
+// ClusterAuthzRoleBindingList List of cluster-scoped role bindings
+type ClusterAuthzRoleBindingList struct {
+	Items []ClusterAuthzRoleBinding `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ClusterAuthzRoleBindingSpec Specification for a cluster-scoped role binding
+type ClusterAuthzRoleBindingSpec struct {
+	// Effect Policy effect (allow or deny)
+	Effect *ClusterAuthzRoleBindingSpecEffect `json:"effect,omitempty"`
+
+	// Entitlement Entitlement claim-value pair for subject identification
+	Entitlement AuthzEntitlementClaim `json:"entitlement"`
+
+	// RoleMappings List of cluster role mappings this binding grants
+	RoleMappings []ClusterAuthzRoleMapping `json:"roleMappings"`
+}
+
+// ClusterAuthzRoleBindingSpecEffect Policy effect (allow or deny)
+type ClusterAuthzRoleBindingSpecEffect string
+
+// ClusterAuthzRoleList List of cluster-scoped authorization roles
+type ClusterAuthzRoleList struct {
+	Items []ClusterAuthzRole `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ClusterAuthzRoleMapping Pairs a role reference with an optional scope for cluster-scoped bindings
+type ClusterAuthzRoleMapping struct {
+	RoleRef struct {
+		Kind ClusterAuthzRoleMappingRoleRefKind `json:"kind"`
+
+		// Name Name of the role
+		Name string `json:"name"`
+	} `json:"roleRef"`
+
+	// Scope Target resource scope for cluster-scoped bindings (namespace/project/component)
+	Scope *AuthzClusterScope `json:"scope,omitempty"`
+}
+
+// ClusterAuthzRoleMappingRoleRefKind defines model for ClusterAuthzRoleMapping.RoleRef.Kind.
+type ClusterAuthzRoleMappingRoleRefKind string
+
+// ClusterAuthzRoleSpec Specification for a cluster-scoped authorization role
+type ClusterAuthzRoleSpec struct {
+	// Actions List of actions this role permits
+	Actions []string `json:"actions"`
+
+	// Description Human-readable description of the role
+	Description *string `json:"description,omitempty"`
 }
 
 // ClusterComponentType ClusterComponentType resource.
@@ -3829,6 +3829,40 @@ type GetSubjectProfileParams struct {
 	Component *string `form:"component,omitempty" json:"component,omitempty"`
 }
 
+// ListClusterRoleBindingsParams defines parameters for ListClusterRoleBindings.
+type ListClusterRoleBindingsParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListClusterRolesParams defines parameters for ListClusterRoles.
+type ListClusterRolesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListClusterComponentTypesParams defines parameters for ListClusterComponentTypes.
 type ListClusterComponentTypesParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
@@ -3865,40 +3899,6 @@ type ListClusterDataPlanesParams struct {
 
 // ListClusterObservabilityPlanesParams defines parameters for ListClusterObservabilityPlanes.
 type ListClusterObservabilityPlanesParams struct {
-	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
-	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
-	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
-	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
-	// Multiple requirements are comma-separated and ANDed together.
-	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
-
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
-// ListClusterRoleBindingsParams defines parameters for ListClusterRoleBindings.
-type ListClusterRoleBindingsParams struct {
-	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
-	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
-	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
-	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
-	// Multiple requirements are comma-separated and ANDed together.
-	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
-
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
-// ListClusterRolesParams defines parameters for ListClusterRoles.
-type ListClusterRolesParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
 	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
 	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
@@ -3967,6 +3967,40 @@ type ListClusterWorkflowsParams struct {
 
 // ListNamespacesParams defines parameters for ListNamespaces.
 type ListNamespacesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListNamespaceRoleBindingsParams defines parameters for ListNamespaceRoleBindings.
+type ListNamespaceRoleBindingsParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListNamespaceRolesParams defines parameters for ListNamespaceRoles.
+type ListNamespaceRolesParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
 	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
 	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
@@ -4185,40 +4219,6 @@ type GetReleaseBindingK8sResourceLogsParams struct {
 	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
 }
 
-// ListNamespaceRoleBindingsParams defines parameters for ListNamespaceRoleBindings.
-type ListNamespaceRoleBindingsParams struct {
-	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
-	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
-	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
-	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
-	// Multiple requirements are comma-separated and ANDed together.
-	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
-
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
-// ListNamespaceRolesParams defines parameters for ListNamespaceRoles.
-type ListNamespaceRolesParams struct {
-	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
-	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
-	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
-	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
-	// Multiple requirements are comma-separated and ANDed together.
-	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
-
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
 // ListSecretReferencesParams defines parameters for ListSecretReferences.
 type ListSecretReferencesParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
@@ -4360,6 +4360,18 @@ type HandleAutoBuildParams struct {
 // EvaluatesJSONRequestBody defines body for Evaluates for application/json ContentType.
 type EvaluatesJSONRequestBody = EvaluatesJSONBody
 
+// CreateClusterRoleBindingJSONRequestBody defines body for CreateClusterRoleBinding for application/json ContentType.
+type CreateClusterRoleBindingJSONRequestBody = ClusterAuthzRoleBinding
+
+// UpdateClusterRoleBindingJSONRequestBody defines body for UpdateClusterRoleBinding for application/json ContentType.
+type UpdateClusterRoleBindingJSONRequestBody = ClusterAuthzRoleBinding
+
+// CreateClusterRoleJSONRequestBody defines body for CreateClusterRole for application/json ContentType.
+type CreateClusterRoleJSONRequestBody = ClusterAuthzRole
+
+// UpdateClusterRoleJSONRequestBody defines body for UpdateClusterRole for application/json ContentType.
+type UpdateClusterRoleJSONRequestBody = ClusterAuthzRole
+
 // CreateClusterComponentTypeJSONRequestBody defines body for CreateClusterComponentType for application/json ContentType.
 type CreateClusterComponentTypeJSONRequestBody = ClusterComponentType
 
@@ -4377,18 +4389,6 @@ type CreateClusterObservabilityPlaneJSONRequestBody = ClusterObservabilityPlane
 
 // UpdateClusterObservabilityPlaneJSONRequestBody defines body for UpdateClusterObservabilityPlane for application/json ContentType.
 type UpdateClusterObservabilityPlaneJSONRequestBody = ClusterObservabilityPlane
-
-// CreateClusterRoleBindingJSONRequestBody defines body for CreateClusterRoleBinding for application/json ContentType.
-type CreateClusterRoleBindingJSONRequestBody = AuthzClusterRoleBinding
-
-// UpdateClusterRoleBindingJSONRequestBody defines body for UpdateClusterRoleBinding for application/json ContentType.
-type UpdateClusterRoleBindingJSONRequestBody = AuthzClusterRoleBinding
-
-// CreateClusterRoleJSONRequestBody defines body for CreateClusterRole for application/json ContentType.
-type CreateClusterRoleJSONRequestBody = AuthzClusterRole
-
-// UpdateClusterRoleJSONRequestBody defines body for UpdateClusterRole for application/json ContentType.
-type UpdateClusterRoleJSONRequestBody = AuthzClusterRole
 
 // CreateClusterTraitJSONRequestBody defines body for CreateClusterTrait for application/json ContentType.
 type CreateClusterTraitJSONRequestBody = ClusterTrait
@@ -4413,6 +4413,18 @@ type CreateNamespaceJSONRequestBody = Namespace
 
 // UpdateNamespaceJSONRequestBody defines body for UpdateNamespace for application/json ContentType.
 type UpdateNamespaceJSONRequestBody = Namespace
+
+// CreateNamespaceRoleBindingJSONRequestBody defines body for CreateNamespaceRoleBinding for application/json ContentType.
+type CreateNamespaceRoleBindingJSONRequestBody = AuthzRoleBinding
+
+// UpdateNamespaceRoleBindingJSONRequestBody defines body for UpdateNamespaceRoleBinding for application/json ContentType.
+type UpdateNamespaceRoleBindingJSONRequestBody = AuthzRoleBinding
+
+// CreateNamespaceRoleJSONRequestBody defines body for CreateNamespaceRole for application/json ContentType.
+type CreateNamespaceRoleJSONRequestBody = AuthzRole
+
+// UpdateNamespaceRoleJSONRequestBody defines body for UpdateNamespaceRole for application/json ContentType.
+type UpdateNamespaceRoleJSONRequestBody = AuthzRole
 
 // CreateComponentJSONRequestBody defines body for CreateComponent for application/json ContentType.
 type CreateComponentJSONRequestBody = Component
@@ -4470,18 +4482,6 @@ type CreateReleaseBindingJSONRequestBody = ReleaseBinding
 
 // UpdateReleaseBindingJSONRequestBody defines body for UpdateReleaseBinding for application/json ContentType.
 type UpdateReleaseBindingJSONRequestBody = ReleaseBinding
-
-// CreateNamespaceRoleBindingJSONRequestBody defines body for CreateNamespaceRoleBinding for application/json ContentType.
-type CreateNamespaceRoleBindingJSONRequestBody = AuthzRoleBinding
-
-// UpdateNamespaceRoleBindingJSONRequestBody defines body for UpdateNamespaceRoleBinding for application/json ContentType.
-type UpdateNamespaceRoleBindingJSONRequestBody = AuthzRoleBinding
-
-// CreateNamespaceRoleJSONRequestBody defines body for CreateNamespaceRole for application/json ContentType.
-type CreateNamespaceRoleJSONRequestBody = AuthzRole
-
-// UpdateNamespaceRoleJSONRequestBody defines body for UpdateNamespaceRole for application/json ContentType.
-type UpdateNamespaceRoleJSONRequestBody = AuthzRole
 
 // CreateSecretReferenceJSONRequestBody defines body for CreateSecretReference for application/json ContentType.
 type CreateSecretReferenceJSONRequestBody = SecretReference

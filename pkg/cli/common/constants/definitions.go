@@ -761,66 +761,66 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
   %[1]s secretreference delete my-secret --namespace acme-corp`, messages.DefaultCLIName),
 	}
 
-	AuthzClusterRole = Command{
-		Use:     "authzclusterrole",
-		Aliases: []string{"authzclusterroles", "acr"},
+	ClusterAuthzRole = Command{
+		Use:     "clusterauthzrole",
+		Aliases: []string{"clusterauthzroles", "car"},
 		Short:   "Manage authz cluster roles",
 		Long:    `Manage cluster-scoped authorization roles for OpenChoreo.`,
 	}
 
-	ListAuthzClusterRole = Command{
+	ListClusterAuthzRole = Command{
 		Use:   "list",
 		Short: "List authz cluster roles",
 		Long:  `List all cluster-scoped authorization roles.`,
 		Example: `  # List all authz cluster roles
-  occ authzclusterrole list`,
+  occ clusterauthzrole list`,
 	}
 
-	GetAuthzClusterRole = Command{
+	GetClusterAuthzRole = Command{
 		Use:   "get [NAME]",
 		Short: "Get an authz cluster role",
 		Long:  `Get an authz cluster role and display its details in YAML format.`,
 		Example: fmt.Sprintf(`  # Get an authz cluster role
-  %[1]s authzclusterrole get my-role`, messages.DefaultCLIName),
+  %[1]s clusterauthzrole get my-role`, messages.DefaultCLIName),
 	}
 
-	DeleteAuthzClusterRole = Command{
+	DeleteClusterAuthzRole = Command{
 		Use:   "delete [NAME]",
 		Short: "Delete an authz cluster role",
 		Long:  `Delete a cluster-scoped authorization role by name.`,
 		Example: fmt.Sprintf(`  # Delete an authz cluster role
-  %[1]s authzclusterrole delete my-role`, messages.DefaultCLIName),
+  %[1]s clusterauthzrole delete my-role`, messages.DefaultCLIName),
 	}
 
-	AuthzClusterRoleBinding = Command{
-		Use:     "authzclusterrolebinding",
-		Aliases: []string{"authzclusterrolebindings", "acrb"},
+	ClusterAuthzRoleBinding = Command{
+		Use:     "clusterauthzrolebinding",
+		Aliases: []string{"clusterauthzrolebindings", "carb"},
 		Short:   "Manage authz cluster role bindings",
 		Long:    `Manage cluster-scoped authorization role bindings for OpenChoreo.`,
 	}
 
-	ListAuthzClusterRoleBinding = Command{
+	ListClusterAuthzRoleBinding = Command{
 		Use:   "list",
 		Short: "List authz cluster role bindings",
 		Long:  `List all cluster-scoped authorization role bindings.`,
 		Example: `  # List all authz cluster role bindings
-  occ authzclusterrolebinding list`,
+  occ clusterauthzrolebinding list`,
 	}
 
-	GetAuthzClusterRoleBinding = Command{
+	GetClusterAuthzRoleBinding = Command{
 		Use:   "get [NAME]",
 		Short: "Get an authz cluster role binding",
 		Long:  `Get an authz cluster role binding and display its details in YAML format.`,
 		Example: fmt.Sprintf(`  # Get an authz cluster role binding
-  %[1]s authzclusterrolebinding get my-binding`, messages.DefaultCLIName),
+  %[1]s clusterauthzrolebinding get my-binding`, messages.DefaultCLIName),
 	}
 
-	DeleteAuthzClusterRoleBinding = Command{
+	DeleteClusterAuthzRoleBinding = Command{
 		Use:   "delete [NAME]",
 		Short: "Delete an authz cluster role binding",
 		Long:  `Delete a cluster-scoped authorization role binding by name.`,
 		Example: fmt.Sprintf(`  # Delete an authz cluster role binding
-  %[1]s authzclusterrolebinding delete my-binding`, messages.DefaultCLIName),
+  %[1]s clusterauthzrolebinding delete my-binding`, messages.DefaultCLIName),
 	}
 
 	AuthzRole = Command{

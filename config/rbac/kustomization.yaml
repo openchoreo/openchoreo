@@ -72,12 +72,12 @@ resources:
   - clustercomponenttype_admin_role.yaml
   - clustercomponenttype_editor_role.yaml
   - clustercomponenttype_viewer_role.yaml
-  - authzclusterrolebinding_admin_role.yaml
-  - authzclusterrolebinding_editor_role.yaml
-  - authzclusterrolebinding_viewer_role.yaml
-  - authzclusterrole_admin_role.yaml
-  - authzclusterrole_editor_role.yaml
-  - authzclusterrole_viewer_role.yaml
+  - clusterauthzrolebinding_admin_role.yaml
+  - clusterauthzrolebinding_editor_role.yaml
+  - clusterauthzrolebinding_viewer_role.yaml
+  - clusterauthzrole_admin_role.yaml
+  - clusterauthzrole_editor_role.yaml
+  - clusterauthzrole_viewer_role.yaml
   - authzrolebinding_admin_role.yaml
   - authzrolebinding_editor_role.yaml
   - authzrolebinding_viewer_role.yaml

@@ -273,7 +273,7 @@ func (h *Handler) ListClusterRoles(
 		return gen.ListClusterRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	items, err := convertList[openchoreov1alpha1.AuthzClusterRole, gen.AuthzClusterRole](result.Items)
+	items, err := convertList[openchoreov1alpha1.ClusterAuthzRole, gen.ClusterAuthzRole](result.Items)
 	if err != nil {
 		h.logger.Error("Failed to convert cluster roles", "error", err)
 		return gen.ListClusterRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -293,7 +293,7 @@ func (h *Handler) CreateClusterRole(
 		return gen.CreateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	roleCR, err := convert[gen.AuthzClusterRole, openchoreov1alpha1.AuthzClusterRole](*request.Body)
+	roleCR, err := convert[gen.ClusterAuthzRole, openchoreov1alpha1.ClusterAuthzRole](*request.Body)
 	if err != nil {
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
@@ -315,7 +315,7 @@ func (h *Handler) CreateClusterRole(
 		return gen.CreateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	genRole, err := convert[openchoreov1alpha1.AuthzClusterRole, gen.AuthzClusterRole](*created)
+	genRole, err := convert[openchoreov1alpha1.ClusterAuthzRole, gen.ClusterAuthzRole](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster role", "error", err)
 		return gen.CreateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -344,7 +344,7 @@ func (h *Handler) GetClusterRole(
 		return gen.GetClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	genRole, err := convert[openchoreov1alpha1.AuthzClusterRole, gen.AuthzClusterRole](*role)
+	genRole, err := convert[openchoreov1alpha1.ClusterAuthzRole, gen.ClusterAuthzRole](*role)
 	if err != nil {
 		h.logger.Error("Failed to convert cluster role", "error", err)
 		return gen.GetClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -364,7 +364,7 @@ func (h *Handler) UpdateClusterRole(
 		return gen.UpdateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	roleCR, err := convert[gen.AuthzClusterRole, openchoreov1alpha1.AuthzClusterRole](*request.Body)
+	roleCR, err := convert[gen.ClusterAuthzRole, openchoreov1alpha1.ClusterAuthzRole](*request.Body)
 	if err != nil {
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
@@ -388,7 +388,7 @@ func (h *Handler) UpdateClusterRole(
 		return gen.UpdateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	genRole, err := convert[openchoreov1alpha1.AuthzClusterRole, gen.AuthzClusterRole](*updated)
+	genRole, err := convert[openchoreov1alpha1.ClusterAuthzRole, gen.ClusterAuthzRole](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated cluster role", "error", err)
 		return gen.UpdateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -447,7 +447,7 @@ func (h *Handler) ListClusterRoleBindings(
 		return gen.ListClusterRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	items, err := convertList[openchoreov1alpha1.AuthzClusterRoleBinding, gen.AuthzClusterRoleBinding](result.Items)
+	items, err := convertList[openchoreov1alpha1.ClusterAuthzRoleBinding, gen.ClusterAuthzRoleBinding](result.Items)
 	if err != nil {
 		h.logger.Error("Failed to convert cluster role bindings", "error", err)
 		return gen.ListClusterRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -467,7 +467,7 @@ func (h *Handler) CreateClusterRoleBinding(
 		return gen.CreateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	bindingCR, err := convert[gen.AuthzClusterRoleBinding, openchoreov1alpha1.AuthzClusterRoleBinding](*request.Body)
+	bindingCR, err := convert[gen.ClusterAuthzRoleBinding, openchoreov1alpha1.ClusterAuthzRoleBinding](*request.Body)
 	if err != nil {
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
@@ -492,7 +492,7 @@ func (h *Handler) CreateClusterRoleBinding(
 		return gen.CreateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	genBinding, err := convert[openchoreov1alpha1.AuthzClusterRoleBinding, gen.AuthzClusterRoleBinding](*created)
+	genBinding, err := convert[openchoreov1alpha1.ClusterAuthzRoleBinding, gen.ClusterAuthzRoleBinding](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster role binding", "error", err)
 		return gen.CreateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -521,7 +521,7 @@ func (h *Handler) GetClusterRoleBinding(
 		return gen.GetClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	genBinding, err := convert[openchoreov1alpha1.AuthzClusterRoleBinding, gen.AuthzClusterRoleBinding](*binding)
+	genBinding, err := convert[openchoreov1alpha1.ClusterAuthzRoleBinding, gen.ClusterAuthzRoleBinding](*binding)
 	if err != nil {
 		h.logger.Error("Failed to convert cluster role binding", "error", err)
 		return gen.GetClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -541,7 +541,7 @@ func (h *Handler) UpdateClusterRoleBinding(
 		return gen.UpdateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	bindingCR, err := convert[gen.AuthzClusterRoleBinding, openchoreov1alpha1.AuthzClusterRoleBinding](*request.Body)
+	bindingCR, err := convert[gen.ClusterAuthzRoleBinding, openchoreov1alpha1.ClusterAuthzRoleBinding](*request.Body)
 	if err != nil {
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
@@ -565,7 +565,7 @@ func (h *Handler) UpdateClusterRoleBinding(
 		return gen.UpdateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	genBinding, err := convert[openchoreov1alpha1.AuthzClusterRoleBinding, gen.AuthzClusterRoleBinding](*updated)
+	genBinding, err := convert[openchoreov1alpha1.ClusterAuthzRoleBinding, gen.ClusterAuthzRoleBinding](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated cluster role binding", "error", err)
 		return gen.UpdateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

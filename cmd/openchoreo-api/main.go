@@ -301,9 +301,9 @@ func setupRuntime(
 		cacheOpts := cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
 				&openchoreov1alpha1.AuthzRole{}:               {},
-				&openchoreov1alpha1.AuthzClusterRole{}:        {},
+				&openchoreov1alpha1.ClusterAuthzRole{}:        {},
 				&openchoreov1alpha1.AuthzRoleBinding{}:        {},
-				&openchoreov1alpha1.AuthzClusterRoleBinding{}: {},
+				&openchoreov1alpha1.ClusterAuthzRoleBinding{}: {},
 			},
 		}
 		if authzCfg.ResyncInterval > 0 {

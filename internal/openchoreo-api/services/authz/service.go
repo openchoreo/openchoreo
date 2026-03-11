@@ -27,9 +27,9 @@ type authzService struct {
 
 var _ Service = (*authzService)(nil)
 
-var authzClusterRoleTypeMeta = metav1.TypeMeta{
+var clusterAuthzRoleTypeMeta = metav1.TypeMeta{
 	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "AuthzClusterRole",
+	Kind:       "ClusterAuthzRole",
 }
 
 var authzRoleTypeMeta = metav1.TypeMeta{
@@ -37,9 +37,9 @@ var authzRoleTypeMeta = metav1.TypeMeta{
 	Kind:       "AuthzRole",
 }
 
-var authzClusterRoleBindingTypeMeta = metav1.TypeMeta{
+var clusterAuthzRoleBindingTypeMeta = metav1.TypeMeta{
 	APIVersion: openchoreov1alpha1.GroupVersion.String(),
-	Kind:       "AuthzClusterRoleBinding",
+	Kind:       "ClusterAuthzRoleBinding",
 }
 
 var authzRoleBindingTypeMeta = metav1.TypeMeta{
@@ -59,7 +59,7 @@ func NewService(pap authzcore.PAP, pdp authzcore.PDP, k8sClient client.Client, l
 
 // --- Cluster Roles ---
 
-func (s *authzService) CreateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error) {
+func (s *authzService) CreateClusterRole(ctx context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error) {
 	if role == nil {
 		return nil, fmt.Errorf("cluster role cannot be nil")
 	}
@@ -71,36 +71,36 @@ func (s *authzService) CreateClusterRole(ctx context.Context, role *openchoreov1
 		}
 		return nil, err
 	}
-	created.TypeMeta = authzClusterRoleTypeMeta
+	created.TypeMeta = clusterAuthzRoleTypeMeta
 	return created, nil
 }
 
-func (s *authzService) GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRole, error) {
+func (s *authzService) GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.ClusterAuthzRole, error) {
 	s.logger.Debug("Getting cluster role", "name", name)
 	role, err := s.pap.GetClusterRole(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	role.TypeMeta = authzClusterRoleTypeMeta
+	role.TypeMeta = clusterAuthzRoleTypeMeta
 	return role, nil
 }
 
-func (s *authzService) ListClusterRoles(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzClusterRole], error) {
+func (s *authzService) ListClusterRoles(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterAuthzRole], error) {
 	s.logger.Debug("Listing cluster roles", "limit", opts.Limit, "cursor", opts.Cursor)
 	paged, err := s.pap.ListClusterRoles(ctx, opts.Limit, opts.Cursor)
 	if err != nil {
 		return nil, err
 	}
 	for i := range paged.Items {
-		paged.Items[i].TypeMeta = authzClusterRoleTypeMeta
+		paged.Items[i].TypeMeta = clusterAuthzRoleTypeMeta
 	}
-	return &services.ListResult[openchoreov1alpha1.AuthzClusterRole]{
+	return &services.ListResult[openchoreov1alpha1.ClusterAuthzRole]{
 		Items:      paged.Items,
 		NextCursor: paged.NextCursor,
 	}, nil
 }
 
-func (s *authzService) UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error) {
+func (s *authzService) UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error) {
 	if role == nil {
 		return nil, fmt.Errorf("cluster role cannot be nil")
 	}
@@ -112,13 +112,13 @@ func (s *authzService) UpdateClusterRole(ctx context.Context, role *openchoreov1
 		}
 		return nil, err
 	}
-	updated.TypeMeta = authzClusterRoleTypeMeta
+	updated.TypeMeta = clusterAuthzRoleTypeMeta
 	return updated, nil
 }
 
 func (s *authzService) DeleteClusterRole(ctx context.Context, name string) error {
 	s.logger.Debug("Deleting cluster role", "name", name)
-	role := &openchoreov1alpha1.AuthzClusterRole{
+	role := &openchoreov1alpha1.ClusterAuthzRole{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 	}
 	if err := s.k8sClient.Delete(ctx, role); err != nil {
@@ -207,7 +207,7 @@ func (s *authzService) DeleteNamespaceRole(ctx context.Context, namespace, name 
 
 // --- Cluster Role Bindings ---
 
-func (s *authzService) CreateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+func (s *authzService) CreateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
 	if binding == nil {
 		return nil, fmt.Errorf("cluster role binding cannot be nil")
 	}
@@ -219,36 +219,36 @@ func (s *authzService) CreateClusterRoleBinding(ctx context.Context, binding *op
 		}
 		return nil, err
 	}
-	created.TypeMeta = authzClusterRoleBindingTypeMeta
+	created.TypeMeta = clusterAuthzRoleBindingTypeMeta
 	return created, nil
 }
 
-func (s *authzService) GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+func (s *authzService) GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
 	s.logger.Debug("Getting cluster role binding", "name", name)
 	binding, err := s.pap.GetClusterRoleBinding(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	binding.TypeMeta = authzClusterRoleBindingTypeMeta
+	binding.TypeMeta = clusterAuthzRoleBindingTypeMeta
 	return binding, nil
 }
 
-func (s *authzService) ListClusterRoleBindings(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzClusterRoleBinding], error) {
+func (s *authzService) ListClusterRoleBindings(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterAuthzRoleBinding], error) {
 	s.logger.Debug("Listing cluster role bindings", "limit", opts.Limit, "cursor", opts.Cursor)
 	paged, err := s.pap.ListClusterRoleBindings(ctx, opts.Limit, opts.Cursor)
 	if err != nil {
 		return nil, err
 	}
 	for i := range paged.Items {
-		paged.Items[i].TypeMeta = authzClusterRoleBindingTypeMeta
+		paged.Items[i].TypeMeta = clusterAuthzRoleBindingTypeMeta
 	}
-	return &services.ListResult[openchoreov1alpha1.AuthzClusterRoleBinding]{
+	return &services.ListResult[openchoreov1alpha1.ClusterAuthzRoleBinding]{
 		Items:      paged.Items,
 		NextCursor: paged.NextCursor,
 	}, nil
 }
 
-func (s *authzService) UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+func (s *authzService) UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
 	if binding == nil {
 		return nil, fmt.Errorf("cluster role binding cannot be nil")
 	}
@@ -260,13 +260,13 @@ func (s *authzService) UpdateClusterRoleBinding(ctx context.Context, binding *op
 		}
 		return nil, err
 	}
-	updated.TypeMeta = authzClusterRoleBindingTypeMeta
+	updated.TypeMeta = clusterAuthzRoleBindingTypeMeta
 	return updated, nil
 }
 
 func (s *authzService) DeleteClusterRoleBinding(ctx context.Context, name string) error {
 	s.logger.Debug("Deleting cluster role binding", "name", name)
-	binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
+	binding := &openchoreov1alpha1.ClusterAuthzRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 	}
 	if err := s.k8sClient.Delete(ctx, binding); err != nil {

@@ -26,7 +26,7 @@ type ClusterTargetScope struct {
 // ClusterRoleMapping pairs a role reference with an optional scope for cluster-scoped bindings
 // +kubebuilder:validation:XValidation:rule="!has(self.scope) || (!has(self.scope.project) || has(self.scope.namespace)) && (!has(self.scope.component) || has(self.scope.project))",message="scope.project requires scope.namespace, and scope.component requires scope.project"
 type ClusterRoleMapping struct {
-	// RoleRef references the AuthzClusterRole to bind
+	// RoleRef references the ClusterAuthzRole to bind
 	RoleRef RoleRef `json:"roleRef"`
 
 	// Scope defines the target scope within the ownership hierarchy
@@ -34,9 +34,9 @@ type ClusterRoleMapping struct {
 	Scope ClusterTargetScope `json:"scope,omitempty"`
 }
 
-// AuthzClusterRoleBindingSpec defines the desired state of AuthzClusterRoleBinding
-// +kubebuilder:validation:XValidation:rule="self.roleMappings.all(m, m.roleRef.kind == 'AuthzClusterRole')",message="AuthzClusterRoleBinding can only reference AuthzClusterRole"
-type AuthzClusterRoleBindingSpec struct {
+// ClusterAuthzRoleBindingSpec defines the desired state of ClusterAuthzRoleBinding
+// +kubebuilder:validation:XValidation:rule="self.roleMappings.all(m, m.roleRef.kind == 'ClusterAuthzRole')",message="ClusterAuthzRoleBinding can only reference ClusterAuthzRole"
+type ClusterAuthzRoleBindingSpec struct {
 	// Entitlement defines the subject (from JWT claims) to grant the role to
 	// +required
 	Entitlement EntitlementClaim `json:"entitlement"`
@@ -56,22 +56,22 @@ type AuthzClusterRoleBindingSpec struct {
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
-// AuthzClusterRoleBinding is the Schema for the authzclusterrolebindings API
-type AuthzClusterRoleBinding struct {
+// ClusterAuthzRoleBinding is the Schema for the authzclusterrolebindings API
+type ClusterAuthzRoleBinding struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              AuthzClusterRoleBindingSpec `json:"spec,omitempty"`
+	Spec              ClusterAuthzRoleBindingSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// AuthzClusterRoleBindingList contains a list of AuthzClusterRoleBinding
-type AuthzClusterRoleBindingList struct {
+// ClusterAuthzRoleBindingList contains a list of ClusterAuthzRoleBinding
+type ClusterAuthzRoleBindingList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []AuthzClusterRoleBinding `json:"items"`
+	Items           []ClusterAuthzRoleBinding `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&AuthzClusterRoleBinding{}, &AuthzClusterRoleBindingList{})
+	SchemeBuilder.Register(&ClusterAuthzRoleBinding{}, &ClusterAuthzRoleBindingList{})
 }

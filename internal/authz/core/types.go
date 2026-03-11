@@ -151,7 +151,7 @@ type MappingRef struct {
 	Name string `json:"name" yaml:"name"`
 
 	// Namespace identifies the binding scope:
-	// - Empty string ("") = cluster-scoped binding (AuthzClusterRoleBinding)
+	// - Empty string ("") = cluster-scoped binding (ClusterAuthzRoleBinding)
 	// - Non-empty = namespace-scoped binding (AuthzRoleBinding) in the specified namespace
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 }

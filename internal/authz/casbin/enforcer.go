@@ -30,7 +30,7 @@ type CasbinEnforcer struct {
 }
 
 // CasbinConfig holds configuration for the Casbin enforcer.
-// Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.
+// Policies are loaded from ClusterAuthzRole, AuthzRole, ClusterAuthzRoleBinding, and AuthzRoleBinding CRDs.
 type CasbinConfig struct {
 	K8sClient    client.Client // Required: Kubernetes client
 	CacheEnabled bool          // Optional: Enable policy cache (default: false)

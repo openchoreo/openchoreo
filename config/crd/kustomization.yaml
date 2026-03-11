@@ -26,8 +26,8 @@ resources:
   - bases/openchoreo.dev_observabilityalertrules.yaml
   - bases/openchoreo.dev_authzroles.yaml
   - bases/openchoreo.dev_authzrolebindings.yaml
-  - bases/openchoreo.dev_authzclusterroles.yaml
-  - bases/openchoreo.dev_authzclusterrolebindings.yaml
+  - bases/openchoreo.dev_clusterauthzroles.yaml
+  - bases/openchoreo.dev_clusterauthzrolebindings.yaml
   - bases/openchoreo.dev_clusterworkflowplanes.yaml
   - bases/openchoreo.dev_clusterdataplanes.yaml
   - bases/openchoreo.dev_clusterobservabilityplanes.yaml

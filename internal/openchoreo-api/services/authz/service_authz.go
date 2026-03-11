@@ -47,7 +47,7 @@ func NewServiceWithAuthz(pap authzcore.PAP, pdp authzcore.PDP, k8sClient client.
 
 // --- Cluster Roles ---
 
-func (s *authzServiceWithAuthz) CreateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error) {
+func (s *authzServiceWithAuthz) CreateClusterRole(ctx context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionCreateRole,
 		ResourceType: resourceTypeRole,
@@ -58,7 +58,7 @@ func (s *authzServiceWithAuthz) CreateClusterRole(ctx context.Context, role *ope
 	return s.internal.CreateClusterRole(ctx, role)
 }
 
-func (s *authzServiceWithAuthz) GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRole, error) {
+func (s *authzServiceWithAuthz) GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.ClusterAuthzRole, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewRole,
 		ResourceType: resourceTypeRole,
@@ -69,7 +69,7 @@ func (s *authzServiceWithAuthz) GetClusterRole(ctx context.Context, name string)
 	return s.internal.GetClusterRole(ctx, name)
 }
 
-func (s *authzServiceWithAuthz) ListClusterRoles(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzClusterRole], error) {
+func (s *authzServiceWithAuthz) ListClusterRoles(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterAuthzRole], error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewRole,
 		ResourceType: resourceTypeRole,
@@ -79,7 +79,7 @@ func (s *authzServiceWithAuthz) ListClusterRoles(ctx context.Context, opts servi
 	return s.internal.ListClusterRoles(ctx, opts)
 }
 
-func (s *authzServiceWithAuthz) UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error) {
+func (s *authzServiceWithAuthz) UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionUpdateRole,
 		ResourceType: resourceTypeRole,
@@ -164,7 +164,7 @@ func (s *authzServiceWithAuthz) DeleteNamespaceRole(ctx context.Context, namespa
 
 // --- Cluster Role Bindings ---
 
-func (s *authzServiceWithAuthz) CreateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+func (s *authzServiceWithAuthz) CreateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionCreateRoleMapping,
 		ResourceType: resourceTypeRoleMapping,
@@ -175,7 +175,7 @@ func (s *authzServiceWithAuthz) CreateClusterRoleBinding(ctx context.Context, bi
 	return s.internal.CreateClusterRoleBinding(ctx, binding)
 }
 
-func (s *authzServiceWithAuthz) GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+func (s *authzServiceWithAuthz) GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewRoleMapping,
 		ResourceType: resourceTypeRoleMapping,
@@ -186,7 +186,7 @@ func (s *authzServiceWithAuthz) GetClusterRoleBinding(ctx context.Context, name 
 	return s.internal.GetClusterRoleBinding(ctx, name)
 }
 
-func (s *authzServiceWithAuthz) ListClusterRoleBindings(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzClusterRoleBinding], error) {
+func (s *authzServiceWithAuthz) ListClusterRoleBindings(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterAuthzRoleBinding], error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewRoleMapping,
 		ResourceType: resourceTypeRoleMapping,
@@ -196,7 +196,7 @@ func (s *authzServiceWithAuthz) ListClusterRoleBindings(ctx context.Context, opt
 	return s.internal.ListClusterRoleBindings(ctx, opts)
 }
 
-func (s *authzServiceWithAuthz) UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+func (s *authzServiceWithAuthz) UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionUpdateRoleMapping,
 		ResourceType: resourceTypeRoleMapping,

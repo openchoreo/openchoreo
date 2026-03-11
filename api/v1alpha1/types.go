@@ -77,7 +77,7 @@ const (
 )
 
 // EntitlementClaim represents a claim-value pair for subject identification
-// Used by AuthzRoleBinding and AuthzClusterRoleBinding
+// Used by AuthzRoleBinding and ClusterAuthzRoleBinding
 type EntitlementClaim struct {
 	// Claim is the JWT claim name (e.g., "groups", "sub", "email")
 	// +required
@@ -89,21 +89,21 @@ type EntitlementClaim struct {
 }
 
 // RoleRefKind defines the kind of role referenced by a RoleRef
-// +kubebuilder:validation:Enum=AuthzRole;AuthzClusterRole
+// +kubebuilder:validation:Enum=AuthzRole;ClusterAuthzRole
 type RoleRefKind string
 
 const (
 	// RoleRefKindAuthzRole references a namespaced AuthzRole
 	RoleRefKindAuthzRole RoleRefKind = "AuthzRole"
 
-	// RoleRefKindAuthzClusterRole references a cluster-scoped AuthzClusterRole
-	RoleRefKindAuthzClusterRole RoleRefKind = "AuthzClusterRole"
+	// RoleRefKindClusterAuthzRole references a cluster-scoped ClusterAuthzRole
+	RoleRefKindClusterAuthzRole RoleRefKind = "ClusterAuthzRole"
 )
 
-// RoleRef represents a reference to an AuthzRole or AuthzClusterRole
-// Used by AuthzRoleBinding and AuthzClusterRoleBinding
+// RoleRef represents a reference to an AuthzRole or ClusterAuthzRole
+// Used by AuthzRoleBinding and ClusterAuthzRoleBinding
 type RoleRef struct {
-	// Kind is the kind of role (AuthzRole or AuthzClusterRole)
+	// Kind is the kind of role (AuthzRole or ClusterAuthzRole)
 	// For AuthzRoleBinding: AuthzRole must be in the same namespace
 	// +required
 	Kind RoleRefKind `json:"kind"`
@@ -429,7 +429,7 @@ type EnvironmentRef struct {
 }
 
 // EffectType defines whether to allow or deny access
-// Used by AuthzRoleBinding and AuthzClusterRoleBinding
+// Used by AuthzRoleBinding and ClusterAuthzRoleBinding
 // +kubebuilder:validation:Enum=allow;deny
 type EffectType string
 

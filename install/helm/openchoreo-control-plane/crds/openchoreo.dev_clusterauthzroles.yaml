@@ -1,17 +1,16 @@
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: authzclusterroles.openchoreo.dev
+  name: clusterauthzroles.openchoreo.dev
 spec:
   group: openchoreo.dev
   names:
-    kind: AuthzClusterRole
-    listKind: AuthzClusterRoleList
-    plural: authzclusterroles
-    singular: authzclusterrole
+    kind: ClusterAuthzRole
+    listKind: ClusterAuthzRoleList
+    plural: clusterauthzroles
+    singular: clusterauthzrole
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -21,7 +20,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: AuthzClusterRole is the Schema for the authzclusterroles API
+        description: ClusterAuthzRole is the Schema for the authzclusterroles API
         properties:
           apiVersion:
             description: |-
@@ -41,7 +40,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: AuthzClusterRoleSpec defines the desired state of AuthzClusterRole
+            description: ClusterAuthzRoleSpec defines the desired state of ClusterAuthzRole
             properties:
               actions:
                 description: Actions is the list of actions this role can perform

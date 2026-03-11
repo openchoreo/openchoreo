@@ -5,7 +5,7 @@
 ---
 # Cluster-scoped role
 apiVersion: openchoreo.dev/v1alpha1
-kind: AuthzClusterRole
+kind: ClusterAuthzRole
 metadata:
   name: {{ .name }}
   labels:
@@ -58,7 +58,7 @@ spec:
 ---
 # Cluster-scoped binding
 apiVersion: openchoreo.dev/v1alpha1
-kind: AuthzClusterRoleBinding
+kind: ClusterAuthzRoleBinding
 metadata:
   name: {{ .name }}
   labels:
@@ -72,7 +72,7 @@ spec:
     {{- range .roleMappings }}
     - roleRef:
         name: {{ .roleRef.name }}
-        kind: AuthzClusterRole
+        kind: ClusterAuthzRole
       {{- if and .scope (or .scope.namespace .scope.project .scope.component) }}
       scope:
         {{- if .scope.namespace }}
@@ -109,7 +109,7 @@ spec:
     {{- range .roleMappings }}
     - roleRef:
         name: {{ .roleRef.name }}
-        kind: {{ if eq (default "" .roleRef.namespace) "" }}AuthzClusterRole{{ else }}AuthzRole{{ end }}
+        kind: {{ if eq (default "" .roleRef.namespace) "" }}ClusterAuthzRole{{ else }}AuthzRole{{ end }}
       {{- if and .scope (or .scope.project .scope.component) }}
       scope:
         {{- if .scope.project }}

@@ -20,9 +20,9 @@ const (
 // CRD type constants for authz resources
 const (
 	CRDTypeAuthzRole               = "AuthzRole"
-	CRDTypeAuthzClusterRole        = "AuthzClusterRole"
+	CRDTypeClusterAuthzRole        = "ClusterAuthzRole"
 	CRDTypeAuthzRoleBinding        = "AuthzRoleBinding"
-	CRDTypeAuthzClusterRoleBinding = "AuthzClusterRoleBinding"
+	CRDTypeClusterAuthzRoleBinding = "ClusterAuthzRoleBinding"
 )
 
 const (

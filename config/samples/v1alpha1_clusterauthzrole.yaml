@@ -1,5 +1,5 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: AuthzClusterRole
+kind: ClusterAuthzRole
 metadata:
   labels:
     app.kubernetes.io/name: openchoreo

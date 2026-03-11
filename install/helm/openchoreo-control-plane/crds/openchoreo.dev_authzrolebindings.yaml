@@ -77,11 +77,11 @@ spec:
                       properties:
                         kind:
                           description: |-
-                            Kind is the kind of role (AuthzRole or AuthzClusterRole)
+                            Kind is the kind of role (AuthzRole or ClusterAuthzRole)
                             For AuthzRoleBinding: AuthzRole must be in the same namespace
                           enum:
                           - AuthzRole
-                          - AuthzClusterRole
+                          - ClusterAuthzRole
                           type: string
                         name:
                           description: Name is the name of the role

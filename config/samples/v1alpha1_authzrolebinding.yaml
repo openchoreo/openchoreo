@@ -17,6 +17,6 @@ spec:
       scope:
         project: crm
     - roleRef:
-        kind: AuthzClusterRole
+        kind: ClusterAuthzRole
         name: viewer
   effect: allow

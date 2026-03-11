@@ -212,7 +212,7 @@ func addClusterScopedResources(reg map[string]resourceEntry) {
 		},
 	}
 
-	reg["AuthzClusterRole"] = resourceEntry{
+	reg["ClusterAuthzRole"] = resourceEntry{
 		scope: scopeCluster,
 		get: func(ctx context.Context, c *gen.ClientWithResponses, _, name string) (int, error) {
 			r, err := c.GetClusterRoleWithResponse(ctx, name)
@@ -237,7 +237,7 @@ func addClusterScopedResources(reg map[string]resourceEntry) {
 		},
 	}
 
-	reg["AuthzClusterRoleBinding"] = resourceEntry{
+	reg["ClusterAuthzRoleBinding"] = resourceEntry{
 		scope: scopeCluster,
 		get: func(ctx context.Context, c *gen.ClientWithResponses, _, name string) (int, error) {
 			r, err := c.GetClusterRoleBindingWithResponse(ctx, name)

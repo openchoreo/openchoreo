@@ -55,10 +55,10 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateWorkflowRunParams(cmdType, params)
 	case ResourceObservabilityAlertsNotificationChannel:
 		return validateObservabilityAlertsNotificationChannelParams(cmdType, params)
-	case ResourceAuthzClusterRole:
-		return validateAuthzClusterRoleParams(cmdType, params)
-	case ResourceAuthzClusterRoleBinding:
-		return validateAuthzClusterRoleBindingParams(cmdType, params)
+	case ResourceClusterAuthzRole:
+		return validateClusterAuthzRoleParams(cmdType, params)
+	case ResourceClusterAuthzRoleBinding:
+		return validateClusterAuthzRoleBindingParams(cmdType, params)
 	case ResourceAuthzRole:
 		return validateAuthzRoleParams(cmdType, params)
 	case ResourceAuthzRoleBinding:
@@ -891,13 +891,13 @@ func validateDeleteObservabilityAlertsNotificationChannelParams(params interface
 	return nil
 }
 
-// validateAuthzClusterRoleParams validates parameters for authz cluster role operations
-func validateAuthzClusterRoleParams(_ CommandType, _ interface{}) error {
+// validateClusterAuthzRoleParams validates parameters for authz cluster role operations
+func validateClusterAuthzRoleParams(_ CommandType, _ interface{}) error {
 	return nil
 }
 
-// validateAuthzClusterRoleBindingParams validates parameters for authz cluster role binding operations
-func validateAuthzClusterRoleBindingParams(_ CommandType, _ interface{}) error {
+// validateClusterAuthzRoleBindingParams validates parameters for authz cluster role binding operations
+func validateClusterAuthzRoleBindingParams(_ CommandType, _ interface{}) error {
 	return nil
 }
 

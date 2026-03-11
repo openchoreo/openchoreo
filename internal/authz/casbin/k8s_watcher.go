@@ -20,7 +20,7 @@ import (
 type authzInformerHandler struct {
 	enforcer casbin.IEnforcer
 	logger   *slog.Logger
-	crdType  string // "AuthzRole", "AuthzClusterRole", "AuthzRoleBinding", "AuthzClusterRoleBinding"
+	crdType  string // "AuthzRole", "ClusterAuthzRole", "AuthzRoleBinding", "ClusterAuthzRoleBinding"
 }
 
 var _ cache.ResourceEventHandler = (*authzInformerHandler)(nil)
@@ -38,7 +38,7 @@ func SetupAuthzWatchers(
 		return err
 	}
 
-	if err := setupAuthzClusterRoleWatcher(ctx, mgr, enforcer, logger); err != nil {
+	if err := setupClusterAuthzRoleWatcher(ctx, mgr, enforcer, logger); err != nil {
 		return err
 	}
 
@@ -46,7 +46,7 @@ func SetupAuthzWatchers(
 		return err
 	}
 
-	if err := setupAuthzClusterRoleBindingWatcher(ctx, mgr, enforcer, logger); err != nil {
+	if err := setupClusterAuthzRoleBindingWatcher(ctx, mgr, enforcer, logger); err != nil {
 		return err
 	}
 
@@ -79,8 +79,8 @@ func setupAuthzRoleWatcher(
 	return nil
 }
 
-// setupAuthzClusterRoleWatcher sets up the informer for AuthzClusterRole CRDs
-func setupAuthzClusterRoleWatcher(
+// setupClusterAuthzRoleWatcher sets up the informer for ClusterAuthzRole CRDs
+func setupClusterAuthzRoleWatcher(
 	ctx context.Context,
 	mgr ctrl.Manager,
 	enforcer casbin.IEnforcer,
@@ -88,20 +88,20 @@ func setupAuthzClusterRoleWatcher(
 ) error {
 	handler := &authzInformerHandler{
 		enforcer: enforcer,
-		logger:   logger.With("crdType", "AuthzClusterRole"),
-		crdType:  "AuthzClusterRole",
+		logger:   logger.With("crdType", "ClusterAuthzRole"),
+		crdType:  "ClusterAuthzRole",
 	}
 
-	informer, err := mgr.GetCache().GetInformer(ctx, &authzv1alpha1.AuthzClusterRole{})
+	informer, err := mgr.GetCache().GetInformer(ctx, &authzv1alpha1.ClusterAuthzRole{})
 	if err != nil {
-		return fmt.Errorf("failed to get AuthzClusterRole informer: %w", err)
+		return fmt.Errorf("failed to get ClusterAuthzRole informer: %w", err)
 	}
 
 	if _, err = informer.AddEventHandler(handler); err != nil {
-		return fmt.Errorf("failed to add AuthzClusterRole event handler: %w", err)
+		return fmt.Errorf("failed to add ClusterAuthzRole event handler: %w", err)
 	}
 
-	logger.Info("Set up event handler for AuthzClusterRole CRDs")
+	logger.Info("Set up event handler for ClusterAuthzRole CRDs")
 	return nil
 }
 
@@ -131,8 +131,8 @@ func setupAuthzRoleBindingWatcher(
 	return nil
 }
 
-// setupAuthzClusterRoleBindingWatcher sets up the informer for AuthzClusterRoleBinding CRDs
-func setupAuthzClusterRoleBindingWatcher(
+// setupClusterAuthzRoleBindingWatcher sets up the informer for ClusterAuthzRoleBinding CRDs
+func setupClusterAuthzRoleBindingWatcher(
 	ctx context.Context,
 	mgr ctrl.Manager,
 	enforcer casbin.IEnforcer,
@@ -140,20 +140,20 @@ func setupAuthzClusterRoleBindingWatcher(
 ) error {
 	handler := &authzInformerHandler{
 		enforcer: enforcer,
-		logger:   logger.With("crdType", "AuthzClusterRoleBinding"),
-		crdType:  "AuthzClusterRoleBinding",
+		logger:   logger.With("crdType", "ClusterAuthzRoleBinding"),
+		crdType:  "ClusterAuthzRoleBinding",
 	}
 
-	informer, err := mgr.GetCache().GetInformer(ctx, &authzv1alpha1.AuthzClusterRoleBinding{})
+	informer, err := mgr.GetCache().GetInformer(ctx, &authzv1alpha1.ClusterAuthzRoleBinding{})
 	if err != nil {
-		return fmt.Errorf("failed to get AuthzClusterRoleBinding informer: %w", err)
+		return fmt.Errorf("failed to get ClusterAuthzRoleBinding informer: %w", err)
 	}
 
 	if _, err = informer.AddEventHandler(handler); err != nil {
-		return fmt.Errorf("failed to add AuthzClusterRoleBinding event handler: %w", err)
+		return fmt.Errorf("failed to add ClusterAuthzRoleBinding event handler: %w", err)
 	}
 
-	logger.Info("Set up event handler for AuthzClusterRoleBinding CRDs")
+	logger.Info("Set up event handler for ClusterAuthzRoleBinding CRDs")
 	return nil
 }
 
@@ -182,11 +182,11 @@ func (h *authzInformerHandler) handleAdd(obj interface{}) error {
 	switch h.crdType {
 	case CRDTypeAuthzRole:
 		return h.handleAddRole(obj)
-	case CRDTypeAuthzClusterRole:
+	case CRDTypeClusterAuthzRole:
 		return h.handleAddClusterRole(obj)
 	case CRDTypeAuthzRoleBinding:
 		return h.handleAddBinding(obj)
-	case CRDTypeAuthzClusterRoleBinding:
+	case CRDTypeClusterAuthzRoleBinding:
 		return h.handleAddClusterBinding(obj)
 	default:
 		h.logger.Warn("Unknown CRD type in handleAdd", "crdType", h.crdType)
@@ -220,9 +220,9 @@ func (h *authzInformerHandler) handleAddRole(obj interface{}) error {
 }
 
 func (h *authzInformerHandler) handleAddClusterRole(obj interface{}) error {
-	clusterRole, ok := obj.(*authzv1alpha1.AuthzClusterRole)
+	clusterRole, ok := obj.(*authzv1alpha1.ClusterAuthzRole)
 	if !ok {
-		h.logger.Warn("Received non-AuthzClusterRole object in OnAdd")
+		h.logger.Warn("Received non-ClusterAuthzRole object in OnAdd")
 		return nil
 	}
 
@@ -271,7 +271,7 @@ func (h *authzInformerHandler) handleAddBinding(obj interface{}) error {
 			Component: mapping.Scope.Component,
 		})
 		roleNamespace := binding.Namespace
-		if mapping.RoleRef.Kind == CRDTypeAuthzClusterRole {
+		if mapping.RoleRef.Kind == CRDTypeClusterAuthzRole {
 			roleNamespace = "*"
 		}
 		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, roleNamespace, effect, emptyContextJSON, binding.Name})
@@ -291,9 +291,9 @@ func (h *authzInformerHandler) handleAddBinding(obj interface{}) error {
 }
 
 func (h *authzInformerHandler) handleAddClusterBinding(obj interface{}) error {
-	binding, ok := obj.(*authzv1alpha1.AuthzClusterRoleBinding)
+	binding, ok := obj.(*authzv1alpha1.ClusterAuthzRoleBinding)
 	if !ok {
-		h.logger.Warn("Received non-AuthzClusterRoleBinding object in OnAdd")
+		h.logger.Warn("Received non-ClusterAuthzRoleBinding object in OnAdd")
 		return nil
 	}
 
@@ -336,11 +336,11 @@ func (h *authzInformerHandler) handleUpdate(oldObj, newObj interface{}) error {
 	switch h.crdType {
 	case CRDTypeAuthzRole:
 		return h.handleUpdateRole(oldObj, newObj)
-	case CRDTypeAuthzClusterRole:
+	case CRDTypeClusterAuthzRole:
 		return h.handleUpdateClusterRole(oldObj, newObj)
 	case CRDTypeAuthzRoleBinding:
 		return h.handleUpdateBinding(oldObj, newObj)
-	case CRDTypeAuthzClusterRoleBinding:
+	case CRDTypeClusterAuthzRoleBinding:
 		return h.handleUpdateClusterBinding(oldObj, newObj)
 	default:
 		h.logger.Warn("Unknown CRD type in handleUpdate", "crdType", h.crdType)
@@ -402,10 +402,10 @@ func (h *authzInformerHandler) handleUpdateRole(oldObj, newObj interface{}) erro
 }
 
 func (h *authzInformerHandler) handleUpdateClusterRole(oldObj, newObj interface{}) error {
-	oldRole, ok1 := oldObj.(*authzv1alpha1.AuthzClusterRole)
-	newRole, ok2 := newObj.(*authzv1alpha1.AuthzClusterRole)
+	oldRole, ok1 := oldObj.(*authzv1alpha1.ClusterAuthzRole)
+	newRole, ok2 := newObj.(*authzv1alpha1.ClusterAuthzRole)
 	if !ok1 || !ok2 {
-		h.logger.Error("Received non-AuthzClusterRole object in OnUpdate")
+		h.logger.Error("Received non-ClusterAuthzRole object in OnUpdate")
 		return nil
 	}
 
@@ -483,7 +483,7 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 			Namespace: oldBinding.Namespace, Project: m.Scope.Project, Component: m.Scope.Component,
 		})
 		rns := oldBinding.Namespace
-		if m.RoleRef.Kind == CRDTypeAuthzClusterRole {
+		if m.RoleRef.Kind == CRDTypeClusterAuthzRole {
 			rns = "*"
 		}
 		oldPolicies = append(oldPolicies, []string{oldSubject, rp, m.RoleRef.Name, rns, oldEffect, emptyContextJSON, oldBinding.Name})
@@ -504,7 +504,7 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 			Namespace: newBinding.Namespace, Project: m.Scope.Project, Component: m.Scope.Component,
 		})
 		rns := newBinding.Namespace
-		if m.RoleRef.Kind == CRDTypeAuthzClusterRole {
+		if m.RoleRef.Kind == CRDTypeClusterAuthzRole {
 			rns = "*"
 		}
 		newPolicies = append(newPolicies, []string{newSubject, rp, m.RoleRef.Name, rns, newEffect, emptyContextJSON, newBinding.Name})
@@ -534,10 +534,10 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 }
 
 func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interface{}) error {
-	oldBinding, ok1 := oldObj.(*authzv1alpha1.AuthzClusterRoleBinding)
-	newBinding, ok2 := newObj.(*authzv1alpha1.AuthzClusterRoleBinding)
+	oldBinding, ok1 := oldObj.(*authzv1alpha1.ClusterAuthzRoleBinding)
+	newBinding, ok2 := newObj.(*authzv1alpha1.ClusterAuthzRoleBinding)
 	if !ok1 || !ok2 {
-		h.logger.Error("Received non-AuthzClusterRoleBinding object in OnUpdate")
+		h.logger.Error("Received non-ClusterAuthzRoleBinding object in OnUpdate")
 		return nil
 	}
 
@@ -613,11 +613,11 @@ func (h *authzInformerHandler) handleDelete(obj interface{}) error {
 	switch h.crdType {
 	case CRDTypeAuthzRole:
 		return h.handleDeleteRole(obj)
-	case CRDTypeAuthzClusterRole:
+	case CRDTypeClusterAuthzRole:
 		return h.handleDeleteClusterRole(obj)
 	case CRDTypeAuthzRoleBinding:
 		return h.handleDeleteBinding(obj)
-	case CRDTypeAuthzClusterRoleBinding:
+	case CRDTypeClusterAuthzRoleBinding:
 		return h.handleDeleteClusterBinding(obj)
 	default:
 		h.logger.Warn("Unknown CRD type in handleDelete", "crdType", h.crdType)
@@ -654,9 +654,9 @@ func (h *authzInformerHandler) handleDeleteRole(obj interface{}) error {
 }
 
 func (h *authzInformerHandler) handleDeleteClusterRole(obj interface{}) error {
-	clusterRole, ok := obj.(*authzv1alpha1.AuthzClusterRole)
+	clusterRole, ok := obj.(*authzv1alpha1.ClusterAuthzRole)
 	if !ok {
-		h.logger.Warn("Received non-AuthzClusterRole object in OnDelete")
+		h.logger.Warn("Received non-ClusterAuthzRole object in OnDelete")
 		return nil
 	}
 
@@ -705,7 +705,7 @@ func (h *authzInformerHandler) handleDeleteBinding(obj interface{}) error {
 			Component: mapping.Scope.Component,
 		})
 		roleNamespace := binding.Namespace
-		if mapping.RoleRef.Kind == CRDTypeAuthzClusterRole {
+		if mapping.RoleRef.Kind == CRDTypeClusterAuthzRole {
 			roleNamespace = "*"
 		}
 		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, roleNamespace, effect, emptyContextJSON, binding.Name})
@@ -724,9 +724,9 @@ func (h *authzInformerHandler) handleDeleteBinding(obj interface{}) error {
 }
 
 func (h *authzInformerHandler) handleDeleteClusterBinding(obj interface{}) error {
-	binding, ok := obj.(*authzv1alpha1.AuthzClusterRoleBinding)
+	binding, ok := obj.(*authzv1alpha1.ClusterAuthzRoleBinding)
 	if !ok {
-		h.logger.Warn("Received non-AuthzClusterRoleBinding object in OnDelete")
+		h.logger.Warn("Received non-ClusterAuthzRoleBinding object in OnDelete")
 		return nil
 	}
 

@@ -146,14 +146,14 @@ func TestAuthzInformerHandler_HandleAddRole_Idempotent(t *testing.T) {
 func TestAuthzInformerHandler_HandleAddClusterRole(t *testing.T) {
 	tests := []struct {
 		name         string
-		clusterRole  *authzv1alpha1.AuthzClusterRole
+		clusterRole  *authzv1alpha1.ClusterAuthzRole
 		wantPolicies [][]string // Expected grouping policies: [role, action, "*"]
 	}{
 		{
 			name: "add cluster role with single action",
-			clusterRole: &authzv1alpha1.AuthzClusterRole{
+			clusterRole: &authzv1alpha1.ClusterAuthzRole{
 				ObjectMeta: metav1.ObjectMeta{Name: "global-viewer"},
-				Spec: authzv1alpha1.AuthzClusterRoleSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleSpec{
 					Actions: []string{"namespace:view"},
 				},
 			},
@@ -163,9 +163,9 @@ func TestAuthzInformerHandler_HandleAddClusterRole(t *testing.T) {
 		},
 		{
 			name: "add cluster role with multiple actions",
-			clusterRole: &authzv1alpha1.AuthzClusterRole{
+			clusterRole: &authzv1alpha1.ClusterAuthzRole{
 				ObjectMeta: metav1.ObjectMeta{Name: "global-admin"},
-				Spec: authzv1alpha1.AuthzClusterRoleSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleSpec{
 					Actions: []string{"namespace:view", "namespace:create", "project:*"},
 				},
 			},
@@ -177,9 +177,9 @@ func TestAuthzInformerHandler_HandleAddClusterRole(t *testing.T) {
 		},
 		{
 			name: "add cluster role with global wildcard",
-			clusterRole: &authzv1alpha1.AuthzClusterRole{
+			clusterRole: &authzv1alpha1.ClusterAuthzRole{
 				ObjectMeta: metav1.ObjectMeta{Name: "super-admin"},
-				Spec: authzv1alpha1.AuthzClusterRoleSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleSpec{
 					Actions: []string{"*"},
 				},
 			},
@@ -191,7 +191,7 @@ func TestAuthzInformerHandler_HandleAddClusterRole(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRole)
+			handler, enforcer := setupTestHandler(t, CRDTypeClusterAuthzRole)
 
 			err := handler.handleAddClusterRole(tt.clusterRole)
 			if err != nil {
@@ -213,11 +213,11 @@ func TestAuthzInformerHandler_HandleAddClusterRole(t *testing.T) {
 }
 
 func TestAuthzInformerHandler_HandleAddClusterRole_Idempotent(t *testing.T) {
-	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRole)
+	handler, enforcer := setupTestHandler(t, CRDTypeClusterAuthzRole)
 
-	clusterRole := &authzv1alpha1.AuthzClusterRole{
+	clusterRole := &authzv1alpha1.ClusterAuthzRole{
 		ObjectMeta: metav1.ObjectMeta{Name: "global-viewer"},
-		Spec: authzv1alpha1.AuthzClusterRoleSpec{
+		Spec: authzv1alpha1.ClusterAuthzRoleSpec{
 			Actions: []string{"namespace:view"},
 		},
 	}
@@ -355,7 +355,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 					},
 					RoleMappings: []authzv1alpha1.RoleMapping{{
 						RoleRef: authzv1alpha1.RoleRef{
-							Kind: CRDTypeAuthzClusterRole,
+							Kind: CRDTypeClusterAuthzRole,
 							Name: "global-admin",
 						},
 					}},
@@ -537,21 +537,21 @@ func TestAuthzInformerHandler_HandleAddBinding_Idempotent(t *testing.T) {
 func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 	tests := []struct {
 		name         string
-		binding      *authzv1alpha1.AuthzClusterRoleBinding
+		binding      *authzv1alpha1.ClusterAuthzRoleBinding
 		wantPolicies [][]string // Expected policies: [subject, "*", role, "*", effect, context, binding_name]
 	}{
 		{
 			name: "add cluster binding with allow effect",
-			binding: &authzv1alpha1.AuthzClusterRoleBinding{
+			binding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "global-admin-binding"},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{
 						Claim: "groups",
 						Value: "platform-admins",
 					},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
 						RoleRef: authzv1alpha1.RoleRef{
-							Kind: CRDTypeAuthzClusterRole,
+							Kind: CRDTypeClusterAuthzRole,
 							Name: "super-admin",
 						},
 					}},
@@ -564,16 +564,16 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 		},
 		{
 			name: "add cluster binding with deny effect",
-			binding: &authzv1alpha1.AuthzClusterRoleBinding{
+			binding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "global-deny-binding"},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{
 						Claim: "groups",
 						Value: "blocked-group",
 					},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
 						RoleRef: authzv1alpha1.RoleRef{
-							Kind: CRDTypeAuthzClusterRole,
+							Kind: CRDTypeClusterAuthzRole,
 							Name: "all-access",
 						},
 					}},
@@ -586,9 +586,9 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 		},
 		{
 			name: "add cluster binding with multiple role mappings",
-			binding: &authzv1alpha1.AuthzClusterRoleBinding{
+			binding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "multi-cluster-binding"},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{
 						Claim: "groups",
 						Value: "platform-admins",
@@ -596,13 +596,13 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{
 						{
 							RoleRef: authzv1alpha1.RoleRef{
-								Kind: CRDTypeAuthzClusterRole,
+								Kind: CRDTypeClusterAuthzRole,
 								Name: "super-admin",
 							},
 						},
 						{
 							RoleRef: authzv1alpha1.RoleRef{
-								Kind: CRDTypeAuthzClusterRole,
+								Kind: CRDTypeClusterAuthzRole,
 								Name: "global-viewer",
 							},
 						},
@@ -617,16 +617,16 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 		},
 		{
 			name: "add cluster binding scoped to namespace",
-			binding: &authzv1alpha1.AuthzClusterRoleBinding{
+			binding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "ns-scoped-binding"},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{
 						Claim: "groups",
 						Value: "acme-admins",
 					},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
 						RoleRef: authzv1alpha1.RoleRef{
-							Kind: CRDTypeAuthzClusterRole,
+							Kind: CRDTypeClusterAuthzRole,
 							Name: "ns-admin",
 						},
 						Scope: authzv1alpha1.ClusterTargetScope{Namespace: "acme"},
@@ -640,16 +640,16 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 		},
 		{
 			name: "add cluster binding scoped to namespace and project",
-			binding: &authzv1alpha1.AuthzClusterRoleBinding{
+			binding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "proj-scoped-binding"},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{
 						Claim: "groups",
 						Value: "proj-team",
 					},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
 						RoleRef: authzv1alpha1.RoleRef{
-							Kind: CRDTypeAuthzClusterRole,
+							Kind: CRDTypeClusterAuthzRole,
 							Name: "proj-editor",
 						},
 						Scope: authzv1alpha1.ClusterTargetScope{Namespace: "acme", Project: "p1"},
@@ -663,16 +663,16 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 		},
 		{
 			name: "add cluster binding scoped to full hierarchy",
-			binding: &authzv1alpha1.AuthzClusterRoleBinding{
+			binding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "full-scoped-binding"},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{
 						Claim: "groups",
 						Value: "comp-team",
 					},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
 						RoleRef: authzv1alpha1.RoleRef{
-							Kind: CRDTypeAuthzClusterRole,
+							Kind: CRDTypeClusterAuthzRole,
 							Name: "comp-viewer",
 						},
 						Scope: authzv1alpha1.ClusterTargetScope{Namespace: "acme", Project: "p1", Component: "c1"},
@@ -686,19 +686,19 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 		},
 		{
 			name: "add cluster binding with mixed scoped and unscoped mappings",
-			binding: &authzv1alpha1.AuthzClusterRoleBinding{
+			binding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "mixed-scope-binding"},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{
 						Claim: "groups",
 						Value: "mixed-team",
 					},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{
 						{
-							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "global-viewer"},
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "global-viewer"},
 						},
 						{
-							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "ns-editor"},
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "ns-editor"},
 							Scope:   authzv1alpha1.ClusterTargetScope{Namespace: "acme"},
 						},
 					},
@@ -714,7 +714,7 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
+			handler, enforcer := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
 
 			err := handler.handleAddClusterBinding(tt.binding)
 			if err != nil {
@@ -745,18 +745,18 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 }
 
 func TestAuthzInformerHandler_HandleAddClusterBinding_Idempotent(t *testing.T) {
-	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
+	handler, enforcer := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
 
-	binding := &authzv1alpha1.AuthzClusterRoleBinding{
+	binding := &authzv1alpha1.ClusterAuthzRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: "global-admin-binding"},
-		Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 			Entitlement: authzv1alpha1.EntitlementClaim{
 				Claim: "groups",
 				Value: "platform-admins",
 			},
 			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
 				RoleRef: authzv1alpha1.RoleRef{
-					Kind: CRDTypeAuthzClusterRole,
+					Kind: CRDTypeClusterAuthzRole,
 					Name: "super-admin",
 				},
 			}},
@@ -890,7 +890,7 @@ func TestAuthzInformerHandler_HandleUpdateRole_NoGenerationChange(t *testing.T) 
 }
 
 func TestAuthzInformerHandler_HandleUpdateClusterRole(t *testing.T) {
-	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRole)
+	handler, enforcer := setupTestHandler(t, CRDTypeClusterAuthzRole)
 
 	_, err := enforcer.AddGroupingPolicies([][]string{
 		{"global-editor", "namespace:view", "*"},
@@ -900,22 +900,22 @@ func TestAuthzInformerHandler_HandleUpdateClusterRole(t *testing.T) {
 		t.Fatalf("AddGroupingPolicies() error = %v", err)
 	}
 
-	oldRole := &authzv1alpha1.AuthzClusterRole{
+	oldRole := &authzv1alpha1.ClusterAuthzRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       "global-editor",
 			Generation: 1,
 		},
-		Spec: authzv1alpha1.AuthzClusterRoleSpec{
+		Spec: authzv1alpha1.ClusterAuthzRoleSpec{
 			Actions: []string{"namespace:view", "namespace:create"},
 		},
 	}
 
-	newRole := &authzv1alpha1.AuthzClusterRole{
+	newRole := &authzv1alpha1.ClusterAuthzRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       "global-editor",
 			Generation: 2,
 		},
-		Spec: authzv1alpha1.AuthzClusterRoleSpec{
+		Spec: authzv1alpha1.ClusterAuthzRoleSpec{
 			Actions: []string{"namespace:view", "namespace:delete"}, // create removed, delete added
 		},
 	}
@@ -1007,7 +1007,7 @@ func TestAuthzInformerHandler_HandleUpdateBinding(t *testing.T) {
 							Scope:   authzv1alpha1.TargetScope{Project: "crm"},
 						},
 						{
-							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "viewer"},
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "viewer"},
 						},
 					},
 					Effect: authzv1alpha1.EffectAllow,
@@ -1035,7 +1035,7 @@ func TestAuthzInformerHandler_HandleUpdateBinding(t *testing.T) {
 							Scope:   authzv1alpha1.TargetScope{Project: "crm"},
 						},
 						{
-							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "viewer"},
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "viewer"},
 						},
 					},
 					Effect: authzv1alpha1.EffectAllow,
@@ -1173,8 +1173,8 @@ func TestAuthzInformerHandler_HandleUpdateClusterBinding(t *testing.T) {
 	tests := []struct {
 		name            string
 		seedPolicies    [][]string
-		oldBinding      *authzv1alpha1.AuthzClusterRoleBinding
-		newBinding      *authzv1alpha1.AuthzClusterRoleBinding
+		oldBinding      *authzv1alpha1.ClusterAuthzRoleBinding
+		newBinding      *authzv1alpha1.ClusterAuthzRoleBinding
 		wantPolicies    [][]string
 		wantPolicyCount int
 	}{
@@ -1183,22 +1183,22 @@ func TestAuthzInformerHandler_HandleUpdateClusterBinding(t *testing.T) {
 			seedPolicies: [][]string{
 				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "admin-binding"},
 			},
-			oldBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+			oldBinding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 1},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
-						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "super-admin"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			newBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+			newBinding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 2},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
-						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "global-viewer"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "global-viewer"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
@@ -1213,23 +1213,23 @@ func TestAuthzInformerHandler_HandleUpdateClusterBinding(t *testing.T) {
 			seedPolicies: [][]string{
 				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "admin-binding"},
 			},
-			oldBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+			oldBinding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 1},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
-						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "super-admin"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			newBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+			newBinding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 2},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{
-						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"}},
-						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "audit-viewer"}},
+						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "super-admin"}},
+						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "audit-viewer"}},
 					},
 					Effect: authzv1alpha1.EffectAllow,
 				},
@@ -1246,23 +1246,23 @@ func TestAuthzInformerHandler_HandleUpdateClusterBinding(t *testing.T) {
 				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "admin-binding"},
 				{"groups:admins", "*", "audit-viewer", "*", "allow", "{}", "admin-binding"},
 			},
-			oldBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+			oldBinding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 1},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{
-						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"}},
-						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "audit-viewer"}},
+						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "super-admin"}},
+						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "audit-viewer"}},
 					},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			newBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+			newBinding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 2},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
-						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "super-admin"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
@@ -1277,22 +1277,22 @@ func TestAuthzInformerHandler_HandleUpdateClusterBinding(t *testing.T) {
 			seedPolicies: [][]string{
 				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "scope-change-binding"},
 			},
-			oldBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+			oldBinding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "scope-change-binding", Generation: 1},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
-						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "super-admin"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			newBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+			newBinding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "scope-change-binding", Generation: 2},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
-						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "super-admin"},
 						Scope:   authzv1alpha1.ClusterTargetScope{Namespace: "acme"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
@@ -1308,24 +1308,24 @@ func TestAuthzInformerHandler_HandleUpdateClusterBinding(t *testing.T) {
 			seedPolicies: [][]string{
 				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "add-scope-binding"},
 			},
-			oldBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+			oldBinding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "add-scope-binding", Generation: 1},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
-						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "super-admin"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			newBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+			newBinding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "add-scope-binding", Generation: 2},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{
-						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"}},
+						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "super-admin"}},
 						{
-							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "ns-viewer"},
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "ns-viewer"},
 							Scope:   authzv1alpha1.ClusterTargetScope{Namespace: "acme"},
 						},
 					},
@@ -1344,26 +1344,26 @@ func TestAuthzInformerHandler_HandleUpdateClusterBinding(t *testing.T) {
 				{"groups:admins", "*", "super-admin", "*", "allow", "{}", "rm-scope-binding"},
 				{"groups:admins", "ns/acme", "ns-viewer", "*", "allow", "{}", "rm-scope-binding"},
 			},
-			oldBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+			oldBinding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "rm-scope-binding", Generation: 1},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{
-						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"}},
+						{RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "super-admin"}},
 						{
-							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "ns-viewer"},
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "ns-viewer"},
 							Scope:   authzv1alpha1.ClusterTargetScope{Namespace: "acme"},
 						},
 					},
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			newBinding: &authzv1alpha1.AuthzClusterRoleBinding{
+			newBinding: &authzv1alpha1.ClusterAuthzRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{Name: "rm-scope-binding", Generation: 2},
-				Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+				Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 					RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
-						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "super-admin"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
@@ -1377,7 +1377,7 @@ func TestAuthzInformerHandler_HandleUpdateClusterBinding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
+			handler, enforcer := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
 
 			// Seed existing policies
 			if len(tt.seedPolicies) > 0 {
@@ -1415,19 +1415,19 @@ func TestAuthzInformerHandler_HandleUpdateClusterBinding(t *testing.T) {
 }
 
 func TestAuthzInformerHandler_HandleUpdateClusterBinding_NoGenerationChange(t *testing.T) {
-	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
+	handler, enforcer := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
 
 	_, err := enforcer.AddPolicy("groups:admins", "*", "super-admin", "*", "allow", "{}", "admin-binding")
 	if err != nil {
 		t.Fatalf("AddPolicy() error = %v", err)
 	}
 
-	binding := &authzv1alpha1.AuthzClusterRoleBinding{
+	binding := &authzv1alpha1.ClusterAuthzRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: "admin-binding", Generation: 1},
-		Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
 			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
-				RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "super-admin"},
+				RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "super-admin"},
 			}},
 			Effect: authzv1alpha1.EffectAllow,
 		},
@@ -1483,7 +1483,7 @@ func TestAuthzInformerHandler_HandleDeleteRole(t *testing.T) {
 }
 
 func TestAuthzInformerHandler_HandleDeleteClusterRole(t *testing.T) {
-	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRole)
+	handler, enforcer := setupTestHandler(t, CRDTypeClusterAuthzRole)
 
 	_, err := enforcer.AddGroupingPolicies([][]string{
 		{"global-admin", "namespace:view", "*"},
@@ -1493,9 +1493,9 @@ func TestAuthzInformerHandler_HandleDeleteClusterRole(t *testing.T) {
 		t.Fatalf("AddGroupingPolicies() error = %v", err)
 	}
 
-	clusterRole := &authzv1alpha1.AuthzClusterRole{
+	clusterRole := &authzv1alpha1.ClusterAuthzRole{
 		ObjectMeta: metav1.ObjectMeta{Name: "global-admin"},
-		Spec: authzv1alpha1.AuthzClusterRoleSpec{
+		Spec: authzv1alpha1.ClusterAuthzRoleSpec{
 			Actions: []string{"namespace:view", "namespace:create"},
 		},
 	}
@@ -1605,7 +1605,7 @@ func TestAuthzInformerHandler_HandleDeleteBinding_MultipleRoleMappings(t *testin
 }
 
 func TestAuthzInformerHandler_HandleDeleteClusterBinding(t *testing.T) {
-	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
+	handler, enforcer := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
 
 	// Setup: directly add policy to Casbin
 	_, err := enforcer.AddPolicy("groups:platform-admins", "*", "super-admin", "*", "allow", "{}", "global-admin-binding")
@@ -1613,16 +1613,16 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding(t *testing.T) {
 		t.Fatalf("AddPolicy() error = %v", err)
 	}
 
-	binding := &authzv1alpha1.AuthzClusterRoleBinding{
+	binding := &authzv1alpha1.ClusterAuthzRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: "global-admin-binding"},
-		Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 			Entitlement: authzv1alpha1.EntitlementClaim{
 				Claim: "groups",
 				Value: "platform-admins",
 			},
 			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
 				RoleRef: authzv1alpha1.RoleRef{
-					Kind: CRDTypeAuthzClusterRole,
+					Kind: CRDTypeClusterAuthzRole,
 					Name: "super-admin",
 				},
 			}},
@@ -1641,7 +1641,7 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding(t *testing.T) {
 }
 
 func TestAuthzInformerHandler_HandleDeleteClusterBinding_MultipleRoleMappings(t *testing.T) {
-	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
+	handler, enforcer := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
 
 	// Pre-add 2 policies matching 2 cluster role mappings
 	_, err := enforcer.AddPolicies([][]string{
@@ -1652,9 +1652,9 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding_MultipleRoleMappings(t 
 		t.Fatalf("AddPolicies() error = %v", err)
 	}
 
-	binding := &authzv1alpha1.AuthzClusterRoleBinding{
+	binding := &authzv1alpha1.ClusterAuthzRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: "multi-cluster-binding"},
-		Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 			Entitlement: authzv1alpha1.EntitlementClaim{
 				Claim: "groups",
 				Value: "platform-admins",
@@ -1662,13 +1662,13 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding_MultipleRoleMappings(t 
 			RoleMappings: []authzv1alpha1.ClusterRoleMapping{
 				{
 					RoleRef: authzv1alpha1.RoleRef{
-						Kind: CRDTypeAuthzClusterRole,
+						Kind: CRDTypeClusterAuthzRole,
 						Name: "super-admin",
 					},
 				},
 				{
 					RoleRef: authzv1alpha1.RoleRef{
-						Kind: CRDTypeAuthzClusterRole,
+						Kind: CRDTypeClusterAuthzRole,
 						Name: "global-viewer",
 					},
 				},
@@ -1692,7 +1692,7 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding_MultipleRoleMappings(t 
 }
 
 func TestAuthzInformerHandler_HandleDeleteClusterBinding_Scoped(t *testing.T) {
-	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
+	handler, enforcer := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
 
 	// Pre-add scoped policies
 	_, err := enforcer.AddPolicies([][]string{
@@ -1703,19 +1703,19 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding_Scoped(t *testing.T) {
 		t.Fatalf("AddPolicies() error = %v", err)
 	}
 
-	binding := &authzv1alpha1.AuthzClusterRoleBinding{
+	binding := &authzv1alpha1.ClusterAuthzRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: "scoped-del-binding"},
-		Spec: authzv1alpha1.AuthzClusterRoleBindingSpec{
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
 			Entitlement: authzv1alpha1.EntitlementClaim{
 				Claim: "groups",
 				Value: "admins",
 			},
 			RoleMappings: []authzv1alpha1.ClusterRoleMapping{
 				{
-					RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "global-admin"},
+					RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "global-admin"},
 				},
 				{
-					RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "ns-viewer"},
+					RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeClusterAuthzRole, Name: "ns-viewer"},
 					Scope:   authzv1alpha1.ClusterTargetScope{Namespace: "acme"},
 				},
 			},

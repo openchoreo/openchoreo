@@ -143,19 +143,19 @@ func (da *DisabledAuthorizer) GetRoleEntitlementMapping(ctx context.Context, map
 	return nil, authz.ErrAuthzDisabled
 }
 
-func (da *DisabledAuthorizer) CreateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error) {
+func (da *DisabledAuthorizer) CreateClusterRole(ctx context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
-func (da *DisabledAuthorizer) GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRole, error) {
+func (da *DisabledAuthorizer) GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.ClusterAuthzRole, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
-func (da *DisabledAuthorizer) ListClusterRoles(ctx context.Context, limit int, cursor string) (*authz.PaginatedList[openchoreov1alpha1.AuthzClusterRole], error) {
+func (da *DisabledAuthorizer) ListClusterRoles(ctx context.Context, limit int, cursor string) (*authz.PaginatedList[openchoreov1alpha1.ClusterAuthzRole], error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
-func (da *DisabledAuthorizer) UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error) {
+func (da *DisabledAuthorizer) UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
@@ -175,19 +175,19 @@ func (da *DisabledAuthorizer) UpdateNamespacedRole(ctx context.Context, role *op
 	return nil, authz.ErrAuthzDisabled
 }
 
-func (da *DisabledAuthorizer) CreateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+func (da *DisabledAuthorizer) CreateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
-func (da *DisabledAuthorizer) GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+func (da *DisabledAuthorizer) GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
-func (da *DisabledAuthorizer) ListClusterRoleBindings(ctx context.Context, limit int, cursor string) (*authz.PaginatedList[openchoreov1alpha1.AuthzClusterRoleBinding], error) {
+func (da *DisabledAuthorizer) ListClusterRoleBindings(ctx context.Context, limit int, cursor string) (*authz.PaginatedList[openchoreov1alpha1.ClusterAuthzRoleBinding], error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
-func (da *DisabledAuthorizer) UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+func (da *DisabledAuthorizer) UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 

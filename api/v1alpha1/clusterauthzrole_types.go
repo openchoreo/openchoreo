@@ -7,8 +7,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// AuthzClusterRoleSpec defines the desired state of AuthzClusterRole
-type AuthzClusterRoleSpec struct {
+// ClusterAuthzRoleSpec defines the desired state of ClusterAuthzRole
+type ClusterAuthzRoleSpec struct {
 	// Actions is the list of actions this role can perform
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:example:={"component:create"}
@@ -24,22 +24,22 @@ type AuthzClusterRoleSpec struct {
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
-// AuthzClusterRole is the Schema for the authzclusterroles API
-type AuthzClusterRole struct {
+// ClusterAuthzRole is the Schema for the authzclusterroles API
+type ClusterAuthzRole struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              AuthzClusterRoleSpec `json:"spec,omitempty"`
+	Spec              ClusterAuthzRoleSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// AuthzClusterRoleList contains a list of AuthzClusterRole
-type AuthzClusterRoleList struct {
+// ClusterAuthzRoleList contains a list of ClusterAuthzRole
+type ClusterAuthzRoleList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []AuthzClusterRole `json:"items"`
+	Items           []ClusterAuthzRole `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&AuthzClusterRole{}, &AuthzClusterRoleList{})
+	SchemeBuilder.Register(&ClusterAuthzRole{}, &ClusterAuthzRoleList{})
 }

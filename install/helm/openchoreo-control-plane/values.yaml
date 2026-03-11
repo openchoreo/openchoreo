@@ -105,7 +105,7 @@ security:
   authz:
     # @schema
     # type: boolean
-    # description: Enable authorization using Casbin. Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.
+    # description: Enable authorization using Casbin. Policies are loaded from ClusterAuthzRole, AuthzRole, ClusterAuthzRoleBinding, and AuthzRoleBinding CRDs.
     # default: true
     # @schema
     enabled: true
@@ -1005,7 +1005,7 @@ openchoreoApi:
                 display_name: "Client ID"
       # @schema
       # type: object
-      # description: Authorization settings. Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.
+      # description: Authorization settings. Policies are loaded from ClusterAuthzRole, AuthzRole, ClusterAuthzRoleBinding, and AuthzRoleBinding CRDs.
       # @schema
       authorization:
         # @schema

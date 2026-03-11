@@ -2537,7 +2537,7 @@
                 },
                 "authorization": {
                   "additionalProperties": false,
-                  "description": "Authorization settings. Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.",
+                  "description": "Authorization settings. Policies are loaded from ClusterAuthzRole, AuthzRole, ClusterAuthzRoleBinding, and AuthzRoleBinding CRDs.",
                   "properties": {
                     "bootstrap": {
                       "additionalProperties": false,
@@ -3526,7 +3526,7 @@
           "properties": {
             "enabled": {
               "default": true,
-              "description": "Enable authorization using Casbin. Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.",
+              "description": "Enable authorization using Casbin. Policies are loaded from ClusterAuthzRole, AuthzRole, ClusterAuthzRoleBinding, and AuthzRoleBinding CRDs.",
               "title": "enabled",
               "type": "boolean"
             }

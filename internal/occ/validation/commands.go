@@ -50,8 +50,8 @@ const (
 	ResourceReleaseBinding                         ResourceType = "releasebinding"
 	ResourceWorkflowRun                            ResourceType = "workflowrun"
 	ResourceObservabilityAlertsNotificationChannel ResourceType = "observabilityalertsnotificationchannel"
-	ResourceAuthzClusterRole                       ResourceType = "authzclusterrole"
-	ResourceAuthzClusterRoleBinding                ResourceType = "authzclusterrolebinding"
+	ResourceClusterAuthzRole                       ResourceType = "clusterauthzrole"
+	ResourceClusterAuthzRoleBinding                ResourceType = "clusterauthzrolebinding"
 	ResourceAuthzRole                              ResourceType = "authzrole"
 	ResourceAuthzRoleBinding                       ResourceType = "authzrolebinding"
 )

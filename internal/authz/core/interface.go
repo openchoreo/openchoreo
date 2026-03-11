@@ -66,13 +66,13 @@ type PAP interface {
 	// Roles - Cluster scoped
 
 	// CreateClusterRole creates a new cluster-scoped role and returns the full CRD object
-	CreateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error)
+	CreateClusterRole(ctx context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error)
 	// GetClusterRole retrieves a cluster-scoped role by name
-	GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRole, error)
+	GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.ClusterAuthzRole, error)
 	// ListClusterRoles lists all cluster-scoped roles
-	ListClusterRoles(ctx context.Context, limit int, cursor string) (*PaginatedList[openchoreov1alpha1.AuthzClusterRole], error)
+	ListClusterRoles(ctx context.Context, limit int, cursor string) (*PaginatedList[openchoreov1alpha1.ClusterAuthzRole], error)
 	// UpdateClusterRole updates a cluster-scoped role and returns the updated CRD object
-	UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error)
+	UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error)
 
 	// Roles - Namespace scoped
 
@@ -88,13 +88,13 @@ type PAP interface {
 	// Bindings - Cluster scoped
 
 	// CreateClusterRoleBinding creates a new cluster-scoped role binding and returns the full CRD object
-	CreateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error)
+	CreateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error)
 	// GetClusterRoleBinding retrieves a cluster-scoped role binding by name
-	GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRoleBinding, error)
+	GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error)
 	// ListClusterRoleBindings lists all cluster-scoped role bindings
-	ListClusterRoleBindings(ctx context.Context, limit int, cursor string) (*PaginatedList[openchoreov1alpha1.AuthzClusterRoleBinding], error)
+	ListClusterRoleBindings(ctx context.Context, limit int, cursor string) (*PaginatedList[openchoreov1alpha1.ClusterAuthzRoleBinding], error)
 	// UpdateClusterRoleBinding updates a cluster-scoped role binding and returns the updated CRD object
-	UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error)
+	UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error)
 
 	// Bindings - Namespace scoped
 

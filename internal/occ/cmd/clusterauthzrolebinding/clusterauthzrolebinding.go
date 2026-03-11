@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package authzclusterrolebinding
+package clusterauthzrolebinding
 
 import (
 	"context"
@@ -17,16 +17,16 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// AuthzClusterRoleBinding implements authz cluster role binding operations
-type AuthzClusterRoleBinding struct{}
+// ClusterAuthzRoleBinding implements authz cluster role binding operations
+type ClusterAuthzRoleBinding struct{}
 
 // New creates a new authz cluster role binding implementation
-func New() *AuthzClusterRoleBinding {
-	return &AuthzClusterRoleBinding{}
+func New() *ClusterAuthzRoleBinding {
+	return &ClusterAuthzRoleBinding{}
 }
 
 // List lists all cluster-scoped role bindings
-func (c *AuthzClusterRoleBinding) List() error {
+func (c *ClusterAuthzRoleBinding) List() error {
 	ctx := context.Background()
 
 	cl, err := client.NewClient()
@@ -34,7 +34,7 @@ func (c *AuthzClusterRoleBinding) List() error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.AuthzClusterRoleBinding, string, error) {
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ClusterAuthzRoleBinding, string, error) {
 		p := &gen.ListClusterRoleBindingsParams{}
 		p.Limit = &limit
 		if cursor != "" {
@@ -57,7 +57,7 @@ func (c *AuthzClusterRoleBinding) List() error {
 }
 
 // Get retrieves a single authz cluster role binding and outputs it as YAML
-func (c *AuthzClusterRoleBinding) Get(params GetParams) error {
+func (c *ClusterAuthzRoleBinding) Get(params GetParams) error {
 	ctx := context.Background()
 
 	cl, err := client.NewClient()
@@ -80,7 +80,7 @@ func (c *AuthzClusterRoleBinding) Get(params GetParams) error {
 }
 
 // Delete deletes a single authz cluster role binding
-func (c *AuthzClusterRoleBinding) Delete(params DeleteParams) error {
+func (c *ClusterAuthzRoleBinding) Delete(params DeleteParams) error {
 	ctx := context.Background()
 
 	cl, err := client.NewClient()
@@ -96,7 +96,7 @@ func (c *AuthzClusterRoleBinding) Delete(params DeleteParams) error {
 	return nil
 }
 
-func printList(items []gen.AuthzClusterRoleBinding) error {
+func printList(items []gen.ClusterAuthzRoleBinding) error {
 	if len(items) == 0 {
 		fmt.Println("No authz cluster role bindings found")
 		return nil

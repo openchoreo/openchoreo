@@ -11,12 +11,12 @@ metadata:
   labels:
     app.kubernetes.io/name: openchoreo
     app.kubernetes.io/managed-by: kustomize
-  name: authzclusterrolebinding-editor-role
+  name: clusterauthzrolebinding-editor-role
 rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - authzclusterrolebindings
+  - clusterauthzrolebindings
   verbs:
   - create
   - delete
@@ -28,6 +28,6 @@ rules:
 - apiGroups:
   - openchoreo.dev
   resources:
-  - authzclusterrolebindings/status
+  - clusterauthzrolebindings/status
   verbs:
   - get

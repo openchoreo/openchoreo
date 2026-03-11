@@ -4,14 +4,14 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: authzclusterrolebindings.openchoreo.dev
+  name: clusterauthzrolebindings.openchoreo.dev
 spec:
   group: openchoreo.dev
   names:
-    kind: AuthzClusterRoleBinding
-    listKind: AuthzClusterRoleBindingList
-    plural: authzclusterrolebindings
-    singular: authzclusterrolebinding
+    kind: ClusterAuthzRoleBinding
+    listKind: ClusterAuthzRoleBindingList
+    plural: clusterauthzrolebindings
+    singular: clusterauthzrolebinding
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -21,7 +21,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: AuthzClusterRoleBinding is the Schema for the authzclusterrolebindings
+        description: ClusterAuthzRoleBinding is the Schema for the authzclusterrolebindings
           API
         properties:
           apiVersion:
@@ -42,8 +42,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: AuthzClusterRoleBindingSpec defines the desired state of
-              AuthzClusterRoleBinding
+            description: ClusterAuthzRoleBindingSpec defines the desired state of
+              ClusterAuthzRoleBinding
             properties:
               effect:
                 default: allow
@@ -76,15 +76,15 @@ spec:
                     scope for cluster-scoped bindings
                   properties:
                     roleRef:
-                      description: RoleRef references the AuthzClusterRole to bind
+                      description: RoleRef references the ClusterAuthzRole to bind
                       properties:
                         kind:
                           description: |-
-                            Kind is the kind of role (AuthzRole or AuthzClusterRole)
+                            Kind is the kind of role (AuthzRole or ClusterAuthzRole)
                             For AuthzRoleBinding: AuthzRole must be in the same namespace
                           enum:
                           - AuthzRole
-                          - AuthzClusterRole
+                          - ClusterAuthzRole
                           type: string
                         name:
                           description: Name is the name of the role
@@ -124,8 +124,8 @@ spec:
             - roleMappings
             type: object
             x-kubernetes-validations:
-            - message: AuthzClusterRoleBinding can only reference AuthzClusterRole
-              rule: self.roleMappings.all(m, m.roleRef.kind == 'AuthzClusterRole')
+            - message: ClusterAuthzRoleBinding can only reference ClusterAuthzRole
+              rule: self.roleMappings.all(m, m.roleRef.kind == 'ClusterAuthzRole')
         type: object
     served: true
     storage: true

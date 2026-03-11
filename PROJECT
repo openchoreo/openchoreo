@@ -225,13 +225,13 @@ resources:
 - api:
     crdVersion: v1
   domain: openchoreo.dev
-  kind: AuthzClusterRole
+  kind: ClusterAuthzRole
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
   domain: openchoreo.dev
-  kind: AuthzClusterRoleBinding
+  kind: ClusterAuthzRoleBinding
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
 - api:
