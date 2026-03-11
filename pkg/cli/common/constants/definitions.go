@@ -729,6 +729,14 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
   %[1]s workflow logs my-workflow --namespace acme-corp -f`, messages.DefaultCLIName),
 	}
 
+	DeleteWorkflow = Command{
+		Use:   "delete [WORKFLOW_NAME]",
+		Short: "Delete a workflow",
+		Long:  `Delete a workflow by name.`,
+		Example: fmt.Sprintf(`  # Delete a workflow
+  %[1]s workflow delete my-workflow --namespace acme-corp`, messages.DefaultCLIName),
+	}
+
 	ListSecretReference = Command{
 		Use:   "list",
 		Short: "List secret references",

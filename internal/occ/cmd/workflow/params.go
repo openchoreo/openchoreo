@@ -29,6 +29,15 @@ type LogsParams struct {
 
 func (p LogsParams) GetNamespace() string { return p.Namespace }
 
+// DeleteParams defines parameters for deleting a single workflow
+type DeleteParams struct {
+	Namespace    string
+	WorkflowName string
+}
+
+func (p DeleteParams) GetNamespace() string    { return p.Namespace }
+func (p DeleteParams) GetWorkflowName() string { return p.WorkflowName }
+
 // StartRunParams defines parameters for starting a workflow run
 type StartRunParams struct {
 	Namespace    string

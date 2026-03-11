@@ -380,6 +380,18 @@ func (c *Client) GetWorkflow(ctx context.Context, namespaceName, workflowName st
 	return resp.JSON200, nil
 }
 
+// DeleteWorkflow deletes a workflow
+func (c *Client) DeleteWorkflow(ctx context.Context, namespaceName, workflowName string) error {
+	resp, err := c.client.DeleteWorkflowWithResponse(ctx, namespaceName, workflowName)
+	if err != nil {
+		return fmt.Errorf("failed to delete workflow: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
 // ListSecretReferences retrieves all secret references for a namespace
 func (c *Client) ListSecretReferences(ctx context.Context, namespaceName string, params *gen.ListSecretReferencesParams) (*gen.SecretReferenceList, error) {
 	if params == nil {

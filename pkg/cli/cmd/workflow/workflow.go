@@ -25,6 +25,7 @@ func NewWorkflowCmd() *cobra.Command {
 	workflowCmd.AddCommand(
 		newListWorkflowCmd(),
 		newGetWorkflowCmd(),
+		newDeleteWorkflowCmd(),
 		newStartWorkflowCmd(),
 		newLogsWorkflowCmd(),
 	)
@@ -56,6 +57,28 @@ func newGetWorkflowCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 			return workflow.New().Get(workflow.GetParams{
+				Namespace:    namespace,
+				WorkflowName: args[0],
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace)
+
+	return cmd
+}
+
+func newDeleteWorkflowCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.DeleteWorkflow.Use,
+		Short:   constants.DeleteWorkflow.Short,
+		Long:    constants.DeleteWorkflow.Long,
+		Example: constants.DeleteWorkflow.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			return workflow.New().Delete(workflow.DeleteParams{
 				Namespace:    namespace,
 				WorkflowName: args[0],
 			})

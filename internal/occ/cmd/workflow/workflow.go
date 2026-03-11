@@ -103,6 +103,27 @@ func (w *Workflow) Get(params GetParams) error {
 	return nil
 }
 
+// Delete deletes a single workflow
+func (w *Workflow) Delete(params DeleteParams) error {
+	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceWorkflow, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	if err := c.DeleteWorkflow(ctx, params.Namespace, params.WorkflowName); err != nil {
+		return err
+	}
+
+	fmt.Printf("Workflow '%s' deleted\n", params.WorkflowName)
+	return nil
+}
+
 // StartRun starts a workflow run
 func (w *Workflow) StartRun(params StartRunParams) error {
 	if params.Namespace == "" {
