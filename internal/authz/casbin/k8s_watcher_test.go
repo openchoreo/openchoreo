@@ -282,7 +282,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 							Kind: CRDTypeAuthzRole,
 							Name: "viewer",
 						},
-						TargetPath: authzv1alpha1.TargetPath{
+						Scope: authzv1alpha1.TargetScope{
 							Project: "my-project",
 						},
 					}},
@@ -307,7 +307,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 							Kind: CRDTypeAuthzRole,
 							Name: "deployer",
 						},
-						TargetPath: authzv1alpha1.TargetPath{
+						Scope: authzv1alpha1.TargetScope{
 							Project:   "my-project",
 							Component: "my-component",
 						},
@@ -333,7 +333,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 							Kind: CRDTypeAuthzRole,
 							Name: "editor",
 						},
-						TargetPath: authzv1alpha1.TargetPath{
+						Scope: authzv1alpha1.TargetScope{
 							Project: "secret-project",
 						},
 					}},
@@ -381,7 +381,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 								Kind: CRDTypeAuthzRole,
 								Name: "editor",
 							},
-							TargetPath: authzv1alpha1.TargetPath{
+							Scope: authzv1alpha1.TargetScope{
 								Project: "project-a",
 							},
 						},
@@ -390,7 +390,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 								Kind: CRDTypeAuthzRole,
 								Name: "viewer",
 							},
-							TargetPath: authzv1alpha1.TargetPath{
+							Scope: authzv1alpha1.TargetScope{
 								Project: "project-b",
 							},
 						},
@@ -864,8 +864,8 @@ func TestAuthzInformerHandler_HandleUpdateBinding(t *testing.T) {
 				Spec: authzv1alpha1.AuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
 					RoleMappings: []authzv1alpha1.RoleMapping{{
-						RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
-						TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+						Scope:   authzv1alpha1.TargetScope{Project: "crm"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
@@ -875,8 +875,8 @@ func TestAuthzInformerHandler_HandleUpdateBinding(t *testing.T) {
 				Spec: authzv1alpha1.AuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
 					RoleMappings: []authzv1alpha1.RoleMapping{{
-						RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "viewer"},
-						TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "viewer"},
+						Scope:   authzv1alpha1.TargetScope{Project: "crm"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
@@ -896,8 +896,8 @@ func TestAuthzInformerHandler_HandleUpdateBinding(t *testing.T) {
 				Spec: authzv1alpha1.AuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
 					RoleMappings: []authzv1alpha1.RoleMapping{{
-						RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
-						TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+						Scope:   authzv1alpha1.TargetScope{Project: "crm"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
@@ -908,8 +908,8 @@ func TestAuthzInformerHandler_HandleUpdateBinding(t *testing.T) {
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
 					RoleMappings: []authzv1alpha1.RoleMapping{
 						{
-							RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
-							TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+							Scope:   authzv1alpha1.TargetScope{Project: "crm"},
 						},
 						{
 							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "viewer"},
@@ -936,8 +936,8 @@ func TestAuthzInformerHandler_HandleUpdateBinding(t *testing.T) {
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
 					RoleMappings: []authzv1alpha1.RoleMapping{
 						{
-							RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
-							TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+							Scope:   authzv1alpha1.TargetScope{Project: "crm"},
 						},
 						{
 							RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzClusterRole, Name: "viewer"},
@@ -951,8 +951,8 @@ func TestAuthzInformerHandler_HandleUpdateBinding(t *testing.T) {
 				Spec: authzv1alpha1.AuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
 					RoleMappings: []authzv1alpha1.RoleMapping{{
-						RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
-						TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+						Scope:   authzv1alpha1.TargetScope{Project: "crm"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
@@ -972,8 +972,8 @@ func TestAuthzInformerHandler_HandleUpdateBinding(t *testing.T) {
 				Spec: authzv1alpha1.AuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
 					RoleMappings: []authzv1alpha1.RoleMapping{{
-						RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
-						TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+						Scope:   authzv1alpha1.TargetScope{Project: "crm"},
 					}},
 					Effect: authzv1alpha1.EffectAllow,
 				},
@@ -983,8 +983,8 @@ func TestAuthzInformerHandler_HandleUpdateBinding(t *testing.T) {
 				Spec: authzv1alpha1.AuthzRoleBindingSpec{
 					Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
 					RoleMappings: []authzv1alpha1.RoleMapping{{
-						RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
-						TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+						RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+						Scope:   authzv1alpha1.TargetScope{Project: "crm"},
 					}},
 					Effect: authzv1alpha1.EffectDeny,
 				},
@@ -1048,8 +1048,8 @@ func TestAuthzInformerHandler_HandleUpdateBinding_NoGenerationChange(t *testing.
 		Spec: authzv1alpha1.AuthzRoleBindingSpec{
 			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "developers"},
 			RoleMappings: []authzv1alpha1.RoleMapping{{
-				RoleRef:    authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
-				TargetPath: authzv1alpha1.TargetPath{Project: "crm"},
+				RoleRef: authzv1alpha1.RoleRef{Kind: CRDTypeAuthzRole, Name: "editor"},
+				Scope:   authzv1alpha1.TargetScope{Project: "crm"},
 			}},
 			Effect: authzv1alpha1.EffectAllow,
 		},
@@ -1376,7 +1376,7 @@ func TestAuthzInformerHandler_HandleDeleteBinding_MultipleRoleMappings(t *testin
 						Kind: CRDTypeAuthzRole,
 						Name: "editor",
 					},
-					TargetPath: authzv1alpha1.TargetPath{
+					Scope: authzv1alpha1.TargetScope{
 						Project: "project-a",
 					},
 				},
@@ -1385,7 +1385,7 @@ func TestAuthzInformerHandler_HandleDeleteBinding_MultipleRoleMappings(t *testin
 						Kind: CRDTypeAuthzRole,
 						Name: "viewer",
 					},
-					TargetPath: authzv1alpha1.TargetPath{
+					Scope: authzv1alpha1.TargetScope{
 						Project: "project-b",
 					},
 				},

@@ -684,9 +684,9 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 			t.Fatalf("AuthzRoleBinding CRD not created: %v", err)
 		}
 
-		// Verify CRD spec has targetPath with project
-		if crd.Spec.RoleMappings[0].TargetPath.Project != "project1" {
-			t.Errorf("CRD targetPath.project = %s, want project1", crd.Spec.RoleMappings[0].TargetPath.Project)
+		// Verify CRD spec has scope with project
+		if crd.Spec.RoleMappings[0].Scope.Project != "project1" {
+			t.Errorf("CRD scope.project = %s, want project1", crd.Spec.RoleMappings[0].Scope.Project)
 		}
 	})
 
@@ -918,8 +918,8 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 		if crd.Spec.Entitlement.Value != "prod-group" {
 			t.Errorf("UpdateRoleEntitlementMapping() CRD entitlement value = %s, want prod-group", crd.Spec.Entitlement.Value)
 		}
-		if crd.Spec.RoleMappings[0].TargetPath.Project != "p1" {
-			t.Errorf("UpdateRoleEntitlementMapping() CRD targetPath.project = %s, want p1", crd.Spec.RoleMappings[0].TargetPath.Project)
+		if crd.Spec.RoleMappings[0].Scope.Project != "p1" {
+			t.Errorf("UpdateRoleEntitlementMapping() CRD scope.project = %s, want p1", crd.Spec.RoleMappings[0].Scope.Project)
 		}
 		if crd.Spec.Effect != openchoreov1alpha1.EffectDeny {
 			t.Errorf("UpdateRoleEntitlementMapping() CRD effect = %s, want deny", crd.Spec.Effect)
@@ -1680,8 +1680,8 @@ func TestCasbinEnforcer_CreateNamespacedRoleBinding(t *testing.T) {
 
 	t.Run("create namespaced role binding with single mapping", func(t *testing.T) {
 		wantMappings := []openchoreov1alpha1.RoleMapping{{
-			RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "dev-role"},
-			TargetPath: openchoreov1alpha1.TargetPath{Project: "p1"},
+			RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "dev-role"},
+			Scope:   openchoreov1alpha1.TargetScope{Project: "p1"},
 		}}
 		binding := &openchoreov1alpha1.AuthzRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: "crd-rb-1", Namespace: testNs},
@@ -1712,12 +1712,12 @@ func TestCasbinEnforcer_CreateNamespacedRoleBinding(t *testing.T) {
 	t.Run("create namespaced role binding with multiple mappings", func(t *testing.T) {
 		wantMappings := []openchoreov1alpha1.RoleMapping{
 			{
-				RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "viewer-role"},
-				TargetPath: openchoreov1alpha1.TargetPath{Project: "proj-a"},
+				RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "viewer-role"},
+				Scope:   openchoreov1alpha1.TargetScope{Project: "proj-a"},
 			},
 			{
-				RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "admin-role"},
-				TargetPath: openchoreov1alpha1.TargetPath{Project: "proj-b", Component: "comp-1"},
+				RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "admin-role"},
+				Scope:   openchoreov1alpha1.TargetScope{Project: "proj-b", Component: "comp-1"},
 			},
 			{
 				RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "editor-role"},
@@ -1834,12 +1834,12 @@ func TestCasbinEnforcer_GetNamespacedRoleBinding(t *testing.T) {
 	t.Run("get existing with multiple mappings", func(t *testing.T) {
 		wantMappings := []openchoreov1alpha1.RoleMapping{
 			{
-				RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "role-a"},
-				TargetPath: openchoreov1alpha1.TargetPath{Project: "proj-1"},
+				RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "role-a"},
+				Scope:   openchoreov1alpha1.TargetScope{Project: "proj-1"},
 			},
 			{
-				RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "role-b"},
-				TargetPath: openchoreov1alpha1.TargetPath{Project: "proj-2", Component: "comp-x"},
+				RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "role-b"},
+				Scope:   openchoreov1alpha1.TargetScope{Project: "proj-2", Component: "comp-x"},
 			},
 		}
 		binding := &openchoreov1alpha1.AuthzRoleBinding{
@@ -1959,8 +1959,8 @@ func TestCasbinEnforcer_UpdateNamespacedRoleBinding(t *testing.T) {
 		}
 
 		wantMappings := []openchoreov1alpha1.RoleMapping{{
-			RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "new-role"},
-			TargetPath: openchoreov1alpha1.TargetPath{Project: "p1", Component: "c1"},
+			RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "new-role"},
+			Scope:   openchoreov1alpha1.TargetScope{Project: "p1", Component: "c1"},
 		}}
 		updated, err := enforcer.UpdateNamespacedRoleBinding(ctx, &openchoreov1alpha1.AuthzRoleBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: "update-rb", Namespace: testNs},
@@ -2006,12 +2006,12 @@ func TestCasbinEnforcer_UpdateNamespacedRoleBinding(t *testing.T) {
 		// Update to multiple mappings and change effect
 		wantMappings := []openchoreov1alpha1.RoleMapping{
 			{
-				RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "role-a"},
-				TargetPath: openchoreov1alpha1.TargetPath{Project: "proj-1"},
+				RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "role-a"},
+				Scope:   openchoreov1alpha1.TargetScope{Project: "proj-1"},
 			},
 			{
-				RoleRef:    openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "role-b"},
-				TargetPath: openchoreov1alpha1.TargetPath{Project: "proj-2", Component: "comp-1"},
+				RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "role-b"},
+				Scope:   openchoreov1alpha1.TargetScope{Project: "proj-2", Component: "comp-1"},
 			},
 		}
 		updated, err := enforcer.UpdateNamespacedRoleBinding(ctx, &openchoreov1alpha1.AuthzRoleBinding{

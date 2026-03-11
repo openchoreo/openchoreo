@@ -577,13 +577,13 @@ type AuthzRoleList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
-// AuthzRoleMapping Pairs a role reference with an optional target path scope
+// AuthzRoleMapping Pairs a role reference with an optional scope
 type AuthzRoleMapping struct {
 	// RoleRef Reference to an AuthzRole or AuthzClusterRole
 	RoleRef AuthzRoleRef `json:"roleRef"`
 
-	// TargetPath Target resource path within a namespace (project/component scope)
-	TargetPath *AuthzTargetPath `json:"targetPath,omitempty"`
+	// Scope Target resource scope within a namespace (project/component scope)
+	Scope *AuthzScope `json:"scope,omitempty"`
 }
 
 // AuthzRoleRef Reference to an AuthzRole or AuthzClusterRole
@@ -607,8 +607,8 @@ type AuthzRoleSpec struct {
 	Description *string `json:"description,omitempty"`
 }
 
-// AuthzTargetPath Target resource path within a namespace (project/component scope)
-type AuthzTargetPath struct {
+// AuthzScope Target resource scope within a namespace (project/component scope)
+type AuthzScope struct {
 	// Component Component name
 	Component *string `json:"component,omitempty"`
 

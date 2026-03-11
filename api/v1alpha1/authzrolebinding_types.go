@@ -7,9 +7,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TargetPath defines which resources this binding applies to within the ownership hierarchy
+// TargetScope defines which resources this binding applies to within the ownership hierarchy
 // All fields are optional - omitted fields mean "all" at that level
-type TargetPath struct {
+type TargetScope struct {
 	// Project scopes to a specific project (optional)
 	// +optional
 	Project string `json:"project,omitempty"`
@@ -19,14 +19,14 @@ type TargetPath struct {
 	Component string `json:"component,omitempty"`
 }
 
-// RoleMapping pairs a role reference with an optional target path scope
+// RoleMapping pairs a role reference with an optional scope
 type RoleMapping struct {
 	// RoleRef references the role to bind
 	RoleRef RoleRef `json:"roleRef"`
 
-	// TargetPath scopes this mapping within the ownership hierarchy
+	// Scope defines the target scope within the ownership hierarchy
 	// +optional
-	TargetPath TargetPath `json:"targetPath,omitempty"`
+	Scope TargetScope `json:"scope,omitempty"`
 }
 
 // AuthzRoleBindingSpec defines the desired state of AuthzRoleBinding

@@ -98,13 +98,13 @@ spec:
     - roleRef:
         name: {{ .roleRef.name }}
         kind: {{ if eq (default "" .roleRef.namespace) "" }}AuthzClusterRole{{ else }}AuthzRole{{ end }}
-      {{- if and .targetPath (or .targetPath.project .targetPath.component) }}
-      targetPath:
-        {{- if .targetPath.project }}
-        project: {{ .targetPath.project }}
+      {{- if and .scope (or .scope.project .scope.component) }}
+      scope:
+        {{- if .scope.project }}
+        project: {{ .scope.project }}
         {{- end }}
-        {{- if .targetPath.component }}
-        component: {{ .targetPath.component }}
+        {{- if .scope.component }}
+        component: {{ .scope.component }}
         {{- end }}
       {{- end }}
     {{- end }}

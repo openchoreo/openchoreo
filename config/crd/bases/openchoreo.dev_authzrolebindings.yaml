@@ -71,7 +71,7 @@ spec:
                   grants
                 items:
                   description: RoleMapping pairs a role reference with an optional
-                    target path scope
+                    scope
                   properties:
                     roleRef:
                       description: RoleRef references the role to bind
@@ -91,8 +91,8 @@ spec:
                       - kind
                       - name
                       type: object
-                    targetPath:
-                      description: TargetPath scopes this mapping within the ownership
+                    scope:
+                      description: Scope defines the target scope within the ownership
                         hierarchy
                       properties:
                         component:

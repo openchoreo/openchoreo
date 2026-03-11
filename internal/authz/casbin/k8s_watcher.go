@@ -267,8 +267,8 @@ func (h *authzInformerHandler) handleAddBinding(obj interface{}) error {
 	for _, mapping := range binding.Spec.RoleMappings {
 		resourcePath := resourceHierarchyToPath(authzcore.ResourceHierarchy{
 			Namespace: binding.Namespace,
-			Project:   mapping.TargetPath.Project,
-			Component: mapping.TargetPath.Component,
+			Project:   mapping.Scope.Project,
+			Component: mapping.Scope.Component,
 		})
 		roleNamespace := binding.Namespace
 		if mapping.RoleRef.Kind == CRDTypeAuthzClusterRole {
@@ -475,7 +475,7 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 	oldPolicies := make([][]string, 0, len(oldBinding.Spec.RoleMappings))
 	for _, m := range oldBinding.Spec.RoleMappings {
 		rp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
-			Namespace: oldBinding.Namespace, Project: m.TargetPath.Project, Component: m.TargetPath.Component,
+			Namespace: oldBinding.Namespace, Project: m.Scope.Project, Component: m.Scope.Component,
 		})
 		rns := oldBinding.Namespace
 		if m.RoleRef.Kind == CRDTypeAuthzClusterRole {
@@ -496,7 +496,7 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 	newPolicies := make([][]string, 0, len(newBinding.Spec.RoleMappings))
 	for _, m := range newBinding.Spec.RoleMappings {
 		rp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
-			Namespace: newBinding.Namespace, Project: m.TargetPath.Project, Component: m.TargetPath.Component,
+			Namespace: newBinding.Namespace, Project: m.Scope.Project, Component: m.Scope.Component,
 		})
 		rns := newBinding.Namespace
 		if m.RoleRef.Kind == CRDTypeAuthzClusterRole {
@@ -690,8 +690,8 @@ func (h *authzInformerHandler) handleDeleteBinding(obj interface{}) error {
 	for _, mapping := range binding.Spec.RoleMappings {
 		resourcePath := resourceHierarchyToPath(authzcore.ResourceHierarchy{
 			Namespace: binding.Namespace,
-			Project:   mapping.TargetPath.Project,
-			Component: mapping.TargetPath.Component,
+			Project:   mapping.Scope.Project,
+			Component: mapping.Scope.Component,
 		})
 		roleNamespace := binding.Namespace
 		if mapping.RoleRef.Kind == CRDTypeAuthzClusterRole {

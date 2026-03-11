@@ -2647,7 +2647,7 @@
                                       ],
                                       "type": "object"
                                     },
-                                    "targetPath": {
+                                    "scope": {
                                       "description": "Scopes this mapping within the ownership hierarchy",
                                       "properties": {
                                         "component": {

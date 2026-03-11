@@ -752,8 +752,8 @@ func (ce *CasbinEnforcer) updateNamespacedRoleBinding(ctx context.Context, mappi
 	existingBinding.Spec.Entitlement.Claim = mapping.Entitlement.Claim
 	existingBinding.Spec.Entitlement.Value = mapping.Entitlement.Value
 	existingBinding.Spec.RoleMappings = []openchoreov1alpha1.RoleMapping{{
-		RoleRef:    openchoreov1alpha1.RoleRef{Kind: roleKind, Name: mapping.RoleRef.Name},
-		TargetPath: openchoreov1alpha1.TargetPath{Project: mapping.Hierarchy.Project, Component: mapping.Hierarchy.Component},
+		RoleRef: openchoreov1alpha1.RoleRef{Kind: roleKind, Name: mapping.RoleRef.Name},
+		Scope:   openchoreov1alpha1.TargetScope{Project: mapping.Hierarchy.Project, Component: mapping.Hierarchy.Component},
 	}}
 	existingBinding.Spec.Effect = openchoreov1alpha1.EffectType(mapping.Effect)
 
@@ -941,8 +941,8 @@ func (ce *CasbinEnforcer) buildBindingFromMapping(mapping *authzcore.RoleEntitle
 				Value: mapping.Entitlement.Value,
 			},
 			RoleMappings: []openchoreov1alpha1.RoleMapping{{
-				RoleRef:    openchoreov1alpha1.RoleRef{Kind: roleKind, Name: mapping.RoleRef.Name},
-				TargetPath: openchoreov1alpha1.TargetPath{Project: mapping.Hierarchy.Project, Component: mapping.Hierarchy.Component},
+				RoleRef: openchoreov1alpha1.RoleRef{Kind: roleKind, Name: mapping.RoleRef.Name},
+				Scope:   openchoreov1alpha1.TargetScope{Project: mapping.Hierarchy.Project, Component: mapping.Hierarchy.Component},
 			}},
 			Effect: openchoreov1alpha1.EffectType(mapping.Effect),
 		},
@@ -973,8 +973,8 @@ func (ce *CasbinEnforcer) convertBindingToMapping(binding interface{}) *authzcor
 			},
 			Hierarchy: authzcore.ResourceHierarchy{
 				Namespace: b.Namespace,
-				Project:   m.TargetPath.Project,
-				Component: m.TargetPath.Component,
+				Project:   m.Scope.Project,
+				Component: m.Scope.Component,
 			},
 			Effect: authzcore.PolicyEffectType(b.Spec.Effect),
 		}

@@ -14,7 +14,7 @@ spec:
     - roleRef:
         kind: AuthzRole
         name: developer
-      targetPath:
+      scope:
         project: crm
     - roleRef:
         kind: AuthzClusterRole

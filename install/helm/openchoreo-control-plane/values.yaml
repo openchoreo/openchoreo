@@ -1159,7 +1159,7 @@ openchoreoApi:
           #               namespace:
           #                 type: string
           #                 description: Role namespace (empty for cluster role)
-          #           targetPath:
+          #           scope:
           #             type: object
           #             description: Scopes this mapping within the ownership hierarchy
           #             properties:

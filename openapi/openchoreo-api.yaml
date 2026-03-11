@@ -8609,9 +8609,9 @@ components:
           description: Name of the role
           example: admin
 
-    AuthzTargetPath:
+    AuthzScope:
       type: object
-      description: Target resource path within a namespace (project/component scope)
+      description: Target resource scope within a namespace (project/component scope)
       properties:
         project:
           type: string
@@ -8624,14 +8624,14 @@ components:
 
     AuthzRoleMapping:
       type: object
-      description: Pairs a role reference with an optional target path scope
+      description: Pairs a role reference with an optional scope
       required:
         - roleRef
       properties:
         roleRef:
           $ref: '#/components/schemas/AuthzRoleRef'
-        targetPath:
-          $ref: '#/components/schemas/AuthzTargetPath'
+        scope:
+          $ref: '#/components/schemas/AuthzScope'
 
     AuthzClusterRoleMapping:
       type: object
