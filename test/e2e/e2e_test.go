@@ -97,7 +97,7 @@ var _ = Describe("Platform Health", Ordered, func() {
 			})
 		}
 
-		clusterWorkflows := []string{"docker", "react", "ballerina-buildpack", "google-cloud-buildpacks"}
+		clusterWorkflows := []string{"dockerfile-builder", "ballerina-buildpack-builder", "gcp-buildpacks-builder", "paketo-buildpacks-builder"}
 		for _, wf := range clusterWorkflows {
 			It("should have ClusterWorkflow '"+wf+"'", func() {
 				framework.AssertClusterResourceExists(Default, kubeContext, "clusterworkflow", wf)
