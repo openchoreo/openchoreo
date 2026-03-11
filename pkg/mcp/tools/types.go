@@ -108,8 +108,12 @@ type PEToolsetHandler interface {
 	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error)
 
 	// Platform standards (namespace-scoped) — write
-	CreateComponentType(ctx context.Context, namespaceName string, req *gen.CreateComponentTypeJSONRequestBody) (any, error)
-	UpdateComponentType(ctx context.Context, namespaceName string, req *gen.UpdateComponentTypeJSONRequestBody) (any, error)
+	CreateComponentType(
+		ctx context.Context, namespaceName string, req *gen.CreateComponentTypeJSONRequestBody,
+	) (any, error)
+	UpdateComponentType(
+		ctx context.Context, namespaceName string, req *gen.UpdateComponentTypeJSONRequestBody,
+	) (any, error)
 	DeleteComponentType(ctx context.Context, namespaceName, ctName string) (any, error)
 	CreateTrait(ctx context.Context, namespaceName string, req *gen.CreateTraitJSONRequestBody) (any, error)
 	UpdateTrait(ctx context.Context, namespaceName string, req *gen.UpdateTraitJSONRequestBody) (any, error)

@@ -132,7 +132,9 @@ func peEnvironmentSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "environment"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "name"},
-			optionalParams:      []string{"display_name", "description", "data_plane_ref", "data_plane_ref_kind", "is_production"},
+			optionalParams: []string{
+				"display_name", "description", "data_plane_ref", "data_plane_ref_kind", "is_production",
+			},
 			testArgs: map[string]any{
 				"namespace_name":      testNamespaceName,
 				"name":                "new-env",
