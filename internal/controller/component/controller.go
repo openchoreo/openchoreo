@@ -21,7 +21,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	componentvalidation "github.com/openchoreo/openchoreo/internal/validation/component"
 )
 
 // Reconciler reconciles a Component object
@@ -143,7 +145,7 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 	}
 
 	// Fetch all referenced Traits: both embedded (from ComponentType) and component-level
-	traits, err := r.fetchAllTraits(ctx, ct, comp)
+	traits, clusterTraits, err := r.fetchAllTraits(ctx, ct, comp)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			msg := "One or more Traits not found"
@@ -171,7 +173,7 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 
 	// Handle autoDeploy if enabled
 	if comp.Spec.AutoDeploy {
-		if err := r.handleAutoDeploy(ctx, comp, ct, workload, traits, firstEnv); err != nil {
+		if err := r.handleAutoDeploy(ctx, comp, ct, workload, traits, clusterTraits, firstEnv); err != nil {
 			msg := fmt.Sprintf("Failed to handle autoDeploy: %v", err)
 			controller.MarkFalseCondition(comp, ConditionReady, ReasonAutoDeployFailed, msg)
 			logger.Error(err, "Failed to handle autoDeploy")
@@ -347,60 +349,38 @@ func (r *Reconciler) validateAndFetchWorkload(ctx context.Context, comp *opencho
 	return &workloadList.Items[0], nil
 }
 
-// areValidTraits validates trait configuration and instance name uniqueness.
+// areValidTraits validates trait configuration, instance name uniqueness, and name-kind consistency.
 // Returns true if validation passes, false if it fails (with condition set).
 func (r *Reconciler) areValidTraits(ctx context.Context, comp *openchoreov1alpha1.Component, ct *openchoreov1alpha1.ComponentType) bool {
 	logger := log.FromContext(ctx)
 
-	// Validate allowedTraits: ensure developer's traits are in the allowed list
-	if len(ct.Spec.AllowedTraits) > 0 {
-		allowedSet := make(map[string]bool, len(ct.Spec.AllowedTraits))
-		for _, ref := range ct.Spec.AllowedTraits {
-			key := string(ref.Kind) + ":" + ref.Name
-			allowedSet[key] = true
-		}
-		var disallowedTraits []string
-		for _, trait := range comp.Spec.Traits {
-			kind := trait.Kind
-			if kind == "" {
-				kind = openchoreov1alpha1.TraitRefKindTrait
-			}
-			key := string(kind) + ":" + trait.Name
-			if !allowedSet[key] {
-				disallowedTraits = append(disallowedTraits, string(kind)+":"+trait.Name)
-			}
-		}
-		if len(disallowedTraits) > 0 {
-			msg := fmt.Sprintf("Traits %v are not allowed by ComponentType %q; allowed traits: %v",
-				disallowedTraits, ct.Name, ct.Spec.AllowedTraits)
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
-			logger.Info(msg, "component", comp.Name)
-			return false
-		}
-	} else if len(comp.Spec.Traits) > 0 {
-		// If allowedTraits is empty/omitted, no additional traits are allowed
-		msg := fmt.Sprintf("No traits are allowed by ComponentType %q, but component has %d trait(s)",
-			ct.Name, len(comp.Spec.Traits))
-		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
-		logger.Info(msg, "component", comp.Name)
-		return false
+	validators := []struct {
+		validate func() error
+		context  string
+	}{
+		{
+			validate: func() error {
+				return componentvalidation.ValidateAllowedTraits(comp.Spec.Traits, ct.Spec.AllowedTraits)
+			},
+			context: fmt.Sprintf("ComponentType %q", ct.Name),
+		},
+		{
+			validate: func() error {
+				return componentvalidation.ValidateTraitInstanceNameUniqueness(comp.Spec.Traits, ct.Spec.Traits)
+			},
+			context: fmt.Sprintf("ComponentType %q", ct.Name),
+		},
+		{
+			validate: func() error {
+				return componentvalidation.ValidateTraitNameKindConsistency(comp.Spec.Traits, ct.Spec.Traits)
+			},
+			context: fmt.Sprintf("ComponentType %q", ct.Name),
+		},
 	}
 
-	// Validate instance name uniqueness across embedded and component-level traits
-	if len(ct.Spec.Traits) > 0 && len(comp.Spec.Traits) > 0 {
-		embeddedNames := make(map[string]bool, len(ct.Spec.Traits))
-		for _, et := range ct.Spec.Traits {
-			embeddedNames[et.InstanceName] = true
-		}
-		var collidingNames []string
-		for _, t := range comp.Spec.Traits {
-			if embeddedNames[t.InstanceName] {
-				collidingNames = append(collidingNames, t.InstanceName)
-			}
-		}
-		if len(collidingNames) > 0 {
-			msg := fmt.Sprintf("Trait instance names %v collide with embedded traits in ComponentType %q",
-				collidingNames, ct.Name)
+	for _, v := range validators {
+		if err := v.validate(); err != nil {
+			msg := fmt.Sprintf("%s: %s", v.context, err)
 			controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
 			logger.Info(msg, "component", comp.Name)
 			return false
@@ -569,79 +549,48 @@ func (e *traitFetchError) Unwrap() error {
 }
 
 // fetchAllTraits fetches all unique Trait/ClusterTrait resources referenced by both embedded traits
-// (from ComponentType) and component-level traits, deduplicating by kind:name.
-// ClusterTraits are converted to Trait objects for downstream pipeline compatibility.
-func (r *Reconciler) fetchAllTraits(ctx context.Context, ct *openchoreov1alpha1.ComponentType, comp *openchoreov1alpha1.Component) ([]openchoreov1alpha1.Trait, error) {
-	// seenByName tracks which Kind claimed each trait Name so we can detect
-	// cross-kind collisions (e.g. Trait "x" vs ClusterTrait "x") that would
-	// silently overwrite each other in the downstream buildTraitsMap.
-	seenByName := make(map[string]openchoreov1alpha1.TraitRefKind)
-	traits := make([]openchoreov1alpha1.Trait, 0, len(ct.Spec.Traits)+len(comp.Spec.Traits))
+// (from ComponentType) and component-level traits, deduplicating by name.
+// Returns separate maps for namespace-scoped traits and cluster-scoped traits.
+func (r *Reconciler) fetchAllTraits(ctx context.Context, ct *openchoreov1alpha1.ComponentType, comp *openchoreov1alpha1.Component) (map[string]openchoreov1alpha1.TraitSpec, map[string]openchoreov1alpha1.ClusterTraitSpec, error) {
+	traits := make(map[string]openchoreov1alpha1.TraitSpec)
+	clusterTraits := make(map[string]openchoreov1alpha1.ClusterTraitSpec)
 
-	// fetchTrait fetches a trait by kind and name, converting ClusterTrait to Trait for pipeline compatibility
-	fetchTrait := func(kind openchoreov1alpha1.TraitRefKind, name string) (*openchoreov1alpha1.Trait, error) {
-		if kind == "" {
-			kind = openchoreov1alpha1.TraitRefKindTrait
-		}
-		if prevKind, exists := seenByName[name]; exists {
-			if prevKind == kind {
-				// Same kind:name already fetched, skip duplicate
-				return nil, nil
-			}
-			// Different kind but same name — would collide in buildTraitsMap
-			return nil, fmt.Errorf("trait name %q is referenced as both %s and %s; trait names must be unique across kinds", name, prevKind, kind)
-		}
-		seenByName[name] = kind
-
+	addTrait := func(kind openchoreov1alpha1.TraitRefKind, name string) error {
 		switch kind {
 		case openchoreov1alpha1.TraitRefKindClusterTrait:
+			if _, exists := clusterTraits[name]; exists {
+				return nil
+			}
 			ct := &openchoreov1alpha1.ClusterTrait{}
 			if err := r.Get(ctx, types.NamespacedName{Name: name}, ct); err != nil {
-				return nil, &traitFetchError{traitName: name, err: err}
+				return &traitFetchError{traitName: name, err: err}
 			}
-			// Convert ClusterTrait to Trait for pipeline compatibility
-			return &openchoreov1alpha1.Trait{
-				ObjectMeta: ct.ObjectMeta,
-				Spec: openchoreov1alpha1.TraitSpec{
-					Parameters:         ct.Spec.Parameters,
-					EnvironmentConfigs: ct.Spec.EnvironmentConfigs,
-					Validations:        ct.Spec.Validations,
-					Creates:            ct.Spec.Creates,
-					Patches:            ct.Spec.Patches,
-				},
-			}, nil
+			clusterTraits[name] = ct.Spec
 		default:
+			if _, exists := traits[name]; exists {
+				return nil
+			}
 			trait := &openchoreov1alpha1.Trait{}
 			if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: comp.Namespace}, trait); err != nil {
-				return nil, &traitFetchError{traitName: name, err: err}
+				return &traitFetchError{traitName: name, err: err}
 			}
-			return trait, nil
+			traits[name] = trait.Spec
 		}
+		return nil
 	}
 
-	// Collect from embedded traits
 	for _, et := range ct.Spec.Traits {
-		trait, err := fetchTrait(et.Kind, et.Name)
-		if err != nil {
-			return nil, err
-		}
-		if trait != nil {
-			traits = append(traits, *trait)
+		if err := addTrait(et.Kind, et.Name); err != nil {
+			return nil, nil, err
 		}
 	}
-
-	// Collect from component-level traits
 	for _, ref := range comp.Spec.Traits {
-		trait, err := fetchTrait(ref.Kind, ref.Name)
-		if err != nil {
-			return nil, err
-		}
-		if trait != nil {
-			traits = append(traits, *trait)
+		if err := addTrait(ref.Kind, ref.Name); err != nil {
+			return nil, nil, err
 		}
 	}
 
-	return traits, nil
+	return traits, clusterTraits, nil
 }
 
 // findRootEnvironment finds the root environment in a deployment pipeline.
@@ -688,7 +637,8 @@ func (r *Reconciler) handleAutoDeploy(
 	comp *openchoreov1alpha1.Component,
 	ct *openchoreov1alpha1.ComponentType,
 	workload *openchoreov1alpha1.Workload,
-	traits []openchoreov1alpha1.Trait,
+	traits map[string]openchoreov1alpha1.TraitSpec,
+	clusterTraits map[string]openchoreov1alpha1.ClusterTraitSpec,
 	firstEnv string,
 ) error {
 	logger := log.FromContext(ctx)
@@ -696,18 +646,25 @@ func (r *Reconciler) handleAutoDeploy(
 	// ReleaseBinding name to create releaseBinding if not exits
 	bindingName := fmt.Sprintf("%s-%s", comp.Name, firstEnv)
 
-	releaseSpec, err := BuildReleaseSpec(ct, traits, comp, workload)
+	crSpec, err := componentrelease.BuildSpec(componentrelease.BuildInput{
+		Component:     comp,
+		ComponentType: &ct.Spec,
+		Traits:        traits,
+		ClusterTraits: clusterTraits,
+		Workload:      &workload.Spec.WorkloadTemplateSpec,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to build ReleaseSpec: %w", err)
+		return fmt.Errorf("failed to build ComponentReleaseSpec: %w", err)
 	}
 
+	releaseSpec := ReleaseSpecFromComponentReleaseSpec(crSpec)
 	currentHash := ComputeReleaseHash(releaseSpec, nil)
 
 	// Check if hash exists in status.LatestRelease and it hasn't changed
 	if comp.Status.LatestRelease != nil && comp.Status.LatestRelease.ReleaseHash == currentHash {
 		// Hash matches, verify the ComponentRelease exists and recreate if needed
 		releaseName := comp.Status.LatestRelease.Name
-		exists, err := r.ensureComponentRelease(ctx, comp, ct, workload, traits, releaseName, currentHash)
+		exists, err := r.ensureComponentRelease(ctx, comp, crSpec, releaseName, currentHash)
 		if err != nil {
 			return err
 		}
@@ -737,7 +694,7 @@ func (r *Reconciler) handleAutoDeploy(
 			"newHash", currentHash)
 
 		releaseName := fmt.Sprintf("%s-%s", comp.Name, currentHash)
-		if _, err := r.ensureComponentRelease(ctx, comp, ct, workload, traits, releaseName, currentHash); err != nil {
+		if _, err := r.ensureComponentRelease(ctx, comp, crSpec, releaseName, currentHash); err != nil {
 			return err
 		}
 	}
@@ -761,9 +718,7 @@ func (r *Reconciler) handleAutoDeploy(
 func (r *Reconciler) ensureComponentRelease(
 	ctx context.Context,
 	comp *openchoreov1alpha1.Component,
-	ct *openchoreov1alpha1.ComponentType,
-	workload *openchoreov1alpha1.Workload,
-	traits []openchoreov1alpha1.Trait,
+	crSpec *openchoreov1alpha1.ComponentReleaseSpec,
 	releaseName string,
 	currentHash string,
 ) (bool, error) {
@@ -774,13 +729,7 @@ func (r *Reconciler) ensureComponentRelease(
 	err := r.Get(ctx, types.NamespacedName{Name: releaseName, Namespace: comp.Namespace}, existingRelease)
 	if err == nil {
 		// ComponentRelease exists - validate its hash matches expectations
-		// Build ReleaseSpec from the existing ComponentRelease to verify integrity
-		existingSpec := &ReleaseSpec{
-			ComponentType:    existingRelease.Spec.ComponentType,
-			Traits:           existingRelease.Spec.Traits,
-			ComponentProfile: existingRelease.Spec.ComponentProfile,
-			Workload:         existingRelease.Spec.Workload,
-		}
+		existingSpec := ReleaseSpecFromComponentReleaseSpec(&existingRelease.Spec)
 		existingHash := ComputeReleaseHash(existingSpec, nil)
 
 		if existingHash != currentHash {
@@ -791,17 +740,7 @@ func (r *Reconciler) ensureComponentRelease(
 				"actualHash", existingHash,
 				"reason", "possible manual modification or data corruption")
 
-			// Update the ComponentRelease with the correct content
-			existingRelease.Spec = openchoreov1alpha1.ComponentReleaseSpec{
-				Owner: openchoreov1alpha1.ComponentReleaseOwner{
-					ProjectName:   comp.Spec.Owner.ProjectName,
-					ComponentName: comp.Name,
-				},
-				ComponentType:    ct.Spec,
-				Traits:           buildTraitsMap(traits),
-				ComponentProfile: buildComponentProfile(comp),
-				Workload:         workload.Spec.WorkloadTemplateSpec,
-			}
+			existingRelease.Spec = *crSpec
 
 			if err := r.Update(ctx, existingRelease); err != nil {
 				return false, fmt.Errorf("failed to update corrupted ComponentRelease %q: %w", releaseName, err)
@@ -810,7 +749,6 @@ func (r *Reconciler) ensureComponentRelease(
 			logger.Info("ComponentRelease updated to restore correct content",
 				"name", releaseName,
 				"hash", currentHash)
-			// Return false to indicate we did work (updated the release)
 			return false, nil
 		}
 
@@ -821,7 +759,6 @@ func (r *Reconciler) ensureComponentRelease(
 		return true, nil
 	}
 	if !apierrors.IsNotFound(err) {
-		// Unexpected error
 		return false, fmt.Errorf("failed to get ComponentRelease %q: %w", releaseName, err)
 	}
 
@@ -831,16 +768,7 @@ func (r *Reconciler) ensureComponentRelease(
 			Name:      releaseName,
 			Namespace: comp.Namespace,
 		},
-		Spec: openchoreov1alpha1.ComponentReleaseSpec{
-			Owner: openchoreov1alpha1.ComponentReleaseOwner{
-				ProjectName:   comp.Spec.Owner.ProjectName,
-				ComponentName: comp.Name,
-			},
-			ComponentType:    ct.Spec,
-			Traits:           buildTraitsMap(traits),
-			ComponentProfile: buildComponentProfile(comp),
-			Workload:         workload.Spec.WorkloadTemplateSpec,
-		},
+		Spec: *crSpec,
 	}
 
 	if err := r.Create(ctx, componentRelease); err != nil {
@@ -930,31 +858,6 @@ func (r *Reconciler) ensureReleaseBinding(
 	}
 
 	return nil
-}
-
-// buildTraitsMap converts a slice of Trait resources to a map of trait name to TraitSpec
-func buildTraitsMap(traits []openchoreov1alpha1.Trait) map[string]openchoreov1alpha1.TraitSpec {
-	if len(traits) == 0 {
-		return nil
-	}
-
-	traitsMap := make(map[string]openchoreov1alpha1.TraitSpec, len(traits))
-	for _, trait := range traits {
-		traitsMap[trait.Name] = trait.Spec
-	}
-	return traitsMap
-}
-
-// buildComponentProfile extracts the ComponentProfile from the Component.
-// Returns nil if the component has no parameters and no traits.
-func buildComponentProfile(comp *openchoreov1alpha1.Component) *openchoreov1alpha1.ComponentProfile {
-	if comp.Spec.Parameters == nil && len(comp.Spec.Traits) == 0 {
-		return nil
-	}
-	return &openchoreov1alpha1.ComponentProfile{
-		Parameters: comp.Spec.Parameters,
-		Traits:     comp.Spec.Traits,
-	}
 }
 
 // SetupWithManager sets up the controller with the Manager.

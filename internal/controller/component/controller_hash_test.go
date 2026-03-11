@@ -326,5 +326,3 @@ func TestHashOutputExamples(t *testing.T) {
 	}
 	fmt.Println("===============================================")
 }
-
-// TODO: Add tests for BuildReleaseSpec once implemented
