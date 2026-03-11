@@ -9645,6 +9645,11 @@ components:
       required:
         - name
       properties:
+        kind:
+          type: string
+          description: Kind of environment resource
+          enum: [Environment]
+          default: Environment
         name:
           type: string
           description: Target environment name

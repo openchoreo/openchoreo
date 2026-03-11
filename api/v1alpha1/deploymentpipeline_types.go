@@ -12,7 +12,14 @@ import (
 
 // TargetEnvironmentRef defines a reference to a target environment with approval settings
 type TargetEnvironmentRef struct {
-	// Name of the target environment
+	// Kind is the kind of environment (Environment)
+	// +optional
+	// +kubebuilder:default=Environment
+	Kind EnvironmentRefKind `json:"kind,omitempty"`
+	// Name is the name of the target environment resource
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
 	Name string `json:"name"`
 	// RequiresApproval indicates if promotion to this environment requires approval
 	// +optional

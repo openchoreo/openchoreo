@@ -283,6 +283,11 @@ const (
 	User           SubjectContextType = "user"
 )
 
+// Defines values for TargetEnvironmentRefKind.
+const (
+	TargetEnvironmentRefKindEnvironment TargetEnvironmentRefKind = "Environment"
+)
+
 // Defines values for TraitSpecCreatesTargetPlane.
 const (
 	TraitSpecCreatesTargetPlaneDataplane          TraitSpecCreatesTargetPlane = "dataplane"
@@ -3008,12 +3013,18 @@ type TargetEnvironmentRef struct {
 	// IsManualApprovalRequired Whether manual approval is required
 	IsManualApprovalRequired *bool `json:"isManualApprovalRequired,omitempty"`
 
+	// Kind Kind of environment resource
+	Kind *TargetEnvironmentRefKind `json:"kind,omitempty"`
+
 	// Name Target environment name
 	Name string `json:"name"`
 
 	// RequiresApproval Whether promotion requires approval
 	RequiresApproval *bool `json:"requiresApproval,omitempty"`
 }
+
+// TargetEnvironmentRefKind Kind of environment resource
+type TargetEnvironmentRefKind string
 
 // TargetPath Target resource path within a namespace (project/component only) (legacy)
 type TargetPath struct {

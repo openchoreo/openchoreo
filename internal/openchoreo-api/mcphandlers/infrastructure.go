@@ -67,6 +67,7 @@ func (h *MCPHandler) CreateDeploymentPipeline(ctx context.Context, namespaceName
 			targets := make([]openchoreov1alpha1.TargetEnvironmentRef, 0, len(p.TargetEnvironmentRefs))
 			for _, t := range p.TargetEnvironmentRefs {
 				ref := openchoreov1alpha1.TargetEnvironmentRef{
+					Kind: openchoreov1alpha1.EnvironmentRefKindEnvironment,
 					Name: t.Name,
 				}
 				if t.RequiresApproval != nil {

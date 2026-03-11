@@ -288,6 +288,7 @@ func deploymentPipelineDetail(dp *openchoreov1alpha1.DeploymentPipeline) map[str
 				targets := make([]map[string]any, 0, len(pp.TargetEnvironmentRefs))
 				for j := range pp.TargetEnvironmentRefs {
 					t := map[string]any{
+						"kind": string(pp.TargetEnvironmentRefs[j].Kind),
 						"name": pp.TargetEnvironmentRefs[j].Name,
 					}
 					if pp.TargetEnvironmentRefs[j].RequiresApproval {

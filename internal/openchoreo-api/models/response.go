@@ -151,6 +151,7 @@ type PromotionPath struct {
 
 // TargetEnvironmentRef represents a target environment reference with approval settings
 type TargetEnvironmentRef struct {
+	Kind                     string `json:"kind,omitempty"`
 	Name                     string `json:"name"`
 	RequiresApproval         bool   `json:"requiresApproval,omitempty"`
 	IsManualApprovalRequired bool   `json:"isManualApprovalRequired,omitempty"`

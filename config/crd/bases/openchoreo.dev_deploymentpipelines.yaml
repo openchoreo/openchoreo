@@ -79,8 +79,17 @@ spec:
                             description: IsManualApprovalRequired indicates if manual
                               approval is needed for promotion
                             type: boolean
+                          kind:
+                            default: Environment
+                            description: Kind is the kind of environment (Environment)
+                            enum:
+                            - Environment
+                            type: string
                           name:
-                            description: Name of the target environment
+                            description: Name is the name of the target environment
+                              resource
+                            maxLength: 63
+                            minLength: 1
                             type: string
                           requiresApproval:
                             description: RequiresApproval indicates if promotion to

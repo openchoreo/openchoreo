@@ -91,6 +91,7 @@ func (s *DeploymentPipelineService) toDeploymentPipelineResponse(pipeline *openc
 		targetRefs := make([]models.TargetEnvironmentRef, 0, len(path.TargetEnvironmentRefs))
 		for _, target := range path.TargetEnvironmentRefs {
 			targetRefs = append(targetRefs, models.TargetEnvironmentRef{
+				Kind:                     string(target.Kind),
 				Name:                     target.Name,
 				RequiresApproval:         target.RequiresApproval,
 				IsManualApprovalRequired: target.IsManualApprovalRequired,
