@@ -5,97 +5,15 @@ package tools
 
 import "testing"
 
-// deploymentToolSpecs returns test specs for deployment toolset
+// deploymentToolSpecs returns test specs for deployment toolset.
+// Note: component release operations (list/create/get/schema) are registered by the PE toolset,
+// not the deployment toolset; those specs live in pe_specs_test.go.
 func deploymentToolSpecs() []toolTestSpec {
-	specs := make([]toolTestSpec, 0, 13)
-	specs = append(specs, deploymentReleaseSpecs()...)
+	specs := make([]toolTestSpec, 0, 9)
 	specs = append(specs, deploymentBindingSpecs()...)
 	specs = append(specs, deploymentPipelineSpecs()...)
 	specs = append(specs, deploymentEnvironmentSpecs()...)
 	return specs
-}
-
-func deploymentReleaseSpecs() []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                "list_component_releases",
-			toolset:             "deployment",
-			descriptionKeywords: []string{"list", "release"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "component_name"},
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"component_name": testComponentName,
-			},
-			expectedMethod: "ListComponentReleases",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testComponentName {
-					t.Errorf("Expected (%s, %s), got (%v, %v)",
-						testNamespaceName, testComponentName, args[0], args[1])
-				}
-			},
-		},
-		{
-			name:                "create_component_release",
-			toolset:             "deployment",
-			descriptionKeywords: []string{"create", "release"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "component_name"},
-			optionalParams:      []string{"release_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"component_name": testComponentName,
-				"release_name":   testReleaseName,
-			},
-			expectedMethod: "CreateComponentRelease",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testComponentName || args[2] != testReleaseName {
-					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
-						testNamespaceName, testComponentName, testReleaseName,
-						args[0], args[1], args[2])
-				}
-			},
-		},
-		{
-			name:                "get_component_release",
-			toolset:             "deployment",
-			descriptionKeywords: []string{"release"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "release_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"release_name":   testReleaseName,
-			},
-			expectedMethod: "GetComponentRelease",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testReleaseName {
-					t.Errorf("Expected (%s, %s), got (%v, %v)",
-						testNamespaceName, testReleaseName, args[0], args[1])
-				}
-			},
-		},
-		{
-			name:                "get_component_release_schema",
-			toolset:             "deployment",
-			descriptionKeywords: []string{"release", "schema"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "component_name"},
-			optionalParams:      []string{"release_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"component_name": testComponentName,
-				"release_name":   testReleaseName,
-			},
-			expectedMethod: "GetComponentReleaseSchema",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testComponentName || args[2] != testReleaseName {
-					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
-						testNamespaceName, testComponentName, testReleaseName, args[0], args[1], args[2])
-				}
-			},
-		},
-	}
 }
 
 func deploymentBindingSpecs() []toolTestSpec {

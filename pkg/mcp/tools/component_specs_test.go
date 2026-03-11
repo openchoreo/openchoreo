@@ -146,132 +146,15 @@ func componentBasicSpecs() []toolTestSpec {
 }
 
 // componentWorkloadSpecs returns workload operation specs
+// Note: component releases and release bindings are registered by the PE/deployment toolsets,
+// not the component toolset; those specs live in pe_specs_test.go and deployment_specs_test.go.
 func componentWorkloadSpecs() []toolTestSpec {
-	return []toolTestSpec{
-		{
-			name:                "list_component_releases",
-			toolset:             "component",
-			descriptionKeywords: []string{"list", "release"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "component_name"},
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"component_name": testComponentName,
-			},
-			expectedMethod: "ListComponentReleases",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testComponentName {
-					t.Errorf("Expected (%s, %s), got (%v, %v)",
-						testNamespaceName, testComponentName, args[0], args[1])
-				}
-			},
-		},
-		{
-			name:                "create_component_release",
-			toolset:             "component",
-			descriptionKeywords: []string{"create", "release"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "component_name"},
-			optionalParams:      []string{"release_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"component_name": testComponentName,
-				"release_name":   testReleaseName,
-			},
-			expectedMethod: "CreateComponentRelease",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testComponentName || args[2] != testReleaseName {
-					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
-						testNamespaceName, testComponentName, testReleaseName,
-						args[0], args[1], args[2])
-				}
-			},
-		},
-		{
-			name:                "get_component_release",
-			toolset:             "component",
-			descriptionKeywords: []string{"release"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "release_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"release_name":   testReleaseName,
-			},
-			expectedMethod: "GetComponentRelease",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testReleaseName {
-					t.Errorf("Expected (%s, %s), got (%v, %v)",
-						testNamespaceName, testReleaseName, args[0], args[1])
-				}
-			},
-		},
-		{
-			name:                "list_release_bindings",
-			toolset:             "component",
-			descriptionKeywords: []string{"release", "binding"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "component_name"},
-			optionalParams:      []string{"limit", "cursor"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"component_name": testComponentName,
-			},
-			expectedMethod: "ListReleaseBindings",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testComponentName {
-					t.Errorf("Expected (%s, %s), got (%v, %v)",
-						testNamespaceName, testComponentName, args[0], args[1])
-				}
-			},
-		},
-		{
-			name:                "get_release_binding",
-			toolset:             "component",
-			descriptionKeywords: []string{"release", "binding"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "binding_name"},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"binding_name":   "binding-dev",
-			},
-			expectedMethod: "GetReleaseBinding",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "binding-dev" {
-					t.Errorf("Expected (%s, binding-dev), got (%v, %v)",
-						testNamespaceName, args[0], args[1])
-				}
-			},
-		},
-	}
+	return nil
 }
 
 // componentBindingSpecs returns component binding operation specs
 func componentBindingSpecs() []toolTestSpec {
 	return []toolTestSpec{
-		{
-			name:                "patch_release_binding",
-			toolset:             "component",
-			descriptionKeywords: []string{"patch", "release", "binding"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "binding_name"},
-			optionalParams: []string{
-				"release_name", "environment", "component_type_env_overrides",
-				"trait_environment_configs", "workload_overrides",
-			},
-			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"binding_name":   testBindingName,
-				"release_name":   testReleaseName,
-			},
-			expectedMethod: "PatchReleaseBinding",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testBindingName {
-					t.Errorf("Expected (%s, %s), got (%v, %v)",
-						testNamespaceName, testBindingName, args[0], args[1])
-				}
-			},
-		},
 		{
 			name:                "create_workload",
 			toolset:             "component",
