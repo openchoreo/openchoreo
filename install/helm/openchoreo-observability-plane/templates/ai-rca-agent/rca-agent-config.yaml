@@ -1,0 +1,26 @@
+{{- if .Values.rca.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rca-agent-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" .Values.rca.name) | nindent 4 }}
+data:
+  OBSERVER_MCP_URL: {{ .Values.rca.observerMcpUrl | default "http://observer:8080/mcp" | quote }}
+  CONTROL_PLANE_URL: {{ .Values.rca.controlPlaneUrl | quote }}
+  AUTHZ_TIMEOUT_SECONDS: {{ .Values.rca.authz.timeoutSeconds | quote }}
+  RCA_MODEL_NAME: {{ .Values.rca.llm.modelName | quote }}
+  REPORT_BACKEND: {{ .Values.rca.reportBackend | quote }}
+  OAUTH_TOKEN_URL: {{ .Values.security.oidc.tokenUrl | quote }}
+  OAUTH_CLIENT_ID: {{ .Values.rca.oauth.clientId | quote }}
+  TLS_INSECURE_SKIP_VERIFY: {{ or .Values.security.oidc.jwksUrlTlsInsecureSkipVerify .Values.security.oidc.uidResolverTlsInsecureSkipVerify | quote }}
+  JWT_JWKS_URL: {{ .Values.security.oidc.jwksUrl | quote }}
+  JWT_ISSUER: {{ .Values.security.oidc.issuer | quote }}
+  JWT_AUDIENCE: {{ .Values.security.jwt.audience | quote }}
+  LOG_LEVEL: {{ .Values.rca.logLevel | quote }}
+  REMED_AGENT: {{ .Values.rca.remedAgent | quote }}
+  {{- if .Values.rca.cors.allowedOrigins }}
+  CORS_ALLOWED_ORIGINS: {{ join "," .Values.rca.cors.allowedOrigins | quote }}
+  {{- end }}
+{{- end }}

@@ -429,20 +429,62 @@ kubectl --context k3d-openchoreo-op create configmap cluster-gateway-ca \
   --dry-run=client -o yaml | kubectl --context k3d-openchoreo-op apply -f -
 ```
 
-### OpenSearch Credentials
+### Observability Plane Secrets
 
 ```bash
-kubectl --context k3d-openchoreo-op create secret generic opensearch-admin-credentials \
-  -n openchoreo-observability-plane \
-  --from-literal=username="admin" \
-  --from-literal=password="ThisIsTheOpenSearchPassword1"
-```
+kubectl --context k3d-openchoreo-op apply -f - <<EOF
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: opensearch-admin-credentials
+  namespace: openchoreo-observability-plane
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: default
+  target:
+    name: opensearch-admin-credentials
+  data:
+  - secretKey: username
+    remoteRef:
+      key: opensearch-username
+      property: value
+  - secretKey: password
+    remoteRef:
+      key: opensearch-password
+      property: value
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: observer-secret
+  namespace: openchoreo-observability-plane
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: default
+  target:
+    name: observer-secret
+  data:
+  - secretKey: OPENSEARCH_USERNAME
+    remoteRef:
+      key: opensearch-username
+      property: value
+  - secretKey: OPENSEARCH_PASSWORD
+    remoteRef:
+      key: opensearch-password
+      property: value
+  - secretKey: UID_RESOLVER_OAUTH_CLIENT_SECRET
+    remoteRef:
+      key: observer-oauth-client-secret
+      property: value
+EOF
 
-```bash
-kubectl --context k3d-openchoreo-op create secret generic observer-opensearch-credentials \
-  -n openchoreo-observability-plane \
-  --from-literal=username="admin" \
-  --from-literal=password="ThisIsTheOpenSearchPassword1"
+kubectl --context k3d-openchoreo-op wait -n openchoreo-observability-plane \
+  --for=condition=Ready externalsecret/opensearch-admin-credentials \
+  externalsecret/observer-secret --timeout=60s
 ```
 
 ### Install Observability Plane
@@ -461,6 +503,17 @@ helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-ob
 
 Install the required logs, metrics and tracing modules. Refer https://openchoreo.dev/modules for more details
 
+Enable Fluent Bit for log collection:
+
+```bash
+helm upgrade openchoreo-observability-plane install/helm/openchoreo-observability-plane \
+  --kube-context k3d-openchoreo-op \
+  --namespace openchoreo-observability-plane \
+  --reuse-values \
+  --set observability-logs-opensearch.fluent-bit.enabled=true \
+  --timeout 10m
+```
+
 ```bash
 kubectl --context k3d-openchoreo-op wait -n openchoreo-observability-plane \
   --for=condition=available --timeout=600s deployment --all
@@ -474,10 +527,9 @@ AGENT_CA=$(kubectl --context k3d-openchoreo-op get secret cluster-agent-tls \
 
 kubectl --context k3d-openchoreo-cp apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
-kind: ObservabilityPlane
+kind: ClusterObservabilityPlane
 metadata:
   name: default
-  namespace: default
 spec:
   planeID: default
   clusterAgent:

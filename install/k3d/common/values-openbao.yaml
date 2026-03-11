@@ -50,6 +50,10 @@ server:
       bao kv put secret/backstage-backend-secret value="local-dev-backend-secret"
       bao kv put secret/backstage-client-secret value="backstage-portal-secret"
       bao kv put secret/backstage-jenkins-api-key value="placeholder-not-in-use"
+      # Observer (observability)
+      bao kv put secret/observer-oauth-client-secret value="openchoreo-observer-secret"
+      # RCA Agent (observability)
+      bao kv put secret/rca-oauth-client-secret value="openchoreo-rca-agent-secret"
       # OpenSearch (observability)
       bao kv put secret/opensearch-username value="admin"
       bao kv put secret/opensearch-password value="ThisIsTheOpenSearchPassword1"

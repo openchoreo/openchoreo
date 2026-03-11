@@ -1565,27 +1565,6 @@
           "required": [],
           "title": "alertStoreBackend"
         },
-        "alertStoreSecret": {
-          "additionalProperties": false,
-          "description": "Existing Secret reference for PostgreSQL DSN used by alert entry storage",
-          "properties": {
-            "key": {
-              "default": "dsn",
-              "description": "Secret key that contains the alert store DSN value",
-              "title": "key",
-              "type": "string"
-            },
-            "name": {
-              "default": "",
-              "description": "Secret name that contains the alert store DSN",
-              "title": "name",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "alertStoreSecret",
-          "type": "object"
-        },
         "alertStoreSqliteSize": {
           "default": "128Mi",
           "description": "PVC size for SQLite alert entry storage",
@@ -1757,12 +1736,6 @@
           "title": "oauthClientId",
           "type": "string"
         },
-        "oauthClientSecret": {
-          "default": "openchoreo-observer-secret",
-          "description": "OAuth2 client secret for the Observer when calling the control plane API",
-          "title": "oauthClientSecret",
-          "type": "string"
-        },
         "openSearchSecretName": {
           "default": "",
           "description": "Name of an existing Secret with 'username' and 'password' keys for OpenSearch authentication. Required.",
@@ -1847,6 +1820,12 @@
           "required": [],
           "title": "resources",
           "type": "object"
+        },
+        "secretName": {
+          "default": "",
+          "description": "Name of an existing Secret injected via envFrom into the Observer container. Required keys - OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD, UID_RESOLVER_OAUTH_CLIENT_SECRET. Optional keys - ALERT_STORE_DSN (when alertStoreBackend is postgresql).",
+          "title": "secretName",
+          "type": "string"
         },
         "security": {
           "additionalProperties": false,
@@ -3679,6 +3658,25 @@
           "title": "enabled",
           "type": "boolean"
         },
+        "extraEnvs": {
+          "description": "Extra environment variables for the RCA agent container",
+          "items": {
+            "properties": {
+              "name": {
+                "description": "Environment variable name",
+                "type": "string"
+              },
+              "value": {
+                "description": "Environment variable value",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "title": "extraEnvs",
+          "type": "array"
+        },
         "http": {
           "additionalProperties": false,
           "description": "HTTPRoute configuration for the RCA agent",
@@ -3738,12 +3736,6 @@
           "additionalProperties": false,
           "description": "LLM configuration for AI-powered analysis",
           "properties": {
-            "apiKey": {
-              "default": "",
-              "description": "LLM API key (set via --set rca.llm.apiKey during install)",
-              "title": "apiKey",
-              "type": "string"
-            },
             "modelName": {
               "default": "",
               "description": "LLM model name (e.g., gpt-5.2)",
@@ -3775,12 +3767,6 @@
               "default": "openchoreo-rca-agent",
               "description": "OAuth2 client ID registered with the IDP",
               "title": "clientId",
-              "type": "string"
-            },
-            "clientSecret": {
-              "default": "openchoreo-rca-agent-secret",
-              "description": "OAuth2 client secret (override via --set rca.oauth.clientSecret)",
-              "title": "clientSecret",
               "type": "string"
             }
           },
@@ -3868,6 +3854,12 @@
           "title": "resources",
           "type": "object"
         },
+        "secretName": {
+          "default": "rca-agent-secret",
+          "description": "Name of an existing Secret injected via envFrom into the RCA agent container. Required keys - RCA_LLM_API_KEY, OAUTH_CLIENT_SECRET. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).",
+          "title": "secretName",
+          "type": "string"
+        },
         "service": {
           "additionalProperties": false,
           "description": "Kubernetes service configuration",
@@ -3894,27 +3886,6 @@
           },
           "required": [],
           "title": "service",
-          "type": "object"
-        },
-        "sqlBackendSecret": {
-          "additionalProperties": false,
-          "description": "Reference to an existing Secret containing the SQL connection URI (required for postgresql)",
-          "properties": {
-            "key": {
-              "default": "uri",
-              "description": "Key within the Secret that holds the URI",
-              "title": "key",
-              "type": "string"
-            },
-            "name": {
-              "default": "",
-              "description": "Name of the Secret containing the SQL backend URI",
-              "title": "name",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "sqlBackendSecret",
           "type": "object"
         },
         "sqliteStorageSize": {

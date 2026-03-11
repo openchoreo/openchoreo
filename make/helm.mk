@@ -64,9 +64,9 @@ helm-generate.%: yq helm-schema ## Generate helm chart for the specified chart n
 		;; \
 	esac
 	helm dependency update $(CHART_PATH)
-	helm lint $(CHART_PATH)
 	@$(call log_info, Generating values.schema.json for '$(CHART_NAME)')
 	$(HELM_SCHEMA) -c $(CHART_PATH) --no-dependencies -a
+	helm lint $(CHART_PATH)
 
 
 

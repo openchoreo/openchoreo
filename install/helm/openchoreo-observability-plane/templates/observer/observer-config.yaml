@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: observer-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer") | nindent 4 }}
+data:
+  {{- if .Values.security.oidc.issuer }}
+  JWT_ISSUER: {{ .Values.security.oidc.issuer | quote }}
+  {{- end }}
+  {{- if .Values.security.oidc.jwksUrl }}
+  JWKS_URL: {{ .Values.security.oidc.jwksUrl | quote }}
+  {{- end }}
+  JWKS_URL_TLS_INSECURE_SKIP_VERIFY: {{ .Values.security.oidc.jwksUrlTlsInsecureSkipVerify | default "false" | quote }}
+  UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY: {{ .Values.security.oidc.uidResolverTlsInsecureSkipVerify | default "false" | quote }}
+  {{- if .Values.security.jwt.audience }}
+  JWT_AUDIENCE: {{ .Values.security.jwt.audience | quote }}
+  {{- end }}
+  JWT_DISABLED: "{{ not .Values.security.enabled }}"
+  PORT: "8080"
+  INTERNAL_PORT: {{ if .Values.observer.internalService }}{{ .Values.observer.internalService.port | default 8081 | quote }}{{ else }}"8081"{{ end }}
+  LOG_LEVEL: {{ if .Values.observer }}{{ .Values.observer.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
+  AI_RCA_ENABLED: {{ .Values.rca.enabled | default false | quote }}
+  ALERT_STORE_BACKEND: {{ .Values.observer.alertStoreBackend | default "sqlite" | quote }}
+  OBSERVER_AUTH_CONFIG_PATH: /etc/openchoreo/auth-config.yaml
+  AUTHZ_SERVICE_URL: {{ .Values.observer.controlPlaneApiUrl | quote }}
+  AUTHZ_TLS_INSECURE_SKIP_VERIFY: {{ .Values.observer.authzTlsInsecureSkipVerify | default false | quote }}
+  UID_RESOLVER_OPENCHOREO_API_URL: {{ .Values.observer.controlPlaneApiUrl | quote }}
+  {{- if .Values.security.oidc.tokenUrl }}
+  UID_RESOLVER_OAUTH_TOKEN_URL: {{ .Values.security.oidc.tokenUrl | quote }}
+  {{- end }}
+  UID_RESOLVER_OAUTH_CLIENT_ID: {{ .Values.observer.oauthClientId | default "openchoreo-observer" | quote }}
+  {{- if .Values.security.oidc.authServerBaseUrl }}
+  AUTH_SERVER_BASE_URL: {{ .Values.security.oidc.authServerBaseUrl | quote }}
+  {{- end }}
+  {{- if .Values.observer.cors.allowedOrigins }}
+  CORS_ALLOWED_ORIGINS: {{ join "," .Values.observer.cors.allowedOrigins | quote }}
+  {{- end }}
+  LOGS_ADAPTER_ENABLED: {{ .Values.observer.logsAdapter.enabled | default false | quote }}
+  LOGS_ADAPTER_URL: {{ .Values.observer.logsAdapter.url | default "http://logs-adapter:9098" | quote }}
+  LOGS_ADAPTER_TIMEOUT: {{ .Values.observer.logsAdapter.timeout | default "30s" | quote }}
+  TRACING_ADAPTER_ENABLED: {{ .Values.observer.tracingAdapter.enabled | default false | quote }}
+  TRACING_ADAPTER_URL: {{ .Values.observer.tracingAdapter.url | default "http://tracing-adapter:9100" | quote }}
+  TRACING_ADAPTER_TIMEOUT: {{ .Values.observer.tracingAdapter.timeout | default "30s" | quote }}

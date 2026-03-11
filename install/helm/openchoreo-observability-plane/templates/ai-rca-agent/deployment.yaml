@@ -1,9 +1,9 @@
 {{- if .Values.rca.enabled }}
+{{- if not .Values.rca.secretName }}
+{{- fail "rca.secretName is required when rca is enabled. Create a Secret with keys matching the RCA agent's expected env vars (RCA_LLM_API_KEY, OAUTH_CLIENT_SECRET, and optionally SQL_BACKEND_URI), then set rca.secretName." }}
+{{- end }}
 {{- if and (eq .Values.rca.reportBackend "sqlite") (gt (.Values.rca.replicas | int) 1) }}
 {{- fail "rca.replicas must be 1 when using sqlite backend (ReadWriteOnce PVC). Set rca.replicas=1 or use reportBackend=postgresql." }}
-{{- end }}
-{{- if and (eq .Values.rca.reportBackend "postgresql") (not .Values.rca.sqlBackendSecret.name) }}
-{{- fail "rca.sqlBackendSecret.name is required when reportBackend=postgresql. Create a Secret with the connection URI and set rca.sqlBackendSecret.name." }}
 {{- end }}
 apiVersion: apps/v1
 kind: Deployment
@@ -20,9 +20,7 @@ spec:
   template:
     metadata:
       annotations:
-        # Checksum annotations to trigger pod restart when config changes
-        checksum/llm-config: {{ .Values.rca.llm.modelName | sha256sum }}
-        checksum/llm-secret: {{ .Values.rca.llm.apiKey | sha256sum }}
+        checksum/config: {{ include (print $.Template.BasePath "/ai-rca-agent/rca-agent-config.yaml") . | sha256sum }}
       labels:
         {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" .Values.rca.name) | nindent 8 }}
     spec:
@@ -39,84 +37,15 @@ spec:
         - name: http
           containerPort: {{ .Values.rca.service.port }}
           protocol: TCP
+        envFrom:
+        - secretRef:
+            name: {{ .Values.rca.secretName }}
+        - configMapRef:
+            name: rca-agent-config
+        {{- if .Values.rca.extraEnvs }}
         env:
-        - name: OBSERVER_MCP_URL
-          value: {{ .Values.rca.observerMcpUrl | default "http://observer:8080/mcp" | quote }}
-
-        - name: CONTROL_PLANE_URL
-          value: {{ .Values.rca.controlPlaneUrl | quote }}
-
-        - name: AUTHZ_TIMEOUT_SECONDS
-          value: {{ .Values.rca.authz.timeoutSeconds | quote }}
-
-        # LLM Configuration
-        - name: RCA_MODEL_NAME
-          valueFrom:
-            configMapKeyRef:
-              name: {{ include "openchoreo-observability-plane.fullname" . }}-rca-llm-config
-              key: RCA_MODEL_NAME
-
-        - name: RCA_LLM_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "openchoreo-observability-plane.fullname" . }}-rca-llm-secret
-              key: RCA_LLM_API_KEY
-
-        # Report Backend Configuration
-        - name: REPORT_BACKEND
-          value: {{ .Values.rca.reportBackend | quote }}
-
-        {{- if .Values.rca.sqlBackendSecret.name }}
-        - name: SQL_BACKEND_URI
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.rca.sqlBackendSecret.name }}
-              key: {{ .Values.rca.sqlBackendSecret.key }}
+        {{- toYaml .Values.rca.extraEnvs | nindent 8 }}
         {{- end }}
-
-        # OAuth2 Client Credentials Configuration
-        - name: OAUTH_TOKEN_URL
-          value: {{ .Values.security.oidc.tokenUrl | quote }}
-
-        - name: OAUTH_CLIENT_ID
-          value: {{ .Values.rca.oauth.clientId | quote }}
-
-        - name: OAUTH_CLIENT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "openchoreo-observability-plane.fullname" . }}-rca-oauth-secret
-              key: client-secret
-
-        # TLS Configuration
-        - name: TLS_INSECURE_SKIP_VERIFY
-          value: {{ .Values.security.oidc.jwksUrlTlsInsecureSkipVerify | quote }}
-
-        # JWT Authentication Configuration
-        - name: JWT_DISABLED
-          value: {{ not .Values.security.enabled | quote }}
-
-        - name: JWT_JWKS_URL
-          value: {{ .Values.security.oidc.jwksUrl | quote }}
-
-        - name: JWT_ISSUER
-          value: {{ .Values.security.oidc.issuer | quote }}
-
-        - name: JWT_AUDIENCE
-          value: {{ .Values.security.jwt.audience | quote }}
-
-        # Logging
-        - name: LOG_LEVEL
-          value: {{ .Values.rca.logLevel | quote }}
-
-        # Experimental features
-        - name: REMED_AGENT
-          value: {{ .Values.rca.remedAgent | quote }}
-
-        {{- if .Values.rca.cors.allowedOrigins }}
-        - name: CORS_ALLOWED_ORIGINS
-          value: {{ join "," .Values.rca.cors.allowedOrigins | quote }}
-        {{- end }}
-
         resources:
           {{- toYaml .Values.rca.resources | nindent 10 }}
 

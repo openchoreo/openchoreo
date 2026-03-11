@@ -897,23 +897,6 @@ observer:
   # @schema
   alertStoreBackend: sqlite
 
-  # @schema
-  # type: object
-  # description: Existing Secret reference for PostgreSQL DSN used by alert entry storage
-  # @schema
-  alertStoreSecret:
-    # @schema
-    # type: string
-    # description: Secret name that contains the alert store DSN
-    # default: ""
-    # @schema
-    name: ""
-    # @schema
-    # type: string
-    # description: Secret key that contains the alert store DSN value
-    # default: dsn
-    # @schema
-    key: dsn
 
   # @schema
   # type: string
@@ -1010,10 +993,10 @@ observer:
   oauthClientId: "openchoreo-observer"
   # @schema
   # type: string
-  # description: OAuth2 client secret for the Observer when calling the control plane API
-  # default: openchoreo-observer-secret
+  # description: Name of an existing Secret injected via envFrom into the Observer container. Required keys - OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD, UID_RESOLVER_OAUTH_CLIENT_SECRET. Optional keys - ALERT_STORE_DSN (when alertStoreBackend is postgresql).
+  # default: ""
   # @schema
-  oauthClientSecret: "openchoreo-observer-secret"
+  secretName: ""
   # @schema
   # type: object
   # description: CORS configuration for the Observer service
@@ -3171,6 +3154,13 @@ rca:
   controlPlaneUrl: "http://api.openchoreo.localhost:8080"
 
   # @schema
+  # type: string
+  # description: Name of an existing Secret injected via envFrom into the RCA agent container. Required keys - RCA_LLM_API_KEY, OAUTH_CLIENT_SECRET. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).
+  # default: rca-agent-secret
+  # @schema
+  secretName: "rca-agent-secret"
+
+  # @schema
   # type: object
   # description: LLM configuration for AI-powered analysis
   # @schema
@@ -3182,12 +3172,6 @@ rca:
     # @schema
     modelName: ""
 
-    # @schema
-    # type: string
-    # description: LLM API key (set via --set rca.llm.apiKey during install)
-    # default: ""
-    # @schema
-    apiKey: ""
 
   # @schema
   # description: Report storage backend type
@@ -3195,24 +3179,6 @@ rca:
   # default: sqlite
   # @schema
   reportBackend: "sqlite"
-
-  # @schema
-  # type: object
-  # description: Reference to an existing Secret containing the SQL connection URI (required for postgresql)
-  # @schema
-  sqlBackendSecret:
-    # @schema
-    # type: string
-    # description: Name of the Secret containing the SQL backend URI
-    # default: ""
-    # @schema
-    name: ""
-    # @schema
-    # type: string
-    # description: Key within the Secret that holds the URI
-    # default: uri
-    # @schema
-    key: uri
 
   # @schema
   # type: string
@@ -3232,12 +3198,6 @@ rca:
     # default: openchoreo-rca-agent
     # @schema
     clientId: "openchoreo-rca-agent"
-    # @schema
-    # type: string
-    # description: OAuth2 client secret (override via --set rca.oauth.clientSecret)
-    # default: openchoreo-rca-agent-secret
-    # @schema
-    clientSecret: "openchoreo-rca-agent-secret"
 
   # @schema
   # type: object
@@ -3269,3 +3229,18 @@ rca:
     #   type: string
     # @schema
     hostnames: []
+
+  # @schema
+  # type: array
+  # description: Extra environment variables for the RCA agent container
+  # items:
+  #   type: object
+  #   properties:
+  #     name:
+  #       type: string
+  #       description: Environment variable name
+  #     value:
+  #       type: string
+  #       description: Environment variable value
+  # @schema
+  extraEnvs: []

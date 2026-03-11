@@ -27,6 +27,9 @@ func (m *mockPDP) Evaluate(ctx context.Context, req *authz.EvaluateRequest) (*au
 }
 
 func (m *mockPDP) BatchEvaluate(ctx context.Context, req *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error) {
+	if m.batchEvaluateFunc == nil {
+		return &authz.BatchEvaluateResponse{}, nil
+	}
 	return m.batchEvaluateFunc(ctx, req)
 }
 

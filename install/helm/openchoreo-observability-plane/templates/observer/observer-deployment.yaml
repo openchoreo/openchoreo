@@ -1,8 +1,8 @@
+{{- if not .Values.observer.secretName }}
+{{- fail "observer.secretName is required. Create a Secret with keys matching the Observer's expected env vars (OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD, UID_RESOLVER_OAUTH_CLIENT_SECRET, and optionally ALERT_STORE_DSN), then set observer.secretName." }}
+{{- end }}
 {{- if and (eq (.Values.observer.alertStoreBackend | default "sqlite") "sqlite") (gt (.Values.observer.replicas | int) 1) }}
 {{- fail "observer.replicas must be 1 when observer.alertStoreBackend=sqlite (ReadWriteOnce PVC). Set observer.replicas=1 or use observer.alertStoreBackend=postgresql." }}
-{{- end }}
-{{- if and (eq (.Values.observer.alertStoreBackend | default "sqlite") "postgresql") (not .Values.observer.alertStoreSecret.name) }}
-{{- fail "observer.alertStoreSecret.name is required when observer.alertStoreBackend=postgresql." }}
 {{- end }}
 apiVersion: apps/v1
 kind: Deployment
@@ -18,6 +18,8 @@ spec:
       {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "observer") | nindent 6 }}
   template:
     metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/observer/observer-config.yaml") . | sha256sum }}
       labels:
         {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "observer") | nindent 8 }}
     spec:
@@ -38,94 +40,13 @@ spec:
         - name: http-internal
           containerPort: {{ if .Values.observer.internalService }}{{ .Values.observer.internalService.port | default 8081 }}{{ else }}8081{{ end }}
           protocol: TCP
-        env:
-        {{- if .Values.security.oidc.issuer }}
-        - name: JWT_ISSUER
-          value: {{ .Values.security.oidc.issuer | quote }}
-        {{- end }}
-        {{- if .Values.security.oidc.jwksUrl }}
-        - name: JWKS_URL
-          value: {{ .Values.security.oidc.jwksUrl | quote }}
-        {{- end }}
-        - name: JWKS_URL_TLS_INSECURE_SKIP_VERIFY
-          value: {{ .Values.security.oidc.jwksUrlTlsInsecureSkipVerify | default "false" | quote }}
-        - name: UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY
-          value: {{ .Values.security.oidc.uidResolverTlsInsecureSkipVerify | default "false" | quote }}
-        {{- if .Values.security.jwt.audience }}
-        - name: JWT_AUDIENCE
-          value: {{ .Values.security.jwt.audience | quote }}
-        {{- end }}
-        - name: JWT_DISABLED
-          value: "{{ not .Values.security.enabled }}"
-        - name: PORT
-          value: "8080"
-        - name: INTERNAL_PORT
-          value: {{ if .Values.observer.internalService }}{{ .Values.observer.internalService.port | default 8081 | quote }}{{ else }}"8081"{{ end }}
-        - name: LOG_LEVEL
-          value: {{ if .Values.observer }}{{ .Values.observer.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
-        - name: OPENSEARCH_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.observer.openSearchSecretName }}
-              key: username
-        - name: OPENSEARCH_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.observer.openSearchSecretName }}
-              key: password
-        - name: AI_RCA_ENABLED
-          value: {{ .Values.rca.enabled | default false | quote }}
-        - name: ALERT_STORE_BACKEND
-          value: {{ .Values.observer.alertStoreBackend | default "sqlite" | quote }}
-        {{- if and (eq (.Values.observer.alertStoreBackend | default "sqlite") "postgresql") .Values.observer.alertStoreSecret.name }}
-        - name: ALERT_STORE_DSN
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.observer.alertStoreSecret.name }}
-              key: {{ .Values.observer.alertStoreSecret.key | default "dsn" }}
-        {{- end }}
-        - name: OBSERVER_AUTH_CONFIG_PATH
-          value: /etc/openchoreo/auth-config.yaml
-        - name: AUTHZ_SERVICE_URL
-          value: {{ .Values.observer.controlPlaneApiUrl | quote }}
-        - name: AUTHZ_TLS_INSECURE_SKIP_VERIFY
-          value: {{ .Values.observer.authzTlsInsecureSkipVerify | default false | quote }}
-        # UIDResolver configuration for calling openchoreo-api with OAuth2 client credentials
-        - name: UID_RESOLVER_OPENCHOREO_API_URL
-          value: {{ .Values.observer.controlPlaneApiUrl | quote }}
-        {{- if .Values.security.oidc.tokenUrl }}
-        - name: UID_RESOLVER_OAUTH_TOKEN_URL
-          value: {{ .Values.security.oidc.tokenUrl | quote }}
-        {{- end }}
-        - name: UID_RESOLVER_OAUTH_CLIENT_ID
-          value: {{ .Values.observer.oauthClientId | default "openchoreo-observer" | quote }}
-        {{- if .Values.observer.oauthClientSecret }}
-        - name: UID_RESOLVER_OAUTH_CLIENT_SECRET
-          value: {{ .Values.observer.oauthClientSecret | quote }}
-        {{- end }}
-        {{- if .Values.security.oidc.authServerBaseUrl }}
-        - name: AUTH_SERVER_BASE_URL
-          value: {{ .Values.security.oidc.authServerBaseUrl | quote }}
-        {{- end }}
-        {{- if .Values.observer.cors.allowedOrigins }}
-        - name: CORS_ALLOWED_ORIGINS
-          value: {{ join "," .Values.observer.cors.allowedOrigins | quote }}
-        {{- end }}
-        # Logs adapter configuration
-        - name: LOGS_ADAPTER_ENABLED
-          value: {{ .Values.observer.logsAdapter.enabled | default false | quote }}
-        - name: LOGS_ADAPTER_URL
-          value: {{ .Values.observer.logsAdapter.url | default "http://logs-adapter:9100" | quote }}
-        - name: LOGS_ADAPTER_TIMEOUT
-          value: {{ .Values.observer.logsAdapter.timeout | default "30s" | quote }}
-        # Tracing adapter configuration
-        - name: TRACING_ADAPTER_ENABLED
-          value: {{ .Values.observer.tracingAdapter.enabled | default false | quote }}
-        - name: TRACING_ADAPTER_URL
-          value: {{ .Values.observer.tracingAdapter.url | default "http://tracing-adapter:9098" | quote }}
-        - name: TRACING_ADAPTER_TIMEOUT
-          value: {{ .Values.observer.tracingAdapter.timeout | default "30s" | quote }}
+        envFrom:
+        - secretRef:
+            name: {{ .Values.observer.secretName }}
+        - configMapRef:
+            name: observer-config
         {{- if .Values.observer.extraEnvs }}
+        env:
         {{- toYaml .Values.observer.extraEnvs | nindent 8 }}
         {{- end }}
         volumeMounts:

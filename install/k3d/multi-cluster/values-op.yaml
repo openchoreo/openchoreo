@@ -9,7 +9,8 @@ openSearchCluster:
   adminPassword: "ThisIsTheOpenSearchPassword1"
 
 observer:
-  openSearchSecretName: observer-opensearch-credentials
+  openSearchSecretName: opensearch-admin-credentials
+  secretName: observer-secret
   extraEnvs:
   - name: OBSERVER_BASE_URL
     value: "http://observer.openchoreo.localhost:11080"
