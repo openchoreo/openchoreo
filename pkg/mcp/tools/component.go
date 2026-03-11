@@ -120,10 +120,8 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"display_name":   stringProperty("Human-readable display name"),
 			"description":    stringProperty("Human-readable description"),
-			"componentType": stringProperty("Component type identifier in {workloadType}/{componentTypeName} format. " +
-				"Use list_component_types or list_cluster_component_types to discover valid types"),
-			"componentTypeKind": stringProperty("Optional: Kind of component type reference. " +
-				"Use 'ComponentType' for namespace-scoped (default) or 'ClusterComponentType' for cluster-scoped"),
+			"componentType": stringProperty("Component type in {workloadType}/{componentTypeName} format. " +
+				"Use list_component_types or list_cluster_component_types to discover valid values."),
 			"autoDeploy": map[string]any{
 				"type": "boolean",
 				"description": "Optional: Automatically triggers the component deployment if the component or" +
@@ -140,26 +138,19 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 			},
 		}, []string{"namespace_name", "project_name", "name", "componentType"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName     string                 `json:"namespace_name"`
-		ProjectName       string                 `json:"project_name"`
-		Name              string                 `json:"name"`
-		DisplayName       string                 `json:"display_name"`
-		Description       string                 `json:"description"`
-		ComponentType     string                 `json:"componentType"`
-		ComponentTypeKind string                 `json:"componentTypeKind"`
-		AutoDeploy        *bool                  `json:"autoDeploy,omitempty"`
-		Parameters        map[string]interface{} `json:"parameters"`
-		Workflow          map[string]interface{} `json:"workflow"`
+		NamespaceName string                 `json:"namespace_name"`
+		ProjectName   string                 `json:"project_name"`
+		Name          string                 `json:"name"`
+		DisplayName   string                 `json:"display_name"`
+		Description   string                 `json:"description"`
+		ComponentType string                 `json:"componentType"`
+		AutoDeploy    *bool                  `json:"autoDeploy,omitempty"`
+		Parameters    map[string]interface{} `json:"parameters"`
+		Workflow      map[string]interface{} `json:"workflow"`
 	}) (*mcp.CallToolResult, any, error) {
 		var componentType *string
 		if args.ComponentType != "" {
-			// ComponentType in gen is a string in format: {workloadType}/{componentTypeName}
-			// If ComponentTypeKind is provided, we construct it, otherwise use ComponentType as-is
 			ct := args.ComponentType
-			if args.ComponentTypeKind != "" {
-				// If kind is provided, assume ComponentType is just the name
-				ct = args.ComponentType
-			}
 			componentType = &ct
 		}
 
