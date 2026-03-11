@@ -543,7 +543,7 @@ func (t *Toolsets) RegisterGetComponentSchema(s *mcp.Server) {
 			"configuration options, required fields, and their types.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"component_name": stringProperty("Component name. Use list_components to discover valid names"),
+			"component_name": stringProperty("Use list_components to discover valid names"),
 		}, []string{"namespace_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
@@ -592,8 +592,8 @@ func (t *Toolsets) RegisterGetComponentReleaseSchema(s *mcp.Server) {
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"component_name": stringProperty("Use list_components to discover valid names"),
-			"release_name":   stringProperty("Optional: specific release name for release-specific schema"),
-		}, []string{"namespace_name", "component_name"}),
+			"release_name":   stringProperty("Use list_component_releases to discover valid names"),
+		}, []string{"namespace_name", "component_name", "release_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
 		ComponentName string `json:"component_name"`
