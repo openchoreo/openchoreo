@@ -24,7 +24,7 @@ type ClusterAuthzRoleSpec struct {
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
-// ClusterAuthzRole is the Schema for the authzclusterroles API
+// ClusterAuthzRole is the Schema for the clusterauthzroles API
 type ClusterAuthzRole struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

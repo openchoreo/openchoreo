@@ -21,7 +21,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ClusterAuthzRoleBinding is the Schema for the authzclusterrolebindings
+        description: ClusterAuthzRoleBinding is the Schema for the clusterauthzrolebindings
           API
         properties:
           apiVersion:

@@ -21,7 +21,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ClusterAuthzRole is the Schema for the authzclusterroles API
+        description: ClusterAuthzRole is the Schema for the clusterauthzroles API
         properties:
           apiVersion:
             description: |-
