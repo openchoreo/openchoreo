@@ -42,8 +42,8 @@ func (h *Handler) ListActions(
 	result := make([]gen.ActionInfo, len(actions))
 	for i, a := range actions {
 		result[i] = gen.ActionInfo{
-			Name:  a.Name,
-			Scope: gen.ActionInfoScope(a.Scope),
+			Name:        a.Name,
+			LowestScope: gen.ActionInfoLowestScope(a.LowestScope),
 		}
 	}
 

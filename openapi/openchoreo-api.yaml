@@ -8792,13 +8792,13 @@ components:
       description: An authorization action with its scope in the resource hierarchy.
       required:
         - name
-        - scope
+        - lowestScope
       properties:
         name:
           type: string
           description: The action identifier (e.g. "component:create").
           example: component:create
-        scope:
+        lowestScope:
           type: string
           description: >
             The lowest resource hierarchy level at which this action is evaluated.

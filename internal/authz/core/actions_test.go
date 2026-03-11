@@ -58,6 +58,18 @@ func TestAllActions(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("all actions have a valid LowestScope", func(t *testing.T) {
+		valid := map[ActionScope]bool{
+			ScopeCluster: true, ScopeNamespace: true,
+			ScopeProject: true, ScopeComponent: true,
+		}
+		for _, action := range actions {
+			if !valid[action.LowestScope] {
+				t.Errorf("Action %q has invalid LowestScope %q", action.Name, action.LowestScope)
+			}
+		}
+	})
 }
 
 // TestPublicActions tests listing public actions
