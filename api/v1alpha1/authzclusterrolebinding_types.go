@@ -24,6 +24,7 @@ type ClusterTargetScope struct {
 }
 
 // ClusterRoleMapping pairs a role reference with an optional scope for cluster-scoped bindings
+// +kubebuilder:validation:XValidation:rule="!has(self.scope) || (!has(self.scope.project) || has(self.scope.namespace)) && (!has(self.scope.component) || has(self.scope.project))",message="scope.project requires scope.namespace, and scope.component requires scope.project"
 type ClusterRoleMapping struct {
 	// RoleRef references the AuthzClusterRole to bind
 	RoleRef RoleRef `json:"roleRef"`

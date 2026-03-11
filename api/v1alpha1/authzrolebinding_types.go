@@ -20,6 +20,7 @@ type TargetScope struct {
 }
 
 // RoleMapping pairs a role reference with an optional scope
+// +kubebuilder:validation:XValidation:rule="!has(self.scope) || !has(self.scope.component) || has(self.scope.project)",message="scope.component requires scope.project"
 type RoleMapping struct {
 	// RoleRef references the role to bind
 	RoleRef RoleRef `json:"roleRef"`

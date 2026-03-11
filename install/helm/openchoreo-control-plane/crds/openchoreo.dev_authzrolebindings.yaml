@@ -104,6 +104,9 @@ spec:
                   required:
                   - roleRef
                   type: object
+                  x-kubernetes-validations:
+                  - message: scope.component requires scope.project
+                    rule: '!has(self.scope) || !has(self.scope.component) || has(self.scope.project)'
                 minItems: 1
                 type: array
             required:
