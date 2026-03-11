@@ -195,3 +195,5 @@ openapi-codegen: oapi-codegen ## Generate Go server and client code from OpenAPI
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-server.yaml openapi/observer-api.yaml
 	@$(call log, "Generating Observer OpenAPI client")
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-client.yaml openapi/observer-api.yaml
+	@$(call log, "Generating Observer Logs Adapter API client")
+	$(OAPI_CODEGEN) -config internal/observer/api/cfg-logs-adapter-client.yaml https://openchoreo.dev/api-specs/observability-logs-adapter-api.yaml

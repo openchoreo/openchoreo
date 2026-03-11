@@ -1,0 +1,14 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# oapi-codegen configuration for generating Logs Adapter API HTTP client
+# See: https://github.com/oapi-codegen/oapi-codegen
+
+package: logsadapterclientgen
+output: internal/observer/api/logsadapterclientgen/client.gen.go
+generate:
+  client: true
+  models: true
+output-options:
+  skip-prune: true
+  response-type-suffix: Resp

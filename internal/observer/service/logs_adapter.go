@@ -12,12 +12,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/openchoreo/openchoreo/internal/observer/api/logsadapterclientgen"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
 type LogsAdapter struct {
-	baseURL    string
-	httpClient *http.Client
+	baseURL       string
+	httpClient    *http.Client
+	adapterClient *logsadapterclientgen.Client
 }
 
 type LogsAdapterConfig struct {
@@ -92,17 +94,25 @@ type backendWorkflowLogEntry struct {
 	Metadata  map[string]interface{} `json:"metadata"`
 }
 
-func NewLogsAdapter(config LogsAdapterConfig) *LogsAdapter {
+func NewLogsAdapter(config LogsAdapterConfig) (*LogsAdapter, error) {
 	if config.Timeout == 0 {
 		config.Timeout = 30 * time.Second
 	}
 
-	return &LogsAdapter{
-		baseURL: config.BaseURL,
-		httpClient: &http.Client{
-			Timeout: config.Timeout,
-		},
+	httpClient := &http.Client{
+		Timeout: config.Timeout,
 	}
+
+	adapterClient, err := logsadapterclientgen.NewClient(config.BaseURL, logsadapterclientgen.WithHTTPClient(httpClient))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create adapter client: %w", err)
+	}
+
+	return &LogsAdapter{
+		baseURL:       config.BaseURL,
+		httpClient:    httpClient,
+		adapterClient: adapterClient,
+	}, nil
 }
 
 // GetComponentApplicationLogs implements observability.LogsAdapter interface

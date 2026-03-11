@@ -67,6 +67,7 @@ type AlertService struct {
 	rcaServiceURL      string
 	aiRCAEnabled       bool
 	resolver           *ResourceUIDResolver
+	logsAdapter        *LogsAdapter
 }
 
 // NewAlertService creates a new AlertService.
@@ -81,6 +82,7 @@ func NewAlertService(
 	rcaServiceURL string,
 	aiRCAEnabled bool,
 	resolver *ResourceUIDResolver,
+	logsAdapter *LogsAdapter,
 ) *AlertService {
 	return &AlertService{
 		osClient:           osClient,
@@ -93,6 +95,7 @@ func NewAlertService(
 		rcaServiceURL:      rcaServiceURL,
 		aiRCAEnabled:       aiRCAEnabled,
 		resolver:           resolver,
+		logsAdapter:        logsAdapter,
 	}
 }
 
@@ -106,6 +109,9 @@ func (s *AlertService) CreateAlertRule(ctx context.Context, req gen.AlertRuleReq
 
 	switch sourceType {
 	case sourceTypeLog:
+		if s.config.Adapters.LogsAdapterEnabled && s.logsAdapter != nil {
+			return s.createLogAlertRuleViaAdapter(ctx, req)
+		}
 		return s.createOpenSearchAlertRule(ctx, req)
 	case sourceTypeMetric:
 		return s.createPrometheusAlertRule(ctx, req)
@@ -120,6 +126,9 @@ func (s *AlertService) CreateAlertRule(ctx context.Context, req gen.AlertRuleReq
 func (s *AlertService) GetAlertRule(ctx context.Context, ruleName, sourceType string) (*gen.AlertRuleResponse, error) {
 	switch sourceType {
 	case sourceTypeLog:
+		if s.config.Adapters.LogsAdapterEnabled && s.logsAdapter != nil {
+			return s.getLogAlertRuleViaAdapter(ctx, ruleName)
+		}
 		return s.getOpenSearchAlertRule(ctx, ruleName)
 	case sourceTypeMetric:
 		return s.getPrometheusAlertRule(ctx, ruleName)
@@ -138,6 +147,9 @@ func (s *AlertService) UpdateAlertRule(ctx context.Context, ruleName string, req
 
 	switch sourceType {
 	case sourceTypeLog:
+		if s.config.Adapters.LogsAdapterEnabled && s.logsAdapter != nil {
+			return s.updateLogAlertRuleViaAdapter(ctx, ruleName, req)
+		}
 		return s.updateOpenSearchAlertRule(ctx, ruleName, req)
 	case sourceTypeMetric:
 		return s.updatePrometheusAlertRule(ctx, ruleName, req)
@@ -152,6 +164,9 @@ func (s *AlertService) UpdateAlertRule(ctx context.Context, ruleName string, req
 func (s *AlertService) DeleteAlertRule(ctx context.Context, ruleName, sourceType string) (*gen.AlertingRuleSyncResponse, error) {
 	switch sourceType {
 	case sourceTypeLog:
+		if s.config.Adapters.LogsAdapterEnabled && s.logsAdapter != nil {
+			return s.deleteLogAlertRuleViaAdapter(ctx, ruleName)
+		}
 		return s.deleteOpenSearchAlertRule(ctx, ruleName)
 	case sourceTypeMetric:
 		return s.deletePrometheusAlertRule(ctx, ruleName)

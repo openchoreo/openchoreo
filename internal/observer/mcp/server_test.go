@@ -212,7 +212,7 @@ func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	alertSvc := service.NewAlertService(nil, nil, nil, nil, nil, nil, logger, "", false, nil)
+	alertSvc := service.NewAlertService(nil, nil, nil, nil, nil, nil, logger, "", false, nil, nil)
 	return NewMCPHandler(healthSvc, svcs.logs, svcs.metrics, alertSvc, svcs.traces, logger)
 }
 
@@ -583,7 +583,7 @@ var allToolSpecs = []toolTestSpec{
 func TestNewMCPHandlerValidation(t *testing.T) {
 	logger := slog.Default()
 	healthSvc, _ := service.NewHealthService(logger)
-	alertSvc := service.NewAlertService(nil, nil, nil, nil, nil, nil, logger, "", false, nil)
+	alertSvc := service.NewAlertService(nil, nil, nil, nil, nil, nil, logger, "", false, nil, nil)
 	logs := NewMockLogsQuerier()
 	metrics := NewMockMetricsQuerier()
 	traces := NewMockTracesQuerier()

@@ -79,6 +79,7 @@ func main() {
 
 	// Initialize logs adapter (optional)
 	var logsAdapter observability.LogsAdapter
+	var concreteLogsAdapter *service.LogsAdapter
 	if cfg.Adapters.LogsAdapterEnabled {
 		logger.Info("Using logs adapter",
 			"adapter_url", cfg.Adapters.LogsAdapterURL)
@@ -88,7 +89,13 @@ func main() {
 			BaseURL: cfg.Adapters.LogsAdapterURL,
 			Timeout: cfg.Adapters.LogsAdapterTimeout,
 		}
-		logsAdapter = service.NewLogsAdapter(adapterConfig)
+		var adapterErr error
+		concreteLogsAdapter, adapterErr = service.NewLogsAdapter(adapterConfig)
+		if adapterErr != nil {
+			logger.Error("Failed to create logs adapter", "error", adapterErr)
+			os.Exit(1)
+		}
+		logsAdapter = concreteLogsAdapter
 		logger.Info("Logs adapter initialized")
 	} else {
 		logger.Info("Using OpenSearch for component logs")
@@ -209,6 +216,7 @@ func main() {
 		cfg.Alerting.RCAServiceURL,
 		cfg.Alerting.AIRCAEnabled,
 		uidResolver,
+		concreteLogsAdapter,
 	)
 
 	// Wrap services with authorization checks.
