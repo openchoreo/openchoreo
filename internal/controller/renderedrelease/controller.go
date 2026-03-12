@@ -563,15 +563,6 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 		// Gateway API
 		{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute"},
 		{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "Gateway"},
-
-		// kgateway
-		{Group: "gateway.envoyproxy.io", Version: "v1alpha1", Kind: "SecurityPolicy"},
-		{Group: "gateway.envoyproxy.io", Version: "v1alpha1", Kind: "BackendTrafficPolicy"},
-		{Group: "gateway.envoyproxy.io", Version: "v1alpha1", Kind: "HTTPRouteFilter"},
-
-		// Third-party CRDs
-		{Group: "cilium.io", Version: "v2", Kind: "CiliumNetworkPolicy"},
-		{Group: "secrets-store.csi.x-k8s.io", Version: "v1", Kind: "SecretProviderClass"},
 	}
 	for _, gvk := range wellKnownGVKs {
 		gvkSet[gvk] = true
