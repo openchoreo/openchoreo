@@ -1355,12 +1355,12 @@ func (t *Toolsets) RegisterGetClusterWorkflowPlane(s *mcp.Server) {
 		Description: "Get detailed information about a cluster-scoped workflow plane including cluster details, " +
 			"health status, and agent connection state.",
 		InputSchema: createSchema(map[string]any{
-			"cbp_name": stringProperty("Cluster workflow plane name. Use list_cluster_workflowplanes to discover valid names"),
-		}, []string{"cbp_name"}),
+			"cwp_name": stringProperty("Cluster workflow plane name. Use list_cluster_workflowplanes to discover valid names"),
+		}, []string{"cwp_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CbpName string `json:"cbp_name"`
+		CwpName string `json:"cwp_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetClusterWorkflowPlane(ctx, args.CbpName)
+		result, err := t.PEToolset.GetClusterWorkflowPlane(ctx, args.CwpName)
 		return handleToolResult(result, err)
 	})
 }
@@ -1383,6 +1383,36 @@ func (t *Toolsets) RegisterGetClusterObservabilityPlane(s *mcp.Server) {
 }
 
 // ---------------------------------------------------------------------------
+// PE Toolset — Component type creation schema tools
+// ---------------------------------------------------------------------------
+
+func (t *Toolsets) RegisterGetComponentTypeCreationSchema(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_component_type_creation_schema",
+		Description: "Get the spec schema for creating a namespace-scoped component type. " +
+			"Returns the full JSON schema showing all required and optional fields, their types, " +
+			"and descriptions. Call this before create_component_type to understand the spec structure.",
+		InputSchema: createSchema(map[string]any{}, nil),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
+		schema, err := ComponentTypeCreationSchema()
+		return handleToolResult(schema, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetClusterComponentTypeCreationSchema(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_cluster_component_type_creation_schema",
+		Description: "Get the spec schema for creating a cluster-scoped component type. " +
+			"Returns the full JSON schema showing all required and optional fields, their types, " +
+			"and descriptions. Call this before create_cluster_component_type to understand the spec structure.",
+		InputSchema: createSchema(map[string]any{}, nil),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
+		schema, err := ClusterComponentTypeCreationSchema()
+		return handleToolResult(schema, err)
+	})
+}
+
+// ---------------------------------------------------------------------------
 // PE Toolset — Platform standards write (namespace-scoped)
 // ---------------------------------------------------------------------------
 
@@ -1391,18 +1421,15 @@ func (t *Toolsets) RegisterCreateComponentType(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_component_type",
 		Description: "Create a new component type in a namespace. Component types define the structure, " +
-			"workload type, allowed traits, and allowed workflows for components. " +
-			"Use get_cluster_component_type_schema to understand the spec structure before creating.",
+			"workload type, allowed traits, and allowed workflows for components.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"display_name":   stringProperty("Human-readable display name"),
 			"description":    stringProperty("Human-readable description"),
 			"spec": map[string]any{
-				"type": "object",
-				"description": "Component type specification. Required fields: workloadType " +
-					"(one of: deployment|statefulset|cronjob|job|proxy), resources (array of resource templates). " +
-					"Use get_cluster_component_type_schema on an existing type to see the full structure.",
+				"type":        "object",
+				"description": "Use get_component_type_creation_schema to check the schema",
 			},
 		}, []string{"namespace_name", "name", "spec"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
@@ -1495,7 +1522,7 @@ func (t *Toolsets) RegisterCreateTrait(s *mcp.Server) {
 		Name: "create_trait",
 		Description: "Create a new trait in a namespace. Traits add capabilities to components by creating " +
 			"additional Kubernetes resources or patching existing ones (e.g., autoscaling, ingress, service mesh). " +
-			"Use get_cluster_trait_schema to understand the spec structure before creating.",
+			"Use get_trait_schema to understand the spec structure before creating.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
@@ -1504,7 +1531,7 @@ func (t *Toolsets) RegisterCreateTrait(s *mcp.Server) {
 			"spec": map[string]any{
 				"type": "object",
 				"description": "Trait specification defining what resources the trait creates or patches. " +
-					"Use get_cluster_trait_schema on an existing trait to see the full structure.",
+					"Use get_trait_schema on an existing trait to see the full structure.",
 			},
 		}, []string{"namespace_name", "name", "spec"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
@@ -1594,7 +1621,7 @@ func (t *Toolsets) RegisterPECreateWorkflow(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_workflow",
 		Description: "Create a new workflow in a namespace. Workflows are reusable CI/CD pipeline templates " +
-			"that execute on the workflow plane. Use get_cluster_workflow_schema on an existing workflow to " +
+			"that execute on the workflow plane. Use get_workflow_schema on an existing workflow to " +
 			"understand the spec structure (runTemplate, resources, parameters).",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
@@ -1604,7 +1631,7 @@ func (t *Toolsets) RegisterPECreateWorkflow(s *mcp.Server) {
 			"spec": map[string]any{
 				"type": "object",
 				"description": "Workflow specification. Required field: runTemplate (Argo Workflow template definition). " +
-					"Use get_cluster_workflow_schema on an existing workflow to see the full structure.",
+					"Use get_workflow_schema on an existing workflow to see the full structure.",
 			},
 		}, []string{"namespace_name", "name", "spec"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
@@ -1698,17 +1725,14 @@ func (t *Toolsets) RegisterCreateClusterComponentType(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_cluster_component_type",
 		Description: "Create a new cluster-scoped component type. Cluster component types are the platform-wide " +
-			"golden path templates available to all namespaces. Use get_cluster_component_type_schema on an " +
-			"existing type to understand the spec structure before creating.",
+			"golden path templates available to all namespaces.",
 		InputSchema: createSchema(map[string]any{
 			"name":         stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"display_name": stringProperty("Human-readable display name"),
 			"description":  stringProperty("Human-readable description"),
 			"spec": map[string]any{
-				"type": "object",
-				"description": "Cluster component type specification. Required fields: workloadType " +
-					"(one of: deployment|statefulset|cronjob|job|proxy), resources (array of resource templates). " +
-					"Use get_cluster_component_type_schema on an existing type to see the full structure.",
+				"type":        "object",
+				"description": "Use get_cluster_component_type_creation_schema to check the schema",
 			},
 		}, []string{"name", "spec"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {

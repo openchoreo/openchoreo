@@ -581,7 +581,7 @@ func (h *MCPHandler) TriggerWorkflowRun(
 // Namespace-scoped ComponentType takes precedence; ClusterComponentType is the fallback.
 func (h *MCPHandler) resolveComponentTypeKind(ctx context.Context, namespaceName, componentType string) (openchoreov1alpha1.ComponentTypeRefKind, error) {
 	parts := strings.SplitN(componentType, "/", 2)
-	if len(parts) != 2 || parts[1] == "" {
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return "", fmt.Errorf("invalid componentType format %q: expected {workloadType}/{name}", componentType)
 	}
 	typeName := parts[1]

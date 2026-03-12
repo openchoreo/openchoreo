@@ -394,8 +394,12 @@ func (s *componentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 		ct := &openchoreov1alpha1.ComponentType{}
 		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: componentTypeName, Namespace: namespaceName}, ct); err != nil {
 			if client.IgnoreNotFound(err) == nil {
-				// Fall back to ClusterComponentType — the component may have been created
-				// without an explicit kind, which defaults to namespace-scoped ComponentType.
+				// Only fall back to ClusterComponentType for legacy objects where kind was
+				// not explicitly set. When resolveComponentTypeKind has set an explicit kind,
+				// we must respect it and not silently switch to a different resource kind.
+				if ctRef.Kind != "" {
+					return nil, fmt.Errorf("ComponentType %q not found in namespace %q", componentTypeName, namespaceName)
+				}
 				cct := &openchoreov1alpha1.ClusterComponentType{}
 				if cctErr := s.k8sClient.Get(ctx, client.ObjectKey{Name: componentTypeName}, cct); cctErr != nil {
 					if client.IgnoreNotFound(cctErr) == nil {

@@ -318,14 +318,14 @@ func peClusterSpecs() []toolTestSpec {
 			toolset:             "pe",
 			descriptionKeywords: []string{"cluster", "workflow", "plane"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"cbp_name"},
+			requiredParams:      []string{"cwp_name"},
 			testArgs: map[string]any{
-				"cbp_name": "cbp1",
+				"cwp_name": "cwp1",
 			},
 			expectedMethod: "GetClusterWorkflowPlane",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != "cbp1" {
-					t.Errorf("Expected cbp_name %q, got %v", "cbp1", args[0])
+				if args[0] != "cwp1" {
+					t.Errorf("Expected cwp_name %q, got %v", "cwp1", args[0])
 				}
 			},
 		},
@@ -689,6 +689,21 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 					t.Errorf("Expected (%s, build-workflow), got (%v, %v)", testNamespaceName, args[0], args[1])
 				}
 			},
+		},
+		// Creation schema tools (static, no handler call)
+		{
+			name:                "get_component_type_creation_schema",
+			toolset:             "pe",
+			descriptionKeywords: []string{"schema", "creating", "component", "type"},
+			descriptionMinLen:   10,
+			testArgs:            map[string]any{},
+		},
+		{
+			name:                "get_cluster_component_type_creation_schema",
+			toolset:             "pe",
+			descriptionKeywords: []string{"schema", "creating", "cluster", "component", "type"},
+			descriptionMinLen:   10,
+			testArgs:            map[string]any{},
 		},
 		// Write operations (namespace-scoped)
 		{

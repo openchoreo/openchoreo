@@ -37,6 +37,11 @@ func TestToolParameterWiring(t *testing.T) {
 				t.Fatal("Expected non-empty result content")
 			}
 
+			// Static tools (no handler call) only need result validation
+			if spec.expectedMethod == "" {
+				return
+			}
+
 			// Verify the correct handler method was called
 			calls, ok := mockHandler.calls[spec.expectedMethod]
 			if !ok {

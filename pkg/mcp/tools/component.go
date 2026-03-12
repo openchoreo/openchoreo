@@ -442,7 +442,7 @@ func (t *Toolsets) RegisterUpdateWorkload(s *mcp.Server) {
 			"get_workload to retrieve the current workload name and spec before updating.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"workload_name":  stringProperty("Use get_component_workloads to discover valid names"),
+			"workload_name":  stringProperty("Use list_workloads to discover valid names"),
 			"workload_spec": map[string]any{
 				"type":        "object",
 				"description": "Updated workload specification (containers, resources, env vars, port mappings, file mounts, etc.)",
