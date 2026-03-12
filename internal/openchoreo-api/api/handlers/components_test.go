@@ -4,11 +4,19 @@
 package handlers
 
 import (
+	"log/slog"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
 )
 
 func TestToModelCreateComponentRequest(t *testing.T) {
@@ -176,4 +184,157 @@ func TestToModelTraits(t *testing.T) {
 			}
 		})
 	}
+}
+
+// --- ListComponents Handler ---
+
+func newComponentService(t *testing.T, objects []client.Object, pdp authzcore.PDP) componentsvc.Service {
+	t.Helper()
+	return componentsvc.NewServiceWithAuthz(testutil.NewFakeClient(objects...), pdp, testutil.TestLogger())
+}
+
+func newHandlerWithComponentService(svc componentsvc.Service) *Handler {
+	return &Handler{
+		services: &handlerservices.Services{ComponentService: svc},
+		logger:   slog.Default(),
+	}
+}
+
+func testComponentObj(projectName, name string) *openchoreov1alpha1.Component {
+	return &openchoreov1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test-ns"},
+		Spec: openchoreov1alpha1.ComponentSpec{
+			Owner:         openchoreov1alpha1.ComponentOwner{ProjectName: projectName},
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "deployment/web-app"},
+		},
+	}
+}
+
+func TestListComponentsHandler(t *testing.T) {
+	ctx := testContext()
+
+	const (
+		ns      = "test-ns"
+		projA   = "proj-a"
+		projB   = "proj-b"
+		compA   = "comp-a"
+		compB   = "comp-b"
+		pipeDef = "default"
+	)
+
+	projectA := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{Name: projA, Namespace: ns},
+		Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: pipeDef}},
+	}
+	projectB := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{Name: projB, Namespace: ns},
+		Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: pipeDef}},
+	}
+
+	t.Run("success - returns items", func(t *testing.T) {
+		svc := newComponentService(t, []client.Object{projectA, testComponentObj(projA, compA)}, &allowAllPDP{})
+		h := newHandlerWithComponentService(svc)
+
+		resp, err := h.ListComponents(ctx, gen.ListComponentsRequestObject{NamespaceName: ns})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		typed, ok := resp.(gen.ListComponents200JSONResponse)
+		if !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+		if len(typed.Items) != 1 {
+			t.Fatalf("expected 1 item, got %d", len(typed.Items))
+		}
+	})
+
+	t.Run("success - with project filter", func(t *testing.T) {
+		objs := []client.Object{projectA, projectB, testComponentObj(projA, compA), testComponentObj(projB, compB)}
+		svc := newComponentService(t, objs, &allowAllPDP{})
+		h := newHandlerWithComponentService(svc)
+
+		resp, err := h.ListComponents(ctx, gen.ListComponentsRequestObject{
+			NamespaceName: ns,
+			Params:        gen.ListComponentsParams{Project: ptr.To(projA)},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		typed, ok := resp.(gen.ListComponents200JSONResponse)
+		if !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+		if len(typed.Items) != 1 {
+			t.Fatalf("expected 1 item, got %d", len(typed.Items))
+		}
+	})
+
+	t.Run("project not found returns 404", func(t *testing.T) {
+		svc := newComponentService(t, nil, &allowAllPDP{})
+		h := newHandlerWithComponentService(svc)
+
+		resp, err := h.ListComponents(ctx, gen.ListComponentsRequestObject{
+			NamespaceName: ns,
+			Params:        gen.ListComponentsParams{Project: ptr.To("nonexistent")},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.ListComponents404JSONResponse); !ok {
+			t.Fatalf("expected 404 response, got %T", resp)
+		}
+	})
+
+	t.Run("validation error returns 400", func(t *testing.T) {
+		svc := newComponentService(t, []client.Object{projectA}, &allowAllPDP{})
+		h := newHandlerWithComponentService(svc)
+
+		resp, err := h.ListComponents(ctx, gen.ListComponentsRequestObject{
+			NamespaceName: ns,
+			Params:        gen.ListComponentsParams{LabelSelector: ptr.To("===invalid")},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := resp.(gen.ListComponents400JSONResponse); !ok {
+			t.Fatalf("expected 400 response, got %T", resp)
+		}
+	})
+
+	t.Run("empty list returns 200 with no items", func(t *testing.T) {
+		svc := newComponentService(t, []client.Object{projectA}, &allowAllPDP{})
+		h := newHandlerWithComponentService(svc)
+
+		resp, err := h.ListComponents(ctx, gen.ListComponentsRequestObject{
+			NamespaceName: ns,
+			Params:        gen.ListComponentsParams{Project: ptr.To(projA)},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		typed, ok := resp.(gen.ListComponents200JSONResponse)
+		if !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+		if len(typed.Items) != 0 {
+			t.Fatalf("expected 0 items, got %d", len(typed.Items))
+		}
+	})
+
+	t.Run("unauthorized items filtered out", func(t *testing.T) {
+		svc := newComponentService(t, []client.Object{projectA, testComponentObj(projA, compA)}, &denyAllPDP{})
+		h := newHandlerWithComponentService(svc)
+
+		resp, err := h.ListComponents(ctx, gen.ListComponentsRequestObject{NamespaceName: ns})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		typed, ok := resp.(gen.ListComponents200JSONResponse)
+		if !ok {
+			t.Fatalf("unexpected response type: %T", resp)
+		}
+		if len(typed.Items) != 0 {
+			t.Fatalf("expected 0 items (authz denied), got %d", len(typed.Items))
+		}
+	})
 }

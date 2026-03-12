@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -860,5 +861,169 @@ func TestGetComponentReleaseSchema(t *testing.T) {
 		_, err := svc.GetComponentReleaseSchema(ctx, testNamespace, "rel-1", "")
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrValidation)
+	})
+}
+
+// --- ListComponents ---
+
+func TestListComponents(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("list all without project filter", func(t *testing.T) {
+		projA := testProject()
+		projB := &openchoreov1alpha1.Project{
+			ObjectMeta: metav1.ObjectMeta{Name: "proj-b", Namespace: testNamespace},
+			Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: testPipelineName}},
+		}
+		compA := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "comp-a", Namespace: testNamespace, Labels: map[string]string{labels.LabelKeyProjectName: testProjectName}},
+			Spec:       openchoreov1alpha1.ComponentSpec{Owner: openchoreov1alpha1.ComponentOwner{ProjectName: testProjectName}, ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "deployment/web-app"}},
+		}
+		compB := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "comp-b", Namespace: testNamespace, Labels: map[string]string{labels.LabelKeyProjectName: "proj-b"}},
+			Spec:       openchoreov1alpha1.ComponentSpec{Owner: openchoreov1alpha1.ComponentOwner{ProjectName: "proj-b"}, ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "deployment/web-app"}},
+		}
+		svc := newService(t, projA, projB, compA, compB)
+
+		result, err := svc.ListComponents(ctx, testNamespace, "", services.ListOptions{})
+		require.NoError(t, err)
+		assert.Len(t, result.Items, 2)
+		for _, item := range result.Items {
+			assert.Equal(t, componentTypeMeta, item.TypeMeta)
+		}
+	})
+
+	t.Run("filter by project", func(t *testing.T) {
+		projA := testProject()
+		projB := &openchoreov1alpha1.Project{
+			ObjectMeta: metav1.ObjectMeta{Name: "proj-b", Namespace: testNamespace},
+			Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: testPipelineName}},
+		}
+		compA := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "comp-a", Namespace: testNamespace, Labels: map[string]string{labels.LabelKeyProjectName: testProjectName}},
+			Spec:       openchoreov1alpha1.ComponentSpec{Owner: openchoreov1alpha1.ComponentOwner{ProjectName: testProjectName}, ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "deployment/web-app"}},
+		}
+		compB := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "comp-b", Namespace: testNamespace, Labels: map[string]string{labels.LabelKeyProjectName: "proj-b"}},
+			Spec:       openchoreov1alpha1.ComponentSpec{Owner: openchoreov1alpha1.ComponentOwner{ProjectName: "proj-b"}, ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "deployment/web-app"}},
+		}
+		svc := newService(t, projA, projB, compA, compB)
+
+		result, err := svc.ListComponents(ctx, testNamespace, testProjectName, services.ListOptions{})
+		require.NoError(t, err)
+		assert.Len(t, result.Items, 1)
+		assert.Equal(t, "comp-a", result.Items[0].Name)
+		assert.Equal(t, testProjectName, result.Items[0].Spec.Owner.ProjectName)
+	})
+
+	t.Run("project not found", func(t *testing.T) {
+		svc := newService(t)
+		_, err := svc.ListComponents(ctx, testNamespace, "nonexistent", services.ListOptions{})
+		require.ErrorIs(t, err, projectsvc.ErrProjectNotFound)
+	})
+
+	t.Run("empty result", func(t *testing.T) {
+		svc := newService(t, testProject())
+		result, err := svc.ListComponents(ctx, testNamespace, testProjectName, services.ListOptions{})
+		require.NoError(t, err)
+		assert.Empty(t, result.Items)
+	})
+
+	t.Run("with limit and project filter", func(t *testing.T) {
+		proj := testProject()
+		comps := make([]client.Object, 0, 4)
+		comps = append(comps, proj)
+		for i := range 3 {
+			comp := &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("comp-%d", i),
+					Namespace: testNamespace,
+					Labels:    map[string]string{labels.LabelKeyProjectName: testProjectName},
+				},
+				Spec: openchoreov1alpha1.ComponentSpec{
+					Owner:         openchoreov1alpha1.ComponentOwner{ProjectName: testProjectName},
+					ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "deployment/web-app"},
+				},
+			}
+			comps = append(comps, comp)
+		}
+		svc := newService(t, comps...)
+
+		result, err := svc.ListComponents(ctx, testNamespace, testProjectName, services.ListOptions{Limit: 2})
+		require.NoError(t, err)
+		assert.LessOrEqual(t, len(result.Items), 2)
+	})
+
+	t.Run("skips project validation when projectName is empty", func(t *testing.T) {
+		comp := testComponent()
+		svc := newService(t, comp) // no project seeded
+
+		result, err := svc.ListComponents(ctx, testNamespace, "", services.ListOptions{})
+		require.NoError(t, err)
+		assert.Len(t, result.Items, 1)
+	})
+
+	t.Run("TypeMeta is set on each item", func(t *testing.T) {
+		svc := newService(t, testProject(), testComponent())
+
+		result, err := svc.ListComponents(ctx, testNamespace, "", services.ListOptions{})
+		require.NoError(t, err)
+		require.NotEmpty(t, result.Items)
+		for _, item := range result.Items {
+			assert.Equal(t, componentTypeMeta, item.TypeMeta)
+		}
+	})
+
+	t.Run("valid label selector filters results", func(t *testing.T) {
+		comp := testComponent()
+		comp.Labels["env"] = "prod"
+		compNoLabel := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "comp-no-label",
+				Namespace: testNamespace,
+				Labels:    map[string]string{labels.LabelKeyProjectName: testProjectName},
+			},
+			Spec: openchoreov1alpha1.ComponentSpec{
+				Owner:         openchoreov1alpha1.ComponentOwner{ProjectName: testProjectName},
+				ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "deployment/web-app"},
+			},
+		}
+		svc := newService(t, comp, compNoLabel)
+
+		result, err := svc.ListComponents(ctx, testNamespace, "", services.ListOptions{LabelSelector: "env=prod"})
+		require.NoError(t, err)
+		assert.Len(t, result.Items, 1)
+		assert.Equal(t, testComponentName, result.Items[0].Name)
+	})
+
+	t.Run("invalid label selector returns error", func(t *testing.T) {
+		svc := newService(t, testProject(), testComponent())
+
+		_, err := svc.ListComponents(ctx, testNamespace, "", services.ListOptions{LabelSelector: "===invalid"})
+		require.Error(t, err)
+		var validationErr *services.ValidationError
+		assert.ErrorAs(t, err, &validationErr)
+	})
+
+	t.Run("namespace isolation", func(t *testing.T) {
+		compInNs := testComponent()
+		compInOtherNs := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "comp-other",
+				Namespace: "other-ns",
+				Labels:    map[string]string{labels.LabelKeyProjectName: testProjectName},
+			},
+			Spec: openchoreov1alpha1.ComponentSpec{
+				Owner:         openchoreov1alpha1.ComponentOwner{ProjectName: testProjectName},
+				ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "deployment/web-app"},
+			},
+		}
+		svc := newService(t, compInNs, compInOtherNs)
+
+		result, err := svc.ListComponents(ctx, testNamespace, "", services.ListOptions{})
+		require.NoError(t, err)
+		assert.Len(t, result.Items, 1)
+		assert.Equal(t, testComponentName, result.Items[0].Name)
+		assert.Equal(t, testNamespace, result.Items[0].Namespace)
 	})
 }
