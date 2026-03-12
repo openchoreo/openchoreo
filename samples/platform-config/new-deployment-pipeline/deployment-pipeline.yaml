@@ -14,14 +14,11 @@ spec:
         name: development
       targetEnvironmentRefs:
         - name: qa
-          requiresApproval: false
     - sourceEnvironmentRef:
         name: qa
       targetEnvironmentRefs:
         - name: preproduction
-          requiresApproval: true
     - sourceEnvironmentRef:
         name: preproduction
       targetEnvironmentRefs:
         - name: production
-          requiresApproval: true

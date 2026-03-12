@@ -13,8 +13,7 @@ import (
 )
 
 type promotionPathInputTarget struct {
-	Name             string `json:"name"`
-	RequiresApproval bool   `json:"requires_approval"`
+	Name string `json:"name"`
 }
 
 type promotionPathInput struct {
@@ -42,10 +41,8 @@ func buildDeploymentPipelineSpecFromInput(promotionPaths []promotionPathInput) *
 	for _, p := range promotionPaths {
 		targets := make([]gen.TargetEnvironmentRef, 0, len(p.TargetEnvironmentRefs))
 		for _, t := range p.TargetEnvironmentRefs {
-			requiresApproval := t.RequiresApproval
 			targets = append(targets, gen.TargetEnvironmentRef{
-				Name:             t.Name,
-				RequiresApproval: &requiresApproval,
+				Name: t.Name,
 			})
 		}
 		kind := gen.PromotionPathSourceEnvironmentRefKindEnvironment
@@ -258,10 +255,6 @@ func promotionPathsSchema(description string) map[string]any {
 						"required": []string{"name"},
 						"properties": map[string]any{
 							"name": stringProperty("Target environment name"),
-							"requires_approval": map[string]any{
-								"type":        "boolean",
-								"description": "Whether promotion to this environment requires approval",
-							},
 						},
 					},
 				},

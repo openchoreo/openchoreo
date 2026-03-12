@@ -9649,7 +9649,7 @@ components:
 
     TargetEnvironmentRef:
       type: object
-      description: Target environment reference with approval settings
+      description: Target environment reference
       required:
         - name
       properties:
@@ -9662,14 +9662,6 @@ components:
           type: string
           description: Target environment name
           example: staging
-        requiresApproval:
-          type: boolean
-          description: Whether promotion requires approval
-          example: false
-        isManualApprovalRequired:
-          type: boolean
-          description: Whether manual approval is required
-          example: true
 
     # -------------------------------------------------------------------------
     # Observability Alerts Notification Channel Schemas

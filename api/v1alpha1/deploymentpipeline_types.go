@@ -10,7 +10,7 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// TargetEnvironmentRef defines a reference to a target environment with approval settings
+// TargetEnvironmentRef defines a reference to a target environment
 type TargetEnvironmentRef struct {
 	// Kind is the kind of environment (Environment)
 	// +optional
@@ -21,19 +21,13 @@ type TargetEnvironmentRef struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
 	Name string `json:"name"`
-	// RequiresApproval indicates if promotion to this environment requires approval
-	// +optional
-	RequiresApproval bool `json:"requiresApproval,omitempty"`
-	// IsManualApprovalRequired indicates if manual approval is needed for promotion
-	// +optional
-	IsManualApprovalRequired bool `json:"isManualApprovalRequired,omitempty"`
 }
 
 // PromotionPath defines a path for promoting between environments
 type PromotionPath struct {
 	// SourceEnvironmentRef is the reference to the source environment
 	SourceEnvironmentRef EnvironmentRef `json:"sourceEnvironmentRef"`
-	// TargetEnvironmentRefs is the list of target environments and their approval requirements
+	// TargetEnvironmentRefs is the list of target environments
 	TargetEnvironmentRefs []TargetEnvironmentRef `json:"targetEnvironmentRefs"`
 }
 

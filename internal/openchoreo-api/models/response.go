@@ -149,12 +149,10 @@ type PromotionPath struct {
 	TargetEnvironmentRefs []TargetEnvironmentRef `json:"targetEnvironmentRefs"`
 }
 
-// TargetEnvironmentRef represents a target environment reference with approval settings
+// TargetEnvironmentRef represents a target environment reference
 type TargetEnvironmentRef struct {
-	Kind                     string `json:"kind,omitempty"`
-	Name                     string `json:"name"`
-	RequiresApproval         bool   `json:"requiresApproval,omitempty"`
-	IsManualApprovalRequired bool   `json:"isManualApprovalRequired,omitempty"`
+	Kind string `json:"kind,omitempty"`
+	Name string `json:"name"`
 }
 
 // NamespaceResponse represents a namespace in API responses

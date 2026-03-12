@@ -14,9 +14,7 @@ spec:
         name: development
       targetEnvironmentRefs:
         - name: staging
-          requiresApproval: false
     - sourceEnvironmentRef:
         name: staging
       targetEnvironmentRefs:
         - name: production
-          requiresApproval: false

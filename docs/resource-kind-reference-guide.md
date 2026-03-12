@@ -267,17 +267,11 @@ spec:
         #
         # +required
         - name: us-staging
-          # Indicates if manual approval is required for the promotion.
-          #
-          # +optional (default: false)
-          requiresApproval: false
         - name: us-production
-          isManualApprovalRequired: true
     - sourceEnvironmentRef:
         name: us-staging
       targetEnvironmentRefs:
         - name: us-production
-          requiresApproval: true
 ```
 
 [Back to Top](#overview)

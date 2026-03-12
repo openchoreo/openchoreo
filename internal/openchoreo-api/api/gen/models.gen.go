@@ -3001,19 +3001,13 @@ type SubjectTypeConfig struct {
 	Type string `json:"type"`
 }
 
-// TargetEnvironmentRef Target environment reference with approval settings
+// TargetEnvironmentRef Target environment reference
 type TargetEnvironmentRef struct {
-	// IsManualApprovalRequired Whether manual approval is required
-	IsManualApprovalRequired *bool `json:"isManualApprovalRequired,omitempty"`
-
 	// Kind Kind of environment resource
 	Kind *TargetEnvironmentRefKind `json:"kind,omitempty"`
 
 	// Name Target environment name
 	Name string `json:"name"`
-
-	// RequiresApproval Whether promotion requires approval
-	RequiresApproval *bool `json:"requiresApproval,omitempty"`
 }
 
 // TargetEnvironmentRefKind Kind of environment resource

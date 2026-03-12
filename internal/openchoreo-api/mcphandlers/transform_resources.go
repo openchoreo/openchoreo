@@ -291,9 +291,6 @@ func deploymentPipelineDetail(dp *openchoreov1alpha1.DeploymentPipeline) map[str
 						"kind": string(pp.TargetEnvironmentRefs[j].Kind),
 						"name": pp.TargetEnvironmentRefs[j].Name,
 					}
-					if pp.TargetEnvironmentRefs[j].RequiresApproval {
-						t["requiresApproval"] = true
-					}
 					targets = append(targets, t)
 				}
 				p["targetEnvironmentRefs"] = targets
