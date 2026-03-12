@@ -154,12 +154,18 @@ spec:
                     - Workflow
                     - ClusterWorkflow
                     type: string
+                    x-kubernetes-validations:
+                    - message: kind is immutable
+                      rule: self == oldSelf
                   name:
                     description: |-
                       Name references the Workflow or ClusterWorkflow CR to use for this execution.
                       The Workflow CR contains the schema definition and resource template.
                     minLength: 1
                     type: string
+                    x-kubernetes-validations:
+                    - message: name is immutable
+                      rule: self == oldSelf
                   parameters:
                     description: |-
                       Parameters contains the developer-provided values for the flexible parameter schema

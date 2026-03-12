@@ -67,23 +67,23 @@ func platformResourcesYAML(cpNamespace string, environments, projects []string) 
 		promotionPaths = append(promotionPaths, openchoreov1alpha1.PromotionPath{
 			SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: "development"},
 			TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{{
-				Name:             "development",
-				}},
+				Name: "development",
+			}},
 		})
 	} else if len(environments) == 1 {
 		promotionPaths = append(promotionPaths, openchoreov1alpha1.PromotionPath{
 			SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: environments[0]},
 			TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{{
-				Name:             environments[0],
-				}},
+				Name: environments[0],
+			}},
 		})
 	} else {
 		for i := 0; i < len(environments)-1; i++ {
 			promotionPaths = append(promotionPaths, openchoreov1alpha1.PromotionPath{
 				SourceEnvironmentRef: openchoreov1alpha1.EnvironmentRef{Name: environments[i]},
 				TargetEnvironmentRefs: []openchoreov1alpha1.TargetEnvironmentRef{{
-					Name:             environments[i+1],
-					}},
+					Name: environments[i+1],
+				}},
 			})
 		}
 	}

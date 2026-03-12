@@ -33,12 +33,14 @@ type WorkflowRunConfig struct {
 	// Kind is the kind of workflow (Workflow or ClusterWorkflow).
 	// +optional
 	// +kubebuilder:default=Workflow
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="kind is immutable"
 	Kind WorkflowRefKind `json:"kind,omitempty"`
 
 	// Name references the Workflow or ClusterWorkflow CR to use for this execution.
 	// The Workflow CR contains the schema definition and resource template.
 	// +required
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="name is immutable"
 	Name string `json:"name"`
 
 	// Parameters contains the developer-provided values for the flexible parameter schema
