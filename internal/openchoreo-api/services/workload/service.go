@@ -105,11 +105,6 @@ func (s *workloadService) UpdateWorkload(ctx context.Context, namespaceName stri
 		return nil, fmt.Errorf("failed to get workload: %w", err)
 	}
 
-	// Validate that the referenced component exists
-	if err := s.validateComponentExists(ctx, namespaceName, w.Spec.Owner.ComponentName); err != nil {
-		return nil, err
-	}
-
 	// Clear status from user input — status is server-managed
 	w.Status = openchoreov1alpha1.WorkloadStatus{}
 

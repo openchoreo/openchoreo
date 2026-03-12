@@ -104,11 +104,6 @@ func (s *releaseBindingService) UpdateReleaseBinding(ctx context.Context, namesp
 		return nil, fmt.Errorf("failed to get release binding: %w", err)
 	}
 
-	// Validate that the referenced component exists
-	if err := s.validateComponentExists(ctx, namespaceName, rb.Spec.Owner.ComponentName); err != nil {
-		return nil, err
-	}
-
 	// Clear status from user input — status is server-managed
 	rb.Status = openchoreov1alpha1.ReleaseBindingStatus{}
 
