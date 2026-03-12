@@ -682,8 +682,7 @@ func (t *Toolsets) RegisterPEGetWorkflowSchema(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_workflow_schema",
 		Description: "Get the parameter schema for a specific workflow. Use this to inspect what parameters " +
-			"a workflow accepts before configuring a component's workflow field or triggering a workflow run. " +
-			"Use list_workflows to discover valid workflow names.",
+			"a workflow accepts before configuring a component's workflow field or triggering a workflow run.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"workflow_name":  stringProperty("Name of the workflow. Use list_workflows to discover valid names"),
@@ -919,8 +918,7 @@ func (t *Toolsets) RegisterGetWorkflowSchema(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_workflow_schema",
 		Description: "Get the parameter schema for a specific workflow. Use this to inspect what parameters " +
-			"a workflow accepts before configuring a component's workflow field or triggering a workflow run. " +
-			"Use list_workflows to discover valid workflow names.",
+			"a workflow accepts before configuring a component's workflow field or triggering a workflow run.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"workflow_name":  stringProperty("Name of the workflow. Use list_workflows to discover valid names"),
@@ -1269,8 +1267,7 @@ func (t *Toolsets) RegisterUpdateDeploymentPipeline(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "update_deployment_pipeline",
 		Description: "Update an existing deployment pipeline in a namespace. Allows modifying promotion paths " +
-			"between environments and approval requirements. Use list_deployment_pipelines to discover valid names " +
-			"and list_environments to discover valid environment names.",
+			"between environments and approval requirements. Use list_environments to discover valid environment names.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name": stringProperty(
@@ -1328,9 +1325,8 @@ func (t *Toolsets) RegisterUpdateDeploymentPipeline(s *mcp.Server) {
 
 func (t *Toolsets) RegisterDeleteDeploymentPipeline(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "delete_deployment_pipeline",
-		Description: "Delete a deployment pipeline from a namespace. " +
-			"Use list_deployment_pipelines to discover valid names.",
+		Name:        "delete_deployment_pipeline",
+		Description: "Delete a deployment pipeline from a namespace.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"pipeline_name": stringProperty(
@@ -1459,9 +1455,8 @@ func (t *Toolsets) RegisterCreateComponentType(s *mcp.Server) {
 //nolint:dupl // create/update component type handlers share similar structure
 func (t *Toolsets) RegisterUpdateComponentType(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_component_type",
-		Description: "Update an existing component type in a namespace (full replacement). " +
-			"Use get_component_type_schema to retrieve the current spec first, then pass the modified spec here.",
+		Name:        "update_component_type",
+		Description: "Update an existing component type in a namespace (full replacement).",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name": stringProperty(
@@ -1501,7 +1496,7 @@ func (t *Toolsets) RegisterUpdateComponentType(s *mcp.Server) {
 func (t *Toolsets) RegisterDeleteComponentType(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "delete_component_type",
-		Description: "Delete a component type from a namespace. Use list_component_types to discover valid names.",
+		Description: "Delete a component type from a namespace.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"ct_name": stringProperty(
@@ -1521,8 +1516,7 @@ func (t *Toolsets) RegisterCreateTrait(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_trait",
 		Description: "Create a new trait in a namespace. Traits add capabilities to components by creating " +
-			"additional Kubernetes resources or patching existing ones (e.g., autoscaling, ingress, service mesh). " +
-			"Use get_trait_schema to understand the spec structure before creating.",
+			"additional Kubernetes resources or patching existing ones (e.g., autoscaling, ingress, service mesh).",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
@@ -1561,9 +1555,8 @@ func (t *Toolsets) RegisterCreateTrait(s *mcp.Server) {
 //nolint:dupl // create/update trait handlers share similar structure
 func (t *Toolsets) RegisterUpdateTrait(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_trait",
-		Description: "Update an existing trait in a namespace (full replacement). " +
-			"Use get_trait_schema to retrieve the current spec first, then pass the modified spec here.",
+		Name:        "update_trait",
+		Description: "Update an existing trait in a namespace (full replacement).",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name":           stringProperty("Name of the trait to update. Use list_traits to discover valid names"),
@@ -1602,7 +1595,7 @@ func (t *Toolsets) RegisterUpdateTrait(s *mcp.Server) {
 func (t *Toolsets) RegisterDeleteTrait(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "delete_trait",
-		Description: "Delete a trait from a namespace. Use list_traits to discover valid names.",
+		Description: "Delete a trait from a namespace.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"trait_name":     stringProperty("Name of the trait to delete. Use list_traits to discover valid names"),
@@ -1621,8 +1614,7 @@ func (t *Toolsets) RegisterPECreateWorkflow(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_workflow",
 		Description: "Create a new workflow in a namespace. Workflows are reusable CI/CD pipeline templates " +
-			"that execute on the workflow plane. Use get_workflow_schema on an existing workflow to " +
-			"understand the spec structure (runTemplate, resources, parameters).",
+			"that execute on the workflow plane.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
@@ -1661,9 +1653,8 @@ func (t *Toolsets) RegisterPECreateWorkflow(s *mcp.Server) {
 //nolint:dupl // create/update workflow handlers share similar structure
 func (t *Toolsets) RegisterPEUpdateWorkflow(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_workflow",
-		Description: "Update an existing workflow in a namespace (full replacement). " +
-			"Use get_workflow_schema to retrieve the current spec first, then pass the modified spec here.",
+		Name:        "update_workflow",
+		Description: "Update an existing workflow in a namespace (full replacement).",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name":           stringProperty("Name of the workflow to update. Use list_workflows to discover valid names"),
@@ -1702,7 +1693,7 @@ func (t *Toolsets) RegisterPEUpdateWorkflow(s *mcp.Server) {
 func (t *Toolsets) RegisterPEDeleteWorkflow(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "delete_workflow",
-		Description: "Delete a workflow from a namespace. Use list_workflows to discover valid names.",
+		Description: "Delete a workflow from a namespace.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"workflow_name":  stringProperty("Name of the workflow to delete. Use list_workflows to discover valid names"),
@@ -1771,10 +1762,8 @@ func (t *Toolsets) RegisterCreateClusterComponentType(s *mcp.Server) {
 //nolint:dupl // create/update cluster component type handlers share similar structure
 func (t *Toolsets) RegisterUpdateClusterComponentType(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_cluster_component_type",
-		Description: "Update an existing cluster-scoped component type (full replacement). " +
-			"Use get_cluster_component_type and get_cluster_component_type_schema to retrieve the current " +
-			"definition first, then pass the modified spec here.",
+		Name:        "update_cluster_component_type",
+		Description: "Update an existing cluster-scoped component type (full replacement).",
 		InputSchema: createSchema(map[string]any{
 			"name": stringProperty(
 				"Name of the cluster component type to update. Use list_cluster_component_types to discover valid names"),
@@ -1822,7 +1811,7 @@ func (t *Toolsets) RegisterUpdateClusterComponentType(s *mcp.Server) {
 func (t *Toolsets) RegisterDeleteClusterComponentType(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "delete_cluster_component_type",
-		Description: "Delete a cluster-scoped component type. Use list_cluster_component_types to discover valid names.",
+		Description: "Delete a cluster-scoped component type.",
 		InputSchema: createSchema(map[string]any{
 			"cct_name": stringProperty(
 				"Name of the cluster component type to delete. Use list_cluster_component_types to discover valid names"),
@@ -1840,8 +1829,7 @@ func (t *Toolsets) RegisterCreateClusterTrait(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_cluster_trait",
 		Description: "Create a new cluster-scoped trait. Cluster traits are platform-wide capability definitions " +
-			"available to all namespaces (e.g., autoscaling, ingress, service mesh). " +
-			"Use get_cluster_trait_schema on an existing trait to understand the spec structure before creating.",
+			"available to all namespaces (e.g., autoscaling, ingress, service mesh).",
 		InputSchema: createSchema(map[string]any{
 			"name":         stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"display_name": stringProperty("Human-readable display name"),
@@ -1890,8 +1878,7 @@ func (t *Toolsets) RegisterUpdateClusterTrait(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "update_cluster_trait",
 		Description: "Update an existing cluster-scoped trait (full replacement). " +
-			"Use get_cluster_trait and get_cluster_trait_schema to retrieve the current definition first, " +
-			"then pass the modified spec here.",
+			"Use get_cluster_trait to retrieve the current definition first.",
 		InputSchema: createSchema(map[string]any{
 			"name": stringProperty(
 				"Name of the cluster trait to update. Use list_cluster_traits to discover valid names"),
@@ -1939,7 +1926,7 @@ func (t *Toolsets) RegisterUpdateClusterTrait(s *mcp.Server) {
 func (t *Toolsets) RegisterDeleteClusterTrait(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "delete_cluster_trait",
-		Description: "Delete a cluster-scoped trait. Use list_cluster_traits to discover valid names.",
+		Description: "Delete a cluster-scoped trait.",
 		InputSchema: createSchema(map[string]any{
 			"ct_name": stringProperty("Name of the cluster trait to delete. Use list_cluster_traits to discover valid names"),
 		}, []string{"ct_name"}),
@@ -1956,8 +1943,7 @@ func (t *Toolsets) RegisterCreateClusterWorkflow(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_cluster_workflow",
 		Description: "Create a new cluster-scoped workflow. Cluster workflows are platform-wide CI/CD pipeline " +
-			"templates available to all namespaces. Use get_cluster_workflow_schema on an existing workflow " +
-			"to understand the spec structure (runTemplate, resources, parameters) before creating.",
+			"templates available to all namespaces.",
 		InputSchema: createSchema(map[string]any{
 			"name":         stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"display_name": stringProperty("Human-readable display name"),
@@ -1996,8 +1982,7 @@ func (t *Toolsets) RegisterUpdateClusterWorkflow(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "update_cluster_workflow",
 		Description: "Update an existing cluster-scoped workflow (full replacement). " +
-			"Use get_cluster_workflow and get_cluster_workflow_schema to retrieve the current definition first, " +
-			"then pass the modified spec here.",
+			"Use get_cluster_workflow to retrieve the current definition first.",
 		InputSchema: createSchema(map[string]any{
 			"name": stringProperty(
 				"Name of the cluster workflow to update. Use list_cluster_workflows to discover valid names"),
@@ -2035,7 +2020,7 @@ func (t *Toolsets) RegisterUpdateClusterWorkflow(s *mcp.Server) {
 func (t *Toolsets) RegisterDeleteClusterWorkflow(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "delete_cluster_workflow",
-		Description: "Delete a cluster-scoped workflow. Use list_cluster_workflows to discover valid names.",
+		Description: "Delete a cluster-scoped workflow.",
 		InputSchema: createSchema(map[string]any{
 			"cwf_name": stringProperty(
 				"Name of the cluster workflow to delete. Use list_cluster_workflows to discover valid names"),
