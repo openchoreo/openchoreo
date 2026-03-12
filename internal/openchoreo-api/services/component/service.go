@@ -415,6 +415,44 @@ func (s *componentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 	}
 }
 
+// clusterComponentTypeSpec converts a ClusterComponentType into an equivalent ComponentTypeSpec.
+func clusterComponentTypeSpec(cct *openchoreov1alpha1.ClusterComponentType) *openchoreov1alpha1.ComponentTypeSpec {
+	allowedTraits := make([]openchoreov1alpha1.TraitRef, len(cct.Spec.AllowedTraits))
+	for i, ref := range cct.Spec.AllowedTraits {
+		allowedTraits[i] = openchoreov1alpha1.TraitRef{
+			Kind: openchoreov1alpha1.TraitRefKind(ref.Kind),
+			Name: ref.Name,
+		}
+	}
+	traits := make([]openchoreov1alpha1.ComponentTypeTrait, len(cct.Spec.Traits))
+	for i, t := range cct.Spec.Traits {
+		traits[i] = openchoreov1alpha1.ComponentTypeTrait{
+			Kind:               openchoreov1alpha1.TraitRefKind(t.Kind),
+			Name:               t.Name,
+			InstanceName:       t.InstanceName,
+			Parameters:         t.Parameters,
+			EnvironmentConfigs: t.EnvironmentConfigs,
+		}
+	}
+	allowedWorkflows := make([]openchoreov1alpha1.WorkflowRef, len(cct.Spec.AllowedWorkflows))
+	for i, ref := range cct.Spec.AllowedWorkflows {
+		allowedWorkflows[i] = openchoreov1alpha1.WorkflowRef{
+			Kind: openchoreov1alpha1.WorkflowRefKind(ref.Kind),
+			Name: ref.Name,
+		}
+	}
+	return &openchoreov1alpha1.ComponentTypeSpec{
+		WorkloadType:       cct.Spec.WorkloadType,
+		AllowedWorkflows:   allowedWorkflows,
+		Parameters:         cct.Spec.Parameters,
+		EnvironmentConfigs: cct.Spec.EnvironmentConfigs,
+		Traits:             traits,
+		AllowedTraits:      allowedTraits,
+		Validations:        cct.Spec.Validations,
+		Resources:          cct.Spec.Resources,
+	}
+}
+
 // fetchAllTraits validates trait configuration and fetches all trait specs needed for a
 // ComponentRelease: embedded traits from the ComponentType and component-level traits from
 // the Component. Returns an error if validation fails, any trait is not found, or if the
