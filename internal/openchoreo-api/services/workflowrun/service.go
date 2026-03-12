@@ -62,18 +62,33 @@ func (s *workflowRunService) CreateWorkflowRun(ctx context.Context, namespaceNam
 
 	s.logger.Debug("Creating workflow run", "namespace", namespaceName, "name", wfRun.Name)
 
-	// Verify the referenced workflow exists
-	workflow := &openchoreov1alpha1.Workflow{}
-	if err := s.k8sClient.Get(ctx, client.ObjectKey{
-		Name:      wfRun.Spec.Workflow.Name,
-		Namespace: namespaceName,
-	}, workflow); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Referenced workflow not found", "namespace", namespaceName, "workflow", wfRun.Spec.Workflow.Name)
-			return nil, ErrWorkflowNotFound
+	// Verify the referenced workflow exists based on the kind
+	switch wfRun.Spec.Workflow.Kind {
+	case openchoreov1alpha1.WorkflowRefKindClusterWorkflow:
+		clusterWorkflow := &openchoreov1alpha1.ClusterWorkflow{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{
+			Name: wfRun.Spec.Workflow.Name,
+		}, clusterWorkflow); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Warn("Referenced cluster workflow not found", "workflow", wfRun.Spec.Workflow.Name)
+				return nil, ErrWorkflowNotFound
+			}
+			s.logger.Error("Failed to get referenced cluster workflow", "error", err)
+			return nil, fmt.Errorf("failed to get referenced cluster workflow: %w", err)
 		}
-		s.logger.Error("Failed to get referenced workflow", "error", err)
-		return nil, fmt.Errorf("failed to get referenced workflow: %w", err)
+	default:
+		workflow := &openchoreov1alpha1.Workflow{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      wfRun.Spec.Workflow.Name,
+			Namespace: namespaceName,
+		}, workflow); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Warn("Referenced workflow not found", "namespace", namespaceName, "workflow", wfRun.Spec.Workflow.Name)
+				return nil, ErrWorkflowNotFound
+			}
+			s.logger.Error("Failed to get referenced workflow", "error", err)
+			return nil, fmt.Errorf("failed to get referenced workflow: %w", err)
+		}
 	}
 
 	// Ensure namespace is set
