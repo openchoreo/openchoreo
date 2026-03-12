@@ -10,7 +10,7 @@ from src.config import settings
 
 logger = logging.getLogger(__name__)
 
-_API_BASE = f"{settings.control_plane_url.rstrip('/')}/api/v1"
+_API_BASE = f"{settings.openchoreo_api_url.rstrip('/')}/api/v1"
 
 
 _HEADERS = {"X-Use-OpenAPI": "true"}

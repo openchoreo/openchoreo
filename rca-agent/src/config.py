@@ -18,12 +18,16 @@ class Settings(BaseSettings):
     rca_model_name: str = ""
     rca_llm_api_key: str = ""
 
-    observer_mcp_url: str = "http://observer:8080/mcp"
-    control_plane_url: str = "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+    observer_api_url: str = "http://observer:8080"
+    openchoreo_api_url: str = "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+
+    @property
+    def observer_mcp_url(self) -> str:
+        return f"{self.observer_api_url.rstrip('/')}/mcp"
 
     @property
     def openchoreo_mcp_url(self) -> str:
-        return f"{self.control_plane_url.rstrip('/')}/mcp"
+        return f"{self.openchoreo_api_url.rstrip('/')}/mcp"
 
     report_backend: str = "sqlite"
     sql_backend_uri: str = ""
@@ -36,10 +40,11 @@ class Settings(BaseSettings):
     jwt_audience: str = ""
     jwt_jwks_refresh_interval: int = 3600
     authz_timeout_seconds: int = 30
+    auth_config_path: str = "auth-config.yaml"
 
     @property
     def authz_service_url(self) -> str:
-        return self.control_plane_url.rstrip("/")
+        return self.openchoreo_api_url.rstrip("/")
 
     max_concurrent_analyses: int = 5
     analysis_timeout_seconds: int = 1500

@@ -3629,12 +3629,6 @@
           "title": "authz",
           "type": "object"
         },
-        "controlPlaneUrl": {
-          "default": "http://api.openchoreo.localhost:8080",
-          "description": "Control plane API base URL used by rca-agent",
-          "title": "controlPlaneUrl",
-          "type": "string"
-        },
         "cors": {
           "additionalProperties": false,
           "description": "CORS configuration for the RCA agent",
@@ -3774,10 +3768,16 @@
           "title": "oauth",
           "type": "object"
         },
-        "observerMcpUrl": {
+        "observerApiUrl": {
           "default": "",
-          "description": "Observer MCP endpoint URL",
-          "title": "observerMcpUrl",
+          "description": "Observer API base URL",
+          "title": "observerApiUrl",
+          "type": "string"
+        },
+        "openchoreoApiUrl": {
+          "default": "http://api.openchoreo.localhost:8080",
+          "description": "OpenChoreo API base URL used by rca-agent",
+          "title": "openchoreoApiUrl",
           "type": "string"
         },
         "remedAgent": {

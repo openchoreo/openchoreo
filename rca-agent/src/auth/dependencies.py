@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+from pathlib import Path
 from typing import Annotated, Any
 
+import yaml
 from fastapi import Depends, HTTPException, Request
 
 from src.auth.authz_client import AuthzClient
@@ -19,6 +21,50 @@ from src.config import settings
 logger = logging.getLogger(__name__)
 
 _authz_client: AuthzClient | None = None
+_auth_config: dict[str, Any] | None = None
+
+
+def _load_auth_config() -> dict[str, Any]:
+    global _auth_config
+    if _auth_config is not None:
+        return _auth_config
+
+    config_path = settings.auth_config_path
+    if not config_path or not Path(config_path).is_file():
+        logger.warning("Auth config not found at %s, using defaults", config_path)
+        _auth_config = {}
+        return _auth_config
+
+    with open(config_path) as f:
+        _auth_config = yaml.safe_load(f) or {}
+
+    logger.info("Loaded auth config from %s", config_path)
+    return _auth_config
+
+
+def _get_subject_types() -> list[dict[str, Any]]:
+    config = _load_auth_config()
+    types = list(config.get("auth", {}).get("subject_types", []))
+    types.sort(key=lambda t: t.get("priority", 0))
+    return types
+
+
+def _get_jwt_claim(subject_type_config: dict[str, Any]) -> str | None:
+    for mech in subject_type_config.get("auth_mechanisms", []):
+        if mech.get("type") == "jwt":
+            return mech.get("entitlement", {}).get("claim")
+    return None
+
+
+def _extract_entitlements(claims: dict[str, Any], claim: str) -> list[str] | None:
+    if claim not in claims:
+        return None
+    value = claims[claim]
+    if isinstance(value, list):
+        return [str(v) for v in value if v]
+    if value:
+        return [str(value)]
+    return []
 
 
 def get_authz_client() -> AuthzClient:
@@ -45,26 +91,25 @@ def extract_bearer_token(request: Request) -> str | None:
 
 
 def extract_subject_context_from_claims(claims: dict[str, Any]) -> SubjectContext:
-    # Service account: has client_id but no sub
-    if "client_id" in claims and "sub" not in claims:
-        subject_type = "service"
-        entitlement_claim = "client_id"
-        entitlement_values = [claims.get("client_id", "")]
-    else:
-        # Regular user
-        subject_type = "user"
-        if "groups" in claims:
-            entitlement_claim = "groups"
-            groups = claims.get("groups", [])
-            entitlement_values = groups if isinstance(groups, list) else [groups]
-        else:
-            entitlement_claim = "sub"
-            entitlement_values = [claims.get("sub", "")]
+    for st in _get_subject_types():
+        claim = _get_jwt_claim(st)
+        if claim is None:
+            continue
+        entitlements = _extract_entitlements(claims, claim)
+        if entitlements is None:
+            continue
+        return SubjectContext(
+            type=st.get("type", "unknown"),
+            entitlementClaim=claim,
+            entitlementValues=entitlements,
+        )
 
+    # Fallback when no config matches
+    sub = claims.get("sub", "")
     return SubjectContext(
-        type=subject_type,
-        entitlementClaim=entitlement_claim,
-        entitlementValues=entitlement_values,
+        type="user",
+        entitlementClaim="sub",
+        entitlementValues=[sub] if sub else [],
     )
 
 
@@ -188,4 +233,7 @@ class ReportAuthorizationChecker(AuthorizationChecker):
 require_chat_authz = AuthorizationChecker(action="rcareport:view", resource_type="rcareport")
 require_reports_authz = ReportAuthorizationChecker(
     action="rcareport:view", resource_type="rcareport"
+)
+require_reports_update_authz = ReportAuthorizationChecker(
+    action="rcareport:update", resource_type="rcareport"
 )

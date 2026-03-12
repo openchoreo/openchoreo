@@ -2,6 +2,9 @@
 {{- if not .Values.rca.secretName }}
 {{- fail "rca.secretName is required when rca is enabled. Create a Secret with keys matching the RCA agent's expected env vars (RCA_LLM_API_KEY, OAUTH_CLIENT_SECRET, and optionally SQL_BACKEND_URI), then set rca.secretName." }}
 {{- end }}
+{{- if not .Values.rca.observerApiUrl }}
+{{- fail "rca.observerApiUrl is required when rca is enabled. Set it to the Observer API base URL (e.g. http://observer:8080)." }}
+{{- end }}
 {{- if and (eq .Values.rca.reportBackend "sqlite") (gt (.Values.rca.replicas | int) 1) }}
 {{- fail "rca.replicas must be 1 when using sqlite backend (ReadWriteOnce PVC). Set rca.replicas=1 or use reportBackend=postgresql." }}
 {{- end }}
@@ -21,6 +24,7 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/ai-rca-agent/rca-agent-config.yaml") . | sha256sum }}
+        checksum/observer-auth-config: {{ include (print $.Template.BasePath "/observer/observer-auth-configmap.yaml") . | sha256sum }}
       labels:
         {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" .Values.rca.name) | nindent 8 }}
     spec:
@@ -67,8 +71,11 @@ spec:
           timeoutSeconds: 3
           failureThreshold: 3
 
-        {{- if eq .Values.rca.reportBackend "sqlite" }}
         volumeMounts:
+        - name: auth-config
+          mountPath: /etc/openchoreo
+          readOnly: true
+        {{- if eq .Values.rca.reportBackend "sqlite" }}
         - name: data
           mountPath: /app/data
         {{- end }}
@@ -78,8 +85,11 @@ spec:
           readOnlyRootFilesystem: false
           runAsNonRoot: true
           runAsUser: 12000
-      {{- if eq .Values.rca.reportBackend "sqlite" }}
       volumes:
+      - name: auth-config
+        configMap:
+          name: observer-auth-config
+      {{- if eq .Values.rca.reportBackend "sqlite" }}
       - name: data
         persistentVolumeClaim:
           claimName: {{ .Values.rca.name }}-data

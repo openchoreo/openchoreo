@@ -9,6 +9,7 @@ from fastapi import FastAPI
 
 from src.api import agent_router, report_router
 from src.auth import check_oauth2_connection, get_oauth2_auth
+from src.auth.dependencies import _load_auth_config
 from src.clients import MCPClient, get_model, get_report_backend
 from src.config import settings
 from src.logging_config import setup_logging
@@ -49,6 +50,14 @@ async def lifespan(_app: FastAPI):
         logger.error("OAuth2 initialization failed: %s", e)
         raise RuntimeError(f"OAuth2 initialization failed: {e}") from e
 
+    logger.info("Loading auth config...")
+    try:
+        _load_auth_config()
+        logger.info("Auth config loaded successfully")
+    except Exception as e:
+        logger.error("Auth config loading failed: %s", e)
+        raise RuntimeError(f"Auth config loading failed: {e}") from e
+
     logger.info("Testing MCP connections...")
     try:
         mcp_client = MCPClient(auth=get_oauth2_auth())
@@ -64,7 +73,7 @@ async def lifespan(_app: FastAPI):
     await report_backend.close()
 
 
-app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None, strict_content_type=False)
 
 # Configure CORS if allowed origins are specified
 if settings.cors_allowed_origins:

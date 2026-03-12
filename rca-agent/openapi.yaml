@@ -248,10 +248,10 @@ paths:
     put:
       tags:
         - RCA Reports
-      summary: Update report state (mark actions as applied)
+      summary: Update action statuses
       description: |
-        Marks the specified remediation actions as `applied` in the stored report.
-        Called by the frontend after successfully applying fixes client-side.
+        Updates the status of specific remediation actions in the stored report.
+        Accepts indices to mark as `applied` or `dismissed`.
       operationId: updateReport
       parameters:
         - name: report_id
@@ -267,7 +267,7 @@ paths:
               $ref: '#/components/schemas/ReportUpdateRequest'
       responses:
         '200':
-          description: Report updated successfully
+          description: Actions updated successfully
           content:
             application/json:
               schema:
@@ -582,17 +582,7 @@ components:
 
     ReportAlertContext:
       type: object
-      required:
-        [
-          alert_id,
-          alert_name,
-          triggered_at,
-          trigger_value,
-          condition,
-          component,
-          project,
-          environment,
-        ]
+      required: [alert_id, alert_name, triggered_at, trigger_value, condition, component, project, environment]
       properties:
         alert_id:
           type: string
@@ -672,13 +662,7 @@ components:
           enum: [no_root_cause_identified]
         outcome:
           type: string
-          enum:
-            [
-              no_anomaly_detected,
-              insufficient_data,
-              transient,
-              external_dependency,
-            ]
+          enum: [no_anomaly_detected, insufficient_data, transient, external_dependency]
         explanation:
           type: string
         recommendations:
@@ -852,20 +836,18 @@ components:
 
     RecommendedAction:
       type: object
-      required: [description]
+      required: [description, status]
       allOf:
         - $ref: '#/components/schemas/Action'
         - type: object
           properties:
             status:
               type: string
-              enum: [suggested, revised, applied]
+              enum: [suggested, revised, applied, dismissed]
               default: suggested
-            changes:
-              type: array
-              default: []
-              items:
-                $ref: '#/components/schemas/ResourceChange'
+            change:
+              nullable: true
+              $ref: '#/components/schemas/ResourceChange'
 
     ResourceChange:
       type: object
@@ -873,23 +855,19 @@ components:
       properties:
         release_binding:
           type: string
-          description: Name of the ReleaseBinding to modify
         env:
           type: array
           default: []
-          description: Environment variable changes, identified by key name
           items:
             $ref: '#/components/schemas/EnvVarChange'
         files:
           type: array
           default: []
-          description: File mount changes, identified by key name
           items:
             $ref: '#/components/schemas/FileChange'
         fields:
           type: array
           default: []
-          description: Field-level changes for non-array paths (trait overrides, componentType overrides)
           items:
             $ref: '#/components/schemas/FieldChange'
 
@@ -899,24 +877,19 @@ components:
       properties:
         key:
           type: string
-          description: "Environment variable name (e.g. POSTGRES_DSN)"
         value:
           type: string
-          description: New value for the environment variable
 
     FileChange:
       type: object
-      required: [key]
+      required: [key, mount_path, value]
       properties:
         key:
           type: string
-          description: "File key (e.g. config.yaml)"
-        value:
-          type: string
-          description: New file content
         mount_path:
           type: string
-          description: "New mount path (e.g. /app/)"
+        value:
+          type: string
 
     FieldChange:
       type: object
@@ -924,25 +897,25 @@ components:
       properties:
         json_pointer:
           type: string
-          description: "RFC 6901 JSON Pointer for non-array fields. Example: /spec/traitEnvironmentConfigs/my-trait/enabled"
         value:
-          description: Value to set at the JSON Pointer location
           oneOf:
             - type: string
             - type: number
             - type: boolean
-            - type: object
-            - type: array
 
     ReportUpdateRequest:
       type: object
-      required: [appliedIndices]
       properties:
         appliedIndices:
           type: array
+          default: []
           items:
             type: integer
-          description: Indices of the recommended actions to mark as applied
+        dismissedIndices:
+          type: array
+          default: []
+          items:
+            type: integer
 
   securitySchemes:
     bearerAuth:

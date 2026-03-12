@@ -3141,17 +3141,17 @@ rca:
 
   # @schema
   # type: string
-  # description: Observer MCP endpoint URL
+  # description: Observer API base URL
   # default: ""
   # @schema
-  observerMcpUrl: ""
+  observerApiUrl: ""
 
   # @schema
   # type: string
-  # description: Control plane API base URL used by rca-agent
+  # description: OpenChoreo API base URL used by rca-agent
   # default: "http://api.openchoreo.localhost:8080"
   # @schema
-  controlPlaneUrl: "http://api.openchoreo.localhost:8080"
+  openchoreoApiUrl: "http://api.openchoreo.localhost:8080"
 
   # @schema
   # type: string

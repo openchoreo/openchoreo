@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from enum import StrEnum
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -11,6 +10,7 @@ class ActionStatus(StrEnum):
     SUGGESTED = "suggested"
     REVISED = "revised"
     APPLIED = "applied"
+    DISMISSED = "dismissed"
 
 
 class EnvVarChange(BaseModel):
@@ -21,17 +21,17 @@ class EnvVarChange(BaseModel):
 
 
 class FileChange(BaseModel):
-    """A single file mount change, identified by key name"""
+    """A content-only change to an existing file mount, identified by key + mountPath"""
 
     model_config = ConfigDict(populate_by_name=True)
 
-    key: str = Field(..., description="File key (e.g. 'config.yaml')")
-    value: str | None = Field(default=None, description="New file content")
-    mount_path: str | None = Field(
-        default=None,
+    key: str = Field(..., description="File key of the existing mount (e.g. 'config.yaml')")
+    mount_path: str = Field(
+        ...,
         alias="mountPath",
-        description="New mount path (e.g. '/app/')",
+        description="Mount path that identifies the file mount (e.g. '/app/frontend/'). Must match an existing mount.",
     )
+    value: str = Field(..., description="New file content")
 
 
 class FieldChange(BaseModel):
@@ -48,7 +48,13 @@ class FieldChange(BaseModel):
             "'/spec/traitEnvironmentConfigs/my-trait/enabled'"
         ),
     )
-    value: Any = Field(..., description="Value to set at the JSON Pointer location")
+    value: str | int | float | bool = Field(
+        ...,
+        description=(
+            "Scalar value to set at the JSON Pointer location. "
+            "For nested objects, flatten into separate FieldChange entries with leaf-level pointers."
+        ),
+    )
 
 
 class ResourceChange(BaseModel):
@@ -64,7 +70,7 @@ class ResourceChange(BaseModel):
     )
     files: list[FileChange] = Field(
         default_factory=list,
-        description="File mount changes, identified by key. Updates existing files or appends new ones.",
+        description="File content changes for existing mounts, identified by key + mountPath. Only the content (value) is changed.",
     )
     fields: list[FieldChange] = Field(
         default_factory=list,
@@ -84,9 +90,9 @@ class RemediationAction(BaseModel):
         ...,
         description="'suggested' if kept as-is, 'revised' if translated into concrete OpenChoreo guidance",
     )
-    changes: list[ResourceChange] = Field(
-        default_factory=list,
-        description="Specific field changes to make. Empty when status is 'suggested'",
+    change: ResourceChange | None = Field(
+        default=None,
+        description="The specific changes to apply to a single ReleaseBinding. None when status is 'suggested'",
     )
 
 
