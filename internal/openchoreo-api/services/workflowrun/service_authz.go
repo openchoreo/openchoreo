@@ -13,6 +13,7 @@ import (
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -41,12 +42,27 @@ func NewServiceWithAuthz(k8sClient client.Client, wpClientMgr *kubernetesClient.
 	}
 }
 
+// constructHierarchyForAuthzCheck builds a ResourceHierarchy from workflow run labels.
+// If both project and component labels are present, it returns a component-level hierarchy; otherwise it falls back to namespace-level.
+func constructHierarchyForAuthzCheck(namespaceName string, labels map[string]string) authz.ResourceHierarchy {
+	project := labels[ocLabels.LabelKeyProjectName]
+	component := labels[ocLabels.LabelKeyComponentName]
+	if project != "" && component != "" {
+		return authz.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   project,
+			Component: component,
+		}
+	}
+	return authz.ResourceHierarchy{Namespace: namespaceName}
+}
+
 func (s *workflowRunServiceWithAuthz) CreateWorkflowRun(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionCreateWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   wfRun.Name,
-		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wfRun.Labels),
 	}); err != nil {
 		return nil, err
 	}
@@ -58,7 +74,7 @@ func (s *workflowRunServiceWithAuthz) UpdateWorkflowRun(ctx context.Context, nam
 		Action:       actionUpdateWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   wfRun.Name,
-		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wfRun.Labels),
 	}); err != nil {
 		return nil, err
 	}
@@ -75,30 +91,38 @@ func (s *workflowRunServiceWithAuthz) ListWorkflowRuns(ctx context.Context, name
 				Action:       actionViewWorkflowRun,
 				ResourceType: resourceTypeWorkflowRun,
 				ResourceID:   wr.Name,
-				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+				Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
 			}
 		},
 	)
 }
 
 func (s *workflowRunServiceWithAuthz) GetWorkflowRun(ctx context.Context, namespaceName, runName string) (*openchoreov1alpha1.WorkflowRun, error) {
+	wr, err := s.internal.GetWorkflowRun(ctx, namespaceName, runName)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
-		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
 	}); err != nil {
 		return nil, err
 	}
-	return s.internal.GetWorkflowRun(ctx, namespaceName, runName)
+	return wr, nil
 }
 
 func (s *workflowRunServiceWithAuthz) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, taskName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
+	wr, err := s.internal.GetWorkflowRun(ctx, namespaceName, runName)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
-		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
 	}); err != nil {
 		return nil, err
 	}
@@ -106,11 +130,15 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRunLogs(ctx context.Context, na
 }
 
 func (s *workflowRunServiceWithAuthz) GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, taskName, gatewayURL string) ([]models.WorkflowRunEventEntry, error) {
+	wr, err := s.internal.GetWorkflowRun(ctx, namespaceName, runName)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
-		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
 	}); err != nil {
 		return nil, err
 	}
