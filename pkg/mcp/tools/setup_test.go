@@ -11,14 +11,16 @@ import (
 )
 
 const (
-	testNamespaceName  = "my-namespace"
-	testProjectName    = "my-project"
-	testComponentName  = "my-component"
-	testEnvName        = "dev"
-	testKindProject    = "Project"
-	testGoServiceName  = "go-service"
-	testAutoscalerName = "autoscaler"
-	testBuildWorkflow  = "build-workflow"
+	testNamespaceName    = "my-namespace"
+	testProjectName      = "my-project"
+	testComponentName    = "my-component"
+	testEnvName          = "dev"
+	testKindProject      = "Project"
+	testGoServiceName    = "go-service"
+	testAutoscalerName   = "autoscaler"
+	testBuildWorkflow    = "build-workflow"
+	testWebAppType       = "WebApplication"
+	testAutoscalingTrait = "autoscaling"
 )
 
 func setupTestServer(t *testing.T) (*mcp.ClientSession, *MockCoreToolsetHandler) {

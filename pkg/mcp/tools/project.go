@@ -39,8 +39,9 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server) {
 			"namespace_name": defaultStringProperty(),
 			"name": stringProperty(
 				"DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
-			"description":         stringProperty("Human-readable description"),
-			"deployment_pipeline": stringProperty("Name of the DeploymentPipeline to use. Defaults to \"default\" if not specified."),
+			"description": stringProperty("Human-readable description"),
+			"deployment_pipeline": stringProperty(
+				"Name of the DeploymentPipeline to use. Defaults to \"default\" if not specified."),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName      string `json:"namespace_name"`

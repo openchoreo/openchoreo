@@ -613,12 +613,12 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "ct_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"ct_name":        "WebApplication",
+				"ct_name":        testWebAppType,
 			},
 			expectedMethod: "GetComponentType",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "WebApplication" {
-					t.Errorf("Expected (%s, WebApplication), got (%v, %v)", testNamespaceName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != testWebAppType {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testWebAppType, args[0], args[1])
 				}
 			},
 		},
@@ -630,12 +630,12 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "ct_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"ct_name":        "WebApplication",
+				"ct_name":        testWebAppType,
 			},
 			expectedMethod: "GetComponentTypeSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "WebApplication" {
-					t.Errorf("Expected (%s, WebApplication), got (%v, %v)", testNamespaceName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != testWebAppType {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testWebAppType, args[0], args[1])
 				}
 			},
 		},
@@ -664,12 +664,12 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "trait_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"trait_name":     "autoscaling",
+				"trait_name":     testAutoscalingTrait,
 			},
 			expectedMethod: "GetTrait",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "autoscaling" {
-					t.Errorf("Expected (%s, autoscaling), got (%v, %v)", testNamespaceName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != testAutoscalingTrait {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testAutoscalingTrait, args[0], args[1])
 				}
 			},
 		},
@@ -681,12 +681,12 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "trait_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"trait_name":     "autoscaling",
+				"trait_name":     testAutoscalingTrait,
 			},
 			expectedMethod: "GetTraitSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "autoscaling" {
-					t.Errorf("Expected (%s, autoscaling), got (%v, %v)", testNamespaceName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != testAutoscalingTrait {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testAutoscalingTrait, args[0], args[1])
 				}
 			},
 		},
@@ -1002,13 +1002,13 @@ func TestComponentToolsetClosuresInPEFile(t *testing.T) {
 		{"list_component_types", map[string]any{"namespace_name": testNamespaceName}, "ListComponentTypes"},
 		{
 			"get_component_type_schema",
-			map[string]any{"namespace_name": testNamespaceName, "ct_name": "WebApplication"},
+			map[string]any{"namespace_name": testNamespaceName, "ct_name": testWebAppType},
 			"GetComponentTypeSchema",
 		},
 		{"list_traits", map[string]any{"namespace_name": testNamespaceName}, "ListTraits"},
 		{
 			"get_trait_schema",
-			map[string]any{"namespace_name": testNamespaceName, "trait_name": "autoscaling"},
+			map[string]any{"namespace_name": testNamespaceName, "trait_name": testAutoscalingTrait},
 			"GetTraitSchema",
 		},
 		{"list_cluster_component_types", map[string]any{}, "ListClusterComponentTypes"},

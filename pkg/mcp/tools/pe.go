@@ -240,6 +240,37 @@ func (t *Toolsets) RegisterDeleteEnvironment(s *mcp.Server) {
 // PE Toolset — Deployment pipeline management
 // ---------------------------------------------------------------------------
 
+// promotionPathsSchema returns the JSON schema for a promotion_paths array field.
+// The description parameter allows callers to customize the field description.
+func promotionPathsSchema(description string) map[string]any {
+	return map[string]any{
+		"type":        "array",
+		"description": description,
+		"items": map[string]any{
+			"type":     "object",
+			"required": []string{"source_environment_ref", "target_environment_refs"},
+			"properties": map[string]any{
+				"source_environment_ref": stringProperty("Source environment name"),
+				"target_environment_refs": map[string]any{
+					"type": "array",
+					"items": map[string]any{
+						"type":     "object",
+						"required": []string{"name"},
+						"properties": map[string]any{
+							"name": stringProperty("Target environment name"),
+							"requires_approval": map[string]any{
+								"type":        "boolean",
+								"description": "Whether promotion to this environment requires approval",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+//nolint:dupl
 func (t *Toolsets) RegisterCreateDeploymentPipeline(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_deployment_pipeline",
@@ -250,32 +281,10 @@ func (t *Toolsets) RegisterCreateDeploymentPipeline(s *mcp.Server) {
 			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"display_name":   stringProperty("Human-readable display name"),
 			"description":    stringProperty("Human-readable description"),
-			"promotion_paths": map[string]any{
-				"type": "array",
-				"description": "Promotion paths defining environment progression. " +
+			"promotion_paths": promotionPathsSchema(
+				"Promotion paths defining environment progression. " +
 					"Each path has a source environment and target environments with optional approval requirements",
-				"items": map[string]any{
-					"type":     "object",
-					"required": []string{"source_environment_ref", "target_environment_refs"},
-					"properties": map[string]any{
-						"source_environment_ref": stringProperty("Source environment name"),
-						"target_environment_refs": map[string]any{
-							"type": "array",
-							"items": map[string]any{
-								"type":     "object",
-								"required": []string{"name"},
-								"properties": map[string]any{
-									"name": stringProperty("Target environment name"),
-									"requires_approval": map[string]any{
-										"type":        "boolean",
-										"description": "Whether promotion to this environment requires approval",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName  string               `json:"namespace_name"`
@@ -1317,6 +1326,7 @@ func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server) {
 // PE Toolset — Deployment pipeline write operations
 // ---------------------------------------------------------------------------
 
+//nolint:dupl
 func (t *Toolsets) RegisterUpdateDeploymentPipeline(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "update_deployment_pipeline",
@@ -1328,32 +1338,10 @@ func (t *Toolsets) RegisterUpdateDeploymentPipeline(s *mcp.Server) {
 				"Name of the deployment pipeline to update. Use list_deployment_pipelines to discover valid names"),
 			"display_name": stringProperty("Updated human-readable display name"),
 			"description":  stringProperty("Updated human-readable description"),
-			"promotion_paths": map[string]any{
-				"type": "array",
-				"description": "Updated promotion paths defining environment progression. " +
+			"promotion_paths": promotionPathsSchema(
+				"Updated promotion paths defining environment progression. " +
 					"Each path has a source environment and target environments with optional approval requirements",
-				"items": map[string]any{
-					"type":     "object",
-					"required": []string{"source_environment_ref", "target_environment_refs"},
-					"properties": map[string]any{
-						"source_environment_ref": stringProperty("Source environment name"),
-						"target_environment_refs": map[string]any{
-							"type": "array",
-							"items": map[string]any{
-								"type":     "object",
-								"required": []string{"name"},
-								"properties": map[string]any{
-									"name": stringProperty("Target environment name"),
-									"requires_approval": map[string]any{
-										"type":        "boolean",
-										"description": "Whether promotion to this environment requires approval",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName  string               `json:"namespace_name"`
