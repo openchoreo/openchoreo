@@ -5541,7 +5541,7 @@ components:
           items:
             $ref: '#/components/schemas/ComponentTrait'
         workflow:
-          $ref: '#/components/schemas/ComponentWorkflowConfig'
+          $ref: '#/components/schemas/WorkflowRunConfig'
 
     ComponentStatus:
       type: object
@@ -5595,45 +5595,6 @@ components:
           readOnly: true
           allOf:
             - $ref: '#/components/schemas/ComponentStatus'
-
-    ComponentWorkflowConfig:
-      type: object
-      description: Component workflow configuration
-      properties:
-        name:
-          type: string
-          description: Workflow name
-          example: docker-build
-        systemParameters:
-          type: object
-          description: System-managed parameters (repository info)
-          properties:
-            repository:
-              type: object
-              properties:
-                url:
-                  type: string
-                  description: Git repository URL
-                  example: https://github.com/org/repo.git
-                revision:
-                  type: object
-                  properties:
-                    branch:
-                      type: string
-                      description: Git branch
-                      example: main
-                    commit:
-                      type: string
-                      description: Git commit SHA
-                      example: abc1234
-                appPath:
-                  type: string
-                  description: Path to application within repository
-                  example: ./services/api
-        parameters:
-          type: object
-          description: User-defined workflow parameters
-          additionalProperties: true
 
     CreateComponentRequest:
       type: object
@@ -5715,46 +5676,16 @@ components:
       description: Workflow configuration for component creation
       required:
         - name
-        - systemParameters
       properties:
+        kind:
+          type: string
+          description: Kind of workflow reference (Workflow or ClusterWorkflow)
+          enum: [Workflow, ClusterWorkflow]
+          default: Workflow
         name:
           type: string
-          description: ComponentWorkflow resource name
+          description: Workflow resource name
           example: docker-build
-        systemParameters:
-          type: object
-          description: System parameters including repository configuration
-          required:
-            - repository
-          properties:
-            repository:
-              type: object
-              required:
-                - url
-                - revision
-                - appPath
-              properties:
-                url:
-                  type: string
-                  description: Git repository URL
-                  example: https://github.com/org/repo.git
-                revision:
-                  type: object
-                  required:
-                    - branch
-                  properties:
-                    branch:
-                      type: string
-                      description: Git branch to build from
-                      example: main
-                    commit:
-                      type: string
-                      description: Specific commit SHA (optional)
-                      example: abc1234
-                appPath:
-                  type: string
-                  description: Path to application within repository
-                  example: ./services/api
         parameters:
           type: object
           description: User-defined workflow parameters

@@ -155,6 +155,12 @@ const (
 	ComponentTypeSpecWorkloadTypeStatefulset ComponentTypeSpecWorkloadType = "statefulset"
 )
 
+// Defines values for ComponentWorkflowInputKind.
+const (
+	ComponentWorkflowInputKindClusterWorkflow ComponentWorkflowInputKind = "ClusterWorkflow"
+	ComponentWorkflowInputKindWorkflow        ComponentWorkflowInputKind = "Workflow"
+)
+
 // Defines values for ConditionStatus.
 const (
 	ConditionStatusFalse   ConditionStatus = "False"
@@ -1269,8 +1275,8 @@ type ComponentSpec struct {
 	// Traits Trait instances attached to the component
 	Traits *[]ComponentTrait `json:"traits,omitempty"`
 
-	// Workflow Component workflow configuration
-	Workflow *ComponentWorkflowConfig `json:"workflow,omitempty"`
+	// Workflow Workflow configuration referencing the Workflow and providing schema values.
+	Workflow *WorkflowRunConfig `json:"workflow,omitempty"`
 }
 
 // ComponentSpecComponentTypeKind Kind of component type (ComponentType or ClusterComponentType)
@@ -1447,59 +1453,20 @@ type ComponentTypeSpecWorkloadType string
 // ComponentTypeStatus Observed state of a ComponentType
 type ComponentTypeStatus = map[string]interface{}
 
-// ComponentWorkflowConfig Component workflow configuration
-type ComponentWorkflowConfig struct {
-	// Name Workflow name
-	Name *string `json:"name,omitempty"`
-
-	// Parameters User-defined workflow parameters
-	Parameters *map[string]interface{} `json:"parameters,omitempty"`
-
-	// SystemParameters System-managed parameters (repository info)
-	SystemParameters *struct {
-		Repository *struct {
-			// AppPath Path to application within repository
-			AppPath  *string `json:"appPath,omitempty"`
-			Revision *struct {
-				// Branch Git branch
-				Branch *string `json:"branch,omitempty"`
-
-				// Commit Git commit SHA
-				Commit *string `json:"commit,omitempty"`
-			} `json:"revision,omitempty"`
-
-			// Url Git repository URL
-			Url *string `json:"url,omitempty"`
-		} `json:"repository,omitempty"`
-	} `json:"systemParameters,omitempty"`
-}
-
 // ComponentWorkflowInput Workflow configuration for component creation
 type ComponentWorkflowInput struct {
-	// Name ComponentWorkflow resource name
+	// Kind Kind of workflow reference (Workflow or ClusterWorkflow)
+	Kind *ComponentWorkflowInputKind `json:"kind,omitempty"`
+
+	// Name Workflow resource name
 	Name string `json:"name"`
 
 	// Parameters User-defined workflow parameters
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
-
-	// SystemParameters System parameters including repository configuration
-	SystemParameters struct {
-		Repository struct {
-			// AppPath Path to application within repository
-			AppPath  string `json:"appPath"`
-			Revision struct {
-				// Branch Git branch to build from
-				Branch string `json:"branch"`
-
-				// Commit Specific commit SHA (optional)
-				Commit *string `json:"commit,omitempty"`
-			} `json:"revision"`
-
-			// Url Git repository URL
-			Url string `json:"url"`
-		} `json:"repository"`
-	} `json:"systemParameters"`
 }
+
+// ComponentWorkflowInputKind Kind of workflow reference (Workflow or ClusterWorkflow)
+type ComponentWorkflowInputKind string
 
 // Condition Kubernetes-style condition
 type Condition struct {
