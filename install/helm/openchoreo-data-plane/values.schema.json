@@ -2,57 +2,6 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "properties": {
-    "api-platform": {
-      "additionalProperties": true,
-      "description": "WSO2 API Platform configuration for advanced API management capabilities",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "description": "Enable WSO2 API Platform gateway operator",
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "gateway": {
-          "additionalProperties": true,
-          "description": "Gateway configuration for API Platform",
-          "properties": {
-            "configRefName": {
-              "default": "api-platform-default-gateway-values",
-              "description": "Name of the ConfigMap referenced by the Gateway configRef",
-              "title": "configRefName",
-              "type": "string"
-            },
-            "helm": {
-              "additionalProperties": true,
-              "description": "Helm chart reference for gateway sub-chart",
-              "properties": {
-                "chartName": {
-                  "default": "oci://ghcr.io/wso2/api-platform/helm-charts/gateway",
-                  "description": "OCI chart reference for the API Platform gateway",
-                  "title": "chartName",
-                  "type": "string"
-                },
-                "chartVersion": {
-                  "default": "0.3.0",
-                  "description": "Version of the API Platform gateway chart",
-                  "title": "chartVersion",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "helm",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "gateway",
-          "type": "object"
-        }
-      },
-      "required": [],
-      "title": "api-platform",
-      "type": "object"
-    },
     "clusterAgent": {
       "additionalProperties": true,
       "description": "Cluster Agent configuration for WebSocket connection to control plane cluster gateway",
