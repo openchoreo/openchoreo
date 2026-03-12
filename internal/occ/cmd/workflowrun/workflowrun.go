@@ -18,8 +18,12 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// componentLabel is the label key that identifies component-owned workflow runs.
-const componentLabel = "openchoreo.dev/component"
+const (
+	// componentLabel is the label key that identifies component-owned workflow runs.
+	componentLabel = "openchoreo.dev/component"
+
+	conditionStatusTrue = "True"
+)
 
 // WorkflowRun implements workflow run operations
 type WorkflowRun struct{}
@@ -150,16 +154,7 @@ func PrintList(items []gen.WorkflowRun) error {
 		}
 		status := "Pending"
 		if run.Status != nil && run.Status.Conditions != nil {
-			for _, c := range *run.Status.Conditions {
-				if c.Type == "Ready" {
-					if c.Status == "True" {
-						status = "Ready"
-					} else {
-						status = c.Reason
-					}
-					break
-				}
-			}
+			status = deriveStatus(*run.Status.Conditions)
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			run.Metadata.Name,
@@ -169,4 +164,28 @@ func PrintList(items []gen.WorkflowRun) error {
 	}
 
 	return w.Flush()
+}
+
+// deriveStatus maps WorkflowRun conditions to a human-readable status string.
+// The controller sets WorkflowCompleted, WorkflowRunning, WorkflowSucceeded, and
+// WorkflowFailed conditions — there is no "Ready" condition.
+func deriveStatus(conditions []gen.Condition) string {
+	conds := make(map[string]gen.Condition, len(conditions))
+	for _, c := range conditions {
+		conds[c.Type] = c
+	}
+
+	if c, ok := conds["WorkflowSucceeded"]; ok && c.Status == conditionStatusTrue {
+		return "Succeeded"
+	}
+	if c, ok := conds["WorkflowFailed"]; ok && c.Status == conditionStatusTrue {
+		return "Failed"
+	}
+	if c, ok := conds["WorkflowRunning"]; ok && c.Status == conditionStatusTrue {
+		return "Running"
+	}
+	if c, ok := conds["WorkflowCompleted"]; ok {
+		return c.Reason
+	}
+	return "Pending"
 }
