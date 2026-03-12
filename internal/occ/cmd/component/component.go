@@ -92,7 +92,7 @@ func (cp *Component) StartWorkflow(params StartWorkflowParams) error {
 		return err
 	}
 
-	if comp.Spec == nil || comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == nil {
+	if comp.Spec == nil || comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == "" {
 		return fmt.Errorf("component %q has no workflow configured", params.ComponentName)
 	}
 
@@ -104,7 +104,7 @@ func (cp *Component) StartWorkflow(params StartWorkflowParams) error {
 
 	return workflow.New().StartRun(workflow.StartRunParams{
 		Namespace:    params.Namespace,
-		WorkflowName: *wfConfig.Name,
+		WorkflowName: wfConfig.Name,
 		RunName:      fmt.Sprintf("%s-build-%d", params.ComponentName, time.Now().Unix()),
 		Parameters:   baseParams,
 		Set:          params.Set,

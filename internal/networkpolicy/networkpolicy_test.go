@@ -41,38 +41,31 @@ func assertYAMLEqual(t *testing.T, name string, actual map[string]any, expectedY
 	}
 }
 
-func TestMakeBaselinePolicies(t *testing.T) {
-	policies := MakeBaselinePolicies(BaselinePolicyParams{
-		Namespace:   "dp-acme-payment-dev-x1y2z3w4",
-		CPNamespace: "acme-corp",
-		Environment: "development",
+func TestMakeComponentPolicies_NoEndpoints(t *testing.T) {
+	policies := MakeComponentPolicies(ComponentPolicyParams{
+		Namespace:     "dp-ns",
+		CPNamespace:   "cp-ns",
+		Environment:   "development",
+		ComponentName: "my-comp",
+		PodSelectors:  map[string]string{"app": "test"},
+		Endpoints:     nil,
 	})
-
-	if len(policies) != 2 {
-		t.Fatalf("expected 2 baseline policies, got %d", len(policies))
+	if len(policies) != 1 {
+		t.Fatalf("expected 1 policy for component with no endpoints, got %d", len(policies))
 	}
 
-	assertYAMLEqual(t, "deny-all-ingress", policies[0], `
+	assertYAMLEqual(t, "no-endpoints", policies[0], `
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: openchoreo-deny-all-ingress
-  namespace: dp-acme-payment-dev-x1y2z3w4
+  name: openchoreo-my-comp
+  namespace: dp-ns
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      app: test
   policyTypes:
     - Ingress
-`)
-
-	assertYAMLEqual(t, "egress-isolation", policies[1], `
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: openchoreo-egress-isolation
-  namespace: dp-acme-payment-dev-x1y2z3w4
-spec:
-  podSelector: {}
-  policyTypes:
     - Egress
   egress:
     - to:
@@ -83,25 +76,12 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              openchoreo.dev/namespace: acme-corp
+              openchoreo.dev/namespace: cp-ns
               openchoreo.dev/environment: development
 `)
-}
 
-func TestMakeComponentPolicies_NoEndpoints(t *testing.T) {
-	result := MakeComponentPolicies(ComponentPolicyParams{
-		Namespace:     "dp-ns",
-		CPNamespace:   "cp-ns",
-		Environment:   "development",
-		ComponentName: "my-comp",
-		PodSelectors:  map[string]string{"app": "test"},
-		Endpoints:     nil,
-	})
-	if result != nil {
-		t.Error("expected nil for component with nil endpoints")
-	}
-
-	result = MakeComponentPolicies(ComponentPolicyParams{
+	// Also verify empty map case
+	policies = MakeComponentPolicies(ComponentPolicyParams{
 		Namespace:     "dp-ns",
 		CPNamespace:   "cp-ns",
 		Environment:   "development",
@@ -109,8 +89,8 @@ func TestMakeComponentPolicies_NoEndpoints(t *testing.T) {
 		PodSelectors:  map[string]string{"app": "test"},
 		Endpoints:     map[string]openchoreov1alpha1.WorkloadEndpoint{},
 	})
-	if result != nil {
-		t.Error("expected nil for component with empty endpoints map")
+	if len(policies) != 1 {
+		t.Fatalf("expected 1 policy for component with empty endpoints, got %d", len(policies))
 	}
 }
 
@@ -136,7 +116,7 @@ func TestMakeComponentPolicies_ProjectOnly(t *testing.T) {
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: openchoreo-web-app-ingress
+  name: openchoreo-web-app
   namespace: dp-ns
 spec:
   podSelector:
@@ -145,12 +125,24 @@ spec:
       openchoreo.dev/project: my-project
   policyTypes:
     - Ingress
+    - Egress
   ingress:
     - from:
         - podSelector: {}
       ports:
         - protocol: TCP
           port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchExpressions:
+              - key: openchoreo.dev/namespace
+                operator: DoesNotExist
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              openchoreo.dev/namespace: cp-ns
+              openchoreo.dev/environment: development
 `)
 }
 
@@ -177,7 +169,7 @@ func TestMakeComponentPolicies_NamespaceVisibility(t *testing.T) {
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: openchoreo-api-svc-ingress
+  name: openchoreo-api-svc
   namespace: dp-ns
 spec:
   podSelector:
@@ -185,6 +177,7 @@ spec:
       app: api-svc
   policyTypes:
     - Ingress
+    - Egress
   ingress:
     - from:
         - podSelector: {}
@@ -199,6 +192,17 @@ spec:
       ports:
         - protocol: TCP
           port: 9090
+  egress:
+    - to:
+        - namespaceSelector:
+            matchExpressions:
+              - key: openchoreo.dev/namespace
+                operator: DoesNotExist
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              openchoreo.dev/namespace: cp-ns
+              openchoreo.dev/environment: development
 `)
 }
 
@@ -225,7 +229,7 @@ func TestMakeComponentPolicies_ExternalVisibility(t *testing.T) {
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: openchoreo-public-api-ingress
+  name: openchoreo-public-api
   namespace: dp-ns
 spec:
   podSelector:
@@ -233,6 +237,7 @@ spec:
       app: public-api
   policyTypes:
     - Ingress
+    - Egress
   ingress:
     - from:
         - podSelector: {}
@@ -247,6 +252,17 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchExpressions:
+              - key: openchoreo.dev/namespace
+                operator: DoesNotExist
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              openchoreo.dev/namespace: cp-ns
+              openchoreo.dev/environment: development
 `)
 }
 
@@ -273,7 +289,7 @@ func TestMakeComponentPolicies_InternalVisibility(t *testing.T) {
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: openchoreo-internal-svc-ingress
+  name: openchoreo-internal-svc
   namespace: dp-ns
 spec:
   podSelector:
@@ -281,6 +297,7 @@ spec:
       app: internal-svc
   policyTypes:
     - Ingress
+    - Egress
   ingress:
     - from:
         - podSelector: {}
@@ -295,6 +312,17 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchExpressions:
+              - key: openchoreo.dev/namespace
+                operator: DoesNotExist
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              openchoreo.dev/namespace: cp-ns
+              openchoreo.dev/environment: development
 `)
 }
 
@@ -332,7 +360,7 @@ func TestMakeComponentPolicies_MixedVisibility(t *testing.T) {
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: openchoreo-mixed-svc-ingress
+  name: openchoreo-mixed-svc
   namespace: dp-ns
 spec:
   podSelector:
@@ -340,6 +368,7 @@ spec:
       app: mixed-svc
   policyTypes:
     - Ingress
+    - Egress
   ingress:
     - from:
         - podSelector: {}
@@ -366,6 +395,17 @@ spec:
       ports:
         - protocol: TCP
           port: 8443
+  egress:
+    - to:
+        - namespaceSelector:
+            matchExpressions:
+              - key: openchoreo.dev/namespace
+                operator: DoesNotExist
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              openchoreo.dev/namespace: cp-ns
+              openchoreo.dev/environment: development
 `)
 }
 
@@ -388,7 +428,7 @@ func TestMakeComponentPolicies_UDPEndpoint(t *testing.T) {
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: openchoreo-dns-svc-ingress
+  name: openchoreo-dns-svc
   namespace: dp-ns
 spec:
   podSelector:
@@ -396,12 +436,24 @@ spec:
       app: dns-svc
   policyTypes:
     - Ingress
+    - Egress
   ingress:
     - from:
         - podSelector: {}
       ports:
         - protocol: UDP
           port: 5353
+  egress:
+    - to:
+        - namespaceSelector:
+            matchExpressions:
+              - key: openchoreo.dev/namespace
+                operator: DoesNotExist
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              openchoreo.dev/namespace: cp-ns
+              openchoreo.dev/environment: development
 `)
 }
 

@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import ConfigDict, Field
 
-from src.auth import require_authn, require_reports_authz
+from src.auth import require_authn, require_reports_authz, require_reports_update_authz
 from src.auth.authz_models import SubjectContext
 from src.clients import get_report_backend
 from src.helpers import resolve_project_scope, validate_time_range
@@ -46,7 +46,7 @@ class RCAReportDetailed(BaseModel):
 
 
 @router.get(
-    "/",
+    "",
     response_model=RCAReportsResponse,
     response_model_by_alias=True,
 )
@@ -113,7 +113,8 @@ async def get_rca_report(
 
 
 class ReportUpdateRequest(BaseModel):
-    applied_indices: list[int] = Field(alias="appliedIndices")
+    applied_indices: list[int] = Field(default_factory=list, alias="appliedIndices")
+    dismissed_indices: list[int] = Field(default_factory=list, alias="dismissedIndices")
     model_config = ConfigDict(populate_by_name=True)
 
 
@@ -122,21 +123,38 @@ async def update_report(
     report_id: str,
     body: ReportUpdateRequest,
     _auth: Annotated[SubjectContext, Depends(require_authn)],
-    _authz: Annotated[SubjectContext, Depends(require_reports_authz)],
+    _authz: Annotated[SubjectContext, Depends(require_reports_update_authz)],
 ):
+    overlap = set(body.applied_indices) & set(body.dismissed_indices)
+    if overlap:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Indices cannot appear in both appliedIndices and dismissedIndices: {sorted(overlap)}",
+        )
+
     logger.info(
-        "Updating report %s: marking actions %s as applied", report_id, body.applied_indices
+        "Updating report %s: applied=%s dismissed=%s",
+        report_id,
+        body.applied_indices,
+        body.dismissed_indices,
     )
-    await _mark_actions_applied(report_id, set(body.applied_indices))
+    await _update_action_statuses(
+        report_id,
+        applied=set(body.applied_indices),
+        dismissed=set(body.dismissed_indices),
+    )
     return {"status": "ok"}
 
 
-async def _mark_actions_applied(report_id: str, applied_indices: set[int]) -> None:
+async def _update_action_statuses(
+    report_id: str,
+    applied: set[int],
+    dismissed: set[int],
+) -> None:
     report_backend = get_report_backend()
     stored = await report_backend.get_rca_report(report_id)
     if not stored:
-        logger.warning("Cannot update action statuses: report %s not found", report_id)
-        return
+        raise HTTPException(status_code=404, detail="Report not found")
 
     actions = (
         stored.get("report", {})
@@ -147,8 +165,12 @@ async def _mark_actions_applied(report_id: str, applied_indices: set[int]) -> No
 
     changed = False
     for i, action in enumerate(actions):
-        if i in applied_indices and action.get("status") == "revised":
+        current = action.get("status")
+        if i in applied and current == "revised":
             action["status"] = "applied"
+            changed = True
+        elif i in dismissed and current in ("revised", "suggested"):
+            action["status"] = "dismissed"
             changed = True
 
     if changed:

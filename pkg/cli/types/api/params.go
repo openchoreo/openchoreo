@@ -191,9 +191,7 @@ type PromotionPathParams struct {
 }
 
 type TargetEnvironmentParams struct {
-	Name                     string
-	RequiresApproval         bool
-	IsManualApprovalRequired bool
+	Name string
 }
 
 type GetDeploymentPipelineParams struct {

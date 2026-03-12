@@ -34,6 +34,7 @@ type Workflow struct {
 
 // WorkflowConfig represents the workflow configuration in API requests/responses
 type WorkflowConfig struct {
+	Kind       string                `json:"kind,omitempty"` // Workflow or ClusterWorkflow
 	Name       string                `json:"name"`
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }

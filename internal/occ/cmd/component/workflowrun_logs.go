@@ -62,9 +62,9 @@ func resolveComponentWorkflowName(namespace, componentName string) (string, erro
 		return "", err
 	}
 
-	if comp.Spec == nil || comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == nil {
+	if comp.Spec == nil || comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == "" {
 		return "", fmt.Errorf("component %q has no workflow configured", componentName)
 	}
 
-	return *comp.Spec.Workflow.Name, nil
+	return comp.Spec.Workflow.Name, nil
 }

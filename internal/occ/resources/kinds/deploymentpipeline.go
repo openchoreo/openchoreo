@@ -122,9 +122,7 @@ func (d *DeploymentPipelineResource) CreateDeploymentPipeline(params api.CreateD
 		targetEnvRefs := make([]openchoreov1alpha1.TargetEnvironmentRef, 0, len(path.TargetEnvironments))
 		for _, target := range path.TargetEnvironments {
 			targetEnvRefs = append(targetEnvRefs, openchoreov1alpha1.TargetEnvironmentRef{
-				Name:                     target.Name,
-				RequiresApproval:         target.RequiresApproval,
-				IsManualApprovalRequired: target.IsManualApprovalRequired,
+				Name: target.Name,
 			})
 		}
 

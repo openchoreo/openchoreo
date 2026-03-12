@@ -48,9 +48,6 @@ type Reconciler struct {
 	// Pipeline is the component rendering pipeline, shared across all reconciliations.
 	// This enables CEL environment caching across different component types and reconciliations.
 	Pipeline *componentpipeline.Pipeline
-
-	// EnableNetworkPolicy enables NetworkPolicy generation for endpoint visibility enforcement.
-	EnableNetworkPolicy bool
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
@@ -482,18 +479,16 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		}
 	}
 
-	// Inject per-component NetworkPolicies into dataplane resources if enabled
-	if r.EnableNetworkPolicy {
-		componentNetpols := networkpolicy.MakeComponentPolicies(networkpolicy.ComponentPolicyParams{
-			Namespace:     metadataContext.Namespace,
-			CPNamespace:   metadataContext.ComponentNamespace,
-			Environment:   metadataContext.EnvironmentName,
-			ComponentName: metadataContext.ComponentName,
-			PodSelectors:  metadataContext.PodSelectors,
-			Endpoints:     snapshotWorkload.Spec.Endpoints,
-		})
-		dataPlaneResources = append(dataPlaneResources, componentNetpols...)
-	}
+	// Inject per-component NetworkPolicies into dataplane resources
+	componentNetpols := networkpolicy.MakeComponentPolicies(networkpolicy.ComponentPolicyParams{
+		Namespace:     metadataContext.Namespace,
+		CPNamespace:   metadataContext.ComponentNamespace,
+		Environment:   metadataContext.EnvironmentName,
+		ComponentName: metadataContext.ComponentName,
+		PodSelectors:  metadataContext.PodSelectors,
+		Endpoints:     snapshotWorkload.Spec.Endpoints,
+	})
+	dataPlaneResources = append(dataPlaneResources, componentNetpols...)
 
 	// Convert filtered dataplane resources to Release format
 	dataPlaneReleaseResources, err := r.convertToReleaseResources(dataPlaneResources)

@@ -93,7 +93,6 @@ func setupControlPlaneControllers(
 	mgr ctrl.Manager,
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager,
 	clusterGatewayURL string,
-	enableNetworkPolicy bool,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
@@ -210,20 +209,18 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&releasebinding.Reconciler{
-		Client:              mgr.GetClient(),
-		Scheme:              mgr.GetScheme(),
-		Pipeline:            componentpipeline.NewPipeline(),
-		EnableNetworkPolicy: enableNetworkPolicy,
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Pipeline: componentpipeline.NewPipeline(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
 
 	if err := (&renderedrelease.Reconciler{
-		Client:              mgr.GetClient(),
-		K8sClientMgr:        k8sClientMgr,
-		Scheme:              mgr.GetScheme(),
-		GatewayURL:          clusterGatewayURL,
-		EnableNetworkPolicy: enableNetworkPolicy,
+		Client:       mgr.GetClient(),
+		K8sClientMgr: k8sClientMgr,
+		Scheme:       mgr.GetScheme(),
+		GatewayURL:   clusterGatewayURL,
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
@@ -320,7 +317,6 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
-	var enableNetworkPolicy bool
 	var clusterGatewayURL string
 	var clusterGatewayCACert string
 	var clusterGatewayClientCert string
@@ -348,8 +344,6 @@ func main() {
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.BoolVar(&enableNetworkPolicy, "enable-network-policies", false,
-		"Enable NetworkPolicy enforcement for endpoint visibility on the data plane.")
 	flag.StringVar(&deploymentPlane, "deployment-plane", deploymentPlaneControlPlane,
 		"The deployment plane this manager should serve. Supported values: controlplane, observabilityplane")
 	opts := zap.Options{
@@ -465,7 +459,7 @@ func main() {
 	switch deploymentPlane {
 	// Control plane controllers
 	case deploymentPlaneControlPlane:
-		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL, enableNetworkPolicy)
+		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL)
 		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)

@@ -7,7 +7,6 @@ metadata:
 spec:
   parentRefs:
   - name: gateway-default
-    sectionName: http
   {{- with .Values.rca.http.hostnames }}
   hostnames:
     {{- range . }}

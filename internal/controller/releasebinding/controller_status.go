@@ -238,10 +238,6 @@ func categorizeResource(gvk schema.GroupVersionKind, workloadType WorkloadType) 
 		return CategoryNoStatus
 	case gvk.Group == "policy" && gvk.Kind == "NetworkPolicy":
 		return CategoryNoStatus
-	case gvk.Group == "cilium.io" && gvk.Kind == "CiliumNetworkPolicy":
-		return CategoryNoStatus
-	case gvk.Group == "gateway.envoyproxy.io" && gvk.Kind == "SecurityPolicy":
-		return CategoryNoStatus
 	case gvk.Group == "rbac.authorization.k8s.io":
 		return CategoryNoStatus // RBAC resources don't have meaningful status
 

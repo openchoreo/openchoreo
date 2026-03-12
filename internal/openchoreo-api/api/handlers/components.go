@@ -158,10 +158,14 @@ func toModelWorkflowConfig(workflow *gen.ComponentWorkflowInput) *models.Workflo
 		return nil
 	}
 
-	return &models.WorkflowConfig{
+	wc := &models.WorkflowConfig{
 		Name:       workflow.Name,
 		Parameters: mapToRawExtension(workflow.Parameters),
 	}
+	if workflow.Kind != nil {
+		wc.Kind = string(*workflow.Kind)
+	}
+	return wc
 }
 
 // mapToRawExtension converts *map[string]interface{} to *runtime.RawExtension

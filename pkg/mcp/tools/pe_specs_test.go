@@ -1160,8 +1160,8 @@ func TestCreateDeploymentPipelineWithPromotionPaths(t *testing.T) {
 				{
 					"source_environment_ref": "dev",
 					"target_environment_refs": []map[string]any{
-						{"name": "staging", "requires_approval": true},
-						{"name": "production", "requires_approval": false},
+						{"name": "staging"},
+						{"name": "production"},
 					},
 				},
 			},
@@ -1263,7 +1263,7 @@ func TestUpdateDeploymentPipelineWithPromotionPaths(t *testing.T) {
 				{
 					"source_environment_ref": "dev",
 					"target_environment_refs": []map[string]any{
-						{"name": "prod", "requires_approval": true},
+						{"name": "prod"},
 					},
 				},
 			},
