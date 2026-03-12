@@ -4,7 +4,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterTrait
 metadata:
   name: observability-alert-rule
-  namespace: default
 spec:
   parameters:
     ocSchema:

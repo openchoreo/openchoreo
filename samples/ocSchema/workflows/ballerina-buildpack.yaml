@@ -2,7 +2,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
   name: ballerina-buildpack
-  namespace: default
   annotations:
     openchoreo.dev/description: "Ballerina build workflow for containerized builds using Ballerina Buildpack"
 spec:

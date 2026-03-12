@@ -2,7 +2,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
   name: github-stats-report
-  namespace: default
   annotations:
     openchoreo.dev/description: "Fetch GitHub repository statistics, transform the data, and generate a formatted report"
 spec:

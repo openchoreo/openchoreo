@@ -122,7 +122,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
   name: scm-github-create-repo
-  namespace: default
   annotations:
     openchoreo.dev/description: "Create a new GitHub repository with configurable visibility, initialization options, and metadata"
 spec:
@@ -223,6 +222,7 @@ metadata:
   name: scm-github-create-repo-run-01
 spec:
   workflow:
+    kind: ClusterWorkflow
     name: scm-github-create-repo
     parameters:
       github:

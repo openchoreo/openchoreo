@@ -4,6 +4,7 @@ metadata:
   name: github-stats-report-run-01
 spec:
   workflow:
+    kind: ClusterWorkflow
     name: github-stats-report
     parameters:
       source:

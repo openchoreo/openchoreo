@@ -2,7 +2,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterComponentType
 metadata:
   name: service-with-configs
-  namespace: default
 spec:
   workloadType: deployment
 

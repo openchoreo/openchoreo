@@ -140,6 +140,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, r.Client, workflowRun.Namespace, workflow.Spec.WorkflowPlaneRef)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("No workflow plane found for workflow",
+				"workflowrun", workflowRun.Name,
+				"error", err.Error())
+			setWorkflowPlaneNotFoundCondition(workflowRun)
+			return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
+		}
 		logger.Error(err, "failed to get workflow plane",
 			"workflowrun", workflowRun.Name,
 			"namespace", workflowRun.Namespace)

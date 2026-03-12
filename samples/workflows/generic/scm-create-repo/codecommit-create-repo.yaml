@@ -104,7 +104,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
   name: scm-codecommit-create-repo
-  namespace: default
   annotations:
     openchoreo.dev/description: "Create a new AWS CodeCommit repository in a specified region"
 spec:
@@ -175,6 +174,7 @@ metadata:
   name: scm-codecommit-create-repo-run-01
 spec:
   workflow:
+    kind: ClusterWorkflow
     name: scm-codecommit-create-repo
     parameters:
       aws:

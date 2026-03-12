@@ -2,7 +2,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterComponentType
 metadata:
   name: worker
-  namespace: default
   annotations:
     openchoreo.dev/description: "Component type for background workers"
 spec:
@@ -10,12 +9,13 @@ spec:
 
   allowedWorkflows:
     - kind: ClusterWorkflow
-      name: google-cloud-buildpacks
+      name: gcp-buildpacks-builder
     - kind: ClusterWorkflow
-      name: docker
+      name: dockerfile-builder
 
   allowedTraits:
-    - name: observability-alert-rule
+    - kind: ClusterTrait
+      name: observability-alert-rule
 
   validations:
     - rule: "${size(workload.endpoints) == 0}"

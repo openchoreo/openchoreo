@@ -2,6 +2,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
   name: react-starter
+  namespace: default
 spec:
   owner:
     projectName: default
@@ -19,6 +20,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
   name: react-starter
+  namespace: default
 spec:
   owner:
     componentName: react-starter

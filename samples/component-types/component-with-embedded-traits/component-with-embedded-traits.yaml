@@ -19,7 +19,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterTrait
 metadata:
   name: horizontal-pod-autoscaler
-  namespace: default
 spec:
   parameters:
     openAPIV3Schema:
@@ -88,7 +87,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterTrait
 metadata:
   name: persistent-volume
-  namespace: default
 spec:
   parameters:
     openAPIV3Schema:
@@ -162,7 +160,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterComponentType
 metadata:
   name: service-with-autoscaling
-  namespace: default
 spec:
   workloadType: deployment
 
@@ -175,9 +172,12 @@ spec:
       name: dockerfile-builder
 
   allowedTraits:
-    - name: api-configuration
-    - name: observability-alert-rule
-    - name: persistent-volume
+    - kind: ClusterTrait
+      name: api-configuration
+    - kind: ClusterTrait
+      name: observability-alert-rule
+    - kind: ClusterTrait
+      name: persistent-volume
 
   validations:
     - rule: "${size(workload.endpoints) > 0}"

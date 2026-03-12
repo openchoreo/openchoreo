@@ -2,7 +2,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
   name: google-cloud-buildpacks
-  namespace: default
   annotations:
     openchoreo.dev/description: "Google Cloud Buildpacks workflow for auto-detecting and building applications without Dockerfiles"
 spec:

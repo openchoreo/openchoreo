@@ -2,7 +2,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterComponentType
 metadata:
   name: web-application
-  namespace: default
   annotations:
     openchoreo.dev/description: "Component type for web applications"
 spec:
@@ -10,13 +9,15 @@ spec:
 
   allowedWorkflows:
     - kind: ClusterWorkflow
-      name: react
+      name: gcp-buildpacks-builder
     - kind: ClusterWorkflow
-      name: docker
+      name: dockerfile-builder
 
   allowedTraits:
-    - name: api-configuration
-    - name: observability-alert-rule
+    - kind: ClusterTrait
+      name: api-configuration
+    - kind: ClusterTrait
+      name: observability-alert-rule
 
   validations:
     - rule: "${workload.endpoints.exists(name, endpoint, endpoint.type == 'HTTP')}"

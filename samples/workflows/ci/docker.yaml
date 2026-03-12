@@ -2,7 +2,6 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
   name: docker
-  namespace: default
   labels:
     openchoreo.dev/workflow-type: "component"
   annotations:
