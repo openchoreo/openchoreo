@@ -9,4 +9,5 @@ import "embed"
 
 //go:embed bases/openchoreo.dev_componenttypes.yaml
 //go:embed bases/openchoreo.dev_clustercomponenttypes.yaml
+//go:embed bases/openchoreo.dev_traits.yaml
 var FS embed.FS

@@ -17,8 +17,10 @@ var crdSpecSchemas struct {
 	once                    sync.Once
 	componentType           map[string]any
 	clusterComponentType    map[string]any
+	trait                   map[string]any
 	componentTypeErr        error
 	clusterComponentTypeErr error
+	traitErr                error
 }
 
 // ComponentTypeCreationSchema returns the JSON schema for the ComponentType spec,
@@ -35,12 +37,22 @@ func ClusterComponentTypeCreationSchema() (map[string]any, error) {
 	return crdSpecSchemas.clusterComponentType, crdSpecSchemas.clusterComponentTypeErr
 }
 
+// TraitCreationSchema returns the JSON schema for the Trait spec,
+// extracted from the embedded CRD definition.
+func TraitCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.trait, crdSpecSchemas.traitErr
+}
+
 func parseCRDSchemas() {
 	crdSpecSchemas.componentType, crdSpecSchemas.componentTypeErr = extractSpecSchema(
 		"bases/openchoreo.dev_componenttypes.yaml",
 	)
 	crdSpecSchemas.clusterComponentType, crdSpecSchemas.clusterComponentTypeErr = extractSpecSchema(
 		"bases/openchoreo.dev_clustercomponenttypes.yaml",
+	)
+	crdSpecSchemas.trait, crdSpecSchemas.traitErr = extractSpecSchema(
+		"bases/openchoreo.dev_traits.yaml",
 	)
 }
 

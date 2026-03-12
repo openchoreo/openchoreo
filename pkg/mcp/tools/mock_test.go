@@ -209,6 +209,13 @@ func (m *MockCoreToolsetHandler) ListComponentTypes(
 	return `[{"name":"WebApplication"}]`, nil
 }
 
+func (m *MockCoreToolsetHandler) GetComponentType(
+	ctx context.Context, namespaceName, ctName string,
+) (any, error) {
+	m.recordCall("GetComponentType", namespaceName, ctName)
+	return `{"name":"WebApplication","spec":{"workloadType":"deployment"}}`, nil
+}
+
 func (m *MockCoreToolsetHandler) GetComponentTypeSchema(
 	ctx context.Context, namespaceName, ctName string,
 ) (any, error) {
@@ -219,6 +226,11 @@ func (m *MockCoreToolsetHandler) GetComponentTypeSchema(
 func (m *MockCoreToolsetHandler) ListTraits(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
 	m.recordCall("ListTraits", namespaceName, opts)
 	return `[{"name":"autoscaling"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetTrait(ctx context.Context, namespaceName, traitName string) (any, error) {
+	m.recordCall("GetTrait", namespaceName, traitName)
+	return `{"name":"autoscaling","spec":{}}`, nil
 }
 
 func (m *MockCoreToolsetHandler) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error) {
@@ -275,6 +287,11 @@ func (m *MockCoreToolsetHandler) GetClusterTrait(ctx context.Context, ctName str
 func (m *MockCoreToolsetHandler) ListWorkflows(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {
 	m.recordCall("ListWorkflows", namespaceName, opts)
 	return `[{"name":"build-workflow"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetWorkflow(ctx context.Context, namespaceName, workflowName string) (any, error) {
+	m.recordCall("GetWorkflow", namespaceName, workflowName)
+	return `{"name":"build-workflow","spec":{}}`, nil
 }
 
 func (m *MockCoreToolsetHandler) GetWorkflowSchema(

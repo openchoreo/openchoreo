@@ -122,15 +122,19 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 
 		// Platform standards read (namespace-scoped)
 		t.RegisterPEListComponentTypes,
+		t.RegisterPEGetComponentType,
 		t.RegisterPEGetComponentTypeSchema,
 		t.RegisterPEListTraits,
+		t.RegisterPEGetTrait,
 		t.RegisterPEGetTraitSchema,
 		t.RegisterPEListWorkflows,
+		t.RegisterPEGetWorkflow,
 		t.RegisterPEGetWorkflowSchema,
 
 		// Platform standards creation schemas
 		t.RegisterGetComponentTypeCreationSchema,
 		t.RegisterGetClusterComponentTypeCreationSchema,
+		t.RegisterGetTraitCreationSchema,
 
 		// Platform standards write (namespace-scoped)
 		t.RegisterCreateComponentType,

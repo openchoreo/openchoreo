@@ -131,9 +131,9 @@ func peEnvironmentSpecs() []toolTestSpec {
 			toolset:             "pe",
 			descriptionKeywords: []string{"create", "environment"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "name"},
+			requiredParams:      []string{"namespace_name", "name", "data_plane_ref"},
 			optionalParams: []string{
-				"display_name", "description", "data_plane_ref", "data_plane_ref_kind", "is_production",
+				"display_name", "description", "data_plane_ref_kind", "is_production",
 			},
 			testArgs: map[string]any{
 				"namespace_name":      testNamespaceName,
@@ -606,6 +606,23 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			},
 		},
 		{
+			name:                "get_component_type",
+			toolset:             "pe",
+			descriptionKeywords: []string{"component", "type", "spec"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "ct_name"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"ct_name":        "WebApplication",
+			},
+			expectedMethod: "GetComponentType",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != "WebApplication" {
+					t.Errorf("Expected (%s, WebApplication), got (%v, %v)", testNamespaceName, args[0], args[1])
+				}
+			},
+		},
+		{
 			name:                "get_component_type_schema",
 			toolset:             "pe",
 			descriptionKeywords: []string{"component", "type", "schema"},
@@ -636,6 +653,23 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
 					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+			},
+		},
+		{
+			name:                "get_trait",
+			toolset:             "pe",
+			descriptionKeywords: []string{"trait", "spec"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "trait_name"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"trait_name":     "autoscaling",
+			},
+			expectedMethod: "GetTrait",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != "autoscaling" {
+					t.Errorf("Expected (%s, autoscaling), got (%v, %v)", testNamespaceName, args[0], args[1])
 				}
 			},
 		},
@@ -674,6 +708,23 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			},
 		},
 		{
+			name:                "get_workflow",
+			toolset:             "pe",
+			descriptionKeywords: []string{"workflow", "spec"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "workflow_name"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"workflow_name":  testBuildWorkflow,
+			},
+			expectedMethod: "GetWorkflow",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != testBuildWorkflow {
+					t.Errorf("Expected (%s, build-workflow), got (%v, %v)", testNamespaceName, args[0], args[1])
+				}
+			},
+		},
+		{
 			name:                "get_workflow_schema",
 			toolset:             "pe",
 			descriptionKeywords: []string{"workflow", "schema"},
@@ -702,6 +753,13 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			name:                "get_cluster_component_type_creation_schema",
 			toolset:             "pe",
 			descriptionKeywords: []string{"schema", "creating", "cluster", "component", "type"},
+			descriptionMinLen:   10,
+			testArgs:            map[string]any{},
+		},
+		{
+			name:                "get_trait_creation_schema",
+			toolset:             "pe",
+			descriptionKeywords: []string{"schema", "creating", "trait"},
 			descriptionMinLen:   10,
 			testArgs:            map[string]any{},
 		},
@@ -1055,7 +1113,7 @@ func TestDeploymentToolsetListEnvironmentsInPEFile(t *testing.T) {
 }
 
 // TestCreateEnvironmentMinimalArgs covers the code path in RegisterCreateEnvironment
-// where optional fields (display_name, description, data_plane_ref) are absent.
+// where optional fields (display_name, description) are absent.
 func TestCreateEnvironmentMinimalArgs(t *testing.T) {
 	mockHandler := NewMockCoreToolsetHandler()
 	toolsets := &Toolsets{PEToolset: mockHandler}
@@ -1067,7 +1125,7 @@ func TestCreateEnvironmentMinimalArgs(t *testing.T) {
 
 	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "create_environment",
-		Arguments: map[string]any{"namespace_name": testNamespaceName, "name": "minimal-env"},
+		Arguments: map[string]any{"namespace_name": testNamespaceName, "name": "minimal-env", "data_plane_ref": "default"},
 	})
 	if err != nil {
 		t.Fatalf("Failed to call create_environment: %v", err)

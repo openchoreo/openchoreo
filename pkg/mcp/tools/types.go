@@ -101,10 +101,13 @@ type PEToolsetHandler interface {
 
 	// Platform standards (namespace-scoped) — read
 	ListComponentTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetComponentType(ctx context.Context, namespaceName, ctName string) (any, error)
 	GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (any, error)
 	ListTraits(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetTrait(ctx context.Context, namespaceName, traitName string) (any, error)
 	GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error)
 	ListWorkflows(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetWorkflow(ctx context.Context, namespaceName, workflowName string) (any, error)
 	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error)
 
 	// Platform standards (namespace-scoped) — write

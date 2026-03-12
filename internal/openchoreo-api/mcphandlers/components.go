@@ -379,6 +379,14 @@ func (h *MCPHandler) GetComponentTypeSchema(ctx context.Context, namespaceName, 
 	return h.services.ComponentTypeService.GetComponentTypeSchema(ctx, namespaceName, ctName)
 }
 
+func (h *MCPHandler) GetComponentType(ctx context.Context, namespaceName, ctName string) (any, error) {
+	ct, err := h.services.ComponentTypeService.GetComponentType(ctx, namespaceName, ctName)
+	if err != nil {
+		return nil, err
+	}
+	return componentTypeDetail(ct), nil
+}
+
 func (h *MCPHandler) ListTraits(ctx context.Context, namespaceName string, opts tools.ListOpts) (any, error) {
 	result, err := h.services.TraitService.ListTraits(ctx, namespaceName, toServiceListOptions(opts))
 	if err != nil {
@@ -389,6 +397,14 @@ func (h *MCPHandler) ListTraits(ctx context.Context, namespaceName string, opts 
 
 func (h *MCPHandler) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error) {
 	return h.services.TraitService.GetTraitSchema(ctx, namespaceName, traitName)
+}
+
+func (h *MCPHandler) GetTrait(ctx context.Context, namespaceName, traitName string) (any, error) {
+	t, err := h.services.TraitService.GetTrait(ctx, namespaceName, traitName)
+	if err != nil {
+		return nil, err
+	}
+	return traitDetail(t), nil
 }
 
 func (h *MCPHandler) CreateWorkflowRun(ctx context.Context, namespaceName, workflowName string, parameters map[string]any) (any, error) {
@@ -515,6 +531,14 @@ func (h *MCPHandler) ListWorkflows(ctx context.Context, namespaceName string, op
 
 func (h *MCPHandler) GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error) {
 	return h.services.WorkflowService.GetWorkflowSchema(ctx, namespaceName, workflowName)
+}
+
+func (h *MCPHandler) GetWorkflow(ctx context.Context, namespaceName, workflowName string) (any, error) {
+	wf, err := h.services.WorkflowService.GetWorkflow(ctx, namespaceName, workflowName)
+	if err != nil {
+		return nil, err
+	}
+	return workflowDetail(wf), nil
 }
 
 func (h *MCPHandler) TriggerWorkflowRun(

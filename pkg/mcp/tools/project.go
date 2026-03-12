@@ -39,12 +39,14 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server) {
 			"namespace_name": defaultStringProperty(),
 			"name": stringProperty(
 				"DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
-			"description": stringProperty("Human-readable description"),
+			"description":         stringProperty("Human-readable description"),
+			"deployment_pipeline": stringProperty("Name of the DeploymentPipeline to use. Defaults to \"default\" if not specified."),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		Name          string `json:"name"`
-		Description   string `json:"description"`
+		NamespaceName      string `json:"namespace_name"`
+		Name               string `json:"name"`
+		Description        string `json:"description"`
+		DeploymentPipeline string `json:"deployment_pipeline"`
 	}) (*mcp.CallToolResult, any, error) {
 		annotations := map[string]string{}
 		if args.Description != "" {
@@ -56,6 +58,16 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server) {
 				Name:        args.Name,
 				Annotations: &annotations,
 			},
+		}
+		if args.DeploymentPipeline != "" {
+			projectReq.Spec = &gen.ProjectSpec{
+				DeploymentPipelineRef: &struct {
+					Kind *gen.ProjectSpecDeploymentPipelineRefKind `json:"kind,omitempty"`
+					Name string                                    `json:"name"`
+				}{
+					Name: args.DeploymentPipeline,
+				},
+			}
 		}
 		result, err := t.ProjectToolset.CreateProject(ctx, args.NamespaceName, projectReq)
 		return handleToolResult(result, err)

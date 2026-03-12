@@ -23,6 +23,30 @@ func TestClusterComponentTypeCreationSchema(t *testing.T) {
 	assertSpecSchema(t, schema, "ClusterComponentType")
 }
 
+func TestTraitCreationSchema(t *testing.T) {
+	schema, err := TraitCreationSchema()
+	if err != nil {
+		t.Fatalf("TraitCreationSchema() error: %v", err)
+	}
+	assertTraitSpecSchema(t, schema, "Trait")
+}
+
+func assertTraitSpecSchema(t *testing.T, schema map[string]any, kind string) {
+	t.Helper()
+
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("%s schema missing 'properties'", kind)
+	}
+
+	optionalFields := []string{"creates", "patches", "parameters", "environmentConfigs", "validations"}
+	for _, field := range optionalFields {
+		if _, exists := props[field]; !exists {
+			t.Errorf("%s schema missing optional field %q", kind, field)
+		}
+	}
+}
+
 func assertSpecSchema(t *testing.T, schema map[string]any, kind string) {
 	t.Helper()
 

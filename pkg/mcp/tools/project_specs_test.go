@@ -29,7 +29,7 @@ func projectToolSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "project"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "name"},
-			optionalParams:      []string{"description"},
+			optionalParams:      []string{"description", "deployment_pipeline"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"name":           "new-project",
