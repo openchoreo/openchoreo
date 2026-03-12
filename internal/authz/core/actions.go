@@ -168,17 +168,29 @@ var systemActions = []Action{
 	{Name: "workload:update", LowestScope: ScopeComponent, IsInternal: false},
 	{Name: "workload:delete", LowestScope: ScopeComponent, IsInternal: false},
 
-	// roles
-	{Name: "role:view", LowestScope: ScopeNamespace, IsInternal: false},
-	{Name: "role:create", LowestScope: ScopeNamespace, IsInternal: false},
-	{Name: "role:delete", LowestScope: ScopeNamespace, IsInternal: false},
-	{Name: "role:update", LowestScope: ScopeNamespace, IsInternal: false},
+	// ClusterAuthzRole
+	{Name: "clusterauthzrole:view", LowestScope: ScopeCluster, IsInternal: false},
+	{Name: "clusterauthzrole:create", LowestScope: ScopeCluster, IsInternal: false},
+	{Name: "clusterauthzrole:update", LowestScope: ScopeCluster, IsInternal: false},
+	{Name: "clusterauthzrole:delete", LowestScope: ScopeCluster, IsInternal: false},
 
-	// role mapping
-	{Name: "rolemapping:view", LowestScope: ScopeNamespace, IsInternal: false},
-	{Name: "rolemapping:create", LowestScope: ScopeNamespace, IsInternal: false},
-	{Name: "rolemapping:delete", LowestScope: ScopeNamespace, IsInternal: false},
-	{Name: "rolemapping:update", LowestScope: ScopeNamespace, IsInternal: false},
+	// AuthzRole
+	{Name: "authzrole:view", LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: "authzrole:create", LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: "authzrole:update", LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: "authzrole:delete", LowestScope: ScopeNamespace, IsInternal: false},
+
+	// ClusterAuthzRoleBinding
+	{Name: "clusterauthzrolebinding:view", LowestScope: ScopeCluster, IsInternal: false},
+	{Name: "clusterauthzrolebinding:create", LowestScope: ScopeCluster, IsInternal: false},
+	{Name: "clusterauthzrolebinding:update", LowestScope: ScopeCluster, IsInternal: false},
+	{Name: "clusterauthzrolebinding:delete", LowestScope: ScopeCluster, IsInternal: false},
+
+	// AuthzRoleBinding
+	{Name: "authzrolebinding:view", LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: "authzrolebinding:create", LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: "authzrolebinding:update", LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: "authzrolebinding:delete", LowestScope: ScopeNamespace, IsInternal: false},
 
 	// logs (dynamic scope: namespace or component depending on query)
 	{Name: "logs:view", LowestScope: ScopeComponent, IsInternal: false},
