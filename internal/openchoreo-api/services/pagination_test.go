@@ -13,12 +13,83 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
-// we will not test the limits in this file as those are handled in the handlers/pagination_test.go file.
-// This file is focused on testing the pagination logic itself, independent of the limit normalization.
+// --- BuildListOptions ---
+
+func mustParseSelector(t *testing.T, s string) labels.Selector {
+	t.Helper()
+	sel, err := labels.Parse(s)
+	require.NoError(t, err)
+	return sel
+}
+
+func TestBuildListOptions(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   ListOptions
+		want    []client.ListOption
+		wantErr bool
+	}{
+		{
+			name:  "empty options",
+			input: ListOptions{},
+			want:  nil,
+		},
+		{
+			name:  "limit only",
+			input: ListOptions{Limit: 25},
+			want:  []client.ListOption{client.Limit(25)},
+		},
+		{
+			name:  "zero limit excluded",
+			input: ListOptions{Limit: 0},
+			want:  nil,
+		},
+		{
+			name:  "cursor only",
+			input: ListOptions{Cursor: "abc"},
+			want:  []client.ListOption{client.Continue("abc")},
+		},
+		{
+			name:  "valid label selector",
+			input: ListOptions{LabelSelector: "app=web"},
+			want:  []client.ListOption{client.MatchingLabelsSelector{Selector: mustParseSelector(t, "app=web")}},
+		},
+		{
+			name:    "invalid label selector",
+			input:   ListOptions{LabelSelector: "===invalid"},
+			wantErr: true,
+		},
+		{
+			name:  "all options combined",
+			input: ListOptions{Limit: 10, Cursor: "tok", LabelSelector: "tier=prod"},
+			want: []client.ListOption{
+				client.Limit(10),
+				client.Continue("tok"),
+				client.MatchingLabelsSelector{Selector: mustParseSelector(t, "tier=prod")},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := BuildListOptions(tt.input)
+			if tt.wantErr {
+				require.Error(t, err)
+				var validationErr *ValidationError
+				assert.ErrorAs(t, err, &validationErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
 
 type listPage[T any] struct {
 	items      []T

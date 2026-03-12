@@ -39,6 +39,26 @@ func (d *denyAllPDP) GetSubjectProfile(_ context.Context, _ *authzcore.ProfileRe
 	return nil, nil
 }
 
+// selectivePDP allows resources whose ID is in the allowedIDs set.
+type selectivePDP struct {
+	allowedIDs map[string]bool
+}
+
+func (s *selectivePDP) Evaluate(_ context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
+	return &authzcore.Decision{
+		Decision: s.allowedIDs[req.Resource.ID],
+		Context:  &authzcore.DecisionContext{},
+	}, nil
+}
+
+func (s *selectivePDP) BatchEvaluate(_ context.Context, _ *authzcore.BatchEvaluateRequest) (*authzcore.BatchEvaluateResponse, error) {
+	return nil, nil
+}
+
+func (s *selectivePDP) GetSubjectProfile(_ context.Context, _ *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
+	return nil, nil
+}
+
 // allowAllPDP is a PDP stub that always allows authorization.
 type allowAllPDP struct{}
 
