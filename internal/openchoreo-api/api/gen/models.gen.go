@@ -1150,7 +1150,7 @@ type ClusterWorkflowSpec struct {
 	// TtlAfterCompletion Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
 	TtlAfterCompletion *string `json:"ttlAfterCompletion,omitempty"`
 
-	// WorkflowPlaneRef Reference to the ClusterWorkflowPlane for this workflow's build operations. Defaults to the ClusterWorkflowPlane named "default" when omitted.
+	// WorkflowPlaneRef Reference to the ClusterWorkflowPlane for this workflow's build operations. Defaults to ClusterWorkflowPlane named "default" when omitted.
 	WorkflowPlaneRef *ClusterWorkflowPlaneRef `json:"workflowPlaneRef,omitempty"`
 }
 
@@ -3502,7 +3502,7 @@ type WorkflowSpec struct {
 	// TtlAfterCompletion Time-to-live for WorkflowRun instances after completion (duration string like 10d1h30m).
 	TtlAfterCompletion *string `json:"ttlAfterCompletion,omitempty"`
 
-	// WorkflowPlaneRef Reference to a WorkflowPlane or ClusterWorkflowPlane
+	// WorkflowPlaneRef Reference to the WorkflowPlane or ClusterWorkflowPlane for this workflow's operations. Defaults to ClusterWorkflowPlane named "default" when omitted.
 	WorkflowPlaneRef *WorkflowPlaneRef `json:"workflowPlaneRef,omitempty"`
 }
 
