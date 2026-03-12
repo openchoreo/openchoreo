@@ -50,11 +50,8 @@ spec:
 
 {{- if .Values.openchoreoApi.config.security.authorization.bootstrap.mappings }}
 {{- range .Values.openchoreoApi.config.security.authorization.bootstrap.mappings }}
-{{- $hierarchyNs := "" }}
-{{- if .hierarchy }}
-{{- $hierarchyNs = default "" .hierarchy.namespace }}
-{{- end }}
-{{- if eq $hierarchyNs "" }}
+{{- $bindingKind := default "ClusterAuthzRoleBinding" .kind }}
+{{- if eq $bindingKind "ClusterAuthzRoleBinding" }}
 ---
 # Cluster-scoped binding
 apiVersion: openchoreo.dev/v1alpha1
@@ -72,7 +69,7 @@ spec:
     {{- range .roleMappings }}
     - roleRef:
         name: {{ .roleRef.name }}
-        kind: ClusterAuthzRole
+        kind: {{ .roleRef.kind }}
       {{- if and .scope (or .scope.namespace .scope.project .scope.component) }}
       scope:
         {{- if .scope.namespace }}
@@ -97,7 +94,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: AuthzRoleBinding
 metadata:
   name: {{ .name }}
-  namespace: {{ $hierarchyNs }}
+  namespace: {{ .namespace }}
   labels:
     {{- include "openchoreo-control-plane.labels" $ | nindent 4 }}
     openchoreo.io/bootstrap: "true"
@@ -109,7 +106,7 @@ spec:
     {{- range .roleMappings }}
     - roleRef:
         name: {{ .roleRef.name }}
-        kind: {{ if eq (default "" .roleRef.namespace) "" }}ClusterAuthzRole{{ else }}AuthzRole{{ end }}
+        kind: {{ .roleRef.kind }}
       {{- if and .scope (or .scope.project .scope.component) }}
       scope:
         {{- if .scope.project }}

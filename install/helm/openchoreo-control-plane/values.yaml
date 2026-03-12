@@ -1359,9 +1359,9 @@ openchoreoApi:
           #               name:
           #                 type: string
           #                 description: Role name
-          #               namespace:
-          #                 type: string
-          #                 description: Role namespace (empty for cluster role)
+          #               kind:
+          #                 description: Kind of the role (AuthzRole or ClusterAuthzRole)
+          #                 enum: ["AuthzRole", "ClusterAuthzRole"]
           #           scope:
           #             type: object
           #             description: Scopes this mapping within the ownership hierarchy
@@ -1385,28 +1385,24 @@ openchoreoApi:
           #     effect:
           #       description: Policy effect ("allow" or "deny")
           #       enum: ["allow", "deny"]
-          #     hierarchy:
-          #       type: object
-          #       description: Resource scope for this binding (empty for cluster-wide)
-          #       properties:
-          #         namespace:
-          #           type: string
-          #           description: Namespace (organization) scope
-          #         project:
-          #           type: string
-          #           description: Project scope (requires namespace)
-          #         component:
-          #           type: string
-          #           description: Component scope (requires namespace and project)
+          #     kind:
+          #       description: Kind of the binding (ClusterAuthzRoleBinding or AuthzRoleBinding)
+          #       enum: ["ClusterAuthzRoleBinding", "AuthzRoleBinding"]
+          #       default: ClusterAuthzRoleBinding
+          #     namespace:
+          #       type: string
+          #       description: Namespace for the binding (required when kind is AuthzRoleBinding)
           # default: []
           # @schema
           mappings:
             # Admin mapping - grants admins group full access
             - name: admin-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: admin
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: groups
                 value: admins
@@ -1414,10 +1410,12 @@ openchoreoApi:
             
             # Developer mapping - grants developers group developer access
             - name: developer-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: developer
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: groups
                 value: developers
@@ -1425,10 +1423,12 @@ openchoreoApi:
 
             # PE mapping - grants platform engineers group platform engineer access
             - name: platform-engineer-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: platform-engineer
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: groups
                 value: platform-engineers
@@ -1436,10 +1436,12 @@ openchoreoApi:
 
             # SRE mapping - grants SREs group SRE access
             - name: sre-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: sre
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: groups
                 value: sres
@@ -1447,10 +1449,12 @@ openchoreoApi:
 
             # Backstage catalog reader mapping - grants backstage service account read access
             - name: backstage-catalog-reader-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: backstage-catalog-reader
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: sub
                 value: openchoreo-backstage-client
@@ -1458,10 +1462,12 @@ openchoreoApi:
 
             # RCA agent mapping - grants RCA service account troubleshooting access
             - name: rca-agent-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: rca-agent
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: sub
                 value: openchoreo-rca-agent
@@ -1469,10 +1475,12 @@ openchoreoApi:
 
             # Workload publisher mapping - grants workload publisher service account workload creation access
             - name: workload-publisher-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: workload-publisher
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: sub
                 value: openchoreo-workload-publisher-client
@@ -1480,10 +1488,12 @@ openchoreoApi:
 
             # Observer mapping - grants observer service account resource UID resolver access
             - name: observer-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: observer
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: sub
                 value: openchoreo-observer
@@ -1491,10 +1501,12 @@ openchoreoApi:
 
             # MCP tryout client mapping - grants MCP tryout client full access
             - name: mcp-tryout-client-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: admin
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: sub
                 value: service_mcp_client

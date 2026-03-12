@@ -2571,27 +2571,21 @@
                                 "required": [],
                                 "type": "object"
                               },
-                              "hierarchy": {
-                                "description": "Resource scope for this binding (empty for cluster-wide)",
-                                "properties": {
-                                  "component": {
-                                    "description": "Component scope (requires namespace and project)",
-                                    "type": "string"
-                                  },
-                                  "namespace": {
-                                    "description": "Namespace (organization) scope",
-                                    "type": "string"
-                                  },
-                                  "project": {
-                                    "description": "Project scope (requires namespace)",
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [],
-                                "type": "object"
+                              "kind": {
+                                "default": "ClusterAuthzRoleBinding",
+                                "description": "Kind of the binding (ClusterAuthzRoleBinding or AuthzRoleBinding)",
+                                "enum": [
+                                  "ClusterAuthzRoleBinding",
+                                  "AuthzRoleBinding"
+                                ],
+                                "required": []
                               },
                               "name": {
                                 "description": "Binding name",
+                                "type": "string"
+                              },
+                              "namespace": {
+                                "description": "Namespace for the binding (required when kind is AuthzRoleBinding)",
                                 "type": "string"
                               },
                               "roleMappings": {
@@ -2601,12 +2595,16 @@
                                     "roleRef": {
                                       "description": "Reference to the role",
                                       "properties": {
+                                        "kind": {
+                                          "description": "Kind of the role (AuthzRole or ClusterAuthzRole)",
+                                          "enum": [
+                                            "AuthzRole",
+                                            "ClusterAuthzRole"
+                                          ],
+                                          "required": []
+                                        },
                                         "name": {
                                           "description": "Role name",
-                                          "type": "string"
-                                        },
-                                        "namespace": {
-                                          "description": "Role namespace (empty for cluster role)",
                                           "type": "string"
                                         }
                                       },
