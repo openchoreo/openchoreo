@@ -48,7 +48,7 @@ dependencies:
     condition: openSearch.enabled
   - name: opentelemetry-collector
     repository: https://open-telemetry.github.io/opentelemetry-helm-charts
-    version: 0.140.0
+    version: 0.147.0
     condition: opentelemetry-collector.enabled
   - name: opensearch-dashboards
     alias: openSearchDashboards
