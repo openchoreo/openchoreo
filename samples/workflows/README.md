@@ -41,4 +41,4 @@ See [`generic/README.md`](./generic/README.md) for details.
 | **Parameters** | Includes `repository` (url, branch, appPath) | Domain-specific (no git-clone structure) |
 | **Triggered by** | Webhooks, API, `WorkflowRun` | `WorkflowRun` (manual or event-driven) |
 | **Typical steps** | Clone → Build → Push image | Fetch data → Transform → Report / any pipeline |
-| **Annotation** | `openchoreo.dev/workflow-scope: component` | No scope annotation |
+| **Label** | `openchoreo.dev/workflow-type: component` | None |

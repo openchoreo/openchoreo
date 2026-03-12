@@ -3,15 +3,10 @@ kind: ClusterWorkflow
 metadata:
   name: react
   namespace: default
+  labels:
+    openchoreo.dev/workflow-type: "component"
   annotations:
     openchoreo.dev/description: "Build workflow for React web applications"
-    openchoreo.dev/workflow-scope: "component"
-    openchoreo.dev/component-workflow-parameters: |
-      repoUrl: parameters.repository.url
-      branch: parameters.repository.revision.branch
-      commit: parameters.repository.revision.commit
-      appPath: parameters.repository.appPath
-      secretRef: parameters.repository.secretRef
 spec:
   workflowPlaneRef:
     kind: ClusterWorkflowPlane
@@ -47,10 +42,12 @@ spec:
             url:
               type: string
               description: "Git repository URL"
+              x-openchoreo-component-parameter-repository-url: true
             secretRef:
               type: string
               default: ""
               description: "Secret reference name for private repository Git credentials (optional for public repos)"
+              x-openchoreo-component-parameter-repository-secret-ref: true
             revision:
               type: object
               default: {}
@@ -59,14 +56,17 @@ spec:
                   type: string
                   default: main
                   description: "Git branch to checkout"
+                  x-openchoreo-component-parameter-repository-branch: true
                 commit:
                   type: string
                   default: ""
                   description: "Git commit SHA or reference (optional, defaults to latest commit on branch)"
+                  x-openchoreo-component-parameter-repository-commit: true
             appPath:
               type: string
               default: "."
               description: "Path to the React application directory within the repository"
+              x-openchoreo-component-parameter-repository-app-path: true
         nodeVersion:
           type: string
           default: "18"

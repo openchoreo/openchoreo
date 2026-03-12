@@ -5,13 +5,6 @@ metadata:
   namespace: default
   annotations:
     openchoreo.dev/description: "Docker build workflow for containerized builds using Dockerfile"
-    openchoreo.dev/workflow-scope: "component"
-    openchoreo.dev/component-workflow-parameters: |
-      repoUrl: parameters.repository.url
-      branch: parameters.repository.revision.branch
-      commit: parameters.repository.revision.commit
-      appPath: parameters.repository.appPath
-      secretRef: parameters.repository.secretRef
 spec:
   workflowPlaneRef:
     kind: ClusterWorkflowPlane

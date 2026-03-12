@@ -812,7 +812,7 @@ func (s *WorkflowRunService) triggerWorkflowInternal(ctx context.Context, namesp
 		return nil, fmt.Errorf("component %s does not have a workflow configured", componentName)
 	}
 
-	// Fetch the Workflow CR to get the annotation mapping
+	// Fetch the Workflow CR to get the schema
 	workflow := &openchoreov1alpha1.Workflow{}
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      component.Spec.Workflow.Name,
@@ -822,16 +822,26 @@ func (s *WorkflowRunService) triggerWorkflowInternal(ctx context.Context, namesp
 		return nil, fmt.Errorf("failed to get workflow %s: %w", component.Spec.Workflow.Name, err)
 	}
 
-	// Parse the annotation that maps logical keys to parameter paths
-	annotation := workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters]
-	paramMap := controller.ParseWorkflowParameterAnnotation(annotation)
+	// Extract parameter paths from x-openchoreo-component-repository schema extensions
+	paramMap, err := controller.ExtractComponentRepositoryPaths(workflow.Spec.Parameters.GetRaw())
+	if err != nil {
+		s.logger.Error("Failed to extract component repository paths from workflow schema", "error", err, "workflow", component.Spec.Workflow.Name)
+		return nil, fmt.Errorf("failed to extract component repository paths from workflow %s schema: %w", component.Spec.Workflow.Name, err)
+	}
 
-	// Validate that repoUrl is configured in the component parameters
-	if repoURLPath, ok := paramMap["repoUrl"]; ok {
+	// Validate that repoUrl is configured in the component parameters.
+	// Component-labeled workflows may omit the x-openchoreo-component-parameter-repository-url
+	// extension (e.g. generic component workflows that don't require a repository). URL validation
+	// is skipped in that case and a WorkflowRun is still created with the existing parameters.
+	if repoURLPath, ok := paramMap["url"]; ok {
 		repoURL, err := getNestedStringFromRawExtension(component.Spec.Workflow.Parameters, repoURLPath)
-		if err != nil || repoURL == "" {
-			s.logger.Error("Component workflow does not have repository URL configured", "component", componentName)
-			return nil, fmt.Errorf("component %s workflow does not have repository URL configured", componentName)
+		if err != nil {
+			s.logger.Error("Failed to read repository URL from component parameters", "error", err, "path", repoURLPath, "component", componentName)
+			return nil, fmt.Errorf("failed to read repository URL for component %s at path %s: %w", componentName, repoURLPath, err)
+		}
+		if repoURL == "" {
+			s.logger.Error("Repository URL is empty in component parameters", "component", componentName)
+			return nil, fmt.Errorf("component %s has an empty repository URL configured", componentName)
 		}
 	}
 
@@ -859,13 +869,12 @@ func (s *WorkflowRunService) triggerWorkflowInternal(ctx context.Context, namesp
 		}
 	}
 
-	// Generate a unique workflow run name with short UUID
-	uuid, err := generateShortUUID()
+	// Generate a unique workflow run name, applying the same length/truncation guard as other run names
+	workflowRunName, err := s.generateWorkflowRunName(componentName)
 	if err != nil {
-		s.logger.Error("Failed to generate UUID", "error", err)
-		return nil, fmt.Errorf("failed to generate UUID: %w", err)
+		s.logger.Error("Failed to generate workflow run name", "error", err)
+		return nil, fmt.Errorf("failed to generate workflow run name: %w", err)
 	}
-	workflowRunName := fmt.Sprintf("%s-workflow-%s", componentName, uuid)
 
 	// Create the WorkflowRun CR (using the unified Workflow/WorkflowRun model)
 	workflowRun := &openchoreov1alpha1.WorkflowRun{
@@ -914,13 +923,4 @@ func (s *WorkflowRunService) triggerWorkflowInternal(ctx context.Context, namesp
 		CreatedAt:     workflowRun.CreationTimestamp.Time,
 		Image:         "",
 	}, nil
-}
-
-// generateShortUUID generates a short 8-character UUID for workflow naming.
-func generateShortUUID() (string, error) {
-	bytes := make([]byte, 4) // 4 bytes = 8 hex characters
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
 }

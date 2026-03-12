@@ -36,7 +36,7 @@ In OpenChoreo, a CI **Workflow** is a Custom Resource that:
 4. **Templates Argo Workflows** - Generates the actual Argo Workflow resources that execute in the Workflow Plane
 5. **Enforces governance** - Platform Engineers control hardcoded parameters (registry URLs, timeouts, security settings)
 
-CI Workflows carry the annotation `openchoreo.dev/workflow-scope: component` and the `openchoreo.dev/component-workflow-parameters` annotation that maps repository fields for webhook and auto-build integration.
+CI Workflows carry the label `openchoreo.dev/workflow-type: component` and use `x-openchoreo-component-parameter-repository-*` schema extensions to mark repository fields for webhook and auto-build integration.
 
 ## How CI Workflows Work
 
@@ -350,15 +350,30 @@ parameters:
     appPath: string            # Path to application code in repository
 ```
 
-The `component-workflow-parameters` annotation maps these fields for webhook and auto-build integration:
+Fields used for webhook and auto-build integration are marked directly in the `openAPIV3Schema` using `x-openchoreo-component-parameter-repository-*` boolean extensions:
 ```yaml
-annotations:
-  openchoreo.dev/component-workflow-parameters: |
-    repoUrl: parameters.repository.url
-    branch: parameters.repository.revision.branch
-    commit: parameters.repository.revision.commit
-    appPath: parameters.repository.appPath
-    secretRef: parameters.repository.secretRef
+parameters:
+  openAPIV3Schema:
+    properties:
+      repository:
+        properties:
+          url:
+            type: string
+            x-openchoreo-component-parameter-repository-url: true
+          secretRef:
+            type: string
+            x-openchoreo-component-parameter-repository-secret-ref: true
+          revision:
+            properties:
+              branch:
+                type: string
+                x-openchoreo-component-parameter-repository-branch: true
+              commit:
+                type: string
+                x-openchoreo-component-parameter-repository-commit: true
+          appPath:
+            type: string
+            x-openchoreo-component-parameter-repository-app-path: true
 ```
 
 ### Developer Parameters (Complete Freedom)

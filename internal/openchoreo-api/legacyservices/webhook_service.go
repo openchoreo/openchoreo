@@ -115,7 +115,7 @@ func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.
 			continue
 		}
 
-		// Get repository URL, appPath, and branch from component workflow via Workflow CR annotation
+		// Get repository URL, appPath, and branch from component workflow schema extensions
 		repoURL, appPath, branch, err := s.extractRepoInfoFromComponent(ctx, comp)
 		if err != nil {
 			logger.V(1).Info("Failed to extract repo info from component",
@@ -155,13 +155,13 @@ func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.
 }
 
 // extractRepoInfoFromComponent extracts repository URL, appPath, and branch from a component's workflow parameters
-// by looking up the Workflow CR annotation to find the parameter paths.
+// by scanning the Workflow CR's openAPIV3Schema for x-openchoreo-component-repository extensions.
 func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp *v1alpha1.Component) (repoURL string, appPath string, branch string, err error) {
 	if comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == "" {
 		return "", "", "", fmt.Errorf("component has no workflow configuration")
 	}
 
-	// Fetch the Workflow CR to get the annotation mapping
+	// Fetch the Workflow CR to get the schema
 	workflow := &v1alpha1.Workflow{}
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      comp.Spec.Workflow.Name,
@@ -170,14 +170,16 @@ func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp 
 		return "", "", "", fmt.Errorf("failed to get workflow %s: %w", comp.Spec.Workflow.Name, err)
 	}
 
-	// Parse the annotation that maps logical keys to parameter paths
-	annotation := workflow.Annotations[controller.AnnotationKeyComponentWorkflowParameters]
-	paramMap := controller.ParseWorkflowParameterAnnotation(annotation)
+	// Extract parameter paths from x-openchoreo-component-parameter-repository-* schema extensions
+	paramMap, err := controller.ExtractComponentRepositoryPaths(workflow.Spec.Parameters.GetRaw())
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to extract component repository paths from workflow %s schema: %w", comp.Spec.Workflow.Name, err)
+	}
 
-	// Get repoUrl path from the annotation
-	repoURLPath, ok := paramMap["repoUrl"]
+	// Get url path from schema extensions
+	repoURLPath, ok := paramMap["url"]
 	if !ok {
-		return "", "", "", fmt.Errorf("workflow %s annotation missing repoUrl mapping", comp.Spec.Workflow.Name)
+		return "", "", "", fmt.Errorf("workflow %s schema missing x-openchoreo-component-parameter-repository-url extension", comp.Spec.Workflow.Name)
 	}
 
 	repoURL, err = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, repoURLPath)
@@ -190,17 +192,16 @@ func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp 
 	}
 
 	// Get appPath (optional - not all workflows may have it)
-	if appPathPath, ok := paramMap["appPath"]; ok {
+	if appPathPath, ok := paramMap["app-path"]; ok {
 		appPath, _ = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, appPathPath)
 	}
 
-	// Get branch (optional - if not configured, all branches trigger builds).
-	// If the annotation maps a branch path but extraction fails, return an error so
-	// the component is not unintentionally treated as unscoped (all-branch).
+	// Get branch. If the component parameters don't carry a value (missing key or empty string),
+	// fall back to the schema default (e.g. "main"). An empty result means all branches trigger builds.
 	if branchPath, ok := paramMap["branch"]; ok {
-		branch, err = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, branchPath)
-		if err != nil {
-			return "", "", "", fmt.Errorf("extracting branch for component %s: %w", comp.Name, err)
+		branch, _ = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, branchPath)
+		if branch == "" {
+			branch = getSchemaFieldDefault(workflow.Spec.Parameters.GetRaw(), branchPath)
 		}
 	}
 
@@ -240,6 +241,34 @@ func getNestedStringFromRawExtension(raw *runtime.RawExtension, dottedPath strin
 		return "", fmt.Errorf("path %s: value is not a string", dottedPath)
 	}
 	return str, nil
+}
+
+// getSchemaFieldDefault navigates an openAPIV3Schema RawExtension following "properties" at each
+// segment of dottedPath (stripping a leading "parameters." prefix) and returns the "default"
+// string value of the terminal field, or "" if not present or not a string.
+func getSchemaFieldDefault(schema *runtime.RawExtension, dottedPath string) string {
+	if schema == nil || schema.Raw == nil {
+		return ""
+	}
+	path := strings.TrimPrefix(dottedPath, "parameters.")
+	var schemaObj map[string]interface{}
+	if err := json.Unmarshal(schema.Raw, &schemaObj); err != nil {
+		return ""
+	}
+	current := schemaObj
+	for _, part := range strings.Split(path, ".") {
+		props, ok := current["properties"].(map[string]interface{})
+		if !ok {
+			return ""
+		}
+		child, ok := props[part].(map[string]interface{})
+		if !ok {
+			return ""
+		}
+		current = child
+	}
+	def, _ := current["default"].(string)
+	return def
 }
 
 // setNestedValueInParameters takes a runtime.RawExtension, sets a string value at the given

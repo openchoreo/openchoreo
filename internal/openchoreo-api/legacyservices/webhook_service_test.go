@@ -17,49 +17,89 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices/git"
 )
 
-func TestParseWorkflowParameterAnnotation(t *testing.T) {
+const (
+	// testSchemaURLOnly is a minimal openAPIV3Schema with only the url extension.
+	testSchemaURLOnly = `{"type":"object","properties":{"repository":{"type":"object","properties":{"url":{"type":"string","x-openchoreo-component-parameter-repository-url":true}}}}}`
+	// testSchemaURLAndAppPath is a schema with url and app-path extensions.
+	testSchemaURLAndAppPath = `{"type":"object","properties":{"repository":{"type":"object","properties":{"url":{"type":"string","x-openchoreo-component-parameter-repository-url":true}}},"appPath":{"type":"string","x-openchoreo-component-parameter-repository-app-path":true}}}`
+	// testSchemaURLAndBranch is a schema with url and branch extensions.
+	testSchemaURLAndBranch = `{"type":"object","properties":{"repository":{"type":"object","properties":{"url":{"type":"string","x-openchoreo-component-parameter-repository-url":true},"revision":{"type":"object","properties":{"branch":{"type":"string","x-openchoreo-component-parameter-repository-branch":true}}}}}}}`
+)
+
+func TestExtractComponentRepositoryPaths(t *testing.T) {
+	makeSchema := func(jsonStr string) *runtime.RawExtension {
+		return &runtime.RawExtension{Raw: []byte(jsonStr)}
+	}
+
 	tests := []struct {
-		name       string
-		annotation string
-		want       map[string]string
+		name    string
+		schema  *runtime.RawExtension
+		want    map[string]string
+		wantErr bool
 	}{
 		{
-			name:       "empty string",
-			annotation: "",
-			want:       map[string]string{},
+			name:   "nil schema",
+			schema: nil,
+			want:   map[string]string{},
 		},
 		{
-			name:       "single key-value pair",
-			annotation: "repoUrl: parameters.repository.url\n",
-			want:       map[string]string{"repoUrl": "parameters.repository.url"},
+			name:   "nil raw bytes",
+			schema: &runtime.RawExtension{},
+			want:   map[string]string{},
 		},
 		{
-			name:       "multiple key-value pairs",
-			annotation: "repoUrl: parameters.repository.url\nbranch: parameters.repository.revision.branch\nappPath: parameters.appPath\n",
+			name:    "invalid JSON",
+			schema:  makeSchema(`not-json`),
+			wantErr: true,
+		},
+		{
+			name:   "single url extension",
+			schema: makeSchema(`{"type":"object","properties":{"repository":{"type":"object","properties":{"url":{"type":"string","x-openchoreo-component-parameter-repository-url":true}}}}}`),
+			want:   map[string]string{"url": "repository.url"},
+		},
+		{
+			name:   "url and branch extensions",
+			schema: makeSchema(`{"type":"object","properties":{"repository":{"type":"object","properties":{"url":{"type":"string","x-openchoreo-component-parameter-repository-url":true},"revision":{"type":"object","properties":{"branch":{"type":"string","x-openchoreo-component-parameter-repository-branch":true}}}}}}}`),
 			want: map[string]string{
-				"repoUrl": "parameters.repository.url",
-				"branch":  "parameters.repository.revision.branch",
-				"appPath": "parameters.appPath",
+				"url":    "repository.url",
+				"branch": "repository.revision.branch",
 			},
 		},
 		{
-			name:       "full annotation with all keys",
-			annotation: "repoUrl: parameters.repository.url\nbranch: parameters.repository.revision.branch\ncommit: parameters.repository.revision.commit\nappPath: parameters.repository.appPath\nsecretRef: parameters.repository.secretRef\nprojectName: parameters.scope.projectName\ncomponentName: parameters.scope.componentName\n",
+			name:   "full repository extensions",
+			schema: makeSchema(`{"type":"object","properties":{"repository":{"type":"object","properties":{"url":{"type":"string","x-openchoreo-component-parameter-repository-url":true},"secretRef":{"type":"string","x-openchoreo-component-parameter-repository-secret-ref":true},"revision":{"type":"object","properties":{"branch":{"type":"string","x-openchoreo-component-parameter-repository-branch":true},"commit":{"type":"string","x-openchoreo-component-parameter-repository-commit":true}}},"appPath":{"type":"string","x-openchoreo-component-parameter-repository-app-path":true}}}}}`),
 			want: map[string]string{
-				"repoUrl":       "parameters.repository.url",
-				"branch":        "parameters.repository.revision.branch",
-				"commit":        "parameters.repository.revision.commit",
-				"appPath":       "parameters.repository.appPath",
-				"secretRef":     "parameters.repository.secretRef",
-				"projectName":   "parameters.scope.projectName",
-				"componentName": "parameters.scope.componentName",
+				"url":        "repository.url",
+				"branch":     "repository.revision.branch",
+				"commit":     "repository.revision.commit",
+				"app-path":   "repository.appPath",
+				"secret-ref": "repository.secretRef",
 			},
+		},
+		{
+			name:   "no extensions present",
+			schema: makeSchema(`{"type":"object","properties":{"repository":{"type":"object","properties":{"url":{"type":"string"}}}}}`),
+			want:   map[string]string{},
+		},
+		{
+			name:    "duplicate role returns error",
+			schema:  makeSchema(`{"type":"object","properties":{"a":{"type":"string","x-openchoreo-component-parameter-repository-url":true},"b":{"type":"string","x-openchoreo-component-parameter-repository-url":true}}}`),
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := controller.ParseWorkflowParameterAnnotation(tt.annotation)
+			got, err := controller.ExtractComponentRepositoryPaths(tt.schema)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 			if len(got) != len(tt.want) {
 				t.Fatalf("got %d entries, want %d: %v", len(got), len(tt.want), got)
 			}
@@ -222,7 +262,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "workflow missing repoUrl in annotation",
+			name: "workflow missing url extension in schema",
 			component: &v1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
 				Spec: v1alpha1.ComponentSpec{
@@ -234,13 +274,17 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					},
 				},
 			},
-			workflow: &v1alpha1.Workflow{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "wf1",
-					Namespace:   "ns1",
-					Annotations: map[string]string{controller.AnnotationKeyComponentWorkflowParameters: "branch: parameters.branch\n"},
-				},
-			},
+			workflow: func() *v1alpha1.Workflow {
+				schemaJSON := `{"type":"object","properties":{"repository":{"type":"object","properties":{"revision":{"type":"object","properties":{"branch":{"type":"string","x-openchoreo-component-parameter-repository-branch":true}}}}}}}`
+				return &v1alpha1.Workflow{
+					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
+					Spec: v1alpha1.WorkflowSpec{
+						Parameters: &v1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+						},
+					},
+				}
+			}(),
 			wantErr: true,
 		},
 		{
@@ -258,15 +302,17 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					},
 				},
 			},
-			workflow: &v1alpha1.Workflow{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "wf1",
-					Namespace: "ns1",
-					Annotations: map[string]string{
-						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\n",
+			workflow: func() *v1alpha1.Workflow {
+				schemaJSON := testSchemaURLOnly
+				return &v1alpha1.Workflow{
+					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
+					Spec: v1alpha1.WorkflowSpec{
+						Parameters: &v1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+						},
 					},
-				},
-			},
+				}
+			}(),
 			wantRepo: "https://github.com/example/repo",
 		},
 		{
@@ -285,15 +331,17 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					},
 				},
 			},
-			workflow: &v1alpha1.Workflow{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "wf1",
-					Namespace: "ns1",
-					Annotations: map[string]string{
-						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\nappPath: parameters.appPath\n",
+			workflow: func() *v1alpha1.Workflow {
+				schemaJSON := testSchemaURLAndAppPath
+				return &v1alpha1.Workflow{
+					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
+					Spec: v1alpha1.WorkflowSpec{
+						Parameters: &v1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+						},
 					},
-				},
-			},
+				}
+			}(),
 			wantRepo:    "https://github.com/example/repo",
 			wantAppPath: "/src/app",
 		},
@@ -312,15 +360,17 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					},
 				},
 			},
-			workflow: &v1alpha1.Workflow{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "wf1",
-					Namespace: "ns1",
-					Annotations: map[string]string{
-						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\n",
+			workflow: func() *v1alpha1.Workflow {
+				schemaJSON := testSchemaURLOnly
+				return &v1alpha1.Workflow{
+					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
+					Spec: v1alpha1.WorkflowSpec{
+						Parameters: &v1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+						},
 					},
-				},
-			},
+				}
+			}(),
 			wantErr: true,
 		},
 		{
@@ -334,15 +384,17 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					},
 				},
 			},
-			workflow: &v1alpha1.Workflow{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "wf1",
-					Namespace: "ns1",
-					Annotations: map[string]string{
-						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\n",
+			workflow: func() *v1alpha1.Workflow {
+				schemaJSON := testSchemaURLOnly
+				return &v1alpha1.Workflow{
+					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
+					Spec: v1alpha1.WorkflowSpec{
+						Parameters: &v1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+						},
 					},
-				},
-			},
+				}
+			}(),
 			wantErr: true,
 		},
 		{
@@ -360,20 +412,22 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					},
 				},
 			},
-			workflow: &v1alpha1.Workflow{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "wf1",
-					Namespace: "ns1",
-					Annotations: map[string]string{
-						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\nappPath: parameters.appPath\n",
+			workflow: func() *v1alpha1.Workflow {
+				schemaJSON := testSchemaURLAndAppPath
+				return &v1alpha1.Workflow{
+					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
+					Spec: v1alpha1.WorkflowSpec{
+						Parameters: &v1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+						},
 					},
-				},
-			},
+				}
+			}(),
 			wantRepo:    "https://github.com/example/repo",
 			wantAppPath: "",
 		},
 		{
-			name: "branch path configured but missing from parameters is an error",
+			name: "branch missing from parameters and no schema default yields empty branch (all branches trigger)",
 			component: &v1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
 				Spec: v1alpha1.ComponentSpec{
@@ -387,16 +441,49 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					},
 				},
 			},
-			workflow: &v1alpha1.Workflow{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "wf1",
-					Namespace: "ns1",
-					Annotations: map[string]string{
-						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\nbranch: parameters.repository.revision.branch\n",
+			workflow: func() *v1alpha1.Workflow {
+				schemaJSON := testSchemaURLAndBranch
+				return &v1alpha1.Workflow{
+					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
+					Spec: v1alpha1.WorkflowSpec{
+						Parameters: &v1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+						},
+					},
+				}
+			}(),
+			wantRepo:   "https://github.com/example/repo",
+			wantBranch: "",
+		},
+		{
+			name: "branch missing from parameters falls back to schema default",
+			component: &v1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
+				Spec: v1alpha1.ComponentSpec{
+					Workflow: &v1alpha1.WorkflowRunConfig{
+						Name: "wf1",
+						Parameters: makeRaw(map[string]interface{}{
+							"repository": map[string]interface{}{
+								"url": "https://github.com/example/repo",
+							},
+						}),
 					},
 				},
 			},
-			wantErr: true,
+			workflow: func() *v1alpha1.Workflow {
+				// Schema has a default of "main" for branch
+				schemaJSON := `{"type":"object","properties":{"repository":{"type":"object","properties":{"url":{"type":"string","x-openchoreo-component-parameter-repository-url":true},"revision":{"type":"object","properties":{"branch":{"type":"string","default":"main","x-openchoreo-component-parameter-repository-branch":true}}}}}}}`
+				return &v1alpha1.Workflow{
+					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
+					Spec: v1alpha1.WorkflowSpec{
+						Parameters: &v1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+						},
+					},
+				}
+			}(),
+			wantRepo:   "https://github.com/example/repo",
+			wantBranch: "main",
 		},
 		{
 			name: "extracts repoUrl, appPath, and branch",
@@ -417,15 +504,17 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 					},
 				},
 			},
-			workflow: &v1alpha1.Workflow{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "wf1",
-					Namespace: "ns1",
-					Annotations: map[string]string{
-						controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\nappPath: parameters.appPath\nbranch: parameters.repository.revision.branch\n",
+			workflow: func() *v1alpha1.Workflow {
+				schemaJSON := `{"type":"object","properties":{"repository":{"type":"object","properties":{"url":{"type":"string","x-openchoreo-component-parameter-repository-url":true},"revision":{"type":"object","properties":{"branch":{"type":"string","x-openchoreo-component-parameter-repository-branch":true}}}}},"appPath":{"type":"string","x-openchoreo-component-parameter-repository-app-path":true}}}`
+				return &v1alpha1.Workflow{
+					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
+					Spec: v1alpha1.WorkflowSpec{
+						Parameters: &v1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+						},
 					},
-				},
-			},
+				}
+			}(),
 			wantRepo:    "https://github.com/example/repo",
 			wantAppPath: "/src/app",
 			wantBranch:  "main",
@@ -489,27 +578,27 @@ func makeAutoBuildComponent(name, ns, workflowName, repoURL, branch string, make
 	}
 }
 
-// makeWorkflowWithBranch returns a Workflow CR whose annotation maps repoUrl and branch.
+// makeWorkflowWithBranch returns a Workflow CR whose schema marks url and branch with x-openchoreo-component-repository extensions.
 func makeWorkflowWithBranch(name, ns string) *v1alpha1.Workflow {
+	schemaJSON := testSchemaURLAndBranch
 	return &v1alpha1.Workflow{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-			Annotations: map[string]string{
-				controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\nbranch: parameters.repository.revision.branch\n",
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+		Spec: v1alpha1.WorkflowSpec{
+			Parameters: &v1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
 			},
 		},
 	}
 }
 
-// makeWorkflowNoBranch returns a Workflow CR whose annotation does NOT map branch.
+// makeWorkflowNoBranch returns a Workflow CR whose schema marks only url with x-openchoreo-component-repository extension (no branch).
 func makeWorkflowNoBranch(name, ns string) *v1alpha1.Workflow {
+	schemaJSON := testSchemaURLOnly
 	return &v1alpha1.Workflow{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-			Annotations: map[string]string{
-				controller.AnnotationKeyComponentWorkflowParameters: "repoUrl: parameters.repository.url\n",
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+		Spec: v1alpha1.WorkflowSpec{
+			Parameters: &v1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
 			},
 		},
 	}
@@ -579,7 +668,7 @@ func TestWebhookBranchFilter_NoConfiguredBranch(t *testing.T) {
 	}
 
 	scheme := newTestScheme(t)
-	// Component has a branch value in parameters but the Workflow annotation does NOT map "branch",
+	// Component has a branch value in parameters but the Workflow schema extension does NOT mark "branch",
 	// so no branch filtering should occur and any push branch triggers a build.
 	autoBuild := true
 	comp := &v1alpha1.Component{

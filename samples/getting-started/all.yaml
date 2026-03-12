@@ -962,15 +962,10 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
   name: paketo-buildpacks-builder
+  labels:
+    openchoreo.dev/workflow-type: "component"
   annotations:
     openchoreo.dev/description: "Supports building Java, Node.js, Python, Go, .NET, Ruby, PHP, and more. See https://paketo.io/docs/"
-    openchoreo.dev/workflow-scope: "component"
-    openchoreo.dev/component-workflow-parameters: |
-      repoUrl: parameters.repository.url
-      branch: parameters.repository.revision.branch
-      commit: parameters.repository.revision.commit
-      appPath: parameters.repository.appPath
-      secretRef: parameters.repository.secretRef
 spec:
   workflowPlaneRef:
     kind: ClusterWorkflowPlane
@@ -993,10 +988,12 @@ spec:
             url:
               type: string
               description: "Git repository URL"
+              x-openchoreo-component-parameter-repository-url: true
             secretRef:
               type: string
               default: ""
               description: "Secret reference name for private repository Git credentials (optional for public repos)"
+              x-openchoreo-component-parameter-repository-secret-ref: true
             revision:
               type: object
               default: {}
@@ -1005,14 +1002,17 @@ spec:
                   type: string
                   default: main
                   description: "Git branch to checkout"
+                  x-openchoreo-component-parameter-repository-branch: true
                 commit:
                   type: string
                   default: ""
                   description: "Git commit SHA or reference (optional, defaults to latest commit on branch)"
+                  x-openchoreo-component-parameter-repository-commit: true
             appPath:
               type: string
               default: "."
               description: "Path to the application directory within the repository"
+              x-openchoreo-component-parameter-repository-app-path: true
         buildEnv:
           type: array
           default: []
@@ -1176,15 +1176,10 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
   name: gcp-buildpacks-builder
+  labels:
+    openchoreo.dev/workflow-type: "component"
   annotations:
     openchoreo.dev/description: "Supports building Go, Java, Node.js, Python, and .NET applications. See https://cloud.google.com/docs/buildpacks/overview"
-    openchoreo.dev/workflow-scope: "component"
-    openchoreo.dev/component-workflow-parameters: |
-      repoUrl: parameters.repository.url
-      branch: parameters.repository.revision.branch
-      commit: parameters.repository.revision.commit
-      appPath: parameters.repository.appPath
-      secretRef: parameters.repository.secretRef
 spec:
   workflowPlaneRef:
     kind: ClusterWorkflowPlane
@@ -1205,10 +1200,12 @@ spec:
             url:
               type: string
               description: "Git repository URL"
+              x-openchoreo-component-parameter-repository-url: true
             secretRef:
               type: string
               default: ""
               description: "Secret reference name for Git credentials"
+              x-openchoreo-component-parameter-repository-secret-ref: true
             revision:
               type: object
               default: {}
@@ -1217,14 +1214,17 @@ spec:
                   type: string
                   default: main
                   description: "Git branch to checkout"
+                  x-openchoreo-component-parameter-repository-branch: true
                 commit:
                   type: string
                   default: ""
                   description: "Git commit SHA or reference (optional, defaults to latest)"
+                  x-openchoreo-component-parameter-repository-commit: true
             appPath:
               type: string
               default: "."
               description: "Path to the application directory within the repository"
+              x-openchoreo-component-parameter-repository-app-path: true
         buildEnv:
           type: array
           default: []
@@ -1384,15 +1384,10 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
   name: ballerina-buildpack-builder
+  labels:
+    openchoreo.dev/workflow-type: "component"
   annotations:
     openchoreo.dev/description: "Workflow for building applications written in Ballerina"
-    openchoreo.dev/workflow-scope: "component"
-    openchoreo.dev/component-workflow-parameters: |
-      repoUrl: parameters.repository.url
-      branch: parameters.repository.revision.branch
-      commit: parameters.repository.revision.commit
-      appPath: parameters.repository.appPath
-      secretRef: parameters.repository.secretRef
 spec:
   workflowPlaneRef:
     kind: ClusterWorkflowPlane
@@ -1413,10 +1408,12 @@ spec:
             url:
               type: string
               description: "Git repository URL"
+              x-openchoreo-component-parameter-repository-url: true
             secretRef:
               type: string
               default: ""
               description: "Secret reference name for Git credentials"
+              x-openchoreo-component-parameter-repository-secret-ref: true
             revision:
               type: object
               default: {}
@@ -1425,14 +1422,17 @@ spec:
                   type: string
                   default: main
                   description: "Git branch to checkout"
+                  x-openchoreo-component-parameter-repository-branch: true
                 commit:
                   type: string
                   default: ""
                   description: "Git commit SHA or reference (optional, defaults to latest)"
+                  x-openchoreo-component-parameter-repository-commit: true
             appPath:
               type: string
               default: "."
               description: "Path to the Ballerina application directory within the repository"
+              x-openchoreo-component-parameter-repository-app-path: true
         buildEnv:
           type: array
           default: []
@@ -1594,15 +1594,10 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
   name: dockerfile-builder
+  labels:
+    openchoreo.dev/workflow-type: "component"
   annotations:
     openchoreo.dev/description: "Build with a provided Dockerfile/Containerfile/Podmanfile"
-    openchoreo.dev/workflow-scope: "component"
-    openchoreo.dev/component-workflow-parameters: |
-      repoUrl: parameters.repository.url
-      branch: parameters.repository.revision.branch
-      commit: parameters.repository.revision.commit
-      appPath: parameters.repository.appPath
-      secretRef: parameters.repository.secretRef
 spec:
   workflowPlaneRef:
     kind: ClusterWorkflowPlane
@@ -1623,10 +1618,12 @@ spec:
             url:
               type: string
               description: "Git repository URL"
+              x-openchoreo-component-parameter-repository-url: true
             secretRef:
               type: string
               default: ""
               description: "Secret reference name for Git credentials"
+              x-openchoreo-component-parameter-repository-secret-ref: true
             revision:
               type: object
               default: {}
@@ -1635,14 +1632,17 @@ spec:
                   type: string
                   default: main
                   description: "Git branch to checkout"
+                  x-openchoreo-component-parameter-repository-branch: true
                 commit:
                   type: string
                   default: ""
                   description: "Git commit SHA or reference (optional, defaults to latest)"
+                  x-openchoreo-component-parameter-repository-commit: true
             appPath:
               type: string
               default: "."
               description: "Path to the application directory within the repository"
+              x-openchoreo-component-parameter-repository-app-path: true
         docker:
           type: object
           default: {}

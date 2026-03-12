@@ -23,7 +23,7 @@ This directory contains Generic Workflow definitions — workflows that run inde
 |--|---|---|
 | **Linked to Component?** | Yes | No |
 | **Parameter schema** | Requires `repository` (url, branch, appPath) | Domain-specific; no git-clone structure |
-| **Annotation** | `openchoreo.dev/workflow-scope: component` | None |
+| **Label** | `openchoreo.dev/workflow-type: component` | None |
 | **Triggered by** | Webhooks, API, Component build, `WorkflowRun` | `WorkflowRun` (manual, scheduled, or event-driven) |
 | **Typical outcome** | Container image pushed to registry | Report, transformed data, test results, etc. |
 

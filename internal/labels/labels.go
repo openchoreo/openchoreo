@@ -14,6 +14,11 @@ const (
 	LabelKeyName            = "openchoreo.dev/name"
 	LabelKeyDataPlaneName   = "openchoreo.dev/dataplane"
 	LabelKeyWorkflowPlane   = "openchoreo.dev/workflow-plane"
+	LabelKeyWorkflowType    = "openchoreo.dev/workflow-type"
+
+	// LabelValueWorkflowTypeComponent marks a workflow as a component CI workflow,
+	// used for component builds, webhooks, and auto-build integration.
+	LabelValueWorkflowTypeComponent = "component"
 
 	LabelKeyProjectUID     = "openchoreo.dev/project-uid"
 	LabelKeyComponentUID   = "openchoreo.dev/component-uid"

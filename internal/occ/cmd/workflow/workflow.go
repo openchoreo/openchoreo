@@ -13,6 +13,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/setoverride"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
@@ -28,9 +29,6 @@ type Workflow struct{}
 func New() *Workflow {
 	return &Workflow{}
 }
-
-// workflowScopeAnnotation is the annotation key that identifies workflow scope (component or generic).
-const workflowScopeAnnotation = "openchoreo.dev/workflow-scope"
 
 // List lists all workflows in a namespace.
 func (w *Workflow) List(params ListParams) error {
@@ -253,14 +251,14 @@ func printList(items []gen.Workflow) error {
 	return w.Flush()
 }
 
-// isComponentWorkflow checks if a workflow is a component workflow by checking the workflow-scope annotation.
+// isComponentWorkflow checks if a workflow is a component workflow by checking the workflow-scope label.
 func isComponentWorkflow(wf gen.Workflow) bool {
-	if wf.Metadata.Annotations == nil {
+	if wf.Metadata.Labels == nil {
 		return false
 	}
-	scope, ok := (*wf.Metadata.Annotations)[workflowScopeAnnotation]
+	scope, ok := (*wf.Metadata.Labels)[labels.LabelKeyWorkflowType]
 	if !ok {
 		return false
 	}
-	return scope == "component"
+	return scope == labels.LabelValueWorkflowTypeComponent
 }
