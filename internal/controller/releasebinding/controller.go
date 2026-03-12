@@ -101,6 +101,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	// Deferred status update
 	defer func() {
+		// Always update the aggregated Ready condition based on current sub-conditions.
+		// This ensures Ready is present on every reconciliation regardless of code path.
+		r.setReadyCondition(releaseBinding)
+
 		// Skip update if nothing changed
 		if apiequality.Semantic.DeepEqual(old.Status, releaseBinding.Status) {
 			return
@@ -603,7 +607,6 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	connectionsResolved := allConnectionsResolved(releaseBinding, snapshotWorkload.Spec.GetDependencyEndpoints())
 	setConnectionsCondition(releaseBinding, connectionsResolved)
 	if !connectionsResolved {
-		r.setReadyCondition(releaseBinding)
 		logger.Info("Connections not yet resolved, waiting for provider endpoint changes",
 			"pending", len(releaseBinding.Status.PendingConnections),
 			"resolved", len(releaseBinding.Status.ResolvedConnections))
@@ -621,7 +624,6 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		applyCond.ObservedGeneration == dataPlaneRelease.Generation {
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
 			ReasonResourceApplyFailed, applyCond.Message)
-		r.setReadyCondition(releaseBinding)
 		return ctrl.Result{}, nil
 	}
 
@@ -641,9 +643,6 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	if err := r.setResourcesReadyStatus(ctx, releaseBinding, dataPlaneRelease, component); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to set resources ready status: %w", err)
 	}
-
-	// Set overall Ready condition based on ReleaseSynced and ResourcesReady
-	r.setReadyCondition(releaseBinding)
 
 	return ctrl.Result{}, nil
 }
@@ -717,8 +716,6 @@ func (r *Reconciler) handleUndeploy(ctx context.Context,
 			ReasonResourcesUndeployed, "Resources being undeployed")
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
 			ReasonResourcesUndeployed, "Resources being undeployed")
-		controller.MarkFalseCondition(releaseBinding, ConditionReady,
-			ReasonResourcesUndeployed, "Resources being undeployed")
 		return ctrl.Result{}, nil
 	}
 
@@ -727,8 +724,6 @@ func (r *Reconciler) handleUndeploy(ctx context.Context,
 		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 			ReasonResourcesUndeployed, "Resources undeployed")
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
-			ReasonResourcesUndeployed, "Resources undeployed")
-		controller.MarkFalseCondition(releaseBinding, ConditionReady,
 			ReasonResourcesUndeployed, "Resources undeployed")
 		return ctrl.Result{}, nil
 	}

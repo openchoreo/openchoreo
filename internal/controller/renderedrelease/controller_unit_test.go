@@ -559,6 +559,38 @@ func TestGetDeploymentHealth(t *testing.T) {
 			want: openchoreov1alpha1.HealthStatusProgressing,
 		},
 		{
+			name: "rollout complete (NewReplicaSetAvailable) but no pods available is Degraded",
+			deployment: appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(2)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					UpdatedReplicas:    2,
+					AvailableReplicas:  0,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+					},
+				},
+			},
+			want: openchoreov1alpha1.HealthStatusDegraded,
+		},
+		{
+			name: "replica set still updating (ReplicaSetUpdated) with no pods available is Progressing",
+			deployment: appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(2)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					UpdatedReplicas:    2,
+					AvailableReplicas:  0,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "ReplicaSetUpdated"},
+					},
+				},
+			},
+			want: openchoreov1alpha1.HealthStatusProgressing,
+		},
+		{
 			name: "all pods on new revision but none available, progressing condition false is Degraded",
 			deployment: appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{Generation: 1},
@@ -569,6 +601,22 @@ func TestGetDeploymentHealth(t *testing.T) {
 					AvailableReplicas:  0,
 					Conditions: []appsv1.DeploymentCondition{
 						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionFalse},
+					},
+				},
+			},
+			want: openchoreov1alpha1.HealthStatusDegraded,
+		},
+		{
+			name: "all pods on new revision but none available, progressing condition unknown is Degraded",
+			deployment: appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(2)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					UpdatedReplicas:    2,
+					AvailableReplicas:  0,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionUnknown},
 					},
 				},
 			},

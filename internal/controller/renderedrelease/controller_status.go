@@ -214,18 +214,7 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Hea
 	unavailableReplicas := deployment.Status.UnavailableReplicas
 
 	// Extract deployment conditions
-	var availableCond, progressingCond, replicaFailCond *appsv1.DeploymentCondition
-	for i := range deployment.Status.Conditions {
-		c := &deployment.Status.Conditions[i]
-		switch c.Type {
-		case appsv1.DeploymentAvailable:
-			availableCond = c
-		case appsv1.DeploymentProgressing:
-			progressingCond = c
-		case appsv1.DeploymentReplicaFailure:
-			replicaFailCond = c
-		}
-	}
+	availableCond, progressingCond, replicaFailCond := extractDeploymentConditions(deployment.Status.Conditions)
 
 	// Progress deadline or replica failure -> Degraded
 	if progressingCond != nil && progressingCond.Reason == "ProgressDeadlineExceeded" {
@@ -235,14 +224,19 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Hea
 		return openchoreov1alpha1.HealthStatusDegraded, nil
 	}
 
-	// All pods on new revision but none are available yet -> Degraded
-	// Check if deployment is still progressing normally before marking as degraded
+	// All pods on new revision but none are available yet -> check if rollout is still in progress
 	if desiredReplicas == updatedReplicas && availableReplicas == 0 && desiredReplicas > 0 {
-		// If Progressing condition is True, pods are still starting up
 		if progressingCond != nil && progressingCond.Status == corev1.ConditionTrue {
+			// "NewReplicaSetAvailable" means the rollout completed (new ReplicaSet was created
+			// and scaled up). If pods are still not available after rollout completion, it
+			// indicates a runtime failure (e.g., CrashLoopBackOff, failing readiness probes).
+			if progressingCond.Reason == "NewReplicaSetAvailable" {
+				return openchoreov1alpha1.HealthStatusDegraded, nil
+			}
+			// Other reasons (e.g., "ReplicaSetUpdated") mean pods are still being created
 			return openchoreov1alpha1.HealthStatusProgressing, nil
 		}
-		// Only mark as degraded if progressing is False or unknown
+		// Progressing is False or unknown -> degraded
 		return openchoreov1alpha1.HealthStatusDegraded, nil
 	}
 
@@ -267,6 +261,21 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Hea
 	// - Not all replicas are available
 	// - Some replicas are unavailable
 	return openchoreov1alpha1.HealthStatusProgressing, nil
+}
+
+func extractDeploymentConditions(conditions []appsv1.DeploymentCondition) (available, progressing, replicaFailure *appsv1.DeploymentCondition) {
+	for i := range conditions {
+		c := &conditions[i]
+		switch c.Type {
+		case appsv1.DeploymentAvailable:
+			available = c
+		case appsv1.DeploymentProgressing:
+			progressing = c
+		case appsv1.DeploymentReplicaFailure:
+			replicaFailure = c
+		}
+	}
+	return available, progressing, replicaFailure
 }
 
 // TODO: Check the statefulset health tracking and update logic
