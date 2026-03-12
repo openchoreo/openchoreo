@@ -333,16 +333,16 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *open
 	if workload != nil {
 		container := workload.Spec.Container
 		for _, env := range container.Env {
-			if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
-				if err := collectSecretRef(env.ValueFrom.SecretRef.Name, workload.Namespace); err != nil {
+			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+				if err := collectSecretRef(env.ValueFrom.SecretKeyRef.Name, workload.Namespace); err != nil {
 					return nil, err
 				}
 			}
 		}
 
 		for _, file := range container.Files {
-			if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
-				if err := collectSecretRef(file.ValueFrom.SecretRef.Name, workload.Namespace); err != nil {
+			if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
+				if err := collectSecretRef(file.ValueFrom.SecretKeyRef.Name, workload.Namespace); err != nil {
 					return nil, err
 				}
 			}
@@ -353,16 +353,16 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *open
 	if releaseBinding.Spec.WorkloadOverrides != nil && releaseBinding.Spec.WorkloadOverrides.Container != nil {
 		container := releaseBinding.Spec.WorkloadOverrides.Container
 		for _, env := range container.Env {
-			if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
-				if err := collectSecretRef(env.ValueFrom.SecretRef.Name, releaseBinding.Namespace); err != nil {
+			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+				if err := collectSecretRef(env.ValueFrom.SecretKeyRef.Name, releaseBinding.Namespace); err != nil {
 					return nil, err
 				}
 			}
 		}
 
 		for _, file := range container.Files {
-			if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
-				if err := collectSecretRef(file.ValueFrom.SecretRef.Name, releaseBinding.Namespace); err != nil {
+			if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
+				if err := collectSecretRef(file.ValueFrom.SecretKeyRef.Name, releaseBinding.Namespace); err != nil {
 					return nil, err
 				}
 			}

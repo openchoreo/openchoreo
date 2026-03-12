@@ -1867,14 +1867,14 @@ type EnvVar struct {
 
 // EnvVarValueFrom Value source reference
 type EnvVarValueFrom struct {
-	// SecretRef Secret reference
-	SecretRef *struct {
+	// SecretKeyRef Secret reference
+	SecretKeyRef *struct {
 		// Key Secret key
 		Key *string `json:"key,omitempty"`
 
 		// Name Secret name
 		Name *string `json:"name,omitempty"`
-	} `json:"secretRef,omitempty"`
+	} `json:"secretKeyRef,omitempty"`
 }
 
 // Environment Environment resource.
@@ -3270,8 +3270,8 @@ type ValidationRule struct {
 
 // ValueFrom Reference to a secret or inline value
 type ValueFrom struct {
-	// SecretRef Reference to a specific key in a Kubernetes secret
-	SecretRef *SecretKeyReference `json:"secretRef,omitempty"`
+	// SecretKeyRef Reference to a specific key in a Kubernetes secret
+	SecretKeyRef *SecretKeyReference `json:"secretKeyRef,omitempty"`
 
 	// Value Inline value (optional fallback)
 	Value *string `json:"value,omitempty"`

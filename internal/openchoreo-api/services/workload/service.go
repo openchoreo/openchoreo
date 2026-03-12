@@ -272,7 +272,7 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 							"key":  {Type: stringType},
 						},
 					},
-					"secretRef": {
+					"secretKeyRef": {
 						Type:     objectType,
 						Required: []string{"name", "key"},
 						Properties: map[string]extv1.JSONSchemaProps{
@@ -314,7 +314,7 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 							"key":  {Type: stringType},
 						},
 					},
-					"secretRef": {
+					"secretKeyRef": {
 						Type:     objectType,
 						Required: []string{"name", "key"},
 						Properties: map[string]extv1.JSONSchemaProps{

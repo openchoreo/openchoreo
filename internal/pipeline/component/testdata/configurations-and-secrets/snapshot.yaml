@@ -152,12 +152,12 @@ spec:
             value: "true"
           - key: DB_PASSWORD
             valueFrom:
-              secretRef:
+              secretKeyRef:
                 name: db-secret
                 key: password
           - key: API_KEY
             valueFrom:
-              secretRef:
+              secretKeyRef:
                 name: api-secret
                 key: api_key
         files:
@@ -178,12 +178,12 @@ spec:
           - key: tls.crt
             mountPath: /etc/tls
             valueFrom:
-              secretRef:
+              secretKeyRef:
                 name: tls-secret
                 key: tls.crt
           - key: application.yaml
             mountPath: /etc/config
             valueFrom:
-              secretRef:
+              secretKeyRef:
                 name: app-config-secret
                 key: application.yaml

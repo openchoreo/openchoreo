@@ -20,9 +20,9 @@ type SecretKeyReference struct {
 
 // ValueFrom defines a common pattern for referencing secrets or providing inline values
 type ValueFrom struct {
-	// SecretRef is a reference to a secret containing the value
+	// SecretKeyRef is a reference to a secret containing the value
 	// +optional
-	SecretRef *SecretKeyReference `json:"secretRef,omitempty"`
+	SecretKeyRef *SecretKeyReference `json:"secretKeyRef,omitempty"`
 	// Value is the inline value (optional fallback)
 	// +optional
 	Value string `json:"value,omitempty"`

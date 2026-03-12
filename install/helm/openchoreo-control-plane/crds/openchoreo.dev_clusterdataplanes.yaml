@@ -58,8 +58,8 @@ spec:
                       ClientCA contains the CA certificate used to verify the agent's client certificate
                       This allows per-plane CA configuration for enhanced security
                     properties:
-                      secretRef:
-                        description: SecretRef is a reference to a secret containing
+                      secretKeyRef:
+                        description: SecretKeyRef is a reference to a secret containing
                           the value
                         properties:
                           key:

@@ -98,7 +98,7 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 								{
 									Key: "DB_PASSWORD",
 									ValueFrom: &v1alpha1.EnvVarValueFrom{
-										SecretRef: &v1alpha1.SecretKeyRef{
+										SecretKeyRef: &v1alpha1.SecretKeyRef{
 											Name: "db-credentials",
 											Key:  "password",
 										},
@@ -190,7 +190,7 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 									Key:       "tls-certificate",
 									MountPath: "/etc/tls/tls.crt",
 									ValueFrom: &v1alpha1.EnvVarValueFrom{
-										SecretRef: &v1alpha1.SecretKeyRef{
+										SecretKeyRef: &v1alpha1.SecretKeyRef{
 											Name: "tls-cert",
 											Key:  "tls.crt",
 										},
@@ -268,7 +268,7 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 								{
 									Key: "API_KEY",
 									ValueFrom: &v1alpha1.EnvVarValueFrom{
-										SecretRef: &v1alpha1.SecretKeyRef{
+										SecretKeyRef: &v1alpha1.SecretKeyRef{
 											Name: "api-credentials",
 											Key:  "api-key",
 										},
@@ -277,7 +277,7 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 								{
 									Key: "API_TOKEN",
 									ValueFrom: &v1alpha1.EnvVarValueFrom{
-										SecretRef: &v1alpha1.SecretKeyRef{
+										SecretKeyRef: &v1alpha1.SecretKeyRef{
 											Name: "api-credentials",
 											Key:  "api-token",
 										},
@@ -291,7 +291,7 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 									Key:       "tls-certificate",
 									MountPath: "/etc/tls/tls.crt",
 									ValueFrom: &v1alpha1.EnvVarValueFrom{
-										SecretRef: &v1alpha1.SecretKeyRef{
+										SecretKeyRef: &v1alpha1.SecretKeyRef{
 											Name: "tls-cert",
 											Key:  "cert",
 										},
@@ -368,7 +368,7 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 								{
 									Key: "MISSING_SECRET",
 									ValueFrom: &v1alpha1.EnvVarValueFrom{
-										SecretRef: &v1alpha1.SecretKeyRef{
+										SecretKeyRef: &v1alpha1.SecretKeyRef{
 											Name: "non-existent-secret",
 											Key:  "key",
 										},

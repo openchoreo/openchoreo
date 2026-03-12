@@ -54,10 +54,10 @@ func (w *Workload) GetContainer() map[string]interface{} {
 			}
 			if e.ValueFrom != nil {
 				valueFrom := make(map[string]interface{})
-				if e.ValueFrom.SecretRef != nil {
-					valueFrom["secretRef"] = map[string]interface{}{
-						"name": e.ValueFrom.SecretRef.Name,
-						"key":  e.ValueFrom.SecretRef.Key,
+				if e.ValueFrom.SecretKeyRef != nil {
+					valueFrom["secretKeyRef"] = map[string]interface{}{
+						"name": e.ValueFrom.SecretKeyRef.Name,
+						"key":  e.ValueFrom.SecretKeyRef.Key,
 					}
 				}
 				envMap["valueFrom"] = valueFrom
@@ -80,10 +80,10 @@ func (w *Workload) GetContainer() map[string]interface{} {
 			}
 			if f.ValueFrom != nil {
 				valueFrom := make(map[string]interface{})
-				if f.ValueFrom.SecretRef != nil {
-					valueFrom["secretRef"] = map[string]interface{}{
-						"name": f.ValueFrom.SecretRef.Name,
-						"key":  f.ValueFrom.SecretRef.Key,
+				if f.ValueFrom.SecretKeyRef != nil {
+					valueFrom["secretKeyRef"] = map[string]interface{}{
+						"name": f.ValueFrom.SecretKeyRef.Name,
+						"key":  f.ValueFrom.SecretKeyRef.Key,
 					}
 				}
 				fileMap["valueFrom"] = valueFrom

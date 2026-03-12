@@ -363,7 +363,7 @@ func convertEnvVarSource(source *WorkloadDescriptorEnvVarSource) *openchoreov1al
 	result := &openchoreov1alpha1.EnvVarValueFrom{}
 
 	if source.SecretKeyRef != nil {
-		result.SecretRef = &openchoreov1alpha1.SecretKeyRef{
+		result.SecretKeyRef = &openchoreov1alpha1.SecretKeyRef{
 			Name: source.SecretKeyRef.Name,
 			Key:  source.SecretKeyRef.Key,
 		}

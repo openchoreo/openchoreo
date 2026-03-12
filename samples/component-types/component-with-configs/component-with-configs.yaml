@@ -15,8 +15,10 @@ spec:
       name: dockerfile-builder
 
   allowedTraits:
-    - name: api-configuration
-    - name: observability-alert-rule
+    - kind: ClusterTrait
+      name: api-configuration
+    - kind: ClusterTrait
+      name: observability-alert-rule
 
   validations:
     - rule: "${size(workload.endpoints) > 0}"
@@ -308,7 +310,7 @@ spec:
         value: info
       - key: DATABASE_PASSWORD
         valueFrom:
-          secretRef:
+          secretKeyRef:
             name: database-secret
             key: password
     files:
@@ -320,7 +322,7 @@ spec:
       - key: gitPAT
         mountPath: /conf
         valueFrom:
-          secretRef:
+          secretKeyRef:
             name: github-pat-secret
             key: gitPAT
 

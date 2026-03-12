@@ -815,11 +815,11 @@ func (s *ComponentService) convertEnvVars(envVars []models.EnvVar) []openchoreov
 			Value: env.Value,
 		}
 
-		if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+		if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
 			envVar.ValueFrom = &openchoreov1alpha1.EnvVarValueFrom{
-				SecretRef: &openchoreov1alpha1.SecretKeyRef{
-					Name: env.ValueFrom.SecretRef.Name,
-					Key:  env.ValueFrom.SecretRef.Key,
+				SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{
+					Name: env.ValueFrom.SecretKeyRef.Name,
+					Key:  env.ValueFrom.SecretKeyRef.Key,
 				},
 			}
 		}
@@ -852,11 +852,11 @@ func (s *ComponentService) convertFileVars(fileVars []models.FileVar, containerN
 			Value:     decodedValue,
 		}
 
-		if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+		if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
 			fileVar.ValueFrom = &openchoreov1alpha1.EnvVarValueFrom{
-				SecretRef: &openchoreov1alpha1.SecretKeyRef{
-					Name: file.ValueFrom.SecretRef.Name,
-					Key:  file.ValueFrom.SecretRef.Key,
+				SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{
+					Name: file.ValueFrom.SecretKeyRef.Name,
+					Key:  file.ValueFrom.SecretKeyRef.Key,
 				},
 			}
 		}
@@ -1058,11 +1058,11 @@ func (s *ComponentService) toReleaseBindingResponse(binding *openchoreov1alpha1.
 			}
 
 			// Handle ValueFrom for secret references
-			if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
 				envVar.ValueFrom = &models.EnvVarValueFrom{
-					SecretRef: &models.SecretKeyRef{
-						Name: env.ValueFrom.SecretRef.Name,
-						Key:  env.ValueFrom.SecretRef.Key,
+					SecretKeyRef: &models.SecretKeyRef{
+						Name: env.ValueFrom.SecretKeyRef.Name,
+						Key:  env.ValueFrom.SecretKeyRef.Key,
 					},
 				}
 			}
@@ -1079,11 +1079,11 @@ func (s *ComponentService) toReleaseBindingResponse(binding *openchoreov1alpha1.
 			}
 
 			// Handle ValueFrom for secret references
-			if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+			if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
 				fileVar.ValueFrom = &models.EnvVarValueFrom{
-					SecretRef: &models.SecretKeyRef{
-						Name: file.ValueFrom.SecretRef.Name,
-						Key:  file.ValueFrom.SecretRef.Key,
+					SecretKeyRef: &models.SecretKeyRef{
+						Name: file.ValueFrom.SecretKeyRef.Name,
+						Key:  file.ValueFrom.SecretKeyRef.Key,
 					},
 				}
 			}

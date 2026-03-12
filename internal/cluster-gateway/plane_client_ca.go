@@ -347,8 +347,8 @@ func (s *Server) extractCADataWithNamespace(valueFrom *openchoreov1alpha1.ValueF
 		return []byte(valueFrom.Value), nil
 	}
 
-	if valueFrom.SecretRef != nil {
-		return s.extractCAFromSecret(valueFrom.SecretRef, planeNamespace)
+	if valueFrom.SecretKeyRef != nil {
+		return s.extractCAFromSecret(valueFrom.SecretKeyRef, planeNamespace)
 	}
 
 	return nil, fmt.Errorf("no valid CA data found in ValueFrom")

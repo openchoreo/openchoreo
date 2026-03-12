@@ -384,7 +384,7 @@ func TestGetAllPlaneClientCAs_DataPlane(t *testing.T) {
 			PlaneID: "shared-plane",
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
 				ClientCA: openchoreov1alpha1.ValueFrom{
-					SecretRef: &openchoreov1alpha1.SecretKeyReference{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{
 						Name: "ca-secret",
 						Key:  "ca.crt",
 					},
@@ -402,7 +402,7 @@ func TestGetAllPlaneClientCAs_DataPlane(t *testing.T) {
 			PlaneID: "shared-plane",
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
 				ClientCA: openchoreov1alpha1.ValueFrom{
-					SecretRef: &openchoreov1alpha1.SecretKeyReference{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{
 						Name:      "cluster-ca-secret",
 						Namespace: "default",
 						Key:       "ca.crt",
@@ -459,7 +459,7 @@ func TestGetAllPlaneClientCAs_OnlyNamespaceScoped(t *testing.T) {
 			PlaneID: "prod-cluster",
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
 				ClientCA: openchoreov1alpha1.ValueFrom{
-					SecretRef: &openchoreov1alpha1.SecretKeyReference{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{
 						Name: "ca-secret",
 						Key:  "ca.crt",
 					},
@@ -507,7 +507,7 @@ func TestGetAllPlaneClientCAs_OnlyClusterScoped(t *testing.T) {
 			PlaneID: "global-plane",
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
 				ClientCA: openchoreov1alpha1.ValueFrom{
-					SecretRef: &openchoreov1alpha1.SecretKeyReference{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{
 						Name:      "shared-ca",
 						Namespace: "cert-manager",
 						Key:       "tls.crt",
@@ -607,7 +607,7 @@ func TestGetAllPlaneClientCAs_WorkflowPlane(t *testing.T) {
 			PlaneID: "ci-cluster",
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
 				ClientCA: openchoreov1alpha1.ValueFrom{
-					SecretRef: &openchoreov1alpha1.SecretKeyReference{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{
 						Name: "ns-ca",
 						Key:  "ca.crt",
 					},
@@ -624,7 +624,7 @@ func TestGetAllPlaneClientCAs_WorkflowPlane(t *testing.T) {
 			PlaneID: "ci-cluster",
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
 				ClientCA: openchoreov1alpha1.ValueFrom{
-					SecretRef: &openchoreov1alpha1.SecretKeyReference{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{
 						Name:      "cluster-ca",
 						Namespace: "default",
 						Key:       "ca.crt",
@@ -685,7 +685,7 @@ func TestGetAllPlaneClientCAs_ObservabilityPlane(t *testing.T) {
 			PlaneID: "monitoring-cluster",
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
 				ClientCA: openchoreov1alpha1.ValueFrom{
-					SecretRef: &openchoreov1alpha1.SecretKeyReference{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{
 						Name: "obs-ca",
 						Key:  "ca.crt",
 					},
@@ -702,7 +702,7 @@ func TestGetAllPlaneClientCAs_ObservabilityPlane(t *testing.T) {
 			PlaneID: "monitoring-cluster",
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
 				ClientCA: openchoreov1alpha1.ValueFrom{
-					SecretRef: &openchoreov1alpha1.SecretKeyReference{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{
 						Name:      "shared-obs-ca",
 						Namespace: "default",
 						Key:       "ca.crt",
@@ -822,7 +822,7 @@ func TestExtractPlaneClientCAs(t *testing.T) {
 			PlaneID: "target-plane",
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
 				ClientCA: openchoreov1alpha1.ValueFrom{
-					SecretRef: &openchoreov1alpha1.SecretKeyReference{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{
 						Name: "agent-ca",
 						Key:  "ca.crt",
 					},

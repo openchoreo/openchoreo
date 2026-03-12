@@ -629,7 +629,7 @@ spec:
                                 Extract the environment variable value from another resource.
                                 Mutually exclusive with value.
                               properties:
-                                secretRef:
+                                secretKeyRef:
                                   description: Reference to a secret resource.
                                   properties:
                                     key:
@@ -670,7 +670,7 @@ spec:
                                 Extract the environment variable value from another resource.
                                 Mutually exclusive with value.
                               properties:
-                                secretRef:
+                                secretKeyRef:
                                   description: Reference to a secret resource.
                                   properties:
                                     key:

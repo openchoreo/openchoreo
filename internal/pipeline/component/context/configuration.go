@@ -38,9 +38,9 @@ func ExtractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.Sec
 				Name:  env.Key,
 				Value: env.Value,
 			})
-		} else if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+		} else if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
 			// Resolve secret reference and add to secrets
-			if remoteRef := resolveSecretRef(secretReferences, env.ValueFrom.SecretRef); remoteRef != nil {
+			if remoteRef := resolveSecretRef(secretReferences, env.ValueFrom.SecretKeyRef); remoteRef != nil {
 				result.Secrets.Envs = append(result.Secrets.Envs, EnvConfiguration{
 					Name:      env.Key,
 					RemoteRef: remoteRef,
@@ -58,9 +58,9 @@ func ExtractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.Sec
 				MountPath: file.MountPath,
 				Value:     file.Value,
 			})
-		} else if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+		} else if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
 			// Resolve secret reference and add to secrets
-			if remoteRef := resolveSecretRef(secretReferences, file.ValueFrom.SecretRef); remoteRef != nil {
+			if remoteRef := resolveSecretRef(secretReferences, file.ValueFrom.SecretKeyRef); remoteRef != nil {
 				result.Secrets.Files = append(result.Secrets.Files, FileConfiguration{
 					Name:      file.Key,
 					MountPath: file.MountPath,

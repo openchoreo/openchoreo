@@ -280,7 +280,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 							Env: []v1alpha1.EnvVar{
 								{Key: "DATABASE_URL", Value: "localhost:5432"},
 								{Key: "API_KEY", ValueFrom: &v1alpha1.EnvVarValueFrom{
-									SecretRef: &v1alpha1.SecretKeyRef{
+									SecretKeyRef: &v1alpha1.SecretKeyRef{
 										Name: "dev-secrets",
 										Key:  "api-key",
 									},
@@ -294,7 +294,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 				Container: &v1alpha1.ContainerOverride{
 					Env: []v1alpha1.EnvVar{
 						{Key: "API_KEY", ValueFrom: &v1alpha1.EnvVarValueFrom{
-							SecretRef: &v1alpha1.SecretKeyRef{
+							SecretKeyRef: &v1alpha1.SecretKeyRef{
 								Name: "prod-secrets",
 								Key:  "api-key",
 							},
@@ -314,7 +314,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 							Env: []v1alpha1.EnvVar{
 								{Key: "DATABASE_URL", Value: "localhost:5432"},
 								{Key: "API_KEY", ValueFrom: &v1alpha1.EnvVarValueFrom{
-									SecretRef: &v1alpha1.SecretKeyRef{
+									SecretKeyRef: &v1alpha1.SecretKeyRef{
 										Name: "prod-secrets",
 										Key:  "api-key",
 									},
@@ -339,7 +339,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 							Files: []v1alpha1.FileVar{
 								{Key: "config.yaml", MountPath: "/etc/config.yaml", Value: "dev config"},
 								{Key: "credentials.json", MountPath: "/etc/credentials.json", ValueFrom: &v1alpha1.EnvVarValueFrom{
-									SecretRef: &v1alpha1.SecretKeyRef{
+									SecretKeyRef: &v1alpha1.SecretKeyRef{
 										Name: "dev-creds",
 										Key:  "credentials",
 									},
@@ -353,7 +353,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 				Container: &v1alpha1.ContainerOverride{
 					Files: []v1alpha1.FileVar{
 						{Key: "credentials.json", MountPath: "/etc/credentials.json", ValueFrom: &v1alpha1.EnvVarValueFrom{
-							SecretRef: &v1alpha1.SecretKeyRef{
+							SecretKeyRef: &v1alpha1.SecretKeyRef{
 								Name: "prod-creds",
 								Key:  "credentials",
 							},
@@ -373,7 +373,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 							Files: []v1alpha1.FileVar{
 								{Key: "config.yaml", MountPath: "/etc/config.yaml", Value: "dev config"},
 								{Key: "credentials.json", MountPath: "/etc/credentials.json", ValueFrom: &v1alpha1.EnvVarValueFrom{
-									SecretRef: &v1alpha1.SecretKeyRef{
+									SecretKeyRef: &v1alpha1.SecretKeyRef{
 										Name: "prod-creds",
 										Key:  "credentials",
 									},
@@ -398,7 +398,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 							Env: []v1alpha1.EnvVar{
 								{Key: "ENV1", Value: "value1"},
 								{Key: "SECRET1", ValueFrom: &v1alpha1.EnvVarValueFrom{
-									SecretRef: &v1alpha1.SecretKeyRef{
+									SecretKeyRef: &v1alpha1.SecretKeyRef{
 										Name: "dev-secrets",
 										Key:  "secret1",
 									},
@@ -407,7 +407,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 							Files: []v1alpha1.FileVar{
 								{Key: "config.yaml", MountPath: "/etc/config.yaml", Value: "dev config"},
 								{Key: "secret.key", MountPath: "/etc/secret.key", ValueFrom: &v1alpha1.EnvVarValueFrom{
-									SecretRef: &v1alpha1.SecretKeyRef{
+									SecretKeyRef: &v1alpha1.SecretKeyRef{
 										Name: "dev-keys",
 										Key:  "private-key",
 									},
@@ -422,7 +422,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					Env: []v1alpha1.EnvVar{
 						{Key: "ENV1", Value: "overridden_value1"},
 						{Key: "SECRET1", ValueFrom: &v1alpha1.EnvVarValueFrom{
-							SecretRef: &v1alpha1.SecretKeyRef{
+							SecretKeyRef: &v1alpha1.SecretKeyRef{
 								Name: "prod-secrets",
 								Key:  "secret1",
 							},
@@ -432,7 +432,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 					Files: []v1alpha1.FileVar{
 						{Key: "config.yaml", MountPath: "/etc/config.yaml", Value: "prod config"},
 						{Key: "secret.key", MountPath: "/etc/secret.key", ValueFrom: &v1alpha1.EnvVarValueFrom{
-							SecretRef: &v1alpha1.SecretKeyRef{
+							SecretKeyRef: &v1alpha1.SecretKeyRef{
 								Name: "prod-keys",
 								Key:  "private-key",
 							},
@@ -452,7 +452,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 							Env: []v1alpha1.EnvVar{
 								{Key: "ENV1", Value: "overridden_value1"},
 								{Key: "SECRET1", ValueFrom: &v1alpha1.EnvVarValueFrom{
-									SecretRef: &v1alpha1.SecretKeyRef{
+									SecretKeyRef: &v1alpha1.SecretKeyRef{
 										Name: "prod-secrets",
 										Key:  "secret1",
 									},
@@ -462,7 +462,7 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 							Files: []v1alpha1.FileVar{
 								{Key: "config.yaml", MountPath: "/etc/config.yaml", Value: "prod config"},
 								{Key: "secret.key", MountPath: "/etc/secret.key", ValueFrom: &v1alpha1.EnvVarValueFrom{
-									SecretRef: &v1alpha1.SecretKeyRef{
+									SecretKeyRef: &v1alpha1.SecretKeyRef{
 										Name: "prod-keys",
 										Key:  "private-key",
 									},

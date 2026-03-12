@@ -216,18 +216,18 @@ func collectSecretReferenceNames(workload *openchoreov1alpha1.Workload, releaseB
 	var names []string
 	container := mergedWorkload.Spec.Container
 	for _, env := range container.Env {
-		if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil && env.ValueFrom.SecretRef.Name != "" {
-			if _, dup := seen[env.ValueFrom.SecretRef.Name]; !dup {
-				seen[env.ValueFrom.SecretRef.Name] = struct{}{}
-				names = append(names, env.ValueFrom.SecretRef.Name)
+		if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name != "" {
+			if _, dup := seen[env.ValueFrom.SecretKeyRef.Name]; !dup {
+				seen[env.ValueFrom.SecretKeyRef.Name] = struct{}{}
+				names = append(names, env.ValueFrom.SecretKeyRef.Name)
 			}
 		}
 	}
 	for _, file := range container.Files {
-		if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil && file.ValueFrom.SecretRef.Name != "" {
-			if _, dup := seen[file.ValueFrom.SecretRef.Name]; !dup {
-				seen[file.ValueFrom.SecretRef.Name] = struct{}{}
-				names = append(names, file.ValueFrom.SecretRef.Name)
+		if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil && file.ValueFrom.SecretKeyRef.Name != "" {
+			if _, dup := seen[file.ValueFrom.SecretKeyRef.Name]; !dup {
+				seen[file.ValueFrom.SecretKeyRef.Name] = struct{}{}
+				names = append(names, file.ValueFrom.SecretKeyRef.Name)
 			}
 		}
 	}

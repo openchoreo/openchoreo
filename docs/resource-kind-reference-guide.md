@@ -808,7 +808,7 @@ spec:
             # This field is mutually exclusive with the other reference fields.
             #
             # +optional
-            secretRef:
+            secretKeyRef:
               # Name of the secret.
               #
               # +required
@@ -886,7 +886,7 @@ spec:
             # This field is mutually exclusive with the other reference fields.
             #
             # +optional
-            secretRef:
+            secretKeyRef:
               # Name of the secret.
               #
               # +required

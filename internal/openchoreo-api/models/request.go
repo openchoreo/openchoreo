@@ -413,7 +413,7 @@ type FileVar struct {
 type EnvVarValueFrom struct {
 	// Reference to a secret resource.
 	// +optional
-	SecretRef *SecretKeyRef `json:"secretRef,omitempty"`
+	SecretKeyRef *SecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
 // SecretKeyRef references a specific key in a secret

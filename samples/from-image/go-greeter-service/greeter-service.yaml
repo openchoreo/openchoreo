@@ -44,7 +44,7 @@ spec:
         value: "https://github.com/openchoreo/openchoreo"
       - key: GITHUB_TOKEN
         valueFrom:
-          secretRef:
+          secretKeyRef:
             key: token
             name: github-credentials
 

@@ -12,7 +12,7 @@ spec:
           value: production
         - key: DB_PASSWORD
           valueFrom:
-            secretRef:
+            secretKeyRef:
               name: db-prod-secret
               key: password
       files:
@@ -28,6 +28,6 @@ spec:
         - key: tls.crt
           mountPath: /etc/tls
           valueFrom:
-            secretRef:
+            secretKeyRef:
               name: tls-prod-secret
               key: tls.crt
