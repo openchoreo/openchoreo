@@ -339,6 +339,12 @@ const (
 	WorkflowPlaneRefKindWorkflowPlane        WorkflowPlaneRefKind = "WorkflowPlane"
 )
 
+// Defines values for WorkflowRunConfigKind.
+const (
+	WorkflowRunConfigKindClusterWorkflow WorkflowRunConfigKind = "ClusterWorkflow"
+	WorkflowRunConfigKindWorkflow        WorkflowRunConfigKind = "Workflow"
+)
+
 // Defines values for WorkflowRunStatusResponseStatus.
 const (
 	WorkflowRunStatusResponseStatusError     WorkflowRunStatusResponseStatus = "Error"
@@ -3434,12 +3440,18 @@ type WorkflowRun struct {
 
 // WorkflowRunConfig Workflow configuration referencing the Workflow and providing schema values.
 type WorkflowRunConfig struct {
+	// Kind Kind of workflow reference (Workflow or ClusterWorkflow)
+	Kind *WorkflowRunConfigKind `json:"kind,omitempty"`
+
 	// Name Referenced Workflow name
 	Name string `json:"name"`
 
 	// Parameters Developer-provided parameters for the referenced workflow
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
+
+// WorkflowRunConfigKind Kind of workflow reference (Workflow or ClusterWorkflow)
+type WorkflowRunConfigKind string
 
 // WorkflowRunEventEntry A single Kubernetes event from a workflow run
 type WorkflowRunEventEntry struct {

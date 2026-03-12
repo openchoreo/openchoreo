@@ -7474,6 +7474,11 @@ components:
       required:
         - name
       properties:
+        kind:
+          type: string
+          description: Kind of workflow reference (Workflow or ClusterWorkflow)
+          enum: [Workflow, ClusterWorkflow]
+          default: Workflow
         name:
           type: string
           description: Referenced Workflow name
