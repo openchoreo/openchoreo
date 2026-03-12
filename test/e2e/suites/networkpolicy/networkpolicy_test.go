@@ -192,7 +192,7 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			labels, err := framework.Kubectl(
 				kubeContext,
 				"get", "namespace", ns,
-				"-o", "jsonpath={.metadata.labels.openchoreo\\.dev/controlplane-namespace},{.metadata.labels.openchoreo\\.dev/project},{.metadata.labels.openchoreo\\.dev/environment}",
+				"-o", "jsonpath={.metadata.labels.openchoreo\\.dev/namespace},{.metadata.labels.openchoreo\\.dev/project},{.metadata.labels.openchoreo\\.dev/environment}",
 			)
 			g.Expect(err).NotTo(HaveOccurred(), "failed to read labels for namespace %s", ns)
 
@@ -208,7 +208,7 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 	}
 
 	BeforeAll(func() {
-		By("creating control plane namespaces")
+		By("creating OC namespaces")
 		output, err := framework.KubectlApplyLiteral(kubeContext, cpNamespacesYAML())
 		Expect(err).NotTo(HaveOccurred(), "failed to create CP namespaces: %s", output)
 
@@ -256,6 +256,20 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			},
 		))
 		Expect(err).NotTo(HaveOccurred(), "failed to create comp-b: %s", output)
+
+		// comp-c: http-echo with internal-only visibility.
+		output, err = framework.KubectlApplyLiteral(kubeContext, componentYAML(
+			cpNsAcme,
+			"proj1",
+			"comp-c",
+			"deployment/e2e-service",
+			"hashicorp/http-echo",
+			[]string{"-text=comp-c", "-listen=:8080"},
+			map[string]endpointDef{
+				"http": {epType: "HTTP", port: 8080, visibility: []string{"internal"}},
+			},
+		))
+		Expect(err).NotTo(HaveOccurred(), "failed to create comp-c: %s", output)
 
 		// client-a: busybox client in proj1.
 		output, err = framework.KubectlApplyLiteral(kubeContext, componentYAML(
@@ -308,7 +322,7 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 		))
 		Expect(err).NotTo(HaveOccurred(), "failed to create client-d: %s", output)
 
-		By("creating non-OC namespaces and pods")
+		By("creating non-OC k8s namespaces and pods")
 		output, err = framework.KubectlApplyLiteral(kubeContext, nonOCNamespacesYAML())
 		Expect(err).NotTo(HaveOccurred(), "failed to create non-OC namespaces: %s", output)
 		output, err = framework.KubectlApplyLiteral(kubeContext, nonOCPodsYAML())
@@ -388,7 +402,7 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 				"pods in %s not running in time", ns)
 		}
 
-		By("waiting for all pods to be Running in non-OC namespaces")
+		By("waiting for all pods to be Running in non-OC k8s namespaces")
 		for _, ns := range []string{nsExtSvc, nsGateway} {
 			Eventually(func(g Gomega) {
 				framework.AssertAllPodsRunning(g, kubeContext, ns)
@@ -396,31 +410,54 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 				"pods in %s not running in time", ns)
 		}
 
-		By("verifying baseline NetworkPolicies exist in data plane namespaces")
-		for _, ns := range []string{dpAcmeProj1Dev, dpAcmeProj1Stg, dpAcmeProj2Dev, dpBetaProj1Dev} {
-			Eventually(func(g Gomega) {
-				framework.AssertResourceExists(g, kubeContext, ns, "networkpolicy", "openchoreo-deny-all-ingress")
-				framework.AssertResourceExists(g, kubeContext, ns, "networkpolicy", "openchoreo-egress-isolation")
-			}, 2*time.Minute, 2*time.Second).Should(Succeed(),
-				"baseline NetworkPolicies not found in %s", ns)
-		}
-
 		By("verifying per-component NetworkPolicies exist")
 		Eventually(func(g Gomega) {
-			framework.AssertResourceExists(g, kubeContext, dpAcmeProj1Dev, "networkpolicy", "openchoreo-comp-a-ingress")
-			framework.AssertResourceExists(g, kubeContext, dpAcmeProj1Dev, "networkpolicy", "openchoreo-comp-b-ingress")
+			framework.AssertResourceExists(g, kubeContext, dpAcmeProj1Dev, "networkpolicy", "openchoreo-comp-a")
+			framework.AssertResourceExists(g, kubeContext, dpAcmeProj1Dev, "networkpolicy", "openchoreo-comp-b")
+			framework.AssertResourceExists(g, kubeContext, dpAcmeProj1Dev, "networkpolicy", "openchoreo-comp-c")
+			framework.AssertResourceExists(g, kubeContext, dpAcmeProj1Dev, "networkpolicy", "openchoreo-client-a")
 		}, 2*time.Minute, 2*time.Second).Should(Succeed(),
 			"per-component NetworkPolicies not found in acme/proj1/dev dp namespace")
 
 		Eventually(func(g Gomega) {
-			framework.AssertResourceExists(g, kubeContext, dpAcmeProj1Stg, "networkpolicy", "openchoreo-comp-a-ingress")
+			framework.AssertResourceExists(g, kubeContext, dpAcmeProj2Dev, "networkpolicy", "openchoreo-client-b")
+		}, 2*time.Minute, 2*time.Second).Should(Succeed(),
+			"per-component NetworkPolicy not found in acme/proj2/dev dp namespace")
+
+		Eventually(func(g Gomega) {
+			framework.AssertResourceExists(g, kubeContext, dpAcmeProj1Stg, "networkpolicy", "openchoreo-comp-a")
 		}, 2*time.Minute, 2*time.Second).Should(Succeed(),
 			"per-component NetworkPolicy not found in acme/proj1/staging dp namespace")
 
 		Eventually(func(g Gomega) {
-			framework.AssertResourceExists(g, kubeContext, dpBetaProj1Dev, "networkpolicy", "openchoreo-comp-d-ingress")
+			framework.AssertResourceExists(g, kubeContext, dpBetaProj1Dev, "networkpolicy", "openchoreo-comp-d")
+			framework.AssertResourceExists(g, kubeContext, dpBetaProj1Dev, "networkpolicy", "openchoreo-client-d")
 		}, 2*time.Minute, 2*time.Second).Should(Succeed(),
-			"per-component NetworkPolicy not found in beta/proj1/dev dp namespace")
+			"per-component NetworkPolicies not found in beta/proj1/dev dp namespace")
+
+		By("deploying unprotected pods into data plane namespaces for egress isolation testing")
+		// These pods have no NetworkPolicy selecting them, so all ingress is allowed.
+		// They isolate egress denial: blocked traffic proves the source's egress policy works.
+		for _, tc := range []struct{ ns, name string }{
+			{dpBetaProj1Dev, "unprotected-echo"},
+			{dpAcmeProj1Stg, "unprotected-echo"},
+		} {
+			output, err = framework.KubectlApplyLiteral(kubeContext, unprotectedPodYAML(tc.ns, tc.name))
+			Expect(err).NotTo(HaveOccurred(), "failed to create unprotected pod in %s: %s", tc.ns, output)
+		}
+
+		By("waiting for unprotected pods to be Running")
+		for _, ns := range []string{dpBetaProj1Dev, dpAcmeProj1Stg} {
+			Eventually(func(g Gomega) {
+				out, err := framework.Kubectl(kubeContext,
+					"get", "pod", "-n", ns, "-l", "app=unprotected-echo",
+					"--field-selector=status.phase=Running",
+					"-o", "jsonpath={.items[0].metadata.name}")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(out).NotTo(BeEmpty())
+			}, 2*time.Minute, 2*time.Second).Should(Succeed(),
+				"unprotected-echo pod not running in %s", ns)
+		}
 
 		By("waiting until policy enforcement is observed on a blocked path")
 		assertSourcePodReady(dpAcmeProj2Dev, "openchoreo.dev/component=client-b", "main")
@@ -451,12 +488,12 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			}
 		}
 
-		By("cleaning up non-OC namespaces")
+		By("cleaning up non-OC k8s namespaces")
 		for _, ns := range []string{nsExtSvc, nsGateway} {
 			_, _ = framework.Kubectl(kubeContext, "delete", "namespace", ns, "--ignore-not-found", "--wait=false")
 		}
 
-		By("cleaning up control plane namespaces")
+		By("cleaning up OC namespaces")
 		for _, ns := range []string{cpNsAcme, cpNsBeta} {
 			_, _ = framework.Kubectl(kubeContext, "delete", "namespace", ns, "--ignore-not-found", "--wait=false")
 		}
@@ -475,7 +512,7 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 		},
 		{
 			name:        "allows cross-project traffic to namespace-visible endpoint",
-			intent:      "comp-a is namespace-visible within the same control plane namespace, so client-b in proj2 should reach it.",
+			intent:      "comp-a is namespace-visible within the same OC namespace, so client-b in proj2 should reach it.",
 			sourceNS:    func() string { return dpAcmeProj2Dev },
 			sourceLabel: "openchoreo.dev/component=client-b",
 			sourceCtr:   "main",
@@ -494,8 +531,8 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			expectAllow: false,
 		},
 		{
-			name:        "blocks cross-control-plane traffic from beta to acme",
-			intent:      "traffic from beta/proj1 to acme/proj1 should be denied across control plane boundaries.",
+			name:        "blocks cross-OC-namespace traffic from beta to acme",
+			intent:      "traffic from beta/proj1 to acme/proj1 should be denied across OC namespace boundaries.",
 			sourceNS:    func() string { return dpBetaProj1Dev },
 			sourceLabel: "openchoreo.dev/component=client-d",
 			sourceCtr:   "main",
@@ -504,8 +541,8 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			expectAllow: false,
 		},
 		{
-			name:        "blocks cross-control-plane traffic from acme to beta",
-			intent:      "traffic from acme/proj1 to beta/proj1 should be denied across control plane boundaries.",
+			name:        "blocks cross-OC-namespace traffic from acme to beta",
+			intent:      "traffic from acme/proj1 to beta/proj1 should be denied across OC namespace boundaries.",
 			sourceNS:    func() string { return dpAcmeProj1Dev },
 			sourceLabel: "openchoreo.dev/component=client-a",
 			sourceCtr:   "main",
@@ -514,8 +551,8 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			expectAllow: false,
 		},
 		{
-			name:        "blocks cross-environment traffic within same control-plane namespace",
-			intent:      "even with namespace visibility, development should not reach staging within the same control plane namespace.",
+			name:        "blocks cross-environment traffic within same OC namespace",
+			intent:      "even with namespace visibility, development should not reach staging within the same OC namespace.",
 			sourceNS:    func() string { return dpAcmeProj1Dev },
 			sourceLabel: "openchoreo.dev/component=client-a",
 			sourceCtr:   "main",
@@ -544,14 +581,54 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			expectAllow: false,
 		},
 		{
-			name:        "allows egress to non-openchoreo namespace",
-			intent:      "client-a should reach ext-service in a namespace outside OpenChoreo control plane labeling.",
+			name:        "allows gateway traffic to internal-visible endpoint",
+			intent:      "gateway-proxy should reach comp-c because comp-c declares internal visibility (non-OC namespace access).",
+			sourceNS:    func() string { return nsGateway },
+			sourceLabel: "app=gateway-proxy",
+			sourceCtr:   "",
+			targetHost:  func() string { return fqdn("comp-c", dpAcmeProj1Dev) },
+			targetPort:  8080,
+			expectAllow: true,
+		},
+		{
+			name:        "allows intra-namespace traffic to internal-visible endpoint",
+			intent:      "client-a and comp-c are in the same data plane namespace; implicit project visibility should allow this path.",
+			sourceNS:    func() string { return dpAcmeProj1Dev },
+			sourceLabel: "openchoreo.dev/component=client-a",
+			sourceCtr:   "main",
+			targetHost:  func() string { return fqdn("comp-c", dpAcmeProj1Dev) },
+			targetPort:  8080,
+			expectAllow: true,
+		},
+		{
+			name:        "allows egress to non-OC namespace",
+			intent:      "client-a should reach ext-service in a k8s namespace that is not an OC namespace.",
 			sourceNS:    func() string { return dpAcmeProj1Dev },
 			sourceLabel: "openchoreo.dev/component=client-a",
 			sourceCtr:   "main",
 			targetHost:  func() string { return fqdn("ext-service", nsExtSvc) },
 			targetPort:  8080,
 			expectAllow: true,
+		},
+		{
+			name:        "egress isolation blocks cross-OC-namespace traffic to unprotected target",
+			intent:      "unprotected-echo in beta has no ingress policy, so only the source's egress isolation can block this path.",
+			sourceNS:    func() string { return dpAcmeProj1Dev },
+			sourceLabel: "openchoreo.dev/component=client-a",
+			sourceCtr:   "main",
+			targetHost:  func() string { return fqdn("unprotected-echo", dpBetaProj1Dev) },
+			targetPort:  8080,
+			expectAllow: false,
+		},
+		{
+			name:        "egress isolation blocks cross-environment traffic to unprotected target",
+			intent:      "unprotected-echo in staging has no ingress policy, so only the source's egress isolation can block this path.",
+			sourceNS:    func() string { return dpAcmeProj1Dev },
+			sourceLabel: "openchoreo.dev/component=client-a",
+			sourceCtr:   "main",
+			targetHost:  func() string { return fqdn("unprotected-echo", dpAcmeProj1Stg) },
+			targetPort:  8080,
+			expectAllow: false,
 		},
 	}
 

@@ -26,7 +26,7 @@ const (
 
 var npRunID = fmt.Sprintf("%d", time.Now().UnixNano())
 
-// Control plane namespace names for test isolation.
+// OC namespace names for test isolation.
 var (
 	cpNsAcme  = fmt.Sprintf("e2e-np-acme-%s", npRunID)
 	cpNsBeta  = fmt.Sprintf("e2e-np-beta-%s", npRunID)
@@ -54,7 +54,7 @@ func mustYAMLDocs(objects ...any) string {
 	return strings.Join(docs, "\n---\n")
 }
 
-// cpNamespacesYAML defines control plane namespaces for the test.
+// cpNamespacesYAML defines OC namespaces (k8s namespaces labeled as openchoreo.dev/namespace) for the test.
 func cpNamespacesYAML() string {
 	acme := &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{APIVersion: kubernetesAPIVerV1, Kind: "Namespace"},
@@ -143,8 +143,8 @@ func nonOCPodsYAML() string {
 	return mustYAMLDocs(extServicePod, extServiceSVC, gatewayProxyPod)
 }
 
-// platformResourcesYAML returns the platform resources for a given CP namespace.
-// Each CP namespace gets a DeploymentPipeline, Environments, and Projects.
+// platformResourcesYAML returns the platform resources for a given OC namespace.
+// Each OC namespace gets a DeploymentPipeline, Environments, and Projects.
 func platformResourcesYAML(cpNamespace string, environments, projects []string) string {
 	promotionPaths := make([]openchoreov1alpha1.PromotionPath, 0)
 
@@ -394,6 +394,44 @@ type endpointDef struct {
 	epType     string
 	port       int
 	visibility []string
+}
+
+// unprotectedPodYAML creates a bare Pod + Service inside a data plane namespace.
+// No NetworkPolicy selects this pod, so all ingress is allowed by default.
+// This isolates egress-only denial: if the source's egress policy is working,
+// cross-CP or cross-env traffic to this pod is still blocked.
+func unprotectedPodYAML(namespace, name string) string {
+	pod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{APIVersion: kubernetesAPIVerV1, Kind: "Pod"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    map[string]string{"app": name},
+		},
+		Spec: corev1.PodSpec{Containers: []corev1.Container{{
+			Name:  "server",
+			Image: "hashicorp/http-echo",
+			Args:  []string{fmt.Sprintf("-text=%s", name), "-listen=:8080"},
+			Ports: []corev1.ContainerPort{{ContainerPort: 8080}},
+		}}},
+	}
+
+	svc := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{APIVersion: kubernetesAPIVerV1, Kind: "Service"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"app": name},
+			Ports: []corev1.ServicePort{{
+				Port:       8080,
+				TargetPort: intstr.FromInt(8080),
+			}},
+		},
+	}
+
+	return mustYAMLDocs(pod, svc)
 }
 
 // releaseBindingYAML creates a ReleaseBinding that deploys an existing ComponentRelease

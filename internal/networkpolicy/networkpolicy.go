@@ -12,26 +12,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
-const (
-	baselinePolicyDenyAllIngress  = "openchoreo-deny-all-ingress"
-	baselinePolicyEgressIsolation = "openchoreo-egress-isolation"
-)
-
-// BaselinePolicyNames lists the well-known names of baseline NetworkPolicies
-// so callers can delete them when the feature is disabled.
-var BaselinePolicyNames = []string{
-	baselinePolicyDenyAllIngress,
-	baselinePolicyEgressIsolation,
-}
-
-// BaselinePolicyParams holds parameters for generating baseline (Layer 1) NetworkPolicies.
-type BaselinePolicyParams struct {
-	Namespace   string // data plane namespace name
-	CPNamespace string // control plane namespace name
-	Environment string // environment name (e.g., "development")
-}
-
-// ComponentPolicyParams holds parameters for generating per-component (Layer 2) ingress NetworkPolicies.
+// ComponentPolicyParams holds parameters for generating per-component NetworkPolicies
+// that include both ingress (endpoint-based) and egress (isolation) rules.
 type ComponentPolicyParams struct {
 	Namespace     string                                         // data plane namespace name
 	CPNamespace   string                                         // control plane namespace name
@@ -41,60 +23,39 @@ type ComponentPolicyParams struct {
 	Endpoints     map[string]openchoreov1alpha1.WorkloadEndpoint // from workload spec
 }
 
-// MakeBaselinePolicies returns two NetworkPolicy resources as map[string]any:
-// 1. A deny-all ingress policy
-// 2. An egress isolation policy that blocks cross-CP-namespace and cross-environment traffic
-func MakeBaselinePolicies(params BaselinePolicyParams) []map[string]any {
-	denyAllIngress := map[string]any{
-		"apiVersion": "networking.k8s.io/v1",
-		"kind":       "NetworkPolicy",
-		"metadata": map[string]any{
-			"name":      baselinePolicyDenyAllIngress,
-			"namespace": params.Namespace,
-		},
-		"spec": map[string]any{
-			"podSelector": map[string]any{},
-			"policyTypes": []any{"Ingress"},
-		},
-	}
+// MakeComponentPolicies returns a unified NetworkPolicy for a component that includes
+// both ingress rules (based on declared endpoints) and egress isolation rules
+// (blocking cross-CP-namespace and cross-environment traffic).
+func MakeComponentPolicies(params ComponentPolicyParams) []map[string]any {
+	// Build ingress rules from endpoints
+	ingressRules := makeIngressRules(params)
 
-	egressIsolation := map[string]any{
-		"apiVersion": "networking.k8s.io/v1",
-		"kind":       "NetworkPolicy",
-		"metadata": map[string]any{
-			"name":      baselinePolicyEgressIsolation,
-			"namespace": params.Namespace,
-		},
-		"spec": map[string]any{
-			"podSelector": map[string]any{},
-			"policyTypes": []any{"Egress"},
-			"egress": []any{
-				// Allow egress to namespaces that are NOT OpenChoreo CP namespaces
-				// (e.g., kube-system, kube-dns, external services)
+	// Build egress isolation rules
+	egressRules := []any{
+		// Allow egress to namespaces that are NOT OpenChoreo CP namespaces
+		// (e.g., kube-system, kube-dns, external services)
+		map[string]any{
+			"to": []any{
 				map[string]any{
-					"to": []any{
-						map[string]any{
-							"namespaceSelector": map[string]any{
-								"matchExpressions": []any{
-									map[string]any{
-										"key":      labels.LabelKeyNamespaceName,
-										"operator": "DoesNotExist",
-									},
-								},
+					"namespaceSelector": map[string]any{
+						"matchExpressions": []any{
+							map[string]any{
+								"key":      labels.LabelKeyNamespaceName,
+								"operator": "DoesNotExist",
 							},
 						},
 					},
 				},
-				// Allow egress to dp namespaces in the same CP namespace and same environment
+			},
+		},
+		// Allow egress to dp namespaces in the same CP namespace and same environment
+		map[string]any{
+			"to": []any{
 				map[string]any{
-					"to": []any{
-						map[string]any{
-							"namespaceSelector": map[string]any{
-								"matchLabels": map[string]any{
-									labels.LabelKeyNamespaceName:   params.CPNamespace,
-									labels.LabelKeyEnvironmentName: params.Environment,
-								},
-							},
+					"namespaceSelector": map[string]any{
+						"matchLabels": map[string]any{
+							labels.LabelKeyNamespaceName:   params.CPNamespace,
+							labels.LabelKeyEnvironmentName: params.Environment,
 						},
 					},
 				},
@@ -102,13 +63,41 @@ func MakeBaselinePolicies(params BaselinePolicyParams) []map[string]any {
 		},
 	}
 
-	return []map[string]any{denyAllIngress, egressIsolation}
+	// Generate a policy name, truncated to k8s limits
+	policyName := fmt.Sprintf("openchoreo-%s", params.ComponentName)
+	if len(policyName) > dpkubernetes.MaxResourceNameLength {
+		policyName = dpkubernetes.GenerateK8sNameWithLengthLimit(
+			dpkubernetes.MaxResourceNameLength,
+			"openchoreo", params.ComponentName,
+		)
+	}
+
+	spec := map[string]any{
+		"podSelector": map[string]any{
+			"matchLabels": toAnyMap(params.PodSelectors),
+		},
+		"policyTypes": []any{"Ingress", "Egress"},
+		"egress":      egressRules,
+	}
+	if len(ingressRules) > 0 {
+		spec["ingress"] = ingressRules
+	}
+
+	policy := map[string]any{
+		"apiVersion": "networking.k8s.io/v1",
+		"kind":       "NetworkPolicy",
+		"metadata": map[string]any{
+			"name":      policyName,
+			"namespace": params.Namespace,
+		},
+		"spec": spec,
+	}
+
+	return []map[string]any{policy}
 }
 
-// MakeComponentPolicies returns NetworkPolicies for a component based on its declared endpoints.
-// Currently generates an ingress policy; egress policies may be added in the future.
-// Returns nil if no endpoints are defined.
-func MakeComponentPolicies(params ComponentPolicyParams) []map[string]any {
+// makeIngressRules builds ingress rules from component endpoints.
+func makeIngressRules(params ComponentPolicyParams) []any {
 	if len(params.Endpoints) == 0 {
 		return nil
 	}
@@ -211,32 +200,7 @@ func MakeComponentPolicies(params ComponentPolicyParams) []map[string]any {
 		})
 	}
 
-	// Generate a policy name, truncated to k8s limits
-	policyName := fmt.Sprintf("openchoreo-%s-ingress", params.ComponentName)
-	if len(policyName) > dpkubernetes.MaxResourceNameLength {
-		policyName = dpkubernetes.GenerateK8sNameWithLengthLimit(
-			dpkubernetes.MaxResourceNameLength,
-			"openchoreo", params.ComponentName, "ingress",
-		)
-	}
-
-	ingressPolicy := map[string]any{
-		"apiVersion": "networking.k8s.io/v1",
-		"kind":       "NetworkPolicy",
-		"metadata": map[string]any{
-			"name":      policyName,
-			"namespace": params.Namespace,
-		},
-		"spec": map[string]any{
-			"podSelector": map[string]any{
-				"matchLabels": toAnyMap(params.PodSelectors),
-			},
-			"policyTypes": []any{"Ingress"},
-			"ingress":     ingressRules,
-		},
-	}
-
-	return []map[string]any{ingressPolicy}
+	return ingressRules
 }
 
 // toAnyMap converts map[string]string to map[string]any for use in unstructured maps.
