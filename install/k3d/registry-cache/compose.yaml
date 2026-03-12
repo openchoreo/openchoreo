@@ -1,0 +1,57 @@
+# Pull-through registry cache for local development
+# Caches images from upstream registries to speed up pulls during development.
+#
+# Usage:
+#   docker compose up -d          # Start all caches
+#   docker compose down           # Stop caches (data preserved)
+#   docker compose down -v        # Stop and clear cached data
+#
+# For shared office use, run on a shared machine and replace
+# "localhost" with the machine's IP in k3d registries config.
+
+services:
+  ghcr-cache:
+    image: registry:2
+    ports:
+      - "5601:5000"
+    volumes:
+      - ghcr-cache:/var/lib/registry
+    environment:
+      REGISTRY_PROXY_REMOTEURL: https://ghcr.io
+    restart: unless-stopped
+
+  dockerhub-cache:
+    image: registry:2
+    ports:
+      - "5602:5000"
+    volumes:
+      - dockerhub-cache:/var/lib/registry
+    environment:
+      REGISTRY_PROXY_REMOTEURL: https://registry-1.docker.io
+    restart: unless-stopped
+
+  quay-cache:
+    image: registry:2
+    ports:
+      - "5603:5000"
+    volumes:
+      - quay-cache:/var/lib/registry
+    environment:
+      REGISTRY_PROXY_REMOTEURL: https://quay.io
+    restart: unless-stopped
+
+  kgateway-cache:
+    image: registry:2
+    ports:
+      - "5604:5000"
+    volumes:
+      - kgateway-cache:/var/lib/registry
+    environment:
+      REGISTRY_PROXY_REMOTEURL: https://cr.kgateway.dev
+    restart: unless-stopped
+
+volumes:
+  ghcr-cache:
+  dockerhub-cache:
+  quay-cache:
+  kgateway-cache:
