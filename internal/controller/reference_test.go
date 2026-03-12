@@ -700,94 +700,20 @@ func TestResolveWorkflowPlane_WithExplicitClusterWorkflowPlaneRef(t *testing.T) 
 	assert.Equal(t, "", result.GetNamespace()) // ClusterWorkflowPlane is cluster-scoped
 }
 
-func TestResolveWorkflowPlane_WithNoRef_DefaultExists(t *testing.T) {
+func TestResolveWorkflowPlane_WithNilRef_ReturnsError(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
-	workflowPlane := &openchoreov1alpha1.WorkflowPlane{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default",
-			Namespace: "test-namespace",
-		},
-	}
-
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(workflowPlane).
 		Build()
 
 	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
 
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	assert.NotNil(t, result.WorkflowPlane)
-	assert.Equal(t, "default", result.GetName())
-}
-
-func TestResolveWorkflowPlane_WithNoRef_DefaultClusterWorkflowPlane(t *testing.T) {
-	scheme := runtime.NewScheme()
-	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
-
-	clusterWorkflowPlane := &openchoreov1alpha1.ClusterWorkflowPlane{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "default",
-		},
-		Spec: openchoreov1alpha1.ClusterWorkflowPlaneSpec{
-			PlaneID: "test-plane",
-		},
-	}
-
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(clusterWorkflowPlane).
-		Build()
-
-	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
-
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	assert.Nil(t, result.WorkflowPlane)
-	assert.NotNil(t, result.ClusterWorkflowPlane)
-	assert.Equal(t, "default", result.ClusterWorkflowPlane.Name)
-}
-
-func TestResolveWorkflowPlane_WithNoRef_NonDefaultWorkflowPlane_ReturnsNil(t *testing.T) {
-	scheme := runtime.NewScheme()
-	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
-
-	// A non-default WorkflowPlane exists but should NOT be used as fallback
-	workflowPlane := &openchoreov1alpha1.WorkflowPlane{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "other-workflowplane",
-			Namespace: "test-namespace",
-		},
-	}
-
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(workflowPlane).
-		Build()
-
-	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
-
-	// Should return nil since only "default" named planes are used in fallback
-	require.NoError(t, err)
+	// Should return an error since nil ref is no longer valid after webhook defaulting
+	require.Error(t, err)
 	assert.Nil(t, result)
-}
-
-func TestResolveWorkflowPlane_WithNoRef_NoWorkflowPlane(t *testing.T) {
-	scheme := runtime.NewScheme()
-	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
-
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		Build()
-
-	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
-
-	// Should return nil without error (WorkflowPlane is optional)
-	require.NoError(t, err)
-	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "workflowPlaneRef must not be nil: CRD defaulting should have set it")
 }
 
 func TestResolveWorkflowPlane_WithExplicitRef_NotFound(t *testing.T) {
@@ -1076,57 +1002,10 @@ func TestDataPlaneResult_GetObservabilityPlane_NeitherSet(t *testing.T) {
 }
 
 // ============================================================================
-// Additional Tests for ResolveWorkflowPlane (namespace-level fallback scenarios)
+// Additional Tests for ResolveWorkflowPlane (nil ref returns error after CRD defaulting)
 // ============================================================================
 
-func TestResolveWorkflowPlane_NilRef_FallsBackToDefault(t *testing.T) {
-	scheme := runtime.NewScheme()
-	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
-
-	defaultBP := &openchoreov1alpha1.WorkflowPlane{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default",
-			Namespace: "test-namespace",
-		},
-	}
-
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(defaultBP).
-		Build()
-
-	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
-
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	assert.NotNil(t, result.WorkflowPlane)
-	assert.Equal(t, "default", result.GetName())
-}
-
-func TestResolveWorkflowPlane_NilRef_FallsBackToClusterWorkflowPlane(t *testing.T) {
-	scheme := runtime.NewScheme()
-	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
-
-	clusterBP := &openchoreov1alpha1.ClusterWorkflowPlane{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "default",
-		},
-	}
-
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(clusterBP).
-		Build()
-
-	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
-
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	assert.NotNil(t, result.ClusterWorkflowPlane)
-	assert.Equal(t, "default", result.GetName())
-}
-
-func TestResolveWorkflowPlane_NilRef_NoWorkflowPlaneExists(t *testing.T) {
+func TestResolveWorkflowPlane_NilRef_ReturnsError(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
@@ -1136,8 +1015,9 @@ func TestResolveWorkflowPlane_NilRef_NoWorkflowPlaneExists(t *testing.T) {
 
 	result, err := ResolveWorkflowPlane(context.Background(), fakeClient, "test-namespace", nil)
 
-	require.NoError(t, err)
+	require.Error(t, err)
 	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "workflowPlaneRef must not be nil: CRD defaulting should have set it")
 }
 
 // ============================================================================
@@ -1449,21 +1329,20 @@ func TestWorkflowResult_GetWorkflowSpec_FromClusterWorkflow(t *testing.T) {
 }
 
 func TestWorkflowResult_GetWorkflowSpec_FromClusterWorkflow_NilWorkflowPlaneRef(t *testing.T) {
+	// With CRD defaulting, WorkflowPlaneRef should always be set.
+	// When nil (e.g., legacy resources), GetWorkflowSpec returns nil WorkflowPlaneRef.
 	result := &WorkflowResult{
 		ClusterWorkflow: &openchoreov1alpha1.ClusterWorkflow{
 			ObjectMeta: metav1.ObjectMeta{Name: "cwf-no-wp"},
 			Spec: openchoreov1alpha1.ClusterWorkflowSpec{
 				TTLAfterCompletion: "1h",
-				// WorkflowPlaneRef is nil — should default to ClusterWorkflowPlane "default"
 			},
 		},
 	}
 
 	spec := result.GetWorkflowSpec()
 	assert.Equal(t, "1h", spec.TTLAfterCompletion)
-	require.NotNil(t, spec.WorkflowPlaneRef, "nil ClusterWorkflow WorkflowPlaneRef should inject ClusterWorkflowPlane default")
-	assert.Equal(t, openchoreov1alpha1.WorkflowPlaneRefKindClusterWorkflowPlane, spec.WorkflowPlaneRef.Kind)
-	assert.Equal(t, "default", spec.WorkflowPlaneRef.Name)
+	assert.Nil(t, spec.WorkflowPlaneRef, "nil ClusterWorkflow WorkflowPlaneRef should remain nil")
 }
 
 func TestWorkflowResult_GetWorkflowSpec_Empty(t *testing.T) {

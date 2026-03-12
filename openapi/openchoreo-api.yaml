@@ -7140,7 +7140,9 @@ components:
         - runTemplate
       properties:
         workflowPlaneRef:
-          $ref: '#/components/schemas/WorkflowPlaneRef'
+          description: Reference to the WorkflowPlane or ClusterWorkflowPlane for this workflow's operations. Defaults to ClusterWorkflowPlane named "default" when omitted.
+          allOf:
+            - $ref: '#/components/schemas/WorkflowPlaneRef'
         parameters:
           $ref: '#/components/schemas/SchemaSection'
         runTemplate:
@@ -7296,7 +7298,7 @@ components:
         - runTemplate
       properties:
         workflowPlaneRef:
-          description: Reference to the ClusterWorkflowPlane for this workflow's build operations. Defaults to the ClusterWorkflowPlane named "default" when omitted.
+          description: Reference to the ClusterWorkflowPlane for this workflow's build operations. Defaults to ClusterWorkflowPlane named "default" when omitted.
           allOf:
             - $ref: '#/components/schemas/ClusterWorkflowPlaneRef'
         parameters:

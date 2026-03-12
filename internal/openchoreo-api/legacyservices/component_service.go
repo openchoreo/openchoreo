@@ -2327,7 +2327,6 @@ func (s *ComponentService) GetBuildObserverURL(ctx context.Context, namespaceNam
 	}
 
 	// 2. Resolve the workflow plane using the component's workflow WorkflowPlaneRef
-	var workflowPlaneRef *openchoreov1alpha1.WorkflowPlaneRef
 	component := &openchoreov1alpha1.Component{}
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      componentName,
@@ -2335,14 +2334,18 @@ func (s *ComponentService) GetBuildObserverURL(ctx context.Context, namespaceNam
 	}, component); err != nil {
 		return nil, fmt.Errorf("failed to get component '%s' in namespace '%s': %w", componentName, namespaceName, err)
 	}
-	if component.Spec.Workflow != nil && component.Spec.Workflow.Name != "" {
-		workflowResult, err := controller.ResolveWorkflow(ctx, s.k8sClient, namespaceName, component.Spec.Workflow.Kind, component.Spec.Workflow.Name)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve workflow '%s' (kind: %s) for component '%s' in namespace '%s': %w",
-				component.Spec.Workflow.Name, component.Spec.Workflow.Kind, componentName, namespaceName, err)
-		}
-		workflowPlaneRef = workflowResult.GetWorkflowSpec().WorkflowPlaneRef
+	if component.Spec.Workflow == nil || component.Spec.Workflow.Name == "" {
+		s.logger.Debug("Component has no workflow configured", "component", componentName, "namespace", namespaceName)
+		return &ComponentObserverResponse{
+			Message: "observability-logs have not been configured",
+		}, nil
 	}
+	workflowResult, err := controller.ResolveWorkflow(ctx, s.k8sClient, namespaceName, component.Spec.Workflow.Kind, component.Spec.Workflow.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve workflow '%s' (kind: %s) for component '%s' in namespace '%s': %w",
+			component.Spec.Workflow.Name, component.Spec.Workflow.Kind, componentName, namespaceName, err)
+	}
+	workflowPlaneRef := workflowResult.GetWorkflowSpec().WorkflowPlaneRef
 
 	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, s.k8sClient, namespaceName, workflowPlaneRef)
 	if err != nil {

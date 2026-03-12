@@ -269,35 +269,10 @@ func (r *WorkflowPlaneResult) GetObservabilityPlane(ctx context.Context, c clien
 }
 
 // ResolveWorkflowPlane resolves the WorkflowPlane or ClusterWorkflowPlane using the given WorkflowPlaneRef.
-// If ref is provided, it resolves directly by Kind and Name.
-// If ref is nil, it falls back to the default resolution chain:
-// 1. WorkflowPlane named "default" in the same namespace
-// 2. ClusterWorkflowPlane named "default" (cluster-scoped fallback)
-// Returns nil without error if no WorkflowPlane exists.
+// The ref is always expected to be non-nil since defaulting webhooks ensure workflowPlaneRef is always set.
 func ResolveWorkflowPlane(ctx context.Context, c client.Client, namespace string, ref *openchoreov1alpha1.WorkflowPlaneRef) (*WorkflowPlaneResult, error) {
-	// If no ref specified, try resolution chain
 	if ref == nil {
-		// Step 1: Try "default" WorkflowPlane in namespace
-		workflowPlane := &openchoreov1alpha1.WorkflowPlane{}
-		key := client.ObjectKey{Namespace: namespace, Name: DefaultPlaneName}
-
-		if err := c.Get(ctx, key, workflowPlane); err == nil {
-			return &WorkflowPlaneResult{WorkflowPlane: workflowPlane}, nil
-		} else if !apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("failed to get default workflowPlane: %w", err)
-		}
-
-		// Step 2: Try "default" ClusterWorkflowPlane
-		clusterWorkflowPlane := &openchoreov1alpha1.ClusterWorkflowPlane{}
-		clusterKey := client.ObjectKey{Name: DefaultPlaneName}
-
-		if err := c.Get(ctx, clusterKey, clusterWorkflowPlane); err == nil {
-			return &WorkflowPlaneResult{ClusterWorkflowPlane: clusterWorkflowPlane}, nil
-		} else if !apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("failed to get default clusterWorkflowPlane: %w", err)
-		}
-
-		return nil, nil
+		return nil, fmt.Errorf("workflowPlaneRef must not be nil: CRD defaulting should have set it")
 	}
 
 	switch ref.Kind {
@@ -569,16 +544,11 @@ func (r *WorkflowResult) GetWorkflowSpec() openchoreov1alpha1.WorkflowSpec {
 			ExternalRefs:       r.ClusterWorkflow.Spec.ExternalRefs,
 			TTLAfterCompletion: r.ClusterWorkflow.Spec.TTLAfterCompletion,
 		}
+		// WorkflowPlaneRef is always set by CRD defaulting
 		if r.ClusterWorkflow.Spec.WorkflowPlaneRef != nil {
 			spec.WorkflowPlaneRef = &openchoreov1alpha1.WorkflowPlaneRef{
 				Kind: openchoreov1alpha1.WorkflowPlaneRefKind(r.ClusterWorkflow.Spec.WorkflowPlaneRef.Kind),
 				Name: r.ClusterWorkflow.Spec.WorkflowPlaneRef.Name,
-			}
-		} else {
-			// ClusterWorkflow must use ClusterWorkflowPlane, not namespace-scoped WorkflowPlane
-			spec.WorkflowPlaneRef = &openchoreov1alpha1.WorkflowPlaneRef{
-				Kind: openchoreov1alpha1.WorkflowPlaneRefKindClusterWorkflowPlane,
-				Name: DefaultPlaneName,
 			}
 		}
 		return spec

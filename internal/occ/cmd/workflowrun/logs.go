@@ -243,9 +243,9 @@ func (w *WorkflowRun) fetchArchivedLogs(ctx context.Context, apiClient *client.C
 
 // resolveObserverURL resolves the observer URL by traversing:
 // Workflow.WorkflowPlaneRef -> WorkflowPlane/ClusterWorkflowPlane -> ObservabilityPlane/ClusterObservabilityPlane -> ObserverURL
-// Falls back to default workflow planes if the workflow has no workflowPlaneRef.
+// workflowName must be non-empty and the workflow's workflowPlaneRef is always set by CRD defaulting.
 func resolveObserverURL(ctx context.Context, apiClient *client.Client, namespace, workflowName string) (string, error) {
-	// Resolve workflow plane - try workflow's workflowPlaneRef first, then fall back to defaults
+	// Resolve workflow plane from the workflow's workflowPlaneRef
 	obsPlaneRef, clusterObsPlaneRef := resolveWorkflowPlaneObsRef(ctx, apiClient, namespace, workflowName)
 
 	// Resolve observer URL from the observability plane
@@ -253,45 +253,27 @@ func resolveObserverURL(ctx context.Context, apiClient *client.Client, namespace
 }
 
 // resolveWorkflowPlaneObsRef resolves the workflow plane and returns its observability plane reference.
-// Resolution order:
-// 1. Workflow's explicit workflowPlaneRef (WorkflowPlane or ClusterWorkflowPlane)
-// 2. Namespaced WorkflowPlane named "default"
-// 3. ClusterWorkflowPlane named "default"
-// NOTE: The generated client methods still use WorkflowPlane names.
+// workflowName is always non-empty (validated at call site) and workflowPlaneRef is always set by CRD defaulting.
 func resolveWorkflowPlaneObsRef(ctx context.Context, apiClient *client.Client, namespace, workflowName string) (*gen.ObservabilityPlaneRef, *gen.ClusterObservabilityPlaneRef) {
-	// Try the workflow's explicit workflowPlaneRef first
-	if workflowName != "" {
-		wf, err := apiClient.GetWorkflow(ctx, namespace, workflowName)
-		if err == nil && wf.Spec != nil && wf.Spec.WorkflowPlaneRef != nil {
-			ref := wf.Spec.WorkflowPlaneRef
-			switch ref.Kind {
-			case gen.WorkflowPlaneRefKindWorkflowPlane:
-				wp, err := apiClient.GetWorkflowPlane(ctx, namespace, ref.Name)
-				if err == nil && wp.Spec != nil && wp.Spec.ObservabilityPlaneRef != nil {
-					return wp.Spec.ObservabilityPlaneRef, nil
-				}
-			case gen.WorkflowPlaneRefKindClusterWorkflowPlane:
-				cwp, err := apiClient.GetClusterWorkflowPlane(ctx, ref.Name)
-				if err == nil && cwp.Spec != nil && cwp.Spec.ObservabilityPlaneRef != nil {
-					return nil, cwp.Spec.ObservabilityPlaneRef
-				}
-			}
+	wf, err := apiClient.GetWorkflow(ctx, namespace, workflowName)
+	if err != nil || wf.Spec == nil || wf.Spec.WorkflowPlaneRef == nil {
+		return nil, nil
+	}
+
+	ref := wf.Spec.WorkflowPlaneRef
+	switch ref.Kind {
+	case gen.WorkflowPlaneRefKindWorkflowPlane:
+		wp, err := apiClient.GetWorkflowPlane(ctx, namespace, ref.Name)
+		if err == nil && wp.Spec != nil && wp.Spec.ObservabilityPlaneRef != nil {
+			return wp.Spec.ObservabilityPlaneRef, nil
+		}
+	case gen.WorkflowPlaneRefKindClusterWorkflowPlane:
+		cwp, err := apiClient.GetClusterWorkflowPlane(ctx, ref.Name)
+		if err == nil && cwp.Spec != nil && cwp.Spec.ObservabilityPlaneRef != nil {
+			return nil, cwp.Spec.ObservabilityPlaneRef
 		}
 	}
 
-	// Fall back to namespaced WorkflowPlane "default"
-	wp, err := apiClient.GetWorkflowPlane(ctx, namespace, defaultPlaneName)
-	if err == nil && wp.Spec != nil && wp.Spec.ObservabilityPlaneRef != nil {
-		return wp.Spec.ObservabilityPlaneRef, nil
-	}
-
-	// Fall back to ClusterWorkflowPlane "default"
-	cwp, err := apiClient.GetClusterWorkflowPlane(ctx, defaultPlaneName)
-	if err == nil && cwp.Spec != nil && cwp.Spec.ObservabilityPlaneRef != nil {
-		return nil, cwp.Spec.ObservabilityPlaneRef
-	}
-
-	// No workflow plane found - try default observability plane directly
 	return nil, nil
 }
 

@@ -13,8 +13,10 @@ import (
 // referenced by Components across all namespaces via ClusterComponentType.
 type ClusterWorkflowSpec struct {
 	// WorkflowPlaneRef references the ClusterWorkflowPlane for this workflow's operations.
-	// If not specified, the controller resolves to the ClusterWorkflowPlane named "default".
+	// Defaults to ClusterWorkflowPlane named "default" when omitted.
 	// +optional
+	// +kubebuilder:default={kind: "ClusterWorkflowPlane", name: "default"}
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.workflowPlaneRef is immutable"
 	WorkflowPlaneRef *ClusterWorkflowPlaneRef `json:"workflowPlaneRef,omitempty"`
 
 	// Parameters defines the developer-facing parameters that can be configured

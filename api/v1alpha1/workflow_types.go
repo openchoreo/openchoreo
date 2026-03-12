@@ -17,10 +17,10 @@ import (
 // PE-controlled parameters should be hardcoded directly in the template.
 type WorkflowSpec struct {
 	// WorkflowPlaneRef references the WorkflowPlane or ClusterWorkflowPlane for this workflow's operations.
-	// If not specified, the controller resolves the workflow plane in the following order:
-	// 1. WorkflowPlane named "default" in the same namespace
-	// 2. ClusterWorkflowPlane named "default" (cluster-scoped fallback)
+	// Defaults to ClusterWorkflowPlane named "default" when omitted.
 	// +optional
+	// +kubebuilder:default={kind: "ClusterWorkflowPlane", name: "default"}
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.workflowPlaneRef is immutable"
 	WorkflowPlaneRef *WorkflowPlaneRef `json:"workflowPlaneRef,omitempty"`
 
 	// Parameters defines the developer-facing parameters that can be configured

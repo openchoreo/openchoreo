@@ -164,11 +164,12 @@ spec:
                 pattern: ^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$
                 type: string
               workflowPlaneRef:
+                default:
+                  kind: ClusterWorkflowPlane
+                  name: default
                 description: |-
                   WorkflowPlaneRef references the WorkflowPlane or ClusterWorkflowPlane for this workflow's operations.
-                  If not specified, the controller resolves the workflow plane in the following order:
-                  1. WorkflowPlane named "default" in the same namespace
-                  2. ClusterWorkflowPlane named "default" (cluster-scoped fallback)
+                  Defaults to ClusterWorkflowPlane named "default" when omitted.
                 properties:
                   kind:
                     description: Kind is the kind of workflow plane (WorkflowPlane
@@ -186,6 +187,9 @@ spec:
                 - kind
                 - name
                 type: object
+                x-kubernetes-validations:
+                - message: spec.workflowPlaneRef is immutable
+                  rule: self == oldSelf
             required:
             - runTemplate
             type: object

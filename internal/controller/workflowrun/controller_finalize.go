@@ -49,9 +49,7 @@ func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.
 	}
 
 	// Fetch the Workflow to get its WorkflowPlaneRef for workflow plane resolution.
-	// If the Workflow is already deleted, fall back to default workflow plane resolution
-	// so we can still clean up resources tracked in status.
-	var workflowPlaneRef *openchoreodevv1alpha1.WorkflowPlaneRef
+	// If the Workflow is already deleted, skip workflow plane cleanup and remove finalizer.
 	workflow := &openchoreodevv1alpha1.Workflow{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      cwRun.Spec.Workflow.Name,
@@ -60,16 +58,10 @@ func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.
 		if !errors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, err
 		}
-		// Workflow is gone; if there are no resources to clean up, remove finalizer immediately
-		if !hasResourcesInStatus(cwRun) {
-			logger.Info("Workflow not found and no resources to clean up, removing finalizer", "workflow", cwRun.Spec.Workflow.Name)
-			return r.removeFinalizer(ctx, cwRun)
-		}
-		// Otherwise, proceed with nil ref (default workflow plane resolution) to attempt cleanup
-		logger.Info("Workflow not found, attempting cleanup with default workflow plane", "workflow", cwRun.Spec.Workflow.Name)
-	} else {
-		workflowPlaneRef = workflow.Spec.WorkflowPlaneRef
+		logger.Info("Workflow not found, removing finalizer without workflow plane cleanup", "workflow", cwRun.Spec.Workflow.Name)
+		return r.removeFinalizer(ctx, cwRun)
 	}
+	workflowPlaneRef := workflow.Spec.WorkflowPlaneRef
 
 	// Get workflow plane client (supports both WorkflowPlane and ClusterWorkflowPlane)
 	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, r.Client, cwRun.Namespace, workflowPlaneRef)
