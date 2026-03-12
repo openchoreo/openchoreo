@@ -128,6 +128,10 @@ func (s *componentReleaseService) CreateComponentRelease(ctx context.Context, na
 	cr.Status = openchoreov1alpha1.ComponentReleaseStatus{}
 
 	if err := s.k8sClient.Create(ctx, cr); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			s.logger.Warn("Component release already exists", "namespace", namespaceName, "componentRelease", cr.Name)
+			return nil, ErrComponentReleaseAlreadyExists
+		}
 		if apierrors.IsInvalid(err) {
 			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
 		}
