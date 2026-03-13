@@ -149,39 +149,45 @@ func sectionRaw(section *v1alpha1.SchemaSection) *runtime.RawExtension {
 
 // isOpenAPIV3Content determines if unmarshaled fields represent standard OpenAPI V3 JSON Schema
 // or shorthand schema format based on content inspection.
-// Returns true if any top-level key is a recognized JSON Schema keyword.
+// Returns true if any top-level key is a structural or compositional JSON Schema keyword that
+// would never appear as a field name in shorthand schemas.
 // This is a temporary bridge for Phase 1 — Phase 2 will remove the shorthand extractor entirely.
+//
+// NOTE: We intentionally exclude generic keywords (type, format, description, default, enum,
+// pattern, title, etc.) because these are valid shorthand field names that would cause
+// misclassification. Only structural/object-level markers that unambiguously indicate
+// OpenAPI V3 content are included.
 func isOpenAPIV3Content(fields map[string]any) bool {
 	if len(fields) == 0 {
 		return true
 	}
 	for key := range fields {
-		if jsonSchemaKeywords[key] {
+		if openAPIStructuralKeywords[key] {
+			return true
+		}
+	}
+	// A top-level "type" with value "object" or "array" is unambiguously OpenAPI V3.
+	// In shorthand, these are not valid type descriptors at the root level.
+	if typeVal, ok := fields["type"].(string); ok {
+		if typeVal == "object" || typeVal == "array" {
 			return true
 		}
 	}
 	return false
 }
 
-// jsonSchemaKeywords is the set of recognized JSON Schema / OpenAPI V3 top-level keywords.
-// If any top-level key matches, the content is treated as OpenAPI V3 rather than shorthand.
-var jsonSchemaKeywords = map[string]bool{
-	// Core schema keywords
-	"type": true, "properties": true, "required": true, "items": true,
+// openAPIStructuralKeywords contains only structural and compositional JSON Schema keywords
+// that unambiguously indicate OpenAPI V3 content. Generic keywords like "type", "format",
+// "description", "default", "enum", "pattern", etc. are excluded because they can also be
+// valid field names in shorthand schemas (e.g., a field named "format" or "description").
+var openAPIStructuralKeywords = map[string]bool{
+	// Structural keywords — define object/array shape
+	"properties": true, "items": true,
 	"additionalProperties": true, "patternProperties": true,
 	// Composition keywords
 	"allOf": true, "oneOf": true, "anyOf": true, "not": true,
-	// Reference keywords
+	// Reference keywords ($ prefix never appears in shorthand field names)
 	"$ref": true, "$defs": true, "$id": true, "$schema": true,
-	// Validation keywords
-	"const": true, "enum": true, "default": true,
-	"minimum": true, "maximum": true, "exclusiveMinimum": true, "exclusiveMaximum": true,
-	"minLength": true, "maxLength": true, "pattern": true,
-	"minItems": true, "maxItems": true, "uniqueItems": true,
-	"minProperties": true, "maxProperties": true, "multipleOf": true,
-	// Metadata keywords
-	"title": true, "description": true, "examples": true, "format": true,
-	"readOnly": true, "writeOnly": true, "deprecated": true,
 	// Kubernetes extensions
 	"x-kubernetes-preserve-unknown-fields": true,
 	"x-kubernetes-int-or-string":           true,
