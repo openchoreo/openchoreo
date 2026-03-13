@@ -13,6 +13,7 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clusterauthzrolebinding"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clusterdataplane"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clusterobservabilityplane"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clustertrait"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clusterworkflow"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/component"
@@ -68,6 +69,7 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		componenttype.NewComponentTypeCmd(),
 		clustercomponenttype.NewClusterComponentTypeCmd(),
 		clusterdataplane.NewClusterDataPlaneCmd(),
+		clusterobservabilityplane.NewClusterObservabilityPlaneCmd(),
 		trait.NewTraitCmd(),
 		clustertrait.NewClusterTraitCmd(),
 		clusterworkflow.NewClusterWorkflowCmd(),

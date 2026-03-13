@@ -654,6 +654,37 @@ This command allows you to:
   occ clusterdataplane delete default`,
 	}
 
+	ClusterObservabilityPlane = Command{
+		Use:     "clusterobservabilityplane",
+		Aliases: []string{"clusterobservabilityplanes", "cop"},
+		Short:   "Manage cluster observability planes",
+		Long:    `Manage cluster-scoped observability planes for OpenChoreo.`,
+	}
+
+	ListClusterObservabilityPlane = Command{
+		Use:   "list",
+		Short: "List cluster observability planes",
+		Long:  `List all cluster-scoped observability planes available across the cluster.`,
+		Example: `  # List all cluster observability planes
+  occ clusterobservabilityplane list`,
+	}
+
+	GetClusterObservabilityPlane = Command{
+		Use:   "get [CLUSTER_OBSERVABILITY_PLANE_NAME]",
+		Short: "Get a cluster observability plane",
+		Long:  `Get a cluster observability plane and display its details in YAML format.`,
+		Example: `  # Get a cluster observability plane
+  occ clusterobservabilityplane get default`,
+	}
+
+	DeleteClusterObservabilityPlane = Command{
+		Use:   "delete [CLUSTER_OBSERVABILITY_PLANE_NAME]",
+		Short: "Delete a cluster observability plane",
+		Long:  `Delete a cluster observability plane by name.`,
+		Example: `  # Delete a cluster observability plane
+  occ clusterobservabilityplane delete default`,
+	}
+
 	ClusterTrait = Command{
 		Use:     "clustertrait",
 		Aliases: []string{"clustertraits"},
