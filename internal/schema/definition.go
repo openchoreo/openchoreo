@@ -26,6 +26,7 @@ const (
 	typeString  = "string"
 	typeInteger = "integer"
 	typeObject  = "object"
+	typeArray   = "array"
 )
 
 // Definition represents a schematized object assembled from one or more field maps.

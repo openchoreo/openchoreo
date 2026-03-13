@@ -269,7 +269,7 @@ func TestOpenAPIV3ToStructural_ArrayItems(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'tags' property")
 	}
-	if tagsProp.Type != "array" {
+	if tagsProp.Type != typeArray {
 		t.Fatalf("expected tags type=array, got %s", tagsProp.Type)
 	}
 }
@@ -405,7 +405,7 @@ func TestOpenAPIV3ToStructural_ArrayOfObjects(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'containers' property")
 	}
-	if containersProp.Type != "array" {
+	if containersProp.Type != typeArray {
 		t.Fatalf("expected containers type=array, got %s", containersProp.Type)
 	}
 	if containersProp.Items == nil {
