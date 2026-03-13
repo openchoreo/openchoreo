@@ -1048,12 +1048,6 @@ openchoreoApi:
           # default: []
           # @schema
           roles:
-            # Admin role with full permissions to all resources
-            - name: admin
-              system: true
-              actions:
-                - "*"
-
             # Backstage catalog provider role for reading catalog data from the control plane
             - name: backstage-catalog-reader
               system: true
@@ -1105,7 +1099,20 @@ openchoreoApi:
                 - "workload:update"
                 - "workflowrun:view"
                 - "workflowrun:update"
+            
+            # Observer service role for resolving resource UIDs
+            - name: observer-resource-reader
+              system: true
+              actions:
+                - "component:view"
+                - "project:view"
+                - "namespace:view"
+                - "environment:view"
 
+            # Admin role with full permissions to all resources
+            - name: admin
+              actions:
+                - "*"
             # Cluster reader role - read-only access to cluster-scoped platform resources.
             # Assign alongside project-level roles to grant visibility into cluster infrastructure
             # (e.g. so developers can see the DataPlanes and BuildPlanes their projects depend on).
@@ -1298,15 +1305,6 @@ openchoreoApi:
                 - "clusterworkflow:update"
                 - "clusterworkflow:delete"
 
-            # Observer service role for resolving resource UIDs
-            - name: observer-resource-reader
-              system: true
-              actions:
-                - "component:view"
-                - "project:view"
-                - "namespace:view"
-                - "environment:view"
-
           # @schema
           # type: array
           # description: Default role-to-entitlement mappings to create at installation
@@ -1375,7 +1373,6 @@ openchoreoApi:
             # Admin mapping - grants admins group full access
             - name: admin-binding
               kind: ClusterAuthzRoleBinding
-              system: true
               roleMappings:
                 - roleRef:
                     name: admin
@@ -1388,7 +1385,6 @@ openchoreoApi:
             # Developer mapping - grants developers group developer access
             - name: developer-binding
               kind: ClusterAuthzRoleBinding
-              system: true
               roleMappings:
                 - roleRef:
                     name: developer
@@ -1401,7 +1397,6 @@ openchoreoApi:
             # PE mapping - grants platform engineers group platform engineer access
             - name: platform-engineer-binding
               kind: ClusterAuthzRoleBinding
-              system: true
               roleMappings:
                 - roleRef:
                     name: platform-engineer
@@ -1414,7 +1409,6 @@ openchoreoApi:
             # SRE mapping - grants SREs group SRE access
             - name: sre-binding
               kind: ClusterAuthzRoleBinding
-              system: true
               roleMappings:
                 - roleRef:
                     name: sre
@@ -1479,7 +1473,6 @@ openchoreoApi:
             # MCP tryout client mapping - grants MCP tryout client full access
             - name: mcp-tryout-client-binding
               kind: ClusterAuthzRoleBinding
-              system: true
               roleMappings:
                 - roleRef:
                     name: admin
