@@ -131,7 +131,8 @@ const (
 
 // Defines values for ComponentTypeSpecAllowedWorkflowsKind.
 const (
-	ComponentTypeSpecAllowedWorkflowsKindWorkflow ComponentTypeSpecAllowedWorkflowsKind = "Workflow"
+	ComponentTypeSpecAllowedWorkflowsKindClusterWorkflow ComponentTypeSpecAllowedWorkflowsKind = "ClusterWorkflow"
+	ComponentTypeSpecAllowedWorkflowsKindWorkflow        ComponentTypeSpecAllowedWorkflowsKind = "Workflow"
 )
 
 // Defines values for ComponentTypeSpecResourcesTargetPlane.
@@ -1380,9 +1381,9 @@ type ComponentTypeSpec struct {
 		Name string `json:"name"`
 	} `json:"allowedTraits,omitempty"`
 
-	// AllowedWorkflows List of allowed Workflow references for this component type
+	// AllowedWorkflows List of allowed Workflow or ClusterWorkflow references for this component type
 	AllowedWorkflows *[]struct {
-		// Kind Kind of the workflow reference. Currently only "Workflow" is supported.
+		// Kind Kind of the workflow reference (Workflow or ClusterWorkflow)
 		Kind *ComponentTypeSpecAllowedWorkflowsKind `json:"kind,omitempty"`
 
 		// Name Name of the workflow resource
@@ -1444,7 +1445,7 @@ type ComponentTypeSpec struct {
 // ComponentTypeSpecAllowedTraitsKind Kind of trait reference
 type ComponentTypeSpecAllowedTraitsKind string
 
-// ComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference. Currently only "Workflow" is supported.
+// ComponentTypeSpecAllowedWorkflowsKind Kind of the workflow reference (Workflow or ClusterWorkflow)
 type ComponentTypeSpecAllowedWorkflowsKind string
 
 // ComponentTypeSpecResourcesTargetPlane Target plane for deployment
