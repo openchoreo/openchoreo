@@ -809,9 +809,9 @@ DPEOF
     log_success "ClusterDataPlane resource created"
 }
 
-# Extract cluster-agent CA and create WorkflowPlane CR
+# Extract cluster-agent CA and create ClusterWorkflowPlane CR
 create_workflowplane_resource() {
-    log_info "Creating WorkflowPlane resource..."
+    log_info "Creating Cluster WorkflowPlane resource..."
 
     # Wait for cluster-agent-tls secret
     local max_attempts=60
@@ -979,8 +979,8 @@ configure_observabilityplane_reference() {
     log_info "Configuring OpenChoreo Data Plane with observabilityplane reference..."
     kubectl patch clusterdataplane default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}' >/dev/null
     if [[ "$ENABLE_WORKFLOW_PLANE" == "true" ]]; then
-        log_info "Configuring OpenChoreo Workflow Plane with observabilityplane reference..."
-        kubectl patch workflowplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}' >/dev/null
+        log_info "Configuring OpenChoreo Cluster Workflow Plane with observabilityplane reference..."
+        kubectl patch clusterworkflowplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}' >/dev/null
     fi
 }
 
@@ -998,9 +998,9 @@ install_registry() {
         "--values" "$HOME/.values-registry.yaml"
 }
 
-# Install OpenChoreo Workflow Plane (optional)
+# Install OpenChoreo Cluster Workflow Plane (optional)
 install_workflow_plane() {
-    log_info "Installing OpenChoreo Workflow Plane..."
+    log_info "Installing OpenChoreo Cluster Workflow Plane..."
     install_helm_chart "openchoreo-workflow-plane" "openchoreo-workflow-plane" "$WORKFLOW_PLANE_NS" "true" "true" "true" "1800" \
         "--values" "$HOME/.values-wp.yaml"
 }
