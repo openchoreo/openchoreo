@@ -9916,6 +9916,8 @@ components:
       required:
         - secretName
         - secretType
+        - workflowPlaneKind
+        - workflowPlaneName
       properties:
         secretName:
           type: string
@@ -9928,6 +9930,17 @@ components:
             - basic-auth
             - ssh-auth
           example: basic-auth
+        workflowPlaneKind:
+          type: string
+          description: Kind of the workflow plane resource
+          enum:
+            - WorkflowPlane
+            - ClusterWorkflowPlane
+          example: WorkflowPlane
+        workflowPlaneName:
+          type: string
+          description: Name of the workflow plane resource
+          example: default
         username:
           type: string
           description: Username for basic authentication (optional)
@@ -9953,6 +9966,14 @@ components:
           type: string
           description: Namespace of the git secret
           example: my-namespace
+        workflowPlaneKind:
+          type: string
+          description: Kind of the workflow plane resource used
+          example: WorkflowPlane
+        workflowPlaneName:
+          type: string
+          description: Name of the workflow plane resource used
+          example: default
 
     GitSecretListResponse:
       type: object

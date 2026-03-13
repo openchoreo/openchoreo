@@ -187,6 +187,12 @@ const (
 	SshAuth   CreateGitSecretRequestSecretType = "ssh-auth"
 )
 
+// Defines values for CreateGitSecretRequestWorkflowPlaneKind.
+const (
+	CreateGitSecretRequestWorkflowPlaneKindClusterWorkflowPlane CreateGitSecretRequestWorkflowPlaneKind = "ClusterWorkflowPlane"
+	CreateGitSecretRequestWorkflowPlaneKindWorkflowPlane        CreateGitSecretRequestWorkflowPlaneKind = "WorkflowPlane"
+)
+
 // Defines values for CreateNamespaceRoleBindingRequestEffect.
 const (
 	CreateNamespaceRoleBindingRequestEffectAllow CreateNamespaceRoleBindingRequestEffect = "allow"
@@ -1617,10 +1623,19 @@ type CreateGitSecretRequest struct {
 
 	// Username Username for basic authentication (optional)
 	Username *string `json:"username,omitempty"`
+
+	// WorkflowPlaneKind Kind of the workflow plane resource
+	WorkflowPlaneKind CreateGitSecretRequestWorkflowPlaneKind `json:"workflowPlaneKind"`
+
+	// WorkflowPlaneName Name of the workflow plane resource
+	WorkflowPlaneName string `json:"workflowPlaneName"`
 }
 
 // CreateGitSecretRequestSecretType Authentication type
 type CreateGitSecretRequestSecretType string
+
+// CreateGitSecretRequestWorkflowPlaneKind Kind of the workflow plane resource
+type CreateGitSecretRequestWorkflowPlaneKind string
 
 // CreateNamespaceRoleBindingRequest Request to create a namespace-scoped role binding (legacy, single mapping only)
 type CreateNamespaceRoleBindingRequest struct {
@@ -2070,6 +2085,12 @@ type GitSecretResponse struct {
 
 	// Namespace Namespace of the git secret
 	Namespace *string `json:"namespace,omitempty"`
+
+	// WorkflowPlaneKind Kind of the workflow plane resource used
+	WorkflowPlaneKind *string `json:"workflowPlaneKind,omitempty"`
+
+	// WorkflowPlaneName Name of the workflow plane resource used
+	WorkflowPlaneName *string `json:"workflowPlaneName,omitempty"`
 }
 
 // HealthInfo Health status for a resource node

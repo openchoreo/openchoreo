@@ -7,18 +7,22 @@ import "context"
 
 // GitSecretInfo represents a git secret resource.
 type GitSecretInfo struct {
-	Name      string
-	Namespace string
+	Name              string
+	Namespace         string
+	WorkflowPlaneKind string
+	WorkflowPlaneName string
 }
 
 // CreateGitSecretParams holds the parameters for creating a git secret.
 type CreateGitSecretParams struct {
-	SecretName string
-	SecretType string
-	Username   string
-	Token      string
-	SSHKey     string
-	SSHKeyID   string
+	SecretName        string
+	SecretType        string
+	Username          string
+	Token             string
+	SSHKey            string
+	SSHKeyID          string
+	WorkflowPlaneKind string
+	WorkflowPlaneName string
 }
 
 // Service defines the git secret operations.

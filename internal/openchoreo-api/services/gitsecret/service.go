@@ -21,13 +21,18 @@ import (
 
 //nolint:gosec // False positive: these are annotation keys and namespace prefixes, not credentials
 const (
-	secretTypeBasicAuth         = "basic-auth"
-	secretTypeSSHAuth           = "ssh-auth"
-	gitSecretTypeAnnotation     = "openchoreo.dev/secret-type"
-	gitSecretTypeValue          = "git-credentials"
-	gitSecretAuthTypeAnnotation = "kubernetes.io/secret-type"
-	ownerNamespaceLabel         = "openchoreo.dev/owner-namespace"
-	gitSecretNamespacePrefix    = "workflows-"
+	secretTypeBasicAuth      = "basic-auth"
+	secretTypeSSHAuth        = "ssh-auth"
+	gitSecretTypeLabel       = "openchoreo.dev/secret-type"
+	gitSecretTypeValue       = "git-credentials"
+	gitSecretAuthTypeLabel   = "kubernetes.io/secret-type"
+	ownerNamespaceLabel      = "openchoreo.dev/owner-namespace"
+	workflowPlaneKindLabel   = "openchoreo.dev/workflow-plane-kind"
+	workflowPlaneNameLabel   = "openchoreo.dev/workflow-plane-name"
+	gitSecretNamespacePrefix = "workflows-"
+
+	workflowPlaneKindWorkflowPlane        = "WorkflowPlane"
+	workflowPlaneKindClusterWorkflowPlane = "ClusterWorkflowPlane"
 )
 
 // getWorkflowNamespace returns the workflow execution namespace for a given control plane namespace.
@@ -64,10 +69,12 @@ func (s *gitSecretService) ListGitSecrets(ctx context.Context, namespaceName str
 
 	secrets := make([]GitSecretInfo, 0, len(secretRefs.Items))
 	for _, ref := range secretRefs.Items {
-		if ref.Annotations[gitSecretTypeAnnotation] == gitSecretTypeValue {
+		if ref.Labels[gitSecretTypeLabel] == gitSecretTypeValue {
 			secrets = append(secrets, GitSecretInfo{
-				Name:      ref.Name,
-				Namespace: ref.Namespace,
+				Name:              ref.Name,
+				Namespace:         ref.Namespace,
+				WorkflowPlaneKind: ref.Labels[workflowPlaneKindLabel],
+				WorkflowPlaneName: ref.Labels[workflowPlaneNameLabel],
 			})
 		}
 	}
@@ -94,46 +101,34 @@ func (s *gitSecretService) CreateGitSecret(ctx context.Context, namespaceName st
 		return nil, fmt.Errorf("failed to check existing secret reference: %w", err)
 	}
 
-	workflowPlane, err := s.getWorkflowPlane(ctx, namespaceName)
+	wpInfo, err := s.resolveWorkflowPlane(ctx, namespaceName, req.WorkflowPlaneKind, req.WorkflowPlaneName)
 	if err != nil {
 		return nil, err
 	}
 
-	if workflowPlane.Spec.SecretStoreRef == nil || workflowPlane.Spec.SecretStoreRef.Name == "" {
-		s.logger.Warn("Workflow plane has no secret store configured", "namespace", namespaceName, "workflowPlane", workflowPlane.Name)
-		return nil, ErrSecretStoreNotConfigured
-	}
-	secretStoreName := workflowPlane.Spec.SecretStoreRef.Name
-
-	workflowPlaneClient, err := kubernetesClient.GetK8sClientFromWorkflowPlane(s.wpClientMgr, workflowPlane, s.gatewayURL)
-	if err != nil {
-		s.logger.Error("Failed to get workflow plane client", "error", err, "namespace", namespaceName, "workflowPlane", workflowPlane.Name)
-		return nil, fmt.Errorf("failed to get workflow plane client: %w", err)
-	}
-
 	workflowNamespace := getWorkflowNamespace(namespaceName)
-	if err := s.ensureNamespaceExists(ctx, workflowPlaneClient, workflowNamespace); err != nil {
+	if err := s.ensureNamespaceExists(ctx, wpInfo.client, workflowNamespace); err != nil {
 		return nil, err
 	}
 
 	// Create or update K8s Secret in workflow plane using Server-Side Apply
 	secret := s.buildGitSecret(req.SecretName, namespaceName, workflowNamespace, req.SecretType, req.Username, req.Token, req.SSHKey, req.SSHKeyID)
-	if err := workflowPlaneClient.Patch(ctx, secret, client.Apply, client.ForceOwnership, client.FieldOwner("openchoreo-api")); err != nil {
+	if err := wpInfo.client.Patch(ctx, secret, client.Apply, client.ForceOwnership, client.FieldOwner("openchoreo-api")); err != nil {
 		s.logger.Error("Failed to apply workflow plane secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to apply workflow plane secret: %w", err)
 	}
 	s.logger.Debug("Successfully applied K8s secret in workflow plane", "namespace", workflowNamespace, "secret", req.SecretName)
 
 	// Create or update PushSecret in workflow plane using Server-Side Apply
-	pushSecret := s.createPushSecret(req.SecretName, secretStoreName, namespaceName, workflowNamespace, req.SecretType, req.Username, req.SSHKeyID)
-	if err := workflowPlaneClient.Patch(ctx, pushSecret, client.Apply, client.ForceOwnership, client.FieldOwner("openchoreo-api")); err != nil {
+	pushSecret := s.createPushSecret(req.SecretName, wpInfo.secretStoreName, namespaceName, workflowNamespace, req.SecretType, req.Username, req.SSHKeyID)
+	if err := wpInfo.client.Patch(ctx, pushSecret, client.Apply, client.ForceOwnership, client.FieldOwner("openchoreo-api")); err != nil {
 		s.logger.Error("Failed to apply push secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to apply push secret: %w", err)
 	}
 	s.logger.Debug("Successfully applied PushSecret in workflow plane", "namespace", workflowNamespace, "secret", req.SecretName)
 
 	// Create SecretReference in control plane
-	secretReference := s.buildSecretReference(namespaceName, req.SecretName, req.SecretType, req.Username, req.SSHKeyID)
+	secretReference := s.buildSecretReference(namespaceName, req.SecretName, req.SecretType, req.Username, req.SSHKeyID, req.WorkflowPlaneKind, req.WorkflowPlaneName)
 	if err := s.k8sClient.Create(ctx, secretReference); err != nil {
 		s.logger.Error("Failed to create secret reference", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to create secret reference: %w", err)
@@ -141,8 +136,10 @@ func (s *gitSecretService) CreateGitSecret(ctx context.Context, namespaceName st
 
 	s.logger.Info("Successfully created git secret", "namespace", namespaceName, "secret", req.SecretName, "type", req.SecretType)
 	return &GitSecretInfo{
-		Name:      req.SecretName,
-		Namespace: namespaceName,
+		Name:              req.SecretName,
+		Namespace:         namespaceName,
+		WorkflowPlaneKind: req.WorkflowPlaneKind,
+		WorkflowPlaneName: req.WorkflowPlaneName,
 	}, nil
 }
 
@@ -160,19 +157,20 @@ func (s *gitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, s
 		return fmt.Errorf("failed to get secret reference: %w", err)
 	}
 
-	if secretRef.Annotations[gitSecretTypeAnnotation] != gitSecretTypeValue {
+	if secretRef.Labels[gitSecretTypeLabel] != gitSecretTypeValue {
 		return ErrGitSecretNotFound
 	}
 
-	workflowPlane, err := s.getWorkflowPlane(ctx, namespaceName)
-	if err != nil {
-		return err
+	wpKind := secretRef.Labels[workflowPlaneKindLabel]
+	wpName := secretRef.Labels[workflowPlaneNameLabel]
+	if wpKind == "" || wpName == "" {
+		s.logger.Error("SecretReference missing workflow plane labels", "namespace", namespaceName, "secret", secretName)
+		return fmt.Errorf("secret reference is missing workflow plane labels")
 	}
 
-	workflowPlaneClient, err := kubernetesClient.GetK8sClientFromWorkflowPlane(s.wpClientMgr, workflowPlane, s.gatewayURL)
+	wpInfo, err := s.resolveWorkflowPlane(ctx, namespaceName, wpKind, wpName)
 	if err != nil {
-		s.logger.Error("Failed to get workflow plane client", "error", err, "namespace", namespaceName, "workflowPlane", workflowPlane.Name)
-		return fmt.Errorf("failed to get workflow plane client: %w", err)
+		return err
 	}
 
 	workflowNamespace := getWorkflowNamespace(namespaceName)
@@ -183,7 +181,7 @@ func (s *gitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, s
 	pushSecret.SetKind("PushSecret")
 	pushSecret.SetName(secretName)
 	pushSecret.SetNamespace(workflowNamespace)
-	if err := workflowPlaneClient.Delete(ctx, pushSecret); err != nil {
+	if err := wpInfo.client.Delete(ctx, pushSecret); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			s.logger.Error("Failed to delete push secret", "error", err, "namespace", namespaceName, "secret", secretName)
 			return fmt.Errorf("failed to delete push secret: %w", err)
@@ -198,7 +196,7 @@ func (s *gitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, s
 			Namespace: workflowNamespace,
 		},
 	}
-	if err := workflowPlaneClient.Delete(ctx, secret); err != nil {
+	if err := wpInfo.client.Delete(ctx, secret); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			s.logger.Error("Failed to delete workflow plane secret", "error", err, "namespace", namespaceName, "secret", secretName)
 			return fmt.Errorf("failed to delete workflow plane secret: %w", err)
@@ -218,19 +216,80 @@ func (s *gitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, s
 	return nil
 }
 
-func (s *gitSecretService) getWorkflowPlane(ctx context.Context, namespaceName string) (*openchoreov1alpha1.WorkflowPlane, error) {
-	var workflowPlanes openchoreov1alpha1.WorkflowPlaneList
-	if err := s.k8sClient.List(ctx, &workflowPlanes, client.InNamespace(namespaceName)); err != nil {
-		s.logger.Error("Failed to list workflow planes", "error", err, "namespace", namespaceName)
-		return nil, fmt.Errorf("failed to list workflow planes: %w", err)
+// workflowPlaneInfo holds the resolved workflow plane details needed by the service.
+type workflowPlaneInfo struct {
+	client          client.Client
+	secretStoreName string
+}
+
+// resolveWorkflowPlane fetches the workflow plane by kind and name, validates it, and returns a client.
+func (s *gitSecretService) resolveWorkflowPlane(ctx context.Context, namespaceName, kind, name string) (*workflowPlaneInfo, error) {
+	switch kind {
+	case workflowPlaneKindWorkflowPlane:
+		return s.resolveNamespacedWorkflowPlane(ctx, namespaceName, name)
+	case workflowPlaneKindClusterWorkflowPlane:
+		return s.resolveClusterWorkflowPlane(ctx, name)
+	default:
+		return nil, &services.ValidationError{Msg: fmt.Sprintf("unsupported workflow plane kind: %s", kind)}
+	}
+}
+
+func (s *gitSecretService) resolveNamespacedWorkflowPlane(ctx context.Context, namespaceName, name string) (*workflowPlaneInfo, error) {
+	wp := &openchoreov1alpha1.WorkflowPlane{}
+	key := client.ObjectKey{Name: name, Namespace: namespaceName}
+	if err := s.k8sClient.Get(ctx, key, wp); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("WorkflowPlane not found", "namespace", namespaceName, "name", name)
+			return nil, ErrWorkflowPlaneNotFound
+		}
+		s.logger.Error("Failed to get WorkflowPlane", "error", err, "namespace", namespaceName, "name", name)
+		return nil, fmt.Errorf("failed to get workflow plane: %w", err)
 	}
 
-	if len(workflowPlanes.Items) == 0 {
-		s.logger.Warn("No workflow planes found", "namespace", namespaceName)
-		return nil, ErrWorkflowPlaneNotFound
+	if wp.Spec.SecretStoreRef == nil || wp.Spec.SecretStoreRef.Name == "" {
+		s.logger.Warn("WorkflowPlane has no secret store configured", "namespace", namespaceName, "name", name)
+		return nil, ErrSecretStoreNotConfigured
 	}
 
-	return &workflowPlanes.Items[0], nil
+	wpClient, err := kubernetesClient.GetK8sClientFromWorkflowPlane(s.wpClientMgr, wp, s.gatewayURL)
+	if err != nil {
+		s.logger.Error("Failed to get workflow plane client", "error", err, "namespace", namespaceName, "name", name)
+		return nil, fmt.Errorf("failed to get workflow plane client: %w", err)
+	}
+
+	return &workflowPlaneInfo{
+		client:          wpClient,
+		secretStoreName: wp.Spec.SecretStoreRef.Name,
+	}, nil
+}
+
+func (s *gitSecretService) resolveClusterWorkflowPlane(ctx context.Context, name string) (*workflowPlaneInfo, error) {
+	cwp := &openchoreov1alpha1.ClusterWorkflowPlane{}
+	key := client.ObjectKey{Name: name}
+	if err := s.k8sClient.Get(ctx, key, cwp); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("ClusterWorkflowPlane not found", "name", name)
+			return nil, ErrWorkflowPlaneNotFound
+		}
+		s.logger.Error("Failed to get ClusterWorkflowPlane", "error", err, "name", name)
+		return nil, fmt.Errorf("failed to get cluster workflow plane: %w", err)
+	}
+
+	if cwp.Spec.SecretStoreRef == nil || cwp.Spec.SecretStoreRef.Name == "" {
+		s.logger.Warn("ClusterWorkflowPlane has no secret store configured", "name", name)
+		return nil, ErrSecretStoreNotConfigured
+	}
+
+	wpClient, err := kubernetesClient.GetK8sClientFromClusterWorkflowPlane(s.wpClientMgr, cwp, s.gatewayURL)
+	if err != nil {
+		s.logger.Error("Failed to get cluster workflow plane client", "error", err, "name", name)
+		return nil, fmt.Errorf("failed to get cluster workflow plane client: %w", err)
+	}
+
+	return &workflowPlaneInfo{
+		client:          wpClient,
+		secretStoreName: cwp.Spec.SecretStoreRef.Name,
+	}, nil
 }
 
 func (s *gitSecretService) buildGitSecret(secretName, ownerNamespace, workflowNamespace, secretType, username, token, sshKey, sshKeyID string) *corev1.Secret {
@@ -272,7 +331,7 @@ func (s *gitSecretService) buildGitSecret(secretName, ownerNamespace, workflowNa
 	}
 }
 
-func (s *gitSecretService) buildSecretReference(namespaceName, secretName, secretType, username, sshKeyID string) *openchoreov1alpha1.SecretReference {
+func (s *gitSecretService) buildSecretReference(namespaceName, secretName, secretType, username, sshKeyID, wpKind, wpName string) *openchoreov1alpha1.SecretReference {
 	remoteKey := fmt.Sprintf("secret/%s/git/%s", namespaceName, secretName)
 
 	var k8sSecretType corev1.SecretType
@@ -328,9 +387,11 @@ func (s *gitSecretService) buildSecretReference(namespaceName, secretName, secre
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: namespaceName,
-			Annotations: map[string]string{
-				gitSecretAuthTypeAnnotation: secretType,
-				gitSecretTypeAnnotation:     gitSecretTypeValue,
+			Labels: map[string]string{
+				gitSecretTypeLabel:     gitSecretTypeValue,
+				gitSecretAuthTypeLabel: secretType,
+				workflowPlaneKindLabel: wpKind,
+				workflowPlaneNameLabel: wpName,
 			},
 		},
 		Spec: openchoreov1alpha1.SecretReferenceSpec{

@@ -29,10 +29,19 @@ func (h *Handler) ListGitSecrets(
 	for _, item := range items {
 		name := item.Name
 		ns := item.Namespace
-		respItems = append(respItems, gen.GitSecretResponse{
+		wpKind := item.WorkflowPlaneKind
+		wpName := item.WorkflowPlaneName
+		resp := gen.GitSecretResponse{
 			Name:      &name,
 			Namespace: &ns,
-		})
+		}
+		if wpKind != "" {
+			resp.WorkflowPlaneKind = &wpKind
+		}
+		if wpName != "" {
+			resp.WorkflowPlaneName = &wpName
+		}
+		respItems = append(respItems, resp)
 	}
 
 	totalCount := len(respItems)
@@ -54,8 +63,10 @@ func (h *Handler) CreateGitSecret(
 	}
 
 	params := &gitsecretsvc.CreateGitSecretParams{
-		SecretName: request.Body.SecretName,
-		SecretType: string(request.Body.SecretType),
+		SecretName:        request.Body.SecretName,
+		SecretType:        string(request.Body.SecretType),
+		WorkflowPlaneKind: string(request.Body.WorkflowPlaneKind),
+		WorkflowPlaneName: request.Body.WorkflowPlaneName,
 	}
 	if request.Body.Username != nil {
 		params.Username = *request.Body.Username
@@ -77,9 +88,13 @@ func (h *Handler) CreateGitSecret(
 
 	name := result.Name
 	ns := result.Namespace
+	wpKind := result.WorkflowPlaneKind
+	wpName := result.WorkflowPlaneName
 	return gen.CreateGitSecret201JSONResponse(gen.GitSecretResponse{
-		Name:      &name,
-		Namespace: &ns,
+		Name:              &name,
+		Namespace:         &ns,
+		WorkflowPlaneKind: &wpKind,
+		WorkflowPlaneName: &wpName,
 	}), nil
 }
 
