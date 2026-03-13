@@ -847,9 +847,9 @@ BPEOF
     log_success "WorkflowPlane resource created"
 }
 
-# Extract cluster-agent CA and create ObservabilityPlane CR
+# Extract cluster-agent CA and create ClusterObservabilityPlane CR
 create_observabilityplane_resource() {
-    log_info "Creating ObservabilityPlane resource..."
+    log_info "Creating ClusterObservabilityPlane resource..."
 
     # Wait for cluster-agent-tls secret
     local max_attempts=60
@@ -868,10 +868,9 @@ create_observabilityplane_resource() {
 
     kubectl apply -f - >/dev/null <<OPEOF
 apiVersion: openchoreo.dev/v1alpha1
-kind: ObservabilityPlane
+kind: ClusterObservabilityPlane
 metadata:
   name: default
-  namespace: default
 spec:
   planeID: default
   clusterAgent:
@@ -881,7 +880,7 @@ $(echo "$agent_ca" | sed 's/^/        /')
   observerURL: http://observer.openchoreo.localhost:11080
 OPEOF
 
-    log_success "ObservabilityPlane resource created"
+    log_success "ClusterObservabilityPlane resource created"
 }
 
 # Create backstage secret with required credentials

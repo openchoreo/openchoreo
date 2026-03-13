@@ -3142,9 +3142,9 @@ rca:
   # @schema
   # type: string
   # description: Observer API base URL
-  # default: ""
+  # default: "http://observer:8080"
   # @schema
-  observerApiUrl: ""
+  observerApiUrl: "http://observer:8080"
 
   # @schema
   # type: string

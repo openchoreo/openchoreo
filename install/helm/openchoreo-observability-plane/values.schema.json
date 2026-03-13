@@ -3769,7 +3769,7 @@
           "type": "object"
         },
         "observerApiUrl": {
-          "default": "",
+          "default": "http://observer:8080",
           "description": "Observer API base URL",
           "title": "observerApiUrl",
           "type": "string"
