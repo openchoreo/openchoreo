@@ -685,6 +685,37 @@ This command allows you to:
   occ clusterobservabilityplane delete default`,
 	}
 
+	ClusterWorkflowPlane = Command{
+		Use:     "clusterworkflowplane",
+		Aliases: []string{"clusterworkflowplanes", "cwp"},
+		Short:   "Manage cluster workflow planes",
+		Long:    `Manage cluster-scoped workflow planes for OpenChoreo.`,
+	}
+
+	ListClusterWorkflowPlane = Command{
+		Use:   "list",
+		Short: "List cluster workflow planes",
+		Long:  `List all cluster-scoped workflow planes available across the cluster.`,
+		Example: `  # List all cluster workflow planes
+  occ clusterworkflowplane list`,
+	}
+
+	GetClusterWorkflowPlane = Command{
+		Use:   "get [CLUSTER_WORKFLOW_PLANE_NAME]",
+		Short: "Get a cluster workflow plane",
+		Long:  `Get a cluster workflow plane and display its details in YAML format.`,
+		Example: `  # Get a cluster workflow plane
+  occ clusterworkflowplane get default`,
+	}
+
+	DeleteClusterWorkflowPlane = Command{
+		Use:   "delete [CLUSTER_WORKFLOW_PLANE_NAME]",
+		Short: "Delete a cluster workflow plane",
+		Long:  `Delete a cluster workflow plane by name.`,
+		Example: `  # Delete a cluster workflow plane
+  occ clusterworkflowplane delete default`,
+	}
+
 	ClusterTrait = Command{
 		Use:     "clustertrait",
 		Aliases: []string{"clustertraits"},

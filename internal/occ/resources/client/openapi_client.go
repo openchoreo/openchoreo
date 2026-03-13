@@ -1200,6 +1200,33 @@ func (c *Client) GetClusterWorkflowPlane(ctx context.Context, clusterWorkflowPla
 	return resp.JSON200, nil
 }
 
+// ListClusterWorkflowPlanes retrieves all cluster-scoped workflow planes
+func (c *Client) ListClusterWorkflowPlanes(ctx context.Context, params *gen.ListClusterWorkflowPlanesParams) (*gen.ClusterWorkflowPlaneList, error) {
+	if params == nil {
+		params = &gen.ListClusterWorkflowPlanesParams{}
+	}
+	resp, err := c.client.ListClusterWorkflowPlanesWithResponse(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster workflow planes: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteClusterWorkflowPlane deletes a cluster workflow plane
+func (c *Client) DeleteClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) error {
+	resp, err := c.client.DeleteClusterWorkflowPlaneWithResponse(ctx, clusterWorkflowPlaneName)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster workflow plane: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
+}
+
 // ListClusterObservabilityPlanes retrieves all cluster-scoped observability planes
 func (c *Client) ListClusterObservabilityPlanes(ctx context.Context, params *gen.ListClusterObservabilityPlanesParams) (*gen.ClusterObservabilityPlaneList, error) {
 	if params == nil {
