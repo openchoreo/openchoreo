@@ -280,6 +280,28 @@ func (cp *Component) deployComponent(ctx context.Context, c *client.Client, para
 		},
 	}
 
+	// Check if a binding already exists for the lowest environment
+	existing, err := c.GetReleaseBinding(ctx, params.Namespace, bindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	if existing != nil {
+		// Update existing binding with the new release
+		existing.Spec.ReleaseName = rb.Spec.ReleaseName
+
+		// Apply overrides if provided
+		if len(params.Set) > 0 {
+			merged, err := mergeOverridesWithBinding(existing, params.Set)
+			if err != nil {
+				return nil, fmt.Errorf("failed to merge overrides: %w", err)
+			}
+			existing = merged
+		}
+
+		return c.UpdateReleaseBinding(ctx, params.Namespace, bindingName, *existing)
+	}
+
 	// Apply overrides if provided
 	if len(params.Set) > 0 {
 		merged, err := mergeOverridesWithBinding(&rb, params.Set)
@@ -289,12 +311,7 @@ func (cp *Component) deployComponent(ctx context.Context, c *client.Client, para
 		rb = *merged
 	}
 
-	binding, err := c.CreateReleaseBinding(ctx, params.Namespace, rb)
-	if err != nil {
-		return nil, err
-	}
-
-	return binding, nil
+	return c.CreateReleaseBinding(ctx, params.Namespace, rb)
 }
 
 // promoteComponent promotes a component to the target environment
