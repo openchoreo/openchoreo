@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"log/slog"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -20,6 +22,18 @@ import (
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
+
+// workflowPlaneClient bundles a workflow plane k8s client with the identity
+// information required to route gateway calls (pod logs, events) to the
+// correct agent proxy URL. For namespace-scoped WorkflowPlanes the
+// planeNamespace is the CR namespace; for cluster-scoped ClusterWorkflowPlanes
+// it is "_cluster".
+type workflowPlaneClient struct {
+	client         client.Client
+	planeID        string
+	planeNamespace string
+	planeName      string
+}
 
 // WorkflowPlaneService handles workflow plane-related business logic
 type WorkflowPlaneService struct {
@@ -52,7 +66,8 @@ func (s *WorkflowPlaneService) getWorkflowPlane(ctx context.Context, namespaceNa
 	// Check if any workflow planes exist
 	if len(workflowPlanes.Items) == 0 {
 		s.logger.Warn("No workflow planes found", "namespace", namespaceName)
-		return nil, fmt.Errorf("no workflow planes found for namespace: %s", namespaceName)
+		// Treat absence of any WorkflowPlane in the namespace as a Kubernetes-style NotFound error
+		return nil, apierrors.NewNotFound(schema.GroupResource{Resource: "workflowplanes"}, namespaceName)
 	}
 
 	// Return the first workflow plane (0th index)
@@ -77,6 +92,103 @@ func (s *WorkflowPlaneService) GetWorkflowPlane(ctx context.Context, namespaceNa
 	}
 
 	return workflowPlane, nil
+}
+
+// getClusterWorkflowPlane retrieves the default-named ClusterWorkflowPlane (cluster-scoped) without auth checks.
+func (s *WorkflowPlaneService) getClusterWorkflowPlane(ctx context.Context) (*openchoreov1alpha1.ClusterWorkflowPlane, error) {
+	var list openchoreov1alpha1.ClusterWorkflowPlaneList
+	if err := s.k8sClient.List(ctx, &list); err != nil {
+		s.logger.Error("Failed to list cluster workflow planes", "error", err)
+		return nil, fmt.Errorf("failed to list cluster workflow planes: %w", err)
+	}
+	if len(list.Items) == 0 {
+		s.logger.Warn("No cluster workflow planes found")
+		return nil, fmt.Errorf("no cluster workflow planes found")
+	}
+	// Prefer the default-named plane if present to avoid relying on list ordering.
+	for i := range list.Items {
+		if list.Items[i].Name == controller.DefaultPlaneName {
+			cwp := &list.Items[i]
+			s.logger.Debug("Found default-named cluster workflow plane", "name", cwp.Name)
+			return cwp, nil
+		}
+	}
+
+	// No default-named plane found; return the first item.
+	s.logger.Warn(
+		"No default-named cluster workflow plane found, falling back to first item",
+		"defaultName", controller.DefaultPlaneName,
+		"count", len(list.Items),
+	)
+	cwp := &list.Items[0]
+	s.logger.Debug("Falling back to first cluster workflow plane", "name", cwp.Name)
+	return cwp, nil
+}
+
+// GetClusterWorkflowPlaneClient creates and returns a Kubernetes client for the cluster workflow plane.
+func (s *WorkflowPlaneService) GetClusterWorkflowPlaneClient(ctx context.Context, gatewayURL string) (client.Client, error) {
+	cwp, err := s.getClusterWorkflowPlane(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster workflow plane: %w", err)
+	}
+	c, err := kubernetesClient.GetK8sClientFromClusterWorkflowPlane(s.wpClientMgr, cwp, gatewayURL)
+	if err != nil {
+		s.logger.Error("Failed to create cluster workflow plane client", "error", err)
+		return nil, fmt.Errorf("failed to create cluster workflow plane client: %w", err)
+	}
+	s.logger.Debug("Created cluster workflow plane client", "cluster", cwp.Name)
+	return c, nil
+}
+
+// getWorkflowPlaneClientWithFallback tries to get a namespace-scoped WorkflowPlane client first,
+// falling back to the cluster-scoped ClusterWorkflowPlane when none exists. Returns a
+// workflowPlaneClient struct with the client and plane identity needed for gateway calls.
+func (s *WorkflowPlaneService) getWorkflowPlaneClientWithFallback(ctx context.Context, namespaceName string, gatewayURL string) (*workflowPlaneClient, error) {
+	// Try namespace-scoped WorkflowPlane first
+	wp, err := s.getWorkflowPlane(ctx, namespaceName)
+	if err == nil {
+		planeID := wp.Spec.PlaneID
+		if planeID == "" {
+			planeID = wp.Name
+		}
+		c, err := kubernetesClient.GetK8sClientFromWorkflowPlane(s.wpClientMgr, wp, gatewayURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create workflow plane client: %w", err)
+		}
+		return &workflowPlaneClient{
+			client:         c,
+			planeID:        planeID,
+			planeNamespace: wp.Namespace,
+			planeName:      wp.Name,
+		}, nil
+	}
+
+	// Only fall back to the cluster-scoped plane when the namespace-scoped plane is actually not found.
+	if !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get namespace workflow plane: %w", err)
+	}
+
+	s.logger.Debug("No namespace-scoped workflow plane, falling back to cluster workflow plane", "namespace", namespaceName, "error", err)
+
+	// Fall back to cluster-scoped ClusterWorkflowPlane
+	cwp, err := s.getClusterWorkflowPlane(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get any workflow plane for namespace %s: %w", namespaceName, err)
+	}
+	planeID := cwp.Spec.PlaneID
+	if planeID == "" {
+		planeID = cwp.Name
+	}
+	c, err := kubernetesClient.GetK8sClientFromClusterWorkflowPlane(s.wpClientMgr, cwp, gatewayURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cluster workflow plane client: %w", err)
+	}
+	return &workflowPlaneClient{
+		client:         c,
+		planeID:        planeID,
+		planeNamespace: "_cluster",
+		planeName:      cwp.Name,
+	}, nil
 }
 
 // GetWorkflowPlaneClient creates and returns a Kubernetes client for the workflow plane cluster
@@ -189,14 +301,14 @@ func (s *WorkflowPlaneService) ArgoWorkflowExists(
 		return false
 	}
 
-	wpClient, err := s.GetWorkflowPlaneClient(ctx, namespaceName, gatewayURL)
+	wpc, err := s.getWorkflowPlaneClientWithFallback(ctx, namespaceName, gatewayURL)
 	if err != nil {
 		s.logger.Debug("Failed to get workflow plane client for workflow existence check", "error", err)
 		return false
 	}
 
 	var argoWorkflow argoproj.Workflow
-	if err := wpClient.Get(ctx, types.NamespacedName{
+	if err := wpc.client.Get(ctx, types.NamespacedName{
 		Name:      runReference.Name,
 		Namespace: runReference.Namespace,
 	}, &argoWorkflow); err != nil {

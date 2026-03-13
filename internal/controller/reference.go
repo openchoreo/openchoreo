@@ -544,11 +544,18 @@ func (r *WorkflowResult) GetWorkflowSpec() openchoreov1alpha1.WorkflowSpec {
 			ExternalRefs:       r.ClusterWorkflow.Spec.ExternalRefs,
 			TTLAfterCompletion: r.ClusterWorkflow.Spec.TTLAfterCompletion,
 		}
-		// WorkflowPlaneRef is always set by CRD defaulting
+		// Map ClusterWorkflowPlaneRef to WorkflowPlaneRef, defaulting to ClusterWorkflowPlane "default"
+		// when the field is omitted (CRD defaulting webhook may not have run).
 		if r.ClusterWorkflow.Spec.WorkflowPlaneRef != nil {
 			spec.WorkflowPlaneRef = &openchoreov1alpha1.WorkflowPlaneRef{
 				Kind: openchoreov1alpha1.WorkflowPlaneRefKind(r.ClusterWorkflow.Spec.WorkflowPlaneRef.Kind),
 				Name: r.ClusterWorkflow.Spec.WorkflowPlaneRef.Name,
+			}
+		} else {
+			// Default to the cluster-scoped WorkflowPlane named "default"
+			spec.WorkflowPlaneRef = &openchoreov1alpha1.WorkflowPlaneRef{
+				Kind: openchoreov1alpha1.WorkflowPlaneRefKindClusterWorkflowPlane,
+				Name: DefaultPlaneName,
 			}
 		}
 		return spec

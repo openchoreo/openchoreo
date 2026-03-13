@@ -1329,8 +1329,9 @@ func TestWorkflowResult_GetWorkflowSpec_FromClusterWorkflow(t *testing.T) {
 }
 
 func TestWorkflowResult_GetWorkflowSpec_FromClusterWorkflow_NilWorkflowPlaneRef(t *testing.T) {
-	// With CRD defaulting, WorkflowPlaneRef should always be set.
-	// When nil (e.g., legacy resources), GetWorkflowSpec returns nil WorkflowPlaneRef.
+	// When ClusterWorkflow omits WorkflowPlaneRef (e.g., legacy or before defaulting webhook),
+	// GetWorkflowSpec defaults to ClusterWorkflowPlane "default" so ResolveWorkflowPlane
+	// always receives a non-nil ref.
 	result := &WorkflowResult{
 		ClusterWorkflow: &openchoreov1alpha1.ClusterWorkflow{
 			ObjectMeta: metav1.ObjectMeta{Name: "cwf-no-wp"},
@@ -1342,7 +1343,9 @@ func TestWorkflowResult_GetWorkflowSpec_FromClusterWorkflow_NilWorkflowPlaneRef(
 
 	spec := result.GetWorkflowSpec()
 	assert.Equal(t, "1h", spec.TTLAfterCompletion)
-	assert.Nil(t, spec.WorkflowPlaneRef, "nil ClusterWorkflow WorkflowPlaneRef should remain nil")
+	require.NotNil(t, spec.WorkflowPlaneRef)
+	assert.Equal(t, openchoreov1alpha1.WorkflowPlaneRefKindClusterWorkflowPlane, spec.WorkflowPlaneRef.Kind)
+	assert.Equal(t, "default", spec.WorkflowPlaneRef.Name)
 }
 
 func TestWorkflowResult_GetWorkflowSpec_Empty(t *testing.T) {

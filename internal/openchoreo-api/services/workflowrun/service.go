@@ -381,10 +381,13 @@ func (s *workflowRunService) resolveWorkflowPlane(ctx context.Context, namespace
 		return workflowPlaneResult.WorkflowPlane, nil
 	}
 	if workflowPlaneResult.ClusterWorkflowPlane != nil {
-		// Build a facade WorkflowPlane from ClusterWorkflowPlane for the gateway client
+		// Build a facade WorkflowPlane from ClusterWorkflowPlane for the gateway client.
+		// Namespace must be "_cluster" for cluster-scoped planes so the gateway proxy
+		// constructs the correct URL path segment.
 		return &openchoreov1alpha1.WorkflowPlane{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: workflowPlaneResult.ClusterWorkflowPlane.Name,
+				Name:      workflowPlaneResult.ClusterWorkflowPlane.Name,
+				Namespace: "_cluster",
 			},
 			Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 				PlaneID: workflowPlaneResult.ClusterWorkflowPlane.Spec.PlaneID,

@@ -459,8 +459,8 @@ func (s *WorkflowRunService) getArgoWorkflowRunLogs(
 	logger := s.logger.With("namespace", namespaceName, "runReference", runReference, "step", stepName, "sinceSeconds", sinceSeconds)
 	logger.Debug("Getting Argo workflow run logs")
 
-	// Get workflow plane client
-	wpClient, err := s.workflowPlaneService.GetWorkflowPlaneClient(ctx, namespaceName, gatewayURL)
+	// Get workflow plane client (with fallback to cluster-scoped)
+	wpc, err := s.workflowPlaneService.getWorkflowPlaneClientWithFallback(ctx, namespaceName, gatewayURL)
 	if err != nil {
 		logger.Error("Failed to get workflow plane client", "error", err)
 		return nil, fmt.Errorf("failed to get workflow plane client: %w", err)
@@ -468,7 +468,7 @@ func (s *WorkflowRunService) getArgoWorkflowRunLogs(
 
 	// Get Argo Workflow from workflow plane
 	var argoWorkflow argoproj.Workflow
-	if err := wpClient.Get(ctx, types.NamespacedName{
+	if err := wpc.client.Get(ctx, types.NamespacedName{
 		Name:      runReference.Name,
 		Namespace: runReference.Namespace,
 	}, &argoWorkflow); err != nil {
@@ -481,22 +481,15 @@ func (s *WorkflowRunService) getArgoWorkflowRunLogs(
 	}
 
 	// Get pods for the workflow/step
-	pods, err := s.getArgoWorkflowPodsForLogs(ctx, wpClient, &argoWorkflow, stepName)
+	pods, err := s.getArgoWorkflowPodsForLogs(ctx, wpc.client, &argoWorkflow, stepName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow pods: %w", err)
-	}
-
-	// Get workflow plane resource
-	workflowPlane, err := s.workflowPlaneService.GetWorkflowPlane(ctx, namespaceName)
-	if err != nil {
-		logger.Error("Failed to get workflow plane", "error", err)
-		return nil, fmt.Errorf("failed to get workflow plane: %w", err)
 	}
 
 	// Get logs from pods and convert to structured format
 	allLogEntries := make([]models.WorkflowRunLogEntry, 0)
 	for _, pod := range pods {
-		podLogs, err := s.getArgoWorkflowPodLogs(ctx, workflowPlane, &pod, sinceSeconds)
+		podLogs, err := s.getArgoWorkflowPodLogs(ctx, wpc, &pod, sinceSeconds)
 		if err != nil {
 			logger.Warn("Failed to get logs from pod", "pod", pod.Name, "error", err)
 			return nil, fmt.Errorf("failed to get logs from pod: %w", err)
@@ -581,7 +574,7 @@ func (s *WorkflowRunService) getArgoWorkflowPodsForLogs(ctx context.Context, wpC
 }
 
 // getArgoWorkflowPodLogs retrieves logs from an Argo Workflow pod using the gateway client
-func (s *WorkflowRunService) getArgoWorkflowPodLogs(ctx context.Context, workflowPlane *openchoreov1alpha1.WorkflowPlane, pod *corev1.Pod, sinceSeconds *int64) (string, error) {
+func (s *WorkflowRunService) getArgoWorkflowPodLogs(ctx context.Context, wpc *workflowPlaneClient, pod *corev1.Pod, sinceSeconds *int64) (string, error) {
 	if s.gwClient == nil {
 		return "", fmt.Errorf("gateway client is not configured")
 	}
@@ -607,7 +600,7 @@ func (s *WorkflowRunService) getArgoWorkflowPodLogs(ctx context.Context, workflo
 			allLogs.WriteString("\n---\n")
 		}
 
-		logs, err := s.gwClient.GetPodLogsFromPlane(ctx, "workflowplane", workflowPlane.Spec.PlaneID, workflowPlane.Namespace, workflowPlane.Name,
+		logs, err := s.gwClient.GetPodLogsFromPlane(ctx, "workflowplane", wpc.planeID, wpc.planeNamespace, wpc.planeName,
 			&gatewayClient.PodReference{
 				Namespace: pod.Namespace,
 				Name:      pod.Name,
@@ -674,8 +667,8 @@ func (s *WorkflowRunService) getArgoWorkflowRunEvents(
 	logger := s.logger.With("namespace", namespaceName, "runReference", runReference, "step", stepName)
 	logger.Debug("Getting Argo workflow run events")
 
-	// Get workflow plane client
-	wpClient, err := s.workflowPlaneService.GetWorkflowPlaneClient(ctx, namespaceName, gatewayURL)
+	// Get workflow plane client (with fallback to cluster-scoped)
+	wpc, err := s.workflowPlaneService.getWorkflowPlaneClientWithFallback(ctx, namespaceName, gatewayURL)
 	if err != nil {
 		logger.Error("Failed to get workflow plane client", "error", err)
 		return nil, fmt.Errorf("failed to get workflow plane client: %w", err)
@@ -683,7 +676,7 @@ func (s *WorkflowRunService) getArgoWorkflowRunEvents(
 
 	// Get Argo Workflow from workflow plane
 	var argoWorkflow argoproj.Workflow
-	if err := wpClient.Get(ctx, types.NamespacedName{
+	if err := wpc.client.Get(ctx, types.NamespacedName{
 		Name:      runReference.Name,
 		Namespace: runReference.Namespace,
 	}, &argoWorkflow); err != nil {
@@ -696,22 +689,15 @@ func (s *WorkflowRunService) getArgoWorkflowRunEvents(
 	}
 
 	// Get pods for the workflow/step
-	pods, err := s.getArgoWorkflowPods(ctx, wpClient, &argoWorkflow, stepName)
+	pods, err := s.getArgoWorkflowPods(ctx, wpc.client, &argoWorkflow, stepName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow pods: %w", err)
-	}
-
-	// Get workflow plane resource
-	workflowPlane, err := s.workflowPlaneService.GetWorkflowPlane(ctx, namespaceName)
-	if err != nil {
-		logger.Error("Failed to get workflow plane", "error", err)
-		return nil, fmt.Errorf("failed to get workflow plane: %w", err)
 	}
 
 	// Get events from pods and convert to structured format
 	allEventEntries := make([]models.WorkflowRunEventEntry, 0)
 	for _, pod := range pods {
-		podEvents, err := s.getArgoWorkflowPodEvents(ctx, workflowPlane, &pod)
+		podEvents, err := s.getArgoWorkflowPodEvents(ctx, wpc, &pod)
 		if err != nil {
 			logger.Warn("Failed to get events from pod", "pod", pod.Name, "error", err)
 			// Continue with other pods instead of failing completely
@@ -755,12 +741,12 @@ func (s *WorkflowRunService) getArgoWorkflowPods(ctx context.Context, wpClient c
 }
 
 // getArgoWorkflowPodEvents retrieves events for a pod using the gateway client
-func (s *WorkflowRunService) getArgoWorkflowPodEvents(ctx context.Context, workflowPlane *openchoreov1alpha1.WorkflowPlane, pod *corev1.Pod) (*corev1.EventList, error) {
+func (s *WorkflowRunService) getArgoWorkflowPodEvents(ctx context.Context, wpc *workflowPlaneClient, pod *corev1.Pod) (*corev1.EventList, error) {
 	if s.gwClient == nil {
 		return nil, fmt.Errorf("gateway client is not configured")
 	}
 
-	body, err := s.gwClient.GetPodEventsFromPlane(ctx, "workflowplane", workflowPlane.Spec.PlaneID, workflowPlane.Namespace, workflowPlane.Name,
+	body, err := s.gwClient.GetPodEventsFromPlane(ctx, "workflowplane", wpc.planeID, wpc.planeNamespace, wpc.planeName,
 		&gatewayClient.PodReference{
 			Namespace: pod.Namespace,
 			Name:      pod.Name,
