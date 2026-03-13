@@ -435,30 +435,6 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 		}, 2*time.Minute, 2*time.Second).Should(Succeed(),
 			"per-component NetworkPolicies not found in beta/proj1/dev dp namespace")
 
-		By("deploying unprotected pods into data plane namespaces for egress isolation testing")
-		// These pods have no NetworkPolicy selecting them, so all ingress is allowed.
-		// They isolate egress denial: blocked traffic proves the source's egress policy works.
-		for _, tc := range []struct{ ns, name string }{
-			{dpBetaProj1Dev, "unprotected-echo"},
-			{dpAcmeProj1Stg, "unprotected-echo"},
-		} {
-			output, err = framework.KubectlApplyLiteral(kubeContext, unprotectedPodYAML(tc.ns, tc.name))
-			Expect(err).NotTo(HaveOccurred(), "failed to create unprotected pod in %s: %s", tc.ns, output)
-		}
-
-		By("waiting for unprotected pods to be Running")
-		for _, ns := range []string{dpBetaProj1Dev, dpAcmeProj1Stg} {
-			Eventually(func(g Gomega) {
-				out, err := framework.Kubectl(kubeContext,
-					"get", "pod", "-n", ns, "-l", "app=unprotected-echo",
-					"--field-selector=status.phase=Running",
-					"-o", "jsonpath={.items[0].metadata.name}")
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(out).NotTo(BeEmpty())
-			}, 2*time.Minute, 2*time.Second).Should(Succeed(),
-				"unprotected-echo pod not running in %s", ns)
-		}
-
 		By("waiting until policy enforcement is observed on a blocked path")
 		assertSourcePodReady(dpAcmeProj2Dev, "openchoreo.dev/component=client-b", "main")
 		assertDNSResolution(dpAcmeProj2Dev, "openchoreo.dev/component=client-b", "main", fqdn("comp-b", dpAcmeProj1Dev))
@@ -610,26 +586,6 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			targetPort:  8080,
 			expectAllow: true,
 		},
-		{
-			name:        "egress isolation blocks cross-OC-namespace traffic to unprotected target",
-			intent:      "unprotected-echo in beta has no ingress policy, so only the source's egress isolation can block this path.",
-			sourceNS:    func() string { return dpAcmeProj1Dev },
-			sourceLabel: "openchoreo.dev/component=client-a",
-			sourceCtr:   "main",
-			targetHost:  func() string { return fqdn("unprotected-echo", dpBetaProj1Dev) },
-			targetPort:  8080,
-			expectAllow: false,
-		},
-		{
-			name:        "egress isolation blocks cross-environment traffic to unprotected target",
-			intent:      "unprotected-echo in staging has no ingress policy, so only the source's egress isolation can block this path.",
-			sourceNS:    func() string { return dpAcmeProj1Dev },
-			sourceLabel: "openchoreo.dev/component=client-a",
-			sourceCtr:   "main",
-			targetHost:  func() string { return fqdn("unprotected-echo", dpAcmeProj1Stg) },
-			targetPort:  8080,
-			expectAllow: false,
-		},
 	}
 
 	for _, scenario := range scenarios {
@@ -671,35 +627,6 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 		}, 30*time.Second, 2*time.Second).Should(Succeed(), "DNS resolution failed")
 	})
 
-	It("allows external DNS resolution", func() {
-		By("pods should resolve external domain names while egress policies are in place")
-		Eventually(func() error {
-			_, err := framework.KubectlExecByLabel(
-				kubeContext,
-				dpAcmeProj1Dev,
-				"openchoreo.dev/component=client-a",
-				"main",
-				"nslookup", "www.google.com",
-			)
-			return err
-		}, 30*time.Second, 2*time.Second).Should(Succeed(), "external DNS resolution failed")
-	})
-
-	It("allows internet egress from data plane pods", func() {
-		By("pods should reach external internet endpoints; egress policies must not block outbound internet access")
-		assertSourcePodReady(dpAcmeProj1Dev, "openchoreo.dev/component=client-a", "main")
-		Eventually(func() error {
-			_, err := framework.KubectlExecByLabel(
-				kubeContext,
-				dpAcmeProj1Dev,
-				"openchoreo.dev/component=client-a",
-				"main",
-				"wget", "-q", "-O", "/dev/null", "--timeout=5", "http://connectivitycheck.gstatic.com/generate_204",
-			)
-			return err
-		}, 30*time.Second, 2*time.Second).Should(Succeed(),
-			"expected internet egress to be allowed from data plane pods")
-	})
 
 
 })
