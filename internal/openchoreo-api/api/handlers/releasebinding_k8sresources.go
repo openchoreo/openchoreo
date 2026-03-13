@@ -136,7 +136,7 @@ func (h *Handler) handleK8sResourceTreeError(err error) (gen.GetReleaseBindingK8
 		return gen.GetReleaseBindingK8sResourceTree404JSONResponse{NotFoundJSONResponse: notFound("ReleaseBinding")}, nil
 	}
 	if errors.Is(err, k8sresourcessvc.ErrRenderedReleaseNotFound) {
-		return gen.GetReleaseBindingK8sResourceTree404JSONResponse{NotFoundJSONResponse: notFound("Release")}, nil
+		return gen.GetReleaseBindingK8sResourceTree404JSONResponse{NotFoundJSONResponse: notFound("RenderedRelease")}, nil
 	}
 	if errors.Is(err, k8sresourcessvc.ErrEnvironmentNotFound) {
 		return gen.GetReleaseBindingK8sResourceTree404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
@@ -153,7 +153,7 @@ func (h *Handler) handleK8sResourceEventsError(err error) (gen.GetReleaseBinding
 		return gen.GetReleaseBindingK8sResourceEvents404JSONResponse{NotFoundJSONResponse: notFound("ReleaseBinding")}, nil
 	}
 	if errors.Is(err, k8sresourcessvc.ErrRenderedReleaseNotFound) {
-		return gen.GetReleaseBindingK8sResourceEvents404JSONResponse{NotFoundJSONResponse: notFound("Release")}, nil
+		return gen.GetReleaseBindingK8sResourceEvents404JSONResponse{NotFoundJSONResponse: notFound("RenderedRelease")}, nil
 	}
 	if errors.Is(err, k8sresourcessvc.ErrEnvironmentNotFound) {
 		return gen.GetReleaseBindingK8sResourceEvents404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
@@ -173,7 +173,7 @@ func (h *Handler) handleK8sResourceLogsError(err error) (gen.GetReleaseBindingK8
 		return gen.GetReleaseBindingK8sResourceLogs404JSONResponse{NotFoundJSONResponse: notFound("ReleaseBinding")}, nil
 	}
 	if errors.Is(err, k8sresourcessvc.ErrRenderedReleaseNotFound) {
-		return gen.GetReleaseBindingK8sResourceLogs404JSONResponse{NotFoundJSONResponse: notFound("Release")}, nil
+		return gen.GetReleaseBindingK8sResourceLogs404JSONResponse{NotFoundJSONResponse: notFound("RenderedRelease")}, nil
 	}
 	if errors.Is(err, k8sresourcessvc.ErrEnvironmentNotFound) {
 		return gen.GetReleaseBindingK8sResourceLogs404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil

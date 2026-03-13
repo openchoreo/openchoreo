@@ -4,4 +4,4 @@ This directory contains design documentation for OpenChoreo's Custom Resource De
 
 ## List of CRDs
 
-- [**Release**](release.md) - Applies component-specific resources to the dataplane that are generated via bindings
+- [**RenderedRelease**](renderedrelease.md) - Applies component-specific resources to the dataplane that are generated via bindings

@@ -366,7 +366,7 @@ e2e.diagnostics: ## Collect logs, events, and resource dumps from all namespaces
 		done; \
 	done
 	@$(E2E_KUBECTL) get clusterdataplane,workflowplane,observabilityplane -n default -o yaml > $(E2E_DIAGNOSTICS_DIR)/plane-resources.yaml 2>&1 || true
-	@$(E2E_KUBECTL) get component,componentrelease,releasebinding,release -A -o yaml > $(E2E_DIAGNOSTICS_DIR)/release-chain.yaml 2>&1 || true
+	@$(E2E_KUBECTL) get component,componentrelease,releasebinding,renderedrelease -A -o yaml > $(E2E_DIAGNOSTICS_DIR)/release-chain.yaml 2>&1 || true
 	@$(call log_success, Diagnostics collected to $(E2E_DIAGNOSTICS_DIR))
 
 .PHONY: e2e.down
