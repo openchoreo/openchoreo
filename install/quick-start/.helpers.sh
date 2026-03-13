@@ -760,19 +760,6 @@ spec:
             namespace: "${openbao_ns}"
 CSSEOF
 
-    # Seed placeholder secrets for local development
-    log_info "Seeding development secrets..."
-    kubectl exec -n "$openbao_ns" openbao-0 -- sh -c "
-        export BAO_ADDR=http://127.0.0.1:8200
-        export BAO_TOKEN=${dev_root_token}
-
-        bao kv put secret/backstage-backend-secret value='local-dev-backend-secret'
-        bao kv put secret/backstage-client-secret value='backstage-portal-secret'
-        bao kv put secret/backstage-jenkins-api-key value='placeholder-not-in-use'
-        bao kv put secret/opensearch-username value='admin'
-        bao kv put secret/opensearch-password value='ThisIsTheOpenSearchPassword1'
-    " >/dev/null 2>&1
-
     log_success "OpenBao installed and ClusterSecretStore created"
 }
 
@@ -1041,11 +1028,10 @@ setup_observability_plane_ca() {
     log_success "Observability Plane CA configured"
 }
 
-# Create OpenSearch credentials secret for the observability plane
-create_opensearch_secret() {
+# Create OpenSearch credentials and observer secrets for the observability plane
+create_observability_secrets() {
     local namespace="$1"
-    local secret_name="${2:-observer-opensearch-credentials}"
-    log_info "Creating OpenSearch credentials secrets..."
+    log_info "Creating observability plane secrets..."
 
     kubectl create secret generic "opensearch-admin-credentials" \
         --namespace "$namespace" \
@@ -1056,16 +1042,17 @@ create_opensearch_secret() {
         return 1
     }
 
-    kubectl create secret generic "$secret_name" \
+    kubectl create secret generic "observer-secret" \
         --namespace "$namespace" \
-        --from-literal=username="admin" \
-        --from-literal=password="ThisIsTheOpenSearchPassword1" \
+        --from-literal=OPENSEARCH_USERNAME="admin" \
+        --from-literal=OPENSEARCH_PASSWORD="ThisIsTheOpenSearchPassword1" \
+        --from-literal=UID_RESOLVER_OAUTH_CLIENT_SECRET="openchoreo-observer-resource-reader-client-secret" \
         -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1 || {
-        log_error "Failed to create $secret_name secret"
+        log_error "Failed to create observer-secret secret"
         return 1
     }
 
-    log_success "OpenSearch credentials secrets created"
+    log_success "Observability plane secrets created"
 }
 
 # Install OpenChoreo Observability Plane (optional)

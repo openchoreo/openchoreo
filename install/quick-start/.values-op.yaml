@@ -19,11 +19,12 @@ openSearchCluster:
 
 # OpenChoreo Observer Service Configuration
 observer:
+  secretName: observer-secret
   http:
     hostnames:
     - host.k3d.internal
     - observer.openchoreo.localhost
-  openSearchSecretName: observer-opensearch-credentials
+  openSearchSecretName: opensearch-admin-credentials
   extraEnvs:
     - name: OPENSEARCH_ADDRESS
       value: "https://opensearch:9200"

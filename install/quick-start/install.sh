@@ -139,7 +139,7 @@ fi
 # Step 11: Install Observability Plane (optional)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     setup_observability_plane_ca
-    create_opensearch_secret "$OBSERVABILITY_NS"
+    create_observability_secrets "$OBSERVABILITY_NS"
 
     install_observability_plane
 
