@@ -13,7 +13,7 @@ Defines a reusable component type template based on the default `deployment/serv
 - Specifies the workload type as `deployment`
 - Follows the standard service ComponentType structure with:
   - Allowed workflows (google-cloud-buildpacks, ballerina-buildpack, docker)
-  - Allowed traits (api-configuration, observability-alert-rule)
+  - Allowed traits (observability-alert-rule)
   - Validation rules for service endpoints
 - Defines a schema with:
   - Environment-specific overrides: `replicas`, `resources`, `imagePullPolicy`

@@ -91,7 +91,6 @@ GETTING_STARTED_FILES := \
 	$(GETTING_STARTED_DIR)/workflows/gcp-buildpacks-builder.yaml \
 	$(GETTING_STARTED_DIR)/workflows/ballerina-buildpack-builder.yaml \
 	$(GETTING_STARTED_DIR)/workflows/dockerfile-builder.yaml \
-	$(GETTING_STARTED_DIR)/component-traits/api-management.yaml \
 	$(GETTING_STARTED_DIR)/component-traits/alert-rule-trait.yaml
 
 .PHONY: samples-gen

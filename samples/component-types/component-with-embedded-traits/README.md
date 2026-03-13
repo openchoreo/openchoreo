@@ -45,7 +45,7 @@ Defines a component type that extends the default service structure with an embe
 - **Based on**: Default `deployment/service` component type structure
 - **Embedded trait**: `horizontal-pod-autoscaler` with instance name `autoscaler`
 - **Wired parameter bindings**: CEL expressions like `${parameters.autoscaling.enabled}`
-- **Allowed traits**: `api-configuration`, `observability-alert-rule`, and `persistent-volume` can be added by developers
+- **Allowed traits**:`observability-alert-rule`, and `persistent-volume` can be added by developers
 - **Allowed workflows**: `google-cloud-buildpacks`, `ballerina-buildpack`, and `docker`
 
 Key features:

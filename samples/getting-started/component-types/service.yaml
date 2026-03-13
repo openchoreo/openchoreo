@@ -19,8 +19,6 @@ spec:
 
   allowedTraits:
     - kind: ClusterTrait
-      name: api-configuration
-    - kind: ClusterTrait
       name: observability-alert-rule
 
   validations:

@@ -90,7 +90,7 @@ var _ = Describe("Platform Health", Ordered, func() {
 			})
 		}
 
-		clusterTraits := []string{"api-configuration", "observability-alert-rule"}
+		clusterTraits := []string{"observability-alert-rule"}
 		for _, trait := range clusterTraits {
 			It("should have ClusterTrait '"+trait+"'", func() {
 				framework.AssertClusterResourceExists(Default, kubeContext, "clustertrait", trait)
