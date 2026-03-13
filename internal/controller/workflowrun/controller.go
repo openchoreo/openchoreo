@@ -115,8 +115,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	// Validate component workflow runs before proceeding.
-	// Skip validation if the workflow is already running to avoid disrupting in-progress executions.
-	if !isWorkflowRunning(workflowRun) {
+	// Skip validation if the workflow is already running or has been submitted
+	// (RunReference set) to avoid disrupting in-progress or pending executions.
+	if !isWorkflowRunning(workflowRun) && workflowRun.Status.RunReference == nil {
 		if validationResult := r.validateComponentWorkflowRun(ctx, workflowRun); validationResult.shouldReturn {
 			return validationResult.result, nil
 		}

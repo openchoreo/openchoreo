@@ -1462,22 +1462,22 @@ type ComponentTypeStatus = map[string]interface{}
 
 // ComponentWorkflowConfig Workflow configuration for a component. Kind and name are mutable.
 type ComponentWorkflowConfig struct {
-	// Kind Kind of workflow reference (Workflow or ClusterWorkflow)
+	// Kind Kind of referenced workflow resource (Workflow or ClusterWorkflow)
 	Kind *ComponentWorkflowConfigKind `json:"kind,omitempty"`
 
-	// Name Referenced Workflow name
+	// Name Referenced workflow resource name
 	Name string `json:"name"`
 
 	// Parameters Developer-provided parameters for the referenced workflow
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
 
-// ComponentWorkflowConfigKind Kind of workflow reference (Workflow or ClusterWorkflow)
+// ComponentWorkflowConfigKind Kind of referenced workflow resource (Workflow or ClusterWorkflow)
 type ComponentWorkflowConfigKind string
 
 // ComponentWorkflowInput Workflow configuration for component creation
 type ComponentWorkflowInput struct {
-	// Kind Kind of workflow reference (Workflow or ClusterWorkflow)
+	// Kind Kind of referenced workflow resource (Workflow or ClusterWorkflow)
 	Kind *ComponentWorkflowInputKind `json:"kind,omitempty"`
 
 	// Name Workflow resource name
@@ -1487,7 +1487,7 @@ type ComponentWorkflowInput struct {
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
 
-// ComponentWorkflowInputKind Kind of workflow reference (Workflow or ClusterWorkflow)
+// ComponentWorkflowInputKind Kind of referenced workflow resource (Workflow or ClusterWorkflow)
 type ComponentWorkflowInputKind string
 
 // Condition Kubernetes-style condition
@@ -3423,17 +3423,17 @@ type WorkflowRun struct {
 
 // WorkflowRunConfig Workflow configuration referencing the Workflow and providing schema values. Kind and name are immutable after creation.
 type WorkflowRunConfig struct {
-	// Kind Kind of workflow reference (Workflow or ClusterWorkflow)
+	// Kind Kind of referenced workflow resource (Workflow or ClusterWorkflow)
 	Kind *WorkflowRunConfigKind `json:"kind,omitempty"`
 
-	// Name Referenced Workflow name
+	// Name Referenced workflow resource name
 	Name string `json:"name"`
 
 	// Parameters Developer-provided parameters for the referenced workflow
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
 
-// WorkflowRunConfigKind Kind of workflow reference (Workflow or ClusterWorkflow)
+// WorkflowRunConfigKind Kind of referenced workflow resource (Workflow or ClusterWorkflow)
 type WorkflowRunConfigKind string
 
 // WorkflowRunEventEntry A single Kubernetes event from a workflow run

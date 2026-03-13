@@ -70,6 +70,15 @@ func (r *Reconciler) validateComponentWorkflowRun(
 		return validateComponentWorkflowResult{shouldReturn: true, result: ctrl.Result{Requeue: true}}
 	}
 
+	// Verify the project label matches the Component's owning project
+	if comp.Spec.Owner.ProjectName != projectLabel {
+		msg := fmt.Sprintf(
+			"workflow run project label %q does not match component %q owner project %q",
+			projectLabel, comp.Name, comp.Spec.Owner.ProjectName)
+		setComponentValidationFailedCondition(workflowRun, msg)
+		return validateComponentWorkflowResult{shouldReturn: true, result: ctrl.Result{}}
+	}
+
 	// Resolve the ComponentType
 	ct, err := r.resolveComponentType(ctx, comp)
 	if err != nil {

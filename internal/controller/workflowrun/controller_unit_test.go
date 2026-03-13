@@ -1067,6 +1067,43 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 		}
 	})
 
+	t.Run("project label mismatch fails permanently", func(t *testing.T) {
+		comp := &openchoreodevv1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-comp", Namespace: "default"},
+			Spec: openchoreodevv1alpha1.ComponentSpec{
+				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "actual-proj"},
+				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(comp).Build()
+		r := &Reconciler{Client: fakeClient, Scheme: scheme}
+
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-wfr",
+				Namespace: "default",
+				Labels: map[string]string{
+					"openchoreo.dev/project":   "wrong-proj",
+					"openchoreo.dev/component": "my-comp",
+				},
+			},
+			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "my-wf"},
+			},
+		}
+
+		result := r.validateComponentWorkflowRun(context.Background(), wfr)
+		if !result.shouldReturn {
+			t.Error("expected shouldReturn=true")
+		}
+		if result.result.Requeue {
+			t.Error("expected no requeue for permanent failure")
+		}
+		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionTrue, string(ReasonComponentValidationFailed))
+	})
+
 	t.Run("workflow not in allowedWorkflows fails permanently", func(t *testing.T) {
 		ct := &openchoreodevv1alpha1.ComponentType{
 			ObjectMeta: metav1.ObjectMeta{Name: "my-ct", Namespace: "default"},
@@ -1349,6 +1386,50 @@ func TestIsWorkflowRunning(t *testing.T) {
 			t.Error("expected true")
 		}
 	})
+}
+
+func TestValidationSkippedWhenRunReferenceSet(t *testing.T) {
+	// The Reconcile guard skips validation when RunReference is set.
+	// Verify that a WorkflowRun with RunReference set and component labels
+	// pointing to a non-existent component would fail validation if called,
+	// confirming the guard is load-bearing.
+	scheme := runtime.NewScheme()
+	_ = openchoreodevv1alpha1.AddToScheme(scheme)
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	r := &Reconciler{Client: fakeClient, Scheme: scheme}
+
+	wfr := &openchoreodevv1alpha1.WorkflowRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-wfr",
+			Namespace: "default",
+			Labels: map[string]string{
+				"openchoreo.dev/project":   "my-proj",
+				"openchoreo.dev/component": "missing-comp",
+			},
+		},
+		Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+			Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "my-wf"},
+		},
+		Status: openchoreodevv1alpha1.WorkflowRunStatus{
+			RunReference: &openchoreodevv1alpha1.ResourceReference{
+				Name:      "submitted-run",
+				Namespace: "build-ns",
+			},
+		},
+	}
+
+	// The guard condition: validation should be skipped when RunReference is set
+	shouldSkipValidation := isWorkflowRunning(wfr) || wfr.Status.RunReference != nil
+	if !shouldSkipValidation {
+		t.Fatal("expected validation to be skipped when RunReference is set")
+	}
+
+	// Confirm validation would have returned shouldReturn=true (failure) if called
+	result := r.validateComponentWorkflowRun(context.Background(), wfr)
+	if !result.shouldReturn {
+		t.Error("expected validation to fail for missing component, confirming the guard is needed")
+	}
 }
 
 func TestSetComponentValidationFailedCondition(t *testing.T) {

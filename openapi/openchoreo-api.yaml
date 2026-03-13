@@ -5679,7 +5679,7 @@ components:
       properties:
         kind:
           type: string
-          description: Kind of workflow reference (Workflow or ClusterWorkflow)
+          description: Kind of referenced workflow resource (Workflow or ClusterWorkflow)
           enum: [Workflow, ClusterWorkflow]
           default: ClusterWorkflow
         name:
@@ -7409,12 +7409,12 @@ components:
       properties:
         kind:
           type: string
-          description: Kind of workflow reference (Workflow or ClusterWorkflow)
+          description: Kind of referenced workflow resource (Workflow or ClusterWorkflow)
           enum: [Workflow, ClusterWorkflow]
           default: ClusterWorkflow
         name:
           type: string
-          description: Referenced Workflow name
+          description: Referenced workflow resource name
         parameters:
           type: object
           description: Developer-provided parameters for the referenced workflow
@@ -7428,12 +7428,12 @@ components:
       properties:
         kind:
           type: string
-          description: Kind of workflow reference (Workflow or ClusterWorkflow)
+          description: Kind of referenced workflow resource (Workflow or ClusterWorkflow)
           enum: [Workflow, ClusterWorkflow]
           default: ClusterWorkflow
         name:
           type: string
-          description: Referenced Workflow name
+          description: Referenced workflow resource name
         parameters:
           type: object
           description: Developer-provided parameters for the referenced workflow

@@ -74,9 +74,10 @@ spec:
                 type: array
               allowedWorkflows:
                 description: |-
-                  AllowedWorkflows restricts which Workflow CRs developers can use
-                  for building components of this type. If empty, no Workflows are allowed.
-                  References must point to Workflow resources.
+                  AllowedWorkflows restricts which workflow CRs developers can use
+                  for building components of this type. If empty, no workflows are allowed.
+                  Each entry is a WorkflowRef whose Kind defaults to ClusterWorkflow and
+                  may be either Workflow (namespace-scoped) or ClusterWorkflow (cluster-scoped).
                 items:
                   description: WorkflowRef represents a reference to a Workflow resource.
                   properties:
