@@ -23,6 +23,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
+	"github.com/openchoreo/openchoreo/internal/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -273,21 +274,11 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, namespace
 	}
 	componentTypeSpec = spec
 
-	traits := make(map[string]openchoreov1alpha1.TraitSpec)
-	// traitKindByName tracks which Kind claimed each trait Name so we can detect
-	// cross-kind collisions (e.g. Trait "x" vs ClusterTrait "x") that would
-	// silently overwrite each other in the traits map.
-	traitKindByName := make(map[string]openchoreov1alpha1.TraitRefKind)
+	var releaseTraits []openchoreov1alpha1.ComponentReleaseTrait
 	for _, componentTrait := range component.Spec.Traits {
 		kind := componentTrait.Kind
 		if kind == "" {
 			kind = openchoreov1alpha1.TraitRefKindTrait
-		}
-		if prevKind, exists := traitKindByName[componentTrait.Name]; exists && prevKind != kind {
-			s.logger.Error("Trait name collision across kinds",
-				"trait", componentTrait.Name, "existingKind", prevKind, "newKind", kind)
-			return nil, fmt.Errorf("trait name %q is referenced as both %s and %s; trait names must be unique across kinds",
-				componentTrait.Name, prevKind, kind)
 		}
 		traitSpec, err := s.fetchTraitSpec(ctx, kind, componentTrait.Name, namespaceName)
 		if err != nil {
@@ -298,8 +289,11 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, namespace
 			s.logger.Warn("Trait not found", "kind", kind, "trait", componentTrait.Name)
 			continue
 		}
-		traitKindByName[componentTrait.Name] = kind
-		traits[componentTrait.Name] = *traitSpec
+		releaseTraits = append(releaseTraits, openchoreov1alpha1.ComponentReleaseTrait{
+			Kind: kind,
+			Name: componentTrait.Name,
+			Spec: *traitSpec,
+		})
 	}
 
 	// Build ComponentProfile from Component parameters (only if there's content)
@@ -309,8 +303,21 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, namespace
 		if component.Spec.Parameters != nil {
 			componentProfile.Parameters = component.Spec.Parameters
 		}
-		if component.Spec.Traits != nil {
-			componentProfile.Traits = component.Spec.Traits
+		if len(component.Spec.Traits) > 0 {
+			profileTraits := make([]openchoreov1alpha1.ComponentProfileTrait, 0, len(component.Spec.Traits))
+			for _, ct := range component.Spec.Traits {
+				kind := ct.Kind
+				if kind == "" {
+					kind = openchoreov1alpha1.TraitRefKindTrait
+				}
+				profileTraits = append(profileTraits, openchoreov1alpha1.ComponentProfileTrait{
+					Kind:         kind,
+					Name:         ct.Name,
+					InstanceName: ct.InstanceName,
+					Parameters:   ct.Parameters,
+				})
+			}
+			componentProfile.Traits = profileTraits
 		}
 	}
 
@@ -343,8 +350,8 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, namespace
 		componentRelease.Spec.ComponentType = *componentTypeSpec
 	}
 
-	if len(traits) > 0 {
-		componentRelease.Spec.Traits = traits
+	if len(releaseTraits) > 0 {
+		componentRelease.Spec.Traits = releaseTraits
 	}
 
 	if err := s.k8sClient.Create(ctx, componentRelease); err != nil {
@@ -596,9 +603,9 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 	traitSchemas := make(map[string]extv1.JSONSchemaProps)
 	if release.Spec.ComponentProfile != nil {
 		for _, componentTrait := range release.Spec.ComponentProfile.Traits {
-			traitSpec, found := release.Spec.Traits[componentTrait.Name]
+			traitSpec, found := componentrelease.FindTraitSpec(release.Spec.Traits, componentTrait.Kind, componentTrait.Name)
 			if !found {
-				s.logger.Warn("Trait definition not found in release", "trait", componentTrait.Name, "instanceName", componentTrait.InstanceName)
+				s.logger.Warn("Trait definition not found in release", "trait", componentTrait.Name, "kind", componentTrait.Kind, "instanceName", componentTrait.InstanceName)
 				continue
 			}
 

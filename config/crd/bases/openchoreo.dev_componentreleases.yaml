@@ -61,37 +61,40 @@ spec:
                     x-kubernetes-preserve-unknown-fields: true
                   traits:
                     description: |-
-                      Traits to compose into this component
-                      Each trait can be instantiated multiple times with different instanceNames
+                      Traits holds the snapshot of trait instances configured on the component at release time.
+                      Each entry records the kind, name, and instanceName of the trait, along with any
+                      user-supplied parameters, using the composite (kind, name) key to unambiguously identify
+                      the trait spec in ComponentReleaseSpec.Traits.
                     items:
-                      description: ComponentTrait represents an trait instance attached
-                        to a component
+                      description: |-
+                        ComponentProfileTrait is a snapshot of a single trait instance configured on a component.
+                        It records the kind and name of the trait (to look up the spec in ComponentReleaseSpec.Traits),
+                        the instance name (unique within the component), and any user-supplied parameters.
                       properties:
                         instanceName:
-                          description: |-
-                            InstanceName uniquely identifies this trait instance within the component
-                            Allows the same trait to be used multiple times with different configurations
-                            Must be unique across all traits in the component
+                          description: InstanceName uniquely identifies this trait
+                            instance within the component.
                           minLength: 1
                           type: string
                         kind:
-                          default: Trait
-                          description: Kind is the kind of trait (Trait or ClusterTrait)
+                          description: Kind identifies whether this is a namespace-scoped
+                            Trait or a cluster-scoped ClusterTrait.
                           enum:
                           - Trait
                           - ClusterTrait
                           type: string
                         name:
-                          description: Name is the name of the Trait resource to use
+                          description: Name is the name of the Trait or ClusterTrait
+                            resource.
                           minLength: 1
                           type: string
                         parameters:
-                          description: |-
-                            Parameters contains the trait parameter values
-                            The schema for these values is defined in the Trait's parameters schema
+                          description: Parameters contains the trait parameter values
+                            supplied by the user.
                           x-kubernetes-preserve-unknown-fields: true
                       required:
                       - instanceName
+                      - kind
                       - name
                       type: object
                     type: array
@@ -351,208 +354,232 @@ spec:
                 - message: spec.owner is immutable
                   rule: self == oldSelf
               traits:
-                additionalProperties:
-                  description: TraitSpec defines the desired state of Trait.
+                description: |-
+                  Traits holds frozen trait specifications at the time of ComponentRelease, ensuring immutability.
+                  Each entry carries its kind (Trait or ClusterTrait), name, and spec, preserving the original
+                  resource identity so that a Trait and ClusterTrait with the same name can coexist.
+                items:
+                  description: |-
+                    ComponentReleaseTrait is an entry in the frozen traits snapshot stored on a ComponentRelease.
+                    It preserves both the Kind and Name of the original trait resource so that a namespace-scoped
+                    Trait and a cluster-scoped ClusterTrait with the same name can coexist.
                   properties:
-                    creates:
-                      description: Creates defines new Kubernetes resources to create
-                        when this trait is applied
-                      items:
-                        description: TraitCreate defines a resource template to be
-                          created by the trait
-                        properties:
-                          forEach:
-                            description: |-
-                              ForEach enables generating multiple resources from a list using CEL expression
-                              Example: "${parameters.volumes}" to iterate over a list
-                            pattern: ^\$\{[\s\S]+\}\s*$
-                            type: string
-                          includeWhen:
-                            description: |-
-                              IncludeWhen is a CEL expression that determines if this resource should be created
-                              If not specified, the resource is always created
-                              Example: "${parameters.enableMetrics}"
-                            pattern: ^\$\{[\s\S]+\}\s*$
-                            type: string
-                          targetPlane:
-                            default: dataplane
-                            description: |-
-                              TargetPlane specifies which plane this resource should be deployed to
-                              Defaults to "dataplane" if not specified
-                            enum:
-                            - dataplane
-                            - observabilityplane
-                            type: string
-                          template:
-                            description: |-
-                              Template contains the Kubernetes resource with CEL expressions
-                              CEL expressions are enclosed in ${...} and will be evaluated at runtime
-                            type: object
-                            x-kubernetes-preserve-unknown-fields: true
-                          var:
-                            description: |-
-                              Var is the loop variable name when using forEach
-                              Example: "volume" will make each item available as ${volume} in templates
-                            pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
-                            type: string
-                        required:
-                        - template
-                        type: object
-                        x-kubernetes-validations:
-                        - message: var is required when forEach is specified
-                          rule: '!has(self.forEach) || has(self.var)'
-                      type: array
-                    environmentConfigs:
-                      description: EnvironmentConfigs defines per-environment configurations
-                        for this trait via ReleaseBinding.
+                    kind:
+                      description: Kind identifies whether this is a namespace-scoped
+                        Trait or a cluster-scoped ClusterTrait.
+                      enum:
+                      - Trait
+                      - ClusterTrait
+                      type: string
+                    name:
+                      description: Name is the name of the Trait or ClusterTrait resource.
+                      minLength: 1
+                      type: string
+                    spec:
+                      description: Spec is the frozen specification of the trait at
+                        the time of this ComponentRelease.
                       properties:
-                        openAPIV3Schema:
-                          description: OpenAPIV3Schema defines the schema using standard
-                            OpenAPI V3 / JSON Schema format.
-                          type: object
-                          x-kubernetes-preserve-unknown-fields: true
-                      type: object
-                    parameters:
-                      description: Parameters defines developer-facing configuration
-                        options for this trait.
-                      properties:
-                        openAPIV3Schema:
-                          description: OpenAPIV3Schema defines the schema using standard
-                            OpenAPI V3 / JSON Schema format.
-                          type: object
-                          x-kubernetes-preserve-unknown-fields: true
-                      type: object
-                    patches:
-                      description: Patches defines modifications to existing resources
-                        generated by the ComponentType
-                      items:
-                        description: TraitPatch defines a modification to an existing
-                          resource
-                        properties:
-                          forEach:
-                            description: |-
-                              ForEach repeats this patch for every item in a CEL-evaluated list
-                              Requires 'var' to be set to name the binding used in operations
-                              Example: forEach: ${spec.mounts}
-                            pattern: ^\$\{[\s\S]+\}\s*$
-                            type: string
-                          operations:
-                            description: Operations is the list of JSONPatch operations
-                              to apply to the target resource
-                            items:
-                              description: |-
-                                JSONPatchOperation defines a JSONPatch operation
-                                Supports standard operations (add, replace, remove) for map overlays
-                              properties:
-                                op:
-                                  description: |-
-                                    Op is the operation type
-                                    Standard operations: add, replace, remove (RFC 6902)
-                                  enum:
-                                  - add
-                                  - replace
-                                  - remove
-                                  type: string
-                                path:
-                                  description: |-
-                                    Path is the JSON Pointer to the field to modify (RFC 6901)
-                                    Supports array filters: /spec/containers/[?(@.name=='app')]/volumeMounts/-
-                                  type: string
-                                value:
-                                  description: |-
-                                    Value is the value to set (for add/replace operations)
-                                    Not used for remove operations
-                                    Can be a literal value, a structure with embedded CEL expressions,
-                                    or a standalone CEL expression.
-                                  x-kubernetes-preserve-unknown-fields: true
-                              required:
-                              - op
-                              - path
-                              type: object
-                            minItems: 1
-                            type: array
-                          target:
-                            description: Target specifies which resource to patch
+                        creates:
+                          description: Creates defines new Kubernetes resources to
+                            create when this trait is applied
+                          items:
+                            description: TraitCreate defines a resource template to
+                              be created by the trait
                             properties:
-                              group:
+                              forEach:
                                 description: |-
-                                  Group is the API group of the resource (e.g., "apps", "batch")
-                                  Must be explicitly set. Use empty string "" for core API resources (v1 Service, ConfigMap, etc.)
+                                  ForEach enables generating multiple resources from a list using CEL expression
+                                  Example: "${parameters.volumes}" to iterate over a list
+                                pattern: ^\$\{[\s\S]+\}\s*$
                                 type: string
-                              kind:
-                                description: Kind is the resource type to patch (e.g.,
-                                  "Deployment", "StatefulSet")
+                              includeWhen:
+                                description: |-
+                                  IncludeWhen is a CEL expression that determines if this resource should be created
+                                  If not specified, the resource is always created
+                                  Example: "${parameters.enableMetrics}"
+                                pattern: ^\$\{[\s\S]+\}\s*$
+                                type: string
+                              targetPlane:
+                                default: dataplane
+                                description: |-
+                                  TargetPlane specifies which plane this resource should be deployed to
+                                  Defaults to "dataplane" if not specified
+                                enum:
+                                - dataplane
+                                - observabilityplane
+                                type: string
+                              template:
+                                description: |-
+                                  Template contains the Kubernetes resource with CEL expressions
+                                  CEL expressions are enclosed in ${...} and will be evaluated at runtime
+                                type: object
+                                x-kubernetes-preserve-unknown-fields: true
+                              var:
+                                description: |-
+                                  Var is the loop variable name when using forEach
+                                  Example: "volume" will make each item available as ${volume} in templates
+                                pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                                type: string
+                            required:
+                            - template
+                            type: object
+                            x-kubernetes-validations:
+                            - message: var is required when forEach is specified
+                              rule: '!has(self.forEach) || has(self.var)'
+                          type: array
+                        environmentConfigs:
+                          description: EnvironmentConfigs defines per-environment
+                            configurations for this trait via ReleaseBinding.
+                          properties:
+                            openAPIV3Schema:
+                              description: OpenAPIV3Schema defines the schema using
+                                standard OpenAPI V3 / JSON Schema format.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                          type: object
+                        parameters:
+                          description: Parameters defines developer-facing configuration
+                            options for this trait.
+                          properties:
+                            openAPIV3Schema:
+                              description: OpenAPIV3Schema defines the schema using
+                                standard OpenAPI V3 / JSON Schema format.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                          type: object
+                        patches:
+                          description: Patches defines modifications to existing resources
+                            generated by the ComponentType
+                          items:
+                            description: TraitPatch defines a modification to an existing
+                              resource
+                            properties:
+                              forEach:
+                                description: |-
+                                  ForEach repeats this patch for every item in a CEL-evaluated list
+                                  Requires 'var' to be set to name the binding used in operations
+                                  Example: forEach: ${spec.mounts}
+                                pattern: ^\$\{[\s\S]+\}\s*$
+                                type: string
+                              operations:
+                                description: Operations is the list of JSONPatch operations
+                                  to apply to the target resource
+                                items:
+                                  description: |-
+                                    JSONPatchOperation defines a JSONPatch operation
+                                    Supports standard operations (add, replace, remove) for map overlays
+                                  properties:
+                                    op:
+                                      description: |-
+                                        Op is the operation type
+                                        Standard operations: add, replace, remove (RFC 6902)
+                                      enum:
+                                      - add
+                                      - replace
+                                      - remove
+                                      type: string
+                                    path:
+                                      description: |-
+                                        Path is the JSON Pointer to the field to modify (RFC 6901)
+                                        Supports array filters: /spec/containers/[?(@.name=='app')]/volumeMounts/-
+                                      type: string
+                                    value:
+                                      description: |-
+                                        Value is the value to set (for add/replace operations)
+                                        Not used for remove operations
+                                        Can be a literal value, a structure with embedded CEL expressions,
+                                        or a standalone CEL expression.
+                                      x-kubernetes-preserve-unknown-fields: true
+                                  required:
+                                  - op
+                                  - path
+                                  type: object
+                                minItems: 1
+                                type: array
+                              target:
+                                description: Target specifies which resource to patch
+                                properties:
+                                  group:
+                                    description: |-
+                                      Group is the API group of the resource (e.g., "apps", "batch")
+                                      Must be explicitly set. Use empty string "" for core API resources (v1 Service, ConfigMap, etc.)
+                                    type: string
+                                  kind:
+                                    description: Kind is the resource type to patch
+                                      (e.g., "Deployment", "StatefulSet")
+                                    minLength: 1
+                                    type: string
+                                  version:
+                                    description: Version is the API version of the
+                                      resource (e.g., "v1", "v1beta1")
+                                    minLength: 1
+                                    type: string
+                                  where:
+                                    description: |-
+                                      Where is an optional CEL expression to filter which resources to patch
+                                      Example: ${resource.metadata.name.endsWith("-secret-envs")}
+                                    pattern: ^\$\{[\s\S]+\}\s*$
+                                    type: string
+                                required:
+                                - group
+                                - kind
+                                - version
+                                type: object
+                              targetPlane:
+                                default: dataplane
+                                description: |-
+                                  TargetPlane specifies which plane's resources this patch targets
+                                  Defaults to "dataplane" if not specified
+                                enum:
+                                - dataplane
+                                - observabilityplane
+                                type: string
+                              var:
+                                description: |-
+                                  Var names the binding for forEach iterations
+                                  Required when forEach is specified
+                                  Example: var: mount
+                                pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                                type: string
+                            required:
+                            - operations
+                            - target
+                            type: object
+                            x-kubernetes-validations:
+                            - message: var is required when forEach is specified
+                              rule: '!has(self.forEach) || has(self.var)'
+                          type: array
+                        validations:
+                          description: |-
+                            Validations are CEL-based rules evaluated during rendering.
+                            All rules must evaluate to true for rendering to proceed.
+                          items:
+                            description: ValidationRule defines a CEL-based validation
+                              rule evaluated during rendering.
+                            properties:
+                              message:
+                                description: Message is the error message shown when
+                                  the rule evaluates to false.
                                 minLength: 1
                                 type: string
-                              version:
-                                description: Version is the API version of the resource
-                                  (e.g., "v1", "v1beta1")
-                                minLength: 1
-                                type: string
-                              where:
+                              rule:
                                 description: |-
-                                  Where is an optional CEL expression to filter which resources to patch
-                                  Example: ${resource.metadata.name.endsWith("-secret-envs")}
+                                  Rule is a CEL expression wrapped in ${...} that must evaluate to true.
+                                  Uses the same syntax as includeWhen and where fields.
                                 pattern: ^\$\{[\s\S]+\}\s*$
                                 type: string
                             required:
-                            - group
-                            - kind
-                            - version
+                            - message
+                            - rule
                             type: object
-                          targetPlane:
-                            default: dataplane
-                            description: |-
-                              TargetPlane specifies which plane's resources this patch targets
-                              Defaults to "dataplane" if not specified
-                            enum:
-                            - dataplane
-                            - observabilityplane
-                            type: string
-                          var:
-                            description: |-
-                              Var names the binding for forEach iterations
-                              Required when forEach is specified
-                              Example: var: mount
-                            pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
-                            type: string
-                        required:
-                        - operations
-                        - target
-                        type: object
-                        x-kubernetes-validations:
-                        - message: var is required when forEach is specified
-                          rule: '!has(self.forEach) || has(self.var)'
-                      type: array
-                    validations:
-                      description: |-
-                        Validations are CEL-based rules evaluated during rendering.
-                        All rules must evaluate to true for rendering to proceed.
-                      items:
-                        description: ValidationRule defines a CEL-based validation
-                          rule evaluated during rendering.
-                        properties:
-                          message:
-                            description: Message is the error message shown when the
-                              rule evaluates to false.
-                            minLength: 1
-                            type: string
-                          rule:
-                            description: |-
-                              Rule is a CEL expression wrapped in ${...} that must evaluate to true.
-                              Uses the same syntax as includeWhen and where fields.
-                            pattern: ^\$\{[\s\S]+\}\s*$
-                            type: string
-                        required:
-                        - message
-                        - rule
-                        type: object
-                      type: array
+                          type: array
+                      type: object
+                  required:
+                  - kind
+                  - name
+                  - spec
                   type: object
-                description: |-
-                  Traits maps trait names to their frozen specifications
-                  at the time of ComponentRelease, ensuring immutability
-                type: object
+                type: array
                 x-kubernetes-validations:
                 - message: spec.traits is immutable
                   rule: self == oldSelf

@@ -5,7 +5,6 @@ package component
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -80,50 +79,6 @@ func ValidateTraitInstanceNameUniqueness(compTraits []v1alpha1.ComponentTrait, e
 	}
 	if len(colliding) > 0 {
 		return fmt.Errorf("trait instance names %v collide with embedded traits", colliding)
-	}
-
-	return nil
-}
-
-// ValidateTraitNameKindConsistency checks that the same trait name is not referenced with
-// different kinds (Trait vs ClusterTrait) within embedded traits, within component-level
-// traits, or across the two lists. This is required because ComponentRelease uses trait
-// name as the map key, so a Trait and ClusterTrait with the same name would collide.
-func ValidateTraitNameKindConsistency(compTraits []v1alpha1.ComponentTrait, embeddedTraits []v1alpha1.ComponentTypeTrait) error {
-	kindByName := make(map[string]v1alpha1.TraitRefKind, len(embeddedTraits)+len(compTraits))
-
-	// Check within embedded traits
-	var conflicts []string
-	for _, et := range embeddedTraits {
-		if prevKind, exists := kindByName[et.Name]; exists && prevKind != et.Kind {
-			conflicts = append(conflicts, fmt.Sprintf("%q referenced as both %s and %s in embedded traits", et.Name, prevKind, et.Kind))
-		}
-		kindByName[et.Name] = et.Kind
-	}
-	if len(conflicts) > 0 {
-		return fmt.Errorf("trait name kind mismatch: %s", strings.Join(conflicts, ", "))
-	}
-
-	// Check within component traits
-	compKindByName := make(map[string]v1alpha1.TraitRefKind, len(compTraits))
-	for _, t := range compTraits {
-		if prevKind, exists := compKindByName[t.Name]; exists && prevKind != t.Kind {
-			conflicts = append(conflicts, fmt.Sprintf("%q referenced as both %s and %s in component traits", t.Name, prevKind, t.Kind))
-		}
-		compKindByName[t.Name] = t.Kind
-	}
-	if len(conflicts) > 0 {
-		return fmt.Errorf("trait name kind mismatch: %s", strings.Join(conflicts, ", "))
-	}
-
-	// Check across embedded and component traits
-	for name, compKind := range compKindByName {
-		if embeddedKind, exists := kindByName[name]; exists && embeddedKind != compKind {
-			conflicts = append(conflicts, fmt.Sprintf("%q referenced as %s in embedded traits and %s in component traits", name, embeddedKind, compKind))
-		}
-	}
-	if len(conflicts) > 0 {
-		return fmt.Errorf("trait name kind mismatch: %s", strings.Join(conflicts, ", "))
 	}
 
 	return nil

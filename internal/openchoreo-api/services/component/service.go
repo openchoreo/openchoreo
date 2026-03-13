@@ -469,10 +469,6 @@ func (s *componentService) fetchAllTraits(
 	if err := componentvalidation.ValidateTraitInstanceNameUniqueness(comp.Spec.Traits, ctSpec.Traits); err != nil {
 		return nil, nil, fmt.Errorf("%w: %w", ErrValidation, err)
 	}
-	if err := componentvalidation.ValidateTraitNameKindConsistency(comp.Spec.Traits, ctSpec.Traits); err != nil {
-		return nil, nil, fmt.Errorf("%w: %w", ErrValidation, err)
-	}
-
 	traits := make(map[string]openchoreov1alpha1.TraitSpec)
 	clusterTraits := make(map[string]openchoreov1alpha1.ClusterTraitSpec)
 
@@ -717,9 +713,9 @@ func (s *componentService) GetComponentReleaseSchema(ctx context.Context, namesp
 	traitSchemas := make(map[string]extv1.JSONSchemaProps)
 	if release.Spec.ComponentProfile != nil {
 		for _, componentTrait := range release.Spec.ComponentProfile.Traits {
-			traitSpec, found := release.Spec.Traits[componentTrait.Name]
+			traitSpec, found := componentrelease.FindTraitSpec(release.Spec.Traits, componentTrait.Kind, componentTrait.Name)
 			if !found {
-				s.logger.Warn("Trait definition not found in release", "trait", componentTrait.Name, "instanceName", componentTrait.InstanceName)
+				s.logger.Warn("Trait definition not found in release", "trait", componentTrait.Name, "kind", componentTrait.Kind, "instanceName", componentTrait.InstanceName)
 				continue
 			}
 

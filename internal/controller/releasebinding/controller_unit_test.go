@@ -303,8 +303,8 @@ func TestBuildComponentFromRelease_WithProfile(t *testing.T) {
 			},
 			ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 				Parameters: &runtime.RawExtension{Raw: raw},
-				Traits: []openchoreov1alpha1.ComponentTrait{
-					{Name: "autoscaler"},
+				Traits: []openchoreov1alpha1.ComponentProfileTrait{
+					{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "autoscaler", InstanceName: "autoscaler-1"},
 				},
 			},
 		},
@@ -382,25 +382,25 @@ func TestBuildTraitsFromRelease_NilTraits_ReturnsNil(t *testing.T) {
 	}
 }
 
-func TestBuildTraitsFromRelease_EmptyMap_ReturnsNil(t *testing.T) {
+func TestBuildTraitsFromRelease_EmptySlice_ReturnsNil(t *testing.T) {
 	cr := &openchoreov1alpha1.ComponentRelease{
 		Spec: openchoreov1alpha1.ComponentReleaseSpec{
-			Traits: map[string]openchoreov1alpha1.TraitSpec{},
+			Traits: []openchoreov1alpha1.ComponentReleaseTrait{},
 		},
 	}
 	traits := buildTraitsFromRelease(cr)
 	if traits != nil {
-		t.Errorf("expected nil for empty map, got %v", traits)
+		t.Errorf("expected nil for empty slice, got %v", traits)
 	}
 }
 
-func TestBuildTraitsFromRelease_WithTraits_NamespaceAndCountCorrect(t *testing.T) {
+func TestBuildTraitsFromRelease_WithTraits_NamespaceAndKindCorrect(t *testing.T) {
 	cr := &openchoreov1alpha1.ComponentRelease{
 		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
 		Spec: openchoreov1alpha1.ComponentReleaseSpec{
-			Traits: map[string]openchoreov1alpha1.TraitSpec{
-				"autoscaler": {},
-				"ingress":    {},
+			Traits: []openchoreov1alpha1.ComponentReleaseTrait{
+				{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "autoscaler"},
+				{Kind: openchoreov1alpha1.TraitRefKindClusterTrait, Name: "ingress"},
 			},
 		},
 	}
@@ -414,8 +414,24 @@ func TestBuildTraitsFromRelease_WithTraits_NamespaceAndCountCorrect(t *testing.T
 		if trait.Namespace != testNamespace {
 			t.Errorf("trait %q namespace = %q, want %q", trait.Name, trait.Namespace, testNamespace)
 		}
+		if trait.Kind == "" {
+			t.Errorf("trait %q should have Kind set in TypeMeta", trait.Name)
+		}
 		if trait.Name != "autoscaler" && trait.Name != "ingress" {
 			t.Errorf("unexpected trait name %q", trait.Name)
+		}
+	}
+	// Verify kind is preserved in TypeMeta
+	for _, trait := range traits {
+		switch trait.Name {
+		case "autoscaler":
+			if trait.Kind != string(openchoreov1alpha1.TraitRefKindTrait) {
+				t.Errorf("autoscaler Kind = %q, want %q", trait.Kind, openchoreov1alpha1.TraitRefKindTrait)
+			}
+		case "ingress":
+			if trait.Kind != string(openchoreov1alpha1.TraitRefKindClusterTrait) {
+				t.Errorf("ingress Kind = %q, want %q", trait.Kind, openchoreov1alpha1.TraitRefKindClusterTrait)
+			}
 		}
 	}
 }

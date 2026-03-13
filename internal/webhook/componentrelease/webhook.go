@@ -98,12 +98,12 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 			}
 			instanceNames[trait.InstanceName] = true
 
-			// Verify the trait spec exists in the traits map
-			if _, exists := componentrelease.Spec.Traits[trait.Name]; !exists {
+			// Verify the trait spec exists in the traits slice (by kind+name composite key)
+			if _, exists := findTraitSpec(componentrelease.Spec.Traits, trait.Kind, trait.Name); !exists {
 				allErrs = append(allErrs, field.Invalid(
 					traitPath.Child("name"),
 					trait.Name,
-					fmt.Sprintf("trait '%s' referenced in componentProfile but not found in traits snapshot", trait.Name)))
+					fmt.Sprintf("trait '%s' (kind %s) referenced in componentProfile but not found in traits snapshot", trait.Name, trait.Kind)))
 			}
 		}
 	}
@@ -240,10 +240,10 @@ func validateTraitInstanceParameters(release *openchoreodevv1alpha1.ComponentRel
 	for i, traitInstance := range release.Spec.ComponentProfile.Traits {
 		traitPath := basePath.Index(i)
 
-		// Get the trait spec from the snapshot
-		traitSpec, exists := release.Spec.Traits[traitInstance.Name]
+		// Get the trait spec from the snapshot using composite (kind, name) key
+		traitSpec, exists := findTraitSpec(release.Spec.Traits, traitInstance.Kind, traitInstance.Name)
 		if !exists {
-			// This is already caught by validateReleaseTraits, skip
+			// This is already caught by ValidateCreate, skip
 			continue
 		}
 
@@ -310,10 +310,11 @@ func validateEmbeddedResourceTemplates(release *openchoreodevv1alpha1.ComponentR
 
 	// Validate Trait creates templates and CEL expressions
 	traitsBasePath := field.NewPath("spec", "traits")
-	for traitName, traitSpec := range release.Spec.Traits {
-		traitPath := traitsBasePath.Key(traitName).Child("creates")
-		for i, create := range traitSpec.Creates {
-			createPath := traitPath.Index(i)
+	for i, rt := range release.Spec.Traits {
+		traitKey := string(rt.Kind) + ":" + rt.Name
+		traitPath := traitsBasePath.Key(traitKey).Child("creates")
+		for j, create := range rt.Spec.Creates {
+			createPath := traitPath.Index(j)
 			if create.Template != nil && len(create.Template.Raw) > 0 {
 				_, errs := component.ValidateResourceTemplateStructure(*create.Template, createPath.Child("template"))
 				allErrs = append(allErrs, errs...)
@@ -321,7 +322,8 @@ func validateEmbeddedResourceTemplates(release *openchoreodevv1alpha1.ComponentR
 		}
 
 		// Validate CEL expressions in trait creates and patches
-		errs = validateTraitCELExpressions(&traitSpec, traitsBasePath.Key(traitName))
+		traitSpec := release.Spec.Traits[i].Spec
+		errs = validateTraitCELExpressions(&traitSpec, traitsBasePath.Key(traitKey))
 		allErrs = append(allErrs, errs...)
 	}
 
@@ -397,6 +399,17 @@ func validateTraitCELExpressions(traitSpec *openchoreodevv1alpha1.TraitSpec, bas
 	}
 
 	return allErrs
+}
+
+// findTraitSpec searches the traits slice for an entry matching the given kind and name,
+// returning a pointer to its Spec. Returns nil, false if not found.
+func findTraitSpec(traits []openchoreodevv1alpha1.ComponentReleaseTrait, kind openchoreodevv1alpha1.TraitRefKind, name string) (*openchoreodevv1alpha1.TraitSpec, bool) {
+	for i := range traits {
+		if traits[i].Kind == kind && traits[i].Name == name {
+			return &traits[i].Spec, true
+		}
+	}
+	return nil, false
 }
 
 // adjustPathForComponentType adjusts a path from "spec.resources..." to "spec.componentType.resources..."

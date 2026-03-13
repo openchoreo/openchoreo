@@ -21,11 +21,12 @@ type ComponentReleaseSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.componentType is immutable"
 	ComponentType ComponentTypeSpec `json:"componentType"`
 
-	// Traits maps trait names to their frozen specifications
-	// at the time of ComponentRelease, ensuring immutability
+	// Traits holds frozen trait specifications at the time of ComponentRelease, ensuring immutability.
+	// Each entry carries its kind (Trait or ClusterTrait), name, and spec, preserving the original
+	// resource identity so that a Trait and ClusterTrait with the same name can coexist.
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.traits is immutable"
-	Traits map[string]TraitSpec `json:"traits,omitempty"`
+	Traits []ComponentReleaseTrait `json:"traits,omitempty"`
 
 	// ComponentProfile contains the immutable snapshot of parameter values and trait configs
 	// specified for this component at release time
@@ -40,6 +41,24 @@ type ComponentReleaseSpec struct {
 	Workload WorkloadTemplateSpec `json:"workload"`
 }
 
+// ComponentReleaseTrait is an entry in the frozen traits snapshot stored on a ComponentRelease.
+// It preserves both the Kind and Name of the original trait resource so that a namespace-scoped
+// Trait and a cluster-scoped ClusterTrait with the same name can coexist.
+type ComponentReleaseTrait struct {
+	// Kind identifies whether this is a namespace-scoped Trait or a cluster-scoped ClusterTrait.
+	// +kubebuilder:validation:Required
+	Kind TraitRefKind `json:"kind"`
+
+	// Name is the name of the Trait or ClusterTrait resource.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Spec is the frozen specification of the trait at the time of this ComponentRelease.
+	// +kubebuilder:validation:Required
+	Spec TraitSpec `json:"spec"`
+}
+
 // ComponentProfile defines a snapshot of a component's spec
 type ComponentProfile struct {
 	// Parameters holds the snapshot of parameter values from the Component spec
@@ -49,10 +68,37 @@ type ComponentProfile struct {
 	// +kubebuilder:validation:Schemaless
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
-	// Traits to compose into this component
-	// Each trait can be instantiated multiple times with different instanceNames
+	// Traits holds the snapshot of trait instances configured on the component at release time.
+	// Each entry records the kind, name, and instanceName of the trait, along with any
+	// user-supplied parameters, using the composite (kind, name) key to unambiguously identify
+	// the trait spec in ComponentReleaseSpec.Traits.
 	// +optional
-	Traits []ComponentTrait `json:"traits,omitempty"`
+	Traits []ComponentProfileTrait `json:"traits,omitempty"`
+}
+
+// ComponentProfileTrait is a snapshot of a single trait instance configured on a component.
+// It records the kind and name of the trait (to look up the spec in ComponentReleaseSpec.Traits),
+// the instance name (unique within the component), and any user-supplied parameters.
+type ComponentProfileTrait struct {
+	// Kind identifies whether this is a namespace-scoped Trait or a cluster-scoped ClusterTrait.
+	// +kubebuilder:validation:Required
+	Kind TraitRefKind `json:"kind"`
+
+	// Name is the name of the Trait or ClusterTrait resource.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// InstanceName uniquely identifies this trait instance within the component.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	InstanceName string `json:"instanceName"`
+
+	// Parameters contains the trait parameter values supplied by the user.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 // ComponentReleaseStatus defines the observed state of ComponentRelease.

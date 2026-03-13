@@ -153,6 +153,16 @@ func rawJSON(t *testing.T, v any) *runtime.RawExtension {
 	return &runtime.RawExtension{Raw: data}
 }
 
+// hasReleaseTrait returns true if traits contains an entry with the given name (any kind).
+func hasReleaseTrait(traits []openchoreov1alpha1.ComponentReleaseTrait, name string) bool {
+	for _, t := range traits {
+		if t.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // --- Pure Functions ---
 
 func TestParseComponentTypeName(t *testing.T) {
@@ -490,9 +500,13 @@ func TestGenerateRelease(t *testing.T) {
 
 		result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
 		require.NoError(t, err)
-		assert.Contains(t, result.Spec.Traits, "ingress")
+		require.Len(t, result.Spec.Traits, 1)
+		assert.Equal(t, openchoreov1alpha1.TraitRefKindTrait, result.Spec.Traits[0].Kind)
+		assert.Equal(t, "ingress", result.Spec.Traits[0].Name)
 		assert.NotNil(t, result.Spec.ComponentProfile)
 		assert.Len(t, result.Spec.ComponentProfile.Traits, 1)
+		assert.Equal(t, openchoreov1alpha1.TraitRefKindTrait, result.Spec.ComponentProfile.Traits[0].Kind)
+		assert.Equal(t, "ingress", result.Spec.ComponentProfile.Traits[0].Name)
 	})
 
 	t.Run("component not found", func(t *testing.T) {
@@ -549,7 +563,7 @@ func TestGenerateRelease(t *testing.T) {
 
 		result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
 		require.NoError(t, err)
-		assert.Contains(t, result.Spec.Traits, "storage")
+		assert.True(t, hasReleaseTrait(result.Spec.Traits, "storage"), "expected trait 'storage' in Spec.Traits")
 	})
 
 	t.Run("with embedded ClusterTrait from ComponentType", func(t *testing.T) {
@@ -571,7 +585,7 @@ func TestGenerateRelease(t *testing.T) {
 
 		result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
 		require.NoError(t, err)
-		assert.Contains(t, result.Spec.Traits, "observability")
+		assert.True(t, hasReleaseTrait(result.Spec.Traits, "observability"), "expected trait 'observability' in Spec.Traits")
 	})
 
 	t.Run("with both embedded and component-level traits", func(t *testing.T) {
@@ -608,8 +622,8 @@ func TestGenerateRelease(t *testing.T) {
 
 		result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
 		require.NoError(t, err)
-		assert.Contains(t, result.Spec.Traits, "storage")
-		assert.Contains(t, result.Spec.Traits, "ingress")
+		assert.True(t, hasReleaseTrait(result.Spec.Traits, "storage"), "expected trait 'storage' in Spec.Traits")
+		assert.True(t, hasReleaseTrait(result.Spec.Traits, "ingress"), "expected trait 'ingress' in Spec.Traits")
 		assert.Len(t, result.Spec.Traits, 2)
 	})
 
@@ -642,7 +656,7 @@ func TestGenerateRelease(t *testing.T) {
 
 		result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
 		require.NoError(t, err)
-		assert.Contains(t, result.Spec.Traits, "networking")
+		assert.True(t, hasReleaseTrait(result.Spec.Traits, "networking"), "expected trait 'networking' in Spec.Traits")
 	})
 
 	t.Run("embedded trait not found returns error", func(t *testing.T) {
@@ -803,16 +817,20 @@ func TestGetComponentReleaseSchema(t *testing.T) {
 					ComponentName: testComponentName,
 				},
 				ComponentType: openchoreov1alpha1.ComponentTypeSpec{WorkloadType: "deployment"},
-				Traits: map[string]openchoreov1alpha1.TraitSpec{
-					"ingress": {
-						EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-							OpenAPIV3Schema: rawJSON(t, map[string]any{"hostname": "string"}),
+				Traits: []openchoreov1alpha1.ComponentReleaseTrait{
+					{
+						Kind: openchoreov1alpha1.TraitRefKindTrait,
+						Name: "ingress",
+						Spec: openchoreov1alpha1.TraitSpec{
+							EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
+								OpenAPIV3Schema: rawJSON(t, map[string]any{"hostname": "string"}),
+							},
 						},
 					},
 				},
 				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
-					Traits: []openchoreov1alpha1.ComponentTrait{
-						{Name: "ingress", InstanceName: "my-ingress"},
+					Traits: []openchoreov1alpha1.ComponentProfileTrait{
+						{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "ingress", InstanceName: "my-ingress"},
 					},
 				},
 			},

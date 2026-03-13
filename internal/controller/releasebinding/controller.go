@@ -920,7 +920,11 @@ func buildComponentFromRelease(componentRelease *openchoreov1alpha1.ComponentRel
 
 	if componentRelease.Spec.ComponentProfile != nil {
 		parameters = componentRelease.Spec.ComponentProfile.Parameters
-		traits = componentRelease.Spec.ComponentProfile.Traits
+		profileTraits := componentRelease.Spec.ComponentProfile.Traits
+		traits = make([]openchoreov1alpha1.ComponentTrait, 0, len(profileTraits))
+		for _, pt := range profileTraits {
+			traits = append(traits, openchoreov1alpha1.ComponentTrait(pt))
+		}
 	}
 
 	return &openchoreov1alpha1.Component{
@@ -954,13 +958,17 @@ func buildTraitsFromRelease(componentRelease *openchoreov1alpha1.ComponentReleas
 	}
 
 	traits := make([]openchoreov1alpha1.Trait, 0, len(componentRelease.Spec.Traits))
-	for name, spec := range componentRelease.Spec.Traits {
+	for _, rt := range componentRelease.Spec.Traits {
 		traits = append(traits, openchoreov1alpha1.Trait{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       string(rt.Kind),
+				APIVersion: openchoreov1alpha1.GroupVersion.String(),
+			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
+				Name:      rt.Name,
 				Namespace: componentRelease.Namespace,
 			},
-			Spec: spec,
+			Spec: rt.Spec,
 		})
 	}
 	return traits

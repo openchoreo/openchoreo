@@ -5,7 +5,6 @@ package componentrelease
 
 import (
 	"fmt"
-	"maps"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -47,11 +46,8 @@ func BuildSpec(input BuildInput) (*openchoreov1alpha1.ComponentReleaseSpec, erro
 		}
 	}
 
-	// Merge both maps into a single traits map for the spec
-	traits, err := mergeTraits(input.Traits, input.ClusterTraits)
-	if err != nil {
-		return nil, err
-	}
+	// Merge both maps into a single traits slice for the spec
+	traits := mergeTraits(input.Traits, input.ClusterTraits)
 
 	return &openchoreov1alpha1.ComponentReleaseSpec{
 		Owner: openchoreov1alpha1.ComponentReleaseOwner{
@@ -75,24 +71,42 @@ func hasTraitByKind(input BuildInput, kind openchoreov1alpha1.TraitRefKind, name
 	return ok
 }
 
-// mergeTraits combines Traits and ClusterTraits into a single TraitSpec map.
-// ClusterTraitSpec fields are converted to TraitSpec. Returns an error if
-// any trait name exists in both maps (name collision across kinds).
-// Returns nil map if both inputs are empty.
-func mergeTraits(traits map[string]openchoreov1alpha1.TraitSpec, clusterTraits map[string]openchoreov1alpha1.ClusterTraitSpec) (map[string]openchoreov1alpha1.TraitSpec, error) {
+// mergeTraits combines Traits and ClusterTraits into a []ComponentReleaseTrait slice.
+// Each entry preserves its Kind (Trait or ClusterTrait) so that a namespace-scoped Trait
+// and a cluster-scoped ClusterTrait with the same name can coexist as separate entries.
+// Returns nil if both inputs are empty.
+func mergeTraits(traits map[string]openchoreov1alpha1.TraitSpec, clusterTraits map[string]openchoreov1alpha1.ClusterTraitSpec) []openchoreov1alpha1.ComponentReleaseTrait {
 	total := len(traits) + len(clusterTraits)
 	if total == 0 {
-		return nil, nil
+		return nil
 	}
-	merged := make(map[string]openchoreov1alpha1.TraitSpec, total)
-	maps.Copy(merged, traits)
-	for k, v := range clusterTraits {
-		if _, exists := merged[k]; exists {
-			return nil, fmt.Errorf("trait name %q exists as both Trait and ClusterTrait", k)
+	merged := make([]openchoreov1alpha1.ComponentReleaseTrait, 0, total)
+	for name, spec := range traits {
+		merged = append(merged, openchoreov1alpha1.ComponentReleaseTrait{
+			Kind: openchoreov1alpha1.TraitRefKindTrait,
+			Name: name,
+			Spec: spec,
+		})
+	}
+	for name, spec := range clusterTraits {
+		merged = append(merged, openchoreov1alpha1.ComponentReleaseTrait{
+			Kind: openchoreov1alpha1.TraitRefKindClusterTrait,
+			Name: name,
+			Spec: openchoreov1alpha1.TraitSpec(spec),
+		})
+	}
+	return merged
+}
+
+// FindTraitSpec searches the release traits slice for an entry matching kind and name,
+// returning a copy of its Spec. Returns an empty TraitSpec and false if not found.
+func FindTraitSpec(traits []openchoreov1alpha1.ComponentReleaseTrait, kind openchoreov1alpha1.TraitRefKind, name string) (openchoreov1alpha1.TraitSpec, bool) {
+	for i := range traits {
+		if traits[i].Kind == kind && traits[i].Name == name {
+			return traits[i].Spec, true
 		}
-		merged[k] = openchoreov1alpha1.TraitSpec(v)
 	}
-	return merged, nil
+	return openchoreov1alpha1.TraitSpec{}, false
 }
 
 // buildComponentProfile extracts the ComponentProfile from the Component.
@@ -101,8 +115,21 @@ func buildComponentProfile(comp *openchoreov1alpha1.Component) *openchoreov1alph
 	if comp.Spec.Parameters == nil && len(comp.Spec.Traits) == 0 {
 		return nil
 	}
+	profileTraits := make([]openchoreov1alpha1.ComponentProfileTrait, 0, len(comp.Spec.Traits))
+	for _, ct := range comp.Spec.Traits {
+		kind := ct.Kind
+		if kind == "" {
+			kind = openchoreov1alpha1.TraitRefKindTrait
+		}
+		profileTraits = append(profileTraits, openchoreov1alpha1.ComponentProfileTrait{
+			Kind:         kind,
+			Name:         ct.Name,
+			InstanceName: ct.InstanceName,
+			Parameters:   ct.Parameters,
+		})
+	}
 	return &openchoreov1alpha1.ComponentProfile{
 		Parameters: comp.Spec.Parameters,
-		Traits:     comp.Spec.Traits,
+		Traits:     profileTraits,
 	}
 }

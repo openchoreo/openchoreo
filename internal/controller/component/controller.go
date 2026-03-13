@@ -370,12 +370,6 @@ func (r *Reconciler) areValidTraits(ctx context.Context, comp *openchoreov1alpha
 			},
 			context: fmt.Sprintf("ComponentType %q", ct.Name),
 		},
-		{
-			validate: func() error {
-				return componentvalidation.ValidateTraitNameKindConsistency(comp.Spec.Traits, ct.Spec.Traits)
-			},
-			context: fmt.Sprintf("ComponentType %q", ct.Name),
-		},
 	}
 
 	for _, v := range validators {

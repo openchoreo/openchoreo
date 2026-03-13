@@ -4,6 +4,8 @@
 package component
 
 import (
+	"sort"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/pkg/hash"
 )
@@ -15,8 +17,8 @@ type ReleaseSpec struct {
 	// ComponentType is the embedded ComponentType specification
 	ComponentType openchoreov1alpha1.ComponentTypeSpec `json:"componentType"`
 
-	// Traits maps trait names to their specifications
-	Traits map[string]openchoreov1alpha1.TraitSpec `json:"traits,omitempty"`
+	// Traits holds the frozen trait specifications, sorted by (Kind, Name) for deterministic hashing.
+	Traits []openchoreov1alpha1.ComponentReleaseTrait `json:"traits,omitempty"`
 
 	// ComponentProfile contains parameter values and trait configurations
 	ComponentProfile *openchoreov1alpha1.ComponentProfile `json:"componentProfile,omitempty"`
@@ -49,10 +51,21 @@ func EqualReleaseTemplate(lhs, rhs *ReleaseSpec) bool {
 
 // ReleaseSpecFromComponentReleaseSpec derives a ReleaseSpec from a ComponentReleaseSpec,
 // excluding the Owner field to preserve hash compatibility.
+// Traits are sorted by (Kind, Name) to ensure the hash is deterministic regardless of
+// the order in which traits were collected.
 func ReleaseSpecFromComponentReleaseSpec(spec *openchoreov1alpha1.ComponentReleaseSpec) *ReleaseSpec {
+	sortedTraits := make([]openchoreov1alpha1.ComponentReleaseTrait, len(spec.Traits))
+	copy(sortedTraits, spec.Traits)
+	sort.Slice(sortedTraits, func(i, j int) bool {
+		ki, kj := string(sortedTraits[i].Kind), string(sortedTraits[j].Kind)
+		if ki != kj {
+			return ki < kj
+		}
+		return sortedTraits[i].Name < sortedTraits[j].Name
+	})
 	return &ReleaseSpec{
 		ComponentType:    spec.ComponentType,
-		Traits:           spec.Traits,
+		Traits:           sortedTraits,
 		ComponentProfile: spec.ComponentProfile,
 		Workload:         spec.Workload,
 	}

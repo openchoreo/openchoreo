@@ -160,26 +160,29 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should admit ComponentRelease with valid trait instance parameters", func() {
 			obj = validComponentRelease()
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"storage": {
-					Parameters: &openchoreodevv1alpha1.SchemaSection{
-
-						OpenAPIV3Schema: &runtime.RawExtension{
-
-							Raw: []byte(`{"mountPath": "string", "size": "string | default=10Gi"}`),
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Parameters: &openchoreodevv1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{"mountPath": "string", "size": "string | default=10Gi"}`),
+							},
 						},
-					},
-					Creates: []openchoreodevv1alpha1.TraitCreate{
-						{
-							Template: &runtime.RawExtension{
-								Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+						Creates: []openchoreodevv1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+								},
 							},
 						},
 					},
 				},
 			}
-			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentTrait{
+			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentProfileTrait{
 				{
+					Kind:         openchoreodevv1alpha1.TraitRefKindTrait,
 					Name:         "storage",
 					InstanceName: "data-storage",
 					Parameters: &runtime.RawExtension{
@@ -244,24 +247,29 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should reject when trait instance parameter is missing required field", func() {
 			obj = validComponentRelease()
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"storage": {
-					Parameters: &openchoreodevv1alpha1.SchemaSection{
-						OpenAPIV3Schema: &runtime.RawExtension{
-							Raw: []byte(`{"mountPath": "string", "size": "string"}`), // both required
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Parameters: &openchoreodevv1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{"mountPath": "string", "size": "string"}`), // both required
+							},
 						},
-					},
-					Creates: []openchoreodevv1alpha1.TraitCreate{
-						{
-							Template: &runtime.RawExtension{
-								Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+						Creates: []openchoreodevv1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+								},
 							},
 						},
 					},
 				},
 			}
-			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentTrait{
+			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentProfileTrait{
 				{
+					Kind:         openchoreodevv1alpha1.TraitRefKindTrait,
 					Name:         "storage",
 					InstanceName: "data-storage",
 					Parameters: &runtime.RawExtension{
@@ -277,9 +285,10 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should reject when trait referenced in componentProfile doesn't exist in traits", func() {
 			obj = validComponentRelease()
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{}
-			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentTrait{
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{}
+			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentProfileTrait{
 				{
+					Kind:         openchoreodevv1alpha1.TraitRefKindTrait,
 					Name:         "nonexistent-trait",
 					InstanceName: "instance1",
 				},
@@ -292,23 +301,29 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should reject duplicate trait instance names", func() {
 			obj = validComponentRelease()
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"storage": {
-					Creates: []openchoreodevv1alpha1.TraitCreate{
-						{
-							Template: &runtime.RawExtension{
-								Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Creates: []openchoreodevv1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+								},
 							},
 						},
 					},
 				},
 			}
-			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentTrait{
+			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentProfileTrait{
 				{
+					Kind:         openchoreodevv1alpha1.TraitRefKindTrait,
 					Name:         "storage",
 					InstanceName: "duplicate-name",
 				},
 				{
+					Kind:         openchoreodevv1alpha1.TraitRefKindTrait,
 					Name:         "storage",
 					InstanceName: "duplicate-name", // duplicate
 				},
@@ -441,24 +456,29 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should admit trait instance parameters validated against openAPIV3Schema", func() {
 			obj = validComponentRelease()
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"storage": {
-					Parameters: &openchoreodevv1alpha1.SchemaSection{
-						OpenAPIV3Schema: &runtime.RawExtension{
-							Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"},"size":{"type":"string","default":"10Gi"}},"required":["mountPath"]}`),
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Parameters: &openchoreodevv1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"},"size":{"type":"string","default":"10Gi"}},"required":["mountPath"]}`),
+							},
 						},
-					},
-					Creates: []openchoreodevv1alpha1.TraitCreate{
-						{
-							Template: &runtime.RawExtension{
-								Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+						Creates: []openchoreodevv1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+								},
 							},
 						},
 					},
 				},
 			}
-			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentTrait{
+			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentProfileTrait{
 				{
+					Kind:         openchoreodevv1alpha1.TraitRefKindTrait,
 					Name:         "storage",
 					InstanceName: "data-storage",
 					Parameters: &runtime.RawExtension{
@@ -473,24 +493,29 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should reject missing required trait parameter with openAPIV3Schema", func() {
 			obj = validComponentRelease()
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"storage": {
-					Parameters: &openchoreodevv1alpha1.SchemaSection{
-						OpenAPIV3Schema: &runtime.RawExtension{
-							Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"},"size":{"type":"string"}},"required":["mountPath","size"]}`),
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Parameters: &openchoreodevv1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"},"size":{"type":"string"}},"required":["mountPath","size"]}`),
+							},
 						},
-					},
-					Creates: []openchoreodevv1alpha1.TraitCreate{
-						{
-							Template: &runtime.RawExtension{
-								Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+						Creates: []openchoreodevv1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+								},
 							},
 						},
 					},
 				},
 			}
-			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentTrait{
+			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentProfileTrait{
 				{
+					Kind:         openchoreodevv1alpha1.TraitRefKindTrait,
 					Name:         "storage",
 					InstanceName: "data-storage",
 					Parameters: &runtime.RawExtension{
@@ -539,15 +564,19 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj.Spec.ComponentType.Validations = []openchoreodevv1alpha1.ValidationRule{
 				{Rule: "${parameters.replicas > 0}", Message: "replicas must be positive"},
 			}
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"storage": {
-					Parameters: &openchoreodevv1alpha1.SchemaSection{
-						OpenAPIV3Schema: &runtime.RawExtension{
-							Raw: []byte(`{"type":"object","properties":{"size":{"type":"integer","default":10}}}`),
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Parameters: &openchoreodevv1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{"type":"object","properties":{"size":{"type":"integer","default":10}}}`),
+							},
 						},
-					},
-					Validations: []openchoreodevv1alpha1.ValidationRule{
-						{Rule: "${parameters.size > 0}", Message: "size must be positive"},
+						Validations: []openchoreodevv1alpha1.ValidationRule{
+							{Rule: "${parameters.size > 0}", Message: "size must be positive"},
+						},
 					},
 				},
 			}
@@ -558,17 +587,21 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should reject invalid JSON in openAPIV3Schema Trait parameters", func() {
 			obj = validComponentRelease()
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"storage": {
-					Parameters: &openchoreodevv1alpha1.SchemaSection{
-						OpenAPIV3Schema: &runtime.RawExtension{
-							Raw: []byte(`{malformed`),
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Parameters: &openchoreodevv1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{malformed`),
+							},
 						},
-					},
-					Creates: []openchoreodevv1alpha1.TraitCreate{
-						{
-							Template: &runtime.RawExtension{
-								Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+						Creates: []openchoreodevv1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+								},
 							},
 						},
 					},
@@ -658,12 +691,16 @@ var _ = Describe("ComponentRelease Webhook", func() {
 	Context("CEL Validation in Embedded Traits", func() {
 		It("should reject malformed CEL expression in Trait creates template", func() {
 			obj = validComponentRelease()
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"storage": {
-					Creates: []openchoreodevv1alpha1.TraitCreate{
-						{
-							Template: &runtime.RawExtension{
-								Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test"}, "spec": {"resources": {"requests": {"storage": "${parameters.size +}"}}}}`),
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Creates: []openchoreodevv1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test"}, "spec": {"resources": {"requests": {"storage": "${parameters.size +}"}}}}`),
+								},
 							},
 						},
 					},
@@ -677,20 +714,24 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should reject malformed CEL expression in Trait patches", func() {
 			obj = validComponentRelease()
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"sidecar": {
-					Patches: []openchoreodevv1alpha1.TraitPatch{
-						{
-							Target: openchoreodevv1alpha1.PatchTarget{
-								Group:   "apps",
-								Version: "v1",
-								Kind:    "Deployment",
-							},
-							Operations: []openchoreodevv1alpha1.JSONPatchOperation{
-								{
-									Op:    "add",
-									Path:  "/spec/template/spec/containers/-",
-									Value: &runtime.RawExtension{Raw: []byte(`{"name": "${parameters.name +}"}`)},
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "sidecar",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Patches: []openchoreodevv1alpha1.TraitPatch{
+							{
+								Target: openchoreodevv1alpha1.PatchTarget{
+									Group:   "apps",
+									Version: "v1",
+									Kind:    "Deployment",
+								},
+								Operations: []openchoreodevv1alpha1.JSONPatchOperation{
+									{
+										Op:    "add",
+										Path:  "/spec/template/spec/containers/-",
+										Value: &runtime.RawExtension{Raw: []byte(`{"name": "${parameters.name +}"}`)},
+									},
 								},
 							},
 						},
@@ -705,35 +746,37 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should admit valid CEL expressions in Trait creates and patches", func() {
 			obj = validComponentRelease()
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"storage": {
-					Parameters: &openchoreodevv1alpha1.SchemaSection{
-
-						OpenAPIV3Schema: &runtime.RawExtension{
-
-							Raw: []byte(`{"size": "string | default=10Gi"}`),
-						},
-					},
-					Creates: []openchoreodevv1alpha1.TraitCreate{
-						{
-							Template: &runtime.RawExtension{
-								Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "${metadata.name}-pvc"}, "spec": {"resources": {"requests": {"storage": "${parameters.size}"}}}}`),
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Parameters: &openchoreodevv1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{"size": "string | default=10Gi"}`),
 							},
 						},
-					},
-					Patches: []openchoreodevv1alpha1.TraitPatch{
-						{
-							Target: openchoreodevv1alpha1.PatchTarget{
-								Group:   "apps",
-								Version: "v1",
-								Kind:    "Deployment",
+						Creates: []openchoreodevv1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "${metadata.name}-pvc"}, "spec": {"resources": {"requests": {"storage": "${parameters.size}"}}}}`),
+								},
 							},
-							Operations: []openchoreodevv1alpha1.JSONPatchOperation{
-								{
-									Op:   "add",
-									Path: "/spec/template/spec/volumes/-",
-									Value: &runtime.RawExtension{
-										Raw: []byte(`{"name": "data", "persistentVolumeClaim": {"claimName": "${metadata.name}-pvc"}}`),
+						},
+						Patches: []openchoreodevv1alpha1.TraitPatch{
+							{
+								Target: openchoreodevv1alpha1.PatchTarget{
+									Group:   "apps",
+									Version: "v1",
+									Kind:    "Deployment",
+								},
+								Operations: []openchoreodevv1alpha1.JSONPatchOperation{
+									{
+										Op:   "add",
+										Path: "/spec/template/spec/volumes/-",
+										Value: &runtime.RawExtension{
+											Raw: []byte(`{"name": "data", "persistentVolumeClaim": {"claimName": "${metadata.name}-pvc"}}`),
+										},
 									},
 								},
 							},
@@ -795,17 +838,19 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj.Spec.ComponentType.Validations = []openchoreodevv1alpha1.ValidationRule{
 				{Rule: "${parameters.replicas > 0}", Message: "replicas must be positive"},
 			}
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"storage": {
-					Parameters: &openchoreodevv1alpha1.SchemaSection{
-
-						OpenAPIV3Schema: &runtime.RawExtension{
-
-							Raw: []byte(`{"size": "integer | default=10"}`),
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Parameters: &openchoreodevv1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{"size": "integer | default=10"}`),
+							},
 						},
-					},
-					Validations: []openchoreodevv1alpha1.ValidationRule{
-						{Rule: "${parameters.size > 0}", Message: "size must be positive"},
+						Validations: []openchoreodevv1alpha1.ValidationRule{
+							{Rule: "${parameters.size > 0}", Message: "size must be positive"},
+						},
 					},
 				},
 			}
@@ -866,12 +911,16 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should reject missing apiVersion in Trait creates template", func() {
 			obj = validComponentRelease()
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"storage": {
-					Creates: []openchoreodevv1alpha1.TraitCreate{
-						{
-							Template: &runtime.RawExtension{
-								Raw: []byte(`{"kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Creates: []openchoreodevv1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+								},
 							},
 						},
 					},
@@ -941,19 +990,21 @@ var _ = Describe("ComponentRelease Webhook", func() {
 
 		It("should reject invalid JSON in Trait schema", func() {
 			obj = validComponentRelease()
-			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
-				"storage": {
-					Parameters: &openchoreodevv1alpha1.SchemaSection{
-
-						OpenAPIV3Schema: &runtime.RawExtension{
-
-							Raw: []byte(`{malformed`),
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Parameters: &openchoreodevv1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{malformed`),
+							},
 						},
-					},
-					Creates: []openchoreodevv1alpha1.TraitCreate{
-						{
-							Template: &runtime.RawExtension{
-								Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+						Creates: []openchoreodevv1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+								},
 							},
 						},
 					},

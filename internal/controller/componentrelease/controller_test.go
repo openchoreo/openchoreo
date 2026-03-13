@@ -58,8 +58,9 @@ var _ = Describe("ComponentRelease Controller", func() {
 							Parameters: &runtime.RawExtension{
 								Raw: []byte(`{"replicas":1,"image":"nginx:latest"}`),
 							},
-							Traits: []openchoreov1alpha1.ComponentTrait{
+							Traits: []openchoreov1alpha1.ComponentProfileTrait{
 								{
+									Kind:         openchoreov1alpha1.TraitRefKindTrait,
 									Name:         "test-trait",
 									InstanceName: "test-instance",
 									Parameters: &runtime.RawExtension{
@@ -68,17 +69,21 @@ var _ = Describe("ComponentRelease Controller", func() {
 								},
 							},
 						},
-						Traits: map[string]openchoreov1alpha1.TraitSpec{
-							"test-instance": {
-								Parameters: &openchoreov1alpha1.SchemaSection{
-									OpenAPIV3Schema: &runtime.RawExtension{
-										Raw: []byte(`{"minReplicas":{"type":"integer"},"maxReplicas":{"type":"integer"}}`),
+						Traits: []openchoreov1alpha1.ComponentReleaseTrait{
+							{
+								Kind: openchoreov1alpha1.TraitRefKindTrait,
+								Name: "test-trait",
+								Spec: openchoreov1alpha1.TraitSpec{
+									Parameters: &openchoreov1alpha1.SchemaSection{
+										OpenAPIV3Schema: &runtime.RawExtension{
+											Raw: []byte(`{"minReplicas":{"type":"integer"},"maxReplicas":{"type":"integer"}}`),
+										},
 									},
-								},
-								Creates: []openchoreov1alpha1.TraitCreate{
-									{
-										Template: &runtime.RawExtension{
-											Raw: []byte(`{"apiVersion":"autoscaling/v2","kind":"HorizontalPodAutoscaler","metadata":{"name":"test-hpa"},"spec":{"minReplicas":2,"maxReplicas":10}}`),
+									Creates: []openchoreov1alpha1.TraitCreate{
+										{
+											Template: &runtime.RawExtension{
+												Raw: []byte(`{"apiVersion":"autoscaling/v2","kind":"HorizontalPodAutoscaler","metadata":{"name":"test-hpa"},"spec":{"minReplicas":2,"maxReplicas":10}}`),
+											},
 										},
 									},
 								},

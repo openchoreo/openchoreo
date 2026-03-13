@@ -133,11 +133,15 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	// Process traits
 	traitProcessor := trait.NewProcessor(p.templateEngine)
 
-	// Build trait map
+	// Build trait map keyed by "Kind:Name" to support same-name Trait and ClusterTrait coexisting.
 	traitMap := make(map[string]*v1alpha1.Trait)
 	for i := range input.Traits {
 		t := &input.Traits[i]
-		traitMap[t.Name] = t
+		kind := t.Kind // TypeMeta.Kind — "Trait" or "ClusterTrait"
+		if kind == "" {
+			kind = string(v1alpha1.TraitRefKindTrait)
+		}
+		traitMap[kind+":"+t.Name] = t
 	}
 
 	// Create schema cache for trait reuse within this render
@@ -145,7 +149,11 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 	// Process embedded traits from ComponentType (before component-level traits)
 	for _, embeddedTrait := range input.ComponentType.Spec.Traits {
-		t, ok := traitMap[embeddedTrait.Name]
+		embeddedKind := string(embeddedTrait.Kind)
+		if embeddedKind == "" {
+			embeddedKind = string(v1alpha1.TraitRefKindTrait)
+		}
+		t, ok := traitMap[embeddedKind+":"+embeddedTrait.Name]
 		if !ok {
 			return nil, fmt.Errorf("embedded trait %s referenced but not found in traits list", embeddedTrait.Name)
 		}
@@ -206,7 +214,11 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 	// Process each component-level trait instance
 	for _, traitInstance := range input.Component.Spec.Traits {
-		t, ok := traitMap[traitInstance.Name]
+		instanceKind := string(traitInstance.Kind)
+		if instanceKind == "" {
+			instanceKind = string(v1alpha1.TraitRefKindTrait)
+		}
+		t, ok := traitMap[instanceKind+":"+traitInstance.Name]
 		if !ok {
 			return nil, fmt.Errorf("trait %s referenced but not found in traits list", traitInstance.Name)
 		}
