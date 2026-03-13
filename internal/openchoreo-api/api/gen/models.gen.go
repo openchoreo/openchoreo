@@ -2095,7 +2095,7 @@ type MessageResponse struct {
 
 // Namespace Namespace resource.
 // Control plane namespaces hold resources like Projects, Components, and Environments.
-// These namespaces are identified by the label `openchoreo.dev/namespace=true`.
+// These namespaces are identified by the label `openchoreo.dev/controlplane-namespace=true`.
 type Namespace struct {
 	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.

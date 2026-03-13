@@ -181,7 +181,7 @@ e2e.setup-install: ## Install all planes via Helm
 .PHONY: e2e.setup-configure
 e2e.setup-configure: ## Apply default resources, register planes, and link observability
 	@$(call log_info, Applying default resources)
-	$(E2E_KUBECTL) label namespace default openchoreo.dev/namespace=true --overwrite
+	$(E2E_KUBECTL) label namespace default openchoreo.dev/controlplane-namespace=true --overwrite
 	$(E2E_KUBECTL) apply -f $(PROJECT_DIR)/samples/getting-started/all.yaml
 	@$(MAKE) _e2e.configure-dp
 	@if [ "$(E2E_WITH_BUILD)" = "true" ]; then $(MAKE) _e2e.configure-wp; fi

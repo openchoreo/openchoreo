@@ -37,7 +37,7 @@ func NewNamespaceService(k8sClient client.Client, logger *slog.Logger, authzPDP 
 }
 
 // ListNamespaces lists all control plane namespaces
-// Only namespaces with the openchoreo.dev/namespace=true label are returned
+// Only namespaces with the openchoreo.dev/controlplane-namespace=true label are returned
 func (s *NamespaceService) ListNamespaces(ctx context.Context) ([]*models.NamespaceResponse, error) {
 	s.logger.Debug("Listing control plane namespaces")
 

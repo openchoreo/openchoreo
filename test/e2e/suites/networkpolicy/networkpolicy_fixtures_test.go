@@ -54,14 +54,14 @@ func mustYAMLDocs(objects ...any) string {
 	return strings.Join(docs, "\n---\n")
 }
 
-// cpNamespacesYAML defines OC namespaces (k8s namespaces labeled as openchoreo.dev/namespace) for the test.
+// cpNamespacesYAML defines OC namespaces (k8s namespaces labeled as openchoreo.dev/controlplane-namespace) for the test.
 func cpNamespacesYAML() string {
 	acme := &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{APIVersion: kubernetesAPIVerV1, Kind: "Namespace"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cpNsAcme,
 			Labels: map[string]string{
-				"openchoreo.dev/namespace": "true",
+				"openchoreo.dev/controlplane-namespace": "true",
 			},
 		},
 	}
@@ -70,7 +70,7 @@ func cpNamespacesYAML() string {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cpNsBeta,
 			Labels: map[string]string{
-				"openchoreo.dev/namespace": "true",
+				"openchoreo.dev/controlplane-namespace": "true",
 			},
 		},
 	}

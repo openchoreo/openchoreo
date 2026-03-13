@@ -33,7 +33,7 @@ List available namespaces in my openchoreo cluster.
 ```
 
 **What agent will do:**
-1. Call `list_namespaces` to list namespaces. Note that this will return only the namespaces which contains the label: `openchoreo.dev/namespace=true`
+1. Call `list_namespaces` to list namespaces. Note that this will return only the namespaces which contains the label: `openchoreo.dev/controlplane-namespace=true`
 2. Display each namespace details including name, display name, and status
 
 ### Prompt 2: Get Project Details
