@@ -61,6 +61,34 @@ func MakeComponentPolicies(params ComponentPolicyParams) []map[string]any {
 				},
 			},
 		},
+		// Allow egress to external IPs (internet).
+		// namespaceSelector rules only match in-cluster pod traffic;
+		// without an ipBlock rule, all traffic to external IPs is denied.
+		// Private/internal ranges are excluded so that cross-namespace
+		// isolation is still enforced by the namespaceSelector rules above.
+		map[string]any{
+			"to": []any{
+				map[string]any{
+					"ipBlock": map[string]any{
+						"cidr": "0.0.0.0/0",
+						"except": []any{
+							"10.0.0.0/8",
+							"172.16.0.0/12",
+							"192.168.0.0/16",
+						},
+					},
+				},
+				map[string]any{
+					"ipBlock": map[string]any{
+						"cidr": "::/0",
+						"except": []any{
+							"fc00::/7",
+							"fe80::/10",
+						},
+					},
+				},
+			},
+		},
 	}
 
 	// Generate a policy name, truncated to k8s limits

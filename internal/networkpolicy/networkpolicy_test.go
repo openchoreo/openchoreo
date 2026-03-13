@@ -78,6 +78,18 @@ spec:
             matchLabels:
               openchoreo.dev/namespace: cp-ns
               openchoreo.dev/environment: development
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+        - ipBlock:
+            cidr: "::/0"
+            except:
+              - fc00::/7
+              - fe80::/10
 `)
 
 	// Also verify empty map case
@@ -143,6 +155,18 @@ spec:
             matchLabels:
               openchoreo.dev/namespace: cp-ns
               openchoreo.dev/environment: development
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+        - ipBlock:
+            cidr: "::/0"
+            except:
+              - fc00::/7
+              - fe80::/10
 `)
 }
 
@@ -203,6 +227,18 @@ spec:
             matchLabels:
               openchoreo.dev/namespace: cp-ns
               openchoreo.dev/environment: development
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+        - ipBlock:
+            cidr: "::/0"
+            except:
+              - fc00::/7
+              - fe80::/10
 `)
 }
 
@@ -263,6 +299,18 @@ spec:
             matchLabels:
               openchoreo.dev/namespace: cp-ns
               openchoreo.dev/environment: development
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+        - ipBlock:
+            cidr: "::/0"
+            except:
+              - fc00::/7
+              - fe80::/10
 `)
 }
 
@@ -323,6 +371,18 @@ spec:
             matchLabels:
               openchoreo.dev/namespace: cp-ns
               openchoreo.dev/environment: development
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+        - ipBlock:
+            cidr: "::/0"
+            except:
+              - fc00::/7
+              - fe80::/10
 `)
 }
 
@@ -406,6 +466,18 @@ spec:
             matchLabels:
               openchoreo.dev/namespace: cp-ns
               openchoreo.dev/environment: development
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+        - ipBlock:
+            cidr: "::/0"
+            except:
+              - fc00::/7
+              - fe80::/10
 `)
 }
 
@@ -454,6 +526,18 @@ spec:
             matchLabels:
               openchoreo.dev/namespace: cp-ns
               openchoreo.dev/environment: development
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+        - ipBlock:
+            cidr: "::/0"
+            except:
+              - fc00::/7
+              - fe80::/10
 `)
 }
 

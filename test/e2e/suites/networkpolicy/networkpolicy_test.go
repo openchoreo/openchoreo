@@ -670,4 +670,36 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			return err
 		}, 30*time.Second, 2*time.Second).Should(Succeed(), "DNS resolution failed")
 	})
+
+	It("allows external DNS resolution", func() {
+		By("pods should resolve external domain names while egress policies are in place")
+		Eventually(func() error {
+			_, err := framework.KubectlExecByLabel(
+				kubeContext,
+				dpAcmeProj1Dev,
+				"openchoreo.dev/component=client-a",
+				"main",
+				"nslookup", "www.google.com",
+			)
+			return err
+		}, 30*time.Second, 2*time.Second).Should(Succeed(), "external DNS resolution failed")
+	})
+
+	It("allows internet egress from data plane pods", func() {
+		By("pods should reach external internet endpoints; egress policies must not block outbound internet access")
+		assertSourcePodReady(dpAcmeProj1Dev, "openchoreo.dev/component=client-a", "main")
+		Eventually(func() error {
+			_, err := framework.KubectlExecByLabel(
+				kubeContext,
+				dpAcmeProj1Dev,
+				"openchoreo.dev/component=client-a",
+				"main",
+				"wget", "-q", "-O", "/dev/null", "--timeout=5", "http://connectivitycheck.gstatic.com/generate_204",
+			)
+			return err
+		}, 30*time.Second, 2*time.Second).Should(Succeed(),
+			"expected internet egress to be allowed from data plane pods")
+	})
+
+
 })
