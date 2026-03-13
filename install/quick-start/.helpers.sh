@@ -811,7 +811,7 @@ DPEOF
 
 # Extract cluster-agent CA and create ClusterWorkflowPlane CR
 create_workflowplane_resource() {
-    log_info "Creating Cluster WorkflowPlane resource..."
+    log_info "Creating Cluster Workflow Plane resource..."
 
     # Wait for cluster-agent-tls secret
     local max_attempts=60
@@ -844,7 +844,7 @@ $(echo "$agent_ca" | sed 's/^/        /')
     name: default
 BPEOF
 
-    log_success "WorkflowPlane resource created"
+    log_success "Cluster Workflow Plane resource created"
 }
 
 # Extract cluster-agent CA and create ClusterObservabilityPlane CR
