@@ -566,7 +566,8 @@ func (r *WorkflowResult) GetWorkflowSpec() openchoreov1alpha1.WorkflowSpec {
 // ResolveWorkflow resolves a Workflow or ClusterWorkflow by kind and name.
 func ResolveWorkflow(ctx context.Context, c client.Client, namespace string, kind openchoreov1alpha1.WorkflowRefKind, name string) (*WorkflowResult, error) {
 	switch kind {
-	case openchoreov1alpha1.WorkflowRefKindClusterWorkflow:
+	case openchoreov1alpha1.WorkflowRefKindClusterWorkflow, "":
+		// Cluster-scoped ClusterWorkflow (empty kind defaults to ClusterWorkflow via CRD defaulting)
 		cw := &openchoreov1alpha1.ClusterWorkflow{}
 		key := client.ObjectKey{Name: name}
 
@@ -578,8 +579,8 @@ func ResolveWorkflow(ctx context.Context, c client.Client, namespace string, kin
 		}
 		return &WorkflowResult{ClusterWorkflow: cw}, nil
 
-	case openchoreov1alpha1.WorkflowRefKindWorkflow, "":
-		// Namespace-scoped Workflow (empty kind defaults to Workflow via CRD defaulting)
+	case openchoreov1alpha1.WorkflowRefKindWorkflow:
+		// Namespace-scoped Workflow
 		wf := &openchoreov1alpha1.Workflow{}
 		key := client.ObjectKey{Namespace: namespace, Name: name}
 

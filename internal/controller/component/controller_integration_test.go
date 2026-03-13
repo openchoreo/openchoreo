@@ -417,7 +417,7 @@ var _ = Describe("Component Controller — Workflow validation", func() {
 			By("Creating Component with workflow=other-wf (not in allowed list)")
 			comp = minimalComp(compName, project, string(openchoreov1alpha1.ComponentTypeRefKindComponentType),
 				"deployment/"+ctName, false)
-			comp.Spec.Workflow = &openchoreov1alpha1.WorkflowRunConfig{Name: "other-wf"}
+			comp.Spec.Workflow = &openchoreov1alpha1.ComponentWorkflowConfig{Name: "other-wf"}
 			Expect(k8sClient.Create(ctx, comp)).To(Succeed())
 		})
 
@@ -456,7 +456,7 @@ var _ = Describe("Component Controller — Workflow validation", func() {
 			By("Creating Component referencing my-wf (no Workflow resource exists)")
 			comp = minimalComp(compName, project, string(openchoreov1alpha1.ComponentTypeRefKindComponentType),
 				"deployment/"+ctName, false)
-			comp.Spec.Workflow = &openchoreov1alpha1.WorkflowRunConfig{Name: workflowName}
+			comp.Spec.Workflow = &openchoreov1alpha1.ComponentWorkflowConfig{Name: workflowName}
 			Expect(k8sClient.Create(ctx, comp)).To(Succeed())
 		})
 

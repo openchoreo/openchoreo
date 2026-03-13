@@ -54,7 +54,7 @@ spec:
                   providing schema values.
                 properties:
                   kind:
-                    default: Workflow
+                    default: ClusterWorkflow
                     description: Kind is the kind of workflow (Workflow or ClusterWorkflow).
                     enum:
                     - Workflow

@@ -408,9 +408,6 @@ func (r *Reconciler) validateWorkflow(
 
 	workflowName := comp.Spec.Workflow.Name
 	workflowKind := comp.Spec.Workflow.Kind
-	if workflowKind == "" {
-		workflowKind = openchoreov1alpha1.WorkflowRefKindWorkflow
-	}
 
 	// Performance optimization: Check allowedWorkflows list first using kind:name composite key.
 	// This avoids fetching the Workflow if it's not allowed.
@@ -418,11 +415,7 @@ func (r *Reconciler) validateWorkflow(
 		compositeKey := string(workflowKind) + ":" + workflowName
 		allowedSet := make(map[string]bool, len(ct.Spec.AllowedWorkflows))
 		for _, ref := range ct.Spec.AllowedWorkflows {
-			refKind := ref.Kind
-			if refKind == "" {
-				refKind = openchoreov1alpha1.WorkflowRefKindWorkflow
-			}
-			allowedSet[string(refKind)+":"+ref.Name] = true
+			allowedSet[string(ref.Kind)+":"+ref.Name] = true
 		}
 
 		if !allowedSet[compositeKey] {

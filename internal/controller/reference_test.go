@@ -1166,31 +1166,30 @@ func TestWorkflowPlaneResult_GetObservabilityPlane_NeitherSet(t *testing.T) {
 // Tests for ResolveWorkflow
 // ============================================================================
 
-func TestResolveWorkflow_WithEmptyKind_ResolvesNamespaceScopedWorkflow(t *testing.T) {
+func TestResolveWorkflow_WithEmptyKind_ResolvesClusterScopedWorkflow(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
 
-	workflow := &openchoreov1alpha1.Workflow{
+	clusterWorkflow := &openchoreov1alpha1.ClusterWorkflow{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "docker",
-			Namespace: "test-namespace",
+			Name: "docker",
 		},
 	}
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(workflow).
+		WithObjects(clusterWorkflow).
 		Build()
 
-	// Empty kind should fall through to the default case and resolve a namespace-scoped Workflow
+	// Empty kind should default to ClusterWorkflow
 	result, err := ResolveWorkflow(context.Background(), fakeClient, "test-namespace", "", "docker")
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.NotNil(t, result.Workflow)
-	assert.Nil(t, result.ClusterWorkflow)
+	assert.Nil(t, result.Workflow)
+	assert.NotNil(t, result.ClusterWorkflow)
 	assert.Equal(t, "docker", result.GetName())
-	assert.Equal(t, "test-namespace", result.GetNamespace())
+	assert.Equal(t, "", result.GetNamespace()) // Cluster-scoped has no namespace
 }
 
 func TestResolveWorkflow_WithExplicitWorkflowKind(t *testing.T) {

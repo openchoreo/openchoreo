@@ -1798,7 +1798,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, namespa
 
 	// Set workflow configuration if provided
 	if req.WorkflowConfig != nil {
-		workflowConfig := &openchoreov1alpha1.WorkflowRunConfig{
+		workflowConfig := &openchoreov1alpha1.ComponentWorkflowConfig{
 			Name: req.WorkflowConfig.Name,
 		}
 
@@ -2655,7 +2655,7 @@ func (s *ComponentService) UpdateWorkflowSchema(ctx context.Context, namespaceNa
 			s.logger.Warn("Workflow name is required to initialize workflow configuration", "namespace", namespaceName, "project", projectName, "component", componentName)
 			return nil, fmt.Errorf("workflow name is required to initialize workflow configuration")
 		}
-		component.Spec.Workflow = &openchoreov1alpha1.WorkflowRunConfig{
+		component.Spec.Workflow = &openchoreov1alpha1.ComponentWorkflowConfig{
 			Name: req.WorkflowName,
 		}
 	} else if req.WorkflowName != "" {

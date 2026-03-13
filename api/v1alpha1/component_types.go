@@ -74,7 +74,33 @@ type ComponentSpec struct {
 	// This references a Workflow CR and provides parameter values.
 	// The Workflow must be in the allowedWorkflows list of the ComponentType.
 	// +optional
-	Workflow *WorkflowRunConfig `json:"workflow,omitempty"`
+	Workflow *ComponentWorkflowConfig `json:"workflow,omitempty"`
+}
+
+// ComponentWorkflowConfig defines the workflow configuration for a component.
+// Unlike WorkflowRunConfig, this struct does not enforce immutability on kind and name,
+// allowing the component's workflow reference to be changed.
+type ComponentWorkflowConfig struct {
+	// Kind is the kind of workflow (Workflow or ClusterWorkflow).
+	// +optional
+	// +kubebuilder:default=ClusterWorkflow
+	Kind WorkflowRefKind `json:"kind,omitempty"`
+
+	// Name references the Workflow or ClusterWorkflow CR to use for building the component.
+	// The Workflow must be in the allowedWorkflows list of the ComponentType.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Parameters contains the developer-provided values for the flexible parameter schema
+	// defined in the referenced Workflow CR.
+	//
+	// These values are validated against the Workflow's parameter schema.
+	//
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 // ComponentTrait represents an trait instance attached to a component

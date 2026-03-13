@@ -155,6 +155,12 @@ const (
 	ComponentTypeSpecWorkloadTypeStatefulset ComponentTypeSpecWorkloadType = "statefulset"
 )
 
+// Defines values for ComponentWorkflowConfigKind.
+const (
+	ComponentWorkflowConfigKindClusterWorkflow ComponentWorkflowConfigKind = "ClusterWorkflow"
+	ComponentWorkflowConfigKindWorkflow        ComponentWorkflowConfigKind = "Workflow"
+)
+
 // Defines values for ComponentWorkflowInputKind.
 const (
 	ComponentWorkflowInputKindClusterWorkflow ComponentWorkflowInputKind = "ClusterWorkflow"
@@ -1275,8 +1281,8 @@ type ComponentSpec struct {
 	// Traits Trait instances attached to the component
 	Traits *[]ComponentTrait `json:"traits,omitempty"`
 
-	// Workflow Workflow configuration referencing the Workflow and providing schema values.
-	Workflow *WorkflowRunConfig `json:"workflow,omitempty"`
+	// Workflow Workflow configuration for a component. Kind and name are mutable.
+	Workflow *ComponentWorkflowConfig `json:"workflow,omitempty"`
 }
 
 // ComponentSpecComponentTypeKind Kind of component type (ComponentType or ClusterComponentType)
@@ -1452,6 +1458,21 @@ type ComponentTypeSpecWorkloadType string
 
 // ComponentTypeStatus Observed state of a ComponentType
 type ComponentTypeStatus = map[string]interface{}
+
+// ComponentWorkflowConfig Workflow configuration for a component. Kind and name are mutable.
+type ComponentWorkflowConfig struct {
+	// Kind Kind of workflow reference (Workflow or ClusterWorkflow)
+	Kind *ComponentWorkflowConfigKind `json:"kind,omitempty"`
+
+	// Name Referenced Workflow name
+	Name string `json:"name"`
+
+	// Parameters Developer-provided parameters for the referenced workflow
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+}
+
+// ComponentWorkflowConfigKind Kind of workflow reference (Workflow or ClusterWorkflow)
+type ComponentWorkflowConfigKind string
 
 // ComponentWorkflowInput Workflow configuration for component creation
 type ComponentWorkflowInput struct {
@@ -3399,7 +3420,7 @@ type WorkflowRun struct {
 	Status *WorkflowRunStatus `json:"status,omitempty"`
 }
 
-// WorkflowRunConfig Workflow configuration referencing the Workflow and providing schema values.
+// WorkflowRunConfig Workflow configuration referencing the Workflow and providing schema values. Kind and name are immutable after creation.
 type WorkflowRunConfig struct {
 	// Kind Kind of workflow reference (Workflow or ClusterWorkflow)
 	Kind *WorkflowRunConfigKind `json:"kind,omitempty"`
@@ -3452,7 +3473,7 @@ type WorkflowRunSpec struct {
 	// TtlAfterCompletion Time-to-live for this workflow run after completion (duration string like 10d1h30m).
 	TtlAfterCompletion *string `json:"ttlAfterCompletion,omitempty"`
 
-	// Workflow Workflow configuration referencing the Workflow and providing schema values.
+	// Workflow Workflow configuration referencing the Workflow and providing schema values. Kind and name are immutable after creation.
 	Workflow WorkflowRunConfig `json:"workflow"`
 }
 

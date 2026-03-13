@@ -65,9 +65,6 @@ func (r *Reconciler) setupWorkflowRefIndex(ctx context.Context, mgr ctrl.Manager
 				return []string{}
 			}
 			kind := comp.Spec.Workflow.Kind
-			if kind == "" {
-				kind = openchoreov1alpha1.WorkflowRefKindWorkflow
-			}
 			return []string{string(kind) + ":" + comp.Spec.Workflow.Name}
 		})
 }

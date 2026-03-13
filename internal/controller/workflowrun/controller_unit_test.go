@@ -1085,7 +1085,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 			Spec: openchoreodevv1alpha1.ComponentSpec{
 				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
 				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
-				Workflow: &openchoreodevv1alpha1.WorkflowRunConfig{
+				Workflow: &openchoreodevv1alpha1.ComponentWorkflowConfig{
 					Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow,
 					Name: "not-allowed-wf",
 				},
@@ -1139,7 +1139,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 			Spec: openchoreodevv1alpha1.ComponentSpec{
 				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
 				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
-				Workflow: &openchoreodevv1alpha1.WorkflowRunConfig{
+				Workflow: &openchoreodevv1alpha1.ComponentWorkflowConfig{
 					Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow,
 					Name: "wf-a",
 				},
@@ -1192,7 +1192,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 			Spec: openchoreodevv1alpha1.ComponentSpec{
 				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
 				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
-				Workflow: &openchoreodevv1alpha1.WorkflowRunConfig{
+				Workflow: &openchoreodevv1alpha1.ComponentWorkflowConfig{
 					Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow,
 					Name: "my-wf",
 				},
@@ -1238,7 +1238,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 			Spec: openchoreodevv1alpha1.ComponentSpec{
 				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
 				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
-				Workflow: &openchoreodevv1alpha1.WorkflowRunConfig{
+				Workflow: &openchoreodevv1alpha1.ComponentWorkflowConfig{
 					Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow,
 					Name: "my-wf",
 				},

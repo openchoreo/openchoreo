@@ -256,7 +256,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			component: &v1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
 				Spec: v1alpha1.ComponentSpec{
-					Workflow: &v1alpha1.WorkflowRunConfig{Name: ""},
+					Workflow: &v1alpha1.ComponentWorkflowConfig{Name: ""},
 				},
 			},
 			wantErr: true,
@@ -266,7 +266,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			component: &v1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
 				Spec: v1alpha1.ComponentSpec{
-					Workflow: &v1alpha1.WorkflowRunConfig{
+					Workflow: &v1alpha1.ComponentWorkflowConfig{
 						Name: "wf1",
 						Parameters: makeRaw(map[string]interface{}{
 							"repository": map[string]interface{}{"url": "https://github.com/example/repo"},
@@ -292,7 +292,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			component: &v1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
 				Spec: v1alpha1.ComponentSpec{
-					Workflow: &v1alpha1.WorkflowRunConfig{
+					Workflow: &v1alpha1.ComponentWorkflowConfig{
 						Name: "wf1",
 						Parameters: makeRaw(map[string]interface{}{
 							"repository": map[string]interface{}{
@@ -320,7 +320,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			component: &v1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
 				Spec: v1alpha1.ComponentSpec{
-					Workflow: &v1alpha1.WorkflowRunConfig{
+					Workflow: &v1alpha1.ComponentWorkflowConfig{
 						Name: "wf1",
 						Parameters: makeRaw(map[string]interface{}{
 							"repository": map[string]interface{}{
@@ -350,7 +350,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			component: &v1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
 				Spec: v1alpha1.ComponentSpec{
-					Workflow: &v1alpha1.WorkflowRunConfig{
+					Workflow: &v1alpha1.ComponentWorkflowConfig{
 						Name: "wf1",
 						Parameters: makeRaw(map[string]interface{}{
 							"repository": map[string]interface{}{
@@ -378,7 +378,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			component: &v1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
 				Spec: v1alpha1.ComponentSpec{
-					Workflow: &v1alpha1.WorkflowRunConfig{
+					Workflow: &v1alpha1.ComponentWorkflowConfig{
 						Name:       "wf1",
 						Parameters: nil,
 					},
@@ -402,7 +402,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			component: &v1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
 				Spec: v1alpha1.ComponentSpec{
-					Workflow: &v1alpha1.WorkflowRunConfig{
+					Workflow: &v1alpha1.ComponentWorkflowConfig{
 						Name: "wf1",
 						Parameters: makeRaw(map[string]interface{}{
 							"repository": map[string]interface{}{
@@ -431,7 +431,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			component: &v1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
 				Spec: v1alpha1.ComponentSpec{
-					Workflow: &v1alpha1.WorkflowRunConfig{
+					Workflow: &v1alpha1.ComponentWorkflowConfig{
 						Name: "wf1",
 						Parameters: makeRaw(map[string]interface{}{
 							"repository": map[string]interface{}{
@@ -460,7 +460,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			component: &v1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
 				Spec: v1alpha1.ComponentSpec{
-					Workflow: &v1alpha1.WorkflowRunConfig{
+					Workflow: &v1alpha1.ComponentWorkflowConfig{
 						Name: "wf1",
 						Parameters: makeRaw(map[string]interface{}{
 							"repository": map[string]interface{}{
@@ -490,7 +490,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			component: &v1alpha1.Component{
 				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
 				Spec: v1alpha1.ComponentSpec{
-					Workflow: &v1alpha1.WorkflowRunConfig{
+					Workflow: &v1alpha1.ComponentWorkflowConfig{
 						Name: "wf1",
 						Parameters: makeRaw(map[string]interface{}{
 							"repository": map[string]interface{}{
@@ -570,7 +570,7 @@ func makeAutoBuildComponent(name, ns, workflowName, repoURL, branch string, make
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
 		Spec: v1alpha1.ComponentSpec{
 			AutoBuild: &autoBuild,
-			Workflow: &v1alpha1.WorkflowRunConfig{
+			Workflow: &v1alpha1.ComponentWorkflowConfig{
 				Name:       workflowName,
 				Parameters: makeRaw(params),
 			},
@@ -675,7 +675,7 @@ func TestWebhookBranchFilter_NoConfiguredBranch(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns1"},
 		Spec: v1alpha1.ComponentSpec{
 			AutoBuild: &autoBuild,
-			Workflow: &v1alpha1.WorkflowRunConfig{
+			Workflow: &v1alpha1.ComponentWorkflowConfig{
 				Name: "wf1",
 				Parameters: makeRaw(map[string]interface{}{
 					"repository": map[string]interface{}{

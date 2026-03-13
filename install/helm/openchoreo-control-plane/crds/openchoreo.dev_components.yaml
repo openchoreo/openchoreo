@@ -147,24 +147,18 @@ spec:
                   The Workflow must be in the allowedWorkflows list of the ComponentType.
                 properties:
                   kind:
-                    default: Workflow
+                    default: ClusterWorkflow
                     description: Kind is the kind of workflow (Workflow or ClusterWorkflow).
                     enum:
                     - Workflow
                     - ClusterWorkflow
                     type: string
-                    x-kubernetes-validations:
-                    - message: kind is immutable
-                      rule: self == oldSelf
                   name:
                     description: |-
-                      Name references the Workflow or ClusterWorkflow CR to use for this execution.
-                      The Workflow CR contains the schema definition and resource template.
+                      Name references the Workflow or ClusterWorkflow CR to use for building the component.
+                      The Workflow must be in the allowedWorkflows list of the ComponentType.
                     minLength: 1
                     type: string
-                    x-kubernetes-validations:
-                    - message: name is immutable
-                      rule: self == oldSelf
                   parameters:
                     description: |-
                       Parameters contains the developer-provided values for the flexible parameter schema

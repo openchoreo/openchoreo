@@ -75,7 +75,7 @@ func (h *MCPHandler) CreateComponent(
 			}
 			workflowParams = &runtime.RawExtension{Raw: paramsBytes}
 		}
-		component.Spec.Workflow = &openchoreov1alpha1.WorkflowRunConfig{
+		component.Spec.Workflow = &openchoreov1alpha1.ComponentWorkflowConfig{
 			Name:       req.Workflow.Name,
 			Parameters: workflowParams,
 		}
