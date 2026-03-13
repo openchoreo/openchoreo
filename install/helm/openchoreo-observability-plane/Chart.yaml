@@ -30,7 +30,7 @@ maintainers:
 dependencies:
   - name: observability-logs-opensearch
     repository: oci://ghcr.io/openchoreo/helm-charts
-    version: 0.3.6
+    version: 0.3.7
     condition: observability-logs-opensearch.enabled
   - name: observability-metrics-prometheus
     repository: oci://ghcr.io/openchoreo/helm-charts
