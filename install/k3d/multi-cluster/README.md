@@ -110,7 +110,7 @@ kubectl --context k3d-openchoreo-cp wait -n openchoreo-control-plane \
 
 ```bash
 kubectl --context k3d-openchoreo-cp apply -f samples/getting-started/all.yaml
-kubectl --context k3d-openchoreo-cp label namespace default openchoreo.dev/controlplane-namespace=true
+kubectl --context k3d-openchoreo-cp label namespace default openchoreo.dev/control-plane=true
 ```
 
 ## 3. Data Plane

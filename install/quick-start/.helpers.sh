@@ -1173,7 +1173,7 @@ install_default_resources() {
 label_default_namespace() {
     log_info "Labeling default namespace..."
 
-    if kubectl label namespace default openchoreo.dev/controlplane-namespace=true --overwrite >/dev/null 2>&1; then
+    if kubectl label namespace default openchoreo.dev/control-plane=true --overwrite >/dev/null 2>&1; then
         log_success "Default namespace labeled successfully"
     else
         log_warning "Failed to label default namespace"

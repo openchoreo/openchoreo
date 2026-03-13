@@ -143,7 +143,7 @@ kubectl get secret cluster-gateway-ca -n openchoreo-control-plane \
 
 ```bash
 kubectl apply -f samples/getting-started/all.yaml
-kubectl label namespace default openchoreo.dev/controlplane-namespace=true --overwrite
+kubectl label namespace default openchoreo.dev/control-plane=true --overwrite
 ```
 
 ## 5. Setup Data Plane

@@ -62,7 +62,7 @@ const (
 	// - System namespaces (openchoreo-control-plane, openchoreo-data-plane, kube-system, etc.)
 	// - User-created namespaces unrelated to OpenChoreo
 	// - Data plane runtime namespaces (e.g., dp-*)
-	LabelKeyControlPlaneNamespace = "openchoreo.dev/controlplane-namespace"
+	LabelKeyControlPlaneNamespace = "openchoreo.dev/control-plane"
 
 	// AnnotationKeyDPResourceHash contains a hash of all dataplane resources (excluding the main workload)
 	// to trigger pod rollout when dependent ConfigMaps, Secrets, etc. change.
