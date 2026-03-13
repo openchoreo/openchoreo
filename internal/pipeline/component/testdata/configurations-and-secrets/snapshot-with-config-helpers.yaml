@@ -11,7 +11,7 @@ spec:
   componentType:
     spec:
       environmentConfigs:
-        ocSchema:
+        openAPIV3Schema:
           replicas: "integer"
       resources:
         - id: deployment

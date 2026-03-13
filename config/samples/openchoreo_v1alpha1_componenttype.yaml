@@ -14,13 +14,13 @@ spec:
   workloadType: deployment
 
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
       port: "integer | default=8080"
 
   environmentConfigs:
-    ocSchema:
+    openAPIV3Schema:
       $types:
         Resources:
           cpu: "string | default=100m"

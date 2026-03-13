@@ -39,7 +39,7 @@ var _ = Describe("Trait Webhook", func() {
 		It("Should admit trait with valid parameters and environmentConfigs", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"mountPath": "string"}`),
 				},
@@ -47,7 +47,7 @@ var _ = Describe("Trait Webhook", func() {
 
 			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string"}`),
 				},
@@ -58,12 +58,12 @@ var _ = Describe("Trait Webhook", func() {
 
 		It("Should reject trait with invalid environmentConfigs schema syntax", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 					Raw: []byte(`{"mountPath": "string"}`),
 				},
 			}
 			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 					Raw: []byte(`{"size": "unknown-type"}`), // invalid type
 				},
 			}
@@ -75,7 +75,7 @@ var _ = Describe("Trait Webhook", func() {
 		It("Should admit trait with only environmentConfigs (no parameters)", func() {
 			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string | default=local-path"}`),
 				},
@@ -87,7 +87,7 @@ var _ = Describe("Trait Webhook", func() {
 		It("Should reject trait with malformed environmentConfigs YAML", func() {
 			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{malformed yaml`),
 				},
@@ -374,7 +374,7 @@ var _ = Describe("Trait Webhook", func() {
 		It("should reject non-boolean CEL expression in validation rule", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"name": "string | default=app"}`),
 				},
@@ -391,7 +391,7 @@ var _ = Describe("Trait Webhook", func() {
 		It("should admit valid boolean validation rules", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"mountPath": "string"}`),
 				},
@@ -399,7 +399,7 @@ var _ = Describe("Trait Webhook", func() {
 
 			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"size": "string | default=10Gi"}`),
 				},

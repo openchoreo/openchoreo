@@ -190,7 +190,7 @@ func validateComponentParameters(release *openchoreodevv1alpha1.ComponentRelease
 		return allErrs
 	}
 
-	// Build JSON schema — handles both ocSchema and openAPIV3Schema formats
+	// Build JSON schema
 	jsonSchema, err := schema.SectionToJSONSchema(release.Spec.ComponentType.Parameters)
 	if err != nil {
 		allErrs = append(allErrs, field.Invalid(
@@ -255,7 +255,7 @@ func validateTraitInstanceParameters(release *openchoreodevv1alpha1.ComponentRel
 			continue
 		}
 
-		// Build JSON schema — handles both ocSchema and openAPIV3Schema formats
+		// Build JSON schema
 		jsonSchema, err := schema.SectionToJSONSchema(traitSpec.Parameters)
 		if err != nil {
 			allErrs = append(allErrs, field.Invalid(

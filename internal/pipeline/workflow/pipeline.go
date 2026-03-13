@@ -265,7 +265,6 @@ func (p *Pipeline) buildParameters(input *RenderInput) (map[string]any, error) {
 }
 
 // buildStructuralSchema builds the structural schema from Workflow for applying defaults.
-// Handles both ocSchema and openAPIV3Schema formats transparently via ResolveSectionToStructural.
 func (p *Pipeline) buildStructuralSchema(wf *v1alpha1.Workflow) (*apiextschema.Structural, error) {
 	structural, err := schema.ResolveSectionToStructural(wf.Spec.Parameters)
 	if err != nil {

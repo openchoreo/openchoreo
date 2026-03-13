@@ -11,5 +11,5 @@ metadata:
 spec:
   workloadType: deployment
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       port: 'integer | description="Container port"'

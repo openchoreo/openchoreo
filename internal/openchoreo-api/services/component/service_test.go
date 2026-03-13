@@ -203,19 +203,19 @@ func TestBuildTraitEnvironmentConfigsSchema(t *testing.T) {
 			expectNil: true,
 		},
 		{
-			name: "valid ocSchema",
+			name: "valid schema",
 			traitSpec: openchoreov1alpha1.TraitSpec{
 				EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-					OCSchema: rawJSON(t, map[string]any{"replicas": "integer"}),
+					OpenAPIV3Schema: rawJSON(t, map[string]any{"replicas": "integer"}),
 				},
 			},
 			expectNil: false,
 		},
 		{
-			name: "invalid ocSchema",
+			name: "invalid schema",
 			traitSpec: openchoreov1alpha1.TraitSpec{
 				EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-					OCSchema: &runtime.RawExtension{Raw: []byte(`{not valid json}`)},
+					OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{not valid json}`)},
 				},
 			},
 			expectErr: true,
@@ -472,7 +472,7 @@ func TestGenerateRelease(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "ingress", Namespace: testNamespace},
 			Spec: openchoreov1alpha1.TraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OCSchema: rawJSON(t, map[string]any{"host": "string"}),
+					OpenAPIV3Schema: rawJSON(t, map[string]any{"host": "string"}),
 				},
 			},
 		}
@@ -535,7 +535,7 @@ func TestGenerateRelease(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "storage", Namespace: testNamespace},
 			Spec: openchoreov1alpha1.TraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OCSchema: rawJSON(t, map[string]any{"mountPath": "string"}),
+					OpenAPIV3Schema: rawJSON(t, map[string]any{"mountPath": "string"}),
 				},
 			},
 		}
@@ -557,7 +557,7 @@ func TestGenerateRelease(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "observability"},
 			Spec: openchoreov1alpha1.ClusterTraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OCSchema: rawJSON(t, map[string]any{"enabled": "boolean"}),
+					OpenAPIV3Schema: rawJSON(t, map[string]any{"enabled": "boolean"}),
 				},
 			},
 		}
@@ -579,7 +579,7 @@ func TestGenerateRelease(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "storage", Namespace: testNamespace},
 			Spec: openchoreov1alpha1.TraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OCSchema: rawJSON(t, map[string]any{"mountPath": "string"}),
+					OpenAPIV3Schema: rawJSON(t, map[string]any{"mountPath": "string"}),
 				},
 			},
 		}
@@ -587,7 +587,7 @@ func TestGenerateRelease(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "ingress", Namespace: testNamespace},
 			Spec: openchoreov1alpha1.TraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OCSchema: rawJSON(t, map[string]any{"host": "string"}),
+					OpenAPIV3Schema: rawJSON(t, map[string]any{"host": "string"}),
 				},
 			},
 		}
@@ -618,7 +618,7 @@ func TestGenerateRelease(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "networking"},
 			Spec: openchoreov1alpha1.ClusterTraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OCSchema: rawJSON(t, map[string]any{"port": "integer"}),
+					OpenAPIV3Schema: rawJSON(t, map[string]any{"port": "integer"}),
 				},
 			},
 		}
@@ -676,7 +676,7 @@ func TestGetComponentSchema(t *testing.T) {
 	t.Run("with environmentConfigs", func(t *testing.T) {
 		ct := testComponentType()
 		ct.Spec.EnvironmentConfigs = &openchoreov1alpha1.SchemaSection{
-			OCSchema: rawJSON(t, map[string]any{"replicas": "integer"}),
+			OpenAPIV3Schema: rawJSON(t, map[string]any{"replicas": "integer"}),
 		}
 		svc := newService(t, testComponent(), ct)
 
@@ -691,7 +691,7 @@ func TestGetComponentSchema(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "ingress", Namespace: testNamespace},
 			Spec: openchoreov1alpha1.TraitSpec{
 				EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-					OCSchema: rawJSON(t, map[string]any{"hostname": "string"}),
+					OpenAPIV3Schema: rawJSON(t, map[string]any{"hostname": "string"}),
 				},
 			},
 		}
@@ -727,7 +727,7 @@ func TestGetComponentSchema(t *testing.T) {
 			Spec: openchoreov1alpha1.ClusterComponentTypeSpec{
 				WorkloadType: "deployment",
 				EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-					OCSchema: rawJSON(t, map[string]any{"replicas": "integer"}),
+					OpenAPIV3Schema: rawJSON(t, map[string]any{"replicas": "integer"}),
 				},
 			},
 		}
@@ -781,7 +781,7 @@ func TestGetComponentReleaseSchema(t *testing.T) {
 				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
 					WorkloadType: "deployment",
 					EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-						OCSchema: rawJSON(t, map[string]any{"replicas": "integer"}),
+						OpenAPIV3Schema: rawJSON(t, map[string]any{"replicas": "integer"}),
 					},
 				},
 			},
@@ -806,7 +806,7 @@ func TestGetComponentReleaseSchema(t *testing.T) {
 				Traits: map[string]openchoreov1alpha1.TraitSpec{
 					"ingress": {
 						EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-							OCSchema: rawJSON(t, map[string]any{"hostname": "string"}),
+							OpenAPIV3Schema: rawJSON(t, map[string]any{"hostname": "string"}),
 						},
 					},
 				},

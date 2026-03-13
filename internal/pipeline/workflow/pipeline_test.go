@@ -1913,7 +1913,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		}
 	})
 
-	t.Run("ocSchema applies defaults for missing fields", func(t *testing.T) {
+	t.Run("schema applies defaults for missing fields", func(t *testing.T) {
 		input := &RenderInput{
 			WorkflowRun: &v1alpha1.WorkflowRun{
 				Spec: v1alpha1.WorkflowRunSpec{
@@ -1928,7 +1928,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 			Workflow: &v1alpha1.Workflow{
 				Spec: v1alpha1.WorkflowSpec{
 					Parameters: &v1alpha1.SchemaSection{
-						OCSchema: mustRawExtension(t, map[string]any{
+						OpenAPIV3Schema: mustRawExtension(t, map[string]any{
 							"branch":   "string | default=main",
 							"replicas": "integer | default=1",
 							"repo":     "string",

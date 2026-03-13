@@ -12,7 +12,7 @@ metadata:
 spec:
   workloadType: deployment
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       $types:
         # Type with $default - all children have defaults
         Monitoring:

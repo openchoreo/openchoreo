@@ -1,8 +1,6 @@
-# Schema (openAPIV3Schema)
+# openAPIV3Schema
 
-This guide explains how to define schemas for ComponentTypes, Traits, and Workflows using standard **OpenAPI V3 / JSON Schema** format (`openAPIV3Schema`). This is the default and recommended schema format for all OpenChoreo resources, providing full compatibility with the OpenAPI specification and enabling richer tooling integration.
-
-> **Alternative format:** OpenChoreo also supports a compact [ocSchema syntax](openchoreo-schema.md) (`ocSchema`) for a concise, readable shorthand. The two formats are mutually exclusive within each schema section. When a resource defines both `parameters` and `environmentConfigs`, they **must** use the same format — mixing `ocSchema` in one section and `openAPIV3Schema` in the other is rejected by validation.
+This guide explains how to define schemas for ComponentTypes, Traits, and Workflows using standard **OpenAPI V3 / JSON Schema** format (`openAPIV3Schema`). This is the schema format for all OpenChoreo resources, providing full compatibility with the OpenAPI specification and enabling richer tooling integration.
 
 ## Overview
 

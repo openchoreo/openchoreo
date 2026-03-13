@@ -627,6 +627,4 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 		}, 30*time.Second, 2*time.Second).Should(Succeed(), "DNS resolution failed")
 	})
 
-
-
 })

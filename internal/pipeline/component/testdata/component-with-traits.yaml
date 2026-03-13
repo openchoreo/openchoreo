@@ -7,7 +7,7 @@ spec:
   workloadType: deployment
 
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       $types:
         Resources:
           cpu: "string | default=100m"
@@ -17,7 +17,7 @@ spec:
       port: "integer | default=8080"
 
   environmentConfigs:
-    ocSchema:
+    openAPIV3Schema:
       $types:
         Resources:
           cpu: "string | default=100m"
@@ -83,13 +83,13 @@ metadata:
   namespace: default
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       volumeName: "string"
       mountPath: "string"
       containerName: "string | default=app"
 
   environmentConfigs:
-    ocSchema:
+    openAPIV3Schema:
       size: "string | default=10Gi"
       storageClass: "string | default=standard"
 
@@ -139,7 +139,7 @@ metadata:
   name: emptydir-volume
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       # Define custom type for mount configuration
       $types:
         MountConfig:
@@ -151,7 +151,7 @@ spec:
       mounts: "[]MountConfig | minItems=1"
 
   environmentConfigs:
-    ocSchema:
+    openAPIV3Schema:
       sizeLimit: string | default=""
       medium: string | default="" # "" for disk, "Memory" for tmpfs
 

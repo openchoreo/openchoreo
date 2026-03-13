@@ -2716,7 +2716,7 @@ func (s *ComponentService) validateWorkflowParameters(ctx context.Context, names
 		return fmt.Errorf("failed to parse provided parameters: %w", err)
 	}
 
-	// Build JSON schema — handles both ocSchema and openAPIV3Schema formats
+	// Build JSON schema
 	jsonSchema, err := openchoreoschema.SectionToJSONSchema(workflowSpec.Parameters)
 	if err != nil {
 		s.logger.Error("Failed to build JSON schema", "error", err)

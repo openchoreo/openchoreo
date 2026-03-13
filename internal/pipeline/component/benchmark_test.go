@@ -286,7 +286,7 @@ metadata:
 spec:
   workloadType: deployment
   schema:
-    ocSchema:
+    openAPIV3Schema:
       parameters:
         replicas: "integer | default=1"
         port: "integer | default=8080"
@@ -485,7 +485,7 @@ metadata:
 spec:
   workloadType: deployment
   schema:
-    ocSchema:
+    openAPIV3Schema:
       types:
         EnvVar:
           name: string

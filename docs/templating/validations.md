@@ -89,10 +89,10 @@ metadata:
   name: websocket-config
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       endpointName: "string"
   environmentConfigs:
-    ocSchema:
+    openAPIV3Schema:
       maxConnectionsPerPod: "integer | default=1000"
   validations:
     - rule: "${parameters.endpointName in workload.endpoints && workload.endpoints[parameters.endpointName].type == 'Websocket'}"
@@ -114,7 +114,7 @@ spec:
     - rule: "${environmentConfigs.maxReplicas >= environmentConfigs.minReplicas}"
       message: "maxReplicas must be greater than or equal to minReplicas."
   environmentConfigs:
-    ocSchema:
+    openAPIV3Schema:
       minReplicas: "integer | default=1 | minimum=1"
       maxReplicas: "integer | default=3 | minimum=1"
 ```

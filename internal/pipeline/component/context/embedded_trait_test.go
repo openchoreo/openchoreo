@@ -184,7 +184,7 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 	baseTrait := &v1alpha1.Trait{}
 	baseTrait.Name = "storage"
 	baseTrait.Spec.Parameters = &v1alpha1.SchemaSection{
-		OCSchema: &runtime.RawExtension{
+		OpenAPIV3Schema: &runtime.RawExtension{
 			Raw: mustMarshalJSON(t, map[string]any{
 				"mountPath": "string",
 				"size":      "string | default=\"5Gi\"",
@@ -247,14 +247,14 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 					t := &v1alpha1.Trait{}
 					t.Name = "logging"
 					t.Spec.Parameters = &v1alpha1.SchemaSection{
-						OCSchema: &runtime.RawExtension{
+						OpenAPIV3Schema: &runtime.RawExtension{
 							Raw: mustMarshalJSON(nil, map[string]any{
 								"format": "string | default=\"json\"",
 							}),
 						},
 					}
 					t.Spec.EnvironmentConfigs = &v1alpha1.SchemaSection{
-						OCSchema: &runtime.RawExtension{
+						OpenAPIV3Schema: &runtime.RawExtension{
 							Raw: mustMarshalJSON(nil, map[string]any{
 								"logLevel": "string | default=\"info\"",
 							}),
@@ -287,7 +287,7 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 					t := &v1alpha1.Trait{}
 					t.Name = "logging"
 					t.Spec.EnvironmentConfigs = &v1alpha1.SchemaSection{
-						OCSchema: &runtime.RawExtension{
+						OpenAPIV3Schema: &runtime.RawExtension{
 							Raw: mustMarshalJSON(nil, map[string]any{
 								"logLevel": "string | default=\"info\"",
 							}),
@@ -315,7 +315,7 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 					t := &v1alpha1.Trait{}
 					t.Name = "optional-config"
 					t.Spec.Parameters = &v1alpha1.SchemaSection{
-						OCSchema: &runtime.RawExtension{
+						OpenAPIV3Schema: &runtime.RawExtension{
 							Raw: mustMarshalJSON(nil, map[string]any{
 								"timeout": "string | default=\"30s\"",
 								"retries": "number | default=3",

@@ -11,7 +11,7 @@ metadata:
 spec:
   workloadType: deployment
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       $types:
         # Custom type for testing map<CustomType>
         ServiceConfig:

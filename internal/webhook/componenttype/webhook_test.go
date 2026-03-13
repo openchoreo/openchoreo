@@ -48,7 +48,7 @@ var _ = Describe("ComponentType Webhook", func() {
 		It("should admit valid ComponentType with parameters and matching workload resource", func() {
 			obj.Spec.WorkloadType = workloadTypeDeployment
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 					Raw: []byte(`{"replicas": "integer | default=1"}`),
 				},
 			}
@@ -66,12 +66,12 @@ var _ = Describe("ComponentType Webhook", func() {
 		It("should admit valid ComponentType with parameters and environmentConfigs", func() {
 			obj.Spec.WorkloadType = workloadTypeDeployment
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 					Raw: []byte(`{"replicas": "integer | default=1"}`),
 				},
 			}
 			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 					Raw: []byte(`{"image": "string"}`),
 				},
 			}
@@ -100,7 +100,7 @@ var _ = Describe("ComponentType Webhook", func() {
 			obj.Spec.WorkloadType = workloadTypeDeployment
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"replicas": "integer | default=2"}`),
 				},
@@ -129,10 +129,10 @@ var _ = Describe("ComponentType Webhook", func() {
 			}
 		})
 
-		It("should reject invalid JSON in spec.parameters.ocSchema $types", func() {
+		It("should reject invalid JSON in spec.parameters.openAPIV3Schema $types", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"$types": {malformed json}`),
 				},
@@ -143,10 +143,10 @@ var _ = Describe("ComponentType Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
 		})
 
-		It("should reject invalid JSON in spec.parameters.ocSchema", func() {
+		It("should reject invalid JSON in spec.parameters.openAPIV3Schema", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{malformed`),
 				},
@@ -157,10 +157,10 @@ var _ = Describe("ComponentType Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
 		})
 
-		It("should reject invalid JSON in spec.environmentConfigs.ocSchema", func() {
+		It("should reject invalid JSON in spec.environmentConfigs.openAPIV3Schema", func() {
 			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`not valid yaml`),
 				},
@@ -186,7 +186,7 @@ var _ = Describe("ComponentType Webhook", func() {
 		It("should reject unknown shorthand type in parameters", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"field": "unknown-type"}`),
 				},
@@ -200,7 +200,7 @@ var _ = Describe("ComponentType Webhook", func() {
 		It("should reject invalid type reference in parameters", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"$types": {"Database": {"host": "string", "port": "integer"}}, "db": "NonExistent"}`),
 				},
@@ -284,7 +284,7 @@ var _ = Describe("ComponentType Webhook", func() {
 		It("should reject forEach with non-iterable expression", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"replicas": "integer"}`),
 				},
@@ -602,7 +602,7 @@ var _ = Describe("ComponentType Webhook", func() {
 		It("should reject non-boolean CEL expression in validation rule", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"name": "string | default=app"}`),
 				},
@@ -619,7 +619,7 @@ var _ = Describe("ComponentType Webhook", func() {
 		It("should admit valid boolean validation rules", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"replicas": "integer | default=1"}`),
 				},

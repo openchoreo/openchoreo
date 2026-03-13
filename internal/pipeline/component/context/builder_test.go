@@ -45,7 +45,7 @@ metadata:
   name: service
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       replicas: "integer | default=1"
       image: "string"
 `,
@@ -123,10 +123,10 @@ metadata:
   name: service
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       cpu: "string | default=100m"
   environmentConfigs:
-    ocSchema:
+    openAPIV3Schema:
       replicas: "integer | default=1"
 `,
 			envSettingsYAML: `
@@ -205,7 +205,7 @@ metadata:
   name: service
 spec:
   parameters:
-    ocSchema: {}
+    openAPIV3Schema: {}
 `,
 			workloadYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -387,7 +387,7 @@ metadata:
   name: mysql-trait
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       database: "string"
 `,
 			componentYAML: `
@@ -477,10 +477,10 @@ metadata:
   name: mysql-trait
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       database: "string"
   environmentConfigs:
-    ocSchema:
+    openAPIV3Schema:
       size: "string | default=small"
 `,
 			componentYAML: `

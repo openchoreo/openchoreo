@@ -210,10 +210,10 @@ func TestGetTraitSchema(t *testing.T) {
 		assert.NotNil(t, result["properties"])
 	})
 
-	t.Run("success with OCSchema", func(t *testing.T) {
+	t.Run("success with shorthand schema", func(t *testing.T) {
 		tr := testutil.NewTrait(testNamespace, "with-schema")
 		tr.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
-			OCSchema: &runtime.RawExtension{Raw: []byte(`{"replicas":"integer"}`)},
+			OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{"replicas":"integer"}`)},
 		}
 		svc := newService(t, tr)
 
@@ -235,7 +235,7 @@ func TestGetTraitSchema(t *testing.T) {
 	t.Run("invalid schema", func(t *testing.T) {
 		tr := testutil.NewTrait(testNamespace, "bad-schema")
 		tr.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
-			OCSchema: &runtime.RawExtension{Raw: []byte(`{not valid}`)},
+			OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{not valid}`)},
 		}
 		svc := newService(t, tr)
 

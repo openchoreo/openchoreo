@@ -125,7 +125,7 @@ func (s *WorkflowService) GetWorkflowSchema(ctx context.Context, namespaceName, 
 		return nil, fmt.Errorf("failed to get Workflow: %w", err)
 	}
 
-	// Convert to JSON Schema (handles both ocSchema and openAPIV3Schema)
+	// Convert to JSON Schema
 	jsonSchema, err := schema.SectionToJSONSchema(wf.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)

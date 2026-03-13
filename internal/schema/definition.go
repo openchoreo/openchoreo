@@ -35,7 +35,6 @@ type Definition struct {
 }
 
 // ResolveSectionToStructural converts a SchemaSection into a Kubernetes structural schema.
-// It handles both ocSchema and openAPIV3Schema formats transparently.
 // Returns nil if the section is nil or empty.
 func ResolveSectionToStructural(section *v1alpha1.SchemaSection) (*apiextschema.Structural, error) {
 	raw := sectionRaw(section)
@@ -48,7 +47,7 @@ func ResolveSectionToStructural(section *v1alpha1.SchemaSection) (*apiextschema.
 		return nil, err
 	}
 
-	if section.IsOpenAPIV3() {
+	if isOpenAPIV3Content(fields) {
 		return OpenAPIV3ToStructural(fields)
 	}
 
@@ -68,7 +67,7 @@ func ResolveSectionToBundle(section *v1alpha1.SchemaSection) (*apiextschema.Stru
 		return nil, nil, err
 	}
 
-	if section.IsOpenAPIV3() {
+	if isOpenAPIV3Content(fields) {
 		return OpenAPIV3ToStructuralAndJSONSchema(fields)
 	}
 
@@ -76,7 +75,6 @@ func ResolveSectionToBundle(section *v1alpha1.SchemaSection) (*apiextschema.Stru
 }
 
 // SectionToJSONSchema converts a SchemaSection to JSON Schema for API responses.
-// Handles both ocSchema (via extractor) and openAPIV3Schema (via ref resolution).
 func SectionToJSONSchema(section *v1alpha1.SchemaSection) (*extv1.JSONSchemaProps, error) {
 	raw := sectionRaw(section)
 	if raw == nil || len(raw.Raw) == 0 {
@@ -91,7 +89,7 @@ func SectionToJSONSchema(section *v1alpha1.SchemaSection) (*extv1.JSONSchemaProp
 		return nil, err
 	}
 
-	if section.IsOpenAPIV3() {
+	if isOpenAPIV3Content(fields) {
 		return OpenAPIV3ToJSONSchema(fields)
 	}
 
@@ -100,8 +98,7 @@ func SectionToJSONSchema(section *v1alpha1.SchemaSection) (*extv1.JSONSchemaProp
 
 // SectionToRawJSONSchema converts a SchemaSection to a raw map for API responses.
 // For openAPIV3Schema, this preserves vendor extensions (x-*) that are lost when
-// converting through extv1.JSONSchemaProps. For ocSchema, it falls back to
-// ToJSONSchema and re-marshals the result.
+// converting through extv1.JSONSchemaProps.
 func SectionToRawJSONSchema(section *v1alpha1.SchemaSection) (map[string]any, error) {
 	raw := sectionRaw(section)
 	if raw == nil || len(raw.Raw) == 0 {
@@ -116,11 +113,11 @@ func SectionToRawJSONSchema(section *v1alpha1.SchemaSection) (map[string]any, er
 		return nil, err
 	}
 
-	if section.IsOpenAPIV3() {
+	if isOpenAPIV3Content(fields) {
 		return OpenAPIV3ToResolvedSchema(fields)
 	}
 
-	// For ocSchema, convert through the extractor and re-marshal to map
+	// For shorthand schema, convert through the extractor and re-marshal to map
 	jsonSchema, err := ToJSONSchema(Definition{Schemas: []map[string]any{fields}})
 	if err != nil {
 		return nil, err
@@ -148,6 +145,48 @@ func sectionRaw(section *v1alpha1.SchemaSection) *runtime.RawExtension {
 		return nil
 	}
 	return section.GetRaw()
+}
+
+// isOpenAPIV3Content determines if unmarshaled fields represent standard OpenAPI V3 JSON Schema
+// or shorthand schema format based on content inspection.
+// Returns true if any top-level key is a recognized JSON Schema keyword.
+// This is a temporary bridge for Phase 1 — Phase 2 will remove the shorthand extractor entirely.
+func isOpenAPIV3Content(fields map[string]any) bool {
+	if len(fields) == 0 {
+		return true
+	}
+	for key := range fields {
+		if jsonSchemaKeywords[key] {
+			return true
+		}
+	}
+	return false
+}
+
+// jsonSchemaKeywords is the set of recognized JSON Schema / OpenAPI V3 top-level keywords.
+// If any top-level key matches, the content is treated as OpenAPI V3 rather than shorthand.
+var jsonSchemaKeywords = map[string]bool{
+	// Core schema keywords
+	"type": true, "properties": true, "required": true, "items": true,
+	"additionalProperties": true, "patternProperties": true,
+	// Composition keywords
+	"allOf": true, "oneOf": true, "anyOf": true, "not": true,
+	// Reference keywords
+	"$ref": true, "$defs": true, "$id": true, "$schema": true,
+	// Validation keywords
+	"const": true, "enum": true, "default": true,
+	"minimum": true, "maximum": true, "exclusiveMinimum": true, "exclusiveMaximum": true,
+	"minLength": true, "maxLength": true, "pattern": true,
+	"minItems": true, "maxItems": true, "uniqueItems": true,
+	"minProperties": true, "maxProperties": true, "multipleOf": true,
+	// Metadata keywords
+	"title": true, "description": true, "examples": true, "format": true,
+	"readOnly": true, "writeOnly": true, "deprecated": true,
+	// Kubernetes extensions
+	"x-kubernetes-preserve-unknown-fields": true,
+	"x-kubernetes-int-or-string":           true,
+	"x-kubernetes-embedded-resource":       true,
+	"x-kubernetes-validations":             true,
 }
 
 // unmarshalSection unmarshals a raw extension into a field map.

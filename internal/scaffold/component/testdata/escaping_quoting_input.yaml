@@ -11,7 +11,7 @@ metadata:
 spec:
   workloadType: deployment
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       environment: 'string | enum="development environment","staging environment","production environment" description="Enum with spaces in values"'
       logFormat: 'string | enum=json,text,"key=value pairs" description="Enum with special characters"'
       greeting: 'string | default="Hello, World!" description="Default with comma and exclamation"'

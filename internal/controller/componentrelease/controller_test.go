@@ -71,7 +71,7 @@ var _ = Describe("ComponentRelease Controller", func() {
 						Traits: map[string]openchoreov1alpha1.TraitSpec{
 							"test-instance": {
 								Parameters: &openchoreov1alpha1.SchemaSection{
-									OCSchema: &runtime.RawExtension{
+									OpenAPIV3Schema: &runtime.RawExtension{
 										Raw: []byte(`{"minReplicas":{"type":"integer"},"maxReplicas":{"type":"integer"}}`),
 									},
 								},

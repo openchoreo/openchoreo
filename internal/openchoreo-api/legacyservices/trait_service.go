@@ -124,7 +124,7 @@ func (s *TraitService) GetTraitSchema(ctx context.Context, namespaceName, traitN
 		return nil, fmt.Errorf("failed to get Trait: %w", err)
 	}
 
-	// Convert to JSON Schema (handles both ocSchema and openAPIV3Schema)
+	// Convert to JSON Schema
 	jsonSchema, err := schema.SectionToJSONSchema(trait.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)

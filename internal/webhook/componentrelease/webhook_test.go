@@ -89,7 +89,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"replicas": "integer | default=1"}`),
 				},
@@ -115,7 +115,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"replicas": "integer | default=1", "image": "string | default=nginx"}`),
 				},
@@ -138,7 +138,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"replicas": "integer | default=1", "name": "string"}`),
 				},
@@ -164,7 +164,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 				"storage": {
 					Parameters: &openchoreodevv1alpha1.SchemaSection{
 
-						OCSchema: &runtime.RawExtension{
+						OpenAPIV3Schema: &runtime.RawExtension{
 
 							Raw: []byte(`{"mountPath": "string", "size": "string | default=10Gi"}`),
 						},
@@ -197,7 +197,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 		It("should reject when required parameter is missing", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 					Raw: []byte(`{"replicas": "integer", "name": "string"}`), // no defaults, both required
 				},
 			}
@@ -221,7 +221,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"replicas": "integer"}`),
 				},
@@ -247,7 +247,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
 				"storage": {
 					Parameters: &openchoreodevv1alpha1.SchemaSection{
-						OCSchema: &runtime.RawExtension{
+						OpenAPIV3Schema: &runtime.RawExtension{
 							Raw: []byte(`{"mountPath": "string", "size": "string"}`), // both required
 						},
 					},
@@ -637,7 +637,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"replicas": "integer | default=1", "enabled": "boolean | default=true"}`),
 				},
@@ -709,7 +709,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 				"storage": {
 					Parameters: &openchoreodevv1alpha1.SchemaSection{
 
-						OCSchema: &runtime.RawExtension{
+						OpenAPIV3Schema: &runtime.RawExtension{
 
 							Raw: []byte(`{"size": "string | default=10Gi"}`),
 						},
@@ -763,7 +763,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"name": "string | default=app"}`),
 				},
@@ -781,7 +781,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{"replicas": "integer | default=1"}`),
 				},
@@ -799,7 +799,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 				"storage": {
 					Parameters: &openchoreodevv1alpha1.SchemaSection{
 
-						OCSchema: &runtime.RawExtension{
+						OpenAPIV3Schema: &runtime.RawExtension{
 
 							Raw: []byte(`{"size": "integer | default=10"}`),
 						},
@@ -914,7 +914,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 		It("should reject invalid JSON in ComponentType schema parameters", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 					Raw: []byte(`{malformed json`),
 				},
 			}
@@ -928,7 +928,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
-				OCSchema: &runtime.RawExtension{
+				OpenAPIV3Schema: &runtime.RawExtension{
 
 					Raw: []byte(`{malformed`),
 				},
@@ -945,7 +945,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 				"storage": {
 					Parameters: &openchoreodevv1alpha1.SchemaSection{
 
-						OCSchema: &runtime.RawExtension{
+						OpenAPIV3Schema: &runtime.RawExtension{
 
 							Raw: []byte(`{malformed`),
 						},

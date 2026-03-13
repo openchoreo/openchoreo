@@ -189,12 +189,12 @@ var _ = Describe("ClusterTrait Controller", func() {
 
 			ct := createClusterTrait(name, openchoreov1alpha1.ClusterTraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OCSchema: &runtime.RawExtension{
+					OpenAPIV3Schema: &runtime.RawExtension{
 						Raw: []byte(`{"mountPath": "string"}`),
 					},
 				},
 				EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-					OCSchema: &runtime.RawExtension{
+					OpenAPIV3Schema: &runtime.RawExtension{
 						Raw: []byte(`{"size": "string"}`),
 					},
 				},
@@ -252,7 +252,7 @@ var _ = Describe("ClusterTrait Controller", func() {
 
 			ct := createClusterTrait(name, openchoreov1alpha1.ClusterTraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OCSchema: &runtime.RawExtension{
+					OpenAPIV3Schema: &runtime.RawExtension{
 						Raw: []byte(`{"volumeName": "string", "mountPath": "string"}`),
 					},
 				},
@@ -439,7 +439,7 @@ var _ = Describe("ClusterTrait Controller", func() {
 
 			ct := createClusterTrait(name, openchoreov1alpha1.ClusterTraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OCSchema: &runtime.RawExtension{
+					OpenAPIV3Schema: &runtime.RawExtension{
 						Raw: []byte(`{"$types": {"VolumeConfig": {"name": "string", "size": "string"}}, "volume": "VolumeConfig"}`),
 					},
 				},
@@ -896,7 +896,7 @@ var _ = Describe("ClusterTrait Controller", func() {
 			// Create a ClusterTrait with all three available fields
 			ct := createClusterTrait(name, openchoreov1alpha1.ClusterTraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OCSchema: &runtime.RawExtension{
+					OpenAPIV3Schema: &runtime.RawExtension{
 						Raw: []byte(`{"key": "string"}`),
 					},
 				},

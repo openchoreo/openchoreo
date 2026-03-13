@@ -107,7 +107,7 @@ func (s *ClusterComponentTypeService) GetClusterComponentTypeSchema(ctx context.
 		return nil, fmt.Errorf("failed to get ClusterComponentType: %w", err)
 	}
 
-	// Convert to JSON Schema (handles both ocSchema and openAPIV3Schema)
+	// Convert to JSON Schema
 	jsonSchema, err := schema.SectionToJSONSchema(ct.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)

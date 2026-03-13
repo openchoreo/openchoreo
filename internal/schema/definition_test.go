@@ -137,7 +137,7 @@ func makeSchemaSection(isOpenAPIV3 bool, schema map[string]any) *v1alpha1.Schema
 	if isOpenAPIV3 {
 		return &v1alpha1.SchemaSection{OpenAPIV3Schema: raw}
 	}
-	return &v1alpha1.SchemaSection{OCSchema: raw}
+	return &v1alpha1.SchemaSection{OpenAPIV3Schema: raw}
 }
 
 func TestResolveSectionToStructural_OpenAPIV3(t *testing.T) {
@@ -270,7 +270,7 @@ func TestSectionToJSONSchema_OpenAPIV3(t *testing.T) {
 	}
 }
 
-func TestSectionToJSONSchema_OCSchema(t *testing.T) {
+func TestSectionToJSONSchema_ShorthandSchema(t *testing.T) {
 	section := makeSchemaSection(false, map[string]any{
 		"replicas": "integer | default=1",
 		"image":    "string",
@@ -884,13 +884,13 @@ func TestSectionToRawJSONSchema_NilSection(t *testing.T) {
 	}
 }
 
-func TestSectionToRawJSONSchema_OcSchema(t *testing.T) {
+func TestSectionToRawJSONSchema_ShorthandSchema(t *testing.T) {
 	rawYAML := `
 replicas: "integer | default=1"
 name: "string"
 `
 	section := &v1alpha1.SchemaSection{
-		OCSchema: &runtime.RawExtension{Raw: []byte(rawYAML)},
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(rawYAML)},
 	}
 
 	result, err := SectionToRawJSONSchema(section)
@@ -914,10 +914,8 @@ name: "string"
 }
 
 func TestResolveSectionToStructural_BothSchemasSet(t *testing.T) {
-	// When both ocSchema and openAPIV3Schema are set, openAPIV3Schema takes priority
-	// because GetRaw() returns openAPIV3Schema first and IsOpenAPIV3() returns true.
+	// When openAPIV3Schema is set, it is used directly.
 	section := &v1alpha1.SchemaSection{
-		OCSchema: &runtime.RawExtension{Raw: []byte(`{"replicas": "integer | default=1"}`)},
 		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{
 			"type": "object",
 			"properties": {
@@ -934,12 +932,8 @@ func TestResolveSectionToStructural_BothSchemasSet(t *testing.T) {
 		t.Fatal("expected non-nil structural")
 	}
 
-	// Should have "image" from openAPIV3Schema, not "replicas" from ocSchema
 	if _, ok := structural.Properties["image"]; !ok {
 		t.Fatal("expected 'image' property from openAPIV3Schema")
-	}
-	if _, ok := structural.Properties["replicas"]; ok {
-		t.Fatal("did not expect 'replicas' from ocSchema when openAPIV3Schema is set")
 	}
 }
 
@@ -1299,7 +1293,6 @@ func TestSectionToRawJSONSchema_EmptyOpenAPIV3(t *testing.T) {
 func TestSectionToJSONSchema_BothSchemasSet(t *testing.T) {
 	// When both are set, openAPIV3Schema should take priority
 	section := &v1alpha1.SchemaSection{
-		OCSchema: &runtime.RawExtension{Raw: []byte(`{"count": "integer | default=5"}`)},
 		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{
 			"type": "object",
 			"properties": {
@@ -1313,12 +1306,8 @@ func TestSectionToJSONSchema_BothSchemasSet(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should use openAPIV3Schema path
 	if _, ok := jsonSchema.Properties["name"]; !ok {
 		t.Fatal("expected 'name' from openAPIV3Schema")
-	}
-	if _, ok := jsonSchema.Properties["count"]; ok {
-		t.Fatal("did not expect 'count' from ocSchema when openAPIV3Schema is set")
 	}
 }
 

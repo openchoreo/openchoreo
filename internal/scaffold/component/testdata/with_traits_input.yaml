@@ -15,7 +15,7 @@ metadata:
 spec:
   workloadType: deployment
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       port: "integer"
 ---
 # Multiple traits to verify deterministic ordering (alphabetical: logging, networking, storage)
@@ -25,7 +25,7 @@ metadata:
   name: storage
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       mountPath: 'string | description="Mount path"'
       size: string | default=10Gi
 ---
@@ -35,7 +35,7 @@ metadata:
   name: logging
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       level: string | enum=debug,info,warn,error | default=info
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -44,5 +44,5 @@ metadata:
   name: networking
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       ingress: 'boolean | description="Enable ingress"'

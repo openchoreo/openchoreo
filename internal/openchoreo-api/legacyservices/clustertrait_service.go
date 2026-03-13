@@ -107,7 +107,7 @@ func (s *ClusterTraitService) GetClusterTraitSchema(ctx context.Context, name st
 		return nil, fmt.Errorf("failed to get ClusterTrait: %w", err)
 	}
 
-	// Convert to JSON Schema (handles both ocSchema and openAPIV3Schema)
+	// Convert to JSON Schema
 	jsonSchema, err := schema.SectionToJSONSchema(trait.Spec.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)

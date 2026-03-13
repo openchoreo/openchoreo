@@ -7,13 +7,13 @@ metadata:
   name: clustertrait-sample
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       volumeName: "string"
       mountPath: "string"
       containerName: "string | default=app"
 
   environmentConfigs:
-    ocSchema:
+    openAPIV3Schema:
       size: "string | default=10Gi"
       storageClass: "string | default=standard"
 

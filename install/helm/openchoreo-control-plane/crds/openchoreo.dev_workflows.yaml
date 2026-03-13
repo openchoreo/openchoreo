@@ -92,21 +92,12 @@ spec:
                   Parameters defines the developer-facing parameters that can be configured
                   when creating a WorkflowRun instance.
                 properties:
-                  ocSchema:
-                    description: |-
-                      OCSchema defines the schema using OpenChoreo's simple schema format.
-                      The blob may contain a "$types" key for reusable type definitions scoped to this section.
-                    type: object
-                    x-kubernetes-preserve-unknown-fields: true
                   openAPIV3Schema:
                     description: OpenAPIV3Schema defines the schema using standard
                       OpenAPI V3 / JSON Schema format.
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                 type: object
-                x-kubernetes-validations:
-                - message: ocSchema and openAPIV3Schema are mutually exclusive
-                  rule: '!(has(self.ocSchema) && has(self.openAPIV3Schema))'
               resources:
                 description: |-
                   Resources are additional templates that generate Kubernetes resources dynamically

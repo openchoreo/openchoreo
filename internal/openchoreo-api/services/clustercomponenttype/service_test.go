@@ -177,10 +177,10 @@ func TestGetClusterComponentTypeSchema(t *testing.T) {
 		assert.NotNil(t, result["properties"])
 	})
 
-	t.Run("success with OCSchema params", func(t *testing.T) {
+	t.Run("success with shorthand schema params", func(t *testing.T) {
 		cct := testutil.NewClusterComponentType("with-schema")
 		cct.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
-			OCSchema: &runtime.RawExtension{Raw: []byte(`{"replicas":"integer"}`)},
+			OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{"replicas":"integer"}`)},
 		}
 		svc := newService(t, cct)
 
@@ -202,7 +202,7 @@ func TestGetClusterComponentTypeSchema(t *testing.T) {
 	t.Run("invalid schema data", func(t *testing.T) {
 		cct := testutil.NewClusterComponentType("bad-schema")
 		cct.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
-			OCSchema: &runtime.RawExtension{Raw: []byte(`{not valid}`)},
+			OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{not valid}`)},
 		}
 		svc := newService(t, cct)
 

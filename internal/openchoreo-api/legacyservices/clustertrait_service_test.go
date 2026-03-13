@@ -208,7 +208,7 @@ func TestGetClusterTraitSchema(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "autoscaler"},
 					Spec: v1alpha1.ClusterTraitSpec{
 						Parameters: &v1alpha1.SchemaSection{
-							OCSchema: &runtime.RawExtension{Raw: paramsRaw},
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: paramsRaw},
 						},
 					},
 				},

@@ -31,17 +31,8 @@ type ValidationRule struct {
 	Message string `json:"message"`
 }
 
-// SchemaSection holds one schema in either ocSchema or openAPIV3Schema format.
-// The two formats are mutually exclusive within a section.
-// +kubebuilder:validation:XValidation:rule="!(has(self.ocSchema) && has(self.openAPIV3Schema))",message="ocSchema and openAPIV3Schema are mutually exclusive"
+// SchemaSection holds a schema in openAPIV3Schema format.
 type SchemaSection struct {
-	// OCSchema defines the schema using OpenChoreo's simple schema format.
-	// The blob may contain a "$types" key for reusable type definitions scoped to this section.
-	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Type=object
-	OCSchema *runtime.RawExtension `json:"ocSchema,omitempty"`
-
 	// OpenAPIV3Schema defines the schema using standard OpenAPI V3 / JSON Schema format.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
@@ -49,16 +40,12 @@ type SchemaSection struct {
 	OpenAPIV3Schema *runtime.RawExtension `json:"openAPIV3Schema,omitempty"`
 }
 
-// GetRaw returns the raw extension for whichever format is set.
-// Returns OpenAPIV3Schema if set, otherwise OCSchema.
+// GetRaw returns the raw extension for the schema.
 func (s *SchemaSection) GetRaw() *runtime.RawExtension {
 	if s == nil {
 		return nil
 	}
-	if s.OpenAPIV3Schema != nil {
-		return s.OpenAPIV3Schema
-	}
-	return s.OCSchema
+	return s.OpenAPIV3Schema
 }
 
 // IsOpenAPIV3 returns true if OpenAPIV3Schema is set.

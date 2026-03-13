@@ -403,7 +403,6 @@ type SchemaBundle struct {
 }
 
 // BuildStructuralSchemas builds separate structural schemas for parameters and environmentConfigs.
-// Types are extracted from within each ocSchema blob via the "$types" key by the extractor.
 //
 // Returns (parametersBundle, envConfigsBundle, error). Either bundle's schemas can be nil if not provided.
 func BuildStructuralSchemas(input *SchemaInput) (*SchemaBundle, *SchemaBundle, error) {

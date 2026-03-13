@@ -12,7 +12,7 @@ metadata:
 spec:
   workloadType: deployment
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       port: "integer"
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -21,7 +21,7 @@ metadata:
   name: docker-build
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       context: 'string | default=. description="Docker build context"'
       dockerfile: 'string | default=./Dockerfile description="Path to Dockerfile"'
       buildArgs: 'map<string> | description="Build arguments"'

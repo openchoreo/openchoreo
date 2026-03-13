@@ -7182,12 +7182,8 @@ components:
 
     SchemaSection:
       type: object
-      description: Schema section supporting either ocSchema or openAPIV3Schema format (mutually exclusive)
+      description: Schema section using openAPIV3Schema format
       properties:
-        ocSchema:
-          type: object
-          description: Schema using OpenChoreo's simple schema format. May contain $types for reusable type definitions.
-          additionalProperties: true
         openAPIV3Schema:
           type: object
           description: Schema using standard OpenAPI V3 / JSON Schema format

@@ -119,7 +119,7 @@ spec:
   componentType:
     spec:
       parameters:
-        ocSchema:
+        openAPIV3Schema:
           replicas: "integer"
       resources:
         - id: deployment
@@ -168,7 +168,7 @@ spec:
   componentType:
     spec:
       parameters:
-        ocSchema:
+        openAPIV3Schema:
           expose: "boolean"
       resources:
         - id: deployment
@@ -234,7 +234,7 @@ spec:
   componentType:
     spec:
       parameters:
-        ocSchema:
+        openAPIV3Schema:
           secrets: "[]string"
       resources:
         - id: secrets
@@ -309,7 +309,7 @@ spec:
         name: mysql
       spec:
         parameters:
-          ocSchema:
+          openAPIV3Schema:
             database: "string"
         creates:
           - template:
@@ -441,7 +441,7 @@ spec:
   componentType:
     spec:
       parameters:
-        ocSchema:
+        openAPIV3Schema:
           mountPath: "string"
       traits:
         - name: storage
@@ -461,7 +461,7 @@ spec:
         name: storage
       spec:
         parameters:
-          ocSchema:
+          openAPIV3Schema:
             mountPath: "string"
             volumeName: "string"
         creates:
@@ -606,7 +606,7 @@ spec:
   componentType:
     spec:
       parameters:
-        ocSchema:
+        openAPIV3Schema:
           database: "string"
       traits:
         - name: monitoring
@@ -634,7 +634,7 @@ spec:
         name: mysql
       spec:
         parameters:
-          ocSchema:
+          openAPIV3Schema:
             database: "string"
         creates:
           - template:
@@ -708,7 +708,7 @@ spec:
   componentType:
     spec:
       parameters:
-        ocSchema:
+        openAPIV3Schema:
           appPort: "integer"
       traits:
         - name: service-exposure
@@ -728,7 +728,7 @@ spec:
         name: service-exposure
       spec:
         parameters:
-          ocSchema:
+          openAPIV3Schema:
             port: "integer"
             protocol: "string | default=\"TCP\""
         creates:
@@ -1036,7 +1036,7 @@ func TestPipeline_SchemaValidation(t *testing.T) {
 			componentTypeYAML: `
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       replicas: integer
   resources:
     - id: deployment
@@ -1050,7 +1050,7 @@ spec:
 			componentTypeYAML: `
 spec:
   environmentConfigs:
-    ocSchema:
+    openAPIV3Schema:
       logLevel: string
   resources:
     - id: deployment
@@ -1079,7 +1079,7 @@ spec:
 - metadata: {name: storage}
   spec:
     parameters:
-      ocSchema:
+      openAPIV3Schema:
         size: string
 `,
 			wantErrMsg: "parameters validation failed",
@@ -1102,7 +1102,7 @@ spec:
 - metadata: {name: storage}
   spec:
     environmentConfigs:
-      ocSchema:
+      openAPIV3Schema:
         storageClass: string
 `,
 			releaseBindingYAML: `spec: {traitEnvironmentConfigs: {vol1: {}}}`,
@@ -1192,7 +1192,7 @@ func TestPipeline_ValidationRules(t *testing.T) {
 			componentTypeYAML: `
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       replicas: "integer | default=1"
   validations:
     - rule: "${parameters.replicas > 0}"
@@ -1209,7 +1209,7 @@ spec:
 			componentTypeYAML: `
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       replicas: "integer | default=1"
   validations:
     - rule: "${parameters.replicas > 5}"
@@ -1247,7 +1247,7 @@ spec:
 - metadata: {name: storage}
   spec:
     parameters:
-      ocSchema:
+      openAPIV3Schema:
         size: "integer | default=1"
     validations:
       - rule: "${parameters.size > 0}"
@@ -1277,7 +1277,7 @@ spec:
 - metadata: {name: storage}
   spec:
     parameters:
-      ocSchema:
+      openAPIV3Schema:
         size: "integer | default=1"
     validations:
       - rule: "${parameters.size > 0}"
@@ -1298,7 +1298,7 @@ spec:
 			componentTypeYAML: `
 spec:
   parameters:
-    ocSchema:
+    openAPIV3Schema:
       replicas: "integer | default=1"
       name: "string | default=app"
   validations:

@@ -223,7 +223,7 @@ func TestGetClusterComponentTypeSchema(t *testing.T) {
 						WorkloadType: "deployment",
 						Resources:    []v1alpha1.ResourceTemplate{{ID: "deployment"}},
 						Parameters: &v1alpha1.SchemaSection{
-							OCSchema: &runtime.RawExtension{Raw: paramsRaw},
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: paramsRaw},
 						},
 					},
 				},
