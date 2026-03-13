@@ -111,7 +111,7 @@ func TestQueryBuilder_BuildBuildLogsQuery(t *testing.T) {
 	foundWildcard := false
 	for _, condition := range mustConditions {
 		if wildcard, ok := condition["wildcard"].(map[string]interface{}); ok {
-			field := labels.KubernetesPodName + ".keyword"
+			field := labels.KubernetesPodName
 			if value, exists := wildcard[field]; exists && value == "build-123*" {
 				foundWildcard = true
 			}
@@ -504,7 +504,7 @@ func verifyPodWildcardPattern(t *testing.T, mustConditions []map[string]interfac
 	foundWildcard := false
 	for _, condition := range mustConditions {
 		if wildcard, ok := condition["wildcard"].(map[string]interface{}); ok {
-			field := labels.KubernetesPodName + ".keyword"
+			field := labels.KubernetesPodName
 			if value, exists := wildcard[field]; exists && value == expectedPattern {
 				foundWildcard = true
 				break
@@ -521,7 +521,7 @@ func verifyStepNameWildcardPattern(t *testing.T, mustConditions []map[string]int
 	t.Helper()
 	const kubeAnnotationsPrefix = "kubernetes.annotations."
 	const argoNodeNameAnnotation = "workflows_argoproj_io/node-name"
-	field := kubeAnnotationsPrefix + argoNodeNameAnnotation + ".keyword"
+	field := kubeAnnotationsPrefix + argoNodeNameAnnotation
 
 	foundWildcard := false
 	for _, condition := range mustConditions {
@@ -549,7 +549,7 @@ func verifyContainerExclusions(t *testing.T, mustNotConditions []map[string]inte
 	foundWait := false
 	for _, condition := range mustNotConditions {
 		if term, ok := condition["term"].(map[string]interface{}); ok {
-			field := labels.KubernetesContainerName + ".keyword"
+			field := labels.KubernetesContainerName
 			if value, exists := term[field]; exists {
 				if value == "init" {
 					foundInit = true

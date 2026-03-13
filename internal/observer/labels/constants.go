@@ -94,6 +94,7 @@ const (
 	KubernetesLabelsPrefix  = KubernetesPrefix + ".labels"
 	KubernetesPodName       = KubernetesPrefix + ".pod_name"
 	KubernetesContainerName = KubernetesPrefix + ".container_name"
+	KubernetesNamespaceName = KubernetesPrefix + ".namespace_name"
 )
 
 // OpenSearch field paths with dots replaced by underscores in label keys
