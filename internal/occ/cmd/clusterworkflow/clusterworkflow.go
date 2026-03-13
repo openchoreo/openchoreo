@@ -13,6 +13,8 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
@@ -94,6 +96,49 @@ func (c *ClusterWorkflow) Delete(params DeleteParams) error {
 
 	fmt.Printf("ClusterWorkflow '%s' deleted\n", params.ClusterWorkflowName)
 	return nil
+}
+
+// StartRun starts a cluster workflow run in the given namespace.
+func (c *ClusterWorkflow) StartRun(params StartRunParams) error {
+	if params.Namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	if params.WorkflowName == "" {
+		return fmt.Errorf("cluster workflow name is required")
+	}
+
+	return workflow.New().StartRun(workflow.StartRunParams{
+		Namespace:    params.Namespace,
+		WorkflowName: params.WorkflowName,
+		WorkflowKind: "ClusterWorkflow",
+		Set:          params.Set,
+	})
+}
+
+// Logs fetches and displays logs for a cluster workflow.
+func (c *ClusterWorkflow) Logs(params LogsParams) error {
+	if params.Namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	if params.WorkflowName == "" {
+		return fmt.Errorf("cluster workflow name is required")
+	}
+
+	runName := params.RunName
+	if runName == "" {
+		var err error
+		runName, err = workflow.ResolveLatestRun(params.Namespace, params.WorkflowName, nil)
+		if err != nil {
+			return err
+		}
+	}
+
+	return workflowrun.New().Logs(workflowrun.LogsParams{
+		Namespace:       params.Namespace,
+		WorkflowRunName: runName,
+		Follow:          params.Follow,
+		Since:           params.Since,
+	})
 }
 
 func printList(items []gen.ClusterWorkflow) error {

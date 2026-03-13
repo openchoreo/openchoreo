@@ -685,6 +685,34 @@ This command allows you to:
   occ clusterworkflow delete build-go`,
 	}
 
+	StartClusterWorkflow = Command{
+		Use:   "run CLUSTER_WORKFLOW_NAME",
+		Short: "Run a cluster workflow",
+		Long: `Run a new cluster workflow with optional parameters.
+Requires --namespace to specify where the workflow run will be created.`,
+		Example: fmt.Sprintf(`  # Run a cluster workflow
+  %[1]s clusterworkflow run dockerfile-builder --namespace acme-corp
+
+  # Run with parameters
+  %[1]s clusterworkflow run dockerfile-builder --namespace acme-corp \
+    --set spec.workflow.parameters.repository.url=https://github.com/example/repo`, messages.DefaultCLIName),
+	}
+
+	LogsClusterWorkflow = Command{
+		Use:   "logs CLUSTER_WORKFLOW_NAME",
+		Short: "Get logs for a cluster workflow",
+		Long: `Get logs for a cluster workflow by finding the latest workflow run.
+Use --workflowrun to specify a particular workflow run instead of the latest.`,
+		Example: fmt.Sprintf(`  # Get logs for the latest run of a cluster workflow
+  %[1]s clusterworkflow logs dockerfile-builder --namespace acme-corp
+
+  # Get logs for a specific run
+  %[1]s clusterworkflow logs dockerfile-builder --namespace acme-corp --workflowrun my-run
+
+  # Follow logs
+  %[1]s clusterworkflow logs dockerfile-builder --namespace acme-corp -f`, messages.DefaultCLIName),
+	}
+
 	ListWorkflow = Command{
 		Use:   "list",
 		Short: "List workflows",

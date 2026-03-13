@@ -26,6 +26,8 @@ func NewClusterWorkflowCmd() *cobra.Command {
 		newListClusterWorkflowCmd(),
 		newGetClusterWorkflowCmd(),
 		newDeleteClusterWorkflowCmd(),
+		newStartClusterWorkflowCmd(),
+		newLogsClusterWorkflowCmd(),
 	)
 
 	return clusterWorkflowCmd
@@ -62,6 +64,58 @@ func newDeleteClusterWorkflowCmd() *cobra.Command {
 			})
 		},
 	}
+	return cmd
+}
+
+func newStartClusterWorkflowCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.StartClusterWorkflow.Use,
+		Short:   constants.StartClusterWorkflow.Short,
+		Long:    constants.StartClusterWorkflow.Long,
+		Example: constants.StartClusterWorkflow.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			set, _ := cmd.Flags().GetStringArray(flags.Set.Name)
+			return clusterworkflow.New().StartRun(clusterworkflow.StartRunParams{
+				Namespace:    namespace,
+				WorkflowName: args[0],
+				Set:          set,
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace, flags.Set)
+
+	return cmd
+}
+
+func newLogsClusterWorkflowCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     constants.LogsClusterWorkflow.Use,
+		Short:   constants.LogsClusterWorkflow.Short,
+		Long:    constants.LogsClusterWorkflow.Long,
+		Example: constants.LogsClusterWorkflow.Example,
+		Args:    cobra.ExactArgs(1),
+		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			follow, _ := cmd.Flags().GetBool(flags.Follow.Name)
+			since, _ := cmd.Flags().GetString(flags.Since.Name)
+			run, _ := cmd.Flags().GetString(flags.WorkflowRun.Name)
+			return clusterworkflow.New().Logs(clusterworkflow.LogsParams{
+				Namespace:    namespace,
+				WorkflowName: args[0],
+				RunName:      run,
+				Follow:       follow,
+				Since:        since,
+			})
+		},
+	}
+
+	flags.AddFlags(cmd, flags.Namespace, flags.Follow, flags.Since, flags.WorkflowRun)
+
 	return cmd
 }
 

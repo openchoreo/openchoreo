@@ -12,3 +12,22 @@ type GetParams struct {
 type DeleteParams struct {
 	ClusterWorkflowName string
 }
+
+// StartRunParams defines parameters for starting a cluster workflow run
+type StartRunParams struct {
+	Namespace    string
+	WorkflowName string
+	Set          []string // --set overrides applied on top of Parameters
+}
+
+// LogsParams defines parameters for getting cluster workflow logs
+type LogsParams struct {
+	Namespace    string
+	WorkflowName string
+	RunName      string // optional --workflowrun flag; defaults to latest
+	Follow       bool
+	Since        string
+}
+
+func (p LogsParams) GetNamespace() string    { return p.Namespace }
+func (p LogsParams) GetWorkflowName() string { return p.WorkflowName }
