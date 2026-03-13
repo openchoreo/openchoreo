@@ -14,54 +14,66 @@ openchoreoApi:
           # The chart defaults provide the first 3; quick-start adds the CLI binding.
           mappings:
             - name: admin-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: admin
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: groups
                 value: admins
               effect: allow
             - name: backstage-catalog-reader-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: backstage-catalog-reader
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: sub
                 value: openchoreo-backstage-client
               effect: allow
             - name: rca-agent-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: rca-agent
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: sub
                 value: openchoreo-rca-agent
               effect: allow
             - name: quickstart-cli-admin-binding
+              kind: ClusterAuthzRoleBinding
               roleMappings:
                 - roleRef:
                     name: admin
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: sub
                 value: openchoreo-cli-quickstart
               effect: allow
             - name: workload-publisher-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: workload-publisher
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: sub
                 value: openchoreo-workload-publisher-client
               effect: allow
             - name: observer-resource-reader-binding
+              kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
                     name: observer-resource-reader
+                    kind: ClusterAuthzRole
               entitlement:
                 claim: sub
                 value: openchoreo-observer-resource-reader-client
