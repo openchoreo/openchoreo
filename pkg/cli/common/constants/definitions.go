@@ -623,6 +623,37 @@ This command allows you to:
   occ clustercomponenttype delete web-app`,
 	}
 
+	ClusterDataPlane = Command{
+		Use:     "clusterdataplane",
+		Aliases: []string{"clusterdataplanes", "cdp"},
+		Short:   "Manage cluster data planes",
+		Long:    `Manage cluster-scoped data planes for OpenChoreo.`,
+	}
+
+	ListClusterDataPlane = Command{
+		Use:   "list",
+		Short: "List cluster data planes",
+		Long:  `List all cluster-scoped data planes available across the cluster.`,
+		Example: `  # List all cluster data planes
+  occ clusterdataplane list`,
+	}
+
+	GetClusterDataPlane = Command{
+		Use:   "get [CLUSTER_DATA_PLANE_NAME]",
+		Short: "Get a cluster data plane",
+		Long:  `Get a cluster data plane and display its details in YAML format.`,
+		Example: `  # Get a cluster data plane
+  occ clusterdataplane get default`,
+	}
+
+	DeleteClusterDataPlane = Command{
+		Use:   "delete [CLUSTER_DATA_PLANE_NAME]",
+		Short: "Delete a cluster data plane",
+		Long:  `Delete a cluster data plane by name.`,
+		Example: `  # Delete a cluster data plane
+  occ clusterdataplane delete default`,
+	}
+
 	ClusterTrait = Command{
 		Use:     "clustertrait",
 		Aliases: []string{"clustertraits"},

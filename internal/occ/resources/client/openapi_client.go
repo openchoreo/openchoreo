@@ -603,6 +603,21 @@ func (c *Client) GetDataPlane(ctx context.Context, namespaceName, dpName string)
 	return resp.JSON200, nil
 }
 
+// ListClusterDataPlanes retrieves all cluster-scoped data planes
+func (c *Client) ListClusterDataPlanes(ctx context.Context, params *gen.ListClusterDataPlanesParams) (*gen.ClusterDataPlaneList, error) {
+	if params == nil {
+		params = &gen.ListClusterDataPlanesParams{}
+	}
+	resp, err := c.client.ListClusterDataPlanesWithResponse(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster data planes: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
 // GetClusterDataPlane retrieves a specific cluster data plane
 func (c *Client) GetClusterDataPlane(ctx context.Context, cdpName string) (*gen.ClusterDataPlane, error) {
 	resp, err := c.client.GetClusterDataPlaneWithResponse(ctx, cdpName)
@@ -613,6 +628,18 @@ func (c *Client) GetClusterDataPlane(ctx context.Context, cdpName string) (*gen.
 		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
 	}
 	return resp.JSON200, nil
+}
+
+// DeleteClusterDataPlane deletes a cluster data plane
+func (c *Client) DeleteClusterDataPlane(ctx context.Context, cdpName string) error {
+	resp, err := c.client.DeleteClusterDataPlaneWithResponse(ctx, cdpName)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster data plane: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
 }
 
 // DeleteDataPlane deletes a data plane
