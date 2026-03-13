@@ -82,9 +82,8 @@ spec:
                   description: WorkflowRef represents a reference to a Workflow resource.
                   properties:
                     kind:
-                      default: Workflow
-                      description: Kind is the kind of workflow. Currently only "Workflow"
-                        is supported.
+                      default: ClusterWorkflow
+                      description: Kind is the kind of workflow (Workflow or ClusterWorkflow).
                       enum:
                       - Workflow
                       - ClusterWorkflow

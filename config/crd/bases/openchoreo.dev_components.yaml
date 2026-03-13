@@ -148,7 +148,7 @@ spec:
                   The Workflow must be in the allowedWorkflows list of the ComponentType.
                 properties:
                   kind:
-                    default: Workflow
+                    default: ClusterWorkflow
                     description: Kind is the kind of workflow (Workflow or ClusterWorkflow).
                     enum:
                     - Workflow

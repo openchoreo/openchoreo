@@ -32,7 +32,7 @@ type WorkflowRunSpec struct {
 type WorkflowRunConfig struct {
 	// Kind is the kind of workflow (Workflow or ClusterWorkflow).
 	// +optional
-	// +kubebuilder:default=Workflow
+	// +kubebuilder:default=ClusterWorkflow
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="kind is immutable"
 	Kind WorkflowRefKind `json:"kind,omitempty"`
 

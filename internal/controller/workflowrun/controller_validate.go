@@ -85,20 +85,13 @@ func (r *Reconciler) validateComponentWorkflowRun(
 
 	// Validate workflow against ComponentType's allowedWorkflows
 	wfKind := workflowRun.Spec.Workflow.Kind
-	if wfKind == "" {
-		wfKind = openchoreodevv1alpha1.WorkflowRefKindWorkflow
-	}
 	wfName := workflowRun.Spec.Workflow.Name
 
 	if len(ct.Spec.AllowedWorkflows) > 0 {
 		compositeKey := string(wfKind) + ":" + wfName
 		allowed := false
 		for _, ref := range ct.Spec.AllowedWorkflows {
-			refKind := ref.Kind
-			if refKind == "" {
-				refKind = openchoreodevv1alpha1.WorkflowRefKindWorkflow
-			}
-			if string(refKind)+":"+ref.Name == compositeKey {
+			if string(ref.Kind)+":"+ref.Name == compositeKey {
 				allowed = true
 				break
 			}
@@ -119,9 +112,6 @@ func (r *Reconciler) validateComponentWorkflowRun(
 	// Validate workflow matches component's configured workflow
 	if comp.Spec.Workflow != nil {
 		compWfKind := comp.Spec.Workflow.Kind
-		if compWfKind == "" {
-			compWfKind = openchoreodevv1alpha1.WorkflowRefKindWorkflow
-		}
 		if wfKind != compWfKind || wfName != comp.Spec.Workflow.Name {
 			msg := fmt.Sprintf(
 				"workflow run references workflow %s/%s but component %q is configured with workflow %s/%s",
@@ -190,11 +180,7 @@ func (r *Reconciler) resolveComponentType(
 func formatAllowedWorkflows(refs []openchoreodevv1alpha1.WorkflowRef) string {
 	parts := make([]string, len(refs))
 	for i, ref := range refs {
-		kind := ref.Kind
-		if kind == "" {
-			kind = openchoreodevv1alpha1.WorkflowRefKindWorkflow
-		}
-		parts[i] = fmt.Sprintf("%s/%s", kind, ref.Name)
+		parts[i] = fmt.Sprintf("%s/%s", ref.Kind, ref.Name)
 	}
 	return "[" + strings.Join(parts, ", ") + "]"
 }

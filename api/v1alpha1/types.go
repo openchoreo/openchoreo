@@ -304,9 +304,9 @@ const (
 
 // WorkflowRef represents a reference to a Workflow resource.
 type WorkflowRef struct {
-	// Kind is the kind of workflow. Currently only "Workflow" is supported.
+	// Kind is the kind of workflow (Workflow or ClusterWorkflow).
 	// +optional
-	// +kubebuilder:default=Workflow
+	// +kubebuilder:default=ClusterWorkflow
 	Kind WorkflowRefKind `json:"kind,omitempty"`
 
 	// Name is the name of the workflow resource

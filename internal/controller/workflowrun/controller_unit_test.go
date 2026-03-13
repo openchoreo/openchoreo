@@ -1073,7 +1073,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 			Spec: openchoreodevv1alpha1.ComponentTypeSpec{
 				WorkloadType: "deployment",
 				AllowedWorkflows: []openchoreodevv1alpha1.WorkflowRef{
-					{Name: "allowed-wf"},
+					{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "allowed-wf"},
 				},
 				Resources: []openchoreodevv1alpha1.ResourceTemplate{
 					{ID: "deployment", Template: &runtime.RawExtension{Raw: []byte("{}")}},
@@ -1086,6 +1086,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
 				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
 				Workflow: &openchoreodevv1alpha1.WorkflowRunConfig{
+					Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow,
 					Name: "not-allowed-wf",
 				},
 			},
@@ -1105,7 +1106,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 				},
 			},
 			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
-				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "not-allowed-wf"},
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "not-allowed-wf"},
 			},
 		}
 
@@ -1125,8 +1126,8 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 			Spec: openchoreodevv1alpha1.ComponentTypeSpec{
 				WorkloadType: "deployment",
 				AllowedWorkflows: []openchoreodevv1alpha1.WorkflowRef{
-					{Name: "wf-a"},
-					{Name: "wf-b"},
+					{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "wf-a"},
+					{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "wf-b"},
 				},
 				Resources: []openchoreodevv1alpha1.ResourceTemplate{
 					{ID: "deployment", Template: &runtime.RawExtension{Raw: []byte("{}")}},
@@ -1139,6 +1140,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
 				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
 				Workflow: &openchoreodevv1alpha1.WorkflowRunConfig{
+					Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow,
 					Name: "wf-a",
 				},
 			},
@@ -1158,7 +1160,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 				},
 			},
 			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
-				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "wf-b"},
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "wf-b"},
 			},
 		}
 
@@ -1178,7 +1180,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 			Spec: openchoreodevv1alpha1.ComponentTypeSpec{
 				WorkloadType: "deployment",
 				AllowedWorkflows: []openchoreodevv1alpha1.WorkflowRef{
-					{Name: "my-wf"},
+					{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "my-wf"},
 				},
 				Resources: []openchoreodevv1alpha1.ResourceTemplate{
 					{ID: "deployment", Template: &runtime.RawExtension{Raw: []byte("{}")}},
@@ -1191,6 +1193,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
 				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
 				Workflow: &openchoreodevv1alpha1.WorkflowRunConfig{
+					Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow,
 					Name: "my-wf",
 				},
 			},
@@ -1210,7 +1213,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 				},
 			},
 			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
-				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "my-wf"},
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "my-wf"},
 			},
 		}
 
@@ -1236,6 +1239,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
 				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
 				Workflow: &openchoreodevv1alpha1.WorkflowRunConfig{
+					Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow,
 					Name: "my-wf",
 				},
 			},
@@ -1255,7 +1259,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 				},
 			},
 			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
-				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "my-wf"},
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "my-wf"},
 			},
 		}
 
@@ -1275,7 +1279,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 			Spec: openchoreodevv1alpha1.ComponentTypeSpec{
 				WorkloadType: "deployment",
 				AllowedWorkflows: []openchoreodevv1alpha1.WorkflowRef{
-					{Name: "my-wf"},
+					{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "my-wf"},
 				},
 				Resources: []openchoreodevv1alpha1.ResourceTemplate{
 					{ID: "deployment", Template: &runtime.RawExtension{Raw: []byte("{}")}},
@@ -1305,7 +1309,7 @@ func TestValidateComponentWorkflowRun(t *testing.T) {
 				},
 			},
 			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
-				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "my-wf"},
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "my-wf"},
 			},
 		}
 
@@ -1321,10 +1325,10 @@ func TestFormatAllowedWorkflows(t *testing.T) {
 		refs := []openchoreodevv1alpha1.WorkflowRef{
 			{Kind: "Workflow", Name: "wf-a"},
 			{Kind: "ClusterWorkflow", Name: "cwf-b"},
-			{Name: "wf-c"}, // empty kind defaults to Workflow
+			{Kind: "ClusterWorkflow", Name: "wf-c"},
 		}
 		result := formatAllowedWorkflows(refs)
-		if result != "[Workflow/wf-a, ClusterWorkflow/cwf-b, Workflow/wf-c]" {
+		if result != "[Workflow/wf-a, ClusterWorkflow/cwf-b, ClusterWorkflow/wf-c]" {
 			t.Errorf("unexpected format: %s", result)
 		}
 	})
