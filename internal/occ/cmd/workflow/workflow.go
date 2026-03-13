@@ -148,6 +148,11 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 	if len(params.Labels) > 0 {
 		labels = &params.Labels
 	}
+	var workflowKind *gen.WorkflowRunConfigKind
+	if params.WorkflowKind != "" {
+		k := gen.WorkflowRunConfigKind(params.WorkflowKind)
+		workflowKind = &k
+	}
 	req := gen.WorkflowRun{
 		Metadata: gen.ObjectMeta{
 			Name:      runName,
@@ -156,6 +161,7 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 		},
 		Spec: &gen.WorkflowRunSpec{
 			Workflow: gen.WorkflowRunConfig{
+				Kind:       workflowKind,
 				Name:       params.WorkflowName,
 				Parameters: baseParams,
 			},

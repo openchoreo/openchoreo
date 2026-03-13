@@ -42,6 +42,7 @@ func (p DeleteParams) GetWorkflowName() string { return p.WorkflowName }
 type StartRunParams struct {
 	Namespace    string
 	WorkflowName string
+	WorkflowKind string                 // optional; "ClusterWorkflow" or "Workflow" (defaults to "Workflow")
 	RunName      string                 // optional; auto-generated if empty
 	Parameters   map[string]interface{} // base parameters (e.g., from component workflow config)
 	Set          []string               // --set overrides applied on top of Parameters

@@ -102,9 +102,15 @@ func (cp *Component) StartWorkflow(params StartWorkflowParams) error {
 		baseParams = *wfConfig.Parameters
 	}
 
+	var workflowKind string
+	if wfConfig.Kind != nil {
+		workflowKind = string(*wfConfig.Kind)
+	}
+
 	return workflow.New().StartRun(workflow.StartRunParams{
 		Namespace:    params.Namespace,
 		WorkflowName: wfConfig.Name,
+		WorkflowKind: workflowKind,
 		RunName:      fmt.Sprintf("%s-build-%d", params.ComponentName, time.Now().Unix()),
 		Parameters:   baseParams,
 		Set:          params.Set,
