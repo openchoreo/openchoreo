@@ -102,7 +102,7 @@ func setWorkflowPlaneNotFoundCondition(workflowRun *openchoreov1alpha1.WorkflowR
 		Type:               string(ConditionWorkflowCompleted),
 		Status:             metav1.ConditionFalse,
 		Reason:             string(ReasonWorkflowPlaneNotFound),
-		Message:            "No workflow plane found for the project associated with this workflow run",
+		Message:            "No workflow plane found for the workflow associated with this workflow run",
 		ObservedGeneration: workflowRun.Generation,
 	})
 }

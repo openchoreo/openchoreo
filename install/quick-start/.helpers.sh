@@ -830,7 +830,7 @@ create_workflowplane_resource() {
 
     kubectl apply -f - >/dev/null <<BPEOF
 apiVersion: openchoreo.dev/v1alpha1
-kind: WorkflowPlane
+kind: ClusterWorkflowPlane
 metadata:
   name: default
   namespace: default
