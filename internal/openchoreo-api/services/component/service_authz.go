@@ -16,13 +16,14 @@ import (
 )
 
 const (
-	actionCreateComponent = "component:create"
-	actionUpdateComponent = "component:update"
-	actionViewComponent   = "component:view"
-	actionDeleteComponent = "component:delete"
-	actionDeployComponent = "component:deploy"
+	actionCreateComponent          = "component:create"
+	actionUpdateComponent          = "component:update"
+	actionViewComponent            = "component:view"
+	actionDeleteComponent          = "component:delete"
+	actionGenerateReleaseComponent = "componentrelease:create"
 
-	resourceTypeComponent = "component"
+	resourceTypeComponent        = "component"
+	resourceTypeComponentRelease = "componentrelease"
 )
 
 // componentServiceWithAuthz wraps a Service and adds authorization checks.
@@ -143,8 +144,8 @@ func (s *componentServiceWithAuthz) GenerateRelease(ctx context.Context, namespa
 		return nil, err
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeployComponent,
-		ResourceType: resourceTypeComponent,
+		Action:       actionGenerateReleaseComponent,
+		ResourceType: resourceTypeComponentRelease,
 		ResourceID:   componentName,
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
