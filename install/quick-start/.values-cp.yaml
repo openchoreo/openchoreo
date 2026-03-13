@@ -10,12 +10,11 @@ openchoreoApi:
     security:
       authorization:
         bootstrap:
-          # Helm replaces lists so all mappings must be specified here.
-          # The chart defaults provide the first 3; quick-start adds the CLI binding.
+          # Includes admin, developer, platform-engineer bindings from base values,
+          # all system bindings, and the quick-start CLI admin binding.
           mappings:
             - name: admin-binding
               kind: ClusterAuthzRoleBinding
-              system: true
               roleMappings:
                 - roleRef:
                     name: admin
@@ -23,6 +22,26 @@ openchoreoApi:
               entitlement:
                 claim: groups
                 value: admins
+              effect: allow
+            - name: developer-binding
+              kind: ClusterAuthzRoleBinding
+              roleMappings:
+                - roleRef:
+                    name: developer
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: groups
+                value: developers
+              effect: allow
+            - name: platform-engineer-binding
+              kind: ClusterAuthzRoleBinding
+              roleMappings:
+                - roleRef:
+                    name: platform-engineer
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: groups
+                value: platform-engineers
               effect: allow
             - name: backstage-catalog-reader-binding
               kind: ClusterAuthzRoleBinding
@@ -46,16 +65,6 @@ openchoreoApi:
                 claim: sub
                 value: openchoreo-rca-agent
               effect: allow
-            - name: quickstart-cli-admin-binding
-              kind: ClusterAuthzRoleBinding
-              roleMappings:
-                - roleRef:
-                    name: admin
-                    kind: ClusterAuthzRole
-              entitlement:
-                claim: sub
-                value: openchoreo-cli-quickstart
-              effect: allow
             - name: workload-publisher-binding
               kind: ClusterAuthzRoleBinding
               system: true
@@ -77,6 +86,26 @@ openchoreoApi:
               entitlement:
                 claim: sub
                 value: openchoreo-observer-resource-reader-client
+              effect: allow
+            - name: mcp-tryout-client-binding
+              kind: ClusterAuthzRoleBinding
+              roleMappings:
+                - roleRef:
+                    name: admin
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: sub
+                value: service_mcp_client
+              effect: allow
+            - name: quickstart-cli-admin-binding
+              kind: ClusterAuthzRoleBinding
+              roleMappings:
+                - roleRef:
+                    name: admin
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: sub
+                value: openchoreo-cli-quickstart
               effect: allow
 
 backstage:
