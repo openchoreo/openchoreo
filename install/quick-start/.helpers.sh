@@ -980,7 +980,7 @@ configure_observabilityplane_reference() {
     kubectl patch clusterdataplane default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}' >/dev/null
     if [[ "$ENABLE_WORKFLOW_PLANE" == "true" ]]; then
         log_info "Configuring OpenChoreo Cluster Workflow Plane with observabilityplane reference..."
-        kubectl patch clusterworkflowplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}' >/dev/null
+        kubectl patch clusterworkflowplane default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}' >/dev/null
     fi
 }
 
