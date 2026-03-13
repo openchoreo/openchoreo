@@ -1731,7 +1731,7 @@
           "type": "object"
         },
         "oauthClientId": {
-          "default": "openchoreo-observer",
+          "default": "openchoreo-observer-resource-reader-client",
           "description": "OAuth2 client ID used by the Observer when calling the control plane API",
           "title": "oauthClientId",
           "type": "string"

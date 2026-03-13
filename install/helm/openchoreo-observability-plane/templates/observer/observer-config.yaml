@@ -30,7 +30,7 @@ data:
   {{- if .Values.security.oidc.tokenUrl }}
   UID_RESOLVER_OAUTH_TOKEN_URL: {{ .Values.security.oidc.tokenUrl | quote }}
   {{- end }}
-  UID_RESOLVER_OAUTH_CLIENT_ID: {{ .Values.observer.oauthClientId | default "openchoreo-observer" | quote }}
+  UID_RESOLVER_OAUTH_CLIENT_ID: {{ .Values.observer.oauthClientId | default "openchoreo-observer-resource-reader-client" | quote }}
   {{- if .Values.security.oidc.authServerBaseUrl }}
   AUTH_SERVER_BASE_URL: {{ .Values.security.oidc.authServerBaseUrl | quote }}
   {{- end }}

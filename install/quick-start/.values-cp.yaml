@@ -57,14 +57,14 @@ openchoreoApi:
                 claim: sub
                 value: openchoreo-workload-publisher-client
               effect: allow
-            - name: observer-binding
+            - name: observer-resource-reader-binding
               system: true
               roleMappings:
                 - roleRef:
-                    name: observer
+                    name: observer-resource-reader
               entitlement:
                 claim: sub
-                value: openchoreo-observer
+                value: openchoreo-observer-resource-reader-client
               effect: allow
 
 backstage:

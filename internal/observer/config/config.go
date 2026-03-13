@@ -360,8 +360,8 @@ func getDefaults() map[string]interface{} {
 		"uid_resolver": map[string]interface{}{
 			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",
 			"oauth.token.url":          "http://thunder.openchoreo.localhost:8080/oauth2/token",
-			"oauth.client.id":          "openchoreo-observer",
-			"oauth.client.secret":      "openchoreo-observer-secret",
+			"oauth.client.id":          "openchoreo-observer-resource-reader-client",
+			"oauth.client.secret":      "openchoreo-observer-resource-reader-client-secret",
 			"tls.insecure.skip.verify": false,
 			"timeout":                  "30s",
 		},

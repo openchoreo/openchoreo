@@ -988,9 +988,9 @@ observer:
   # @schema
   # type: string
   # description: OAuth2 client ID used by the Observer when calling the control plane API
-  # default: openchoreo-observer
+  # default: openchoreo-observer-resource-reader-client
   # @schema
-  oauthClientId: "openchoreo-observer"
+  oauthClientId: "openchoreo-observer-resource-reader-client"
   # @schema
   # type: string
   # description: Name of an existing Secret injected via envFrom into the Observer container. Required keys - OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD, UID_RESOLVER_OAUTH_CLIENT_SECRET. Optional keys - ALERT_STORE_DSN (when alertStoreBackend is postgresql).

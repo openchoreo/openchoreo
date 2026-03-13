@@ -1310,7 +1310,7 @@ openchoreoApi:
                 - "clusterworkflow:delete"
 
             # Observer service role for resolving resource UIDs
-            - name: observer
+            - name: observer-resource-reader
               system: true
               actions:
                 - "component:view"
@@ -1475,16 +1475,16 @@ openchoreoApi:
               effect: allow
 
             # Observer mapping - grants observer service account resource UID resolver access
-            - name: observer-binding
+            - name: observer-resource-reader-binding
               kind: ClusterAuthzRoleBinding
               system: true
               roleMappings:
                 - roleRef:
-                    name: observer
+                    name: observer-resource-reader
                     kind: ClusterAuthzRole
               entitlement:
                 claim: sub
-                value: openchoreo-observer
+                value: openchoreo-observer-resource-reader-client
               effect: allow
 
             # MCP tryout client mapping - grants MCP tryout client full access

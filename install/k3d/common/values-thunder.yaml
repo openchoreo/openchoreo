@@ -815,20 +815,20 @@ bootstrap:
 
       THUNDER_URL="http://localhost:8090"
 
-      log_info "Checking if application 'OpenChoreo Observer' already exists..."
+      log_info "Checking if application 'OpenChoreo Observer Resource Reader' already exists..."
       existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
 
-      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"OpenChoreo Observer"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"OpenChoreo Observer"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
+      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"OpenChoreo Observer Resource Reader"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"OpenChoreo Observer Resource Reader"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
 
       APP_PAYLOAD='{
-        "name": "OpenChoreo Observer",
-        "description": "OpenChoreo Observer Client",
+        "name": "OpenChoreo Observer Resource Reader",
+        "description": "OpenChoreo Observer Resource Reader Client",
         "inbound_auth_config": [
           {
             "type": "oauth2",
             "config": {
-              "client_id": "openchoreo-observer",
-              "client_secret": "openchoreo-observer-secret",
+              "client_id": "openchoreo-observer-resource-reader-client",
+              "client_secret": "openchoreo-observer-resource-reader-client-secret",
               "grant_types": [
                 "client_credentials"
               ],
@@ -846,7 +846,7 @@ bootstrap:
       }'
 
       if [ -n "$app_id" ]; then
-        log_info "Application 'OpenChoreo Observer' already exists (id: $app_id), updating..."
+        log_info "Application 'OpenChoreo Observer Resource Reader' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
           --data "$APP_PAYLOAD" \
@@ -866,5 +866,5 @@ bootstrap:
           --retry 3 \
           --retry-delay 5
 
-        log_info "OpenChoreo Observer application created successfully"
+        log_info "OpenChoreo Observer Resource Reader application created successfully"
       fi
