@@ -140,7 +140,7 @@ The easiest way to try OpenChoreo is by following the **[Quick Start Guide](http
 
 For a deeper understanding of OpenChoreo's architecture, see **[OpenChoreo Concepts](https://openchoreo.dev/docs/category/concepts/)**.
 
-Visit **[Installation Guide](https://openchoreo.dev/docs/getting-started/single-cluster/)** to learn more about installation methods.
+Visit **[Installation Guide](https://openchoreo.dev/docs/getting-started/try-it-out/on-k3d-locally/)** to learn more about installation methods.
 
 ## Samples
 
