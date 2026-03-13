@@ -45,10 +45,14 @@ func makeValidComponentRelease(project, component string) *openchoreov1alpha1.Co
 				ProjectName:   project,
 				ComponentName: component,
 			},
-			ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType: "deployment",
-				Resources: []openchoreov1alpha1.ResourceTemplate{
-					{ID: "deployment"},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/test-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Resources: []openchoreov1alpha1.ResourceTemplate{
+						{ID: "deployment"},
+					},
 				},
 			},
 		},
@@ -87,9 +91,13 @@ func TestValidateComponentRelease_NilResources(t *testing.T) {
 				ProjectName:   "proj",
 				ComponentName: "comp",
 			},
-			ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType: "deployment",
-				Resources:    nil, // nil resources
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/test-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Resources:    nil, // nil resources
+				},
 			},
 		},
 	}
@@ -110,9 +118,13 @@ func TestValidateComponentRelease_MissingProjectName(t *testing.T) {
 				ProjectName:   "", // missing
 				ComponentName: "comp",
 			},
-			ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType: "deployment",
-				Resources:    []openchoreov1alpha1.ResourceTemplate{{ID: "deployment"}},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/test-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Resources:    []openchoreov1alpha1.ResourceTemplate{{ID: "deployment"}},
+				},
 			},
 		},
 	}
@@ -133,9 +145,13 @@ func TestValidateComponentRelease_MissingComponentName(t *testing.T) {
 				ProjectName:   "proj",
 				ComponentName: "", // missing
 			},
-			ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType: "deployment",
-				Resources:    []openchoreov1alpha1.ResourceTemplate{{ID: "deployment"}},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/test-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Resources:    []openchoreov1alpha1.ResourceTemplate{{ID: "deployment"}},
+				},
 			},
 		},
 	}
@@ -352,9 +368,13 @@ func TestBuildComponentTypeFromRelease_SpecIsCopied(t *testing.T) {
 	cr := &openchoreov1alpha1.ComponentRelease{
 		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
 		Spec: openchoreov1alpha1.ComponentReleaseSpec{
-			ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType: "statefulset",
-				Resources:    []openchoreov1alpha1.ResourceTemplate{{ID: "sts"}},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "statefulset/test-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "statefulset",
+					Resources:    []openchoreov1alpha1.ResourceTemplate{{ID: "sts"}},
+				},
 			},
 		},
 	}

@@ -211,7 +211,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 func (r *Reconciler) validateComponentRelease(componentRelease *openchoreov1alpha1.ComponentRelease,
 	releaseBinding *openchoreov1alpha1.ReleaseBinding) error {
 	// Check ComponentType has resources
-	if componentRelease.Spec.ComponentType.Resources == nil {
+	if componentRelease.Spec.ComponentType.Spec.Resources == nil {
 		return fmt.Errorf("component type has no resources")
 	}
 
@@ -948,7 +948,7 @@ func buildComponentTypeFromRelease(componentRelease *openchoreov1alpha1.Componen
 			Name:      "from-release", // Name doesn't matter for rendering
 			Namespace: componentRelease.Namespace,
 		},
-		Spec: componentRelease.Spec.ComponentType,
+		Spec: componentRelease.Spec.ComponentType.Spec,
 	}
 }
 

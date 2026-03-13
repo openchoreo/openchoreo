@@ -294,8 +294,12 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 	}
 
 	crSpec, err := componentrelease.BuildSpec(componentrelease.BuildInput{
-		Component:     component,
-		ComponentType: componentTypeSpec,
+		Component: component,
+		ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+			Kind: component.Spec.ComponentType.Kind,
+			Name: component.Spec.ComponentType.Name,
+			Spec: *componentTypeSpec,
+		},
 		Traits:        traits,
 		ClusterTraits: clusterTraits,
 		Workload:      &workloadTemplateSpec,
@@ -701,8 +705,8 @@ func (s *componentService) GetComponentReleaseSchema(ctx context.Context, namesp
 		Properties: make(map[string]extv1.JSONSchemaProps),
 	}
 
-	if envRaw := release.Spec.ComponentType.EnvironmentConfigs.GetRaw(); envRaw != nil && envRaw.Raw != nil {
-		jsonSchema, err := openchoreoschema.SectionToJSONSchema(release.Spec.ComponentType.EnvironmentConfigs)
+	if envRaw := release.Spec.ComponentType.Spec.EnvironmentConfigs.GetRaw(); envRaw != nil && envRaw.Raw != nil {
+		jsonSchema, err := openchoreoschema.SectionToJSONSchema(release.Spec.ComponentType.Spec.EnvironmentConfigs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 		}

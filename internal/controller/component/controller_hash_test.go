@@ -12,6 +12,14 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
+func makeCTSnapshot() openchoreov1alpha1.ComponentReleaseComponentType {
+	return openchoreov1alpha1.ComponentReleaseComponentType{
+		Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+		Name: "deployment/test-type",
+		Spec: openchoreov1alpha1.ComponentTypeSpec{WorkloadType: "deployment"},
+	}
+}
+
 func TestComputeReleaseHash(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -23,9 +31,7 @@ func TestComputeReleaseHash(t *testing.T) {
 		{
 			name: "basic hash computation",
 			template: &ReleaseSpec{
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-					WorkloadType: "deployment",
-				},
+				ComponentType: makeCTSnapshot(),
 				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
@@ -39,9 +45,7 @@ func TestComputeReleaseHash(t *testing.T) {
 		{
 			name: "same template produces same hash",
 			template: &ReleaseSpec{
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-					WorkloadType: "deployment",
-				},
+				ComponentType: makeCTSnapshot(),
 				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
@@ -52,9 +56,7 @@ func TestComputeReleaseHash(t *testing.T) {
 				},
 			},
 			expectSame: &ReleaseSpec{
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-					WorkloadType: "deployment",
-				},
+				ComponentType: makeCTSnapshot(),
 				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
@@ -68,9 +70,7 @@ func TestComputeReleaseHash(t *testing.T) {
 		{
 			name: "different workload image produces different hash",
 			template: &ReleaseSpec{
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-					WorkloadType: "deployment",
-				},
+				ComponentType: makeCTSnapshot(),
 				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
@@ -81,9 +81,7 @@ func TestComputeReleaseHash(t *testing.T) {
 				},
 			},
 			expectDiff: &ReleaseSpec{
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-					WorkloadType: "deployment",
-				},
+				ComponentType: makeCTSnapshot(),
 				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
@@ -97,9 +95,7 @@ func TestComputeReleaseHash(t *testing.T) {
 		{
 			name: "collision count changes hash",
 			template: &ReleaseSpec{
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-					WorkloadType: "deployment",
-				},
+				ComponentType: makeCTSnapshot(),
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
 					Container: openchoreov1alpha1.Container{
 						Image: "nginx:1.21",
@@ -146,9 +142,7 @@ func TestComputeReleaseHash(t *testing.T) {
 
 func TestComputeReleaseHashWithCollision(t *testing.T) {
 	template := &ReleaseSpec{
-		ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-			WorkloadType: "deployment",
-		},
+		ComponentType: makeCTSnapshot(),
 		Workload: openchoreov1alpha1.WorkloadTemplateSpec{
 			Container: openchoreov1alpha1.Container{
 				Image: "nginx:1.21",
@@ -183,9 +177,7 @@ func TestComputeReleaseHashWithCollision(t *testing.T) {
 
 func TestEqualReleaseTemplate(t *testing.T) {
 	template1 := &ReleaseSpec{
-		ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-			WorkloadType: "deployment",
-		},
+		ComponentType: makeCTSnapshot(),
 		Workload: openchoreov1alpha1.WorkloadTemplateSpec{
 			Container: openchoreov1alpha1.Container{
 				Image: "nginx:1.21",
@@ -194,9 +186,7 @@ func TestEqualReleaseTemplate(t *testing.T) {
 	}
 
 	template2 := &ReleaseSpec{
-		ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-			WorkloadType: "deployment",
-		},
+		ComponentType: makeCTSnapshot(),
 		Workload: openchoreov1alpha1.WorkloadTemplateSpec{
 			Container: openchoreov1alpha1.Container{
 				Image: "nginx:1.21",
@@ -205,9 +195,7 @@ func TestEqualReleaseTemplate(t *testing.T) {
 	}
 
 	template3 := &ReleaseSpec{
-		ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-			WorkloadType: "deployment",
-		},
+		ComponentType: makeCTSnapshot(),
 		Workload: openchoreov1alpha1.WorkloadTemplateSpec{
 			Container: openchoreov1alpha1.Container{
 				Image: "nginx:1.22", // Different image
@@ -273,9 +261,7 @@ func TestHashOutputExamples(t *testing.T) {
 		{
 			name: "simple deployment",
 			template: &ReleaseSpec{
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-					WorkloadType: "deployment",
-				},
+				ComponentType: makeCTSnapshot(),
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
 					Container: openchoreov1alpha1.Container{
 						Image: "nginx:1.21",
@@ -286,9 +272,7 @@ func TestHashOutputExamples(t *testing.T) {
 		{
 			name: "deployment with parameters",
 			template: &ReleaseSpec{
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-					WorkloadType: "deployment",
-				},
+				ComponentType: makeCTSnapshot(),
 				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3, "port": 8080}`)},
 				},
@@ -302,9 +286,7 @@ func TestHashOutputExamples(t *testing.T) {
 		{
 			name: "different image version",
 			template: &ReleaseSpec{
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-					WorkloadType: "deployment",
-				},
+				ComponentType: makeCTSnapshot(),
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
 					Container: openchoreov1alpha1.Container{
 						Image: "nginx:1.22", // Different version

@@ -183,7 +183,7 @@ func validateComponentParameters(release *openchoreodevv1alpha1.ComponentRelease
 	basePath := field.NewPath("spec", "componentProfile", "parameters")
 
 	// Extract parameters schema from ComponentType snapshot
-	paramsRaw := release.Spec.ComponentType.Parameters.GetRaw()
+	paramsRaw := release.Spec.ComponentType.Spec.Parameters.GetRaw()
 
 	// If no parameters schema, no validation needed
 	if paramsRaw == nil || len(paramsRaw.Raw) == 0 {
@@ -191,7 +191,7 @@ func validateComponentParameters(release *openchoreodevv1alpha1.ComponentRelease
 	}
 
 	// Build JSON schema
-	jsonSchema, err := schema.SectionToJSONSchema(release.Spec.ComponentType.Parameters)
+	jsonSchema, err := schema.SectionToJSONSchema(release.Spec.ComponentType.Spec.Parameters)
 	if err != nil {
 		allErrs = append(allErrs, field.Invalid(
 			basePath,
@@ -299,9 +299,9 @@ func validateEmbeddedResourceTemplates(release *openchoreodevv1alpha1.ComponentR
 
 	// Validate ComponentType resource templates and check for workload type match
 	errs := component.ValidateWorkloadResources(
-		release.Spec.ComponentType.WorkloadType,
-		release.Spec.ComponentType.Resources,
-		field.NewPath("spec", "componentType", "resources"))
+		release.Spec.ComponentType.Spec.WorkloadType,
+		release.Spec.ComponentType.Spec.Resources,
+		field.NewPath("spec", "componentType", "spec", "resources"))
 	allErrs = append(allErrs, errs...)
 
 	// Validate CEL expressions in embedded ComponentType resources
@@ -337,13 +337,13 @@ func validateComponentTypeCELExpressions(release *openchoreodevv1alpha1.Componen
 
 	// Extract and build structural schemas for CEL validation
 	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
-		release.Spec.ComponentType.Parameters, release.Spec.ComponentType.EnvironmentConfigs, basePath,
+		release.Spec.ComponentType.Spec.Parameters, release.Spec.ComponentType.Spec.EnvironmentConfigs, basePath,
 	)
 	allErrs = append(allErrs, schemaErrs...)
 
 	// Create a temporary ComponentType for validation
 	tempCT := &openchoreodevv1alpha1.ComponentType{
-		Spec: release.Spec.ComponentType,
+		Spec: release.Spec.ComponentType.Spec,
 	}
 
 	// Validate CEL expressions with schema-aware type checking

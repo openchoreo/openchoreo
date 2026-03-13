@@ -321,7 +321,7 @@ func componentReleaseDetail(cr *openchoreov1alpha1.ComponentRelease) map[string]
 	m := extractCommonMeta(cr)
 	m["projectName"] = cr.Spec.Owner.ProjectName
 	m["componentName"] = cr.Spec.Owner.ComponentName
-	m["workloadType"] = cr.Spec.ComponentType.WorkloadType
+	m["workloadType"] = cr.Spec.ComponentType.Spec.WorkloadType
 	m["image"] = cr.Spec.Workload.Container.Image
 	if cr.Spec.ComponentProfile != nil && cr.Spec.ComponentProfile.Parameters != nil {
 		m["parameters"] = rawExtensionToAny(cr.Spec.ComponentProfile.Parameters)

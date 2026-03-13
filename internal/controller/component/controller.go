@@ -634,8 +634,12 @@ func (r *Reconciler) handleAutoDeploy(
 	bindingName := fmt.Sprintf("%s-%s", comp.Name, firstEnv)
 
 	crSpec, err := componentrelease.BuildSpec(componentrelease.BuildInput{
-		Component:     comp,
-		ComponentType: &ct.Spec,
+		Component: comp,
+		ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+			Kind: comp.Spec.ComponentType.Kind,
+			Name: comp.Spec.ComponentType.Name,
+			Spec: ct.Spec,
+		},
 		Traits:        traits,
 		ClusterTraits: clusterTraits,
 		Workload:      &workload.Spec.WorkloadTemplateSpec,

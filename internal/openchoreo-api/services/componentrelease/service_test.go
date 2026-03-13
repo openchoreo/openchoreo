@@ -132,7 +132,11 @@ func TestCreateComponentRelease(t *testing.T) {
 					ProjectName:   testProjectName,
 					ComponentName: testComponentName,
 				},
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{WorkloadType: "deployment"},
+				ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+					Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+					Name: "deployment/test-type",
+					Spec: openchoreov1alpha1.ComponentTypeSpec{WorkloadType: "deployment"},
+				},
 			},
 		}
 

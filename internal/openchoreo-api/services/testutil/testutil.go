@@ -235,8 +235,12 @@ func NewComponentRelease(namespace, projectName, componentName, name string) *op
 				ProjectName:   projectName,
 				ComponentName: componentName,
 			},
-			ComponentType: defaultComponentTypeSpec(),
-			Workload:      defaultWorkloadTemplateSpec(),
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/default",
+				Spec: defaultComponentTypeSpec(),
+			},
+			Workload: defaultWorkloadTemplateSpec(),
 		},
 	}
 }

@@ -347,7 +347,15 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, namespace
 	}
 
 	if componentTypeSpec != nil {
-		componentRelease.Spec.ComponentType = *componentTypeSpec
+		ctKind := component.Spec.ComponentType.Kind
+		if ctKind == "" {
+			ctKind = openchoreov1alpha1.ComponentTypeRefKindComponentType
+		}
+		componentRelease.Spec.ComponentType = openchoreov1alpha1.ComponentReleaseComponentType{
+			Kind: ctKind,
+			Name: component.Spec.ComponentType.Name,
+			Spec: *componentTypeSpec,
+		}
 	}
 
 	if len(releaseTraits) > 0 {
@@ -591,8 +599,8 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 	}
 
 	// Only add componentTypeEnvironmentConfigs if there are actual environmentConfigs
-	if envRaw := release.Spec.ComponentType.EnvironmentConfigs.GetRaw(); envRaw != nil && envRaw.Raw != nil {
-		jsonSchema, err := openchoreoschema.SectionToJSONSchema(release.Spec.ComponentType.EnvironmentConfigs)
+	if envRaw := release.Spec.ComponentType.Spec.EnvironmentConfigs.GetRaw(); envRaw != nil && envRaw.Raw != nil {
+		jsonSchema, err := openchoreoschema.SectionToJSONSchema(release.Spec.ComponentType.Spec.EnvironmentConfigs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 		}

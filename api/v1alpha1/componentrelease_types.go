@@ -15,11 +15,12 @@ type ComponentReleaseSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.owner is immutable"
 	Owner ComponentReleaseOwner `json:"owner"`
 
-	// ComponentType is a full embedded copy of the ComponentType
-	// This ensures the ComponentRelease has an immutable snapshot of the ComponentType at the time of component release
+	// ComponentType is a frozen snapshot of the ComponentType resource at the time of component release.
+	// It records the kind and name of the original resource alongside its full spec, enabling
+	// the rendering pipeline to distinguish ComponentType from ClusterComponentType.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.componentType is immutable"
-	ComponentType ComponentTypeSpec `json:"componentType"`
+	ComponentType ComponentReleaseComponentType `json:"componentType"`
 
 	// Traits holds frozen trait specifications at the time of ComponentRelease, ensuring immutability.
 	// Each entry carries its kind (Trait or ClusterTrait), name, and spec, preserving the original
@@ -39,6 +40,25 @@ type ComponentReleaseSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.workload is immutable"
 	Workload WorkloadTemplateSpec `json:"workload"`
+}
+
+// ComponentReleaseComponentType is the frozen snapshot of a ComponentType or ClusterComponentType
+// resource stored on a ComponentRelease. It preserves the Kind and Name of the original resource
+// alongside its full spec so that consumers can distinguish namespace-scoped ComponentTypes from
+// cluster-scoped ClusterComponentTypes.
+type ComponentReleaseComponentType struct {
+	// Kind identifies whether this is a namespace-scoped ComponentType or a cluster-scoped ClusterComponentType.
+	// +kubebuilder:validation:Required
+	Kind ComponentTypeRefKind `json:"kind"`
+
+	// Name is the component type reference in format: {workloadType}/{componentTypeName}
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Spec is the frozen specification of the component type at the time of this ComponentRelease.
+	// +kubebuilder:validation:Required
+	Spec ComponentTypeSpec `json:"spec"`
 }
 
 // ComponentReleaseTrait is an entry in the frozen traits snapshot stored on a ComponentRelease.

@@ -14,8 +14,8 @@ import (
 // This structure is used to compute a hash that uniquely identifies a specific
 // configuration of a component ready for release.
 type ReleaseSpec struct {
-	// ComponentType is the embedded ComponentType specification
-	ComponentType openchoreov1alpha1.ComponentTypeSpec `json:"componentType"`
+	// ComponentType is the frozen ComponentType snapshot (kind, name, and spec)
+	ComponentType openchoreov1alpha1.ComponentReleaseComponentType `json:"componentType"`
 
 	// Traits holds the frozen trait specifications, sorted by (Kind, Name) for deterministic hashing.
 	Traits []openchoreov1alpha1.ComponentReleaseTrait `json:"traits,omitempty"`

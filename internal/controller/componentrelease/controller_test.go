@@ -43,13 +43,17 @@ var _ = Describe("ComponentRelease Controller", func() {
 							ProjectName:   "test-project",
 							ComponentName: "test-component",
 						},
-						ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-							WorkloadType: "deployment",
-							Resources: []openchoreov1alpha1.ResourceTemplate{
-								{
-									ID: "deployment",
-									Template: &runtime.RawExtension{
-										Raw: []byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"test"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"test"}},"template":{"metadata":{"labels":{"app":"test"}},"spec":{"containers":[{"name":"test","image":"nginx"}]}}}}`),
+						ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+							Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+							Name: "deployment/test-type",
+							Spec: openchoreov1alpha1.ComponentTypeSpec{
+								WorkloadType: "deployment",
+								Resources: []openchoreov1alpha1.ResourceTemplate{
+									{
+										ID: "deployment",
+										Template: &runtime.RawExtension{
+											Raw: []byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"test"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"test"}},"template":{"metadata":{"labels":{"app":"test"}},"spec":{"containers":[{"name":"test","image":"nginx"}]}}}}`),
+										},
 									},
 								},
 							},

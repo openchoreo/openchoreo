@@ -31,14 +31,18 @@ func makeComponent(project, name string, spec openchoreov1alpha1.ComponentSpec) 
 	}
 }
 
-func TestBuildSpec_NilInputs(t *testing.T) {
-	ctSpec := &openchoreov1alpha1.ComponentTypeSpec{
-		WorkloadType: "deployment",
+func makeCT() openchoreov1alpha1.ComponentReleaseComponentType {
+	return openchoreov1alpha1.ComponentReleaseComponentType{
+		Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+		Name: "deployment/web-app",
+		Spec: openchoreov1alpha1.ComponentTypeSpec{WorkloadType: "deployment"},
 	}
+}
+
+func TestBuildSpec_NilInputs(t *testing.T) {
+	ct := makeCT()
 	workload := &openchoreov1alpha1.WorkloadTemplateSpec{
-		Container: openchoreov1alpha1.Container{
-			Image: "nginx:1.21",
-		},
+		Container: openchoreov1alpha1.Container{Image: "nginx:1.21"},
 	}
 
 	tests := []struct {
@@ -50,25 +54,25 @@ func TestBuildSpec_NilInputs(t *testing.T) {
 			name: "nil component returns error",
 			input: BuildInput{
 				Component:     nil,
-				ComponentType: ctSpec,
+				ComponentType: ct,
 				Workload:      workload,
 			},
 			wantErr: "component cannot be nil",
 		},
 		{
-			name: "nil componentType returns error",
+			name: "empty componentType name returns error",
 			input: BuildInput{
 				Component:     makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
-				ComponentType: nil,
+				ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{},
 				Workload:      workload,
 			},
-			wantErr: "componentType cannot be nil",
+			wantErr: "componentType name cannot be empty",
 		},
 		{
 			name: "nil workload returns error",
 			input: BuildInput{
 				Component:     makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
-				ComponentType: ctSpec,
+				ComponentType: ct,
 				Workload:      nil,
 			},
 			wantErr: "workload cannot be nil",
@@ -89,19 +93,15 @@ func TestBuildSpec_NilInputs(t *testing.T) {
 }
 
 func TestBuildSpec_BasicFields(t *testing.T) {
-	ctSpec := &openchoreov1alpha1.ComponentTypeSpec{
-		WorkloadType: "deployment",
-	}
+	ct := makeCT()
 	workload := &openchoreov1alpha1.WorkloadTemplateSpec{
-		Container: openchoreov1alpha1.Container{
-			Image: "nginx:1.21",
-		},
+		Container: openchoreov1alpha1.Container{Image: "nginx:1.21"},
 	}
 
 	t.Run("minimal input with no traits or parameters", func(t *testing.T) {
 		spec, err := BuildSpec(BuildInput{
 			Component:     makeComponent("my-project", "my-component", openchoreov1alpha1.ComponentSpec{}),
-			ComponentType: ctSpec,
+			ComponentType: ct,
 			Workload:      workload,
 		})
 		if err != nil {
@@ -113,24 +113,65 @@ func TestBuildSpec_BasicFields(t *testing.T) {
 		if spec.Owner.ComponentName != "my-component" {
 			t.Errorf("expected componentName 'my-component', got %q", spec.Owner.ComponentName)
 		}
+		if spec.ComponentType.Kind != openchoreov1alpha1.ComponentTypeRefKindComponentType {
+			t.Errorf("expected kind 'ComponentType', got %q", spec.ComponentType.Kind)
+		}
+		if spec.ComponentType.Name != "deployment/web-app" {
+			t.Errorf("expected name 'deployment/web-app', got %q", spec.ComponentType.Name)
+		}
+		if spec.ComponentType.Spec.WorkloadType != "deployment" {
+			t.Errorf("expected workloadType 'deployment', got %q", spec.ComponentType.Spec.WorkloadType)
+		}
 		if spec.Traits != nil {
 			t.Errorf("expected nil traits, got %v", spec.Traits)
 		}
 		if spec.ComponentProfile != nil {
 			t.Errorf("expected nil componentProfile, got %v", spec.ComponentProfile)
 		}
-		if spec.ComponentType.WorkloadType != "deployment" {
-			t.Errorf("expected workloadType 'deployment', got %q", spec.ComponentType.WorkloadType)
-		}
 		if spec.Workload.Container.Image != "nginx:1.21" {
 			t.Errorf("expected image 'nginx:1.21', got %q", spec.Workload.Container.Image)
+		}
+	})
+
+	t.Run("default kind applied when kind is empty", func(t *testing.T) {
+		spec, err := BuildSpec(BuildInput{
+			Component: makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Name: "deployment/default-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{WorkloadType: "deployment"},
+			},
+			Workload: workload,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if spec.ComponentType.Kind != openchoreov1alpha1.ComponentTypeRefKindComponentType {
+			t.Errorf("expected default kind 'ComponentType', got %q", spec.ComponentType.Kind)
+		}
+	})
+
+	t.Run("cluster component type kind preserved", func(t *testing.T) {
+		spec, err := BuildSpec(BuildInput{
+			Component: makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindClusterComponentType,
+				Name: "deployment/cluster-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{WorkloadType: "deployment"},
+			},
+			Workload: workload,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if spec.ComponentType.Kind != openchoreov1alpha1.ComponentTypeRefKindClusterComponentType {
+			t.Errorf("expected kind 'ClusterComponentType', got %q", spec.ComponentType.Kind)
 		}
 	})
 
 	t.Run("nil traits map produces nil", func(t *testing.T) {
 		spec, err := BuildSpec(BuildInput{
 			Component:     makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
-			ComponentType: ctSpec,
+			ComponentType: ct,
 			Workload:      workload,
 		})
 		if err != nil {
@@ -143,19 +184,15 @@ func TestBuildSpec_BasicFields(t *testing.T) {
 }
 
 func TestBuildSpec_WithTraits(t *testing.T) {
-	ctSpec := &openchoreov1alpha1.ComponentTypeSpec{
-		WorkloadType: "deployment",
-	}
+	ct := makeCT()
 	workload := &openchoreov1alpha1.WorkloadTemplateSpec{
-		Container: openchoreov1alpha1.Container{
-			Image: "nginx:1.21",
-		},
+		Container: openchoreov1alpha1.Container{Image: "nginx:1.21"},
 	}
 
 	t.Run("with traits", func(t *testing.T) {
 		spec, err := BuildSpec(BuildInput{
 			Component:     makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
-			ComponentType: ctSpec,
+			ComponentType: ct,
 			Traits: map[string]openchoreov1alpha1.TraitSpec{
 				"trait-a": {Creates: []openchoreov1alpha1.TraitCreate{{TargetPlane: "dataplane"}}},
 				"trait-b": {},
@@ -179,7 +216,7 @@ func TestBuildSpec_WithTraits(t *testing.T) {
 	t.Run("traits and cluster traits merged", func(t *testing.T) {
 		spec, err := BuildSpec(BuildInput{
 			Component:     makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
-			ComponentType: ctSpec,
+			ComponentType: ct,
 			Traits: map[string]openchoreov1alpha1.TraitSpec{
 				"trait-a": {},
 			},
@@ -205,7 +242,7 @@ func TestBuildSpec_WithTraits(t *testing.T) {
 	t.Run("same-name Trait and ClusterTrait coexist as separate entries", func(t *testing.T) {
 		spec, err := BuildSpec(BuildInput{
 			Component:     makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
-			ComponentType: ctSpec,
+			ComponentType: ct,
 			Traits: map[string]openchoreov1alpha1.TraitSpec{
 				"foo": {},
 			},
@@ -230,13 +267,9 @@ func TestBuildSpec_WithTraits(t *testing.T) {
 }
 
 func TestBuildSpec_WithComponentTraits(t *testing.T) {
-	ctSpec := &openchoreov1alpha1.ComponentTypeSpec{
-		WorkloadType: "deployment",
-	}
+	ct := makeCT()
 	workload := &openchoreov1alpha1.WorkloadTemplateSpec{
-		Container: openchoreov1alpha1.Container{
-			Image: "nginx:1.21",
-		},
+		Container: openchoreov1alpha1.Container{Image: "nginx:1.21"},
 	}
 
 	t.Run("with parameters and component traits", func(t *testing.T) {
@@ -247,7 +280,7 @@ func TestBuildSpec_WithComponentTraits(t *testing.T) {
 					{Name: "trait-a", InstanceName: "trait-a-1"},
 				},
 			}),
-			ComponentType: ctSpec,
+			ComponentType: ct,
 			Traits: map[string]openchoreov1alpha1.TraitSpec{
 				"trait-a": {},
 			},
@@ -284,7 +317,7 @@ func TestBuildSpec_WithComponentTraits(t *testing.T) {
 					{Name: "missing-trait"},
 				},
 			}),
-			ComponentType: ctSpec,
+			ComponentType: ct,
 			Workload:      workload,
 		})
 		if err == nil {
@@ -302,7 +335,7 @@ func TestBuildSpec_WithComponentTraits(t *testing.T) {
 					{Kind: openchoreov1alpha1.TraitRefKindClusterTrait, Name: "my-trait"},
 				},
 			}),
-			ComponentType: ctSpec,
+			ComponentType: ct,
 			Traits: map[string]openchoreov1alpha1.TraitSpec{
 				"my-trait": {},
 			},
@@ -323,7 +356,7 @@ func TestBuildSpec_WithComponentTraits(t *testing.T) {
 					{Kind: openchoreov1alpha1.TraitRefKindClusterTrait, Name: "my-cluster-trait"},
 				},
 			}),
-			ComponentType: ctSpec,
+			ComponentType: ct,
 			ClusterTraits: map[string]openchoreov1alpha1.ClusterTraitSpec{
 				"my-cluster-trait": {},
 			},
@@ -343,18 +376,20 @@ func TestBuildSpec_WithComponentTraits(t *testing.T) {
 
 func TestBuildSpec_EmbeddedTraits(t *testing.T) {
 	workload := &openchoreov1alpha1.WorkloadTemplateSpec{
-		Container: openchoreov1alpha1.Container{
-			Image: "nginx:1.21",
-		},
+		Container: openchoreov1alpha1.Container{Image: "nginx:1.21"},
 	}
 
 	t.Run("missing embedded trait returns error", func(t *testing.T) {
 		_, err := BuildSpec(BuildInput{
 			Component: makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
-			ComponentType: &openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType: "deployment",
-				Traits: []openchoreov1alpha1.ComponentTypeTrait{
-					{Name: "required-trait"},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/web-app",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Traits: []openchoreov1alpha1.ComponentTypeTrait{
+						{Name: "required-trait"},
+					},
 				},
 			},
 			Traits:   map[string]openchoreov1alpha1.TraitSpec{},
@@ -371,10 +406,14 @@ func TestBuildSpec_EmbeddedTraits(t *testing.T) {
 	t.Run("all embedded traits present passes validation", func(t *testing.T) {
 		spec, err := BuildSpec(BuildInput{
 			Component: makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
-			ComponentType: &openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType: "deployment",
-				Traits: []openchoreov1alpha1.ComponentTypeTrait{
-					{Name: "required-trait"},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/web-app",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Traits: []openchoreov1alpha1.ComponentTypeTrait{
+						{Name: "required-trait"},
+					},
 				},
 			},
 			Traits: map[string]openchoreov1alpha1.TraitSpec{
@@ -396,10 +435,14 @@ func TestBuildSpec_EmbeddedTraits(t *testing.T) {
 	t.Run("embedded trait in cluster traits passes validation", func(t *testing.T) {
 		spec, err := BuildSpec(BuildInput{
 			Component: makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
-			ComponentType: &openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType: "deployment",
-				Traits: []openchoreov1alpha1.ComponentTypeTrait{
-					{Kind: openchoreov1alpha1.TraitRefKindClusterTrait, Name: "required-cluster-trait"},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/web-app",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Traits: []openchoreov1alpha1.ComponentTypeTrait{
+						{Kind: openchoreov1alpha1.TraitRefKindClusterTrait, Name: "required-cluster-trait"},
+					},
 				},
 			},
 			ClusterTraits: map[string]openchoreov1alpha1.ClusterTraitSpec{

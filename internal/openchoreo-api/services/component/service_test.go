@@ -461,7 +461,7 @@ func TestGenerateRelease(t *testing.T) {
 		assert.Equal(t, "v1", result.Name)
 		assert.Equal(t, testProjectName, result.Spec.Owner.ProjectName)
 		assert.Equal(t, testComponentName, result.Spec.Owner.ComponentName)
-		assert.Equal(t, "deployment", result.Spec.ComponentType.WorkloadType)
+		assert.Equal(t, "deployment", result.Spec.ComponentType.Spec.WorkloadType)
 		assert.Equal(t, "nginx:latest", result.Spec.Workload.Container.Image)
 		assert.Equal(t, testProjectName, result.Labels[labels.LabelKeyProjectName])
 		assert.Equal(t, testComponentName, result.Labels[labels.LabelKeyComponentName])
@@ -541,7 +541,7 @@ func TestGenerateRelease(t *testing.T) {
 
 		result, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
 		require.NoError(t, err)
-		assert.Equal(t, "deployment", result.Spec.ComponentType.WorkloadType)
+		assert.Equal(t, "deployment", result.Spec.ComponentType.Spec.WorkloadType)
 	})
 
 	t.Run("with embedded traits from ComponentType", func(t *testing.T) {
@@ -770,8 +770,10 @@ func TestGetComponentReleaseSchema(t *testing.T) {
 					ProjectName:   testProjectName,
 					ComponentName: testComponentName,
 				},
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-					WorkloadType: "deployment",
+				ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+					Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+					Name: "deployment/test-type",
+					Spec: openchoreov1alpha1.ComponentTypeSpec{WorkloadType: "deployment"},
 				},
 			},
 		}
@@ -792,10 +794,14 @@ func TestGetComponentReleaseSchema(t *testing.T) {
 					ProjectName:   testProjectName,
 					ComponentName: testComponentName,
 				},
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-					WorkloadType: "deployment",
-					EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-						OpenAPIV3Schema: rawJSON(t, map[string]any{"replicas": "integer"}),
+				ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+					Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+					Name: "deployment/test-type",
+					Spec: openchoreov1alpha1.ComponentTypeSpec{
+						WorkloadType: "deployment",
+						EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
+							OpenAPIV3Schema: rawJSON(t, map[string]any{"replicas": "integer"}),
+						},
 					},
 				},
 			},
@@ -816,7 +822,11 @@ func TestGetComponentReleaseSchema(t *testing.T) {
 					ProjectName:   testProjectName,
 					ComponentName: testComponentName,
 				},
-				ComponentType: openchoreov1alpha1.ComponentTypeSpec{WorkloadType: "deployment"},
+				ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+					Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+					Name: "deployment/test-type",
+					Spec: openchoreov1alpha1.ComponentTypeSpec{WorkloadType: "deployment"},
+				},
 				Traits: []openchoreov1alpha1.ComponentReleaseTrait{
 					{
 						Kind: openchoreov1alpha1.TraitRefKindTrait,

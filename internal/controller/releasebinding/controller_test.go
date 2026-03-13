@@ -81,10 +81,14 @@ func crFixture(name, project, component string) *openchoreov1alpha1.ComponentRel
 				ProjectName:   project,
 				ComponentName: component,
 			},
-			ComponentType: openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType: "deployment",
-				Resources: []openchoreov1alpha1.ResourceTemplate{
-					{ID: "deployment", Template: minimalTemplate},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/test-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Resources: []openchoreov1alpha1.ResourceTemplate{
+						{ID: "deployment", Template: minimalTemplate},
+					},
 				},
 			},
 			// WorkloadTemplateSpec requires exactly one of container or containers.

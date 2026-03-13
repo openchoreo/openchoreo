@@ -15,7 +15,7 @@ import (
 // BuildSpec merges both maps into a single Traits field on the ComponentReleaseSpec.
 type BuildInput struct {
 	Component     *openchoreov1alpha1.Component
-	ComponentType *openchoreov1alpha1.ComponentTypeSpec
+	ComponentType openchoreov1alpha1.ComponentReleaseComponentType
 	Traits        map[string]openchoreov1alpha1.TraitSpec
 	ClusterTraits map[string]openchoreov1alpha1.ClusterTraitSpec
 	Workload      *openchoreov1alpha1.WorkloadTemplateSpec
@@ -27,15 +27,15 @@ func BuildSpec(input BuildInput) (*openchoreov1alpha1.ComponentReleaseSpec, erro
 	if input.Component == nil {
 		return nil, fmt.Errorf("component cannot be nil")
 	}
-	if input.ComponentType == nil {
-		return nil, fmt.Errorf("componentType cannot be nil")
+	if input.ComponentType.Name == "" {
+		return nil, fmt.Errorf("componentType name cannot be empty")
 	}
 	if input.Workload == nil {
 		return nil, fmt.Errorf("workload cannot be nil")
 	}
 
 	// Validate that all required traits are present in the correct map based on kind
-	for _, et := range input.ComponentType.Traits {
+	for _, et := range input.ComponentType.Spec.Traits {
 		if !hasTraitByKind(input, et.Kind, et.Name) {
 			return nil, fmt.Errorf("embedded trait %q required by ComponentType is missing", et.Name)
 		}
@@ -49,12 +49,17 @@ func BuildSpec(input BuildInput) (*openchoreov1alpha1.ComponentReleaseSpec, erro
 	// Merge both maps into a single traits slice for the spec
 	traits := mergeTraits(input.Traits, input.ClusterTraits)
 
+	ct := input.ComponentType
+	if ct.Kind == "" {
+		ct.Kind = openchoreov1alpha1.ComponentTypeRefKindComponentType
+	}
+
 	return &openchoreov1alpha1.ComponentReleaseSpec{
 		Owner: openchoreov1alpha1.ComponentReleaseOwner{
 			ProjectName:   input.Component.Spec.Owner.ProjectName,
 			ComponentName: input.Component.Name,
 		},
-		ComponentType:    *input.ComponentType,
+		ComponentType:    ct,
 		Traits:           traits,
 		ComponentProfile: buildComponentProfile(input.Component),
 		Workload:         *input.Workload,
