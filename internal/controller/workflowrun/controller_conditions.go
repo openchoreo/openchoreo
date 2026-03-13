@@ -26,6 +26,7 @@ const (
 	ReasonWorkflowPlaneNotFound         controller.ConditionReason = "WorkflowPlaneNotFound"
 	ReasonWorkflowPlaneResolutionFailed controller.ConditionReason = "WorkflowPlaneResolutionFailed"
 	ReasonWorkflowResolutionFailed      controller.ConditionReason = "WorkflowResolutionFailed"
+	ReasonComponentValidationFailed     controller.ConditionReason = "ComponentValidationFailed"
 )
 
 func setWorkflowPendingCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
@@ -153,4 +154,20 @@ func isWorkflowCompleted(workflowRun *openchoreov1alpha1.WorkflowRun) bool {
 
 func isWorkflowSucceeded(workflowRun *openchoreov1alpha1.WorkflowRun) bool {
 	return meta.IsStatusConditionTrue(workflowRun.Status.Conditions, string(ConditionWorkflowSucceeded))
+}
+
+func isWorkflowRunning(workflowRun *openchoreov1alpha1.WorkflowRun) bool {
+	return meta.IsStatusConditionTrue(workflowRun.Status.Conditions, string(ConditionWorkflowRunning))
+}
+
+// setComponentValidationFailedCondition marks the workflow run as permanently failed
+// due to a component workflow validation error.
+func setComponentValidationFailedCondition(workflowRun *openchoreov1alpha1.WorkflowRun, message string) {
+	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowCompleted),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(ReasonComponentValidationFailed),
+		Message:            message,
+		ObservedGeneration: workflowRun.Generation,
+	})
 }

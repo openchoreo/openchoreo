@@ -47,6 +47,8 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflows,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterworkflows,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componenttypes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clustercomponenttypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
 // +kubebuilder:rbac:groups=argoproj.io,resources=workflows,verbs=get;list;watch;create;update;patch;delete
@@ -110,6 +112,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		setStartedAtIfNeeded(workflowRun)
 		setWorkflowPendingCondition(workflowRun)
 		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// Validate component workflow runs before proceeding.
+	// Skip validation if the workflow is already running to avoid disrupting in-progress executions.
+	if !isWorkflowRunning(workflowRun) {
+		if validationResult := r.validateComponentWorkflowRun(ctx, workflowRun); validationResult.shouldReturn {
+			return validationResult.result, nil
+		}
 	}
 
 	// Resolve the Workflow or ClusterWorkflow based on WorkflowRunConfig.Kind

@@ -968,6 +968,397 @@ func TestMakeRoleBinding(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// validateComponentWorkflowRun
+// ---------------------------------------------------------------------------
+
+func TestValidateComponentWorkflowRun(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = openchoreodevv1alpha1.AddToScheme(scheme)
+
+	t.Run("standalone workflow run (no labels) skips validation", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		r := &Reconciler{Client: fakeClient, Scheme: scheme}
+
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-wfr", Namespace: "default"},
+			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "my-wf"},
+			},
+		}
+
+		result := r.validateComponentWorkflowRun(context.Background(), wfr)
+		if result.shouldReturn {
+			t.Error("expected shouldReturn=false for standalone workflow run")
+		}
+	})
+
+	t.Run("only project label present fails", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		r := &Reconciler{Client: fakeClient, Scheme: scheme}
+
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-wfr",
+				Namespace: "default",
+				Labels:    map[string]string{"openchoreo.dev/project": "my-proj"},
+			},
+			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "my-wf"},
+			},
+		}
+
+		result := r.validateComponentWorkflowRun(context.Background(), wfr)
+		if !result.shouldReturn {
+			t.Error("expected shouldReturn=true")
+		}
+		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionTrue, string(ReasonComponentValidationFailed))
+	})
+
+	t.Run("only component label present fails", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		r := &Reconciler{Client: fakeClient, Scheme: scheme}
+
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-wfr",
+				Namespace: "default",
+				Labels:    map[string]string{"openchoreo.dev/component": "my-comp"},
+			},
+			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "my-wf"},
+			},
+		}
+
+		result := r.validateComponentWorkflowRun(context.Background(), wfr)
+		if !result.shouldReturn {
+			t.Error("expected shouldReturn=true")
+		}
+		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionTrue, string(ReasonComponentValidationFailed))
+	})
+
+	t.Run("component not found fails permanently", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		r := &Reconciler{Client: fakeClient, Scheme: scheme}
+
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-wfr",
+				Namespace: "default",
+				Labels: map[string]string{
+					"openchoreo.dev/project":   "my-proj",
+					"openchoreo.dev/component": "missing-comp",
+				},
+			},
+			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "my-wf"},
+			},
+		}
+
+		result := r.validateComponentWorkflowRun(context.Background(), wfr)
+		if !result.shouldReturn {
+			t.Error("expected shouldReturn=true")
+		}
+		if result.result.Requeue {
+			t.Error("expected no requeue for permanent failure")
+		}
+		cond := findConditionByType(wfr.Status.Conditions, string(ConditionWorkflowCompleted))
+		if cond == nil || !strings.Contains(cond.Message, "not found") {
+			t.Error("expected condition message to mention 'not found'")
+		}
+	})
+
+	t.Run("workflow not in allowedWorkflows fails permanently", func(t *testing.T) {
+		ct := &openchoreodevv1alpha1.ComponentType{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-ct", Namespace: "default"},
+			Spec: openchoreodevv1alpha1.ComponentTypeSpec{
+				WorkloadType: "deployment",
+				AllowedWorkflows: []openchoreodevv1alpha1.WorkflowRef{
+					{Name: "allowed-wf"},
+				},
+				Resources: []openchoreodevv1alpha1.ResourceTemplate{
+					{ID: "deployment", Template: &runtime.RawExtension{Raw: []byte("{}")}},
+				},
+			},
+		}
+		comp := &openchoreodevv1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-comp", Namespace: "default"},
+			Spec: openchoreodevv1alpha1.ComponentSpec{
+				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
+				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
+				Workflow: &openchoreodevv1alpha1.WorkflowRunConfig{
+					Name: "not-allowed-wf",
+				},
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(ct, comp).Build()
+		r := &Reconciler{Client: fakeClient, Scheme: scheme}
+
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-wfr",
+				Namespace: "default",
+				Labels: map[string]string{
+					"openchoreo.dev/project":   "my-proj",
+					"openchoreo.dev/component": "my-comp",
+				},
+			},
+			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "not-allowed-wf"},
+			},
+		}
+
+		result := r.validateComponentWorkflowRun(context.Background(), wfr)
+		if !result.shouldReturn {
+			t.Error("expected shouldReturn=true")
+		}
+		cond := findConditionByType(wfr.Status.Conditions, string(ConditionWorkflowCompleted))
+		if cond == nil || !strings.Contains(cond.Message, "not allowed") {
+			t.Error("expected condition message to mention 'not allowed'")
+		}
+	})
+
+	t.Run("workflow does not match component configured workflow fails", func(t *testing.T) {
+		ct := &openchoreodevv1alpha1.ComponentType{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-ct", Namespace: "default"},
+			Spec: openchoreodevv1alpha1.ComponentTypeSpec{
+				WorkloadType: "deployment",
+				AllowedWorkflows: []openchoreodevv1alpha1.WorkflowRef{
+					{Name: "wf-a"},
+					{Name: "wf-b"},
+				},
+				Resources: []openchoreodevv1alpha1.ResourceTemplate{
+					{ID: "deployment", Template: &runtime.RawExtension{Raw: []byte("{}")}},
+				},
+			},
+		}
+		comp := &openchoreodevv1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-comp", Namespace: "default"},
+			Spec: openchoreodevv1alpha1.ComponentSpec{
+				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
+				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
+				Workflow: &openchoreodevv1alpha1.WorkflowRunConfig{
+					Name: "wf-a",
+				},
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(ct, comp).Build()
+		r := &Reconciler{Client: fakeClient, Scheme: scheme}
+
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-wfr",
+				Namespace: "default",
+				Labels: map[string]string{
+					"openchoreo.dev/project":   "my-proj",
+					"openchoreo.dev/component": "my-comp",
+				},
+			},
+			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "wf-b"},
+			},
+		}
+
+		result := r.validateComponentWorkflowRun(context.Background(), wfr)
+		if !result.shouldReturn {
+			t.Error("expected shouldReturn=true")
+		}
+		cond := findConditionByType(wfr.Status.Conditions, string(ConditionWorkflowCompleted))
+		if cond == nil || !strings.Contains(cond.Message, "configured with workflow") {
+			t.Error("expected condition message to mention workflow mismatch")
+		}
+	})
+
+	t.Run("valid component workflow run passes", func(t *testing.T) {
+		ct := &openchoreodevv1alpha1.ComponentType{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-ct", Namespace: "default"},
+			Spec: openchoreodevv1alpha1.ComponentTypeSpec{
+				WorkloadType: "deployment",
+				AllowedWorkflows: []openchoreodevv1alpha1.WorkflowRef{
+					{Name: "my-wf"},
+				},
+				Resources: []openchoreodevv1alpha1.ResourceTemplate{
+					{ID: "deployment", Template: &runtime.RawExtension{Raw: []byte("{}")}},
+				},
+			},
+		}
+		comp := &openchoreodevv1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-comp", Namespace: "default"},
+			Spec: openchoreodevv1alpha1.ComponentSpec{
+				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
+				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
+				Workflow: &openchoreodevv1alpha1.WorkflowRunConfig{
+					Name: "my-wf",
+				},
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(ct, comp).Build()
+		r := &Reconciler{Client: fakeClient, Scheme: scheme}
+
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-wfr",
+				Namespace: "default",
+				Labels: map[string]string{
+					"openchoreo.dev/project":   "my-proj",
+					"openchoreo.dev/component": "my-comp",
+				},
+			},
+			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "my-wf"},
+			},
+		}
+
+		result := r.validateComponentWorkflowRun(context.Background(), wfr)
+		if result.shouldReturn {
+			t.Error("expected shouldReturn=false for valid workflow run")
+		}
+	})
+
+	t.Run("empty allowedWorkflows rejects any workflow", func(t *testing.T) {
+		ct := &openchoreodevv1alpha1.ComponentType{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-ct", Namespace: "default"},
+			Spec: openchoreodevv1alpha1.ComponentTypeSpec{
+				WorkloadType: "deployment",
+				Resources: []openchoreodevv1alpha1.ResourceTemplate{
+					{ID: "deployment", Template: &runtime.RawExtension{Raw: []byte("{}")}},
+				},
+			},
+		}
+		comp := &openchoreodevv1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-comp", Namespace: "default"},
+			Spec: openchoreodevv1alpha1.ComponentSpec{
+				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
+				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
+				Workflow: &openchoreodevv1alpha1.WorkflowRunConfig{
+					Name: "my-wf",
+				},
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(ct, comp).Build()
+		r := &Reconciler{Client: fakeClient, Scheme: scheme}
+
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-wfr",
+				Namespace: "default",
+				Labels: map[string]string{
+					"openchoreo.dev/project":   "my-proj",
+					"openchoreo.dev/component": "my-comp",
+				},
+			},
+			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "my-wf"},
+			},
+		}
+
+		result := r.validateComponentWorkflowRun(context.Background(), wfr)
+		if !result.shouldReturn {
+			t.Error("expected shouldReturn=true")
+		}
+		cond := findConditionByType(wfr.Status.Conditions, string(ConditionWorkflowCompleted))
+		if cond == nil || !strings.Contains(cond.Message, "no workflows are allowed") {
+			t.Error("expected condition message about no workflows allowed")
+		}
+	})
+
+	t.Run("component with nil workflow skips workflow match check", func(t *testing.T) {
+		ct := &openchoreodevv1alpha1.ComponentType{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-ct", Namespace: "default"},
+			Spec: openchoreodevv1alpha1.ComponentTypeSpec{
+				WorkloadType: "deployment",
+				AllowedWorkflows: []openchoreodevv1alpha1.WorkflowRef{
+					{Name: "my-wf"},
+				},
+				Resources: []openchoreodevv1alpha1.ResourceTemplate{
+					{ID: "deployment", Template: &runtime.RawExtension{Raw: []byte("{}")}},
+				},
+			},
+		}
+		comp := &openchoreodevv1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-comp", Namespace: "default"},
+			Spec: openchoreodevv1alpha1.ComponentSpec{
+				Owner:         openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
+				ComponentType: openchoreodevv1alpha1.ComponentTypeRef{Name: "deployment/my-ct"},
+				// Workflow is nil
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(ct, comp).Build()
+		r := &Reconciler{Client: fakeClient, Scheme: scheme}
+
+		wfr := &openchoreodevv1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-wfr",
+				Namespace: "default",
+				Labels: map[string]string{
+					"openchoreo.dev/project":   "my-proj",
+					"openchoreo.dev/component": "my-comp",
+				},
+			},
+			Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+				Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "my-wf"},
+			},
+		}
+
+		result := r.validateComponentWorkflowRun(context.Background(), wfr)
+		if result.shouldReturn {
+			t.Error("expected shouldReturn=false when component has no workflow set")
+		}
+	})
+}
+
+func TestFormatAllowedWorkflows(t *testing.T) {
+	t.Run("formats workflow refs", func(t *testing.T) {
+		refs := []openchoreodevv1alpha1.WorkflowRef{
+			{Kind: "Workflow", Name: "wf-a"},
+			{Kind: "ClusterWorkflow", Name: "cwf-b"},
+			{Name: "wf-c"}, // empty kind defaults to Workflow
+		}
+		result := formatAllowedWorkflows(refs)
+		if result != "[Workflow/wf-a, ClusterWorkflow/cwf-b, Workflow/wf-c]" {
+			t.Errorf("unexpected format: %s", result)
+		}
+	})
+}
+
+func TestIsWorkflowRunning(t *testing.T) {
+	t.Run("false when no running condition", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+		setWorkflowPendingCondition(wfr)
+		if isWorkflowRunning(wfr) {
+			t.Error("expected false")
+		}
+	})
+	t.Run("true when running condition is set", func(t *testing.T) {
+		wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+		setWorkflowRunningCondition(wfr)
+		if !isWorkflowRunning(wfr) {
+			t.Error("expected true")
+		}
+	})
+}
+
+func TestSetComponentValidationFailedCondition(t *testing.T) {
+	wfr := &openchoreodevv1alpha1.WorkflowRun{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+	setComponentValidationFailedCondition(wfr, "test message")
+	assertConditionCount(t, wfr, 1)
+	assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionTrue, string(ReasonComponentValidationFailed))
+	cond := findConditionByType(wfr.Status.Conditions, string(ConditionWorkflowCompleted))
+	if cond.Message != "test message" {
+		t.Errorf("expected message 'test message', got %q", cond.Message)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
 
