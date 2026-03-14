@@ -111,7 +111,7 @@ kubectl create secret generic aws-rds-credentials \
 |-----------|----------|---------|-------------|
 | `git.repoUrl` | No | `https://github.com/openchoreo/openchoreo.git` | Git repository URL (HTTPS) that contains the Terraform files. Override to use your own repo. |
 | `git.branch` | No | `main` | Branch or tag to check out |
-| `git.tfPath` | No | `samples/workflows/generic/aws-rds-postgres-create/terraform` | Relative path inside the cloned repo to the directory containing the Terraform files |
+| `git.tfPath` | No | `samples/workflows/aws-rds-postgres-create/terraform` | Relative path inside the cloned repo to the directory containing the Terraform files |
 | `aws.region` | No | `us-east-1` | AWS region for the RDS instance |
 | `aws.credentialsSecret` | Yes | — | Name of the Kubernetes Secret (see Prerequisites) |
 | `tfState.s3Bucket` | Yes | — | S3 bucket name for Terraform state. Created automatically on first run if it does not exist. |
@@ -144,7 +144,7 @@ spec:
       git:
         repoUrl: "https://github.com/openchoreo/openchoreo.git"
         branch: "main"
-        tfPath: "samples/workflows/generic/aws-rds-postgres-create/terraform"
+        tfPath: "samples/workflows/aws-rds-postgres-create/terraform"
       aws:
         region: "us-east-1"
         credentialsSecret: "aws-rds-credentials"

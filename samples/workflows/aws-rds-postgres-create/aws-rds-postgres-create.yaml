@@ -341,7 +341,7 @@ spec:
               description: "Branch or tag to check out"
             tfPath:
               type: string
-              default: "samples/workflows/generic/aws-rds-postgres-create/terraform"
+              default: "samples/workflows/aws-rds-postgres-create/terraform"
               description: "Relative path inside the cloned repo that contains the Terraform files"
         aws:
           type: object
@@ -429,7 +429,7 @@ spec:
       git:
         repoUrl: "https://github.com/openchoreo/openchoreo.git"
         branch: "main"
-        tfPath: "samples/workflows/generic/aws-rds-postgres-create/terraform"
+        tfPath: "samples/workflows/aws-rds-postgres-create/terraform"
       aws:
         region: "us-east-1"
         credentialsSecret: "aws-rds-credentials"

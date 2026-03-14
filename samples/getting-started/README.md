@@ -105,11 +105,11 @@ getting-started/
 │   ├── service.yaml
 │   ├── webapp.yaml
 │   └── scheduled-task.yaml
-├── workflows/
-│   ├── docker.yaml
-│   ├── react.yaml
-│   ├── ballerina-buildpack.yaml
-│   └── google-cloud-buildpacks.yaml
+├── ci-workflows/
+│   ├── dockerfile-builder.yaml
+│   ├── paketo-buildpacks-builder.yaml
+│   ├── ballerina-buildpack-builder.yaml
+│   └── gcp-buildpacks-builder.yaml
 └── component-traits/
     └── alert-rule-trait.yaml
 ```

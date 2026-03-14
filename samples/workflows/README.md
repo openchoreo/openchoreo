@@ -1,44 +1,15 @@
 # Workflow Samples
 
-This directory contains Workflow definitions for OpenChoreo. Workflows use the same `Workflow` CRD but serve two distinct purposes, organized into separate subdirectories.
+This directory contains Workflow definitions for OpenChoreo. Each subdirectory provides a self-contained workflow example with its own README.
 
 ---
 
-## Subdirectories
+## Available Workflows
 
-| Directory | Purpose | Triggered by |
-|-----------|---------|--------------|
-| [`ci/`](./ci/) | Component CI/build workflows — define how source code is built and containerized | Component builds, webhooks, auto-build |
-| [`generic/`](./generic/) | General-purpose workflows — run any automation independently of a Component | Manual `WorkflowRun`, scheduled jobs, event-driven pipelines |
+| Directory | Description |
+|-----------|-------------|
+| [`aws-rds-postgres-create/`](./aws-rds-postgres-create/) | Provision and destroy AWS RDS PostgreSQL instances using Terraform |
+| [`github-stats-report/`](./github-stats-report/) | Generate GitHub repository statistics reports |
+| [`scm-create-repo/`](./scm-create-repo/) | Create repositories in GitHub or AWS CodeCommit |
 
----
-
-## CI Workflows (`ci/`)
-
-CI workflows are tied to the Component lifecycle. They define build strategies (Docker, Buildpacks, etc.) and integrate with the Workflow Plane for automated container image creation.
-
-**Use these when:** you need to build and containerize a Component from source code.
-
-See [`ci/README.md`](./ci/README.md) for details.
-
----
-
-## Generic Workflows (`generic/`)
-
-Generic workflows run independently of any Component. They can perform any kind of automation: data processing, ETL pipelines, report generation, scheduled maintenance, integration testing, and more.
-
-**Use these when:** you need to automate tasks that are not about building a Component image.
-
-See [`generic/README.md`](./generic/README.md) for details.
-
----
-
-## Key Differences
-
-| | CI Workflows | Generic Workflows |
-|--|---|---|
-| **Linked to Component?** | Yes | No |
-| **Parameters** | Includes `repository` (url, branch, appPath) | Domain-specific (no git-clone structure) |
-| **Triggered by** | Webhooks, API, `WorkflowRun` | `WorkflowRun` (manual or event-driven) |
-| **Typical steps** | Clone → Build → Push image | Fetch data → Transform → Report / any pipeline |
-| **Label** | `openchoreo.dev/workflow-type: component` | None |
+See each subdirectory's README for usage details.

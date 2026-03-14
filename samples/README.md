@@ -45,15 +45,12 @@ Low-level examples demonstrating how to define and use custom component types wi
 - **[Component with API Management](./component-types/component-with-api-management/)** - Demonstrate API management via traits
 
 ### [Workflows](./workflows)
-Reusable Workflow definitions organized by purpose. Workflows use the same `Workflow` CRD but serve two distinct roles.
+Reusable Workflow definitions for standalone automation tasks independent of any Component.
 
-**CI Workflows** (`workflows/ci/`) — define how applications are built and containerized as part of the Component lifecycle:
-- **[Docker Workflow](./workflows/ci/docker.yaml)** - Build workflow for applications with Dockerfiles
-- **[Google Cloud Buildpacks](./workflows/ci/google-cloud-buildpacks.yaml)** - Build workflow using Google Cloud Buildpacks
-- **[React Workflow](./workflows/ci/react.yaml)** - Specialized build workflow for React applications
-
-**Generic Workflows** (`workflows/generic/`) — standalone automation workflows independent of any Component:
-- **[GitHub Stats Report](./workflows/generic/github-stats-report/)** - Fetch GitHub repository statistics, transform the data, and generate a formatted report
+**Available Samples:**
+- **[AWS RDS Postgres Create](./workflows/aws-rds-postgres-create/)** - Provision and destroy AWS RDS PostgreSQL instances using Terraform
+- **[GitHub Stats Report](./workflows/github-stats-report/)** - Fetch GitHub repository statistics, transform the data, and generate a formatted report
+- **[SCM Create Repo](./workflows/scm-create-repo/)** - Create repositories in GitHub or AWS CodeCommit
 
 ### [GCP Microservices Demo](./gcp-microservices-demo)
 A complete microservices application based on Google's popular [microservices-demo](https://github.com/GoogleCloudPlatform/microservices-demo). This sample showcases how to deploy a full e-commerce application with multiple interconnected services using OpenChoreo.

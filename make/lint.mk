@@ -87,10 +87,10 @@ GETTING_STARTED_FILES := \
 	$(GETTING_STARTED_DIR)/component-types/service.yaml \
 	$(GETTING_STARTED_DIR)/component-types/webapp.yaml \
 	$(GETTING_STARTED_DIR)/component-types/scheduled-task.yaml \
-	$(GETTING_STARTED_DIR)/workflows/paketo-buildpacks-builder.yaml \
-	$(GETTING_STARTED_DIR)/workflows/gcp-buildpacks-builder.yaml \
-	$(GETTING_STARTED_DIR)/workflows/ballerina-buildpack-builder.yaml \
-	$(GETTING_STARTED_DIR)/workflows/dockerfile-builder.yaml \
+	$(GETTING_STARTED_DIR)/ci-workflows/paketo-buildpacks-builder.yaml \
+	$(GETTING_STARTED_DIR)/ci-workflows/gcp-buildpacks-builder.yaml \
+	$(GETTING_STARTED_DIR)/ci-workflows/ballerina-buildpack-builder.yaml \
+	$(GETTING_STARTED_DIR)/ci-workflows/dockerfile-builder.yaml \
 	$(GETTING_STARTED_DIR)/component-traits/alert-rule-trait.yaml
 
 .PHONY: samples-gen
