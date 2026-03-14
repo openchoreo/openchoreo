@@ -143,11 +143,6 @@ func TestUpdateBindingRequest_Validate(t *testing.T) {
 			wantErr:      false,
 		},
 		{
-			name:         "Valid state - Suspend",
-			releaseState: ReleaseStateSuspend,
-			wantErr:      false,
-		},
-		{
 			name:         "Valid state - Undeploy",
 			releaseState: ReleaseStateUndeploy,
 			wantErr:      false,
@@ -162,7 +157,7 @@ func TestUpdateBindingRequest_Validate(t *testing.T) {
 			name:         "Invalid state",
 			releaseState: "Invalid",
 			wantErr:      true,
-			errMsg:       "releaseState must be one of: Active, Suspend, Undeploy",
+			errMsg:       "releaseState must be one of: Active, Undeploy",
 		},
 	}
 

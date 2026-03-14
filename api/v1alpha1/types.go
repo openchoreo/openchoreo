@@ -63,14 +63,6 @@ const (
 	// Resources are deployed normally to the data plane.
 	ReleaseStateActive ReleaseState = "Active"
 
-	// ReleaseStateSuspend indicates the Release should be suspended.
-	// Resources are scaled to zero or paused but not deleted.
-	// - Deployments/StatefulSets: replicas set to 0
-	// - Jobs: spec.suspend set to true
-	// - CronJobs: spec.suspend set to true
-	// - HPA: minReplicas and maxReplicas set to 0
-	ReleaseStateSuspend ReleaseState = "Suspend"
-
 	// ReleaseStateUndeploy indicates the Release should be removed from the data plane.
 	// The Release resource is deleted, triggering cleanup of all data plane resources.
 	ReleaseStateUndeploy ReleaseState = "Undeploy"

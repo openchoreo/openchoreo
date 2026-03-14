@@ -317,7 +317,6 @@ type BindingReleaseState string
 
 const (
 	ReleaseStateActive   BindingReleaseState = "Active"
-	ReleaseStateSuspend  BindingReleaseState = "Suspend"
 	ReleaseStateUndeploy BindingReleaseState = "Undeploy"
 )
 
@@ -325,7 +324,7 @@ const (
 // Only includes fields that can be updated via PATCH
 type UpdateBindingRequest struct {
 	// ReleaseState controls the state of the Release created by this binding.
-	// Valid values: Active, Suspend, Undeploy
+	// Valid values: Active, Undeploy
 	ReleaseState BindingReleaseState `json:"releaseState"`
 }
 
@@ -333,13 +332,13 @@ type UpdateBindingRequest struct {
 func (req *UpdateBindingRequest) Validate() error {
 	// Validate releaseState values
 	switch req.ReleaseState {
-	case "Active", "Suspend", "Undeploy":
+	case "Active", "Undeploy":
 		// Valid values
 	case "":
 		// Empty is not allowed for PATCH
 		return errors.New("releaseState is required")
 	default:
-		return errors.New("releaseState must be one of: Active, Suspend, Undeploy")
+		return errors.New("releaseState must be one of: Active, Undeploy")
 	}
 	return nil
 }
