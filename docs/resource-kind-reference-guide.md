@@ -267,7 +267,7 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `componentTypeEnvironmentConfigs` | RawExtension | No | Yes | Per-environment ComponentType overrides |
 | `traitEnvironmentConfigs` | map[string]RawExtension | No | Yes | Per-environment trait overrides (keyed by instanceName) |
 | `workloadOverrides` | WorkloadOverrideTemplateSpec | No | Yes | Container env/file overrides |
-| `state` | ReleaseState | No | Yes | Active (default), Suspend, or Undeploy |
+| `state` | ReleaseState | No | Yes | Active (default) or Undeploy |
 
 **Status:**
 
