@@ -10,7 +10,7 @@ spec:
   owner:
     projectName: test-project
   componentType:
-    kind: ComponentType
+    kind: ClusterComponentType
     name: deployment/service
   # autoDeploy: true # Enable automatic deployment on changes
 

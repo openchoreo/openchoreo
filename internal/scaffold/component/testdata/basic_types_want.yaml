@@ -10,7 +10,7 @@ spec:
   owner:
     projectName: online-store
   componentType:
-    kind: ComponentType
+    kind: ClusterComponentType
     name: deployment/web-app
   # autoDeploy: true # Enable automatic deployment on changes
 

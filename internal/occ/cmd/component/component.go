@@ -471,8 +471,8 @@ func scaffoldComponent(params ScaffoldParams) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Fetch ComponentType schema
-	componentTypeSchemaRaw, err := apiClient.GetComponentTypeSchema(ctx, params.Namespace, componentTypeName)
+	// Fetch ClusterComponentType schema
+	componentTypeSchemaRaw, err := apiClient.GetClusterComponentTypeSchema(ctx, componentTypeName)
 	if err != nil {
 		return err
 	}
@@ -481,10 +481,10 @@ func scaffoldComponent(params ScaffoldParams) error {
 		return fmt.Errorf("invalid ComponentType schema: %w", err)
 	}
 
-	// Fetch Trait schemas if specified
+	// Fetch ClusterTrait schemas if specified
 	traitSchemas := make(map[string]*extv1.JSONSchemaProps)
 	for _, traitName := range params.Traits {
-		traitSchemaRaw, err := apiClient.GetTraitSchema(ctx, params.Namespace, traitName)
+		traitSchemaRaw, err := apiClient.GetClusterTraitSchema(ctx, traitName)
 		if err != nil {
 			return err
 		}
@@ -495,10 +495,10 @@ func scaffoldComponent(params ScaffoldParams) error {
 		traitSchemas[traitName] = traitSchema
 	}
 
-	// Fetch Workflow schema if specified
+	// Fetch ClusterWorkflow schema if specified
 	var workflowSchema *extv1.JSONSchemaProps
 	if params.WorkflowName != "" {
-		workflowSchemaRaw, err := apiClient.GetWorkflowSchema(ctx, params.Namespace, params.WorkflowName)
+		workflowSchemaRaw, err := apiClient.GetClusterWorkflowSchema(ctx, params.WorkflowName)
 		if err != nil {
 			return err
 		}

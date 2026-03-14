@@ -1311,6 +1311,51 @@ func (c *Client) GetWorkflowSchema(ctx context.Context, namespaceName, workflowN
 	return schemaResponseToRaw(resp.JSON200)
 }
 
+// GetClusterComponentTypeSchema retrieves the parameter schema for a cluster-scoped component type
+func (c *Client) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetClusterComponentTypeSchemaWithResponse(ctx, cctName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster component type schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("cluster component type %q not found", cctName)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
+// GetClusterTraitSchema retrieves the parameter schema for a cluster-scoped trait
+func (c *Client) GetClusterTraitSchema(ctx context.Context, clusterTraitName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetClusterTraitSchemaWithResponse(ctx, clusterTraitName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster trait schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("cluster trait %q not found", clusterTraitName)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
+// GetClusterWorkflowSchema retrieves the parameter schema for a cluster-scoped workflow
+func (c *Client) GetClusterWorkflowSchema(ctx context.Context, clusterWorkflowName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetClusterWorkflowSchemaWithResponse(ctx, clusterWorkflowName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster workflow schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("cluster workflow %q not found", clusterWorkflowName)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
 func schemaResponseToRaw(schema *gen.SchemaResponse) (*json.RawMessage, error) {
 	data, err := json.Marshal(schema)
 	if err != nil {

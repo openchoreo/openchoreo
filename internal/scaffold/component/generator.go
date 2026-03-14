@@ -325,7 +325,7 @@ func (g *Generator) generateSpec(b *YAMLBuilder, result *schemaProcessingResult)
 
 		// ComponentType
 		b.InMapping("componentType", func(b *YAMLBuilder) {
-			b.AddField("kind", "ComponentType")
+			b.AddField("kind", "ClusterComponentType")
 			b.AddField("name", fmt.Sprintf("%s/%s", g.workloadType, g.componentTypeName))
 		})
 
