@@ -7,11 +7,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
@@ -22,28 +22,28 @@ import (
 type WebhookService struct {
 	k8sClient       client.Client
 	workflowService *WorkflowRunService
+	logger          *slog.Logger
 }
 
 // NewWebhookService creates a new WebhookService
-func NewWebhookService(k8sClient client.Client, workflowService *WorkflowRunService) *WebhookService {
+func NewWebhookService(k8sClient client.Client, workflowService *WorkflowRunService, logger *slog.Logger) *WebhookService {
 	return &WebhookService{
 		k8sClient:       k8sClient,
 		workflowService: workflowService,
+		logger:          logger,
 	}
 }
 
 // ProcessWebhook processes an incoming webhook payload from any git provider
 func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provider, payload []byte) ([]string, error) {
-	logger := log.FromContext(ctx)
-
 	// Parse payload using the provider
 	event, err := provider.ParseWebhookPayload(payload)
 	if err != nil {
-		logger.Error(err, "Failed to parse webhook payload")
+		s.logger.Error("Failed to parse webhook payload", "error", err)
 		return nil, fmt.Errorf("failed to parse webhook payload: %w", err)
 	}
 
-	logger.Info("Processing webhook event",
+	s.logger.Info("Processing webhook event",
 		"provider", event.Provider,
 		"repository", event.RepositoryURL,
 		"branch", event.Branch,
@@ -53,11 +53,11 @@ func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provid
 	// Find affected components
 	affectedComponents, err := s.findAffectedComponents(ctx, event)
 	if err != nil {
-		logger.Error(err, "Failed to find affected components")
+		s.logger.Error("Failed to find affected components", "error", err)
 		return nil, fmt.Errorf("failed to find affected components: %w", err)
 	}
 
-	logger.Info("Found affected components", "count", len(affectedComponents))
+	s.logger.Info("Found affected components", "count", len(affectedComponents))
 
 	// Trigger builds for affected components
 	triggeredComponents := make([]string, 0)
@@ -66,7 +66,7 @@ func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provid
 		projectName := comp.Spec.Owner.ProjectName
 		componentName := comp.Name
 
-		logger.Info("Triggering build for component",
+		s.logger.Info("Triggering build for component",
 			"namespace", namespaceName,
 			"project", projectName,
 			"component", componentName,
@@ -81,7 +81,8 @@ func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provid
 		)
 		if err != nil {
 			// Log error but continue processing other components
-			logger.Error(err, "Failed to trigger build for component",
+			s.logger.Error("Failed to trigger build for component",
+				"error", err,
 				"component", componentName)
 			continue
 		}
@@ -89,7 +90,7 @@ func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provid
 		triggeredComponents = append(triggeredComponents, fmt.Sprintf("%s/%s", comp.Namespace, componentName))
 	}
 
-	logger.Info("Webhook processing completed",
+	s.logger.Info("Webhook processing completed",
 		"affectedComponents", len(affectedComponents),
 		"triggeredBuilds", len(triggeredComponents))
 
@@ -98,8 +99,6 @@ func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provid
 
 // findAffectedComponents finds all components that should be built based on the webhook event
 func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.WebhookEvent) ([]*v1alpha1.Component, error) {
-	logger := log.FromContext(ctx)
-
 	// List all components
 	componentList := &v1alpha1.ComponentList{}
 	if err := s.k8sClient.List(ctx, componentList); err != nil {
@@ -118,7 +117,7 @@ func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.
 		// Get repository URL, appPath, and branch from component workflow schema extensions
 		repoURL, appPath, branch, err := s.extractRepoInfoFromComponent(ctx, comp)
 		if err != nil {
-			logger.V(1).Info("Failed to extract repo info from component",
+			s.logger.Info("Skipping component: failed to extract repo info",
 				"component", comp.Name,
 				"error", err)
 			continue
@@ -126,13 +125,17 @@ func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.
 
 		// Check if component's repository matches the webhook repository
 		if !s.matchesRepository(repoURL, event.RepositoryURL) {
+			s.logger.Info("Skipping component: repository mismatch",
+				"component", comp.Name,
+				"componentRepo", repoURL,
+				"webhookRepo", event.RepositoryURL)
 			continue
 		}
 
 		// Check if the webhook branch matches the component's configured branch.
 		// If the component has no branch configured, all branches trigger builds.
 		if branch != "" && branch != event.Branch {
-			logger.V(1).Info("Skipping component: branch mismatch",
+			s.logger.Info("Skipping component: branch mismatch",
 				"component", comp.Name,
 				"componentBranch", branch,
 				"webhookBranch", event.Branch)
@@ -142,12 +145,17 @@ func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.
 		// Check if modified paths affect this component
 		// If no modified paths (e.g., Bitbucket), trigger all components for the repo
 		if len(event.ModifiedPaths) == 0 || s.isComponentAffected(appPath, event.ModifiedPaths) {
-			logger.Info("Component is affected by webhook event",
+			s.logger.Info("Component is affected by webhook event",
 				"component", comp.Name,
 				"appPath", appPath,
 				"branch", branch,
 				"modifiedPaths", len(event.ModifiedPaths))
 			affected = append(affected, comp)
+		} else {
+			s.logger.Info("Skipping component: no modified paths match app path",
+				"component", comp.Name,
+				"appPath", appPath,
+				"modifiedPaths", event.ModifiedPaths)
 		}
 	}
 
@@ -155,23 +163,35 @@ func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.
 }
 
 // extractRepoInfoFromComponent extracts repository URL, appPath, and branch from a component's workflow parameters
-// by scanning the Workflow CR's openAPIV3Schema for x-openchoreo-component-repository extensions.
+// by scanning the Workflow or ClusterWorkflow CR's openAPIV3Schema for x-openchoreo-component-repository extensions.
 func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp *v1alpha1.Component) (repoURL string, appPath string, branch string, err error) {
 	if comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == "" {
 		return "", "", "", fmt.Errorf("component has no workflow configuration")
 	}
 
-	// Fetch the Workflow CR to get the schema
-	workflow := &v1alpha1.Workflow{}
-	if err := s.k8sClient.Get(ctx, client.ObjectKey{
-		Name:      comp.Spec.Workflow.Name,
-		Namespace: comp.Namespace,
-	}, workflow); err != nil {
-		return "", "", "", fmt.Errorf("failed to get workflow %s: %w", comp.Spec.Workflow.Name, err)
+	// Fetch the Workflow or ClusterWorkflow CR to get the schema
+	var parametersSchema *v1alpha1.SchemaSection
+	if comp.Spec.Workflow.Kind == v1alpha1.WorkflowRefKindClusterWorkflow {
+		cw := &v1alpha1.ClusterWorkflow{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{
+			Name: comp.Spec.Workflow.Name,
+		}, cw); err != nil {
+			return "", "", "", fmt.Errorf("failed to get ClusterWorkflow %s: %w", comp.Spec.Workflow.Name, err)
+		}
+		parametersSchema = cw.Spec.Parameters
+	} else {
+		workflow := &v1alpha1.Workflow{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      comp.Spec.Workflow.Name,
+			Namespace: comp.Namespace,
+		}, workflow); err != nil {
+			return "", "", "", fmt.Errorf("failed to get workflow %s: %w", comp.Spec.Workflow.Name, err)
+		}
+		parametersSchema = workflow.Spec.Parameters
 	}
 
 	// Extract parameter paths from x-openchoreo-component-parameter-repository-* schema extensions
-	paramMap, err := controller.ExtractComponentRepositoryPaths(workflow.Spec.Parameters.GetRaw())
+	paramMap, err := controller.ExtractComponentRepositoryPaths(parametersSchema.GetRaw())
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to extract component repository paths from workflow %s schema: %w", comp.Spec.Workflow.Name, err)
 	}
@@ -201,7 +221,7 @@ func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp 
 	if branchPath, ok := paramMap["branch"]; ok {
 		branch, _ = getNestedStringFromRawExtension(comp.Spec.Workflow.Parameters, branchPath)
 		if branch == "" {
-			branch = getSchemaFieldDefault(workflow.Spec.Parameters.GetRaw(), branchPath)
+			branch = getSchemaFieldDefault(parametersSchema.GetRaw(), branchPath)
 		}
 	}
 

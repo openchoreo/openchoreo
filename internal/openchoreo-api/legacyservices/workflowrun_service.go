@@ -798,18 +798,31 @@ func (s *WorkflowRunService) triggerWorkflowInternal(ctx context.Context, namesp
 		return nil, fmt.Errorf("component %s does not have a workflow configured", componentName)
 	}
 
-	// Fetch the Workflow CR to get the schema
-	workflow := &openchoreov1alpha1.Workflow{}
-	if err := s.k8sClient.Get(ctx, client.ObjectKey{
-		Name:      component.Spec.Workflow.Name,
-		Namespace: namespaceName,
-	}, workflow); err != nil {
-		s.logger.Error("Failed to get workflow", "error", err, "workflow", component.Spec.Workflow.Name)
-		return nil, fmt.Errorf("failed to get workflow %s: %w", component.Spec.Workflow.Name, err)
+	// Fetch the Workflow or ClusterWorkflow CR to get the schema
+	var workflowParameters *openchoreov1alpha1.SchemaSection
+	if component.Spec.Workflow.Kind == openchoreov1alpha1.WorkflowRefKindClusterWorkflow {
+		cw := &openchoreov1alpha1.ClusterWorkflow{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{
+			Name: component.Spec.Workflow.Name,
+		}, cw); err != nil {
+			s.logger.Error("Failed to get ClusterWorkflow", "error", err, "workflow", component.Spec.Workflow.Name)
+			return nil, fmt.Errorf("failed to get ClusterWorkflow %s: %w", component.Spec.Workflow.Name, err)
+		}
+		workflowParameters = cw.Spec.Parameters
+	} else {
+		workflow := &openchoreov1alpha1.Workflow{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      component.Spec.Workflow.Name,
+			Namespace: namespaceName,
+		}, workflow); err != nil {
+			s.logger.Error("Failed to get workflow", "error", err, "workflow", component.Spec.Workflow.Name)
+			return nil, fmt.Errorf("failed to get workflow %s: %w", component.Spec.Workflow.Name, err)
+		}
+		workflowParameters = workflow.Spec.Parameters
 	}
 
 	// Extract parameter paths from x-openchoreo-component-repository schema extensions
-	paramMap, err := controller.ExtractComponentRepositoryPaths(workflow.Spec.Parameters.GetRaw())
+	paramMap, err := controller.ExtractComponentRepositoryPaths(workflowParameters.GetRaw())
 	if err != nil {
 		s.logger.Error("Failed to extract component repository paths from workflow schema", "error", err, "workflow", component.Spec.Workflow.Name)
 		return nil, fmt.Errorf("failed to extract component repository paths from workflow %s schema: %w", component.Spec.Workflow.Name, err)

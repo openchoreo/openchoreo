@@ -6,6 +6,8 @@ package legacyservices
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,6 +18,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices/git"
 )
+
+// discardLogger returns a slog.Logger that discards all output, for use in tests.
+func discardLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
 
 const (
 	// testSchemaURLOnly is a minimal openAPIV3Schema with only the url extension.
@@ -235,13 +242,14 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 	scheme := newTestScheme(t)
 
 	tests := []struct {
-		name        string
-		component   *v1alpha1.Component
-		workflow    *v1alpha1.Workflow
-		wantRepo    string
-		wantAppPath string
-		wantBranch  string
-		wantErr     bool
+		name            string
+		component       *v1alpha1.Component
+		workflow        *v1alpha1.Workflow
+		clusterWorkflow *v1alpha1.ClusterWorkflow
+		wantRepo        string
+		wantAppPath     string
+		wantBranch      string
+		wantErr         bool
 	}{
 		{
 			name: "no workflow config on component",
@@ -519,6 +527,77 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			wantAppPath: "/src/app",
 			wantBranch:  "main",
 		},
+		{
+			name: "ClusterWorkflow kind: extracts repoUrl from cluster-scoped workflow",
+			component: &v1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
+				Spec: v1alpha1.ComponentSpec{
+					Workflow: &v1alpha1.ComponentWorkflowConfig{
+						Kind: v1alpha1.WorkflowRefKindClusterWorkflow,
+						Name: "cwf1",
+						Parameters: makeRaw(map[string]interface{}{
+							"repository": map[string]interface{}{
+								"url": "https://github.com/example/repo",
+							},
+						}),
+					},
+				},
+			},
+			clusterWorkflow: &v1alpha1.ClusterWorkflow{
+				ObjectMeta: metav1.ObjectMeta{Name: "cwf1"},
+				Spec: v1alpha1.ClusterWorkflowSpec{
+					Parameters: &v1alpha1.SchemaSection{
+						OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(testSchemaURLOnly)},
+					},
+				},
+			},
+			wantRepo: "https://github.com/example/repo",
+		},
+		{
+			name: "Workflow kind explicit: extracts repoUrl from namespace-scoped workflow",
+			component: &v1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
+				Spec: v1alpha1.ComponentSpec{
+					Workflow: &v1alpha1.ComponentWorkflowConfig{
+						Kind: v1alpha1.WorkflowRefKindWorkflow,
+						Name: "wf1",
+						Parameters: makeRaw(map[string]interface{}{
+							"repository": map[string]interface{}{
+								"url": "https://github.com/example/repo",
+							},
+						}),
+					},
+				},
+			},
+			workflow: &v1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
+				Spec: v1alpha1.WorkflowSpec{
+					Parameters: &v1alpha1.SchemaSection{
+						OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(testSchemaURLOnly)},
+					},
+				},
+			},
+			wantRepo: "https://github.com/example/repo",
+		},
+		{
+			name: "ClusterWorkflow not found returns wrapped error",
+			component: &v1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
+				Spec: v1alpha1.ComponentSpec{
+					Workflow: &v1alpha1.ComponentWorkflowConfig{
+						Kind: v1alpha1.WorkflowRefKindClusterWorkflow,
+						Name: "nonexistent-cwf",
+						Parameters: makeRaw(map[string]interface{}{
+							"repository": map[string]interface{}{
+								"url": "https://github.com/example/repo",
+							},
+						}),
+					},
+				},
+			},
+			// no clusterWorkflow registered → fake client returns not-found
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -527,9 +606,12 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			if tt.workflow != nil {
 				builder = builder.WithObjects(tt.workflow)
 			}
+			if tt.clusterWorkflow != nil {
+				builder = builder.WithObjects(tt.clusterWorkflow)
+			}
 			k8sClient := builder.Build()
 
-			svc := &WebhookService{k8sClient: k8sClient}
+			svc := &WebhookService{k8sClient: k8sClient, logger: discardLogger()}
 
 			gotRepo, gotAppPath, gotBranch, err := svc.extractRepoInfoFromComponent(context.Background(), tt.component)
 			if tt.wantErr {
@@ -615,7 +697,7 @@ func TestWebhookBranchFilter_Match(t *testing.T) {
 	workflow := makeWorkflowWithBranch("wf1", "ns1")
 
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(comp, workflow).Build()
-	svc := &WebhookService{k8sClient: k8sClient}
+	svc := &WebhookService{k8sClient: k8sClient, logger: discardLogger()}
 
 	event := &git.WebhookEvent{
 		RepositoryURL: "https://github.com/example/repo",
@@ -645,7 +727,7 @@ func TestWebhookBranchFilter_Mismatch(t *testing.T) {
 	workflow := makeWorkflowWithBranch("wf1", "ns1")
 
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(comp, workflow).Build()
-	svc := &WebhookService{k8sClient: k8sClient}
+	svc := &WebhookService{k8sClient: k8sClient, logger: discardLogger()}
 
 	event := &git.WebhookEvent{
 		RepositoryURL: "https://github.com/example/repo",
@@ -688,7 +770,7 @@ func TestWebhookBranchFilter_NoConfiguredBranch(t *testing.T) {
 	workflow := makeWorkflowNoBranch("wf1", "ns1")
 
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(comp, workflow).Build()
-	svc := &WebhookService{k8sClient: k8sClient}
+	svc := &WebhookService{k8sClient: k8sClient, logger: discardLogger()}
 
 	for _, pushBranch := range []string{"main", "feature/foo", "release/v1"} {
 		t.Run(pushBranch, func(t *testing.T) {

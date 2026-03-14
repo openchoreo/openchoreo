@@ -79,7 +79,7 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	workflowRunService := NewWorkflowRunService(k8sClient, logger.With("service", "workflowrun"), authzPDP, workflowPlaneService, gwClient)
 
 	// Create webhook service (handles all git providers)
-	webhookService := NewWebhookService(k8sClient, workflowRunService)
+	webhookService := NewWebhookService(k8sClient, workflowRunService, logger.With("service", "webhook"))
 
 	// Create Schema service
 	schemaService := NewSchemaService(k8sClient, logger.With("service", "schema"))
