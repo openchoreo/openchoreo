@@ -50,4 +50,4 @@ Deploy a complete service from source code to production using the OpenChoreo MC
 ## Getting Help
 
 - [OpenChoreo Documentation](https://openchoreo.dev/)
-- [Discord Community](https://discord.gg/asqDFC8suT)
+- [Slack Community](https://cloud-native.slack.com/archives/C0ABYRG1MND)

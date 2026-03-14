@@ -170,4 +170,4 @@ You've successfully deployed a service using the OpenChoreo MCP server! You now 
 - Monitor component health and status
 - Manage the complete service lifecycle through natural language
 
-**Share your success** with the community on [Discord](https://discord.gg/asqDFC8suT)!
+**Share your success** with the community on [Slack](https://cloud-native.slack.com/archives/C0ABYRG1MND)!

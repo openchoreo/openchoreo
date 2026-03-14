@@ -91,7 +91,7 @@ Each team gets together and retrospects the last sprint
 #### Key Tasks
 - Review issues in PR Sent / In Review status and try to close them off
 - Review issues still in progress and include a comment explaining why we could not finish them as planned and change the sprint to the current sprint
-- Send updates to Discord with screencast when applicable for finished tasks
+- Send updates to Slack with screencast when applicable for finished tasks
 
 ## Milestone Planning Meeting
 > *Attendees*:

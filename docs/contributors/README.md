@@ -13,6 +13,6 @@ Before you start contributing, check out our guidelines:
 
 ## Need Help?
 
-If you have any questions, join our **[Discord Community](https://discord.gg/asqDFC8suT)** or open a **[GitHub Discussion](https://github.com/openchoreo/openchoreo/discussions)**.
+If you have any questions, join our **[Slack Community](https://cloud-native.slack.com/archives/C0ABYRG1MND)** or open a **[GitHub Discussion](https://github.com/openchoreo/openchoreo/discussions)**.
 
 We appreciate your contributions—thank you for making OpenChoreo better! 
