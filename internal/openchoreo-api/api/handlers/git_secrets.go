@@ -125,11 +125,9 @@ func mapCreateGitSecretError(h *Handler, err error) (gen.CreateGitSecretResponse
 	case errors.As(err, &validationErr):
 		return gen.CreateGitSecret400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 	case errors.Is(err, gitsecretsvc.ErrWorkflowPlaneNotFound):
-		h.logger.Error("Failed to create git secret", "error", err)
-		return gen.CreateGitSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+		return gen.CreateGitSecret400JSONResponse{BadRequestJSONResponse: badRequest("workflow plane not found")}, nil
 	case errors.Is(err, gitsecretsvc.ErrSecretStoreNotConfigured):
-		h.logger.Error("Failed to create git secret", "error", err)
-		return gen.CreateGitSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+		return gen.CreateGitSecret400JSONResponse{BadRequestJSONResponse: badRequest("secret store is not configured on the workflow plane")}, nil
 	default:
 		h.logger.Error("Failed to create git secret", "error", err)
 		return gen.CreateGitSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
