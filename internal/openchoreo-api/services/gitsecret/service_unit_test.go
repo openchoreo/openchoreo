@@ -5,6 +5,7 @@ package gitsecret
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"testing"
@@ -107,7 +108,8 @@ func TestValidateCredentials(t *testing.T) {
 }
 
 func isValidationError(err error, target **services.ValidationError) bool {
-	v, ok := err.(*services.ValidationError)
+	v := &services.ValidationError{}
+	ok := errors.As(err, &v)
 	if ok {
 		*target = v
 	}
@@ -424,7 +426,7 @@ func TestResolveWorkflowPlane_NamespacedWorkflowPlane(t *testing.T) {
 
 	// Test not found
 	_, err := svc.resolveWorkflowPlane(context.Background(), "ns1", "WorkflowPlane", "nonexistent")
-	if err != ErrWorkflowPlaneNotFound {
+	if !errors.Is(err, ErrWorkflowPlaneNotFound) {
 		t.Errorf("expected ErrWorkflowPlaneNotFound, got %v", err)
 	}
 }
@@ -452,7 +454,7 @@ func TestResolveWorkflowPlane_ClusterWorkflowPlane(t *testing.T) {
 
 	// Test not found
 	_, err := svc.resolveWorkflowPlane(context.Background(), "ns1", "ClusterWorkflowPlane", "nonexistent")
-	if err != ErrWorkflowPlaneNotFound {
+	if !errors.Is(err, ErrWorkflowPlaneNotFound) {
 		t.Errorf("expected ErrWorkflowPlaneNotFound, got %v", err)
 	}
 }
@@ -476,7 +478,7 @@ func TestResolveWorkflowPlane_NoSecretStore(t *testing.T) {
 	}
 
 	_, err := svc.resolveNamespacedWorkflowPlane(context.Background(), "ns1", "wp-no-store")
-	if err != ErrSecretStoreNotConfigured {
+	if !errors.Is(err, ErrSecretStoreNotConfigured) {
 		t.Errorf("expected ErrSecretStoreNotConfigured, got %v", err)
 	}
 }
@@ -500,7 +502,7 @@ func TestResolveWorkflowPlane_ClusterNoSecretStore(t *testing.T) {
 	}
 
 	_, err := svc.resolveClusterWorkflowPlane(context.Background(), "cwp-no-store")
-	if err != ErrSecretStoreNotConfigured {
+	if !errors.Is(err, ErrSecretStoreNotConfigured) {
 		t.Errorf("expected ErrSecretStoreNotConfigured, got %v", err)
 	}
 }
@@ -530,7 +532,7 @@ func TestDeleteGitSecret_NotFound(t *testing.T) {
 	}
 
 	err := svc.DeleteGitSecret(context.Background(), "ns1", "nonexistent")
-	if err != ErrGitSecretNotFound {
+	if !errors.Is(err, ErrGitSecretNotFound) {
 		t.Errorf("expected ErrGitSecretNotFound, got %v", err)
 	}
 }
@@ -554,7 +556,7 @@ func TestDeleteGitSecret_NotGitCredentials(t *testing.T) {
 	}
 
 	err := svc.DeleteGitSecret(context.Background(), "ns1", "other-secret")
-	if err != ErrGitSecretNotFound {
+	if !errors.Is(err, ErrGitSecretNotFound) {
 		t.Errorf("expected ErrGitSecretNotFound, got %v", err)
 	}
 }
@@ -608,7 +610,7 @@ func TestCreateGitSecret_AlreadyExists(t *testing.T) {
 		WorkflowPlaneName: "wp-default",
 	})
 
-	if err != ErrGitSecretAlreadyExists {
+	if !errors.Is(err, ErrGitSecretAlreadyExists) {
 		t.Errorf("expected ErrGitSecretAlreadyExists, got %v", err)
 	}
 }
@@ -656,7 +658,7 @@ func TestCreateGitSecret_WorkflowPlaneNotFound(t *testing.T) {
 		WorkflowPlaneName: "nonexistent",
 	})
 
-	if err != ErrWorkflowPlaneNotFound {
+	if !errors.Is(err, ErrWorkflowPlaneNotFound) {
 		t.Errorf("expected ErrWorkflowPlaneNotFound, got %v", err)
 	}
 }
