@@ -8,8 +8,8 @@ OpenChoreo uses two context types depending on where the template is evaluated:
 
 | Context Type | Used In | Key Variables |
 |--------------|---------|---------------|
-| **ComponentContext** | ComponentType `validations` and `resources` | `metadata`, `parameters`, `environmentConfigs`, `dataplane`, `workload`, `configurations` |
-| **TraitContext** | Trait `validations`, `creates`, and `patches` | `metadata`, `parameters`, `environmentConfigs`, `dataplane`, `trait`, `workload`, `configurations` |
+| **ComponentContext** | ComponentType `validations` and `resources` | `metadata`, `parameters`, `environmentConfigs`, `dataplane`, `gateway`, `environment`, `workload`, `configurations`, `connections` |
+| **TraitContext** | Trait `validations`, `creates`, and `patches` | `metadata`, `parameters`, `environmentConfigs`, `dataplane`, `gateway`, `environment`, `trait`, `workload`, `configurations`, `connections` |
 
 ## ComponentContext
 
@@ -194,13 +194,25 @@ DataPlane configuration for the target environment.
 
 dataplane:
   secretStore: "my-secret-store"              # ${dataplane.secretStore}
-  publicVirtualHost: "app.example.com"        # ${dataplane.publicVirtualHost}
+  gateway:                                    # ${dataplane.gateway}
+    ingress:                                  # ${dataplane.gateway.ingress}
+      external:                               # ${dataplane.gateway.ingress.external}
+        name: "gateway-default"               # ${dataplane.gateway.ingress.external.name}
+        namespace: "openchoreo-data-plane"     # ${dataplane.gateway.ingress.external.namespace}
+        http:                                 # ${dataplane.gateway.ingress.external.http}
+          listenerName: "http"                # ${dataplane.gateway.ingress.external.http.listenerName}
+          port: 8080                          # ${dataplane.gateway.ingress.external.http.port}
+          host: "app.example.com"             # ${dataplane.gateway.ingress.external.http.host}
+        https:                                # ${dataplane.gateway.ingress.external.https}
+          listenerName: "https"
+          port: 8443
+          host: "app.example.com"
   observabilityPlaneRef:                      # ${dataplane.observabilityPlaneRef}
     kind: "ObservabilityPlane"                # ${dataplane.observabilityPlaneRef.kind} - "ObservabilityPlane" or "ClusterObservabilityPlane"
     name: "my-obs-plane"                      # ${dataplane.observabilityPlaneRef.name}
 ```
 
-**Optional fields:** `secretStore`, `publicVirtualHost`, and `observabilityPlaneRef` are optional. If not configured on the DataPlane, the field will be absent from the context. Use `has()` to guard conditional logic:
+**Optional fields:** `secretStore`, `gateway`, and `observabilityPlaneRef` are optional. If not configured on the DataPlane, the field will be absent from the context. Use `has()` to guard conditional logic:
 
 ```yaml
 # Guard with has() for conditional inclusion
@@ -223,6 +235,50 @@ spec:
     name: ${dataplane.secretStore}
     kind: ClusterSecretStore
 ```
+
+### gateway
+
+Top-level gateway configuration resolved for the component's environment. If the environment has its own gateway configuration, it takes precedence over the dataplane gateway.
+
+```yaml
+# Access pattern: ${gateway.<field>}
+
+gateway:
+  ingress:
+    external:
+      name: "gateway-default"                 # ${gateway.ingress.external.name}
+      namespace: "openchoreo-data-plane"       # ${gateway.ingress.external.namespace}
+      http:
+        listenerName: "http"                   # ${gateway.ingress.external.http.listenerName}
+        port: 8080                             # ${gateway.ingress.external.http.port}
+        host: "app.example.com"                # ${gateway.ingress.external.http.host}
+      https:
+        listenerName: "https"                  # ${gateway.ingress.external.https.listenerName}
+        port: 8443                             # ${gateway.ingress.external.https.port}
+        host: "app.example.com"               # ${gateway.ingress.external.https.host}
+    internal:
+      name: "gateway-internal"                 # ${gateway.ingress.internal.name}
+      namespace: "openchoreo-data-plane"       # ${gateway.ingress.internal.namespace}
+```
+
+**Optional:** The `gateway` field is optional. Use `has()` to guard conditional logic.
+
+### environment
+
+Environment-specific configuration for the target environment.
+
+```yaml
+# Access pattern: ${environment.<field>}
+
+environment:
+  gateway:                                     # ${environment.gateway} - environment-specific gateway overrides
+    ingress:
+      external:
+        name: "env-gateway"
+  defaultNotificationChannel: "my-channel"     # ${environment.defaultNotificationChannel}
+```
+
+**Optional:** The `environment` fields are optional. If the environment does not have specific gateway configuration, the dataplane gateway is used as a fallback via the top-level `gateway` variable.
 
 ### workload
 
@@ -746,8 +802,11 @@ The entire rendered Kubernetes resource is available, including:
 | `parameters.*` | ✅ (from Component.Spec.Parameters) | ✅ (from Trait instance) |
 | `environmentConfigs.*` | ✅ (from ReleaseBinding.ComponentTypeEnvironmentConfigs) | ✅ (from ReleaseBinding.TraitEnvironmentConfigs) |
 | `dataplane.*` | ✅ | ✅ |
+| `gateway.*` | ✅ | ✅ |
+| `environment.*` | ✅ | ✅ |
 | `workload.*` | ✅ | ✅ |
 | `configurations.*` | ✅ | ✅ |
+| `connections.*` | ✅ | ✅ |
 | `trait.*` | ❌ | ✅ |
 | Loop variable | ✅ (in forEach) | ✅ (in forEach) |
 | `resource` | ❌ | ✅ (in where only) |

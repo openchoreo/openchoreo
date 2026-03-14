@@ -1,6 +1,6 @@
-# Choreo Resource Kinds
+# OpenChoreo Resource Kinds
 
-This document describes the core kinds used in Choreo CRDs, the relationships between them, and detailed information about each kind.
+This document describes the resource kinds used in OpenChoreo CRDs, the relationships between them, and detailed information about each kind.
 
 ## Overview
 
@@ -8,1612 +8,755 @@ This document describes the core kinds used in Choreo CRDs, the relationships be
 - [Resource Hierarchy](#resource-hierarchy)
 - [Kubernetes Metadata Representation](#kubernetes-metadata-representation)
 - [Resource Kinds](#resource-kinds)
-    - [DataPlane](#dataplane)
-    - [Environment](#environment)
-    - [DeploymentPipeline](#deploymentpipeline)
+  - [Developer Abstractions](#developer-abstractions)
     - [Project](#project)
     - [Component](#component)
-    - [DeploymentTrack](#deploymenttrack)
-    - [Build](#build)
-    - [DeployableArtifact](#deployableartifact)
-    - [Deployment](#deployment)
-    - [DeploymentRevision](#deploymentrevision)
-    - [Endpoint](#endpoint)
-    - [ConfigurationGroup](#configurationgroup)
-    - [Secret](#secret)
+    - [Workload](#workload)
+    - [ComponentRelease](#componentrelease)
+    - [ReleaseBinding](#releasebinding)
+    - [RenderedRelease](#renderedrelease)
+  - [Composition and Templating](#composition-and-templating)
+    - [ComponentType / ClusterComponentType](#componenttype--clustercomponenttype)
+    - [Trait / ClusterTrait](#trait--clustertrait)
+    - [Workflow / ClusterWorkflow](#workflow--clusterworkflow)
+    - [WorkflowRun](#workflowrun)
+  - [Platform Infrastructure](#platform-infrastructure)
+    - [DeploymentPipeline](#deploymentpipeline)
+    - [Environment](#environment)
+    - [DataPlane / ClusterDataPlane](#dataplane--clusterdataplane)
+    - [WorkflowPlane / ClusterWorkflowPlane](#workflowplane--clusterworkflowplane)
+    - [ObservabilityPlane / ClusterObservabilityPlane](#observabilityplane--clusterobservabilityplane)
+  - [External Configuration](#external-configuration)
+    - [SecretReference](#secretreference)
+  - [Authorization](#authorization)
+    - [AuthzRole / ClusterAuthzRole](#authzrole--clusterauthzrole)
+    - [AuthzRoleBinding / ClusterAuthzRoleBinding](#authzrolebinding--clusterauthzrolebinding)
+  - [Observability Alerts](#observability-alerts)
+    - [ObservabilityAlertRule](#observabilityalertrule)
+    - [ObservabilityAlertsNotificationChannel](#observabilityalertsnotificationchannel)
 
 ## Design Considerations
 
-When designing the resource kinds for Choreo v3, several principles have been followed to ensure the consistency between resource kinds. These considerations help to keep a clear mapping of Choreo concepts to resource kinds while maintaining the simplicity of the resource model.
+When designing the resource kinds for OpenChoreo, several principles have been followed to ensure consistency between resource kinds. These considerations help to keep a clear mapping of OpenChoreo concepts to resource kinds while maintaining simplicity.
 
-- Each concept in Choreo will have a corresponding resource kind. This one-to-one mapping will ensures that the users can easily understand the resource model.
-- In situations where a resource kind is required but does not directly correspond to a core Choreo concept, the following will apply:
-    - If two resource kinds share a one-to-one relationship, they will be combined into a single resource kind.
-    - If combining them introduces implementation complexity or if it makes logical sense to keep them distinct, keep them as separate resource kinds. For example,
-        - Implementation complexity: A resource kinds with many fields may cause the controller to perform many operations, leading to processing delays for that resource kind.
-        - Logical sense: `Deployment` and `DeploymentRevision` are kept as separate resource kinds. For example, `Deployment` and `HorizontalPodAutoscaler` in Kubernetes.
-    - For resource kinds with a one-to-many relationship, the child resources can be embedded within the parent resource kind with `<KindName>TemplateSpec` to define the specifications of the child resources to reduce the number of resource kinds.
+- Each concept in OpenChoreo has a corresponding resource kind. This one-to-one mapping ensures that users can easily understand the resource model.
+- In situations where a resource kind is required but does not directly correspond to a core concept:
+  - If two resource kinds share a one-to-one relationship, they are combined into a single resource kind.
+  - If combining them introduces implementation complexity or if it makes logical sense to keep them distinct, they remain separate.
+- **Scope pairing**: Most resources have namespace-scoped and cluster-scoped variants (e.g., `ComponentType` / `ClusterComponentType`). Cluster-scoped types can only reference other cluster-scoped types.
+- **Immutability**: Key fields use `XValidation:rule="self == oldSelf"` to enforce immutability after creation (e.g., ComponentRelease spec, Component owner).
+- **CEL templating**: Resource templates, trait creates/patches, and workflow templates use `${...}` syntax for CEL expressions.
 
 [Back to Top](#overview)
 
 ## Resource Hierarchy
 
-The following diagram shows the relationships between the core kinds in Choreo v3.
+The following diagram shows the relationships between the core resource kinds in OpenChoreo.
 
 ```mermaid
 erDiagram
     Project ||--o{ Component : "contains"
-    Component ||--|{ DeploymentTrack : "contains"
-    DeploymentTrack ||--o{ Build : "contains"
-    Build ||..|| DeployableArtifact : "produces"
-    DeployableArtifact ||--o{ Deployment : "deploys"
-    DeploymentTrack ||--o{ DeployableArtifact : "contains"
-    DeployableArtifact }o--o{ ConfigurationGroup : "refers"
-    DeploymentTrack ||--o{ Deployment : "contains"
+    Component ||--|| Workload : "has"
+    Component }o--|| ComponentType : "references"
+    Component ||--o{ ComponentRelease : "creates"
+    ComponentRelease ||--o{ ReleaseBinding : "bound to"
+    ReleaseBinding ||--o{ RenderedRelease : "renders"
+    ReleaseBinding }o--|| Environment : "targets"
+    Environment }o--|| DataPlane : "references"
+    Project }o--|| DeploymentPipeline : "references"
+    DeploymentPipeline }o--o{ Environment : "defines promotion paths"
+    ComponentType }o--o{ Trait : "embeds/allows"
+    Component }o--o{ Trait : "attaches"
+    Component }o--o| Workflow : "references"
+```
 
-    Project }|--|| DeploymentPipeline : "refers"
-    Environment ||--o{ Deployment: "contains"
-    DeploymentPipeline }o--|{ Environment : "refers"
-    DataPlane ||--o{ Environment : "contains"
-    Deployment ||--|{ DeploymentRevision : "produces"
-    Deployment ||--o{ Endpoint : "contains"
+### Core Deployment Flow
+
+```
+Project (defines deployment pipeline)
+  └── Component (references ComponentType, attaches Traits, configures Workflow)
+       ├── Workload (container spec, endpoints, dependencies)
+       └── ComponentRelease (immutable snapshot of ComponentType + Traits + Workload)
+            └── ReleaseBinding (binds release to Environment with overrides)
+                 └── RenderedRelease (final K8s manifests → applied to DataPlane)
+```
+
+### Platform Infrastructure
+
+```
+DeploymentPipeline (defines promotion paths between Environments)
+Environment (runtime context: dev/staging/prod, references DataPlane)
+DataPlane / ClusterDataPlane (target K8s cluster, agent-based connectivity)
+WorkflowPlane / ClusterWorkflowPlane (Argo-based CI/CD execution)
+ObservabilityPlane / ClusterObservabilityPlane (OpenSearch-based monitoring)
 ```
 
 [Back to Top](#overview)
 
 ## Kubernetes Metadata Representation
 
-To represent the Choreo hierarchical resource model in Kubernetes, the following rules will be followed:
+OpenChoreo resources use standard Kubernetes metadata conventions:
 
-1. Kubernetes Namespaces are used as the top-level boundary in OpenChoreo to group projects and other resources.
-2. The resources within a namespace (e.g., Components, Projects, Environments, DataPlanes) will be represented as Namespaced resources in Kubernetes.
-3. The relationships between namespaced resources will be represented using Kubernetes labels.
-4. Any other metadata will be represented as annotations in the Kubernetes resources (e.g., Display Name, Description).
+| Field | Description |
+|-------|-------------|
+| `metadata.name` | Unique name within scope (namespace or cluster) |
+| `metadata.namespace` | Namespace for namespace-scoped resources |
+| `metadata.labels` | Kubernetes labels for selection and filtering |
+| `metadata.annotations` | Additional metadata |
 
-### Labels Based Relationships
-
-The following labels format will be used to represent the relationships between the resources:
-
-`openchoreo.dev/<kind-lowecase>=<resource-name>`
-
-Examples:
-- `openchoreo.dev/project=my-project`: The project name that the resource belongs to.
-
-In addition to the above labels, the following label will be used to represent the name of the resource:
-
-`openchoreo.dev/name=<resource-name>`
-
-The reason for using having additional label for the resource name is to keep the Choreo hierarchical naming without conflicting with the Kubernetes resource name.
-This will allow duplicate resource names within the same namespace such as having two components with the same name in different projects.
+Resources are organized under Kubernetes namespaces which serve as organizational boundaries (similar to organizations/tenants). Projects, Components, and their related resources all live within a namespace.
 
 [Back to Top](#overview)
 
 ## Resource Kinds
 
-The following sections describe each resource kind in detail and provide information about the fields and relationships of each resource kind.
+### Developer Abstractions
 
-### DataPlane
+---
 
-The `DataPlane` resource kind represents a Private Data Plane in Choreo. The controller of this resource kind is responsible for keeping the health status of the data plane. All other resources kinds will refer to this resource
-to get the data plane information.
+#### Project
 
-**Field Reference:**
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Purpose** | Logical grouping of related components and definition of deployment progression |
 
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: DataPlane
-metadata:
-  # Unique name of the data plane within the namespace.
-  #
-  # +required
-  # +immutable
-  name: us-dp-1
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the data plane.
-    #
-    # +optional
-    openchoreo.dev/display-name: US Data Plane
-    # Description of the data plane.
-    #
-    # +optional
-    openchoreo.dev/description: Data plane for the US region
-spec:
-  kubernetesCluster:
-    # Name of the kubernetes cluster
-    #
-    # +required
-    name: choreo-dev-dataplane-aks-cluster-002
-    # Reference to the connection config for the kubernetes cluster.
-    # Consumers of this data plane will use this connection config to connect to the kubernetes cluster.
-    #
-    # +required
-    connectionConfigRef: cdp-1-aks-connection-config
-    # Map of feature flags that are enabled for the data plane.
-    #
-    # +optional
-    featureFlags:
-      cilium: true
-      scaleToZero: true
-      gatewayType: envoy
-  # Configuration for the gateway that is used by the data plane.
-  #
-  # +required
-  gateway:
-    # Virtual host used by the public gateway.
-    publicVirtualHost: e1-us-east-azure.preview-dv.choreoapis.dev
-    # Virtual host used by the organization gateway (aka internal gateway).
-    organizationVirtualHost: e1-us-east-azure.internal.preview-dv.choreoapis.dev
-```
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `deploymentPipelineRef` | DeploymentPipelineRef | Yes | References the DeploymentPipeline that defines environments and promotion paths |
+
+**Status:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `observedGeneration` | int64 | Last observed generation |
+| `conditions` | []Condition | Standard Kubernetes conditions |
+
+**Relationships:**
+- References: DeploymentPipeline
+- Owns: Components, ReleaseBindings
 
 [Back to Top](#overview)
 
-### Environment
+---
 
-The `Environment` resource kind represents an environment bound to a specific data plane in Choreo.
-The `spec.dataPlaneRef` field should point to a existing `DataPlane` resource that the environment is associated with.
+#### Component
 
-**Field Reference:**
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Short Names** | `comp`, `comps` |
+| **Purpose** | Developer's deployable unit — the primary resource developers interact with |
 
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: Environment
-metadata:
-  # Unique name of the environment within the namespace.
-  #
-  # +required
-  # +immutable
-  name: us-production
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the environment.
-    #
-    # +required
-    # +mutable
-    openchoreo.dev/display-name: Production
-    # Description of the environment.
-    #
-    # +optional
-    # +mutable
-    openchoreo.dev/description: Production environment for the US region
-spec:
-  # Reference to the data plane that the environment is associated with.
-  # Supports both namespace-scoped DataPlane and cluster-scoped ClusterDataPlane.
-  #
-  # +optional (defaults to DataPlane named "default" in same namespace)
-  # +immutable
-  dataPlaneRef:
-    # Kind of data plane (DataPlane or ClusterDataPlane)
-    # +required
-    kind: DataPlane
-    # Name of the data plane resource
-    # +required
-    name: us-cdp-1
-  # Indicates if the environment is a production environment (aka Critical).
-  #
-  # +optional (default: false)
-  # +immutable
-  isProduction: true/false
-  # Override the DNS prefix for the domain names used by the environment.
-  # Note: DNSPrefix is currently defined in the API but not actively used in domain name construction.
-  # The actual domain names are constructed as follows:
-  # - Environment-level routes: `<environmentName>.<dataPlanePublicVirtualHost>`
-  # - Component-level routes: `<component-env-hash>.<dataPlanePublicVirtualHost>`
-  # where component-env-hash is a generated hash based on component and environment names.
-  #
-  #
-  # If not provided, the environment name will be used as the dns prefix.
-  #
-  # +optional
-  # +immutable
-  dnsPrefix: us-production
-```
+**Spec:**
+
+| Field | Type | Required | Mutable | Description |
+|-------|------|----------|---------|-------------|
+| `owner.projectName` | string | Yes | No | Parent Project name |
+| `componentType` | ComponentTypeRef | Yes | No | References ComponentType in format `{workloadType}/{name}` |
+| `autoDeploy` | bool | No | Yes | Auto-create ComponentRelease and ReleaseBinding on changes |
+| `autoBuild` | bool | No | Yes | Trigger builds on code push (requires webhooks) |
+| `parameters` | RawExtension | No | Yes | Developer-provided values matching ComponentType schema |
+| `traits[]` | ComponentTrait[] | No | Yes | Additional trait instances (instanceName, kind, name, parameters) |
+| `workflow` | ComponentWorkflowConfig | No | Yes | Build workflow reference (kind, name, parameters) |
+
+**Status:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `observedGeneration` | int64 | Last observed generation |
+| `conditions` | []Condition | Standard Kubernetes conditions |
+| `latestRelease` | LatestRelease | Name and hash of the latest ComponentRelease |
+
+**Relationships:**
+- Owner: Project (via `spec.owner.projectName`)
+- References: ComponentType or ClusterComponentType, Trait/ClusterTrait, Workflow/ClusterWorkflow
+- Creates: ComponentRelease (when `autoDeploy=true`)
+- Has: Workload (one-to-one, same namespace)
 
 [Back to Top](#overview)
 
-### DeploymentPipeline
+---
 
-The `DeploymentPipeline` resource kind represents an ordered set of environments that a deployment will go through to reach a critical environment.
-Each namespace will have a default deployment pipeline that will be used for all deployments unless a custom deployment pipeline is specified.
+#### Workload
 
-**Field Reference:**
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Purpose** | Container specification, endpoints, connections, and source configuration for a component |
 
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: DeploymentPipeline
-metadata:
-  # Unique name of the deployment pipeline within the namespace.
-  #
-  # +required
-  # +immutable
-  name: default-deployment-pipeline
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the deployment pipeline.
-    #
-    # +required
-    openchoreo.dev/display-name: Default deployment pipeline
-    # Description of the deployment pipeline.
-    #
-    # +optional
-    openchoreo.dev/description: Allows promoting from dev to production
-spec:
-  # List of promotion paths in the deployment pipeline.
-  # The order of the promotion paths in the list is the order in which the promotion will happen.
-  #
-  # +required
-  promotionPaths:
-    # Source environment name for the promotion path.
-    # This should be a reference name to an existing environment.
-    #
-    # +required
-    - sourceEnvironmentRef:
-        name: us-development
-      # Target environments for the promotion path.
-      #
-      # +required
-      targetEnvironmentRefs:
-        # Target environment name for the promotion path.
-        # This should be a reference name to an existing environment.
-        #
-        # +required
-        - name: us-staging
-        - name: us-production
-    - sourceEnvironmentRef:
-        name: us-staging
-      targetEnvironmentRefs:
-        - name: us-production
-```
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `owner.projectName` | string | Yes | Parent Project (immutable) |
+| `owner.componentName` | string | Yes | Parent Component (immutable) |
+| `container.image` | string | Yes | OCI container image |
+| `container.command` | []string | No | Container entrypoint |
+| `container.args` | []string | No | Container arguments |
+| `container.env[]` | EnvVar[] | No | Environment variables (key/value or secretKeyRef) |
+| `container.files[]` | FileVar[] | No | Mounted files (key/mountPath/value or secretKeyRef) |
+| `endpoints` | map[string]WorkloadEndpoint | No | Named endpoints with type, port, visibility, basePath |
+| `dependencies.endpoints[]` | WorkloadConnection[] | No | Dependencies on other components' endpoints |
+
+**Endpoint Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | EndpointType | Yes | HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP |
+| `port` | int32 | Yes | Exposed port |
+| `targetPort` | int32 | No | Container listening port (defaults to port) |
+| `visibility` | []EndpointVisibility | No | project, namespace, internal, external |
+| `basePath` | string | No | URL base path |
+| `schema` | EndpointSchema | No | API schema (type + content) |
+
+**Relationships:**
+- Owner: Component (via `spec.owner.componentName`)
+- Referenced by: ComponentRelease (snapshot copy)
 
 [Back to Top](#overview)
 
-### Project
+---
 
-The `Project` resource kind represents a project in Choreo which enforces a promotion order for the components within the project.
+#### ComponentRelease
 
-**Field Reference:**
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Purpose** | Immutable snapshot created when a component is released, capturing frozen specs |
 
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: Project
-metadata:
-  # Unique name of the project within the namespace.
-  #
-  # +required
-  # +immutable
-  name: test-project
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the project.
-    #
-    # +required
-    openchoreo.dev/display-name: Test Project
-    # Description of the project.
-    #
-    # +optional
-    openchoreo.dev/description: Test Project Description
-spec:
-  # Reference to the deployment pipeline that defines the order of promotion of the components
-  # within this project across environments.
-  #
-  # If not provided, the default deployment pipeline will be used.
+All spec fields are **immutable** after creation (enforced via `XValidation:rule="self == oldSelf"`).
 
-  # This field and region field are mutually exclusive.
-  #
-  # +optional
-  deploymentPipelineRef: default-deployment-pipeline
-```
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `owner.projectName` | string | Yes | Parent Project |
+| `owner.componentName` | string | Yes | Parent Component |
+| `componentType` | ComponentReleaseComponentType | Yes | Frozen ComponentType kind, name, and full spec |
+| `traits[]` | ComponentReleaseTrait[] | No | Frozen Trait kind, name, and full spec |
+| `componentProfile` | ComponentProfile | No | Frozen parameters and trait configurations |
+| `workload` | WorkloadTemplateSpec | Yes | Frozen workload (container, endpoints) |
+
+**Relationships:**
+- Owner: Component
+- Referenced by: ReleaseBinding (via `spec.releaseName`)
+- Contains frozen copies of: ComponentType spec, Trait specs, Workload spec
 
 [Back to Top](#overview)
 
-### Component
+---
 
-The `Component` resource kind represents a deployable unit in Choreo that manages the entire lifecycle of the component from source to deployment.
-The `spec.type` field defines the deployment architecture of the component.
+#### ReleaseBinding
 
-**Field Reference:**
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Purpose** | Binds a ComponentRelease to an Environment with environment-specific overrides |
 
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: Component
-metadata:
-  # Unique name of the component within the project (namespace).
-  #
-  # +required
-  # +immutable
-  name: test-component
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the component.
-    #
-    # +required
-    openchoreo.dev/display-name: Test Component
-    # Description of the component.
-    #
-    # +optional
-    openchoreo.dev/description: Test Component Description
-  labels:
-    # Project name that this component belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/project: test-project
-spec:
-  # Type of the component that indicates how the component deployed.
-  #
-  # +allowedValues: [Service, ManualTask, ScheduledTask, WebApplication, Webhook, APIProxy, TestRunner, EventHandler]
-  # +required
-  type: Service
-  # Source information of the component where the code or image is retrieved.
-  #
-  # Only one of the source types can be provided.
-  #
-  # +required
-  source:
-    # Configuration for the component source to be a git repository.
-    # This will indicate this component should be built from the source code.
-    #
-    # This filed is mutually exclusive with the other source types.
-    #
-    # +optional
-    gitRepository:
-      # URL of the git repository.
-      #
-      # +required
-      url: https://github.com/jhonb2077/byoc-service
-      # Authentication information to access the git repository.
-      #
-      # If not provided, the git repository should be public.
-      #
-      # +optional
-      authentication:
-        # Reference to the secret that contains the git repository authentication information.
-        #
-        # +required
-        secretRef: git-secret
-        # Configure the authentication as GitHub Apps.
-        #
-        # This filed is mutually exclusive with the other authentication types and assumes
-        # the GitHub App is already installed in the repository.
-        #
-        # +optional
-        appGitHub: {}
-    # Configuration for the component source to be a container image.
-    # This will indicate this component should be deployed using the provided image.
-    #
-    # This filed is mutually exclusive with the other source types.
-    #
-    # +optional
-    containerRegistry:
-      # Image name of the container image. The value should be in the format of <registry>/<image> without the tag.
-      #
-      # +required
-      imageName: choreoanonymouspullable.azurecr.io/pet-store
-      # Authentication information to access the container registry.
-      #
-      # If not provided, the container image should be public.
-      #
-      # +optional
-      authentication:
-        # Reference to the secret that contains the container registry authentication information.
-        secretRef: container-registry-secret
-```
+**Spec:**
+
+| Field | Type | Required | Mutable | Description |
+|-------|------|----------|---------|-------------|
+| `owner.projectName` | string | Yes | No | Parent Project |
+| `owner.componentName` | string | Yes | No | Parent Component |
+| `environment` | string | Yes | No | Target environment name |
+| `releaseName` | string | No | Yes | ComponentRelease to deploy |
+| `componentTypeEnvironmentConfigs` | RawExtension | No | Yes | Per-environment ComponentType overrides |
+| `traitEnvironmentConfigs` | map[string]RawExtension | No | Yes | Per-environment trait overrides (keyed by instanceName) |
+| `workloadOverrides` | WorkloadOverrideTemplateSpec | No | Yes | Container env/file overrides |
+| `state` | ReleaseState | No | Yes | Active (default), Suspend, or Undeploy |
+
+**Status:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `observedGeneration` | int64 | Last observed generation |
+| `conditions` | []Condition | Standard Kubernetes conditions |
+| `endpoints[]` | EndpointURLStatus[] | Resolved invoke URLs (service URL, gateway URLs) |
+| `resolvedConnections[]` | ResolvedConnection[] | Successfully resolved inter-component connections |
+| `pendingConnections[]` | PendingConnection[] | Connections awaiting resolution |
+| `secretReferenceNames[]` | []string | SecretReferences used by workload |
+
+**Relationships:**
+- Owner: Project (via `spec.owner.projectName`)
+- References: ComponentRelease, Environment
+- Creates: RenderedRelease (rendered K8s manifests)
 
 [Back to Top](#overview)
 
-### DeploymentTrack
+---
 
-The `DeploymentTrack` resource kind represents a deployment path for a component in Choreo that manages the deployment of the component across environments.
+#### RenderedRelease
 
-The deployment track will be responsible for following actions:
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Purpose** | Final rendered K8s manifests deployed to a data plane or observability plane |
 
-- Manage the auto deployment of the component to the first environment in the deployment pipeline based on a given trigger (e.g., successful build, edit to the deployable artifact).
-- Managing number of Build resources that are created for the deployment track.
-- Registering relevant webhooks to trigger the auto build.
+**Spec:**
 
-**Field Reference:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `owner.projectName` | string | Yes | Parent Project |
+| `owner.componentName` | string | Yes | Parent Component |
+| `environmentName` | string | Yes | Target environment |
+| `resources[]` | Resource[] | No | Rendered K8s resources (id + raw object) |
+| `targetPlane` | string | No | `dataplane` (default) or `observabilityplane` |
+| `interval` | Duration | No | Stable-state watch interval (default 5m) |
+| `progressingInterval` | Duration | No | Transitioning watch interval (default 10s) |
 
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: DeploymentTrack
-metadata:
-  # Unique name of the deployment track within the component (namespace).
-  #
-  # +required
-  # +immutable
-  name: test-deployment-track
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the deployment track.
-    #
-    # +required
-    openchoreo.dev/display-name: Test Deployment Track
-    # Description of the deployment track.
-    #
-    # +optional
-    openchoreo.dev/description: Test Deployment Track Description
-  labels:
-    # Component name that this deployment track belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/component: test-component
-    # Project name that this deployment track belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/project: test-project
-spec:
-  # API version of the managed APIs that are exposed via this deployment track.
-  #
-  # This will only be applicable to the component types that expose managed APIs.
-  #
-  # +optional (default: v1.0)
-  apiVersion: v1.0
-  # Indicates if the auto deployment is enabled for the deployment track.
-  #
-  # If enabled, the deployment track will be automatically deploy the most recent deployable artifact to
-  # the first environment in the deployment pipeline.
-  #
-  # +optional (default: false)
-  autoDeploy: true
-  # Build configuration for the all builds produced by this deployment track.
-  #
-  # This will be only applicable to the component types that has git repository as the source.
-  #
-  # +optional
-  buildTemplateSpec: {} # Refer the spec of the Build Kind for the field reference.
-```
+**Status:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `conditions` | []Condition | Standard Kubernetes conditions |
+| `resources[]` | ResourceStatus[] | Per-resource status with health tracking |
+
+**Resource Health States:** Unknown, Progressing, Healthy, Suspended, Degraded
+
+**Relationships:**
+- Created by: ReleaseBinding controller
+- Deployed to: DataPlane or ObservabilityPlane
+
+For detailed design documentation, see [RenderedRelease CRD Design](crds/renderedrelease.md).
 
 [Back to Top](#overview)
 
-### Build
+---
 
-The `Build` resource kind represents a source code to artifact transformation in Choreo.
-The build will be generally managed by the deployment track controller and the build controller will be responsible for the following actions:
+### Composition and Templating
 
-- Configure the build pipeline parameters based on the build configuration.
-- Monitor the build status and update the build status accordingly.
-- Track the docker images (build artifacts) that are produced by the build such that the deployable artifact controller can refer.
-- Create the deployable artifact resource once the build is successful.
+---
 
-**Field Reference:**
+#### ComponentType / ClusterComponentType
 
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: Build
-metadata:
-  # Unique name of the build within the deployment track (namespace).
-  #
-  # If the build is created by the deployment track, the name will be in
-  # the format of <deploymentTrackName>-<commitHash>-<randomString>
-  # where the randomString is a system generated string with 5 characters.
-  #
-  # +required
-  # +immutable
-  name: test-build
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the build.
-    #
-    # +required
-    openchoreo.dev/display-name: Test Build
-    # Description of the build.
-    #
-    # +optional
-    openchoreo.dev/description: Test Build Description
-  labels:
-    # Deployment track that this build belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/deployment-track: test-deployment-track
-    # Component name that this build belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/component: test-component
-    # Project name that this build belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/project: test-project
-spec:
-  # Branch of the git repository to build the component.
-  # The branch field takes priority over gitRevision when both are specified.
-  #
-  # +optional (default: main, gitRevision: latest)
-  branch: main
-  # Specific git revision in the git repository to build the component.
-  #
-  # +optional (default: latest)
-  gitRevision: 5c56ad8e34821bb76082a28aaa6dfd1ebb260b7a
-  # Path of the source code within the git repository.
-  #
-  # +optional (default: /)
-  path: /
-  # Indicates if the build should be triggered automatically when the source code changes.
-  #
-  # +optional (default: false)
-  autoBuild: true
-  # Build configuration for the build.
-  #
-  # +required
-  buildConfiguration:
-    # Configuration parameters related to the docker file based builds.
-    #
-    # This field is mutually exclusive with the other build configurations.
-    #
-    # +optional
-    docker:
-      # Override the context path of the docker build.
-      #
-      # If not provided, the .spec.buildTemplateSpec.path will be used.
-      #
-      # +optional (default: .spec.buildTemplateSpec.path)
-      context: /
-      # Path of the docker file within the source code.
-      #
-      # +optional (default: Dockerfile)
-      dockerfilePath: Dockerfile
-    # Configuration parameters related to the buildpack based builds.
-    #
-    # This field is mutually exclusive with the other build configurations.
-    #
-    # +optional
-    buildpack:
-      # Name of the buildpack to use for the build.
-      #
-      # +allowedValues: [React, Go, Ballerina, NodeJS, Python, Ruby, PHP, .NET]
-      # +required
-      name: Go
-      # Runtime version to use for the build. This field is optional and the latest version will be used if not provided.
-      #
-      # Certain buildpacks will be able to automatically detect the version from the source code and specify
-      # the version here means the build system will override the detected version.
-      #
-      # +optional (default: latest)
-      version: 1.x
-  # Environment variables and secrets to be set during the build process.
-  #
-  # +optional
-  buildEnvironment:
-    # Environment variables to be set during the build process.
-    #
-    # +optional
-    env:
-      # Name of the environment variable.
-      #
-      # +required
-      - name: ENV_VAR_1
-        # Value of the environment variable.
-        #
-        # +required
-        value: value1
-    # Environment variables to be set from the secret references during the build process.
-    #
-    # +optional
-    envFrom:
-      # Reference to the secret that contains the environment variables.
-      #
-      # +required
-      - secretRef: secret1
-```
+| | |
+|---|---|
+| **Scope** | Namespaced (`ComponentType`) / Cluster (`ClusterComponentType`) |
+| **Short Names** | `ct`, `cts` |
+| **Purpose** | Platform engineer's template defining what a component looks like and what resources it creates |
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `workloadType` | string | Yes | Immutable. One of: deployment, statefulset, cronjob, job, proxy |
+| `parameters` | SchemaSection | No | Developer-configurable fields (ocSchema or openAPIV3Schema) |
+| `environmentConfigs` | SchemaSection | No | Per-environment override schema |
+| `traits[]` | ComponentTypeTrait[] | No | Pre-configured embedded traits with parameter/environmentConfig bindings |
+| `allowedTraits[]` | TraitRef[] | No | Additional traits developers can attach |
+| `allowedWorkflows[]` | WorkflowRef[] | No | Permitted build workflows |
+| `validations[]` | ValidationRule[] | No | CEL validation rules |
+| `resources[]` | ResourceTemplate[] | Yes (min 1) | K8s resource templates with CEL expressions |
+
+**ResourceTemplate Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | Yes | Resource identifier (must match workloadType for primary resource) |
+| `targetPlane` | string | No | `dataplane` (default) or `observabilityplane` |
+| `includeWhen` | string | No | CEL expression — conditionally include resource |
+| `forEach` | string | No | CEL expression — iterate to create multiple resources |
+| `var` | string | No | Loop variable name |
+| `template` | RawExtension | Yes | K8s resource with `${...}` CEL template expressions |
+
+**SchemaSection** supports two mutually exclusive formats:
+- `ocSchema` — OpenChoreo shorthand format (e.g., `replicas: "integer | default=1"`)
+- `openAPIV3Schema` — Standard OpenAPI v3 JSON Schema
+
+**Cluster-scoped variant** (`ClusterComponentType`) only references `ClusterTrait` and `ClusterWorkflow`.
 
 [Back to Top](#overview)
 
-### DeployableArtifact
+---
 
-The `DeployableArtifact` resource kind represents a build artifact with environment independent configurations that is ready to be deployed to an environment.
-This resource can be either created by the build controller or manually by the user to refer to an existing build with a commit hash.
+#### Trait / ClusterTrait
 
-**Field Reference:**
+| | |
+|---|---|
+| **Scope** | Namespaced (`Trait`) / Cluster (`ClusterTrait`) |
+| **Purpose** | Composable behavior that can be added to components — creates new resources or patches existing ones |
 
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: DeployableArtifact
-metadata:
-  # Unique name of the deployable artifact within the deployment track (namespace).
-  #
-  # If the deployable artifact is created by the build, the name will be in
-  # the format of <buildName>-<hash>
-  # where the hash is a system generated string based on the Build spec.
-  # This hash ensures the each spec changes will create a unique deployable artifact.
-  #
-  # +required
-  # +immutable
-  name: test-deployable-artifact
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the deployable artifact.
-    #
-    # +required
-    openchoreo.dev/display-name: Test Deployable Artifact
-    # Description of the deployable artifact.
-    #
-    # +optional
-    openchoreo.dev/description: Test Deployable Artifact Description
-  labels:
-    # Deployment track that this deployable artifact belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/deployment-track: test-deployment-track
-    # Component name that this deployable artifact belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/component: test-component
-    # Project name that this deployable artifact belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/project: test-project
-spec:
-  # Reference to the artifact that is being deployed.
-  #
-  # +required
-  targetArtifact:
-    # Reference to the build that produced this deployable artifact. This filed is automatically
-    # populated by the build upon successful build if this resource is created by the build.
-    # If the field is set by the user, this deployable artifact will refer to an existing build.
-    #
-    # This field is mutually exclusive with the other fields.
-    #
-    # +optional
-    fromBuildRef:
-      # Name of the build to retrieve the deployable artifact. This field is automatically
-      # populated by the build upon successful build if this resource is created by the build.
-      # If the field is set by the user, this deployable artifact will refer to an existing build.
-      #
-      # This field is mutually exclusive with the other fields.
-      #
-      # +optional
-      name: test-build
-      # Refer to a build that has the given git revision in the build spec.
-      # If there are multiple builds with the same git revision is present, the latest build will be selected.
-      #
-      # This field is mutually exclusive with the other fields.
-      #
-      # +optional
-      gitRevision: a1b2c3d4
-    # Reference to the image tag that is being deployed. This filed will be only applicable
-    # to the component types that has image as the source.
-    #
-    # This field is mutually exclusive with the other fields.
-    #
-    # +optional
-    fromImageRef:
-      # Name of the image tag to deploy.
-      #
-      # +optional (default: latest)
-      tag: v1.2.0
-      # Indicates if the image tag should be validated against the deployment track version.
-      # If enabled, the image tag should be validate against the deployment track version according to the semantic versioning.
-      #
-      # This flag has no effect if the component type belongs to Task category (ScheduledTask, ManualTask).
-      #
-      # +optional (default: false)
-      skipVersionValidation: true
-  # Configuration parameters bound to this deployable artifact.
-  # These configuration parameters are independent from environment specific configurations.
-  #
-  # Certain configurations are populated by reading the configuration descriptor (component.yaml) in the source code.
-  #
-  # +optional
-  configuration:
-    # List of endpoints that are exposed by the component.
-    #
-    # +optional
-    endpointTemplates:
-      # Metadata of the endpoint derived from the component.yaml.
-      - metadata:
-          name: test-endpoint
-          displayName: Test Endpoint
-          description: Test Endpoint Description
-        spec: {} # Refer the spec of the Endpoint Kind for the field reference.
-    # Dependencies that are required by the component.
-    #
-    # +optional
-    dependencies:
-      # Reference to the service connection that are deployed in Choreo.
-      #
-      # TODO: Finalize the parameters of the service connection.
-      #
-      # +optional
-      connectionReferenceTemplates:
-        - name: test-service
-          resourceRef: test-connection
-          env:
-            - from: test-connection
-              to: TEST_CONNECTION
-    # Application runtime parameters.
-    #
-    # TODO: Select a name for this field, application or container or runtime?
-    #
-    # +optional
-    application:
-      # Command line arguments that are passed to the process.
-      #
-      # +optional
-      args: ["--test-arg"]
-      # Environment variables that are passed to the process.
-      #
-      # +optional
-      env:
-        # Name of the environment variable.
-        #
-        # +required
-        - key: TEST_ENV
-          # Value of the environment variable.
-          #
-          # This field is mutually exclusive with other value fields.
-          #
-          # +optional
-          value: test
-          # Value of the environment variable from an external source.
-          #
-          # This field is mutually exclusive with other value fields.
-          #
-          # +optional
-          valueFrom:
-            # Reference to the configuration group that contains the value for this environment variable.
-            # This field is used to refer Choreo v2 configuration groups.
-            #
-            # This field is mutually exclusive with the other reference fields.
-            #
-            # +optional
-            configurationGroupRef:
-              # Name of the configuration group.
-              #
-              # +required
-              name: test-config-group
-              # Key of the configuration group.
-              #
-              # +required
-              key: test-key
-            # Reference to the secret resource that contains the value for this environment variable.
-            # The secret should be a kind with type Generic.
-            #
-            # This field is mutually exclusive with the other reference fields.
-            #
-            # +optional
-            secretKeyRef:
-              # Name of the secret.
-              #
-              # +required
-              name: test-secret
-              # Key of the secret.
-              #
-              # +required
-              key: secret-key
-      # Group of environment variables that are passed to the process.
-      #
-      # +optional
-      envFrom:
-        # Reference to the configuration group that contains the environment variables.
-        # This field is used to refer Choreo v2 configuration groups.
-        #
-        # This field is mutually exclusive with the other reference fields.
-        #
-        # +optional
-        - configurationGroupRef:
-            # Name of the configuration group.
-            #
-            # +required
-            name: test-config-group
-        # Reference to the secret resource that contains the environment variables.
-        # The secret should be a kind with type Generic.
-        #
-        # This field is mutually exclusive with the other reference fields.
-        #
-        # +optional
-        - secretRef:
-            # Name of the secret.
-            #
-            # +required
-            name: test-secret
-      # Read only configuration files that are mounted to the container.
-      #
-      # +optional
-      fileMounts:
-        # Full path of the file in the container.
-        #
-        # +required
-        - mountPath: /etc/config/test.properties
-          # Content of the file.
-          #
-          # This field is mutually exclusive with other value fields.
-          #
-          # +optional
-          value: |
-            key1=value1
-            key2=value2
-          # Reference to the configuration group that contains the file content.
-          #
-          # This field is used to refer Choreo v2 configuration groups.
-          #
-          # +optional
-          valueFrom:
-            # Reference to the configuration group that contains the value for this file.
-            # This field is used to refer Choreo v2 configuration groups.
-            #
-            # This field is mutually exclusive with the other reference fields.
-            #
-            # +optional
-            configurationGroupRef:
-              # Name of the configuration group.
-              #
-              # +required
-              name: test-config-group
-              # Key of the configuration group.
-              #
-              # +required
-              key: test-key
-            # Reference to the secret resource that contains the value for this file.
-            # The secret should be a kind with type Generic.
-            #
-            # This field is mutually exclusive with the other reference fields.
-            #
-            # +optional
-            secretKeyRef:
-              # Name of the secret.
-              #
-              # +required
-              name: test-secret
-              # Key of the secret.
-              #
-              # +required
-              key: secret-key
-      # Group of read only configuration files that are mounted to the container.
-      #
-      # +optional
-      fileMountsFrom:
-        # Reference to the configuration group that contains the contents for the files.
-        # This field is used to refer Choreo v2 configuration groups.
-        #
-        # This field is mutually exclusive with the other reference fields.
-        #
-        # +optional
-        - configurationGroupRef:
-            # Name of the configuration group.
-            #
-            # +required
-            name: test-config-group
-            # Mount path of the configuration group. The value should be the absolute path of a directory.
-            #
-            # +required
-            mountPath: /etc/config/
-        # Reference to the secret resource that contains the contents for the files.
-        # The secret should be a kind with type Generic.
-        #
-        # This field is mutually exclusive with the other reference fields.
-        #
-        # +optional
-        - secretRef:
-            # Name of the secret.
-            #
-            # +required
-            name: test-secret
-            # Mount path of the secret. The value should be the absolute path of a directory.
-            #
-            # +required
-            mountPath: /etc/secret/
-      # Resource limits allocated by the runtime.
-      #
-      # If not provided, the default values enforced by the system will be used.
-      #
-      # +optional
-      resourceLimits:
-        # CPU limit of the container. This has an upper limit enforced by the system.
-        #
-        # +optional
-        cpu: 1
-        # Memory limit of the container. This has an upper limit enforced by the system.
-        #
-        # +optional
-        memory: 1Gi
-      # Health probes to monitor the application.
-      #
-      # If not provided, probes are configured based on the endpoint information.
-      #
-      # +optional
-      probes:
-        # Readiness probe to check if the application is ready to serve traffic.
-        #
-        # +optional
-        readinessProbe: {} # Refer https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#Probe for the field reference.
-        # Liveness probe to check if the application is alive.
-        #
-        # +optional
-        livenessProbe: {} # Refer https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#Probe for the field reference.
-      # Scaling configuration of the application.
-      #
-      # This field is mutually exclusive with task configuration.
-      # If not provided, the default values enforced by the system will be used.
-      #
-      # +optional
-      scaling:
-        # Horizontal Pod Autoscaler (HPA) configuration.
-        #
-        # This field is mutually exclusive with the other scaling configurations.
-        #
-        # +optional
-        hpa:
-          # Minimum number of replicas that should be running.
-          #
-          # +optional (default: 1)
-          minReplicas: 1
-          # Maximum number of replicas that allows to scale up.
-          #
-          # If not provided, the default value enforced by the system will be used.
-          # This has an upper limit enforced by the system.
-          #
-          # +optional
-          maxReplicas: 2
-          # Defines the CPU threshold to scale the application.
-          #
-          # +optional (default: 80)
-          cpuThreshold: 80
-          # Defines the memory threshold to scale the application.
-          #
-          # +optional (default: 80)
-          memoryThreshold: 80
-        # Scale to zero configuration.
-        #
-        # This field is mutually exclusive with the other scaling configurations.
-        #
-        # +optional
-        s2z:
-          # Minimum number of replicas that allows to scale up.
-          #
-          # If not provided, the default value enforced by the system will be used.
-          # This has an upper limit enforced by the system.
-          #
-          # +optional
-          maxReplicas: 2
-          # Defines the number of requests that should be queued before scaling up the application.
-          #
-          # +optional (default: 100)
-          queueLength: 100
-      # Configuration for the application when running as a task.
-      #
-      # This field is mutually exclusive with the scaling configuration.
-      #
-      # +optional
-      task:
-        # Indicates if the task should be active or not.
-        #
-        # For manual tasks, setting this to true will stop the running task.
-        # For scheduled tasks, setting this to false will stop the task from scheduling.
-        #
-        # +optional (default: false)
-        disabled: false
-        # Schedule configuration for the task.
-        #
-        # This field is only applicable for the scheduled tasks.
-        #
-        # +optional
-        schedule:
-           # Cron expression to schedule the task.
-           #
-           # +required
-           cron: "*/1 * * * *"
-           # Timezone of the cron expression.
-           #
-           # +optional (default: UTC)
-           timezone: "UTC"
-        
-```
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `parameters` | SchemaSection | No | Developer-facing configuration schema |
+| `environmentConfigs` | SchemaSection | No | Per-environment override schema |
+| `validations[]` | ValidationRule[] | No | CEL validation rules |
+| `creates[]` | TraitCreate[] | No | New K8s resources to create |
+| `patches[]` | TraitPatch[] | No | JSONPatch modifications to existing resources |
+
+**TraitCreate** has the same structure as ResourceTemplate (id, targetPlane, includeWhen, forEach, var, template).
+
+**TraitPatch Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `target` | PatchTarget | Yes | Target resource by group/version/kind, optional `where` CEL filter |
+| `targetPlane` | string | No | `dataplane` (default) or `observabilityplane` |
+| `forEach` | string | No | CEL expression for iteration |
+| `operations[]` | JSONPatchOperation[] | Yes (min 1) | JSONPatch operations (op: add/replace/remove, path, value) |
 
 [Back to Top](#overview)
 
-### Deployment
+---
 
-The `Deployment` resource kind represents a deployment in an environment that is bound to a deployment track.
-For a given deployment track and environment, only one deployment resource can be available at a time.
+#### Workflow / ClusterWorkflow
 
-The deployment controller will be responsible for the following actions:
+| | |
+|---|---|
+| **Scope** | Namespaced (`Workflow`) / Cluster (`ClusterWorkflow`) |
+| **Purpose** | Build workflow template defining how source code is built into container images |
 
-- Manage the deployment revisions based on the deployment configuration to track the deployment history.
-- Deploy the deployable artifact to the environment and merge any configuration overrides if provided.
-- Monitor the deployment status and update the deployment status accordingly.
-- Ensure the initial resource are created in the environment before deploying. (e.g., Namespace, NetworkPolicies, etc.)
+**Spec:**
 
-**Field Reference:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `workflowPlaneRef` | WorkflowPlaneRef | No | Target WorkflowPlane (default: ClusterWorkflowPlane/default) |
+| `parameters` | SchemaSection | No | Developer-configurable build parameters |
+| `runTemplate` | RawExtension | Yes | K8s resource template (typically Argo WorkflowTemplate) |
+| `resources[]` | WorkflowResource[] | No | Additional resources deployed alongside (secrets, configmaps) |
+| `externalRefs[]` | ExternalRef[] | No | External CR references resolved at runtime |
+| `ttlAfterCompletion` | string | No | TTL for cleanup (e.g., `90d`, `1h30m`) |
 
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: Deployment
-metadata:
-  # Unique name of the deployment that belongs to the deployment track and environment (namespace).
-  #
-  # Only one deployment can be available for a given deployment track and environment.
-  #
-  # +required
-  # +immutable
-  name: test-deployment
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the deployment.
-    #
-    # +required
-    openchoreo.dev/display-name: Test Deployment
-    # Description of the deployment.
-    #
-    # +optional
-    openchoreo.dev/description: Test Deployment Description
-  labels:
-    # Deployment track that this deployment belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/deployment-track: test-deployment-track
-    # Component name that this deployment belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/component: test-component
-    # Project name that this deployment belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/project: test-project
-    # Environment name that this deployment belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/environment: test-environment
-spec:
-  # Sets the number of deployment revisions to keep for rollback.
-  #
-  # +optional (default: 10)
-  revisionHistoryLimit: 10
-  # Reference to the deployment artifact that is being deployed.
-  #
-  # +required
-  deploymentArtifactRef: test-deployable-artifact
-  # Overrides for the configuration coming from the deployment artifact before being deployed.
-  # This can be used to set environment specific configurations.
-  #
-  # +optional
-  configurationOverrides:
-    # Endpoint configuration overrides for this specific deployment.
-    #
-    # +optional
-    endpointTemplates:
-      # Metadata of the endpoint configuration. Only the name is required.
-      #
-      # +required
-      - metadata:
-          # Name of the endpoint that is being overridden.
-          # This should match the name of the endpoint in the deployment artifact.
-          #
-          # +required
-          name: test-endpoint
-        spec: {} # Refer to the spec of the Endpoint resource.
-    # Dependency configuration overrides for this specific deployment.
-    #
-    # +optional
-    dependencies:
-      # Service connection overrides for this specific deployment.
-      #
-      # TODO: Should we allow overriding this? Find any use cases.
-      #
-      # +optional
-      connectionReferenceTemplates: {} # Refer to the deployable artifact spec for the field reference.
-    # Application configuration overrides for this specific deployment.
-    application: {} # Refer to the deployable artifact spec for the field reference.
-```
+**Cluster-scoped variant** (`ClusterWorkflow`) only references `ClusterWorkflowPlane`.
 
 [Back to Top](#overview)
 
-### DeploymentRevision
+---
 
-The `DeploymentRevision` resource kind represents a snapshot of the deployment resource at a given time. This resource is created by the deployment controller to track the deployment history upon each spec change.
-During the revert operation, the deployment controller will use the deployment revision to restore the spec of the deployment.
+#### WorkflowRun
 
-**Field Reference:**
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Purpose** | Runtime execution instance of a Workflow |
 
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: DeploymentRevision
-metadata:
-  # Unique name of the deployment revision that belongs to the deployment (namespace).
-  #
-  # The deployment revision is created by the system in order to keep track of the deployment history.
-  # The name will be in the format of <deploymentName>-<hash>
-  # where the hash is a system generated string based on the Deployment spec.
-  # This hash ensures the each spec changes will create a unique deployment revision.
-  #
-  # +required
-  # +immutable
-  name: test-deployment-456789
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the deployment revision.
-    #
-    # +required
-    openchoreo.dev/display-name: Test Deployment Revision 456789
-    # Description of the deployment revision.
-    #
-    # +optional
-    openchoreo.dev/description: Test Deployment Revision Description
-  labels:
-    # Deployment track that this deployment revision belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/deployment-track: test-deployment-track
-    # Component name that this deployment revision belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/component: test-component
-    # Project name that this deployment revision belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/project: test-project
-    # Environment name that this deployment revision belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/environment: test-environment
-spec: {} # Refer to the spec of the Deployment resource.
-```
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `workflow.kind` | string | Yes | WorkflowRefKind (immutable, default: ClusterWorkflow) |
+| `workflow.name` | string | Yes | Workflow/ClusterWorkflow name (immutable) |
+| `workflow.parameters` | RawExtension | No | Developer-provided build parameter values |
+| `ttlAfterCompletion` | string | No | Copied from Workflow template |
+
+**Status:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `conditions` | []Condition | Standard Kubernetes conditions |
+| `runReference` | ResourceReference | Actual workflow execution reference in the workflow plane cluster |
+| `resources[]` | ResourceReference[] | Additional resources applied |
+| `tasks[]` | WorkflowTask[] | Vendor-neutral task view (name, phase, timing, message) |
+| `startedAt` | Time | Execution start time |
+| `completedAt` | Time | Execution completion time |
+
+**Task Phases:** Pending, Running, Succeeded, Failed, Skipped, Error
 
 [Back to Top](#overview)
 
-### Endpoint
+---
 
-The `Endpoint` resource kind represents a endpoint that is exposed by the component.
+### Platform Infrastructure
 
-The endpoint controller will be responsible for the following actions:
+---
 
-- Update the Kubernetes resources based on the endpoint configuration.
-- Create the managed API and deploy the API to the Gateway(s) if the endpoint is exposed to the Public or Organization.
-- Update the API settings based on the endpoint configuration.
+#### DeploymentPipeline
 
-**Field Reference:**
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Purpose** | Defines promotion paths between environments |
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `promotionPaths[]` | PromotionPath[] | No | List of source → target environment promotion paths |
+| `promotionPaths[].sourceEnvironmentRef` | EnvironmentRef | Yes | Source environment |
+| `promotionPaths[].targetEnvironmentRefs[]` | TargetEnvironmentRef[] | Yes | Destination environments |
+
+**Relationships:**
+- Referenced by: Project
+- References: Environment
+
+[Back to Top](#overview)
+
+---
+
+#### Environment
+
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Purpose** | Runtime context (dev, staging, prod) for component deployment |
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `dataPlaneRef` | DataPlaneRef | No | Target DataPlane (default: DataPlane/default). Immutable once set. |
+| `isProduction` | bool | No | Marks environment as production |
+| `gateway` | GatewaySpec | No | Environment-specific gateway configuration (overrides DataPlane gateway) |
+
+**Gateway Configuration:**
 
 ```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: Endpoint
-metadata:
-  # Unique name of the endpoint that belongs to a deployment (namespace).
-  #
-  # +required
-  # +immutable
-  name: test-endpoint
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the endpoint.
-    #
-    # +required
-    openchoreo.dev/display-name: Test Endpoint
-    # Description of the endpoint.
-    #
-    # +optional
-    openchoreo.dev/description: Test Endpoint Description
-  labels:
-    # Deployment name that this endpoint belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/deployment: test-deployment
-    # Deployment track that this endpoint belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/deployment-track: test-deployment-track
-    # Component name that this endpoint belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/component: test-component
-    # Project name that this endpoint belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/project: test-project
-    # Environment name that this endpoint belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/environment: test-environment
-spec:
-  # Indicates the protocol of the endpoint.
-  #
-  # HTTP: HTTP protocol that is exposed via webapp gateway.
-  # REST: REST protocol that is exposed via managed API Gateway.
-  # gRPC: gRPC protocol that only exposed as Project visibility.
-  # GraphQL: GraphQL protocol that is exposed via managed API Gateway.
-  # Websocket: Websocket protocol that is exposed via managed API Gateway.
-  # TCP: TCP protocol that is exposed as Project visibility.
-  # UDP: UDP protocol that is exposed as Project visibility.
-  #
-  # +allowedValues: [HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP]
-  # +required
-  type: REST
-  # Configuration of the upstream service.
-  #
-  # +required
-  service:
-    # URL of the upstream service.
-    #
-    # This field is only required for the proxy based component types.
-    # TODO: How to provide sandbox URL for the managed API Gateway.
-    #
-    # +optional
-    url: http://localhost:8080
-    # Base path of the upstream service.
-    #
-    # This field is used by any component type that deploys a workload.
-    #
-    # +optional (default: /)
-    basePath: /v1
-    # Port of the upstream service.
-    #
-    # This field is required by any component type that deploys a workload.
-    #
-    # +required
-    port: 8080
-  # Schema of the endpoint if the available.
-  #
-  # +optional
-  schema:
-    # File path of the schema relative to the component source code.
-    #
-    # This field is mutually exclusive with content field.
-    #
-    # +optional
-    filePath: /path/to/schema.yaml
-    # Inline content of the schema.
-    #
-    # This field is mutually exclusive with filePath field.
-    #
-    # +optional
-    content: |
-      openapi: 3.0.0
-      info:
-        title: Test API
-        version: 1.0.0
-      paths:
-        /test:
-          get:
-            summary: Test Endpoint
-            responses:
-              '200':
-                description: OK
-  # Configuration parameters related to the managed endpoint.
-  # This is only applicable for REST, GraphQL, and Websocket endpoint types.
-  #
-  # The configuration parameters within this field are used to configure the managed API Gateways.
-  # This configuration may be overridden by NetworkVisibility specific configuration.
-  # TODO: finalize the configuration parameters.
-
-  # +optional
-  apiSettings:
-    securitySchemes:
-      - OAuth2
-      - APIKey
-    authorizationHeader: Authorization
-    backendJwt:
-      enabled: true
-      configuration:
-        audiences: [test-audience, test-audience-2]
-    operationPolicies:
-      - target: /test
-        authenticationType: None
-  # Network visibility levels that the endpoint is exposed.
-  # The endpoint is exposed within the project by default
-  #
-  # Public: Exposed to the public internet.
-  # Organization: Exposed to the organization.
-  networkVisibilities:
-    # Configuration override for endpoints exposed within the organization
-    #
-    # +optional  
-    organization:
-      # Enable/disable this visibility level
-      #
-      # +required
-      enable: true
-      # API settings override specific to organization visibility
-      #
-      # +optional
-      apiSettings:
-        securitySchemes:
-          - OAuth2
-        cors:
-          enabled: true
-          allowOrigins: ["*"]
-          allowMethods: ["GET", "POST"]
-        rateLimit:
-          tier: Unlimited
-
-    # Configuration override for endpoints exposed externally
-    #
-    # +optional
+gateway:
+  ingress:
     external:
-      # Enable/disable this visibility level
-      #
-      # +required  
-      enable: true
-      # API settings override specific to external visibility
-      #
-      # +optional
-      apiSettings:
-        securitySchemes:
-          - OAuth2
-          - APIKey
-        cors:
-          enabled: true
-          allowOrigins: ["*"]
-        rateLimit:
-          tier: Gold
-  # Configuration parameters related to the webapp gateway.
-  # This is only applicable for HTTP endpoint types.
-  #
-  # The configuration parameters within this field are used to configure the webapp gateway.
-  # TODO: finalize the configuration parameters.
-  #
-  # +optional
-  webappGatewaySettings: {}
+      name: "gateway-name"
+      namespace: "gateway-namespace"
+      http:
+        listenerName: "http"
+        port: 8080
+        host: "app.example.com"
+      https:
+        listenerName: "https"
+        port: 8443
+        host: "app.example.com"
+    internal:
+      # Same structure as external
+  egress:
+    # Same structure as ingress
 ```
+
+**Relationships:**
+- Referenced by: ReleaseBinding, DeploymentPipeline
+- References: DataPlane or ClusterDataPlane
 
 [Back to Top](#overview)
 
-### ConfigurationGroup
+---
 
-The `ConfigurationGroup` resource kind represents configuration groupings and mappings for a namespace across its environments. `ConfigurationGroups` include both configs which are not senstive as well as secrets which are sensitive. 
-This resource is created manually for a namespace by the user and its values are referred to in the  `DeployableArtifact` resource kind.
+#### DataPlane / ClusterDataPlane
 
-**Field Reference:**
+| | |
+|---|---|
+| **Scope** | Namespaced (`DataPlane`) / Cluster (`ClusterDataPlane`) |
+| **Purpose** | Target Kubernetes cluster for workload deployment, connected via cluster agent |
 
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: ConfigurationGroup
-metadata:
-  # Unique name of the configuration group within the namespace.
-  #
-  # +required
-  # +immutable
-  name: test-configuration-group
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the configuration group.
-    #
-    # +optional
-    # +mutable
-    openchoreo.dev/display-name: Test Configuration Group
-    # Description of the configuration group.
-    #
-    # +optional
-    # +mutable
-    openchoreo.dev/description: Test Configuration Group Description
+**Spec:**
 
-    # Name of the resource.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/name: test-configuration-group
-spec:
-  # Scope of the configuration group.
-  #
-  # +optional (default: {})
-  scope: {} # TODO need to define hierarchy when scope is specific
-  # Environment groups that the configuration group is applicable.
-  # This will be used when there are multiple similar environments to avoid repetition.
-  #
-  # +optional
-  environmentGroups:
-    # Name of the environment group.
-    #
-    # +required
-    - name: test-env-group
-      # List of environments that are part of the environment group.
-      #
-      # +required
-      environments:
-        # Name of the environment.
-        #
-        # +required
-        - test-env
-  # Configuration parameters of the configuration group.
-  #
-  # +required
-  configurations:
-    # Key of the configuration parameter.
-    #
-    # +required
-    # +immutable
-    - key: test-key
-      # List of values for the configuration parameter.
-      # These values can be applicable either to a specific environment or an environment group.
-      # The value for each specified key may be either a config or a secret. These can be mixed accross environments.
-      # e.g. use a config value for dev and a secret for prod.
-      #
-      # +required
-      values:
-      # Reference to the environment group to which this configuration parameter is applicable.
-      #
-      # This field is mutually exclusive with environment field.
-      #
-      # +required
-      - environmentGroupRef: test-env-group
-        # Reference to the environment to which this configuration parameter is applicable.
-        #
-        # This field is mutually exclusive with environmentGroupRef field.
-        #
-        # +required
-        environment: test-env
-        # Value of the configuration parameter.
-        #
-        # This field is mutually exclusive with vaultKey.
-        #
-        # +required
-        value: test-value
-        # Reference to the secret vault key that contains the value for this configuration parameter.
-        #
-        # This field is mutually exclusive with value.
-        #
-        # +required
-        vaultKey: test-vault-key
-    
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `planeID` | string | No* | Logical plane identifier (*required for ClusterDataPlane) |
+| `clusterAgent` | ClusterAgentConfig | Yes | WebSocket connection config with client CA |
+| `gateway` | GatewaySpec | No | API gateway configuration |
+| `secretStoreRef` | SecretStoreRef | No | ESO ClusterSecretStore reference |
+| `observabilityPlaneRef` | ObservabilityPlaneRef | No | Associated observability plane |
 
-```
+**Status:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `conditions` | []Condition | Standard Kubernetes conditions |
+| `agentConnection` | AgentConnectionStatus | Connection state (connected, agent count, heartbeat times) |
+
+**Cluster-scoped variant** (`ClusterDataPlane`) only references `ClusterObservabilityPlane`.
+
 [Back to Top](#overview)
 
-### Secret
+---
 
-The `Secret` resource kind represents configuration parameters that are stored in a selected key vault which can be used to store both system secrets and the environment specific secrets in a given data plane.
-The system secrets have predefined key-value pairs that are used by the system components.
+#### WorkflowPlane / ClusterWorkflowPlane
 
-**Field Reference:**
+| | |
+|---|---|
+| **Scope** | Namespaced (`WorkflowPlane`) / Cluster (`ClusterWorkflowPlane`) |
+| **Purpose** | Argo-based CI/CD execution environment |
 
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: Secret
-metadata:
-  # Unique name of the secret within the namespace.
-  #
-  # +required
-  # +immutable
-  name: test-secret
-  # Namespace name that the resource belongs to.
-  #
-  # +immutable
-  namespace: test-namespace
-  annotations:
-    # Display name of the secret.
-    #
-    # +required
-    openchoreo.dev/display-name: Test Secret
-    # Description of the secret.
-    #
-    # +optional
-    openchoreo.dev/description: Test Secret Description
+**Spec:**
 
-spec:
-  # Indicates the type of the secret. Depending on the type, the required fields will change.
-  #
-  # Generic: A generic secret will use the provided keyVaultRef to store arbitrary key-value pairs.
-  # GitHub: GitHub related secrets that stored in the system key vault.
-  # Bitbucket: Bitbucket related secrets that stored in the system key vault.
-  # GitLab: GitLab related secrets that stored in the system key vault.
-  # DockerHub: DockerHub related secrets that stored in the system key vault.
-  #
-  # +allowedValues: [Generic, GitHub, Bitbucket, GitLab, DockerHub]
-  # +optional (default: Generic)
-  type: Opaque
-  # Reference to the key vault that the secret will be stored.
-  #
-  # This field is required for Generic type secrets.
-  # TODO: This could be a data plane reference too.
-  #
-  # +optional
-  keyVaultRef: test-key-vault
-  # Key-value pairs that will be stored in the provided key vault.
-  # This is commonly useful for environment specific secrets that should be
-  # stored in data plane key vault.
-  #
-  # +optional
-  data:
-    # Alias of the key in the key vault that can be used by the other resources.
-    #
-    # +required
-    - key: username
-      # List of environment dependent values that will be stored in the key vault.
-      #
-      # +optional
-      values:
-        # Environment name that the value will stored.
-        # This will be used to find the relevant key vault to store the value.
-        #
-        # +required
-        - environmentRef: test-environment
-          # Reference to the key in the key vault that stores the value.
-          #
-          # +required
-          vaultKey: username
-          # Version of the key in the key vault.
-          #
-          # +optional (default: latest)
-          version: 1
-  # Secrets related to the GitHub. This field is required for GitHub type secrets.
-  #
-  # +optional
-  gitHub:
-    # Personal Access Token (PAT) for the GitHub account.
-    #
-    # +required
-    pat: github-pat
-  # Secrets related to the Bitbucket. This field is required for Bitbucket type secrets.
-  #
-  # +optional
-  bitbucket:
-    # App password for the Bitbucket account.
-    #
-    # +required
-    appPassword: bitbucket-app-password
-  # Secrets related to the GitLab. This field is required for GitLab type secrets.
-  #
-  # +optional
-  gitLab:
-    # Personal Access Token (PAT) for the GitLab account.
-    #
-    # +required
-    pat: gitlab-pat
-  # Secrets related to the DockerHub. This field is required for DockerHub type secrets.
-  #
-  # +optional
-  dockerHub:
-    # Username of the DockerHub account.
-    #
-    # +required
-    username: docker-username
-    # Password of the DockerHub account.
-    #
-    # +required
-    password: docker-password
-```
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `planeID` | string | No* | Logical plane identifier (*required for cluster-scoped) |
+| `clusterAgent` | ClusterAgentConfig | Yes | WebSocket connection config |
+| `secretStoreRef` | SecretStoreRef | No | ESO ClusterSecretStore reference |
+| `observabilityPlaneRef` | ObservabilityPlaneRef | No | Associated observability plane |
+
+**Status:** Same as DataPlane (conditions + agentConnection).
+
+[Back to Top](#overview)
+
+---
+
+#### ObservabilityPlane / ClusterObservabilityPlane
+
+| | |
+|---|---|
+| **Scope** | Namespaced (`ObservabilityPlane`) / Cluster (`ClusterObservabilityPlane`) |
+| **Purpose** | OpenSearch-based monitoring and observability |
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `planeID` | string | No* | Logical plane identifier (*required for cluster-scoped) |
+| `clusterAgent` | ClusterAgentConfig | Yes | WebSocket connection config |
+| `observerURL` | string | Yes | Base URL of the Observer API |
+| `rcaAgentURL` | string | No | RCA Agent API URL |
+
+**Status:** Same as DataPlane (conditions + agentConnection).
+
+[Back to Top](#overview)
+
+---
+
+### External Configuration
+
+---
+
+#### SecretReference
+
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Purpose** | Maps external secrets to Kubernetes Secrets via External Secrets Operator |
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `template` | SecretTemplate | Yes | Secret type and metadata (annotations, labels) |
+| `data[]` | SecretDataSource[] | Yes (min 1) | Mapping of secret keys to external store references |
+| `refreshInterval` | Duration | No | Refresh interval (default: 1h) |
+
+**SecretDataSource Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `secretKey` | string | Yes | Kubernetes secret key name |
+| `remoteRef.key` | string | Yes | Path in external secret store |
+| `remoteRef.property` | string | No | Specific field within the secret |
+| `remoteRef.version` | string | No | Version identifier |
+
+**Status:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `conditions` | []Condition | Standard Kubernetes conditions |
+| `lastRefreshTime` | Time | Last successful refresh |
+| `secretStores[]` | SecretStoreReference[] | Associated secret stores |
+
+[Back to Top](#overview)
+
+---
+
+### Authorization
+
+---
+
+#### AuthzRole / ClusterAuthzRole
+
+| | |
+|---|---|
+| **Scope** | Namespaced (`AuthzRole`) / Cluster (`ClusterAuthzRole`) |
+| **Purpose** | Defines a set of permitted actions |
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `actions[]` | []string | Yes (min 1) | Allowed actions (e.g., `component:create`, `component:delete`) |
+| `description` | string | No | Human-readable description |
+
+[Back to Top](#overview)
+
+---
+
+#### AuthzRoleBinding / ClusterAuthzRoleBinding
+
+| | |
+|---|---|
+| **Scope** | Namespaced (`AuthzRoleBinding`) / Cluster (`ClusterAuthzRoleBinding`) |
+| **Purpose** | Grants roles to JWT-authenticated subjects |
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `entitlement` | EntitlementClaim | Yes | JWT claim/value pair identifying the subject |
+| `roleMappings[]` | RoleMapping[] | Yes (min 1) | Role references with optional scope |
+| `effect` | EffectType | No | `allow` (default) or `deny` |
+
+**RoleMapping Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `roleRef` | RoleRef | Yes | References AuthzRole or ClusterAuthzRole (kind + name) |
+| `scope` | TargetScope | No | Optional narrowing to project and/or component |
+
+**Scope Constraints:**
+- Namespace-scoped: `scope` can specify `project` and optionally `component` (component requires project)
+- Cluster-scoped: `scope` can additionally specify `namespace` (project requires namespace, component requires project)
+
+[Back to Top](#overview)
+
+---
+
+### Observability Alerts
+
+---
+
+#### ObservabilityAlertRule
+
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Purpose** | Defines alert rules based on log or metric telemetry data |
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `source` | ObservabilityAlertSource | Yes | Telemetry source (type: log or metric, query, timeWindow) |
+| `condition` | ObservabilityAlertCondition | Yes | Trigger condition (operator: gt/lt/gte/lte/eq, threshold) |
+| `severity` | ObservabilityAlertSeverity | Yes | info, warning, or critical |
+| `notificationChannelRef` | NotificationChannelRef | No | Reference to notification channel |
+
+---
+
+#### ObservabilityAlertsNotificationChannel
+
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Purpose** | Defines notification channels (email, webhook) for alert delivery |
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | NotificationChannelType | Yes | `email` or `webhook` |
+| `email` | EmailConfig | Conditional | Email configuration (from, to, SMTP, template) — required when type=email |
+| `webhook` | WebhookConfig | Conditional | Webhook configuration (URL, headers, template) — required when type=webhook |
+
+[Back to Top](#overview)
+
+---
+
+## Common Reference Types
+
+OpenChoreo uses typed reference types to link resources together. Each reference type includes a `kind` field that determines whether the target is namespace-scoped or cluster-scoped.
+
+| Reference Type | Kind Values | Default Kind |
+|----------------|-------------|--------------|
+| `ComponentTypeRef` | ComponentType, ClusterComponentType | ComponentType |
+| `TraitRef` | Trait, ClusterTrait | Trait |
+| `WorkflowRef` | Workflow, ClusterWorkflow | ClusterWorkflow |
+| `DataPlaneRef` | DataPlane, ClusterDataPlane | DataPlane |
+| `WorkflowPlaneRef` | WorkflowPlane, ClusterWorkflowPlane | ClusterWorkflowPlane |
+| `ObservabilityPlaneRef` | ObservabilityPlane, ClusterObservabilityPlane | ObservabilityPlane |
+| `RoleRef` | AuthzRole, ClusterAuthzRole | AuthzRole |
+| `DeploymentPipelineRef` | DeploymentPipeline | DeploymentPipeline |
+| `EnvironmentRef` | Environment | Environment |
+
+ComponentTypeRef uses a special name format: `{workloadType}/{componentTypeName}` (e.g., `deployment/my-service-type`).
 
 [Back to Top](#overview)

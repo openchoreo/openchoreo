@@ -12,29 +12,17 @@ The RenderedRelease controller is part of OpenChoreo's multi-plane architecture,
 
 ```mermaid
 graph TD
-    A[Component] --> B[Service]
-    A --> C[ScheduledTask]
-    A --> D[WebApplication]
-    
-    B --> E[ServiceBinding]
-    C --> F[ScheduledTaskBinding]
-    D --> G[WebApplicationBinding]
-    
-    E --> H[RenderedRelease]
-    F --> H
-    G --> H
-    
+    A[Component] --> B[ComponentRelease]
+    B --> C[ReleaseBinding]
+    C --> H[RenderedRelease]
+
     subgraph "Control Plane"
         A
         B
         C
-        D
-        E
-        F
-        G
         H
     end
-    
+
     subgraph "Data Plane"
         I[Deployments]
         J[Services]
@@ -42,21 +30,21 @@ graph TD
         L[CronJobs]
         M[HTTPRoute]
     end
-    
+
     H --> I
     H --> J
     H --> K
     H --> L
     H --> M
-    
+
     style H fill:#e8f5e8
 ```
 
 **Flow Explanation:**
-1. **Component Definition**: Developers create Component resources that define the type and ownership of their applications
-2. **Component Types**: Based on the component definition, specific component-type resources are created (Service, ScheduledTask, WebApplication)
-3. **Environment Bindings**: For each target environment, binding controllers create environment-specific binding resources (ServiceBinding, ScheduledTaskBinding, WebApplicationBinding)
-4. **RenderedRelease Generation**: Binding controllers render complete Kubernetes manifests and create RenderedRelease resources containing all the necessary deployment artifacts
+1. **Component Definition**: Developers create Component resources that define the type, ownership, and configuration of their applications
+2. **ComponentRelease**: An immutable snapshot is created containing the frozen ComponentType, Traits, and Workload specifications
+3. **ReleaseBinding**: For each target environment, a ReleaseBinding binds a ComponentRelease to an Environment with environment-specific configuration overrides
+4. **RenderedRelease Generation**: The ReleaseBinding controller renders complete Kubernetes manifests using the rendering pipeline and creates RenderedRelease resources
 5. **Data Plane Deployment**: The RenderedRelease controller takes the rendered resources from RenderedRelease CRDs and applies them to the target data plane clusters
 
 ## RenderedRelease Controller Process
