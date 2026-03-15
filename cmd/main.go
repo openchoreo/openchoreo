@@ -65,6 +65,7 @@ import (
 	projectwebhook "github.com/openchoreo/openchoreo/internal/webhook/project"
 	releasebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/releasebinding"
 	traitwebhook "github.com/openchoreo/openchoreo/internal/webhook/trait"
+	workloadwebhook "github.com/openchoreo/openchoreo/internal/webhook/workload"
 )
 
 const (
@@ -536,6 +537,13 @@ func main() {
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := releasebindingwebhook.SetupReleaseBindingWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ReleaseBinding")
+			os.Exit(1)
+		}
+	}
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := workloadwebhook.SetupWorkloadWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Workload")
 			os.Exit(1)
 		}
 	}
