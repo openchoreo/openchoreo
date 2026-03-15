@@ -584,6 +584,7 @@ func (h *MCPHandler) TriggerWorkflowRun(
 		},
 		Spec: openchoreov1alpha1.WorkflowRunSpec{
 			Workflow: openchoreov1alpha1.WorkflowRunConfig{
+				Kind:       component.Spec.Workflow.Kind,
 				Name:       component.Spec.Workflow.Name,
 				Parameters: parameters,
 			},
