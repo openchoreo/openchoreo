@@ -169,13 +169,9 @@ func createK8sRoute(config *rest.Config) (*Route, error) {
 	}
 
 	return &Route{
-		Name:     "k8s",
-		Backend:  "kubernetes",
-		Endpoint: config.Host,
-		Auth: AuthConfig{
-			Type:  "serviceaccount",
-			Token: config.BearerToken,
-		},
+		Name:      "k8s",
+		Backend:   "kubernetes",
+		Endpoint:  config.Host,
 		Transport: transport,
 	}, nil
 }
