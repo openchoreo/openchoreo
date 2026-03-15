@@ -13,6 +13,11 @@ import (
 	typed2 "github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
 )
 
+const (
+	traitKindTrait        = "Trait"
+	traitKindClusterTrait = "ClusterTrait"
+)
+
 // ReleaseGenerator generates ComponentRelease resources
 type ReleaseGenerator struct {
 	index *fsmode.Index
@@ -63,7 +68,7 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 
 	// 4. Fetch Traits referenced by Component
 	traitRefs := comp.GetTraitRefs()
-	traitsMap, profileTraits, err := g.buildTraitsData(traitRefs)
+	traitsList, profileTraits, err := g.buildTraitsData(traitRefs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch traits: %w", err)
 	}
@@ -83,14 +88,14 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 	}
 
 	// 6. Build ComponentRelease
-	release := g.buildRelease(releaseName, opts.Namespace, comp, ct, wl, traitsMap, profileTraits)
+	release := g.buildRelease(releaseName, opts.Namespace, comp, ct, wl, traitsList, profileTraits)
 
 	return release, nil
 }
 
-// buildTraitsData fetches traits and builds both the traits map and profile traits
+// buildTraitsData fetches traits and builds both the traits list and profile traits
 func (g *ReleaseGenerator) buildTraitsData(traitRefs []typed2.TraitRef) (
-	map[string]interface{}, // traitsMap: traitName -> full TraitSpec
+	[]interface{}, // traitsList: ComponentReleaseTrait entries with kind, name, spec
 	[]interface{}, // profileTraits: trait references for componentProfile
 	error,
 ) {
@@ -98,26 +103,51 @@ func (g *ReleaseGenerator) buildTraitsData(traitRefs []typed2.TraitRef) (
 		return nil, nil, nil
 	}
 
-	// Collect unique trait names
-	traitNames := make(map[string]bool)
+	// Collect unique traits by kind+name and fetch their specs
+	type traitKey struct{ kind, name string }
+	seen := make(map[traitKey]bool)
+	traitsList := make([]interface{}, 0, len(traitRefs))
 	for _, ref := range traitRefs {
-		traitNames[ref.Name] = true
-	}
-
-	// Fetch trait resources
-	traitsMap := make(map[string]interface{})
-	for name := range traitNames {
-		t, err := g.index.GetTypedTrait(name)
-		if err != nil {
-			return nil, nil, err
+		kind := ref.Kind
+		if kind == "" {
+			kind = traitKindTrait
 		}
-		traitsMap[name] = t.GetSpec() // Embed full TraitSpec
+
+		key := traitKey{kind: kind, name: ref.Name}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
+		var traitSpec map[string]interface{}
+		switch kind {
+		case traitKindTrait:
+			t, err := g.index.GetTypedTrait(ref.Name)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to look up trait %s/%s: %w", kind, ref.Name, err)
+			}
+			traitSpec = t.GetSpec()
+		case traitKindClusterTrait:
+			return nil, nil, fmt.Errorf("ClusterTrait %q lookup is not yet supported in fs-mode index", ref.Name)
+		default:
+			return nil, nil, fmt.Errorf("unsupported trait kind %q for trait %q", kind, ref.Name)
+		}
+		traitsList = append(traitsList, map[string]interface{}{
+			"kind": kind,
+			"name": ref.Name,
+			"spec": traitSpec,
+		})
 	}
 
 	// Build profile traits (references with instance params)
 	profileTraits := make([]interface{}, 0, len(traitRefs))
 	for _, ref := range traitRefs {
+		kind := ref.Kind
+		if kind == "" {
+			kind = traitKindTrait
+		}
 		traitRef := map[string]interface{}{
+			"kind":         kind,
 			"name":         ref.Name,
 			"instanceName": ref.InstanceName,
 		}
@@ -127,7 +157,7 @@ func (g *ReleaseGenerator) buildTraitsData(traitRefs []typed2.TraitRef) (
 		profileTraits = append(profileTraits, traitRef)
 	}
 
-	return traitsMap, profileTraits, nil
+	return traitsList, profileTraits, nil
 }
 
 // buildWorkloadData constructs the workload section for the ComponentRelease spec,
@@ -153,18 +183,35 @@ func (g *ReleaseGenerator) buildRelease(
 	comp *typed2.Component,
 	ct *typed2.ComponentType,
 	wl *typed2.Workload,
-	traitsMap map[string]interface{},
+	traitsList []interface{},
 	profileTraits []interface{},
 ) *unstructured.Unstructured {
+	// Build componentType.spec with workloadType, schema, and resources
+	componentTypeSpec := map[string]interface{}{
+		"workloadType": ct.WorkloadType(),
+		"resources":    ct.GetResources(),
+	}
+	if schema := ct.GetSchema(); len(schema) > 0 {
+		for k, v := range schema {
+			componentTypeSpec[k] = v
+		}
+	}
+
+	// Determine the kind from the component's componentType reference
+	ctKind := string(comp.Spec.ComponentType.Kind)
+	if ctKind == "" {
+		ctKind = "ComponentType"
+	}
+
 	spec := map[string]interface{}{
 		"owner": map[string]interface{}{
 			"componentName": comp.Name,
 			"projectName":   comp.ProjectName(),
 		},
 		"componentType": map[string]interface{}{
-			"workloadType": ct.WorkloadType(),
-			"schema":       ct.GetSchema(),
-			"resources":    ct.GetResources(),
+			"kind": ctKind,
+			"name": comp.Spec.ComponentType.Name,
+			"spec": componentTypeSpec,
 		},
 		"workload": g.buildWorkloadData(wl),
 	}
@@ -182,9 +229,9 @@ func (g *ReleaseGenerator) buildRelease(
 		spec["componentProfile"] = componentProfile
 	}
 
-	// Add traits map if present
-	if len(traitsMap) > 0 {
-		spec["traits"] = traitsMap
+	// Add traits list if present
+	if len(traitsList) > 0 {
+		spec["traits"] = traitsList
 	}
 
 	return &unstructured.Unstructured{

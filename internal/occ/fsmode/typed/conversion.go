@@ -47,6 +47,7 @@ func rawExtensionToMap(raw *runtime.RawExtension) map[string]interface{} {
 // TraitRef is a convenience type for trait references
 // This mirrors the v1alpha1.ComponentTrait structure but uses map for Parameters
 type TraitRef struct {
+	Kind         string
 	Name         string
 	InstanceName string
 	Parameters   map[string]interface{}

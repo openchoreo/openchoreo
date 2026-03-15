@@ -58,7 +58,12 @@ func (c *Component) GetTraitRefs() []TraitRef {
 
 	refs := make([]TraitRef, len(c.Spec.Traits))
 	for i, trait := range c.Spec.Traits {
+		kind := string(trait.Kind)
+		if kind == "" {
+			kind = "Trait"
+		}
 		refs[i] = TraitRef{
+			Kind:         kind,
 			Name:         trait.Name,
 			InstanceName: trait.InstanceName,
 			Parameters:   rawExtensionToMap(trait.Parameters),

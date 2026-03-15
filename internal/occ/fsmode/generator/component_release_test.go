@@ -4,6 +4,7 @@
 package generator
 
 import (
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -96,6 +97,241 @@ func addWorkload(t *testing.T, idx *index.Index, namespace, name, project, compo
 	}
 	if err := idx.Add(entry); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// addTrait adds a Trait resource entry to the index.
+func addTrait(t *testing.T, idx *index.Index, name string, spec map[string]any, filePath string) {
+	t.Helper()
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "Trait",
+				"metadata": map[string]any{
+					"name":      name,
+					"namespace": "default",
+				},
+				"spec": spec,
+			},
+		},
+		FilePath: filePath,
+	}
+	if err := idx.Add(entry); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// addComponentWithTraits adds a Component with trait references to the index.
+func addComponentWithTraits(t *testing.T, idx *index.Index, namespace, name, project, componentTypeName string, traits []map[string]any, filePath string) {
+	t.Helper()
+	spec := map[string]any{
+		"owner": map[string]any{
+			"projectName": project,
+		},
+		"componentType": map[string]any{
+			"name": componentTypeName,
+			"kind": "ComponentType",
+		},
+	}
+	if len(traits) > 0 {
+		spec["traits"] = traits
+	}
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "Component",
+				"metadata": map[string]any{
+					"name":      name,
+					"namespace": namespace,
+				},
+				"spec": spec,
+			},
+		},
+		FilePath: filePath,
+	}
+	if err := idx.Add(entry); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGenerateRelease_ManifestShape(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+		releaseName   = "my-svc-release-1"
+	)
+
+	idx := index.New("/repo")
+
+	// Component with two trait refs: one explicit "Trait" kind, one with empty kind (should normalize to "Trait")
+	addComponentWithTraits(t, idx, namespace, componentName, projectName, "deployment/service",
+		[]map[string]any{
+			{"kind": "Trait", "name": "ingress", "instanceName": "ingress-1"},
+			{"name": "logging", "instanceName": "logging-1"},
+		},
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addComponentType(t, idx, "service", "deployment",
+		"/repo/platform/component-types/service.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{
+			"container": map[string]any{"image": "reg/my-svc:v1"},
+		},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	addTrait(t, idx, "ingress",
+		map[string]any{"creates": []any{map[string]any{"apiVersion": "networking.k8s.io/v1", "kind": "Ingress"}}},
+		"/repo/platform/traits/ingress.yaml")
+
+	addTrait(t, idx, "logging",
+		map[string]any{"creates": []any{map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}},
+		"/repo/platform/traits/logging.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// --- Verify top-level metadata ---
+	if got := release.GetKind(); got != "ComponentRelease" {
+		t.Errorf("kind = %q, want ComponentRelease", got)
+	}
+	if got := release.GetName(); got != releaseName {
+		t.Errorf("metadata.name = %q, want %q", got, releaseName)
+	}
+	if got := release.GetNamespace(); got != namespace {
+		t.Errorf("metadata.namespace = %q, want %q", got, namespace)
+	}
+
+	// --- Verify spec.componentType ---
+	ctKind, _, _ := unstructured.NestedString(release.Object, "spec", "componentType", "kind")
+	ctName, _, _ := unstructured.NestedString(release.Object, "spec", "componentType", "name")
+	ctWorkloadType, _, _ := unstructured.NestedString(release.Object, "spec", "componentType", "spec", "workloadType")
+	if ctKind != "ComponentType" {
+		t.Errorf("spec.componentType.kind = %q, want ComponentType", ctKind)
+	}
+	if ctName != "deployment/service" {
+		t.Errorf("spec.componentType.name = %q, want deployment/service", ctName)
+	}
+	if ctWorkloadType != "deployment" {
+		t.Errorf("spec.componentType.spec.workloadType = %q, want deployment", ctWorkloadType)
+	}
+
+	// --- Verify spec.traits[] ---
+	traitsSlice, ok, _ := unstructured.NestedSlice(release.Object, "spec", "traits")
+	if !ok {
+		t.Fatal("expected spec.traits to exist")
+	}
+	if len(traitsSlice) != 2 {
+		t.Fatalf("expected 2 traits in spec.traits, got %d", len(traitsSlice))
+	}
+	for i, expected := range []struct{ kind, name string }{
+		{"Trait", "ingress"},
+		{"Trait", "logging"},
+	} {
+		traitMap, ok := traitsSlice[i].(map[string]interface{})
+		if !ok {
+			t.Fatalf("spec.traits[%d] is not a map", i)
+		}
+		if traitMap["kind"] != expected.kind {
+			t.Errorf("spec.traits[%d].kind = %v, want %q", i, traitMap["kind"], expected.kind)
+		}
+		if traitMap["name"] != expected.name {
+			t.Errorf("spec.traits[%d].name = %v, want %q", i, traitMap["name"], expected.name)
+		}
+		if traitMap["spec"] == nil {
+			t.Errorf("spec.traits[%d].spec should not be nil", i)
+		}
+	}
+
+	// --- Verify spec.componentProfile.traits[] ---
+	profileTraits, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentProfile", "traits")
+	if !ok {
+		t.Fatal("expected spec.componentProfile.traits to exist")
+	}
+	if len(profileTraits) != 2 {
+		t.Fatalf("expected 2 profile traits, got %d", len(profileTraits))
+	}
+	for i, expected := range []struct{ kind, name, instanceName string }{
+		{"Trait", "ingress", "ingress-1"},
+		{"Trait", "logging", "logging-1"},
+	} {
+		pt, ok := profileTraits[i].(map[string]interface{})
+		if !ok {
+			t.Fatalf("spec.componentProfile.traits[%d] is not a map", i)
+		}
+		if pt["kind"] != expected.kind {
+			t.Errorf("spec.componentProfile.traits[%d].kind = %v, want %q", i, pt["kind"], expected.kind)
+		}
+		if pt["name"] != expected.name {
+			t.Errorf("spec.componentProfile.traits[%d].name = %v, want %q", i, pt["name"], expected.name)
+		}
+		if pt["instanceName"] != expected.instanceName {
+			t.Errorf("spec.componentProfile.traits[%d].instanceName = %v, want %q", i, pt["instanceName"], expected.instanceName)
+		}
+	}
+
+	// --- Verify spec.owner ---
+	ownerComp, _, _ := unstructured.NestedString(release.Object, "spec", "owner", "componentName")
+	ownerProj, _, _ := unstructured.NestedString(release.Object, "spec", "owner", "projectName")
+	if ownerComp != componentName {
+		t.Errorf("spec.owner.componentName = %q, want %q", ownerComp, componentName)
+	}
+	if ownerProj != projectName {
+		t.Errorf("spec.owner.projectName = %q, want %q", ownerProj, projectName)
+	}
+}
+
+func TestGenerateRelease_ClusterTraitRefErrors(t *testing.T) {
+	const (
+		namespace     = "staging"
+		projectName   = "myproj"
+		componentName = "my-svc"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithTraits(t, idx, namespace, componentName, projectName, "deployment/service",
+		[]map[string]any{
+			{"kind": "ClusterTrait", "name": "global-ingress", "instanceName": "gi-1"},
+		},
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addComponentType(t, idx, "service", "deployment",
+		"/repo/platform/component-types/service.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{
+			"container": map[string]any{"image": "reg/my-svc:v1"},
+		},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	_, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   "test-release",
+	})
+	if err == nil {
+		t.Fatal("expected error for ClusterTrait reference, got nil")
+	}
+	if got := err.Error(); !strings.Contains(got, "ClusterTrait") || !strings.Contains(got, "global-ingress") {
+		t.Errorf("error should mention ClusterTrait and trait name, got: %s", got)
 	}
 }
 
@@ -294,7 +530,7 @@ func TestGenerateRelease_WorkloadWithoutEndpoints(t *testing.T) {
 	addComponent(t, idx, namespace, componentName, projectName, "deployment/worker",
 		"/repo/projects/doclet/components/worker-svc/component.yaml")
 
-	addComponentType(t, idx, "worker", "deployment",
+	addComponentType(t, idx, "worker", "statefulset",
 		"/repo/platform/component-types/worker.yaml")
 
 	addWorkload(t, idx, namespace, "worker-svc-workload", projectName, componentName,
