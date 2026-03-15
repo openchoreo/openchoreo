@@ -10,7 +10,7 @@ gateway:
     enabled: false
 
 fluent-bit:
-  enabled: true
+  enabled: false
   envFrom: []
   env:
     - name: OPENSEARCH_HOST

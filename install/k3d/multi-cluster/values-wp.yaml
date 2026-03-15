@@ -12,7 +12,7 @@ argo-workflows:
       - server
 
 fluent-bit:
-  enabled: true
+  enabled: false
   envFrom: []
   env:
     - name: OPENSEARCH_HOST

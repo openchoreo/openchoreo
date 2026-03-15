@@ -515,17 +515,6 @@ helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-ob
 
 Install the required logs, metrics and tracing modules. Refer https://openchoreo.dev/modules for more details
 
-Enable Fluent Bit for log collection:
-
-```bash
-helm upgrade openchoreo-observability-plane install/helm/openchoreo-observability-plane \
-  --kube-context k3d-openchoreo-op \
-  --namespace openchoreo-observability-plane \
-  --reuse-values \
-  --set observability-logs-opensearch.fluent-bit.enabled=true \
-  --timeout 10m
-```
-
 ```bash
 kubectl --context k3d-openchoreo-op wait -n openchoreo-observability-plane \
   --for=condition=available --timeout=600s deployment --all
@@ -561,6 +550,28 @@ kubectl --context k3d-openchoreo-cp patch clusterdataplane default --type merge 
 # If cluster workflow plane is installed:
 kubectl --context k3d-openchoreo-cp patch clusterworkflowplane default -n default --type merge \
   -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}'
+```
+
+### Enable logs collection in the data plane
+
+```bash
+helm upgrade openchoreo-data-plane install/helm/openchoreo-data-plane \
+  --kube-context k3d-openchoreo-dp \
+  --namespace openchoreo-data-plane \
+  --reuse-values \
+  --set fluent-bit.enabled=true \
+  --timeout 10m
+```
+
+### Enable logs collection in the workflow plane (optional)
+
+```bash
+helm upgrade openchoreo-workflow-plane install/helm/openchoreo-workflow-plane \
+  --kube-context k3d-openchoreo-wp \
+  --namespace openchoreo-workflow-plane \
+  --reuse-values \
+  --set fluent-bit.enabled=true \
+  --timeout 10m
 ```
 
 ## Port Mappings
