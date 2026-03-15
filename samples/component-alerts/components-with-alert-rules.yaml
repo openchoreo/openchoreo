@@ -17,6 +17,7 @@ spec:
   # Attach alert rule as a trait
   traits:
     - name: observability-alert-rule
+      kind: ClusterTrait
       instanceName: frontend-rpc-unavailable-error-log-alert
       parameters:
         description: "Alert when frontend logs indicate rpc error: code = Unavailable"
@@ -51,6 +52,7 @@ spec:
   # Attach alert rule as a trait
   traits:
     - name: observability-alert-rule
+      kind: ClusterTrait
       instanceName: recommendation-high-cpu-alert
       parameters:
         description: "Alert when recommendationservice CPU usage is greater than 80% for last 5 minutes"
@@ -84,6 +86,7 @@ spec:
   # Attach alert rule as a trait
   traits:
     - name: observability-alert-rule
+      kind: ClusterTrait
       instanceName: cartservice-high-memory-alert
       parameters:
         description: "Alert when cartservice memory usage is greater than 70% for last 2 minutes"

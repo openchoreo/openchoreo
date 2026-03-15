@@ -47,7 +47,7 @@ The trait is typically installed as part of the OpenChoreo control plane by defa
 
 ```bash
 kubectl apply -f samples/component-alerts/alert-rule-trait.yaml
-kubectl get trait observability-alert-rule -n default
+kubectl get clustertrait observability-alert-rule
 ```
 
 ### Step 2: Configure Notification Channels (One-Time Setup)
@@ -209,7 +209,7 @@ kubectl delete -f samples/component-alerts/alert-rule-trait.yaml
    - `${componentId}` - Component UID
    - `${projectId}` - Project UID
    - `${environmentId}` - Environment UID
-   - `${alertAIRootCauseAnalysisEnabled}` - Whether AI root cause analysis is enabled
+   - `${triggerAiRca}` - Whether AI root cause analysis is enabled for this alert
 
 3. **Example templates**:
    - See `alert-notification-channels.yaml` for a complete Slack template example

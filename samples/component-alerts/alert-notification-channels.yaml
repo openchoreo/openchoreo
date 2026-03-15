@@ -40,7 +40,7 @@ spec:
         Component: ${component}
         Project: ${project}
         Environment: ${environment}
-        Enabled AI Root Cause Analysis: ${alertAIRootCauseAnalysisEnabled}
+        Enabled AI Root Cause Analysis: ${triggerAiRca}
 
 ---
 apiVersion: v1

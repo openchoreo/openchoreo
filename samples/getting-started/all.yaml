@@ -1889,7 +1889,7 @@ spec:
                 - lte
                 - eq
               default: gt
-              description: "The comparison operator used to evaluate the condition against the threshold."
+              description: "The comparison operator used to evaluate the condition against the threshold (gt: greater than, lt: less than, gte: greater than or equal, lte: less than or equal, eq: equal)."
             threshold:
               type: integer
               default: 10
@@ -1918,18 +1918,18 @@ spec:
                   items:
                     type: string
                   default: []
-                  description: "The notification channel identifiers where alerts should be delivered."
+                  description: "The notification channel identifiers where alerts should be delivered. Configured per environment by platform engineers. If not provided, defaults to the environment's default notification channel."
             incident:
               type: object
               properties:
                 enabled:
                   type: boolean
                   default: false
-                  description: "Enables incident creation when this alert fires."
+                  description: "Enables incident creation when this alert fires. When enabled, a corresponding incident will be created in the incident management system."
                 triggerAiRca:
                   type: boolean
                   default: false
-                  description: "Enables AI-powered root cause analysis when an incident is created."
+                  description: "Enables AI-powered root cause analysis when an incident is created. When enabled, provides automated reports of root causes for alert conditions. Requires incident.enabled to also be true."
 
   validations:
     - rule: "${(has(environmentConfigs.actions) && has(environmentConfigs.actions.notifications) && environmentConfigs.actions.notifications.channels.size() > 0) || (has(environment.defaultNotificationChannel) && environment.defaultNotificationChannel != '')}"
