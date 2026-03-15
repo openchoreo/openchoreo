@@ -43,12 +43,12 @@ flowchart TB
 
 ```bash
 # Apply the ClusterWorkflowTemplate and the Workflow
-kubectl apply -f samples/gitops-workflows/workflows/bulk-release/bulk-gitops-release-template.yaml
-kubectl apply -f samples/gitops-workflows/workflows/bulk-release/bulk-gitops-release.yaml
+kubectl apply -f samples/gitops-workflows/bulk-release/bulk-gitops-release-template.yaml
+kubectl apply -f samples/gitops-workflows/bulk-release/bulk-gitops-release.yaml
 
 # Verify installation
 kubectl get clusterworkflowtemplate bulk-gitops-release
-kubectl get workflow bulk-gitops-release -n default
+kubectl get workflows.openchoreo.dev bulk-gitops-release -n default
 ```
 
 ### 2. Configure Secrets in ClusterSecretStore
@@ -56,26 +56,20 @@ kubectl get workflow bulk-gitops-release -n default
 The workflow uses `ExternalSecrets` to automatically provision credentials. Add your tokens to the ClusterSecretStore:
 
 > [!NOTE]
-> The following commands use the `fake` provider, which is a placeholder for any external secret provider. This is only for development purposes. When deploying to production, use a real secret provider.
+> The following commands use OpenBao (the default secret backend for local k3d development). For production, use your organization's secret provider.
 
 ```bash
 # Your GitHub PAT for GitOps repository (required - must have repo scope)
 GITOPS_GIT_TOKEN="ghp_your_gitops_repo_token"
 
-# Patch the ClusterSecretStore
-kubectl patch clustersecretstore default --type='json' -p="[
-  {
-    \"op\": \"add\",
-    \"path\": \"/spec/provider/fake/data/-\",
-    \"value\": {
-      \"key\": \"gitops-token\",
-      \"value\": \"${GITOPS_GIT_TOKEN}\"
-    }
-  }
-]"
+# Store secrets in OpenBao
+kubectl exec -n openbao openbao-0 -- sh -c "
+  export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=root
+  bao kv put secret/gitops-token git-token='${GITOPS_GIT_TOKEN}'
+"
 
-# Verify
-kubectl get clustersecretstore default -o jsonpath='{.spec.provider.fake.data[*].key}' | tr ' ' '\n'
+# Verify ClusterSecretStore is healthy
+kubectl get clustersecretstore default
 ```
 
 #### Required Secret Keys
@@ -101,6 +95,7 @@ spec:
     parameters:
       scope:
         all: true
+        projectName: "placeholder"
       gitops:
         repositoryUrl: "https://github.com/<your_org>/<repo_name>"
         branch: "main"
@@ -138,7 +133,7 @@ spec:
 kubectl get workflowrun bulk-release-all-001 -w
 
 # View Argo Workflow status in the workflow plane
-kubectl get workflow -n workflows-default
+kubectl get workflows.argoproj.io -n workflows-default
 
 # View logs for a specific step
 kubectl logs -n workflows-default -l workflows.argoproj.io/workflow=<workflow-name> --all-containers=true
@@ -148,96 +143,28 @@ kubectl logs -n workflows-default -l workflows.argoproj.io/workflow=<workflow-na
 
 ### Scope Configuration
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `scope.all` | boolean | No | `false` | Release all components across all projects |
-| `scope.projectName` | string | No | - | Project name to release (ignored if `all=true`) |
+| Parameter           | Type    | Required | Default | Description                                     |
+|---------------------|---------|----------|---------|-------------------------------------------------|
+| `scope.all`         | boolean | No       | `false` | Release all components across all projects      |
+| `scope.projectName` | string  | Yes      | -       | Project name to release (ignored if `all=true`) |
 
 ### GitOps Configuration
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `gitops.repositoryUrl` | string | Yes | - | GitOps repository URL |
-| `gitops.branch` | string | No | `main` | GitOps repository branch |
-| `gitops.targetEnvironment` | string | No | `development` | Target environment name for deployment |
-| `gitops.deploymentPipeline` | string | Yes | - | Deployment pipeline name for the target environment |
+| Parameter                   | Type   | Required | Default       | Description                                         |
+|-----------------------------|--------|----------|---------------|-----------------------------------------------------|
+| `gitops.repositoryUrl`      | string | Yes      | -             | GitOps repository URL                               |
+| `gitops.branch`             | string | No       | `main`        | GitOps repository branch                            |
+| `gitops.targetEnvironment`  | string | No       | `development` | Target environment name for deployment              |
+| `gitops.deploymentPipeline` | string | Yes      | -             | Deployment pipeline name for the target environment |
 
 ## Workflow Steps
 
-| Step | Description | Output |
-|------|-------------|--------|
-| 1. `clone-gitops` | Clones the GitOps repository | GitOps workspace |
-| 2. `create-feature-branch` | Creates a release branch (`bulk-release/all-*` or `bulk-release/<project>-*`) | Branch name |
+| Step                        | Description                                                                      | Output                   |
+|-----------------------------|----------------------------------------------------------------------------------|--------------------------|
+| 1. `clone-gitops`           | Clones the GitOps repository                                                     | GitOps workspace         |
+| 2. `create-feature-branch`  | Creates a release branch (`bulk-release/all-*` or `bulk-release/<project>-*`)    | Branch name              |
 | 3. `generate-bulk-bindings` | Generates ReleaseBindings for all components using `occ releasebinding generate` | ReleaseBinding manifests |
-| 4. `git-commit-push-pr` | Commits changes, pushes to remote, and creates PR using GitHub CLI | PR URL |
-
-## CLI Commands Used
-
-The workflow internally uses the following `occ` CLI commands:
-
-```bash
-# For all components across all projects
-occ releasebinding generate --all --target-env <env> --use-pipeline <pipeline>
-
-# For a specific project
-occ releasebinding generate --project <project> --target-env <env> --use-pipeline <pipeline>
-```
-
-## Workflow Outputs
-
-The workflow produces:
-
-1. **ReleaseBindings**: Links each component release to the target environment and deployment pipeline
-2. **Pull Request**: Created in the GitOps repository for review and approval
-
-## Troubleshooting
-
-### Clone GitOps Fails
-
-- Verify GitOps repository URL is correct
-- Ensure `gitops-token` is set in ClusterSecretStore with correct permissions
-- Check that the branch exists in the GitOps repository
-
-### Generate Bulk Bindings Fails
-
-- Verify the target environment exists in the GitOps repository
-- Ensure the deployment pipeline is configured correctly
-- Check that ComponentReleases exist for the components
-- Check the occ CLI logs for specific errors
-
-### Git Push Fails
-
-**Error: `Invalid username or token`**
-- The GitHub PAT may be expired, revoked, or lacks permissions
-- Ensure the token has `repo` scope
-- Regenerate the token and update ClusterSecretStore
-
-**Error: `could not read Password`**
-- The token URL format may be incorrect
-- Ensure the workflow template uses `x-access-token:TOKEN@` format
-
-### Pull Request Not Created
-
-- Verify GitHub token has `repo` scope
-- Check that the base branch exists
-- Review GitHub API rate limits
-- Ensure the GitOps repository allows PR creation
-
-### No Changes to Commit
-
-If the workflow reports "No changes to commit", this means:
-- All ReleaseBindings are already up to date
-- This is not an error - it indicates the GitOps repository is already in sync
-
-### ExternalSecrets Not Syncing
-
-```bash
-# Check ExternalSecrets status
-kubectl get externalsecret -n workflows-default
-
-# Verify ClusterSecretStore has required keys
-kubectl get clustersecretstore default -o jsonpath='{.spec.provider.fake.data[*].key}'
-```
+| 4. `git-commit-push-pr`     | Commits changes, pushes to remote, and creates PR using GitHub CLI               | PR URL                   |
 
 ## Files in This Directory
 

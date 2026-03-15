@@ -1,19 +1,23 @@
 apiVersion: openchoreo.dev/v1alpha1
-kind: ClusterWorkflow
+kind: Workflow
 metadata:
   name: bulk-gitops-release
+  namespace: default
   annotations:
-    openchoreo.dev/description: "Bulk release workflow that generates ComponentReleases and ReleaseBindings for all components or a specific project"
+    openchoreo.dev/description: "Bulk release workflow that generates ReleaseBindings for all components or a specific project"
 spec:
   # Template Variable Reference (processed by controller):
   # ${metadata.workflowRunName}  - WorkflowRun CR name
   # ${metadata.namespaceName}    - Namespace
   # ${parameters.*}              - Developer-provided values from parameters schema
 
-  # Developer-configurable parameters
+  # Schema definition for workflows
   parameters:
     openAPIV3Schema:
       type: object
+      required:
+        - scope
+        - gitops
       properties:
         scope:
           type: object
@@ -36,11 +40,11 @@ spec:
               description: "GitOps repository URL"
             branch:
               type: string
-              default: "main"
+              default: main
               description: "GitOps repository branch"
             targetEnvironment:
               type: string
-              default: "development"
+              default: development
               description: "Target environment name for deployment"
             deploymentPipeline:
               type: string
@@ -52,7 +56,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: ${metadata.namespace}
+      namespace: openchoreo-ci-${metadata.namespaceName}
     spec:
       arguments:
         parameters:
@@ -89,7 +93,7 @@ spec:
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-gitops-git-secret
-          namespace: ${metadata.namespace}
+          namespace: openchoreo-ci-${metadata.namespaceName}
         spec:
           refreshInterval: 15s
           secretStoreRef:
@@ -102,3 +106,4 @@ spec:
             - secretKey: git-token
               remoteRef:
                 key: gitops-token
+                property: git-token

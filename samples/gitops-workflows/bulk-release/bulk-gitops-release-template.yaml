@@ -114,10 +114,12 @@ spec:
             echo "===== Initializing OCC Context ====="
             # Initialize occ context
             occ config context add gitops-context \
-              --namespace "${NAMESPACE_NAME}" --controlplane default --credentials default
+              --namespace "${NAMESPACE_NAME}" \
+              --controlplane default \
+              --credentials default
 
             # Use the gitops-context
-            occ config use-context gitops-context
+            occ config context use gitops-context
 
             echo "===== Generating ReleaseBindings ====="
             echo "Target environment: $TARGET_ENV"
@@ -125,10 +127,10 @@ spec:
 
             if [ "$SCOPE_ALL" = "true" ]; then
                 echo "Generating bindings for ALL components across all projects"
-                occ releasebinding generate --all --target-env "$TARGET_ENV" --use-pipeline "$USE_PIPELINE" --mode file-system --root-dir /mnt/vol/gitops
+                occ releasebinding generate --all --mode file-system --root-dir /mnt/vol/gitops --target-env "$TARGET_ENV" --use-pipeline "$USE_PIPELINE"
             elif [ -n "$PROJECT_NAME" ]; then
                 echo "Generating bindings for project: $PROJECT_NAME"
-                occ releasebinding generate --project "$PROJECT_NAME" --target-env "$TARGET_ENV" --use-pipeline "$USE_PIPELINE" --mode file-system --root-dir /mnt/vol/gitops
+                occ releasebinding generate --project "$PROJECT_NAME" --mode file-system --root-dir /mnt/vol/gitops --target-env "$TARGET_ENV" --use-pipeline "$USE_PIPELINE"
             else
                 echo "Error: scope-project-name is required when scope-all is false"
                 exit 1
@@ -204,8 +206,10 @@ spec:
             echo "===== Step 3: Creating Pull Request ====="
             # Install GitHub CLI
             apk add --no-cache curl
-            curl -fsSL https://github.com/cli/cli/releases/download/v2.62.0/gh_2.62.0_linux_amd64.tar.gz | tar -xz
-            mv gh_2.62.0_linux_amd64/bin/gh /usr/local/bin/
+            GH_VERSION="2.86.0"
+            ARCH=$(uname -m); case "$ARCH" in x86_64) ARCH=amd64;; aarch64) ARCH=arm64;; esac
+            curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${ARCH}.tar.gz" | tar -xz
+            mv "gh_${GH_VERSION}_linux_${ARCH}/bin/gh" /usr/local/bin/
 
             export GH_TOKEN=$GIT_TOKEN
 
