@@ -29,10 +29,14 @@ func (ct *ComponentType) GetSchema() map[string]interface{} {
 	schema := make(map[string]interface{})
 
 	if params := ct.Spec.Parameters.GetRaw(); params != nil {
-		schema["parameters"] = rawExtensionToMap(params)
+		schema["parameters"] = map[string]interface{}{
+			"openAPIV3Schema": rawExtensionToMap(params),
+		}
 	}
 	if envConfig := ct.Spec.EnvironmentConfigs.GetRaw(); envConfig != nil {
-		schema["environmentConfigs"] = rawExtensionToMap(envConfig)
+		schema["environmentConfigs"] = map[string]interface{}{
+			"openAPIV3Schema": rawExtensionToMap(envConfig),
+		}
 	}
 
 	return schema
