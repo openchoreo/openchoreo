@@ -297,7 +297,7 @@ spec:
   endpoints:
     http:
       type: HTTP
-      port: 8080
+      port: 80
       visibility: [external]
 
   container:
