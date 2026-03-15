@@ -52,3 +52,14 @@ spec:
         revision:
           branch: "main"
         appPath: "/webapp-react-nginx"
+      buildEnv:
+        - name: BP_NODE_RUN_SCRIPTS
+          value: "build"
+        - name: BP_WEB_SERVER
+          value: "nginx"
+        - name: BP_WEB_SERVER_ROOT
+          value: "build"
+        - name: BP_WEB_SERVER_ENABLE_PUSH_STATE
+          value: "true"
+        - name: PORT
+          value: "80"
