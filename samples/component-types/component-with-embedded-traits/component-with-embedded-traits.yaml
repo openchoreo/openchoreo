@@ -479,7 +479,8 @@ spec:
 
   # Developer can add allowed traits (but NOT HPA - it's embedded)
   traits:
-    - name: persistent-volume
+    - kind: ClusterTrait
+      name: persistent-volume
       instanceName: data-storage
       parameters:
         volumeName: app-data
