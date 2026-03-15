@@ -3,7 +3,7 @@ kind: ClusterComponentType
 metadata:
   name: web-application
   annotations:
-    openchoreo.dev/description: "A long-running component that serves web requests and exposes at least one HTTP endpoint."
+    openchoreo.dev/description: "A long-running component that serves web requests and exposes at least one HTTP endpoint"
 spec:
   workloadType: deployment
 
