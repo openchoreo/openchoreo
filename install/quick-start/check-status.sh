@@ -44,10 +44,10 @@ optional_components=("opensearch" "observer")
 get_component_config() {
     local component="$1"
     case "$component" in
-        "cert_manager") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=cert-manager" ;;
+        "cert_manager") echo "cert-manager:app.kubernetes.io/name=cert-manager" ;;
         "controller_manager") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=controller-manager" ;;
         "api_server") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=api-server" ;;
-        "gateway_controller") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=gateway" ;;
+        "gateway_controller") echo "$DATA_PLANE_NS:app.kubernetes.io/name=gateway-default" ;;
         "argo_workflow_controller") echo "$WORKFLOW_PLANE_NS:app.kubernetes.io/name=argo-workflows-workflow-controller" ;;
         "registry") echo "$WORKFLOW_PLANE_NS:app=docker-registry" ;;
         "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-master" ;;
