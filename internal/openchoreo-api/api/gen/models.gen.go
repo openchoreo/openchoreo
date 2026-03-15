@@ -1252,8 +1252,8 @@ type ComponentReleaseSpec struct {
 		ProjectName string `json:"projectName"`
 	} `json:"owner"`
 
-	// Traits Frozen trait specs at release time (keyed by trait name)
-	Traits *map[string]interface{} `json:"traits,omitempty"`
+	// Traits Frozen trait specs at release time
+	Traits *[]map[string]interface{} `json:"traits,omitempty"`
 
 	// Workload Frozen workload spec at release time
 	Workload map[string]interface{} `json:"workload"`

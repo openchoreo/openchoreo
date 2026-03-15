@@ -7724,9 +7724,11 @@ components:
           description: Frozen ComponentType spec at release time
           additionalProperties: true
         traits:
-          type: object
-          description: Frozen trait specs at release time (keyed by trait name)
-          additionalProperties: true
+          type: array
+          description: Frozen trait specs at release time
+          items:
+            type: object
+            additionalProperties: true
         componentProfile:
           type: object
           description: Snapshot of component parameters and trait configs
