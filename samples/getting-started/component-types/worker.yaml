@@ -3,7 +3,7 @@ kind: ClusterComponentType
 metadata:
   name: worker
   annotations:
-    openchoreo.dev/description: "Component type for background workers"
+    openchoreo.dev/description: "A long-running background or event-driven component with no endpoints"
 spec:
   workloadType: deployment
 

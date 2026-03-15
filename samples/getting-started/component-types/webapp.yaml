@@ -3,7 +3,7 @@ kind: ClusterComponentType
 metadata:
   name: web-application
   annotations:
-    openchoreo.dev/description: "Component type for web applications"
+    openchoreo.dev/description: "A long-running component that serves web requests and exposes at least one HTTP endpoint"
 spec:
   workloadType: deployment
 
@@ -130,9 +130,9 @@ spec:
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
               .map(h, oc_dns_label(endpoint, metadata.componentName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
           rules:
-          - backendRefs:
-            - name: ${metadata.componentName}
-              port: ${workload.endpoints[endpoint].port}
+            - backendRefs:
+                - name: ${metadata.componentName}
+                  port: ${workload.endpoints[endpoint].port}
     - id: httproute-internal
       forEach: '${workload.endpoints.transformList(name, ep, ("internal" in ep.visibility && ep.type in ["HTTP", "REST", "GraphQL", "Websocket"]) ? [name] : []).flatten()}'
       var: endpoint
@@ -152,9 +152,9 @@ spec:
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
               .map(h, oc_dns_label(endpoint, metadata.componentName, metadata.environmentName, metadata.componentNamespace) + "." + h)}
           rules:
-          - backendRefs:
-            - name: ${metadata.componentName}
-              port: ${workload.endpoints[endpoint].port}
+            - backendRefs:
+                - name: ${metadata.componentName}
+                  port: ${workload.endpoints[endpoint].port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
       var: envConfig

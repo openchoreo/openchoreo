@@ -3,8 +3,7 @@ kind: ClusterComponentType
 metadata:
   name: service
   annotations:
-    openchoreo.dev/description: "Component type for backend services that expose HTTP endpoints"
-spec:
+    openchoreo.dev/description: "A long-running request-serving component with one or more endpoints"
   workloadType: deployment
 
   allowedWorkflows:

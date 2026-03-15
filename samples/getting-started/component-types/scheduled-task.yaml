@@ -3,7 +3,7 @@ kind: ClusterComponentType
 metadata:
   name: scheduled-task
   annotations:
-    openchoreo.dev/description: "Component type for scheduled tasks"
+    openchoreo.dev/description: "A component that runs to completion on a schedule"
 spec:
   workloadType: cronjob
 
