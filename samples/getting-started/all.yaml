@@ -279,6 +279,7 @@ metadata:
   name: service
   annotations:
     openchoreo.dev/description: "A long-running request-serving component with one or more endpoints"
+spec:
   workloadType: deployment
 
   allowedWorkflows:
