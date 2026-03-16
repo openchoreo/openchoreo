@@ -156,7 +156,7 @@ func main() {
 
 	// Initialize legacy services with PAP and PDP
 	legacySvc := legacyservices.NewServices(
-		k8sClient, planeK8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL, gwClient,
+		k8sClient, planeK8sClientMgr, runtime.pdp, logger, gwClient,
 	)
 
 	// Initialize all handler services

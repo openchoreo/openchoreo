@@ -4,7 +4,6 @@
 package legacyservices
 
 import (
-	"context"
 	"log/slog"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -15,65 +14,16 @@ import (
 )
 
 type Services struct {
-	ProjectService                   *ProjectService
-	ComponentService                 *ComponentService
-	ComponentTypeService             *ComponentTypeService
-	WorkflowService                  *WorkflowService
-	WorkflowRunService               WorkflowRunServiceInterface
-	TraitService                     *TraitService
-	NamespaceService                 *NamespaceService
-	EnvironmentService               *EnvironmentService
-	DataPlaneService                 *DataPlaneService
-	WorkflowPlaneService             *WorkflowPlaneService
-	DeploymentPipelineService        *DeploymentPipelineService
-	SchemaService                    *SchemaService
-	SecretReferenceService           *SecretReferenceService
-	GitSecretService                 *GitSecretService
-	WebhookService                   *WebhookService
-	AuthzService                     *AuthzService
-	ObservabilityPlaneService        *ObservabilityPlaneService
-	ClusterDataPlaneService          *ClusterDataPlaneService
-	ClusterWorkflowPlaneService      *ClusterWorkflowPlaneService
-	ClusterObservabilityPlaneService *ClusterObservabilityPlaneService
-	ClusterComponentTypeService      *ClusterComponentTypeService
-	ClusterTraitService              *ClusterTraitService
-	GatewayClient                    *gatewayClient.Client
-	k8sClient                        client.Client // Direct access to K8s client for apply operations
+	WorkflowRunService   WorkflowRunServiceInterface
+	WorkflowPlaneService *WorkflowPlaneService
+	WebhookService       *WebhookService
 }
 
 // NewServices creates and initializes all services
-func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMultiClientManager, authzPAP authz.PAP,
-	authzPDP authz.PDP, logger *slog.Logger, gatewayURL string, gwClient *gatewayClient.Client) *Services {
-	// Create project service
-	projectService := NewProjectService(k8sClient, logger.With("service", "project"), authzPDP)
-
-	// Create component service (depends on project service)
-	componentService := NewComponentService(k8sClient, projectService,
-		logger.With("service", "component"), authzPDP, gwClient)
-
-	// Create namespace service
-	namespaceService := NewNamespaceService(k8sClient, logger.With("service", "namespace"), authzPDP)
-
-	// Create environment service
-	environmentService := NewEnvironmentService(k8sClient, logger.With("service", "environment"), authzPDP)
-
-	// Create dataplane service
-	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"), authzPDP)
-
+func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMultiClientManager, authzPDP authz.PDP,
+	logger *slog.Logger, gwClient *gatewayClient.Client) *Services {
 	// Create workflow plane service with client manager for multi-cluster support
 	workflowPlaneService := NewWorkflowPlaneService(k8sClient, k8sClientMgr, logger.With("service", "workflowplane"), authzPDP)
-
-	// Create deployment pipeline service (depends on project service)
-	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"), authzPDP)
-
-	// Create ComponentType service
-	componentTypeService := NewComponentTypeService(k8sClient, logger.With("service", "componenttype"), authzPDP)
-
-	// Create Trait service
-	traitService := NewTraitService(k8sClient, logger.With("service", "trait"), authzPDP)
-
-	// Create Workflow service
-	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"), authzPDP)
 
 	// Create WorkflowRun service
 	workflowRunService := NewWorkflowRunService(k8sClient, logger.With("service", "workflowrun"), authzPDP, workflowPlaneService, gwClient)
@@ -81,72 +31,9 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	// Create webhook service (handles all git providers)
 	webhookService := NewWebhookService(k8sClient, workflowRunService, logger.With("service", "webhook"))
 
-	// Create Schema service
-	schemaService := NewSchemaService(k8sClient, logger.With("service", "schema"))
-
-	// Create SecretReference service
-	secretReferenceService := NewSecretReferenceService(k8sClient, logger.With("service", "secretreference"), authzPDP)
-
-	// Create GitSecret service
-	gitSecretService := NewGitSecretService(k8sClient, k8sClientMgr, workflowPlaneService, logger.With("service", "gitsecret"), authzPDP, gatewayURL)
-
-	// Create Authorization service
-	authzService := NewAuthzService(authzPAP, authzPDP, logger.With("service", "authz"))
-
-	// Create ObservabilityPlane service
-	observabilityPlaneService := NewObservabilityPlaneService(k8sClient, logger.With("service", "observabilityplane"), authzPDP)
-
-	// Create ClusterDataPlane service
-	clusterDataPlaneService := NewClusterDataPlaneService(k8sClient, logger.With("service", "clusterdataplane"), authzPDP)
-
-	// Create ClusterWorkflowPlane service
-	clusterWorkflowPlaneService := NewClusterWorkflowPlaneService(k8sClient, logger.With("service", "clusterworkflowplane"), authzPDP)
-
-	// Create ClusterObservabilityPlane service
-	clusterObservabilityPlaneService := NewClusterObservabilityPlaneService(k8sClient, logger.With("service", "clusterobservabilityplane"), authzPDP)
-
-	// Create ClusterComponentType service
-	clusterComponentTypeService := NewClusterComponentTypeService(k8sClient, logger.With("service", "clustercomponenttype"), authzPDP)
-
-	// Create ClusterTrait service
-	clusterTraitService := NewClusterTraitService(k8sClient, logger.With("service", "clustertrait"), authzPDP)
-
 	return &Services{
-		ProjectService:                   projectService,
-		ComponentService:                 componentService,
-		ComponentTypeService:             componentTypeService,
-		WorkflowService:                  workflowService,
-		WorkflowRunService:               workflowRunService,
-		TraitService:                     traitService,
-		NamespaceService:                 namespaceService,
-		EnvironmentService:               environmentService,
-		DataPlaneService:                 dataplaneService,
-		WorkflowPlaneService:             workflowPlaneService,
-		DeploymentPipelineService:        deploymentPipelineService,
-		SchemaService:                    schemaService,
-		SecretReferenceService:           secretReferenceService,
-		GitSecretService:                 gitSecretService,
-		WebhookService:                   webhookService,
-		AuthzService:                     authzService,
-		ObservabilityPlaneService:        observabilityPlaneService,
-		ClusterDataPlaneService:          clusterDataPlaneService,
-		ClusterWorkflowPlaneService:      clusterWorkflowPlaneService,
-		ClusterObservabilityPlaneService: clusterObservabilityPlaneService,
-		ClusterComponentTypeService:      clusterComponentTypeService,
-		ClusterTraitService:              clusterTraitService,
-		GatewayClient:                    gwClient,
-		k8sClient:                        k8sClient,
+		WorkflowRunService:   workflowRunService,
+		WorkflowPlaneService: workflowPlaneService,
+		WebhookService:       webhookService,
 	}
-}
-
-// GetKubernetesClient returns the Kubernetes client for direct API operations
-func (s *Services) GetKubernetesClient() client.Client {
-	return s.k8sClient
-}
-
-// CheckAuthorization performs a complete authorization check using the AuthzService PDP.
-// This is exported for use by handler-level code that needs to perform authorization
-// checks without going through a specific service method.
-func (s *Services) CheckAuthorization(ctx context.Context, logger *slog.Logger, action string, resourceType string, resourceID string, hierarchy authz.ResourceHierarchy) error {
-	return checkAuthorization(ctx, logger, s.AuthzService.pdp, systemAction(action), ResourceType(resourceType), resourceID, hierarchy)
 }

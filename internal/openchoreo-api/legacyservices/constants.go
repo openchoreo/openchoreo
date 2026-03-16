@@ -6,98 +6,17 @@ package legacyservices
 type systemAction string
 
 const (
-	SystemActionCreateProject systemAction = "project:create"
-	SystemActionViewProject   systemAction = "project:view"
-	SystemActionDeleteProject systemAction = "project:delete"
-
-	SystemActionCreateComponent        systemAction = "component:create"
-	SystemActionViewComponent          systemAction = "component:view"
-	SystemActionUpdateComponent        systemAction = "component:update"
-	SystemActionDeleteComponent        systemAction = "component:delete"
-	SystemActionDeployComponent        systemAction = "component:deploy"
-	SystemActionCreateComponentRelease systemAction = "componentrelease:create"
-	SystemActionViewComponentRelease   systemAction = "componentrelease:view"
-
-	SystemActionUpdateReleaseBinding systemAction = "releasebinding:update"
-	SystemActionViewReleaseBinding   systemAction = "releasebinding:view"
-
-	SystemActionCreateWorkload systemAction = "workload:create"
-	SystemActionViewWorkload   systemAction = "workload:view"
-
-	SystemActionCreateNamespace systemAction = "namespace:create"
-	SystemActionViewNamespace   systemAction = "namespace:view"
-
-	SystemActionCreateRole        systemAction = "role:create"
-	SystemActionViewRole          systemAction = "role:view"
-	SystemActionDeleteRole        systemAction = "role:delete"
-	SystemActionUpdateRole        systemAction = "role:update"
-	SystemActionCreateRoleMapping systemAction = "rolemapping:create"
-	SystemActionViewRoleMapping   systemAction = "rolemapping:view"
-	SystemActionDeleteRoleMapping systemAction = "rolemapping:delete"
-	SystemActionUpdateRoleMapping systemAction = "rolemapping:update"
-
-	SystemActionViewComponentType   systemAction = "componenttype:view"
-	SystemActionCreateComponentType systemAction = "componenttype:create"
-	SystemActionViewTrait           systemAction = "trait:view"
-	SystemActionCreateTrait         systemAction = "trait:create"
-
-	SystemActionCreateDataPlane systemAction = "dataplane:create"
-	SystemActionViewDataPlane   systemAction = "dataplane:view"
-
-	SystemActionViewWorkflowPlane systemAction = "workflowplane:view"
-
-	SystemActionViewObservabilityPlane systemAction = "observabilityplane:view"
-
-	SystemActionCreateClusterDataPlane        systemAction = "clusterdataplane:create"
-	SystemActionViewClusterDataPlane          systemAction = "clusterdataplane:view"
-	SystemActionViewClusterWorkflowPlane      systemAction = "clusterworkflowplane:view"
-	SystemActionViewClusterObservabilityPlane systemAction = "clusterobservabilityplane:view"
-
-	SystemActionViewClusterComponentType systemAction = "clustercomponenttype:view"
-	SystemActionViewClusterTrait         systemAction = "clustertrait:view"
-
-	SystemActionCreateEnvironment systemAction = "environment:create"
-	SystemActionViewEnvironment   systemAction = "environment:view"
-
-	SystemActionViewDeploymentPipeline systemAction = "deploymentpipeline:view"
-
-	SystemActionViewWorkflow   systemAction = "workflow:view"
-	SystemActionCreateWorkflow systemAction = "workflow:create"
-
 	SystemActionCreateWorkflowRun systemAction = "workflowrun:create"
 	SystemActionViewWorkflowRun   systemAction = "workflowrun:view"
 
-	SystemActionCreateSecretReference systemAction = "secretreference:create"
-	SystemActionViewSecretReference   systemAction = "secretreference:view"
-	SystemActionDeleteSecretReference systemAction = "secretreference:delete"
+	SystemActionViewWorkflowPlane systemAction = "workflowplane:view"
 )
 
 type ResourceType string
 
 const (
-	ResourceTypeProject                   ResourceType = "project"
-	ResourceTypeComponent                 ResourceType = "component"
-	ResourceTypeComponentRelease          ResourceType = "componentRelease"
-	ResourceTypeReleaseBinding            ResourceType = "releaseBinding"
-	ResourceTypeWorkload                  ResourceType = "workload"
-	ResourceTypeNamespace                 ResourceType = "namespace"
-	ResourceTypeRole                      ResourceType = "role"
-	ResourceTypeRoleMapping               ResourceType = "roleMapping"
-	ResourceTypeComponentType             ResourceType = "componentType"
-	ResourceTypeTrait                     ResourceType = "trait"
-	ResourceTypeDataPlane                 ResourceType = "dataPlane"
-	ResourceTypeWorkflowPlane             ResourceType = "workflowPlane"
-	ResourceTypeObservabilityPlane        ResourceType = "observabilityPlane"
-	ResourceTypeClusterDataPlane          ResourceType = "clusterDataPlane"
-	ResourceTypeClusterWorkflowPlane      ResourceType = "clusterWorkflowPlane"
-	ResourceTypeClusterObservabilityPlane ResourceType = "clusterObservabilityPlane"
-	ResourceTypeClusterComponentType      ResourceType = "clusterComponentType"
-	ResourceTypeClusterTrait              ResourceType = "clusterTrait"
-	ResourceTypeEnvironment               ResourceType = "environment"
-	ResourceTypeDeploymentPipeline        ResourceType = "deploymentPipeline"
-	ResourceTypeWorkflow                  ResourceType = "workflow"
-	ResourceTypeWorkflowRun               ResourceType = "workflowRun"
-	ResourceTypeSecretReference           ResourceType = "secretReference"
+	ResourceTypeWorkflowPlane ResourceType = "workflowPlane"
+	ResourceTypeWorkflowRun   ResourceType = "workflowRun"
 )
 
 // Workflow run status constants
@@ -106,5 +25,11 @@ const (
 	WorkflowRunStatusRunning   = "Running"
 	WorkflowRunStatusSucceeded = "Succeeded"
 	WorkflowRunStatusFailed    = "Failed"
-	WorkflowRunStatusCompleted = "Completed"
+)
+
+// Resource ready status constants
+const (
+	statusReady    = "Ready"
+	statusNotReady = "NotReady"
+	statusUnknown  = "Unknown"
 )
