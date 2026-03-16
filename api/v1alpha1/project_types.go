@@ -11,7 +11,8 @@ import (
 type ProjectSpec struct {
 	// DeploymentPipelineRef references the DeploymentPipeline that defines the environments
 	// and deployment progression for components in this project.
-	DeploymentPipelineRef DeploymentPipelineRef `json:"deploymentPipelineRef"`
+	// +optional
+	DeploymentPipelineRef *DeploymentPipelineRef `json:"deploymentPipelineRef,omitempty"`
 }
 
 // ProjectStatus defines the observed state of Project.

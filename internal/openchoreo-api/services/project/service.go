@@ -61,8 +61,8 @@ func (s *projectService) CreateProject(ctx context.Context, namespaceName string
 
 	project.Namespace = namespaceName
 	project.Status = openchoreov1alpha1.ProjectStatus{}
-	if project.Spec.DeploymentPipelineRef.Name == "" {
-		project.Spec.DeploymentPipelineRef = openchoreov1alpha1.DeploymentPipelineRef{
+	if project.Spec.DeploymentPipelineRef == nil || project.Spec.DeploymentPipelineRef.Name == "" {
+		project.Spec.DeploymentPipelineRef = &openchoreov1alpha1.DeploymentPipelineRef{
 			Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
 			Name: defaultPipeline,
 		}

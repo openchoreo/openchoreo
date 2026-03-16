@@ -155,7 +155,7 @@ func projectFixture(name string) *openchoreov1alpha1.Project {
 			Namespace: ns,
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
-			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+			DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 				Name: "default",
 			},
 		},

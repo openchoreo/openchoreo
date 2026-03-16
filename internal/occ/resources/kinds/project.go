@@ -138,7 +138,7 @@ func (p *ProjectResource) CreateProject(params api.CreateProjectParams) error {
 			},
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
-			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+			DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 				Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
 				Name: func() string {
 					if params.DeploymentPipeline != "" {

@@ -181,7 +181,7 @@ var _ = Describe("Project Controller", func() {
 					Labels:    map[string]string{},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
-					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+					DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
 					},
 				},
@@ -227,7 +227,7 @@ var _ = Describe("Project Controller", func() {
 					Labels:    map[string]string{},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
-					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+					DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
 					},
 				},
@@ -263,7 +263,7 @@ var _ = Describe("Project Controller", func() {
 					Labels:    map[string]string{},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
-					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+					DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
 					},
 				},
@@ -316,7 +316,7 @@ var _ = Describe("Project Controller", func() {
 					Labels:    map[string]string{},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
-					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+					DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
 					},
 				},
@@ -371,7 +371,7 @@ var _ = Describe("Project Controller", func() {
 					Labels:    map[string]string{},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
-					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+					DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
 					},
 				},
@@ -450,7 +450,7 @@ var _ = Describe("Project Controller", func() {
 					Namespace: nsName,
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
-					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+					DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 						Name: "some-pipeline",
 					},
 				},
@@ -493,7 +493,7 @@ var _ = Describe("Project Controller", func() {
 					Labels:    map[string]string{},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
-					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+					DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
 					},
 				},
@@ -549,7 +549,7 @@ var _ = Describe("Project Controller", func() {
 					},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
-					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+					DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
 					},
 				},
@@ -631,7 +631,7 @@ var _ = Describe("Project Controller", func() {
 					Finalizers: []string{ProjectCleanupFinalizer},
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
-					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+					DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
 					},
 				},

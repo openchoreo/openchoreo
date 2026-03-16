@@ -46,7 +46,7 @@ var _ = Describe("Project Webhook", func() {
 				Labels:    map[string]string{},
 			},
 			Spec: openchoreov1alpha1.ProjectSpec{
-				DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+				DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 					Name: pipelineName,
 				},
 			},

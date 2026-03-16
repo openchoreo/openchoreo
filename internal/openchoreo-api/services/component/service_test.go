@@ -62,7 +62,7 @@ func testProject() *openchoreov1alpha1.Project {
 			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
-			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+			DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 				Name: testPipelineName,
 			},
 		},
@@ -911,7 +911,7 @@ func TestListComponents(t *testing.T) {
 		projA := testProject()
 		projB := &openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{Name: "proj-b", Namespace: testNamespace},
-			Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: testPipelineName}},
+			Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{Name: testPipelineName}},
 		}
 		compA := &openchoreov1alpha1.Component{
 			ObjectMeta: metav1.ObjectMeta{Name: "comp-a", Namespace: testNamespace, Labels: map[string]string{labels.LabelKeyProjectName: testProjectName}},
@@ -935,7 +935,7 @@ func TestListComponents(t *testing.T) {
 		projA := testProject()
 		projB := &openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{Name: "proj-b", Namespace: testNamespace},
-			Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: testPipelineName}},
+			Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{Name: testPipelineName}},
 		}
 		compA := &openchoreov1alpha1.Component{
 			ObjectMeta: metav1.ObjectMeta{Name: "comp-a", Namespace: testNamespace, Labels: map[string]string{labels.LabelKeyProjectName: testProjectName}},

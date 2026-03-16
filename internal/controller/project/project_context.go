@@ -17,6 +17,14 @@ import (
 )
 
 func (r *Reconciler) makeProjectContext(ctx context.Context, project *openchoreov1alpha1.Project) (*dataplane.ProjectContext, error) {
+	// If the project has no deployment pipeline reference, return an empty context.
+	// This allows finalization to proceed when the ref has been cleared.
+	if project.Spec.DeploymentPipelineRef == nil || project.Spec.DeploymentPipelineRef.Name == "" {
+		return &dataplane.ProjectContext{
+			Project: project,
+		}, nil
+	}
+
 	deploymentPipeline, err := r.findDeploymentPipeline(ctx, project)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve the deployment pipeline: %w", err)

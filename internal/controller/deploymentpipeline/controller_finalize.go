@@ -6,9 +6,7 @@ package deploymentpipeline
 import (
 	"context"
 	"fmt"
-	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -20,21 +18,12 @@ import (
 
 const (
 	// PipelineCleanupFinalizer prevents the DeploymentPipeline from being deleted
-	// while Projects that reference it are still finalizing. Projects depend on
-	// the DeploymentPipeline to resolve environment names and compute data plane
-	// namespace names during their own cleanup.
+	// before referencing Projects have had their deploymentPipelineRef cleared.
 	PipelineCleanupFinalizer = "openchoreo.dev/deployment-pipeline-cleanup"
-
-	// ReasonDeletionBlocked is the reason used when a deployment pipeline cannot be
-	// deleted because it is still referenced by projects.
-	ReasonDeletionBlocked controller.ConditionReason = "DeletionBlocked"
-
-	// DeletionBlockedRequeueInterval is the interval at which the controller re-checks
-	// whether referencing projects have been removed.
-	DeletionBlockedRequeueInterval = 5 * time.Second
 )
 
-// finalize removes the finalizer once no Projects reference this DeploymentPipeline.
+// finalize clears the deploymentPipelineRef from all referencing Projects,
+// then removes the finalizer so the DeploymentPipeline can be deleted.
 func (r *Reconciler) finalize(ctx context.Context, pipeline *openchoreov1alpha1.DeploymentPipeline) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("deploymentPipeline", pipeline.Name)
 
@@ -42,27 +31,8 @@ func (r *Reconciler) finalize(ctx context.Context, pipeline *openchoreov1alpha1.
 		return ctrl.Result{}, nil
 	}
 
-	refCount, err := r.countReferencingProjects(ctx, pipeline)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to check referencing projects: %w", err)
-	}
-
-	if refCount > 0 {
-		msg := fmt.Sprintf("Deletion blocked: deployment pipeline is still referenced by %d project(s)", refCount)
-		logger.Info(msg)
-		if err := controller.UpdateCondition(
-			ctx,
-			r.Status(),
-			pipeline,
-			&pipeline.Status.Conditions,
-			controller.TypeAvailable,
-			metav1.ConditionFalse,
-			string(ReasonDeletionBlocked),
-			msg,
-		); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update status condition: %w", err)
-		}
-		return ctrl.Result{RequeueAfter: DeletionBlockedRequeueInterval}, nil
+	if err := r.clearReferencingProjects(ctx, pipeline); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to clear referencing projects: %w", err)
 	}
 
 	if controllerutil.RemoveFinalizer(pipeline, PipelineCleanupFinalizer) {
@@ -75,15 +45,27 @@ func (r *Reconciler) finalize(ctx context.Context, pipeline *openchoreov1alpha1.
 	return ctrl.Result{}, nil
 }
 
-// countReferencingProjects returns the number of Projects in the same namespace that reference this DeploymentPipeline.
-func (r *Reconciler) countReferencingProjects(ctx context.Context, pipeline *openchoreov1alpha1.DeploymentPipeline) (int, error) {
+// clearReferencingProjects finds all Projects in the same namespace that reference
+// this DeploymentPipeline and sets their DeploymentPipelineRef to nil.
+func (r *Reconciler) clearReferencingProjects(ctx context.Context, pipeline *openchoreov1alpha1.DeploymentPipeline) error {
+	logger := log.FromContext(ctx).WithValues("deploymentPipeline", pipeline.Name)
+
 	projectList := &openchoreov1alpha1.ProjectList{}
 	if err := r.List(ctx, projectList,
 		client.InNamespace(pipeline.Namespace),
 		client.MatchingFields{controller.IndexKeyProjectDeploymentPipelineRef: pipeline.Name},
 	); err != nil {
-		return 0, fmt.Errorf("failed to list projects: %w", err)
+		return fmt.Errorf("failed to list projects: %w", err)
 	}
 
-	return len(projectList.Items), nil
+	for i := range projectList.Items {
+		project := &projectList.Items[i]
+		logger.Info("Clearing deploymentPipelineRef from project", "project", project.Name)
+		project.Spec.DeploymentPipelineRef = nil
+		if err := r.Update(ctx, project); err != nil {
+			return fmt.Errorf("failed to clear deploymentPipelineRef on project %s: %w", project.Name, err)
+		}
+	}
+
+	return nil
 }

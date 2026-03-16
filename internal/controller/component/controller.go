@@ -476,7 +476,7 @@ func (r *Reconciler) validateAndFetchDeploymentPipeline(ctx context.Context, com
 	}
 
 	// Validate that the project has a deployment pipeline reference
-	if project.Spec.DeploymentPipelineRef.Name == "" {
+	if project.Spec.DeploymentPipelineRef == nil || project.Spec.DeploymentPipelineRef.Name == "" {
 		msg := fmt.Sprintf("Project %q has empty deploymentPipelineRef", project.Name)
 		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
 		logger.Info(msg, "component", comp.Name)

@@ -224,11 +224,11 @@ func TestListComponentsHandler(t *testing.T) {
 
 	projectA := &openchoreov1alpha1.Project{
 		ObjectMeta: metav1.ObjectMeta{Name: projA, Namespace: ns},
-		Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: pipeDef}},
+		Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{Name: pipeDef}},
 	}
 	projectB := &openchoreov1alpha1.Project{
 		ObjectMeta: metav1.ObjectMeta{Name: projB, Namespace: ns},
-		Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: pipeDef}},
+		Spec:       openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{Name: pipeDef}},
 	}
 
 	t.Run("success - returns items", func(t *testing.T) {

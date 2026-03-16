@@ -30,11 +30,12 @@ func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, re
 		}
 	}
 
-	deploymentPipelineRef := openchoreov1alpha1.DeploymentPipelineRef{
-		Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
-	}
+	var deploymentPipelineRef *openchoreov1alpha1.DeploymentPipelineRef
 	if req.Spec != nil && req.Spec.DeploymentPipelineRef != nil {
-		deploymentPipelineRef.Name = req.Spec.DeploymentPipelineRef.Name
+		deploymentPipelineRef = &openchoreov1alpha1.DeploymentPipelineRef{
+			Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
+			Name: req.Spec.DeploymentPipelineRef.Name,
+		}
 		if req.Spec.DeploymentPipelineRef.Kind != nil && *req.Spec.DeploymentPipelineRef.Kind != "" {
 			deploymentPipelineRef.Kind = openchoreov1alpha1.DeploymentPipelineRefKind(*req.Spec.DeploymentPipelineRef.Kind)
 		}

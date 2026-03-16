@@ -60,8 +60,6 @@ spec:
                 required:
                 - name
                 type: object
-            required:
-            - deploymentPipelineRef
             type: object
           status:
             description: ProjectStatus defines the observed state of Project.

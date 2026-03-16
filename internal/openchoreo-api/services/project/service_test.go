@@ -35,7 +35,7 @@ func TestCreateProject(t *testing.T) {
 		proj := &openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{Name: testProjectName},
 			Spec: openchoreov1alpha1.ProjectSpec{
-				DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+				DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 					Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
 					Name: "my-pipeline",
 				},
@@ -64,7 +64,7 @@ func TestCreateProject(t *testing.T) {
 		proj := &openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{Name: testProjectName},
 			Spec: openchoreov1alpha1.ProjectSpec{
-				DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "default"},
+				DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{Name: "default"},
 			},
 		}
 
@@ -90,7 +90,7 @@ func TestCreateProject(t *testing.T) {
 		proj := &openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{Name: "proj-explicit"},
 			Spec: openchoreov1alpha1.ProjectSpec{
-				DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+				DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 					Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
 					Name: "custom-pipeline",
 				},
@@ -117,7 +117,7 @@ func TestUpdateProject(t *testing.T) {
 				Annotations: map[string]string{"note": "updated"},
 			},
 			Spec: openchoreov1alpha1.ProjectSpec{
-				DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "new-pipeline"},
+				DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{Name: "new-pipeline"},
 			},
 		}
 

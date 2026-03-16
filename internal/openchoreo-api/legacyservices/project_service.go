@@ -162,7 +162,7 @@ func (s *ProjectService) buildProjectCR(namespaceName string, req *models.Create
 	}
 
 	projectSpec := openchoreov1alpha1.ProjectSpec{
-		DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+		DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{
 			Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
 			Name: deploymentPipeline,
 		},
@@ -241,14 +241,19 @@ func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) 
 	}
 
 	response := &models.ProjectResponse{
-		UID:                string(project.UID),
-		Name:               project.Name,
-		NamespaceName:      project.Namespace,
-		DisplayName:        displayName,
-		Description:        description,
-		DeploymentPipeline: project.Spec.DeploymentPipelineRef.Name,
-		CreatedAt:          project.CreationTimestamp.Time,
-		Status:             status,
+		UID:           string(project.UID),
+		Name:          project.Name,
+		NamespaceName: project.Namespace,
+		DisplayName:   displayName,
+		Description:   description,
+		DeploymentPipeline: func() string {
+			if project.Spec.DeploymentPipelineRef != nil {
+				return project.Spec.DeploymentPipelineRef.Name
+			}
+			return ""
+		}(),
+		CreatedAt: project.CreationTimestamp.Time,
+		Status:    status,
 	}
 
 	// Include deletion timestamp if the project is marked for deletion

@@ -184,7 +184,7 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 	})
 
 	// -------------------------------------------------------------------------
-	// Finalization: referenced by Projects
+	// Finalization: auto-clears refs from referencing Projects
 	// -------------------------------------------------------------------------
 	Context("When deleting a DeploymentPipeline that is referenced by Projects", func() {
 		const pipelineName = "dp-finalize-with-ref"
@@ -208,7 +208,7 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 					Namespace: ns,
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
-					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: pipelineName},
+					DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{Name: pipelineName},
 				},
 			}
 			Expect(k8sClient.Create(ctx, project)).To(Succeed())
@@ -224,49 +224,93 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 			forceDeletePipeline(pipelineNN)
 		})
 
-		It("should set DeletionBlocked condition and requeue", func() {
+		It("should clear deploymentPipelineRef from the project and delete the pipeline", func() {
 			pipeline := &openchoreov1alpha1.DeploymentPipeline{}
 			Expect(k8sClient.Get(ctx, pipelineNN, pipeline)).To(Succeed())
 			Expect(k8sClient.Delete(ctx, pipeline)).To(Succeed())
 
 			r := testReconciler()
-			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: pipelineNN})
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: pipelineNN})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(DeletionBlockedRequeueInterval))
 
-			fresh := &openchoreov1alpha1.DeploymentPipeline{}
-			Expect(k8sClient.Get(ctx, pipelineNN, fresh)).To(Succeed())
-			cond := apimeta.FindStatusCondition(fresh.Status.Conditions, controller.TypeAvailable)
-			Expect(cond).NotTo(BeNil())
-			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(cond.Reason).To(Equal(string(ReasonDeletionBlocked)))
-			Expect(cond.Message).To(ContainSubstring("1 project(s)"))
-		})
-
-		It("should proceed to finalize after the referencing project is removed", func() {
-			pipeline := &openchoreov1alpha1.DeploymentPipeline{}
-			Expect(k8sClient.Get(ctx, pipelineNN, pipeline)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, pipeline)).To(Succeed())
-
-			r := testReconciler()
-
-			By("first reconcile — blocked by referencing project")
-			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: pipelineNN})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(DeletionBlockedRequeueInterval))
-
-			By("removing the referencing project")
+			By("verifying the project's deploymentPipelineRef is cleared")
 			project := &openchoreov1alpha1.Project{}
 			Expect(k8sClient.Get(ctx, projectNN, project)).To(Succeed())
-			Expect(k8sClient.Delete(ctx, project)).To(Succeed())
-			Eventually(func() bool {
-				return apierrors.IsNotFound(k8sClient.Get(ctx, projectNN, &openchoreov1alpha1.Project{}))
-			}, "5s", "100ms").Should(BeTrue())
+			Expect(project.Spec.DeploymentPipelineRef).To(BeNil())
 
-			By("second reconcile — removes finalizer and deletes pipeline")
-			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: pipelineNN})
+			By("verifying the pipeline is deleted")
+			Eventually(func() bool {
+				return apierrors.IsNotFound(k8sClient.Get(ctx, pipelineNN, &openchoreov1alpha1.DeploymentPipeline{}))
+			}, "5s", "100ms").Should(BeTrue())
+		})
+	})
+
+	// -------------------------------------------------------------------------
+	// Finalization: auto-clears refs from multiple referencing Projects
+	// -------------------------------------------------------------------------
+	Context("When deleting a DeploymentPipeline referenced by multiple Projects", func() {
+		const pipelineName = "dp-finalize-multi-ref"
+		const project1Name = "proj1-refs-dp"
+		const project2Name = "proj2-refs-dp"
+		pipelineNN := types.NamespacedName{Name: pipelineName, Namespace: ns}
+		project1NN := types.NamespacedName{Name: project1Name, Namespace: ns}
+		project2NN := types.NamespacedName{Name: project2Name, Namespace: ns}
+
+		BeforeEach(func() {
+			pipeline := &openchoreov1alpha1.DeploymentPipeline{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       pipelineName,
+					Namespace:  ns,
+					Finalizers: []string{PipelineCleanupFinalizer},
+				},
+			}
+			Expect(k8sClient.Create(ctx, pipeline)).To(Succeed())
+
+			for _, name := range []string{project1Name, project2Name} {
+				project := &openchoreov1alpha1.Project{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: ns,
+					},
+					Spec: openchoreov1alpha1.ProjectSpec{
+						DeploymentPipelineRef: &openchoreov1alpha1.DeploymentPipelineRef{Name: pipelineName},
+					},
+				}
+				Expect(k8sClient.Create(ctx, project)).To(Succeed())
+			}
+
+			// Wait for the Projects to appear in the cache
+			Eventually(func() error {
+				if err := k8sClient.Get(ctx, project1NN, &openchoreov1alpha1.Project{}); err != nil {
+					return err
+				}
+				return k8sClient.Get(ctx, project2NN, &openchoreov1alpha1.Project{})
+			}, "5s", "100ms").Should(Succeed())
+		})
+
+		AfterEach(func() {
+			forceDeleteProject(project1NN)
+			forceDeleteProject(project2NN)
+			forceDeletePipeline(pipelineNN)
+		})
+
+		It("should clear refs from all projects and delete the pipeline", func() {
+			pipeline := &openchoreov1alpha1.DeploymentPipeline{}
+			Expect(k8sClient.Get(ctx, pipelineNN, pipeline)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, pipeline)).To(Succeed())
+
+			r := testReconciler()
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: pipelineNN})
 			Expect(err).NotTo(HaveOccurred())
 
+			By("verifying both projects have nil deploymentPipelineRef")
+			for _, nn := range []types.NamespacedName{project1NN, project2NN} {
+				project := &openchoreov1alpha1.Project{}
+				Expect(k8sClient.Get(ctx, nn, project)).To(Succeed())
+				Expect(project.Spec.DeploymentPipelineRef).To(BeNil(), "project %s should have nil ref", nn.Name)
+			}
+
+			By("verifying the pipeline is deleted")
 			Eventually(func() bool {
 				return apierrors.IsNotFound(k8sClient.Get(ctx, pipelineNN, &openchoreov1alpha1.DeploymentPipeline{}))
 			}, "5s", "100ms").Should(BeTrue())

@@ -23,7 +23,7 @@ func (r *Reconciler) findDeploymentPipelineForProject(_ context.Context, obj cli
 	}
 
 	pipelineRef := project.Spec.DeploymentPipelineRef
-	if pipelineRef.Name == "" {
+	if pipelineRef == nil || pipelineRef.Name == "" {
 		return nil
 	}
 
