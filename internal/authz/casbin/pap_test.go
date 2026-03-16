@@ -1131,6 +1131,40 @@ func TestCasbinEnforcer_UpdateClusterRole(t *testing.T) {
 	})
 }
 
+// TestCasbinEnforcer_DeleteClusterRole tests deleting cluster-scoped roles
+func TestCasbinEnforcer_DeleteClusterRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("delete existing cluster role", func(t *testing.T) {
+		role := &openchoreov1alpha1.ClusterAuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "delete-cr"},
+			Spec:       openchoreov1alpha1.ClusterAuthzRoleSpec{Actions: []string{"component:view"}},
+		}
+		if err := enforcer.k8sClient.Create(ctx, role); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		if err := enforcer.DeleteClusterRole(ctx, "delete-cr"); err != nil {
+			t.Fatalf("DeleteClusterRole() error = %v", err)
+		}
+
+		// Verify the CRD is gone
+		var crd openchoreov1alpha1.ClusterAuthzRole
+		err := enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "delete-cr"}, &crd)
+		if !k8serrors.IsNotFound(err) {
+			t.Errorf("expected NotFound after delete, got err = %v", err)
+		}
+	})
+
+	t.Run("delete non-existent cluster role", func(t *testing.T) {
+		err := enforcer.DeleteClusterRole(ctx, "non-existent-cr")
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("DeleteClusterRole() error = %v, want ErrRoleNotFound", err)
+		}
+	})
+}
+
 // TestCasbinEnforcer_CreateNamespacedRole tests creating namespace-scoped roles
 func TestCasbinEnforcer_CreateNamespacedRole(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
@@ -1310,6 +1344,56 @@ func TestCasbinEnforcer_UpdateNamespacedRole(t *testing.T) {
 		_, err := enforcer.UpdateNamespacedRole(ctx, nil)
 		if !errors.Is(err, authzcore.ErrInvalidRequest) {
 			t.Errorf("error = %v, want ErrInvalidRequest", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_DeleteNamespacedRole tests deleting namespace-scoped roles
+func TestCasbinEnforcer_DeleteNamespacedRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	const testNs = "acme"
+
+	t.Run("delete existing namespaced role", func(t *testing.T) {
+		role := &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "delete-ns-role", Namespace: testNs},
+			Spec:       openchoreov1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+		}
+		if err := enforcer.k8sClient.Create(ctx, role); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		if err := enforcer.DeleteNamespacedRole(ctx, "delete-ns-role", testNs); err != nil {
+			t.Fatalf("DeleteNamespacedRole() error = %v", err)
+		}
+
+		// Verify the CRD is gone
+		var crd openchoreov1alpha1.AuthzRole
+		err := enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "delete-ns-role", Namespace: testNs}, &crd)
+		if !k8serrors.IsNotFound(err) {
+			t.Errorf("expected NotFound after delete, got err = %v", err)
+		}
+	})
+
+	t.Run("delete non-existent namespaced role", func(t *testing.T) {
+		err := enforcer.DeleteNamespacedRole(ctx, "non-existent", testNs)
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("DeleteNamespacedRole() error = %v, want ErrRoleNotFound", err)
+		}
+	})
+
+	t.Run("delete namespaced role wrong namespace", func(t *testing.T) {
+		role := &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "delete-wrong-ns", Namespace: testNs},
+			Spec:       openchoreov1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+		}
+		if err := enforcer.k8sClient.Create(ctx, role); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		err := enforcer.DeleteNamespacedRole(ctx, "delete-wrong-ns", "wrong-ns")
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("DeleteNamespacedRole() error = %v, want ErrRoleNotFound", err)
 		}
 	})
 }
@@ -2175,6 +2259,108 @@ func TestCasbinEnforcer_UpdateNamespacedRoleBinding(t *testing.T) {
 		_, err := enforcer.UpdateNamespacedRoleBinding(ctx, nil)
 		if !errors.Is(err, authzcore.ErrInvalidRequest) {
 			t.Errorf("error = %v, want ErrInvalidRequest", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_DeleteClusterRoleBinding tests deleting cluster-scoped role bindings
+func TestCasbinEnforcer_DeleteClusterRoleBinding(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("delete existing cluster role binding", func(t *testing.T) {
+		binding := &openchoreov1alpha1.ClusterAuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "delete-crb"},
+			Spec: openchoreov1alpha1.ClusterAuthzRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "ops"},
+				RoleMappings: []openchoreov1alpha1.ClusterRoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		if err := enforcer.DeleteClusterRoleBinding(ctx, "delete-crb"); err != nil {
+			t.Fatalf("DeleteClusterRoleBinding() error = %v", err)
+		}
+
+		// Verify the CRD is gone
+		var crd openchoreov1alpha1.ClusterAuthzRoleBinding
+		err := enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "delete-crb"}, &crd)
+		if !k8serrors.IsNotFound(err) {
+			t.Errorf("expected NotFound after delete, got err = %v", err)
+		}
+	})
+
+	t.Run("delete non-existent cluster role binding", func(t *testing.T) {
+		err := enforcer.DeleteClusterRoleBinding(ctx, "non-existent-crb")
+		if !errors.Is(err, authzcore.ErrRoleMappingNotFound) {
+			t.Errorf("DeleteClusterRoleBinding() error = %v, want ErrRoleMappingNotFound", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_DeleteNamespacedRoleBinding tests deleting namespace-scoped role bindings
+func TestCasbinEnforcer_DeleteNamespacedRoleBinding(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	const testNs = "acme"
+
+	t.Run("delete existing namespaced role binding", func(t *testing.T) {
+		binding := &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "delete-rb", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "devs"},
+				RoleMappings: []openchoreov1alpha1.RoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "dev-role"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		if err := enforcer.DeleteNamespacedRoleBinding(ctx, "delete-rb", testNs); err != nil {
+			t.Fatalf("DeleteNamespacedRoleBinding() error = %v", err)
+		}
+
+		// Verify the CRD is gone
+		var crd openchoreov1alpha1.AuthzRoleBinding
+		err := enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "delete-rb", Namespace: testNs}, &crd)
+		if !k8serrors.IsNotFound(err) {
+			t.Errorf("expected NotFound after delete, got err = %v", err)
+		}
+	})
+
+	t.Run("delete non-existent namespaced role binding", func(t *testing.T) {
+		err := enforcer.DeleteNamespacedRoleBinding(ctx, "non-existent-rb", testNs)
+		if !errors.Is(err, authzcore.ErrRoleMappingNotFound) {
+			t.Errorf("DeleteNamespacedRoleBinding() error = %v, want ErrRoleMappingNotFound", err)
+		}
+	})
+
+	t.Run("delete namespaced role binding wrong namespace", func(t *testing.T) {
+		binding := &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "delete-wrong-ns-rb", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "devs"},
+				RoleMappings: []openchoreov1alpha1.RoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "dev-role"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		err := enforcer.DeleteNamespacedRoleBinding(ctx, "delete-wrong-ns-rb", "wrong-ns")
+		if !errors.Is(err, authzcore.ErrRoleMappingNotFound) {
+			t.Errorf("DeleteNamespacedRoleBinding() error = %v, want ErrRoleMappingNotFound", err)
 		}
 	})
 }

@@ -218,3 +218,43 @@ func TestDisabledAuthorizer_ListActions(t *testing.T) {
 		t.Errorf("expected nil actions, got %v", actions)
 	}
 }
+
+// TestDisabledAuthorizer_DeleteClusterRole verifies PAP methods return ErrAuthzDisabled
+func TestDisabledAuthorizer_DeleteClusterRole(t *testing.T) {
+	ctx := context.Background()
+
+	err := disabledAuthorizer.DeleteClusterRole(ctx, "test-role")
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+}
+
+// TestDisabledAuthorizer_DeleteNamespacedRole verifies PAP methods return ErrAuthzDisabled
+func TestDisabledAuthorizer_DeleteNamespacedRole(t *testing.T) {
+	ctx := context.Background()
+
+	err := disabledAuthorizer.DeleteNamespacedRole(ctx, "test-role", "test-ns")
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+}
+
+// TestDisabledAuthorizer_DeleteClusterRoleBinding verifies PAP methods return ErrAuthzDisabled
+func TestDisabledAuthorizer_DeleteClusterRoleBinding(t *testing.T) {
+	ctx := context.Background()
+
+	err := disabledAuthorizer.DeleteClusterRoleBinding(ctx, "test-binding")
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+}
+
+// TestDisabledAuthorizer_DeleteNamespacedRoleBinding verifies PAP methods return ErrAuthzDisabled
+func TestDisabledAuthorizer_DeleteNamespacedRoleBinding(t *testing.T) {
+	ctx := context.Background()
+
+	err := disabledAuthorizer.DeleteNamespacedRoleBinding(ctx, "test-binding", "test-ns")
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+}

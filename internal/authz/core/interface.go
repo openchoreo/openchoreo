@@ -73,6 +73,8 @@ type PAP interface {
 	ListClusterRoles(ctx context.Context, limit int, cursor string) (*PaginatedList[openchoreov1alpha1.ClusterAuthzRole], error)
 	// UpdateClusterRole updates a cluster-scoped role and returns the updated CRD object
 	UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error)
+	// DeleteClusterRole deletes a cluster-scoped role by name
+	DeleteClusterRole(ctx context.Context, name string) error
 
 	// Roles - Namespace scoped
 
@@ -84,6 +86,8 @@ type PAP interface {
 	ListNamespacedRoles(ctx context.Context, namespace string, limit int, cursor string) (*PaginatedList[openchoreov1alpha1.AuthzRole], error)
 	// UpdateNamespacedRole updates a namespace-scoped role and returns the updated CRD object
 	UpdateNamespacedRole(ctx context.Context, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error)
+	// DeleteNamespacedRole deletes a namespace-scoped role by name and namespace
+	DeleteNamespacedRole(ctx context.Context, name string, namespace string) error
 
 	// Bindings - Cluster scoped
 
@@ -95,6 +99,8 @@ type PAP interface {
 	ListClusterRoleBindings(ctx context.Context, limit int, cursor string) (*PaginatedList[openchoreov1alpha1.ClusterAuthzRoleBinding], error)
 	// UpdateClusterRoleBinding updates a cluster-scoped role binding and returns the updated CRD object
 	UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error)
+	// DeleteClusterRoleBinding deletes a cluster-scoped role binding by name
+	DeleteClusterRoleBinding(ctx context.Context, name string) error
 
 	// Bindings - Namespace scoped
 
@@ -106,4 +112,6 @@ type PAP interface {
 	ListNamespacedRoleBindings(ctx context.Context, namespace string, limit int, cursor string) (*PaginatedList[openchoreov1alpha1.AuthzRoleBinding], error)
 	// UpdateNamespacedRoleBinding updates a namespace-scoped role binding and returns the updated CRD object
 	UpdateNamespacedRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error)
+	// DeleteNamespacedRoleBinding deletes a namespace-scoped role binding by name and namespace
+	DeleteNamespacedRoleBinding(ctx context.Context, name string, namespace string) error
 }

@@ -10,7 +10,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -19,10 +18,9 @@ import (
 
 // authzService handles authz CRUD operations without authorization checks.
 type authzService struct {
-	pap       authzcore.PAP
-	pdp       authzcore.PDP
-	k8sClient client.Client
-	logger    *slog.Logger
+	pap    authzcore.PAP
+	pdp    authzcore.PDP
+	logger *slog.Logger
 }
 
 var _ Service = (*authzService)(nil)
@@ -48,12 +46,11 @@ var authzRoleBindingTypeMeta = metav1.TypeMeta{
 }
 
 // NewService creates a new authz service without authorization checks.
-func NewService(pap authzcore.PAP, pdp authzcore.PDP, k8sClient client.Client, logger *slog.Logger) Service {
+func NewService(pap authzcore.PAP, pdp authzcore.PDP, logger *slog.Logger) Service {
 	return &authzService{
-		pap:       pap,
-		pdp:       pdp,
-		k8sClient: k8sClient,
-		logger:    logger,
+		pap:    pap,
+		pdp:    pdp,
+		logger: logger,
 	}
 }
 
@@ -118,16 +115,7 @@ func (s *authzService) UpdateClusterRole(ctx context.Context, role *openchoreov1
 
 func (s *authzService) DeleteClusterRole(ctx context.Context, name string) error {
 	s.logger.Debug("Deleting cluster role", "name", name)
-	role := &openchoreov1alpha1.ClusterAuthzRole{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-	}
-	if err := s.k8sClient.Delete(ctx, role); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return ErrRoleNotFound
-		}
-		return fmt.Errorf("failed to delete cluster role: %w", err)
-	}
-	return nil
+	return s.pap.DeleteClusterRole(ctx, name)
 }
 
 // --- Namespace Roles ---
@@ -193,16 +181,7 @@ func (s *authzService) UpdateNamespaceRole(ctx context.Context, namespace string
 
 func (s *authzService) DeleteNamespaceRole(ctx context.Context, namespace, name string) error {
 	s.logger.Debug("Deleting namespace role", "namespace", namespace, "name", name)
-	role := &openchoreov1alpha1.AuthzRole{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-	}
-	if err := s.k8sClient.Delete(ctx, role); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return ErrRoleNotFound
-		}
-		return fmt.Errorf("failed to delete namespace role: %w", err)
-	}
-	return nil
+	return s.pap.DeleteNamespacedRole(ctx, name, namespace)
 }
 
 // --- Cluster Role Bindings ---
@@ -266,16 +245,7 @@ func (s *authzService) UpdateClusterRoleBinding(ctx context.Context, binding *op
 
 func (s *authzService) DeleteClusterRoleBinding(ctx context.Context, name string) error {
 	s.logger.Debug("Deleting cluster role binding", "name", name)
-	binding := &openchoreov1alpha1.ClusterAuthzRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-	}
-	if err := s.k8sClient.Delete(ctx, binding); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return ErrRoleBindingNotFound
-		}
-		return fmt.Errorf("failed to delete cluster role binding: %w", err)
-	}
-	return nil
+	return s.pap.DeleteClusterRoleBinding(ctx, name)
 }
 
 // --- Namespace Role Bindings ---
@@ -341,16 +311,7 @@ func (s *authzService) UpdateNamespaceRoleBinding(ctx context.Context, namespace
 
 func (s *authzService) DeleteNamespaceRoleBinding(ctx context.Context, namespace, name string) error {
 	s.logger.Debug("Deleting namespace role binding", "namespace", namespace, "name", name)
-	binding := &openchoreov1alpha1.AuthzRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-	}
-	if err := s.k8sClient.Delete(ctx, binding); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return ErrRoleBindingNotFound
-		}
-		return fmt.Errorf("failed to delete namespace role binding: %w", err)
-	}
-	return nil
+	return s.pap.DeleteNamespacedRoleBinding(ctx, name, namespace)
 }
 
 // --- Evaluation & Profile ---

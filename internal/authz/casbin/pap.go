@@ -430,6 +430,21 @@ func (ce *CasbinEnforcer) UpdateClusterRole(ctx context.Context, role *openchore
 	return existing, nil
 }
 
+// DeleteClusterRole deletes a cluster-scoped role by name
+func (ce *CasbinEnforcer) DeleteClusterRole(ctx context.Context, name string) error {
+	role := &openchoreov1alpha1.ClusterAuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+	}
+	if err := ce.k8sClient.Delete(ctx, role); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleNotFound
+		}
+		return fmt.Errorf("failed to delete ClusterAuthzRole: %w", err)
+	}
+	ce.logger.Debug("deleted ClusterAuthzRole", "name", name)
+	return nil
+}
+
 // CreateNamespacedRole creates a new namespace-scoped role and returns the full CRD object
 func (ce *CasbinEnforcer) CreateNamespacedRole(ctx context.Context, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error) {
 	if role == nil {
@@ -504,6 +519,21 @@ func (ce *CasbinEnforcer) UpdateNamespacedRole(ctx context.Context, role *opench
 		return nil, fmt.Errorf("failed to update AuthzRole: %w", err)
 	}
 	return existing, nil
+}
+
+// DeleteNamespacedRole deletes a namespace-scoped role by name and namespace
+func (ce *CasbinEnforcer) DeleteNamespacedRole(ctx context.Context, name string, namespace string) error {
+	role := &openchoreov1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+	}
+	if err := ce.k8sClient.Delete(ctx, role); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleNotFound
+		}
+		return fmt.Errorf("failed to delete AuthzRole: %w", err)
+	}
+	ce.logger.Debug("deleted AuthzRole", "name", name, "namespace", namespace)
+	return nil
 }
 
 // CreateClusterRoleBinding creates a new cluster-scoped role binding and returns the full CRD object
@@ -582,6 +612,21 @@ func (ce *CasbinEnforcer) UpdateClusterRoleBinding(ctx context.Context, binding 
 	return existing, nil
 }
 
+// DeleteClusterRoleBinding deletes a cluster-scoped role binding by name
+func (ce *CasbinEnforcer) DeleteClusterRoleBinding(ctx context.Context, name string) error {
+	binding := &openchoreov1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+	}
+	if err := ce.k8sClient.Delete(ctx, binding); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleMappingNotFound
+		}
+		return fmt.Errorf("failed to delete ClusterAuthzRoleBinding: %w", err)
+	}
+	ce.logger.Debug("deleted ClusterAuthzRoleBinding", "name", name)
+	return nil
+}
+
 // CreateNamespacedRoleBinding creates a new namespace-scoped role binding and returns the full CRD object
 func (ce *CasbinEnforcer) CreateNamespacedRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error) {
 	if binding == nil {
@@ -656,6 +701,21 @@ func (ce *CasbinEnforcer) UpdateNamespacedRoleBinding(ctx context.Context, bindi
 		return nil, fmt.Errorf("failed to update AuthzRoleBinding: %w", err)
 	}
 	return existing, nil
+}
+
+// DeleteNamespacedRoleBinding deletes a namespace-scoped role binding by name and namespace
+func (ce *CasbinEnforcer) DeleteNamespacedRoleBinding(ctx context.Context, name string, namespace string) error {
+	binding := &openchoreov1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+	}
+	if err := ce.k8sClient.Delete(ctx, binding); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleMappingNotFound
+		}
+		return fmt.Errorf("failed to delete AuthzRoleBinding: %w", err)
+	}
+	ce.logger.Debug("deleted AuthzRoleBinding", "name", name, "namespace", namespace)
+	return nil
 }
 
 // ============================================================================

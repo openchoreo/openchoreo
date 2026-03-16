@@ -7,8 +7,6 @@ import (
 	"context"
 	"log/slog"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
@@ -50,9 +48,9 @@ type authzServiceWithAuthz struct {
 var _ Service = (*authzServiceWithAuthz)(nil)
 
 // NewServiceWithAuthz creates an authz service with authorization checks.
-func NewServiceWithAuthz(pap authzcore.PAP, pdp authzcore.PDP, k8sClient client.Client, logger *slog.Logger) Service {
+func NewServiceWithAuthz(pap authzcore.PAP, pdp authzcore.PDP, logger *slog.Logger) Service {
 	return &authzServiceWithAuthz{
-		internal: NewService(pap, pdp, k8sClient, logger),
+		internal: NewService(pap, pdp, logger),
 		authz:    services.NewAuthzChecker(pdp, logger),
 	}
 }

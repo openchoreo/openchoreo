@@ -159,6 +159,10 @@ func (da *DisabledAuthorizer) UpdateClusterRole(ctx context.Context, role *openc
 	return nil, authz.ErrAuthzDisabled
 }
 
+func (da *DisabledAuthorizer) DeleteClusterRole(ctx context.Context, name string) error {
+	return authz.ErrAuthzDisabled
+}
+
 func (da *DisabledAuthorizer) CreateNamespacedRole(ctx context.Context, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error) {
 	return nil, authz.ErrAuthzDisabled
 }
@@ -173,6 +177,10 @@ func (da *DisabledAuthorizer) ListNamespacedRoles(ctx context.Context, namespace
 
 func (da *DisabledAuthorizer) UpdateNamespacedRole(ctx context.Context, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error) {
 	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) DeleteNamespacedRole(ctx context.Context, name string, namespace string) error {
+	return authz.ErrAuthzDisabled
 }
 
 func (da *DisabledAuthorizer) CreateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
@@ -191,6 +199,10 @@ func (da *DisabledAuthorizer) UpdateClusterRoleBinding(ctx context.Context, bind
 	return nil, authz.ErrAuthzDisabled
 }
 
+func (da *DisabledAuthorizer) DeleteClusterRoleBinding(ctx context.Context, name string) error {
+	return authz.ErrAuthzDisabled
+}
+
 func (da *DisabledAuthorizer) CreateNamespacedRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error) {
 	return nil, authz.ErrAuthzDisabled
 }
@@ -205,6 +217,10 @@ func (da *DisabledAuthorizer) ListNamespacedRoleBindings(ctx context.Context, na
 
 func (da *DisabledAuthorizer) UpdateNamespacedRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error) {
 	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) DeleteNamespacedRoleBinding(ctx context.Context, name string, namespace string) error {
+	return authz.ErrAuthzDisabled
 }
 
 // These var declarations enforce at compile-time that DisabledAuthorizer
