@@ -298,6 +298,74 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		result, err := handler.GetSpanDetails(ctx, args.TraceID, args.SpanID)
 		return handleToolResult(result, err)
 	})
+
+	// Tool 8: query_alerts
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name:        "query_alerts",
+		Description: "Query fired alerts in OpenChoreo. Supports filtering by project, component, environment, and time range. Useful for investigating recent alerts and details about them.",
+		InputSchema: createSchema(map[string]any{
+			"namespace":   stringProperty("Organization namespace (required)"),
+			"project":     stringProperty("Project name to filter alerts"),
+			"component":   stringProperty("Component name to filter alerts"),
+			"environment": stringProperty("Environment name to filter alerts (e.g., 'development', 'production')"),
+			"start_time":  stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":    stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":       limitProperty(),
+			"sort_order":  sortOrderProperty(),
+		}, []string{"namespace", "start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
+		Namespace   string `json:"namespace"`
+		Project     string `json:"project"`
+		Component   string `json:"component"`
+		Environment string `json:"environment"`
+		StartTime   string `json:"start_time"`
+		EndTime     string `json:"end_time"`
+		Limit       int    `json:"limit"`
+		SortOrder   string `json:"sort_order"`
+	}) (*mcpsdk.CallToolResult, any, error) {
+		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
+			return nil, nil, err
+		}
+		result, err := handler.QueryAlerts(ctx,
+			args.Namespace, args.Project, args.Component, args.Environment,
+			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
+		)
+		return handleToolResult(result, err)
+	})
+
+	// Tool 9: query_incidents
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name:        "query_incidents",
+		Description: "Query incidents in OpenChoreo. Supports filtering by project, component, environment, and time range. Useful for tracking incident lifecycle and response status. All incidents have an accompanying alert but not the other way around.",
+		InputSchema: createSchema(map[string]any{
+			"namespace":   stringProperty("Organization namespace (required)"),
+			"project":     stringProperty("Project name to filter incidents"),
+			"component":   stringProperty("Component name to filter incidents"),
+			"environment": stringProperty("Environment name to filter incidents (e.g., 'development', 'production')"),
+			"start_time":  stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":    stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":       limitProperty(),
+			"sort_order":  sortOrderProperty(),
+		}, []string{"namespace", "start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
+		Namespace   string `json:"namespace"`
+		Project     string `json:"project"`
+		Component   string `json:"component"`
+		Environment string `json:"environment"`
+		StartTime   string `json:"start_time"`
+		EndTime     string `json:"end_time"`
+		Limit       int    `json:"limit"`
+		SortOrder   string `json:"sort_order"`
+	}) (*mcpsdk.CallToolResult, any, error) {
+		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
+			return nil, nil, err
+		}
+		result, err := handler.QueryIncidents(ctx,
+			args.Namespace, args.Project, args.Component, args.Environment,
+			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
+		)
+		return handleToolResult(result, err)
+	})
 }
 
 // Helper functions for schema creation
@@ -324,6 +392,13 @@ func limitLogsProperty() map[string]any {
 }
 
 func limitTraceSpansProperty() map[string]any {
+	return map[string]any{
+		"type":        "number",
+		"description": "Maximum number of entries to return. Default: 100",
+	}
+}
+
+func limitProperty() map[string]any {
 	return map[string]any{
 		"type":        "number",
 		"description": "Maximum number of entries to return. Default: 100",

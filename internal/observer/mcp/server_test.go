@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
@@ -29,6 +30,7 @@ const (
 	testEndTime     = "2025-01-01T23:59:59Z"
 	testTraceID     = "trace-abc123"
 	testSpanID      = "span-def456"
+	sortOrderAsc    = "asc"
 	sortOrderDesc   = "desc"
 )
 
@@ -184,19 +186,76 @@ func (m *MockTracesQuerier) reset() {
 	m.spanDetailsSpanIDs = nil
 }
 
+type MockAlertIncidentService struct {
+	alertsRequests    []gen.AlertsQueryRequest
+	incidentsRequests []gen.IncidentsQueryRequest
+	alertsResponse    *gen.AlertsQueryResponse
+	incidentsResponse *gen.IncidentsQueryResponse
+	queryAlertsErr    error
+	queryIncidentsErr error
+}
+
+func NewMockAlertIncidentService() *MockAlertIncidentService {
+	return &MockAlertIncidentService{
+		alertsResponse:    &gen.AlertsQueryResponse{},
+		incidentsResponse: &gen.IncidentsQueryResponse{},
+	}
+}
+
+func (m *MockAlertIncidentService) QueryAlerts(_ context.Context, req gen.AlertsQueryRequest) (*gen.AlertsQueryResponse, error) {
+	m.alertsRequests = append(m.alertsRequests, req)
+	if m.queryAlertsErr != nil {
+		return nil, m.queryAlertsErr
+	}
+	return m.alertsResponse, nil
+}
+
+func (m *MockAlertIncidentService) QueryIncidents(_ context.Context, req gen.IncidentsQueryRequest) (*gen.IncidentsQueryResponse, error) {
+	m.incidentsRequests = append(m.incidentsRequests, req)
+	if m.queryIncidentsErr != nil {
+		return nil, m.queryIncidentsErr
+	}
+	return m.incidentsResponse, nil
+}
+
+func (m *MockAlertIncidentService) UpdateIncident(_ context.Context, _ string, _ gen.IncidentPutRequest) (*gen.IncidentPutResponse, error) {
+	return &gen.IncidentPutResponse{}, nil
+}
+
+func (m *MockAlertIncidentService) lastAlertsRequest() *gen.AlertsQueryRequest {
+	if len(m.alertsRequests) == 0 {
+		return nil
+	}
+	return &m.alertsRequests[len(m.alertsRequests)-1]
+}
+
+func (m *MockAlertIncidentService) lastIncidentsRequest() *gen.IncidentsQueryRequest {
+	if len(m.incidentsRequests) == 0 {
+		return nil
+	}
+	return &m.incidentsRequests[len(m.incidentsRequests)-1]
+}
+
+func (m *MockAlertIncidentService) reset() {
+	m.alertsRequests = nil
+	m.incidentsRequests = nil
+}
+
 // ---- Test harness ----
 
 type testServices struct {
-	logs    *MockLogsQuerier
-	metrics *MockMetricsQuerier
-	traces  *MockTracesQuerier
+	logs            *MockLogsQuerier
+	metrics         *MockMetricsQuerier
+	traces          *MockTracesQuerier
+	alertsIncidents *MockAlertIncidentService
 }
 
 func newTestServices() *testServices {
 	return &testServices{
-		logs:    NewMockLogsQuerier(),
-		metrics: NewMockMetricsQuerier(),
-		traces:  NewMockTracesQuerier(),
+		logs:            NewMockLogsQuerier(),
+		metrics:         NewMockMetricsQuerier(),
+		traces:          NewMockTracesQuerier(),
+		alertsIncidents: NewMockAlertIncidentService(),
 	}
 }
 
@@ -204,6 +263,7 @@ func (s *testServices) resetAll() {
 	s.logs.reset()
 	s.metrics.reset()
 	s.traces.reset()
+	s.alertsIncidents.reset()
 }
 
 func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
@@ -212,8 +272,7 @@ func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	alertSvc := service.NewAlertService(nil, nil, nil, nil, nil, nil, logger, "", false, nil, nil)
-	return NewMCPHandler(healthSvc, svcs.logs, svcs.metrics, alertSvc, svcs.traces, logger)
+	return NewMCPHandler(healthSvc, svcs.logs, svcs.metrics, svcs.alertsIncidents, svcs.traces, logger)
 }
 
 func setupTestServer(t *testing.T) (*mcpsdk.ClientSession, *testServices) {
@@ -287,7 +346,7 @@ var allToolSpecs = []toolTestSpec{
 			"search_phrase": "error",
 			"log_levels":    []any{"ERROR", "WARN"},
 			"limit":         50,
-			"sort_order":    "asc",
+			"sort_order":    sortOrderAsc,
 		},
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
@@ -326,7 +385,7 @@ var allToolSpecs = []toolTestSpec{
 			if req.Limit != 50 {
 				t.Errorf("Expected limit 50, got %d", req.Limit)
 			}
-			if req.SortOrder != "asc" {
+			if req.SortOrder != sortOrderAsc {
 				t.Errorf("Expected sort_order 'asc', got %q", req.SortOrder)
 			}
 		},
@@ -474,7 +533,7 @@ var allToolSpecs = []toolTestSpec{
 			"start_time":  testStartTime,
 			"end_time":    testEndTime,
 			"limit":       25,
-			"sort_order":  "asc",
+			"sort_order":  sortOrderAsc,
 		},
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
@@ -505,7 +564,7 @@ var allToolSpecs = []toolTestSpec{
 			if req.Limit != 25 {
 				t.Errorf("Expected limit 25, got %d", req.Limit)
 			}
-			if req.SortOrder != "asc" {
+			if req.SortOrder != sortOrderAsc {
 				t.Errorf("Expected sort 'asc', got %q", req.SortOrder)
 			}
 		},
@@ -575,6 +634,106 @@ var allToolSpecs = []toolTestSpec{
 			}
 		},
 	},
+	{
+		name:                "query_alerts",
+		descriptionKeywords: []string{"alert"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"namespace", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component", "environment", "limit", "sort_order"},
+		testArgs: map[string]any{
+			"namespace":   testNamespace,
+			"project":     testProject,
+			"component":   testComponent,
+			"environment": testEnvironment,
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+			"limit":       50,
+			"sort_order":  sortOrderAsc,
+		},
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.alertsIncidents.lastAlertsRequest()
+			if req == nil {
+				t.Fatal("Expected QueryAlerts to be called")
+			}
+			if req.SearchScope.Namespace != testNamespace {
+				t.Errorf("Expected namespace %q, got %q", testNamespace, req.SearchScope.Namespace)
+			}
+			if req.SearchScope.Project == nil || *req.SearchScope.Project != testProject {
+				t.Errorf("Expected project %q, got %v", testProject, req.SearchScope.Project)
+			}
+			if req.SearchScope.Component == nil || *req.SearchScope.Component != testComponent {
+				t.Errorf("Expected component %q, got %v", testComponent, req.SearchScope.Component)
+			}
+			if req.SearchScope.Environment == nil || *req.SearchScope.Environment != testEnvironment {
+				t.Errorf("Expected environment %q, got %v", testEnvironment, req.SearchScope.Environment)
+			}
+			expectedStart, _ := time.Parse(time.RFC3339, testStartTime)
+			if !req.StartTime.Equal(expectedStart) {
+				t.Errorf("Expected start_time %v, got %v", expectedStart, req.StartTime)
+			}
+			expectedEnd, _ := time.Parse(time.RFC3339, testEndTime)
+			if !req.EndTime.Equal(expectedEnd) {
+				t.Errorf("Expected end_time %v, got %v", expectedEnd, req.EndTime)
+			}
+			if req.Limit == nil || *req.Limit != 50 {
+				t.Errorf("Expected limit 50, got %v", req.Limit)
+			}
+			if req.SortOrder == nil || string(*req.SortOrder) != sortOrderAsc {
+				t.Errorf("Expected sort_order 'asc', got %v", req.SortOrder)
+			}
+		},
+	},
+	{
+		name:                "query_incidents",
+		descriptionKeywords: []string{"incident"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"namespace", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component", "environment", "limit", "sort_order"},
+		testArgs: map[string]any{
+			"namespace":   testNamespace,
+			"project":     testProject,
+			"component":   testComponent,
+			"environment": testEnvironment,
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+			"limit":       25,
+			"sort_order":  sortOrderDesc,
+		},
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.alertsIncidents.lastIncidentsRequest()
+			if req == nil {
+				t.Fatal("Expected QueryIncidents to be called")
+			}
+			if req.SearchScope.Namespace != testNamespace {
+				t.Errorf("Expected namespace %q, got %q", testNamespace, req.SearchScope.Namespace)
+			}
+			if req.SearchScope.Project == nil || *req.SearchScope.Project != testProject {
+				t.Errorf("Expected project %q, got %v", testProject, req.SearchScope.Project)
+			}
+			if req.SearchScope.Component == nil || *req.SearchScope.Component != testComponent {
+				t.Errorf("Expected component %q, got %v", testComponent, req.SearchScope.Component)
+			}
+			if req.SearchScope.Environment == nil || *req.SearchScope.Environment != testEnvironment {
+				t.Errorf("Expected environment %q, got %v", testEnvironment, req.SearchScope.Environment)
+			}
+			expectedStart, _ := time.Parse(time.RFC3339, testStartTime)
+			if !req.StartTime.Equal(expectedStart) {
+				t.Errorf("Expected start_time %v, got %v", expectedStart, req.StartTime)
+			}
+			expectedEnd, _ := time.Parse(time.RFC3339, testEndTime)
+			if !req.EndTime.Equal(expectedEnd) {
+				t.Errorf("Expected end_time %v, got %v", expectedEnd, req.EndTime)
+			}
+			if req.Limit == nil || *req.Limit != 25 {
+				t.Errorf("Expected limit 25, got %v", req.Limit)
+			}
+			if req.SortOrder == nil || string(*req.SortOrder) != sortOrderDesc {
+				t.Errorf("Expected sort_order %q, got %v", sortOrderDesc, req.SortOrder)
+			}
+		},
+	},
 }
 
 // ---- Tests ----
@@ -583,7 +742,7 @@ var allToolSpecs = []toolTestSpec{
 func TestNewMCPHandlerValidation(t *testing.T) {
 	logger := slog.Default()
 	healthSvc, _ := service.NewHealthService(logger)
-	alertSvc := service.NewAlertService(nil, nil, nil, nil, nil, nil, logger, "", false, nil, nil)
+	alertIncidentSvc := NewMockAlertIncidentService()
 	logs := NewMockLogsQuerier()
 	metrics := NewMockMetricsQuerier()
 	traces := NewMockTracesQuerier()
@@ -597,12 +756,12 @@ func TestNewMCPHandlerValidation(t *testing.T) {
 		traces               service.TracesQuerier
 		log                  *slog.Logger
 	}{
-		{"nil healthService", nil, logs, metrics, alertSvc, traces, logger},
-		{"nil logsService", healthSvc, nil, metrics, alertSvc, traces, logger},
-		{"nil metricsService", healthSvc, logs, nil, alertSvc, traces, logger},
+		{"nil healthService", nil, logs, metrics, alertIncidentSvc, traces, logger},
+		{"nil logsService", healthSvc, nil, metrics, alertIncidentSvc, traces, logger},
+		{"nil metricsService", healthSvc, logs, nil, alertIncidentSvc, traces, logger},
 		{"nil alertIncidentService", healthSvc, logs, metrics, nil, traces, logger},
-		{"nil tracesService", healthSvc, logs, metrics, alertSvc, nil, logger},
-		{"nil logger", healthSvc, logs, metrics, alertSvc, traces, nil},
+		{"nil tracesService", healthSvc, logs, metrics, alertIncidentSvc, nil, logger},
+		{"nil logger", healthSvc, logs, metrics, alertIncidentSvc, traces, nil},
 	}
 
 	for _, tt := range tests {
@@ -1083,6 +1242,46 @@ func TestHandlerErrorPropagation(t *testing.T) {
 			setupErr: func(s *testServices) { s.traces.spanDetailsErr = errors.New("span not found") },
 		},
 		{
+			name:     "alerts_service_error",
+			toolName: "query_alerts",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
+			},
+			setupErr: func(s *testServices) { s.alertsIncidents.queryAlertsErr = errors.New("alert store unavailable") },
+		},
+		{
+			name:     "incidents_service_error",
+			toolName: "query_incidents",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
+			},
+			setupErr: func(s *testServices) { s.alertsIncidents.queryIncidentsErr = errors.New("incident store unavailable") },
+		},
+		{
+			name:     "alerts_invalid_start_time",
+			toolName: "query_alerts",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": "not-a-time",
+				"end_time":   testEndTime,
+			},
+			setupErr: func(s *testServices) {},
+		},
+		{
+			name:     "incidents_invalid_end_time",
+			toolName: "query_incidents",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   "bad-time-format",
+			},
+			setupErr: func(s *testServices) {},
+		},
+		{
 			name:     "traces_invalid_start_time",
 			toolName: "query_traces",
 			args: map[string]any{
@@ -1235,6 +1434,48 @@ func TestOptionalParametersDefaults(t *testing.T) {
 				}
 				if req.SortOrder != sortOrderDesc {
 					t.Errorf("Expected default sort %q, got %q", sortOrderDesc, req.SortOrder)
+				}
+			},
+		},
+		{
+			name:     "alerts_default_limit_and_sort",
+			toolName: "query_alerts",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
+			},
+			validateCall: func(t *testing.T, svcs *testServices) {
+				req := svcs.alertsIncidents.lastAlertsRequest()
+				if req == nil {
+					t.Fatal("Expected QueryAlerts to be called")
+				}
+				if req.Limit == nil || *req.Limit != 100 {
+					t.Errorf("Expected default limit 100, got %v", req.Limit)
+				}
+				if req.SortOrder == nil || string(*req.SortOrder) != sortOrderDesc {
+					t.Errorf("Expected default sort %q, got %v", sortOrderDesc, req.SortOrder)
+				}
+			},
+		},
+		{
+			name:     "incidents_default_limit_and_sort",
+			toolName: "query_incidents",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
+			},
+			validateCall: func(t *testing.T, svcs *testServices) {
+				req := svcs.alertsIncidents.lastIncidentsRequest()
+				if req == nil {
+					t.Fatal("Expected QueryIncidents to be called")
+				}
+				if req.Limit == nil || *req.Limit != 100 {
+					t.Errorf("Expected default limit 100, got %v", req.Limit)
+				}
+				if req.SortOrder == nil || string(*req.SortOrder) != sortOrderDesc {
+					t.Errorf("Expected default sort %q, got %v", sortOrderDesc, req.SortOrder)
 				}
 			},
 		},

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
@@ -189,6 +190,68 @@ func (h *MCPHandler) QueryTraceSpans(ctx context.Context, traceID, namespace, pr
 
 func (h *MCPHandler) GetSpanDetails(ctx context.Context, traceID, spanID string) (any, error) {
 	return h.tracesService.GetSpanDetails(ctx, traceID, spanID)
+}
+
+func (h *MCPHandler) QueryAlerts(ctx context.Context, namespace, project, component, environment,
+	startTime, endTime string, limit int, sortOrder string) (any, error) {
+	limit, sortOrder, _ = setDefaults(limit, sortOrder, nil)
+	start, err := parseRFC3339Time(startTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid start_time: %w", err)
+	}
+	end, err := parseRFC3339Time(endTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid end_time: %w", err)
+	}
+	sortOrderTyped := gen.AlertsQueryRequestSortOrder(sortOrder)
+	req := gen.AlertsQueryRequest{
+		StartTime: start,
+		EndTime:   end,
+		Limit:     &limit,
+		SortOrder: &sortOrderTyped,
+		SearchScope: gen.ComponentSearchScope{
+			Namespace:   namespace,
+			Project:     strPtr(project),
+			Component:   strPtr(component),
+			Environment: strPtr(environment),
+		},
+	}
+	return h.alertIncidentService.QueryAlerts(ctx, req)
+}
+
+func (h *MCPHandler) QueryIncidents(ctx context.Context, namespace, project, component, environment,
+	startTime, endTime string, limit int, sortOrder string) (any, error) {
+	limit, sortOrder, _ = setDefaults(limit, sortOrder, nil)
+	start, err := parseRFC3339Time(startTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid start_time: %w", err)
+	}
+	end, err := parseRFC3339Time(endTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid end_time: %w", err)
+	}
+	sortOrderTyped := gen.IncidentsQueryRequestSortOrder(sortOrder)
+	req := gen.IncidentsQueryRequest{
+		StartTime: start,
+		EndTime:   end,
+		Limit:     &limit,
+		SortOrder: &sortOrderTyped,
+		SearchScope: gen.ComponentSearchScope{
+			Namespace:   namespace,
+			Project:     strPtr(project),
+			Component:   strPtr(component),
+			Environment: strPtr(environment),
+		},
+	}
+	return h.alertIncidentService.QueryIncidents(ctx, req)
+}
+
+// strPtr returns a pointer to the string, or nil if the string is empty.
+func strPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 func parseRFC3339Time(timeStr string) (time.Time, error) {
