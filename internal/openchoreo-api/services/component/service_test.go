@@ -153,6 +153,16 @@ func rawJSON(t *testing.T, v any) *runtime.RawExtension {
 	return &runtime.RawExtension{Raw: data}
 }
 
+// openAPIV3Schema returns a valid OpenAPI V3 JSON Schema object with a single property.
+func openAPIV3Schema(propName, propType string) map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			propName: map[string]any{"type": propType},
+		},
+	}
+}
+
 // hasReleaseTrait returns true if traits contains an entry with the given name (any kind).
 func hasReleaseTrait(traits []openchoreov1alpha1.ComponentReleaseTrait, name string) bool {
 	for _, t := range traits {
@@ -216,7 +226,7 @@ func TestBuildTraitEnvironmentConfigsSchema(t *testing.T) {
 			name: "valid schema",
 			traitSpec: openchoreov1alpha1.TraitSpec{
 				EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-					OpenAPIV3Schema: rawJSON(t, map[string]any{"replicas": "integer"}),
+					OpenAPIV3Schema: rawJSON(t, openAPIV3Schema("replicas", "integer")),
 				},
 			},
 			expectNil: false,
@@ -482,7 +492,7 @@ func TestGenerateRelease(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "ingress", Namespace: testNamespace},
 			Spec: openchoreov1alpha1.TraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OpenAPIV3Schema: rawJSON(t, map[string]any{"host": "string"}),
+					OpenAPIV3Schema: rawJSON(t, openAPIV3Schema("host", "string")),
 				},
 			},
 		}
@@ -549,7 +559,7 @@ func TestGenerateRelease(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "storage", Namespace: testNamespace},
 			Spec: openchoreov1alpha1.TraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OpenAPIV3Schema: rawJSON(t, map[string]any{"mountPath": "string"}),
+					OpenAPIV3Schema: rawJSON(t, openAPIV3Schema("mountPath", "string")),
 				},
 			},
 		}
@@ -571,7 +581,7 @@ func TestGenerateRelease(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "observability"},
 			Spec: openchoreov1alpha1.ClusterTraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OpenAPIV3Schema: rawJSON(t, map[string]any{"enabled": "boolean"}),
+					OpenAPIV3Schema: rawJSON(t, openAPIV3Schema("enabled", "boolean")),
 				},
 			},
 		}
@@ -593,7 +603,7 @@ func TestGenerateRelease(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "storage", Namespace: testNamespace},
 			Spec: openchoreov1alpha1.TraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OpenAPIV3Schema: rawJSON(t, map[string]any{"mountPath": "string"}),
+					OpenAPIV3Schema: rawJSON(t, openAPIV3Schema("mountPath", "string")),
 				},
 			},
 		}
@@ -601,7 +611,7 @@ func TestGenerateRelease(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "ingress", Namespace: testNamespace},
 			Spec: openchoreov1alpha1.TraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OpenAPIV3Schema: rawJSON(t, map[string]any{"host": "string"}),
+					OpenAPIV3Schema: rawJSON(t, openAPIV3Schema("host", "string")),
 				},
 			},
 		}
@@ -632,7 +642,7 @@ func TestGenerateRelease(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "networking"},
 			Spec: openchoreov1alpha1.ClusterTraitSpec{
 				Parameters: &openchoreov1alpha1.SchemaSection{
-					OpenAPIV3Schema: rawJSON(t, map[string]any{"port": "integer"}),
+					OpenAPIV3Schema: rawJSON(t, openAPIV3Schema("port", "integer")),
 				},
 			},
 		}
@@ -690,7 +700,7 @@ func TestGetComponentSchema(t *testing.T) {
 	t.Run("with environmentConfigs", func(t *testing.T) {
 		ct := testComponentType()
 		ct.Spec.EnvironmentConfigs = &openchoreov1alpha1.SchemaSection{
-			OpenAPIV3Schema: rawJSON(t, map[string]any{"replicas": "integer"}),
+			OpenAPIV3Schema: rawJSON(t, openAPIV3Schema("replicas", "integer")),
 		}
 		svc := newService(t, testComponent(), ct)
 
@@ -705,7 +715,7 @@ func TestGetComponentSchema(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "ingress", Namespace: testNamespace},
 			Spec: openchoreov1alpha1.TraitSpec{
 				EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-					OpenAPIV3Schema: rawJSON(t, map[string]any{"hostname": "string"}),
+					OpenAPIV3Schema: rawJSON(t, openAPIV3Schema("hostname", "string")),
 				},
 			},
 		}
@@ -741,7 +751,7 @@ func TestGetComponentSchema(t *testing.T) {
 			Spec: openchoreov1alpha1.ClusterComponentTypeSpec{
 				WorkloadType: "deployment",
 				EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-					OpenAPIV3Schema: rawJSON(t, map[string]any{"replicas": "integer"}),
+					OpenAPIV3Schema: rawJSON(t, openAPIV3Schema("replicas", "integer")),
 				},
 			},
 		}
@@ -800,7 +810,7 @@ func TestGetComponentReleaseSchema(t *testing.T) {
 					Spec: openchoreov1alpha1.ComponentTypeSpec{
 						WorkloadType: "deployment",
 						EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-							OpenAPIV3Schema: rawJSON(t, map[string]any{"replicas": "integer"}),
+							OpenAPIV3Schema: rawJSON(t, openAPIV3Schema("replicas", "integer")),
 						},
 					},
 				},
@@ -833,7 +843,7 @@ func TestGetComponentReleaseSchema(t *testing.T) {
 						Name: "ingress",
 						Spec: openchoreov1alpha1.TraitSpec{
 							EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-								OpenAPIV3Schema: rawJSON(t, map[string]any{"hostname": "string"}),
+								OpenAPIV3Schema: rawJSON(t, openAPIV3Schema("hostname", "string")),
 							},
 						},
 					},

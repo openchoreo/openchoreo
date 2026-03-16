@@ -211,10 +211,10 @@ func TestGetComponentTypeSchema(t *testing.T) {
 		assert.NotNil(t, result["properties"])
 	})
 
-	t.Run("success with shorthand schema", func(t *testing.T) {
+	t.Run("success with OpenAPIV3 schema", func(t *testing.T) {
 		ct := testutil.NewComponentType(testNamespace, "with-schema")
 		ct.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
-			OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{"replicas":"integer"}`)},
+			OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer"}}}`)},
 		}
 		svc := newService(t, ct)
 

@@ -177,10 +177,10 @@ func TestGetClusterComponentTypeSchema(t *testing.T) {
 		assert.NotNil(t, result["properties"])
 	})
 
-	t.Run("success with shorthand schema params", func(t *testing.T) {
+	t.Run("success with OpenAPIV3 schema", func(t *testing.T) {
 		cct := testutil.NewClusterComponentType("with-schema")
 		cct.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
-			OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{"replicas":"integer"}`)},
+			OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer"}}}`)},
 		}
 		svc := newService(t, cct)
 
