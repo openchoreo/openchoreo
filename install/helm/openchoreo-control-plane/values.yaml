@@ -1517,6 +1517,7 @@ openchoreoApi:
         - "component"
         - "deployment"
         - "build"
+        - "pe"
     # @schema
     # type: object
     # description: Logging configuration
