@@ -1,15 +1,5 @@
 # Helm values for OpenChoreo Observability Plane in k3d single-cluster setup
 
-# Use standalone OpenSearch (not operator-managed cluster)
-openSearch:
-  enabled: false
-  service:
-    type: LoadBalancer
-
-# Disable OpenSearch operator cluster (using standalone instead)
-openSearchCluster:
-  enabled: false
-
 # Observer API - REST API for querying logs and metrics
 observer:
   openSearchSecretName: opensearch-admin-credentials
@@ -17,11 +7,6 @@ observer:
   http:
     hostnames:
     - observer.openchoreo.localhost
-
-# OpenSearch Dashboards - UI for visualizing logs and data
-openSearchDashboards:
-  service:
-    type: LoadBalancer
 
 security:
   oidc:

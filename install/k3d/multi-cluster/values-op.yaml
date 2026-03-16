@@ -1,13 +1,5 @@
 # Helm values for OpenChoreo Observability Plane in k3d multi-cluster setup
 
-openSearch:
-  enabled: false
-
-openSearchCluster:
-  enabled: false
-  credentialsSecretName: observer-opensearch-credentials
-  adminPassword: "ThisIsTheOpenSearchPassword1"
-
 observer:
   openSearchSecretName: opensearch-admin-credentials
   secretName: observer-secret
@@ -26,10 +18,6 @@ observer:
     hostnames:
     - host.k3d.internal
     - observer.openchoreo.localhost
-
-openSearchDashboards:
-  service:
-    type: LoadBalancer
 
 security:
   oidc:
@@ -56,20 +44,6 @@ tls:
   dnsNames:
     - "observability.openchoreo.localhost"
     - "*.observability.openchoreo.localhost"
-
-fluent-bit:
-  enabled: false
-
-opentelemetry-collector:
-  service:
-    type: LoadBalancer
-
-prometheus:
-  prometheus:
-    prometheusSpec:
-      enableRemoteWriteReceiver: true
-    service:
-      type: LoadBalancer
 
 rca:
   http:
