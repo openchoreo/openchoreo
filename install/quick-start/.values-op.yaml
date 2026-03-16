@@ -26,6 +26,8 @@ observer:
     - observer.openchoreo.localhost
   openSearchSecretName: opensearch-admin-credentials
   extraEnvs:
+    - name: OBSERVER_BASE_URL
+      value: "http://observer.openchoreo.localhost:11080"
     - name: OPENSEARCH_ADDRESS
       value: "https://opensearch:9200"
     - name: PROMETHEUS_ADDRESS
@@ -50,3 +52,4 @@ gateway:
 security:
   oidc:
     jwksUrl: "http://thunder-service.thunder.svc.cluster.local:8090/oauth2/jwks"
+    authServerBaseUrl: "http://thunder.openchoreo.localhost:8080"
