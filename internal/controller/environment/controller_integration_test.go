@@ -20,9 +20,9 @@ import (
 )
 
 // newTestReconciler returns a Reconciler wired to the envtest API server.
-// K8sClientMgr is intentionally nil — it is only accessed in the finalization
-// path after makeEnvironmentContext succeeds, which requires a DataPlane to be
-// present; tests that don't exercise that path are safe with nil.
+// K8sClientMgr is intentionally nil — it is only accessed when getDPClient
+// resolves a DataPlane or ClusterDataPlane; tests that don't exercise that
+// path (e.g., DataPlane not found) are safe with nil.
 func newTestReconciler() *Reconciler {
 	return &Reconciler{
 		Client:   k8sClient,
@@ -651,6 +651,128 @@ var _ = Describe("Environment Controller", func() {
 				Eventually(func() bool {
 					return apierrors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.Environment{}))
 				}, "5s", "100ms").Should(BeTrue())
+			})
+		})
+
+		Context("finalization with ClusterDataPlane ref (ClusterDataPlane deleted)", func() {
+			var nn types.NamespacedName
+			var cdpName string
+
+			BeforeEach(func() {
+				cdpName = "test-cdp-finalize"
+
+				cdp := &openchoreov1alpha1.ClusterDataPlane{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: cdpName,
+					},
+					Spec: openchoreov1alpha1.ClusterDataPlaneSpec{
+						PlaneID: "test-plane",
+					},
+				}
+				Expect(k8sClient.Create(ctx, cdp)).To(Succeed())
+
+				nn = types.NamespacedName{Namespace: ns, Name: "env-cdp-finalize"}
+				env := &openchoreov1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       nn.Name,
+						Namespace:  ns,
+						Finalizers: []string{EnvCleanupFinalizer},
+					},
+					Spec: openchoreov1alpha1.EnvironmentSpec{
+						IsProduction: false,
+						DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
+							Kind: openchoreov1alpha1.DataPlaneRefKindClusterDataPlane,
+							Name: cdpName,
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, env)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
+
+				// Delete the ClusterDataPlane before reconciling to trigger the
+				// "skip cleanup for missing data plane" path.
+				Expect(k8sClient.Delete(ctx, &openchoreov1alpha1.ClusterDataPlane{
+					ObjectMeta: metav1.ObjectMeta{Name: cdpName},
+				})).To(Succeed())
+				Eventually(func() bool {
+					return apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: cdpName}, &openchoreov1alpha1.ClusterDataPlane{}))
+				}, "5s", "100ms").Should(BeTrue())
+			})
+
+			It("should remove the finalizer when ClusterDataPlane is gone", func() {
+				r := newTestReconciler()
+
+				By("first reconcile — sets Finalizing condition")
+				result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Requeue).To(BeFalse())
+
+				By("second reconcile — ClusterDataPlane not found, skips cleanup, removes finalizer")
+				result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("verifying the environment is gone")
+				Eventually(func() bool {
+					return apierrors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.Environment{}))
+				}, "5s", "100ms").Should(BeTrue())
+			})
+		})
+
+		Context("finalization with ClusterDataPlane ref (ClusterDataPlane exists, no K8s client)", func() {
+			var nn types.NamespacedName
+			var cdpName string
+
+			BeforeEach(func() {
+				cdpName = "test-cdp-exists"
+
+				cdp := &openchoreov1alpha1.ClusterDataPlane{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: cdpName,
+					},
+					Spec: openchoreov1alpha1.ClusterDataPlaneSpec{
+						PlaneID: "test-plane-exists",
+					},
+				}
+				Expect(k8sClient.Create(ctx, cdp)).To(Succeed())
+
+				nn = types.NamespacedName{Namespace: ns, Name: "env-cdp-exists"}
+				env := &openchoreov1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       nn.Name,
+						Namespace:  ns,
+						Finalizers: []string{EnvCleanupFinalizer},
+					},
+					Spec: openchoreov1alpha1.EnvironmentSpec{
+						IsProduction: false,
+						DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
+							Kind: openchoreov1alpha1.DataPlaneRefKindClusterDataPlane,
+							Name: cdpName,
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, env)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, env)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				forceDeleteEnv(nn)
+				_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ClusterDataPlane{
+					ObjectMeta: metav1.ObjectMeta{Name: cdpName},
+				})
+			})
+
+			It("should return an error (not the old makeEnvironmentContext error)", func() {
+				r := newTestReconciler()
+
+				By("first reconcile — sets Finalizing condition")
+				_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("second reconcile — ClusterDataPlane exists but K8sClientMgr is nil, returns error")
+				_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).NotTo(ContainSubstring("failed to make environment context"))
+				Expect(err.Error()).To(ContainSubstring("DP client"))
 			})
 		})
 

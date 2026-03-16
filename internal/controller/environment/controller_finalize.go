@@ -17,6 +17,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/dataplane"
 )
 
 const (
@@ -94,33 +95,32 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *openchoreov
 
 	// Step 4 & 5: Delete data plane namespaces and wait for them to be gone.
 	// If the DataPlane is already gone, skip — the namespaces are assumed to be cleaned up with it.
-	envCtx, err := r.makeEnvironmentContext(ctx, environment)
+	// getDPClient handles both namespace-scoped DataPlane and cluster-scoped ClusterDataPlane refs.
+	dpClient, err := r.getDPClient(ctx, environment)
 	if err != nil {
 		if isDataPlaneNotFoundError(err) {
 			if skip, skipErr := r.shouldSkipCleanupForMissingDataPlane(ctx, environment); skipErr != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to verify ClusterDataPlane during finalization: %w", skipErr)
+				return ctrl.Result{}, fmt.Errorf("failed to verify data plane during finalization: %w", skipErr)
 			} else if !skip {
-				return ctrl.Result{}, fmt.Errorf("failed to make environment context for ClusterDataPlane-backed environment: %w", err)
+				return ctrl.Result{}, fmt.Errorf("failed to get data plane client during finalization: %w", err)
 			}
 			logger.Info("DataPlane not found during finalization, skipping namespace cleanup")
 			return r.removeFinalizer(ctx, environment)
 		}
-		return ctrl.Result{}, fmt.Errorf("failed to make environment context for finalization: %w", err)
-	}
-
-	dpClient, err := r.getDPClient(ctx, envCtx.Environment)
-	if err != nil {
-		if isDataPlaneNotFoundError(err) {
-			if skip, skipErr := r.shouldSkipCleanupForMissingDataPlane(ctx, environment); skipErr != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to verify ClusterDataPlane during finalization: %w", skipErr)
-			} else if !skip {
-				return ctrl.Result{}, fmt.Errorf("failed to get DP client for ClusterDataPlane-backed environment: %w", err)
-			}
-			logger.Info("DataPlane not found during finalization, skipping namespace cleanup")
+		// When no explicit dataPlaneRef is set and neither a default DataPlane nor
+		// a default ClusterDataPlane exists, there is nothing to clean up.
+		if environment.Spec.DataPlaneRef == nil {
+			logger.Info("No data plane reference and no defaults found during finalization, skipping namespace cleanup")
 			return r.removeFinalizer(ctx, environment)
 		}
 		logger.Error(err, "Error getting DP client")
 		return ctrl.Result{}, err
+	}
+
+	// The namespace handler only needs Environment from EnvironmentContext;
+	// DataPlane is not accessed during finalization cleanup.
+	envCtx := &dataplane.EnvironmentContext{
+		Environment: environment,
 	}
 
 	resourceHandlers := r.makeExternalResourceHandlers(dpClient)
