@@ -4,7 +4,10 @@
 package tools
 
 import (
+	"context"
 	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
@@ -343,6 +346,69 @@ func componentPlatformStandardsSpecs() []toolTestSpec {
 				}
 			},
 		},
+	}
+}
+
+// TestCreateComponentWorkflowKindValidation tests that invalid workflow.kind values are rejected
+// before forwarding to the API, while valid values ("ClusterWorkflow", "Workflow") pass through.
+func TestCreateComponentWorkflowKindValidation(t *testing.T) {
+	clientSession, mockHandler := setupTestServer(t)
+	defer clientSession.Close()
+
+	ctx := context.Background()
+
+	baseArgs := map[string]any{
+		"namespace_name": testNamespaceName,
+		"project_name":   testProjectName,
+		"name":           "new-component",
+		"component_type": "WebApplication",
+	}
+
+	copyArgs := func(extra map[string]any) map[string]any {
+		out := make(map[string]any, len(baseArgs)+len(extra))
+		for k, v := range baseArgs {
+			out[k] = v
+		}
+		for k, v := range extra {
+			out[k] = v
+		}
+		return out
+	}
+
+	t.Run("invalid kind returns error", func(t *testing.T) {
+		mockHandler.calls = make(map[string][]interface{})
+		result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+			Name:      "create_component",
+			Arguments: copyArgs(map[string]any{"workflow": map[string]any{"name": "wf", "kind": "BadKind"}}),
+		})
+		if err != nil {
+			t.Fatalf("unexpected protocol error: %v", err)
+		}
+		if !result.IsError {
+			t.Error("expected IsError=true for invalid workflow.kind")
+		}
+		if _, called := mockHandler.calls["CreateComponent"]; called {
+			t.Error("CreateComponent must not be called when workflow.kind is invalid")
+		}
+	})
+
+	for _, validKind := range []string{"ClusterWorkflow", "Workflow"} {
+		t.Run(validKind+"_kind_is_valid", func(t *testing.T) {
+			mockHandler.calls = make(map[string][]interface{})
+			result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+				Name:      "create_component",
+				Arguments: copyArgs(map[string]any{"workflow": map[string]any{"name": "wf", "kind": validKind}}),
+			})
+			if err != nil {
+				t.Fatalf("unexpected protocol error: %v", err)
+			}
+			if result.IsError {
+				t.Errorf("expected IsError=false for valid workflow.kind %q", validKind)
+			}
+			if _, called := mockHandler.calls["CreateComponent"]; !called {
+				t.Errorf("CreateComponent must be called for valid workflow.kind %q", validKind)
+			}
+		})
 	}
 }
 

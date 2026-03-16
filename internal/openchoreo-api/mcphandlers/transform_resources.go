@@ -80,6 +80,9 @@ func componentDetail(c *openchoreov1alpha1.Component) map[string]any {
 	}
 	if c.Spec.Workflow != nil {
 		wf := map[string]any{"name": c.Spec.Workflow.Name}
+		if c.Spec.Workflow.Kind != "" {
+			wf["kind"] = string(c.Spec.Workflow.Kind)
+		}
 		if c.Spec.Workflow.Parameters != nil {
 			wf["parameters"] = rawExtensionToAny(c.Spec.Workflow.Parameters)
 		}

@@ -253,6 +253,95 @@ func TestComponentSummary(t *testing.T) {
 	assertEqual(t, "latestRelease", m["latestRelease"], "v1")
 }
 
+func TestComponentDetail(t *testing.T) {
+	t.Run("workflow with kind and parameters", func(t *testing.T) {
+		paramsRaw := []byte(`{"branch":"main"}`)
+		c := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-comp", Namespace: "org-ns"},
+			Spec: openchoreov1alpha1.ComponentSpec{
+				Owner:      openchoreov1alpha1.ComponentOwner{ProjectName: "my-project"},
+				AutoDeploy: true,
+				Workflow: &openchoreov1alpha1.ComponentWorkflowConfig{
+					Kind:       openchoreov1alpha1.WorkflowRefKindClusterWorkflow,
+					Name:       "go-build",
+					Parameters: &runtime.RawExtension{Raw: paramsRaw},
+				},
+			},
+		}
+
+		m := componentDetail(c)
+
+		wf, ok := m["workflow"].(map[string]any)
+		if !ok {
+			t.Fatal("expected workflow to be a map")
+		}
+		assertEqual(t, "workflow.name", wf["name"], "go-build")
+		assertEqual(t, "workflow.kind", wf["kind"], "ClusterWorkflow")
+		if wf["parameters"] == nil {
+			t.Error("expected workflow.parameters to be set")
+		}
+	})
+
+	t.Run("workflow without kind", func(t *testing.T) {
+		c := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-comp", Namespace: "org-ns"},
+			Spec: openchoreov1alpha1.ComponentSpec{
+				Owner: openchoreov1alpha1.ComponentOwner{ProjectName: "my-project"},
+				Workflow: &openchoreov1alpha1.ComponentWorkflowConfig{
+					Name: "ns-build",
+				},
+			},
+		}
+
+		m := componentDetail(c)
+
+		wf, ok := m["workflow"].(map[string]any)
+		if !ok {
+			t.Fatal("expected workflow to be a map")
+		}
+		assertEqual(t, "workflow.name", wf["name"], "ns-build")
+		if _, hasKind := wf["kind"]; hasKind {
+			t.Error("kind should be omitted when empty")
+		}
+	})
+
+	t.Run("workflow kind Workflow", func(t *testing.T) {
+		c := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-comp", Namespace: "org-ns"},
+			Spec: openchoreov1alpha1.ComponentSpec{
+				Owner: openchoreov1alpha1.ComponentOwner{ProjectName: "my-project"},
+				Workflow: &openchoreov1alpha1.ComponentWorkflowConfig{
+					Kind: openchoreov1alpha1.WorkflowRefKindWorkflow,
+					Name: "ns-build",
+				},
+			},
+		}
+
+		m := componentDetail(c)
+
+		wf, ok := m["workflow"].(map[string]any)
+		if !ok {
+			t.Fatal("expected workflow to be a map")
+		}
+		assertEqual(t, "workflow.kind", wf["kind"], "Workflow")
+	})
+
+	t.Run("no workflow", func(t *testing.T) {
+		c := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-comp", Namespace: "org-ns"},
+			Spec: openchoreov1alpha1.ComponentSpec{
+				Owner: openchoreov1alpha1.ComponentOwner{ProjectName: "my-project"},
+			},
+		}
+
+		m := componentDetail(c)
+
+		if _, hasWf := m["workflow"]; hasWf {
+			t.Error("workflow should not be set when nil")
+		}
+	})
+}
+
 func TestEnvironmentSummary(t *testing.T) {
 	e := openchoreov1alpha1.Environment{
 		ObjectMeta: metav1.ObjectMeta{

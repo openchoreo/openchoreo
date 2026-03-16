@@ -133,8 +133,11 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 			},
 			"workflow": map[string]any{
 				"type": "object",
-				"description": "Optional: Component workflow configuration. Use list_workflows to discover available " +
-					"workflow names, and get_workflow_schema to inspect the parameter schema a workflow accepts.",
+				"description": "Optional: Component workflow configuration. Use list_cluster_workflows to discover " +
+					"available cluster-scoped workflow names (ClusterWorkflow kind, used with ClusterComponentType), " +
+					"or list_workflows for namespace-scoped workflows (Workflow kind). " +
+					"Use get_cluster_workflow_schema or get_workflow_schema to inspect the parameter schema. " +
+					"Set 'kind' to 'ClusterWorkflow' or 'Workflow' to match the workflow resource type.",
 			},
 		}, []string{"namespace_name", "project_name", "name", "component_type"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
@@ -186,6 +189,16 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 			workflow := &gen.ComponentWorkflowInput{}
 			if name, ok := args.Workflow["name"].(string); ok {
 				workflow.Name = name
+			}
+
+			// Convert kind if provided
+			if kind, ok := args.Workflow["kind"].(string); ok && kind != "" {
+				if kind != string(gen.ComponentWorkflowInputKindClusterWorkflow) &&
+					kind != string(gen.ComponentWorkflowInputKindWorkflow) {
+					return nil, nil, fmt.Errorf("invalid workflow.kind %q: must be one of [ClusterWorkflow, Workflow]", kind)
+				}
+				k := gen.ComponentWorkflowInputKind(kind)
+				workflow.Kind = &k
 			}
 
 			// Convert parameters if provided
