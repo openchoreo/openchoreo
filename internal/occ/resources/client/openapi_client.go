@@ -16,6 +16,28 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// apiError extracts a human-readable error message from a raw API response body.
+// The OpenChoreo API returns structured ErrorResponse JSON on failures; this
+// function parses it and falls back to the raw body when parsing fails.
+func apiError(statusCode int, body []byte) error {
+	var errResp gen.ErrorResponse
+	if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error != "" {
+		msg := errResp.Error
+		if errResp.Details != nil {
+			for _, d := range *errResp.Details {
+				if d.Field != nil && d.Message != nil {
+					msg += fmt.Sprintf("; %s: %s", *d.Field, *d.Message)
+				}
+			}
+		}
+		return fmt.Errorf("%s (HTTP %d)", msg, statusCode)
+	}
+	if len(body) > 0 {
+		return fmt.Errorf("unexpected response (HTTP %d): %s", statusCode, string(body))
+	}
+	return fmt.Errorf("unexpected response status: %d", statusCode)
+}
+
 // Client wraps the generated OpenAPI client with token refresh functionality
 type Client struct {
 	client *gen.ClientWithResponses
@@ -78,7 +100,7 @@ func (c *Client) ListNamespaces(ctx context.Context, params *gen.ListNamespacesP
 		return nil, fmt.Errorf("failed to list namespaces: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -90,7 +112,7 @@ func (c *Client) ListProjects(ctx context.Context, namespaceName string, params 
 		return nil, fmt.Errorf("failed to list projects: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -102,7 +124,7 @@ func (c *Client) DeleteProject(ctx context.Context, namespaceName, projectName s
 		return fmt.Errorf("failed to delete project: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -120,7 +142,7 @@ func (c *Client) ListComponents(ctx context.Context, namespaceName, projectName 
 		return nil, fmt.Errorf("failed to list components: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -132,7 +154,7 @@ func (c *Client) GetComponent(ctx context.Context, namespaceName, componentName 
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -144,7 +166,7 @@ func (c *Client) ListEnvironments(ctx context.Context, namespaceName string, par
 		return nil, fmt.Errorf("failed to list environments: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -156,7 +178,7 @@ func (c *Client) ListDataPlanes(ctx context.Context, namespaceName string, param
 		return nil, fmt.Errorf("failed to list data planes: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -168,7 +190,7 @@ func (c *Client) ListWorkflowPlanes(ctx context.Context, namespaceName string, p
 		return nil, fmt.Errorf("failed to list workflow planes: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -183,7 +205,7 @@ func (c *Client) ListObservabilityPlanes(ctx context.Context, namespaceName stri
 		return nil, fmt.Errorf("failed to list observability planes: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -198,7 +220,7 @@ func (c *Client) ListComponentTypes(ctx context.Context, namespaceName string, p
 		return nil, fmt.Errorf("failed to list component types: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -210,7 +232,7 @@ func (c *Client) GetComponentType(ctx context.Context, namespaceName, ctName str
 		return nil, fmt.Errorf("failed to get component type: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -222,7 +244,7 @@ func (c *Client) CreateComponentType(ctx context.Context, namespaceName string, 
 		return nil, fmt.Errorf("failed to create component type: %w", err)
 	}
 	if resp.JSON201 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON201, nil
 }
@@ -234,7 +256,7 @@ func (c *Client) UpdateComponentType(ctx context.Context, namespaceName, ctName 
 		return nil, fmt.Errorf("failed to update component type: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -246,7 +268,7 @@ func (c *Client) DeleteComponent(ctx context.Context, namespaceName, componentNa
 		return fmt.Errorf("failed to delete component: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -258,7 +280,7 @@ func (c *Client) DeleteComponentType(ctx context.Context, namespaceName, ctName 
 		return fmt.Errorf("failed to delete component type: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -273,7 +295,7 @@ func (c *Client) ListClusterComponentTypes(ctx context.Context, params *gen.List
 		return nil, fmt.Errorf("failed to list cluster component types: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -288,7 +310,7 @@ func (c *Client) ListClusterTraits(ctx context.Context, params *gen.ListClusterT
 		return nil, fmt.Errorf("failed to list cluster traits: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -303,7 +325,7 @@ func (c *Client) ListTraits(ctx context.Context, namespaceName string, params *g
 		return nil, fmt.Errorf("failed to list traits: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -315,7 +337,7 @@ func (c *Client) GetTrait(ctx context.Context, namespaceName, traitName string) 
 		return nil, fmt.Errorf("failed to get trait: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -327,7 +349,7 @@ func (c *Client) CreateTrait(ctx context.Context, namespaceName string, t gen.Tr
 		return nil, fmt.Errorf("failed to create trait: %w", err)
 	}
 	if resp.JSON201 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON201, nil
 }
@@ -339,7 +361,7 @@ func (c *Client) UpdateTrait(ctx context.Context, namespaceName, traitName strin
 		return nil, fmt.Errorf("failed to update trait: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -351,7 +373,7 @@ func (c *Client) DeleteTrait(ctx context.Context, namespaceName, traitName strin
 		return fmt.Errorf("failed to delete trait: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -363,7 +385,7 @@ func (c *Client) ListWorkflows(ctx context.Context, namespaceName string, params
 		return nil, fmt.Errorf("failed to list workflows: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -375,7 +397,7 @@ func (c *Client) GetWorkflow(ctx context.Context, namespaceName, workflowName st
 		return nil, fmt.Errorf("failed to get workflow: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -387,7 +409,7 @@ func (c *Client) DeleteWorkflow(ctx context.Context, namespaceName, workflowName
 		return fmt.Errorf("failed to delete workflow: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -402,7 +424,7 @@ func (c *Client) ListSecretReferences(ctx context.Context, namespaceName string,
 		return nil, fmt.Errorf("failed to list secret references: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -414,7 +436,7 @@ func (c *Client) GenerateRelease(ctx context.Context, namespaceName, componentNa
 		return nil, fmt.Errorf("failed to generate release: %w", err)
 	}
 	if resp.JSON201 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON201, nil
 }
@@ -430,7 +452,7 @@ func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName, project
 		return nil, fmt.Errorf("failed to list release bindings: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -446,7 +468,7 @@ func (c *Client) ListComponentReleases(ctx context.Context, namespaceName, proje
 		return nil, fmt.Errorf("failed to list component releases: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -461,7 +483,7 @@ func (c *Client) ListWorkflowRuns(ctx context.Context, namespaceName string, par
 		return nil, fmt.Errorf("failed to list workflow runs: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -473,7 +495,7 @@ func (c *Client) UpdateReleaseBinding(ctx context.Context, namespaceName, bindin
 		return nil, fmt.Errorf("failed to update release binding: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -485,7 +507,7 @@ func (c *Client) CreateReleaseBinding(ctx context.Context, namespaceName string,
 		return nil, fmt.Errorf("failed to create release binding: %w", err)
 	}
 	if resp.JSON201 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON201, nil
 }
@@ -497,7 +519,7 @@ func (c *Client) GetProject(ctx context.Context, namespaceName, projectName stri
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -520,7 +542,7 @@ func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName
 		return nil, fmt.Errorf("failed to get deployment pipeline: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -537,7 +559,7 @@ func (c *Client) CreateWorkflowRun(
 	}
 
 	if resp.JSON201 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 
 	return resp.JSON201, nil
@@ -550,7 +572,7 @@ func (c *Client) GetEnvironment(ctx context.Context, namespaceName, envName stri
 		return nil, fmt.Errorf("failed to get environment: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -562,7 +584,7 @@ func (c *Client) GetNamespace(ctx context.Context, namespaceName string) (*gen.N
 		return nil, fmt.Errorf("failed to get namespace: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -574,7 +596,7 @@ func (c *Client) DeleteNamespace(ctx context.Context, namespaceName string) erro
 		return fmt.Errorf("failed to delete namespace: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -586,7 +608,7 @@ func (c *Client) DeleteEnvironment(ctx context.Context, namespaceName, envName s
 		return fmt.Errorf("failed to delete environment: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -598,7 +620,7 @@ func (c *Client) GetDataPlane(ctx context.Context, namespaceName, dpName string)
 		return nil, fmt.Errorf("failed to get data plane: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -613,7 +635,7 @@ func (c *Client) ListClusterDataPlanes(ctx context.Context, params *gen.ListClus
 		return nil, fmt.Errorf("failed to list cluster data planes: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -625,7 +647,7 @@ func (c *Client) GetClusterDataPlane(ctx context.Context, cdpName string) (*gen.
 		return nil, fmt.Errorf("failed to get cluster data plane: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -637,7 +659,7 @@ func (c *Client) DeleteClusterDataPlane(ctx context.Context, cdpName string) err
 		return fmt.Errorf("failed to delete cluster data plane: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -649,7 +671,7 @@ func (c *Client) DeleteDataPlane(ctx context.Context, namespaceName, dpName stri
 		return fmt.Errorf("failed to delete data plane: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -661,7 +683,7 @@ func (c *Client) GetWorkflowPlane(ctx context.Context, namespaceName, workflowPl
 		return nil, fmt.Errorf("failed to get workflow plane: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -673,7 +695,7 @@ func (c *Client) DeleteWorkflowPlane(ctx context.Context, namespaceName, workflo
 		return fmt.Errorf("failed to delete workflow plane: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -685,7 +707,7 @@ func (c *Client) GetObservabilityPlane(ctx context.Context, namespaceName, obser
 		return nil, fmt.Errorf("failed to get observability plane: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -697,7 +719,7 @@ func (c *Client) DeleteObservabilityPlane(ctx context.Context, namespaceName, ob
 		return fmt.Errorf("failed to delete observability plane: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -709,7 +731,7 @@ func (c *Client) GetClusterComponentType(ctx context.Context, cctName string) (*
 		return nil, fmt.Errorf("failed to get cluster component type: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -721,7 +743,7 @@ func (c *Client) DeleteClusterComponentType(ctx context.Context, cctName string)
 		return fmt.Errorf("failed to delete cluster component type: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -733,7 +755,7 @@ func (c *Client) GetClusterTrait(ctx context.Context, clusterTraitName string) (
 		return nil, fmt.Errorf("failed to get cluster trait: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -745,7 +767,7 @@ func (c *Client) DeleteClusterTrait(ctx context.Context, clusterTraitName string
 		return fmt.Errorf("failed to delete cluster trait: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -760,7 +782,7 @@ func (c *Client) ListClusterWorkflows(ctx context.Context, params *gen.ListClust
 		return nil, fmt.Errorf("failed to list cluster workflows: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -772,7 +794,7 @@ func (c *Client) GetClusterWorkflow(ctx context.Context, clusterWorkflowName str
 		return nil, fmt.Errorf("failed to get cluster workflow: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -784,7 +806,7 @@ func (c *Client) DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName 
 		return fmt.Errorf("failed to delete cluster workflow: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -796,7 +818,7 @@ func (c *Client) GetSecretReference(ctx context.Context, namespaceName, secretRe
 		return nil, fmt.Errorf("failed to get secret reference: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -808,7 +830,7 @@ func (c *Client) DeleteSecretReference(ctx context.Context, namespaceName, secre
 		return fmt.Errorf("failed to delete secret reference: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -820,7 +842,7 @@ func (c *Client) GetWorkflowRun(ctx context.Context, namespaceName, runName stri
 		return nil, fmt.Errorf("failed to get workflow run: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -832,7 +854,7 @@ func (c *Client) GetWorkload(ctx context.Context, namespaceName, workloadName st
 		return nil, fmt.Errorf("failed to get workload: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -847,7 +869,7 @@ func (c *Client) ListWorkloads(ctx context.Context, namespaceName string, params
 		return nil, fmt.Errorf("failed to list workloads: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -859,7 +881,7 @@ func (c *Client) DeleteWorkload(ctx context.Context, namespaceName, workloadName
 		return fmt.Errorf("failed to delete workload: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -871,7 +893,7 @@ func (c *Client) GetDeploymentPipeline(ctx context.Context, namespaceName, deplo
 		return nil, fmt.Errorf("failed to get deployment pipeline: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -886,7 +908,7 @@ func (c *Client) ListDeploymentPipelines(ctx context.Context, namespaceName stri
 		return nil, fmt.Errorf("failed to list deployment pipelines: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -898,7 +920,7 @@ func (c *Client) DeleteDeploymentPipeline(ctx context.Context, namespaceName, de
 		return fmt.Errorf("failed to delete deployment pipeline: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -913,7 +935,7 @@ func (c *Client) GetReleaseBinding(ctx context.Context, namespaceName, releaseBi
 		return nil, nil
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -925,7 +947,7 @@ func (c *Client) DeleteReleaseBinding(ctx context.Context, namespaceName, releas
 		return fmt.Errorf("failed to delete release binding: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -937,7 +959,7 @@ func (c *Client) GetComponentRelease(ctx context.Context, namespaceName, compone
 		return nil, fmt.Errorf("failed to get component release: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -949,7 +971,7 @@ func (c *Client) CreateComponentRelease(ctx context.Context, namespaceName strin
 		return nil, fmt.Errorf("failed to create component release: %w", err)
 	}
 	if resp.JSON201 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON201, nil
 }
@@ -961,7 +983,7 @@ func (c *Client) DeleteComponentRelease(ctx context.Context, namespaceName, comp
 		return fmt.Errorf("failed to delete component release: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -976,7 +998,7 @@ func (c *Client) ListObservabilityAlertsNotificationChannels(ctx context.Context
 		return nil, fmt.Errorf("failed to list observability alerts notification channels: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -988,7 +1010,7 @@ func (c *Client) GetObservabilityAlertsNotificationChannel(ctx context.Context, 
 		return nil, fmt.Errorf("failed to get observability alerts notification channel: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1000,7 +1022,7 @@ func (c *Client) DeleteObservabilityAlertsNotificationChannel(ctx context.Contex
 		return fmt.Errorf("failed to delete observability alerts notification channel: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -1015,7 +1037,7 @@ func (c *Client) ListClusterRoles(ctx context.Context, params *gen.ListClusterRo
 		return nil, fmt.Errorf("failed to list cluster roles: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1027,7 +1049,7 @@ func (c *Client) GetClusterRole(ctx context.Context, name string) (*gen.ClusterA
 		return nil, fmt.Errorf("failed to get cluster role: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1042,7 +1064,7 @@ func (c *Client) ListClusterRoleBindings(ctx context.Context, params *gen.ListCl
 		return nil, fmt.Errorf("failed to list cluster role bindings: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1054,7 +1076,7 @@ func (c *Client) GetClusterRoleBinding(ctx context.Context, name string) (*gen.C
 		return nil, fmt.Errorf("failed to get cluster role binding: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1069,7 +1091,7 @@ func (c *Client) ListNamespaceRoles(ctx context.Context, namespaceName string, p
 		return nil, fmt.Errorf("failed to list roles: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1081,7 +1103,7 @@ func (c *Client) GetNamespaceRole(ctx context.Context, namespaceName, name strin
 		return nil, fmt.Errorf("failed to get role: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1096,7 +1118,7 @@ func (c *Client) ListNamespaceRoleBindings(ctx context.Context, namespaceName st
 		return nil, fmt.Errorf("failed to list role bindings: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1108,7 +1130,7 @@ func (c *Client) GetNamespaceRoleBinding(ctx context.Context, namespaceName, nam
 		return nil, fmt.Errorf("failed to get role binding: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1120,7 +1142,7 @@ func (c *Client) DeleteClusterRole(ctx context.Context, name string) error {
 		return fmt.Errorf("failed to delete cluster role: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -1132,7 +1154,7 @@ func (c *Client) DeleteClusterRoleBinding(ctx context.Context, name string) erro
 		return fmt.Errorf("failed to delete cluster role binding: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -1144,7 +1166,7 @@ func (c *Client) DeleteNamespaceRole(ctx context.Context, namespaceName, name st
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -1156,7 +1178,7 @@ func (c *Client) DeleteNamespaceRoleBinding(ctx context.Context, namespaceName, 
 		return fmt.Errorf("failed to delete role binding: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -1171,7 +1193,7 @@ func (c *Client) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName 
 		return nil, fmt.Errorf("failed to get workflow run logs: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return *resp.JSON200, nil
 }
@@ -1183,7 +1205,7 @@ func (c *Client) GetWorkflowRunStatus(ctx context.Context, namespaceName, runNam
 		return nil, fmt.Errorf("failed to get workflow run status: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1195,7 +1217,7 @@ func (c *Client) GetClusterWorkflowPlane(ctx context.Context, clusterWorkflowPla
 		return nil, fmt.Errorf("failed to get cluster workflow plane: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1210,7 +1232,7 @@ func (c *Client) ListClusterWorkflowPlanes(ctx context.Context, params *gen.List
 		return nil, fmt.Errorf("failed to list cluster workflow planes: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1222,7 +1244,7 @@ func (c *Client) DeleteClusterWorkflowPlane(ctx context.Context, clusterWorkflow
 		return fmt.Errorf("failed to delete cluster workflow plane: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -1237,7 +1259,7 @@ func (c *Client) ListClusterObservabilityPlanes(ctx context.Context, params *gen
 		return nil, fmt.Errorf("failed to list cluster observability planes: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1249,7 +1271,7 @@ func (c *Client) GetClusterObservabilityPlane(ctx context.Context, clusterObserv
 		return nil, fmt.Errorf("failed to get cluster observability plane: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -1261,7 +1283,7 @@ func (c *Client) DeleteClusterObservabilityPlane(ctx context.Context, clusterObs
 		return fmt.Errorf("failed to delete cluster observability plane: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
-		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
@@ -1276,7 +1298,7 @@ func (c *Client) GetComponentTypeSchema(ctx context.Context, namespaceName, ctNa
 		return nil, fmt.Errorf("component type %q not found", ctName)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return schemaResponseToRaw(resp.JSON200)
 }
@@ -1291,7 +1313,7 @@ func (c *Client) GetTraitSchema(ctx context.Context, namespaceName, traitName st
 		return nil, fmt.Errorf("trait %q not found", traitName)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return schemaResponseToRaw(resp.JSON200)
 }
@@ -1306,7 +1328,7 @@ func (c *Client) GetWorkflowSchema(ctx context.Context, namespaceName, workflowN
 		return nil, fmt.Errorf("workflow %q not found", workflowName)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return schemaResponseToRaw(resp.JSON200)
 }
@@ -1321,7 +1343,7 @@ func (c *Client) GetClusterComponentTypeSchema(ctx context.Context, cctName stri
 		return nil, fmt.Errorf("cluster component type %q not found", cctName)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return schemaResponseToRaw(resp.JSON200)
 }
@@ -1336,7 +1358,7 @@ func (c *Client) GetClusterTraitSchema(ctx context.Context, clusterTraitName str
 		return nil, fmt.Errorf("cluster trait %q not found", clusterTraitName)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return schemaResponseToRaw(resp.JSON200)
 }
@@ -1351,7 +1373,7 @@ func (c *Client) GetClusterWorkflowSchema(ctx context.Context, clusterWorkflowNa
 		return nil, fmt.Errorf("cluster workflow %q not found", clusterWorkflowName)
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return schemaResponseToRaw(resp.JSON200)
 }
