@@ -18,10 +18,6 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-const (
-	BearerAuthScopes = "BearerAuth.Scopes"
-)
-
 // Defines values for AlertRuleRequestConditionOperator.
 const (
 	AlertRuleRequestConditionOperatorEq  AlertRuleRequestConditionOperator = "eq"

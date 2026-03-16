@@ -21,6 +21,7 @@ spec:
 
   # Workflow configuration for building this component
   workflow:
+    kind: ClusterWorkflow
     name: docker-build # Workflow to use for builds
     parameters:
       buildArgs: # Build arguments

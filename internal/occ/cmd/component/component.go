@@ -440,109 +440,73 @@ func findSourceEnvironment(pipeline *gen.DeploymentPipeline, targetEnv string) (
 	return "", fmt.Errorf("no promotion path found for target environment '%s'", targetEnv)
 }
 
+// scaffoldResolution holds the resolved scope information for scaffold parameters.
+type scaffoldResolution struct {
+	workloadType       string
+	componentTypeName  string
+	traitNames         []string
+	traitKinds         map[string]string // trait name -> kind
+	workflowName       string
+	componentTypeKind  string
+	workflowKind       string
+	useClusterCT       bool
+	useClusterWorkflow bool
+}
+
 func scaffoldComponent(params ScaffoldParams) error {
-	// Validate required parameters
-	if params.ComponentName == "" {
-		return fmt.Errorf("component name is required")
-	}
-	if params.ComponentType == "" {
-		return fmt.Errorf("component type is required (--type)")
-	}
-	if params.Namespace == "" {
-		return fmt.Errorf("namespace is required (--namespace or set via context)")
-	}
-	if params.ProjectName == "" {
-		return fmt.Errorf("project is required (--project or set via context)")
+	if err := validateScaffoldParams(params); err != nil {
+		return err
 	}
 
-	// Parse component type (format: workloadType/componentTypeName)
-	workloadType, componentTypeName, err := parseComponentType(params.ComponentType)
+	res, err := resolveScaffoldScope(params)
 	if err != nil {
 		return err
 	}
 
-	// Create API client
 	apiClient, err := client.NewClient()
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	// Create context with timeout for all API requests (ComponentType, Traits, Workflow)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Fetch ClusterComponentType schema
-	componentTypeSchemaRaw, err := apiClient.GetClusterComponentTypeSchema(ctx, componentTypeName)
+	componentTypeSchema, traitSchemas, workflowSchema, err := fetchScaffoldSchemas(ctx, apiClient, params.Namespace, res)
 	if err != nil {
 		return err
 	}
-	componentTypeSchema, err := unmarshalSchema(componentTypeSchemaRaw)
-	if err != nil {
-		return fmt.Errorf("invalid ComponentType schema: %w", err)
-	}
 
-	// Fetch ClusterTrait schemas if specified
-	traitSchemas := make(map[string]*extv1.JSONSchemaProps)
-	for _, traitName := range params.Traits {
-		traitSchemaRaw, err := apiClient.GetClusterTraitSchema(ctx, traitName)
-		if err != nil {
-			return err
-		}
-		traitSchema, err := unmarshalSchema(traitSchemaRaw)
-		if err != nil {
-			return fmt.Errorf("invalid Trait schema for %q: %w", traitName, err)
-		}
-		traitSchemas[traitName] = traitSchema
-	}
-
-	// Fetch ClusterWorkflow schema if specified
-	var workflowSchema *extv1.JSONSchemaProps
-	if params.WorkflowName != "" {
-		workflowSchemaRaw, err := apiClient.GetClusterWorkflowSchema(ctx, params.WorkflowName)
-		if err != nil {
-			return err
-		}
-		workflowSchema, err = unmarshalSchema(workflowSchemaRaw)
-		if err != nil {
-			return fmt.Errorf("invalid Workflow schema: %w", err)
-		}
-	}
-
-	// Create generator options
-	// Default behavior: include all comments and optional fields
-	// --skip-comments disables both structural comments and field descriptions
-	// --skip-optional disables optional fields without defaults
 	opts := &scaffold.Options{
 		ComponentName:             params.ComponentName,
-		Namespace:                 params.Namespace, // namespace name = k8s namespace
+		Namespace:                 params.Namespace,
 		ProjectName:               params.ProjectName,
 		IncludeAllFields:          !params.SkipOptional,
 		IncludeFieldDescriptions:  !params.SkipComments,
 		IncludeStructuralComments: !params.SkipComments,
-		IncludeWorkflow:           params.WorkflowName != "",
+		IncludeWorkflow:           res.workflowName != "",
 	}
 
-	// Create generator from schemas
+	kindOpts := &scaffold.KindOptions{
+		ComponentTypeKind: res.componentTypeKind,
+		TraitKinds:        res.traitKinds,
+		WorkflowKind:      res.workflowKind,
+	}
+
 	generator, err := scaffold.NewGeneratorFromSchemas(
-		componentTypeName,
-		workloadType,
-		componentTypeSchema,
-		traitSchemas,
-		params.WorkflowName,
-		workflowSchema,
-		opts,
+		res.componentTypeName, res.workloadType,
+		componentTypeSchema, traitSchemas,
+		res.workflowName, workflowSchema,
+		opts, kindOpts,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create generator: %w", err)
 	}
 
-	// Generate YAML
 	yamlContent, err := generator.Generate()
 	if err != nil {
 		return fmt.Errorf("failed to generate Component YAML: %w", err)
 	}
 
-	// Output
 	if params.OutputPath != "" {
 		if err := os.WriteFile(params.OutputPath, []byte(yamlContent), 0600); err != nil {
 			return fmt.Errorf("failed to write output file %s: %w", params.OutputPath, err)
@@ -555,15 +519,144 @@ func scaffoldComponent(params ScaffoldParams) error {
 	return nil
 }
 
+func validateScaffoldParams(params ScaffoldParams) error {
+	if params.ComponentName == "" {
+		return fmt.Errorf("component name is required")
+	}
+	if params.Namespace == "" {
+		return fmt.Errorf("namespace is required (--namespace or set via context)")
+	}
+	if params.ProjectName == "" {
+		return fmt.Errorf("project is required (--project or set via context)")
+	}
+	if params.ComponentType != "" && params.ClusterComponentType != "" {
+		return fmt.Errorf("--componenttype and --clustercomponenttype are mutually exclusive")
+	}
+	if params.ComponentType == "" && params.ClusterComponentType == "" {
+		return fmt.Errorf("one of --componenttype or --clustercomponenttype is required")
+	}
+	if params.WorkflowName != "" && params.ClusterWorkflowName != "" {
+		return fmt.Errorf("--workflow and --clusterworkflow are mutually exclusive")
+	}
+	return nil
+}
+
+func resolveScaffoldScope(params ScaffoldParams) (*scaffoldResolution, error) {
+	res := &scaffoldResolution{
+		useClusterCT:       params.ClusterComponentType != "",
+		useClusterWorkflow: params.ClusterWorkflowName != "",
+	}
+
+	componentTypeStr := params.ComponentType
+	if res.useClusterCT {
+		componentTypeStr = params.ClusterComponentType
+	}
+
+	var err error
+	res.workloadType, res.componentTypeName, err = parseComponentType(componentTypeStr)
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge namespace-scoped and cluster-scoped traits, tracking each trait's kind
+	res.traitKinds = make(map[string]string)
+	for _, name := range params.Traits {
+		res.traitNames = append(res.traitNames, name)
+		res.traitKinds[name] = "Trait"
+	}
+	for _, name := range params.ClusterTraits {
+		res.traitNames = append(res.traitNames, name)
+		res.traitKinds[name] = "ClusterTrait"
+	}
+
+	res.workflowName = params.WorkflowName
+	if res.useClusterWorkflow {
+		res.workflowName = params.ClusterWorkflowName
+	}
+
+	res.componentTypeKind = "ComponentType"
+	if res.useClusterCT {
+		res.componentTypeKind = "ClusterComponentType"
+	}
+	res.workflowKind = "Workflow"
+	if res.useClusterWorkflow {
+		res.workflowKind = "ClusterWorkflow"
+	}
+
+	return res, nil
+}
+
+func fetchScaffoldSchemas(
+	ctx context.Context,
+	apiClient *client.Client,
+	namespace string,
+	res *scaffoldResolution,
+) (*extv1.JSONSchemaProps, map[string]*extv1.JSONSchemaProps, *extv1.JSONSchemaProps, error) {
+	// Fetch ComponentType schema
+	var componentTypeSchemaRaw *json.RawMessage
+	var err error
+	if res.useClusterCT {
+		componentTypeSchemaRaw, err = apiClient.GetClusterComponentTypeSchema(ctx, res.componentTypeName)
+	} else {
+		componentTypeSchemaRaw, err = apiClient.GetComponentTypeSchema(ctx, namespace, res.componentTypeName)
+	}
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	componentTypeSchema, err := unmarshalSchema(componentTypeSchemaRaw)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("invalid ComponentType schema: %w", err)
+	}
+
+	// Fetch Trait schemas (each trait resolved by its own kind)
+	traitSchemas := make(map[string]*extv1.JSONSchemaProps)
+	for _, traitName := range res.traitNames {
+		var traitSchemaRaw *json.RawMessage
+		if res.traitKinds[traitName] == "ClusterTrait" {
+			traitSchemaRaw, err = apiClient.GetClusterTraitSchema(ctx, traitName)
+		} else {
+			traitSchemaRaw, err = apiClient.GetTraitSchema(ctx, namespace, traitName)
+		}
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		traitSchema, err := unmarshalSchema(traitSchemaRaw)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("invalid Trait schema for %q: %w", traitName, err)
+		}
+		traitSchemas[traitName] = traitSchema
+	}
+
+	// Fetch Workflow schema
+	var workflowSchema *extv1.JSONSchemaProps
+	if res.workflowName != "" {
+		var workflowSchemaRaw *json.RawMessage
+		if res.useClusterWorkflow {
+			workflowSchemaRaw, err = apiClient.GetClusterWorkflowSchema(ctx, res.workflowName)
+		} else {
+			workflowSchemaRaw, err = apiClient.GetWorkflowSchema(ctx, namespace, res.workflowName)
+		}
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		workflowSchema, err = unmarshalSchema(workflowSchemaRaw)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("invalid Workflow schema: %w", err)
+		}
+	}
+
+	return componentTypeSchema, traitSchemas, workflowSchema, nil
+}
+
 // parseComponentType parses "workloadType/componentTypeName" format
 func parseComponentType(typeStr string) (workloadType, componentTypeName string, err error) {
 	if typeStr == "" {
-		return "", "", fmt.Errorf("--type is required (format: workloadType/componentTypeName, e.g., deployment/web-app)")
+		return "", "", fmt.Errorf("component type is required (format: workloadType/componentTypeName, e.g., deployment/web-app)")
 	}
 
 	parts := strings.SplitN(typeStr, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("invalid --type format: expected 'workloadType/componentTypeName' (e.g., deployment/web-app), got %q", typeStr)
+		return "", "", fmt.Errorf("invalid component type format: expected 'workloadType/componentTypeName' (e.g., deployment/web-app), got %q", typeStr)
 	}
 
 	return parts[0], parts[1], nil

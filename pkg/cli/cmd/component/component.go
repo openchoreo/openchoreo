@@ -110,46 +110,41 @@ func newScaffoldComponentCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Parse traits from comma-separated string
-			traitsStr, _ := cmd.Flags().GetString(flags.Traits.Name)
-			var traits []string
-			if traitsStr != "" {
-				parts := strings.Split(traitsStr, ",")
-				for _, part := range parts {
-					trimmed := strings.TrimSpace(part)
-					if trimmed != "" {
-						traits = append(traits, trimmed)
-					}
-				}
-			}
-
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 			project, _ := cmd.Flags().GetString(flags.Project.Name)
 			componentType, _ := cmd.Flags().GetString(flags.ScaffoldType.Name)
+			clusterComponentType, _ := cmd.Flags().GetString(flags.ClusterComponentType.Name)
 			workflow, _ := cmd.Flags().GetString(flags.Workflow.Name)
+			clusterWorkflow, _ := cmd.Flags().GetString(flags.ClusterWorkflow.Name)
 			outputFile, _ := cmd.Flags().GetString(flags.OutputFile.Name)
 			skipComments, _ := cmd.Flags().GetBool(flags.SkipComments.Name)
 			skipOptional, _ := cmd.Flags().GetBool(flags.SkipOptional.Name)
 
 			compImpl := component.New()
 			return compImpl.Scaffold(component.ScaffoldParams{
-				ComponentName: args[0],
-				ComponentType: componentType,
-				Traits:        traits,
-				WorkflowName:  workflow,
-				Namespace:     namespace,
-				ProjectName:   project,
-				OutputPath:    outputFile,
-				SkipComments:  skipComments,
-				SkipOptional:  skipOptional,
+				ComponentName:        args[0],
+				ComponentType:        componentType,
+				ClusterComponentType: clusterComponentType,
+				Traits:               parseCSV(cmd, flags.Traits.Name),
+				ClusterTraits:        parseCSV(cmd, flags.ClusterTraits.Name),
+				WorkflowName:         workflow,
+				ClusterWorkflowName:  clusterWorkflow,
+				Namespace:            namespace,
+				ProjectName:          project,
+				OutputPath:           outputFile,
+				SkipComments:         skipComments,
+				SkipOptional:         skipOptional,
 			})
 		},
 	}
 
 	flags.AddFlags(cmd,
 		flags.ScaffoldType,
+		flags.ClusterComponentType,
 		flags.Traits,
+		flags.ClusterTraits,
 		flags.Workflow,
+		flags.ClusterWorkflow,
 		flags.Project,
 		flags.Namespace,
 		flags.OutputFile,
@@ -158,6 +153,23 @@ func newScaffoldComponentCmd() *cobra.Command {
 	)
 
 	return cmd
+}
+
+// parseCSV parses a comma-separated flag value into a trimmed, non-empty string slice.
+func parseCSV(cmd *cobra.Command, flagName string) []string {
+	val, _ := cmd.Flags().GetString(flagName)
+	if val == "" {
+		return nil
+	}
+	parts := strings.Split(val, ",")
+	var result []string
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 //nolint:dupl // deploy and logs commands follow the same pattern but are distinct

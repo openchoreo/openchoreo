@@ -149,7 +149,7 @@ Examples:
 
 Examples:
   # Scaffold a component from a ComponentType
-  %[1]s scaffold component my-app --type deployment/web-app`, messages.DefaultCLIName),
+  %[1]s scaffold component my-app --componenttype deployment/web-app`, messages.DefaultCLIName),
 	}
 
 	ScaffoldComponent = Command{
@@ -161,20 +161,27 @@ The command fetches the ComponentType and any specified Traits from the cluster,
 applies default values, and generates a YAML file with required fields as
 placeholders and optional fields as commented examples.
 
+Use --type/--traits/--workflow for namespace-scoped resources, or
+--clustercomponenttype/--clustertraits/--clusterworkflow for cluster-scoped resources.
+Each pair is mutually exclusive.
+
 The --namespace and --project flags can be omitted if set in the current context.
 
 Examples:
-  # Scaffold a basic component
-  %[1]s component scaffold my-app --type deployment/web-app
+  # Scaffold using a cluster-scoped ClusterComponentType
+  %[1]s component scaffold my-app --clustercomponenttype deployment/web-app
 
-  # Scaffold with traits
-  %[1]s component scaffold my-app --type deployment/web-app --traits storage,ingress
+  # Scaffold using a namespace-scoped ComponentType
+  %[1]s component scaffold my-app --componenttype deployment/web-app
 
-  # Scaffold with workflow
-  %[1]s component scaffold my-app --type deployment/web-app --workflow docker-build
+  # Scaffold with cluster-scoped traits
+  %[1]s component scaffold my-app --clustercomponenttype deployment/web-app --clustertraits storage,ingress
+
+  # Scaffold with cluster-scoped workflow
+  %[1]s component scaffold my-app --clustercomponenttype deployment/web-app --clusterworkflow docker-build
 
   # Output to file
-  %[1]s component scaffold my-app --type deployment/web-app -o my-app.yaml`, messages.DefaultCLIName),
+  %[1]s component scaffold my-app --clustercomponenttype deployment/web-app -o my-app.yaml`, messages.DefaultCLIName),
 	}
 
 	ListNamespace = Command{

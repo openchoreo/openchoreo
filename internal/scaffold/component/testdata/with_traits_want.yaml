@@ -21,17 +21,20 @@ spec:
 
   # Traits augment the component with additional capabilities
   traits:
-    - name: logging # Trait resource name
+    - kind: ClusterTrait
+      name: logging # Trait resource name
       instanceName: app-logging # Unique instance name within this Component
       # Parameters for logging trait
       parameters:
         # level: info # also: info, warn, error
-    - name: networking # Trait resource name
+    - kind: ClusterTrait
+      name: networking # Trait resource name
       instanceName: app-networking # Unique instance name within this Component
       # Parameters for networking trait
       parameters:
         ingress: <TODO_INGRESS> # Enable ingress
-    - name: storage # Trait resource name
+    - kind: ClusterTrait
+      name: storage # Trait resource name
       instanceName: app-storage # Unique instance name within this Component
       # Parameters for storage trait
       parameters:

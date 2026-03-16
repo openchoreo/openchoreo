@@ -172,11 +172,14 @@ type Options struct {
 type Generator struct {
 	componentTypeName string
 	workloadType      string
+	componentTypeKind string
 	componentSchema   *extv1.JSONSchemaProps
 
 	traitSchemas map[string]*extv1.JSONSchemaProps
+	traitKinds   map[string]string // trait name -> kind ("Trait" or "ClusterTrait")
 
 	workflowName   string
+	workflowKind   string
 	workflowSchema *extv1.JSONSchemaProps
 
 	opts     *Options
@@ -226,7 +229,19 @@ func NewGenerator(
 		workflowName,
 		workflowSchema,
 		opts,
+		nil,
 	)
+}
+
+// KindOptions configures the Kubernetes resource kinds for generated references.
+type KindOptions struct {
+	// ComponentTypeKind is the kind for the componentType reference (e.g., "ClusterComponentType" or "ComponentType")
+	ComponentTypeKind string
+	// TraitKinds maps each trait name to its kind ("Trait" or "ClusterTrait").
+	// Traits not present in this map default to "ClusterTrait".
+	TraitKinds map[string]string
+	// WorkflowKind is the kind for the workflow reference (e.g., "ClusterWorkflow" or "Workflow")
+	WorkflowKind string
 }
 
 // NewGeneratorFromSchemas creates a new generator instance directly from JSON schemas.
@@ -240,6 +255,7 @@ func NewGeneratorFromSchemas(
 	workflowName string,
 	workflowSchema *extv1.JSONSchemaProps,
 	opts *Options,
+	kindOpts *KindOptions,
 ) (*Generator, error) {
 	if opts == nil {
 		opts = &Options{}
@@ -249,12 +265,33 @@ func NewGeneratorFromSchemas(
 		traitSchemas = make(map[string]*extv1.JSONSchemaProps)
 	}
 
+	componentTypeKind := "ClusterComponentType"
+	workflowKind := "ClusterWorkflow"
+	traitKinds := make(map[string]string, len(traitSchemas))
+	for name := range traitSchemas {
+		traitKinds[name] = "ClusterTrait"
+	}
+	if kindOpts != nil {
+		if kindOpts.ComponentTypeKind != "" {
+			componentTypeKind = kindOpts.ComponentTypeKind
+		}
+		for name, kind := range kindOpts.TraitKinds {
+			traitKinds[name] = kind
+		}
+		if kindOpts.WorkflowKind != "" {
+			workflowKind = kindOpts.WorkflowKind
+		}
+	}
+
 	return &Generator{
 		componentTypeName: componentTypeName,
 		workloadType:      workloadType,
+		componentTypeKind: componentTypeKind,
 		componentSchema:   componentSchema,
 		traitSchemas:      traitSchemas,
+		traitKinds:        traitKinds,
 		workflowName:      workflowName,
+		workflowKind:      workflowKind,
 		workflowSchema:    workflowSchema,
 		opts:              opts,
 		renderer:          NewFieldRenderer(opts.IncludeFieldDescriptions, opts.IncludeAllFields, opts.IncludeStructuralComments),
@@ -325,7 +362,7 @@ func (g *Generator) generateSpec(b *YAMLBuilder, result *schemaProcessingResult)
 
 		// ComponentType
 		b.InMapping("componentType", func(b *YAMLBuilder) {
-			b.AddField("kind", "ClusterComponentType")
+			b.AddField("kind", g.componentTypeKind)
 			b.AddField("name", fmt.Sprintf("%s/%s", g.workloadType, g.componentTypeName))
 		})
 
@@ -403,6 +440,9 @@ func (g *Generator) generateTraits(b *YAMLBuilder) error {
 			commentedNodes: b.commentedNodes,
 		}
 
+		// Add kind field
+		traitBuilder.AddField("kind", g.traitKinds[traitName])
+
 		// Add name field
 		var nameOpts []FieldOption
 		if g.opts.IncludeStructuralComments {
@@ -445,6 +485,9 @@ func (g *Generator) generateWorkflow(b *YAMLBuilder) error {
 		sectionOpts = append(sectionOpts, WithHeadComment(CommentWorkflowSection))
 	}
 	b.InMapping("workflow", func(b *YAMLBuilder) {
+		// Add kind field
+		b.AddField("kind", g.workflowKind)
+
 		// Add name field
 		var nameOpts []FieldOption
 		if g.opts.IncludeStructuralComments {

@@ -277,18 +277,33 @@ var (
 	// Scaffold-specific flags
 
 	ScaffoldType = Flag{
-		Name:  "type",
-		Usage: "Component type in format workloadType/componentTypeName (e.g., deployment/web-app)",
+		Name:  "componenttype",
+		Usage: "Namespace-scoped component type in format workloadType/componentTypeName (e.g., deployment/web-app)",
 	}
 
 	Traits = Flag{
 		Name:  "traits",
-		Usage: "Comma-separated list of trait names to include",
+		Usage: "Comma-separated list of namespace-scoped Trait names to include",
+	}
+
+	ClusterTraits = Flag{
+		Name:  "clustertraits",
+		Usage: "Comma-separated list of cluster-scoped ClusterTrait names to include",
 	}
 
 	Workflow = Flag{
 		Name:  "workflow",
-		Usage: "Workflow name",
+		Usage: "Namespace-scoped Workflow name",
+	}
+
+	ClusterWorkflow = Flag{
+		Name:  "clusterworkflow",
+		Usage: "Cluster-scoped ClusterWorkflow name",
+	}
+
+	ClusterComponentType = Flag{
+		Name:  "clustercomponenttype",
+		Usage: "Cluster-scoped component type in format workloadType/componentTypeName (e.g., deployment/web-app)",
 	}
 
 	SkipComments = Flag{

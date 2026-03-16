@@ -13,15 +13,18 @@ func (p ListParams) GetNamespace() string { return p.Namespace }
 
 // ScaffoldParams defines parameters for scaffolding a component
 type ScaffoldParams struct {
-	ComponentName string
-	ComponentType string   // format: workloadType/componentTypeName
-	Traits        []string // trait names
-	WorkflowName  string
-	Namespace     string
-	ProjectName   string
-	OutputPath    string
-	SkipComments  bool // skip structural comments and field descriptions
-	SkipOptional  bool // skip optional fields without defaults
+	ComponentName        string
+	ComponentType        string   // namespace-scoped, format: workloadType/componentTypeName
+	ClusterComponentType string   // cluster-scoped, format: workloadType/componentTypeName
+	Traits               []string // namespace-scoped trait names
+	ClusterTraits        []string // cluster-scoped trait names
+	WorkflowName         string   // namespace-scoped workflow name
+	ClusterWorkflowName  string   // cluster-scoped workflow name
+	Namespace            string
+	ProjectName          string
+	OutputPath           string
+	SkipComments         bool // skip structural comments and field descriptions
+	SkipOptional         bool // skip optional fields without defaults
 }
 
 // DeployParams defines parameters for deploying or promoting a component
