@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package clusterdataplane
+package dataplane
 
 import (
 	"net/http"
@@ -20,7 +20,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/testutils/testgateway"
 )
 
-func cdpReconcilerWithGateway(gwClient *gw.Client) *Reconciler {
+func dpReconcilerWithGateway(gwClient *gw.Client) *Reconciler {
 	return &Reconciler{
 		Client:        k8sClient,
 		Scheme:        k8sClient.Scheme(),
@@ -29,16 +29,26 @@ func cdpReconcilerWithGateway(gwClient *gw.Client) *Reconciler {
 	}
 }
 
-var _ = Describe("ClusterDataPlane Controller — gateway paths", func() {
+var _ = Describe("DataPlane Controller — gateway paths", func() {
 
 	Describe("Create reconcile path", func() {
-		const cdpName = "cdp-gw-create"
-		nn := types.NamespacedName{Name: cdpName}
+		const dpName = "dp-gw-create"
+		nn := types.NamespacedName{Name: dpName, Namespace: "default"}
 
 		BeforeEach(func() {
-			Expect(k8sClient.Create(ctx, newClusterDataPlaneWithFinalizer(cdpName))).To(Succeed())
+			dp := &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       dpName,
+					Namespace:  "default",
+					Finalizers: []string{DataPlaneCleanupFinalizer},
+				},
+				Spec: openchoreov1alpha1.DataPlaneSpec{
+					PlaneID: "test-plane-" + dpName,
+				},
+			}
+			Expect(k8sClient.Create(ctx, dp)).To(Succeed())
 		})
-		AfterEach(func() { forceDeleteCDP(ctx, nn) })
+		AfterEach(func() { forceDeleteDP(ctx, nn) })
 
 		It("notifies gateway and populates AgentConnection when status GET succeeds", func() {
 			gwClient, calls, shutdown := testgateway.StartFakeGateway(http.StatusOK, &gw.PlaneConnectionStatus{
@@ -46,12 +56,12 @@ var _ = Describe("ClusterDataPlane Controller — gateway paths", func() {
 			})
 			defer shutdown()
 
-			result, err := cdpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			result, err := dpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
 			Expect(*calls).To(Equal(1))
 
-			fresh := &openchoreov1alpha1.ClusterDataPlane{}
+			fresh := &openchoreov1alpha1.DataPlane{}
 			Expect(k8sClient.Get(ctx, nn, fresh)).To(Succeed())
 			Expect(fresh.Status.AgentConnection).NotTo(BeNil())
 			Expect(fresh.Status.AgentConnection.Connected).To(BeTrue())
@@ -65,11 +75,11 @@ var _ = Describe("ClusterDataPlane Controller — gateway paths", func() {
 			gwClient, _, shutdown := testgateway.StartFakeGateway(http.StatusOK, nil) // notify OK, status → 500
 			defer shutdown()
 
-			result, err := cdpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			result, err := dpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred()) // status error is swallowed
 			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
 
-			fresh := &openchoreov1alpha1.ClusterDataPlane{}
+			fresh := &openchoreov1alpha1.DataPlane{}
 			Expect(k8sClient.Get(ctx, nn, fresh)).To(Succeed())
 			cond := apimeta.FindStatusCondition(fresh.Status.Conditions, string(controller.TypeCreated))
 			Expect(cond).NotTo(BeNil()) // persisted: Status().Update always runs

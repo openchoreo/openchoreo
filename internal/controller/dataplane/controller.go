@@ -104,7 +104,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if err := r.populateAgentConnectionStatus(ctx, dataPlane); err != nil {
 			logger.Error(err, "failed to get agent connection status")
 			// Don't fail reconciliation for status query errors
-		} else if err := r.Status().Update(ctx, dataPlane); err != nil {
+		}
+
+		// We use Status().Update() directly instead of UpdateStatusConditions to preserve agentConnection field
+		if err := r.Status().Update(ctx, dataPlane); err != nil {
 			logger.Error(err, "failed to update DataPlane status")
 		}
 
@@ -137,7 +140,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if err := r.populateAgentConnectionStatus(ctx, dataPlane); err != nil {
 		logger.Error(err, "failed to get agent connection status")
 		// Don't fail reconciliation for status query errors
-	} else if err := r.Status().Update(ctx, dataPlane); err != nil {
+	}
+
+	// We use Status().Update() directly instead of UpdateStatusConditions to preserve agentConnection field
+	if err := r.Status().Update(ctx, dataPlane); err != nil {
 		return ctrl.Result{}, err
 	}
 
