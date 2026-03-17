@@ -106,11 +106,11 @@ func TestBuildK8sListPath(t *testing.T) {
 		},
 		{
 			name:      "named group cluster-scoped",
-			group:     "apps",
+			group:     "rbac.authorization.k8s.io",
 			version:   "v1",
-			plural:    "deployments",
+			plural:    "clusterroles",
 			namespace: "",
-			want:      "apis/apps/v1/deployments",
+			want:      "apis/rbac.authorization.k8s.io/v1/clusterroles",
 		},
 	}
 
@@ -442,6 +442,20 @@ func TestHasParentResourceInRelease(t *testing.T) {
 		}
 		assert.False(t, hasParentResourceInRelease("Pod", resources))
 	})
+
+	t.Run("Job with CronJob parent in resources", func(t *testing.T) {
+		resources := []openchoreov1alpha1.ResourceStatus{
+			{Kind: "CronJob", Name: "cj1"},
+		}
+		assert.True(t, hasParentResourceInRelease("Job", resources))
+	})
+
+	t.Run("ReplicaSet with Deployment parent in resources", func(t *testing.T) {
+		resources := []openchoreov1alpha1.ResourceStatus{
+			{Kind: "Deployment", Name: "dep1"},
+		}
+		assert.True(t, hasParentResourceInRelease("ReplicaSet", resources))
+	})
 }
 
 func TestDeriveNamespace(t *testing.T) {
@@ -618,6 +632,41 @@ func TestFindResourceRelease(t *testing.T) {
 		rc, ns := svc.findResourceRelease(noParentContexts, "", "v1", "Pod", "orphan-pod")
 		assert.Nil(t, rc)
 		assert.Equal(t, "", ns)
+	})
+
+	t.Run("Job child falls back to CronJob parent", func(t *testing.T) {
+		cronJobCtx := releaseContext{
+			release: &openchoreov1alpha1.RenderedRelease{
+				Status: openchoreov1alpha1.RenderedReleaseStatus{
+					Resources: []openchoreov1alpha1.ResourceStatus{
+						{Group: "batch", Version: "v1", Kind: "CronJob", Name: "cj1", Namespace: "batch-ns"},
+					},
+				},
+			},
+			namespace: "batch-ns",
+		}
+		rc, ns := svc.findResourceRelease([]releaseContext{cronJobCtx}, "batch", "v1", "Job", "cj1-abc")
+		require.NotNil(t, rc)
+		assert.Equal(t, "batch-ns", ns)
+	})
+
+	t.Run("exact child match preferred over parent fallback", func(t *testing.T) {
+		// Release has both a Deployment (parent) and a Pod listed directly with a different namespace
+		mixedCtx := releaseContext{
+			release: &openchoreov1alpha1.RenderedRelease{
+				Status: openchoreov1alpha1.RenderedReleaseStatus{
+					Resources: []openchoreov1alpha1.ResourceStatus{
+						{Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "app-ns"},
+						{Group: "", Version: "v1", Kind: "Pod", Name: "special-pod", Namespace: "pod-ns"},
+					},
+				},
+			},
+			namespace: "app-ns",
+		}
+		// Exact match should return the Pod's own namespace ("pod-ns"), not the context namespace ("app-ns")
+		rc, ns := svc.findResourceRelease([]releaseContext{mixedCtx}, "", "v1", "Pod", "special-pod")
+		require.NotNil(t, rc)
+		assert.Equal(t, "pod-ns", ns)
 	})
 
 	t.Run("non-child kind not found", func(t *testing.T) {
