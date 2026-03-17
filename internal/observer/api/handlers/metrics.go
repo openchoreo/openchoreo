@@ -53,16 +53,16 @@ func (h *Handler) QueryMetrics(w http.ResponseWriter, r *http.Request) {
 			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
 			return
 		}
+		h.logger.Error("Failed to query metrics", "error", err)
 		errorCode := types.ErrorCodeV1MetricsInternalGeneric
 		switch {
 		case errors.Is(err, service.ErrScopeAuthFailed):
-			h.logger.Error("Failed to query metrics", "error", err)
 			h.writeErrorResponse(
 				w,
 				http.StatusInternalServerError,
 				gen.InternalServerError,
 				types.ErrorCodeV1ScopeAuthFailed,
-				"Unable to resolve resource scope due to an internal authentication failure. Please try again or contact your administrator.",
+				"",
 			)
 			return
 		case errors.Is(err, service.ErrMetricsInvalidRequest):

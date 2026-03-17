@@ -85,7 +85,7 @@ func (h *Handler) QueryTraces(w http.ResponseWriter, r *http.Request) {
 				http.StatusInternalServerError,
 				gen.InternalServerError,
 				types.ErrorCodeV1ScopeAuthFailed,
-				"Unable to resolve resource scope due to an internal authentication failure. Please try again or contact your administrator.",
+				"",
 			)
 			return
 		case errors.Is(err, service.ErrTracesResolveSearchScope):
@@ -184,7 +184,7 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 				http.StatusInternalServerError,
 				gen.InternalServerError,
 				types.ErrorCodeV1ScopeAuthFailed,
-				"Unable to resolve resource scope due to an internal authentication failure. Please try again or contact your administrator.",
+				"",
 			)
 			return
 		case errors.Is(err, service.ErrTracesRetrieval):
@@ -246,6 +246,15 @@ func (h *Handler) GetSpanDetailsForTrace(w http.ResponseWriter, r *http.Request)
 		h.logger.Error("Failed to get span details", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
+		case errors.Is(err, service.ErrScopeAuthFailed):
+			h.writeErrorResponse(
+				w,
+				http.StatusInternalServerError,
+				gen.InternalServerError,
+				types.ErrorCodeV1ScopeAuthFailed,
+				"",
+			)
+			return
 		case errors.Is(err, service.ErrSpanNotFound):
 			h.writeErrorResponse(w, http.StatusNotFound, gen.NotFound, types.ErrorCodeV1TracesSpanNotFound, "Span not found")
 			return

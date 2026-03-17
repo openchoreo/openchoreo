@@ -199,3 +199,21 @@ func TestQuerySpans_ScopeAuthFailed_Returns500WithCode(t *testing.T) {
 
 	assertScopeAuthFailedResponse(t, rr)
 }
+
+func TestGetSpanDetails_ScopeAuthFailed_Returns500WithCode(t *testing.T) {
+	t.Parallel()
+
+	h := &Handler{
+		baseHandler:   baseHandler{logger: noopLogger()},
+		tracesService: &fakeScopeAuthFailedTracesService{},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
+	req.SetPathValue("traceId", "trace-1")
+	req.SetPathValue("spanId", "span-1")
+	rr := httptest.NewRecorder()
+
+	h.GetSpanDetailsForTrace(rr, req)
+
+	assertScopeAuthFailedResponse(t, rr)
+}

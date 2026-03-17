@@ -26,8 +26,10 @@ type tokenCache struct {
 	expiresAt time.Time
 }
 
-var ErrResourceNotFound = errors.New("resource not found")
-var ErrScopeAuthFailed = errors.New("observer scope resolution auth failed")
+var (
+	ErrResourceNotFound = errors.New("resource not found")
+	ErrScopeAuthFailed  = errors.New("observer scope resolution auth failed")
+)
 
 // ResourceUIDResolver provides methods to resolve resource names to UIDs
 // by calling the openchoreo-api with OAuth2 client credentials authentication.
@@ -222,10 +224,12 @@ func (r *ResourceUIDResolver) fetchResourceUID(ctx context.Context, path string)
 			return response.Metadata.UID, nil
 
 		case http.StatusNotFound:
+			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 			return "", fmt.Errorf("%w: %s", ErrResourceNotFound, path)
 
 		case http.StatusUnauthorized:
+			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 
 			r.tokenMu.Lock()
@@ -244,10 +248,13 @@ func (r *ResourceUIDResolver) fetchResourceUID(ctx context.Context, path string)
 			return "", fmt.Errorf("%w: received 401 after %d attempt(s)", ErrScopeAuthFailed, r.config.MaxAuthRetry+1)
 
 		default:
+			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 			return "", fmt.Errorf("API returned status %d", resp.StatusCode)
 		}
 	}
+	// Unreachable: every loop iteration either returns or continues (401 retry path).
+	// Kept as a defensive fallback.
 	return "", fmt.Errorf("%w: retry loop exhausted", ErrScopeAuthFailed)
 }
 

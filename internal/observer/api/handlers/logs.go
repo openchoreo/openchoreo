@@ -56,7 +56,14 @@ func (h *Handler) QueryLogs(w http.ResponseWriter, r *http.Request) {
 		errorCode := types.ErrorCodeV1LogsInternalGeneric
 		switch {
 		case errors.Is(err, service.ErrScopeAuthFailed):
-			errorCode = types.ErrorCodeV1ScopeAuthFailed
+			h.writeErrorResponse(
+				w,
+				http.StatusInternalServerError,
+				gen.InternalServerError,
+				types.ErrorCodeV1ScopeAuthFailed,
+				"",
+			)
+			return
 		case errors.Is(err, service.ErrLogsResolveSearchScope):
 			errorCode = types.ErrorCodeV1LogsResolverFailed
 		case errors.Is(err, service.ErrLogsRetrieval):
