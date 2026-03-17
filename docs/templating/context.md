@@ -307,7 +307,7 @@ workload:
       visibility: ["project"]           # project visibility only - no gateway routes created
 ```
 
-**Endpoint types:** HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP
+**Endpoint types:** HTTP, gRPC, GraphQL, Websocket, TCP, UDP
 
 **Endpoint visibility:** Endpoints always include `"project"` visibility. Additional scopes — `"external"` and `"internal"` — determine which gateway HTTPRoutes are created:
 
