@@ -366,12 +366,6 @@ func ExtractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 			BasePath:    endpoint.BasePath,
 			Visibility:  visibility,
 		}
-		if endpoint.Schema != nil {
-			epData.Schema = &SchemaData{
-				Type:    endpoint.Schema.Type,
-				Content: endpoint.Schema.Content,
-			}
-		}
 		data.Endpoints[name] = epData
 	}
 

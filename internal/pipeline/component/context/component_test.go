@@ -674,9 +674,6 @@ func TestExtractWorkloadData_WithEndpoints(t *testing.T) {
 	assert.Equal(t, int32(9090), httpEp.TargetPort)
 	assert.Equal(t, "/api", httpEp.BasePath)
 	assert.Equal(t, "HTTP", httpEp.Type)
-	require.NotNil(t, httpEp.Schema)
-	assert.Equal(t, "openapi", httpEp.Schema.Type)
-	assert.Equal(t, "spec-content", httpEp.Schema.Content)
 
 	// Visibility dedup: "project" always included first, then "external" added (duplicate "project" removed)
 	assert.Equal(t, "project", httpEp.Visibility[0])
@@ -696,7 +693,6 @@ func TestExtractWorkloadData_WithEndpoints(t *testing.T) {
 	assert.Equal(t, int32(9090), grpcEp.Port)
 	assert.Equal(t, int32(9090), grpcEp.TargetPort, "targetPort should fall back to port when 0")
 	assert.Equal(t, "gRPC", grpcEp.Type)
-	assert.Nil(t, grpcEp.Schema)
 
 	// gRPC visibility: project always first, then namespace
 	assert.Equal(t, "project", grpcEp.Visibility[0])
