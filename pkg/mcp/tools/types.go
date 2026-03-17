@@ -211,6 +211,10 @@ type DeploymentToolsetHandler interface {
 	) (any, error)
 	ListReleaseBindings(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
 	GetReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
+	CreateReleaseBinding(
+		ctx context.Context, namespaceName string,
+		req *gen.ReleaseBindingSpec,
+	) (any, error)
 	UpdateReleaseBinding(
 		ctx context.Context, namespaceName, bindingName string,
 		req *gen.ReleaseBindingSpec,

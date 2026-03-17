@@ -56,6 +56,31 @@ func deploymentBindingSpecs() []toolTestSpec {
 			},
 		},
 		{
+			name:                "create_release_binding",
+			toolset:             "deployment",
+			descriptionKeywords: []string{"create", "release", "binding"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "project_name", "component_name", "environment", "release_name"},
+			optionalParams: []string{
+				"component_type_environment_configs",
+				"trait_environment_configs", "workload_overrides",
+			},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"project_name":   testProjectName,
+				"component_name": testComponentName,
+				"environment":    "dev",
+				"release_name":   testReleaseName,
+			},
+			expectedMethod: "CreateReleaseBinding",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected namespace %s, got %v",
+						testNamespaceName, args[0])
+				}
+			},
+		},
+		{
 			name:                "update_release_binding",
 			toolset:             "deployment",
 			descriptionKeywords: []string{"update", "release", "binding"},

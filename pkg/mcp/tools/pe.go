@@ -334,9 +334,10 @@ func (t *Toolsets) RegisterPECreateComponentRelease(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_component_release",
 		Description: "Create a new release from the latest build of a component. Releases are immutable " +
-			"snapshots that can be deployed to environments. The component must have at least one successful build. " +
-			"If the source repository does not contain a workload descriptor (workload.yaml), use update_workload " +
-			"to configure the workload before creating a release.",
+			"snapshots that can be deployed to environments through release bindings. The component " +
+			"must have at least one successful build or workload. If the source repository does not " +
+			"contain a workload descriptor (workload.yaml), use update_workload to configure the " +
+			"workload before creating a release.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"component_name": defaultStringProperty(),

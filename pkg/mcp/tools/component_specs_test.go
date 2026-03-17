@@ -114,7 +114,7 @@ func componentBasicSpecs() []toolTestSpec {
 				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"name":           "new-component",
-				"component_type":  "WebApplication",
+				"component_type": "WebApplication",
 			},
 			expectedMethod: "CreateComponent",
 			validateCall: func(t *testing.T, args []interface{}) {

@@ -222,26 +222,106 @@ func (t *Toolsets) RegisterListReleaseBindings(s *mcp.Server) {
 	})
 }
 
+func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "create_release_binding",
+		Description: "Create a new release binding to deploy a component release to a specific " +
+			"environment. Fails if a binding already exists for the component in that environment, " +
+			"use update_release_binding to deploy a new release to an environment that already has " +
+			"one. To promote a component to a new environment, create(or update) the release binding " +
+			"in the target environment with the desired component release.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": defaultStringProperty(),
+			"environment":    stringProperty("Target environment name"),
+			"release_name":   stringProperty("Name of the component release to bind"),
+			"component_type_environment_configs": map[string]any{
+				"type": "object",
+				"description": "Optional: environment-specific overrides for component type parameters. " +
+					"Use get_component_type_schema or get_cluster_component_type_schema to discover available parameters.",
+			},
+			"trait_environment_configs": map[string]any{
+				"type": "object",
+				"description": "Optional: environment-specific trait configuration overrides. " +
+					"Use get_trait_schema or get_cluster_trait_schema to discover available parameters.",
+			},
+			"workload_overrides": map[string]any{
+				"type": "object",
+				"description": "Optional: workload configuration overrides. " +
+					"Use get_workload_schema to see the full structure.",
+			},
+		}, []string{"namespace_name", "project_name", "component_name", "environment", "release_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName                   string                 `json:"namespace_name"`
+		ProjectName                     string                 `json:"project_name"`
+		ComponentName                   string                 `json:"component_name"`
+		Environment                     string                 `json:"environment"`
+		ReleaseName                     string                 `json:"release_name"`
+		ComponentTypeEnvironmentConfigs map[string]interface{} `json:"component_type_environment_configs"`
+		TraitEnvironmentConfigs         map[string]interface{} `json:"trait_environment_configs"`
+		WorkloadOverrides               map[string]interface{} `json:"workload_overrides"`
+	}) (*mcp.CallToolResult, any, error) {
+		createReq := &gen.ReleaseBindingSpec{
+			Environment: args.Environment,
+			Owner: struct {
+				ComponentName string `json:"componentName"`
+				ProjectName   string `json:"projectName"`
+			}{
+				ComponentName: args.ComponentName,
+				ProjectName:   args.ProjectName,
+			},
+		}
+		if args.ReleaseName != "" {
+			createReq.ReleaseName = &args.ReleaseName
+		}
+		if args.ComponentTypeEnvironmentConfigs != nil {
+			createReq.ComponentTypeEnvironmentConfigs = &args.ComponentTypeEnvironmentConfigs
+		}
+		if args.TraitEnvironmentConfigs != nil {
+			traitEnvironmentConfigs := make(map[string]interface{}, len(args.TraitEnvironmentConfigs))
+			for k, v := range args.TraitEnvironmentConfigs {
+				traitEnvironmentConfigs[k] = v
+			}
+			createReq.TraitEnvironmentConfigs = &traitEnvironmentConfigs
+		}
+		if args.WorkloadOverrides != nil {
+			workloadOverrides, err := parseWorkloadOverrides(args.WorkloadOverrides)
+			if err != nil {
+				return nil, nil, err
+			}
+			createReq.WorkloadOverrides = workloadOverrides
+		}
+		result, err := t.DeploymentToolset.CreateReleaseBinding(
+			ctx, args.NamespaceName, createReq)
+		return handleToolResult(result, err)
+	})
+}
+
 func (t *Toolsets) RegisterUpdateReleaseBinding(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "update_release_binding",
-		Description: "Update a release binding's configuration (full replacement). Can update the associated release, " +
-			"environment overrides, trait configurations, and workload settings.",
+		Description: "Update an existing release binding's configuration (partial update). Only provided fields are " +
+			"updated; omitted fields remain unchanged. Use this to deploy a new component release to an " +
+			"environment, or to modify environment configs and workload overrides.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"binding_name":   defaultStringProperty(),
 			"release_name":   stringProperty("Optional: update the release associated with this binding"),
 			"component_type_environment_configs": map[string]any{
-				"type":        "object",
-				"description": "Optional: environment-specific overrides for component type parameters",
+				"type": "object",
+				"description": "Optional: environment-specific overrides for component type parameters. " +
+					"Use get_component_type_schema or get_cluster_component_type_schema to discover available parameters.",
 			},
 			"trait_environment_configs": map[string]any{
-				"type":        "object",
-				"description": "Optional: environment-specific trait configuration overrides",
+				"type": "object",
+				"description": "Optional: environment-specific trait configuration overrides. " +
+					"Use get_trait_schema or get_cluster_trait_schema to discover available parameters.",
 			},
 			"workload_overrides": map[string]any{
-				"type":        "object",
-				"description": "Optional: workload configuration overrides",
+				"type": "object",
+				"description": "Optional: workload configuration overrides. " +
+					"Use get_workload_schema to see the full structure.",
 			},
 		}, []string{"namespace_name", "binding_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {

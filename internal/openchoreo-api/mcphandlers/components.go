@@ -180,6 +180,65 @@ func (h *MCPHandler) GetReleaseBinding(
 	return releaseBindingDetail(rb), nil
 }
 
+func (h *MCPHandler) CreateReleaseBinding(
+	ctx context.Context, namespaceName string,
+	req *gen.ReleaseBindingSpec,
+) (any, error) {
+	bindingName := fmt.Sprintf("%s-%s", req.Owner.ComponentName, req.Environment)
+
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      bindingName,
+			Namespace: namespaceName,
+		},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ReleaseBindingOwner{
+				ProjectName:   req.Owner.ProjectName,
+				ComponentName: req.Owner.ComponentName,
+			},
+			Environment: req.Environment,
+		},
+	}
+	if req.ReleaseName != nil && *req.ReleaseName != "" {
+		rb.Spec.ReleaseName = *req.ReleaseName
+	}
+	if req.ComponentTypeEnvironmentConfigs != nil {
+		overrideBytes, err := json.Marshal(*req.ComponentTypeEnvironmentConfigs)
+		if err != nil {
+			return nil, err
+		}
+		rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: overrideBytes}
+	}
+	if req.TraitEnvironmentConfigs != nil {
+		traitEnvironmentConfigs := make(map[string]runtime.RawExtension, len(*req.TraitEnvironmentConfigs))
+		for k, v := range *req.TraitEnvironmentConfigs {
+			overrideBytes, err := json.Marshal(v)
+			if err != nil {
+				return nil, err
+			}
+			traitEnvironmentConfigs[k] = runtime.RawExtension{Raw: overrideBytes}
+		}
+		rb.Spec.TraitEnvironmentConfigs = traitEnvironmentConfigs
+	}
+	if req.WorkloadOverrides != nil {
+		overrideBytes, err := json.Marshal(req.WorkloadOverrides)
+		if err != nil {
+			return nil, err
+		}
+		var wo openchoreov1alpha1.WorkloadOverrideTemplateSpec
+		if err := json.Unmarshal(overrideBytes, &wo); err != nil {
+			return nil, err
+		}
+		rb.Spec.WorkloadOverrides = &wo
+	}
+
+	created, err := h.services.ReleaseBindingService.CreateReleaseBinding(ctx, namespaceName, rb)
+	if err != nil {
+		return nil, err
+	}
+	return mutationResult(created, "created"), nil
+}
+
 func (h *MCPHandler) UpdateReleaseBinding(
 	ctx context.Context, namespaceName, bindingName string,
 	req *gen.ReleaseBindingSpec,

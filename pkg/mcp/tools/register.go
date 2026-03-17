@@ -57,6 +57,7 @@ func (t *Toolsets) deploymentToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
 		t.RegisterListReleaseBindings,
 		t.RegisterGetReleaseBinding,
+		t.RegisterCreateReleaseBinding,
 		t.RegisterUpdateReleaseBinding,
 		t.RegisterUpdateReleaseBindingState,
 		t.RegisterListDeploymentPipelines,

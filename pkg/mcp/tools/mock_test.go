@@ -134,6 +134,14 @@ func (m *MockCoreToolsetHandler) GetReleaseBinding(
 	return `{"name":"binding-dev","environment":"dev"}`, nil
 }
 
+func (m *MockCoreToolsetHandler) CreateReleaseBinding(
+	ctx context.Context, namespaceName string,
+	req *gen.ReleaseBindingSpec,
+) (any, error) {
+	m.recordCall("CreateReleaseBinding", namespaceName, req)
+	return `{"name":"binding-dev","action":"created"}`, nil
+}
+
 func (m *MockCoreToolsetHandler) UpdateReleaseBinding(
 	ctx context.Context, namespaceName, bindingName string,
 	req *gen.ReleaseBindingSpec,
