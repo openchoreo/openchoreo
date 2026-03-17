@@ -31,9 +31,10 @@ import (
 	openapihandlers "github.com/openchoreo/openchoreo/internal/openchoreo-api/api/handlers"
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
+	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
+	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
 	"github.com/openchoreo/openchoreo/internal/server"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
@@ -154,18 +155,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize legacy services with PAP and PDP
-	legacySvc := legacyservices.NewServices(
-		k8sClient, planeK8sClientMgr, runtime.pdp, logger, gwClient,
+	// Create the internal (unauthz) workflow run service used by the webhook processor.
+	// Webhook requests are authenticated via HMAC signature validation instead of user-level auth.
+	baseWfRunSvc := workflowrunsvc.NewService(
+		k8sClient, planeK8sClientMgr, gwClient, logger.With("service", "workflowrun"),
 	)
+
+	// Create the webhook processor that finds affected components and triggers workflow runs.
+	webhookProcessor := autobuildsvc.NewWebhookProcessor(k8sClient, baseWfRunSvc, logger.With("service", "webhook"))
 
 	// Initialize all handler services
 	services := handlerservices.NewServices(
-		k8sClient, runtime.pap, runtime.pdp, planeK8sClientMgr, gatewayURL, logger, gwClient, legacySvc.WebhookService,
+		k8sClient, runtime.pap, runtime.pdp, planeK8sClientMgr, gatewayURL, logger, gwClient, webhookProcessor,
 	)
 
 	// Initialize OpenAPI handlers
-	openapiHandler := openapihandlers.New(legacySvc, services, logger.With("component", "openapi-handlers"), &cfg)
+	openapiHandler := openapihandlers.New(services, logger.With("component", "openapi-handlers"), &cfg)
 	strictHandler := gen.NewStrictHandler(openapiHandler, nil)
 
 	// Initialize JWT middleware

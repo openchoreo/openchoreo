@@ -11,8 +11,8 @@ import (
 	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices/git"
 	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 )
 
 // webhookRawBodyKey is the context key for raw webhook request body bytes.

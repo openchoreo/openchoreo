@@ -11,7 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices/git"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 )
 
 const (
@@ -22,7 +22,7 @@ const (
 )
 
 // WebhookProcessor handles the core webhook processing: finding affected components and
-// triggering builds. legacyservices.WebhookService satisfies this interface.
+// triggering builds. webhookProcessor (in this package) satisfies this interface.
 type WebhookProcessor interface {
 	ProcessWebhook(ctx context.Context, provider git.Provider, payload []byte) ([]string, error)
 }

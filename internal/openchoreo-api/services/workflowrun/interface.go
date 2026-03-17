@@ -17,6 +17,10 @@ type Service interface {
 	UpdateWorkflowRun(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error)
 	ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName, workflowName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.WorkflowRun], error)
 	GetWorkflowRun(ctx context.Context, namespaceName, runName string) (*openchoreov1alpha1.WorkflowRun, error)
+	GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.WorkflowRunStatusResponse, error)
 	GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, taskName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error)
 	GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, taskName, gatewayURL string) ([]models.WorkflowRunEventEntry, error)
+	// TriggerWorkflow creates a WorkflowRun from a component's workflow configuration.
+	// The authorized version is used by API handlers; the unauthz version is used by webhook processing.
+	TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error)
 }

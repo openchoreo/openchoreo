@@ -10,7 +10,6 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	svcerrors "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	workflowsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflow"
 	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
@@ -376,12 +375,12 @@ func (h *Handler) GetWorkflowRunStatus(
 		"namespace", request.NamespaceName,
 		"runName", request.RunName)
 
-	status, err := h.legacyServices.WorkflowRunService.GetWorkflowRunStatus(ctx, request.NamespaceName, request.RunName, h.Config.ClusterGateway.URL)
+	status, err := h.services.WorkflowRunService.GetWorkflowRunStatus(ctx, request.NamespaceName, request.RunName, h.Config.ClusterGateway.URL)
 	if err != nil {
-		if errors.Is(err, legacyservices.ErrWorkflowRunNotFound) {
+		if errors.Is(err, workflowrunsvc.ErrWorkflowRunNotFound) {
 			return gen.GetWorkflowRunStatus404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
 		}
-		if errors.Is(err, legacyservices.ErrForbidden) {
+		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.GetWorkflowRunStatus403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
 		h.logger.Error("Failed to get workflow run status", "error", err)

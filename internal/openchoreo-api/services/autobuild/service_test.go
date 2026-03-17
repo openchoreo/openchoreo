@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices/git"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
 )
 

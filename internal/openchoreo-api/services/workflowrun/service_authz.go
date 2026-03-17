@@ -144,3 +144,35 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRunEvents(ctx context.Context, 
 	}
 	return s.internal.GetWorkflowRunEvents(ctx, namespaceName, runName, taskName, gatewayURL)
 }
+
+func (s *workflowRunServiceWithAuthz) GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.WorkflowRunStatusResponse, error) {
+	wr, err := s.internal.GetWorkflowRun(ctx, namespaceName, runName)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionViewWorkflowRun,
+		ResourceType: resourceTypeWorkflowRun,
+		ResourceID:   runName,
+		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.GetWorkflowRunStatus(ctx, namespaceName, runName, gatewayURL)
+}
+
+func (s *workflowRunServiceWithAuthz) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error) {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionCreateWorkflowRun,
+		ResourceType: resourceTypeWorkflowRun,
+		ResourceID:   componentName,
+		Hierarchy: authz.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   projectName,
+			Component: componentName,
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.TriggerWorkflow(ctx, namespaceName, projectName, componentName, commit)
+}

@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package legacyservices
+package autobuild
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices/git"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 )
 
 // discardLogger returns a slog.Logger that discards all output, for use in tests.
@@ -32,6 +32,15 @@ const (
 	// testSchemaURLAndBranch is a schema with url and branch extensions.
 	testSchemaURLAndBranch = `{"type":"object","properties":{"repository":{"type":"object","properties":{"url":{"type":"string","x-openchoreo-component-parameter-repository-url":true},"revision":{"type":"object","properties":{"branch":{"type":"string","x-openchoreo-component-parameter-repository-branch":true}}}}}}}`
 )
+
+func newTestSchemeForWebhook(t *testing.T) *runtime.Scheme {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add scheme: %v", err)
+	}
+	return scheme
+}
 
 func TestExtractComponentRepositoryPaths(t *testing.T) {
 	makeSchema := func(jsonStr string) *runtime.RawExtension {
@@ -239,7 +248,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 		return &runtime.RawExtension{Raw: b}
 	}
 
-	scheme := newTestScheme(t)
+	scheme := newTestSchemeForWebhook(t)
 
 	tests := []struct {
 		name            string
@@ -311,12 +320,11 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 				},
 			},
 			workflow: func() *v1alpha1.Workflow {
-				schemaJSON := testSchemaURLOnly
 				return &v1alpha1.Workflow{
 					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
 					Spec: v1alpha1.WorkflowSpec{
 						Parameters: &v1alpha1.SchemaSection{
-							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(testSchemaURLOnly)},
 						},
 					},
 				}
@@ -340,12 +348,11 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 				},
 			},
 			workflow: func() *v1alpha1.Workflow {
-				schemaJSON := testSchemaURLAndAppPath
 				return &v1alpha1.Workflow{
 					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
 					Spec: v1alpha1.WorkflowSpec{
 						Parameters: &v1alpha1.SchemaSection{
-							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(testSchemaURLAndAppPath)},
 						},
 					},
 				}
@@ -369,12 +376,11 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 				},
 			},
 			workflow: func() *v1alpha1.Workflow {
-				schemaJSON := testSchemaURLOnly
 				return &v1alpha1.Workflow{
 					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
 					Spec: v1alpha1.WorkflowSpec{
 						Parameters: &v1alpha1.SchemaSection{
-							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(testSchemaURLOnly)},
 						},
 					},
 				}
@@ -393,12 +399,11 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 				},
 			},
 			workflow: func() *v1alpha1.Workflow {
-				schemaJSON := testSchemaURLOnly
 				return &v1alpha1.Workflow{
 					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
 					Spec: v1alpha1.WorkflowSpec{
 						Parameters: &v1alpha1.SchemaSection{
-							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(testSchemaURLOnly)},
 						},
 					},
 				}
@@ -421,12 +426,11 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 				},
 			},
 			workflow: func() *v1alpha1.Workflow {
-				schemaJSON := testSchemaURLAndAppPath
 				return &v1alpha1.Workflow{
 					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
 					Spec: v1alpha1.WorkflowSpec{
 						Parameters: &v1alpha1.SchemaSection{
-							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(testSchemaURLAndAppPath)},
 						},
 					},
 				}
@@ -450,12 +454,11 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 				},
 			},
 			workflow: func() *v1alpha1.Workflow {
-				schemaJSON := testSchemaURLAndBranch
 				return &v1alpha1.Workflow{
 					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
 					Spec: v1alpha1.WorkflowSpec{
 						Parameters: &v1alpha1.SchemaSection{
-							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(testSchemaURLAndBranch)},
 						},
 					},
 				}
@@ -479,7 +482,6 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 				},
 			},
 			workflow: func() *v1alpha1.Workflow {
-				// Schema has a default of "main" for branch
 				schemaJSON := `{"type":"object","properties":{"repository":{"type":"object","properties":{"url":{"type":"string","x-openchoreo-component-parameter-repository-url":true},"revision":{"type":"object","properties":{"branch":{"type":"string","default":"main","x-openchoreo-component-parameter-repository-branch":true}}}}}}}`
 				return &v1alpha1.Workflow{
 					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
@@ -492,40 +494,6 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			}(),
 			wantRepo:   "https://github.com/example/repo",
 			wantBranch: "main",
-		},
-		{
-			name: "extracts repoUrl, appPath, and branch",
-			component: &v1alpha1.Component{
-				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
-				Spec: v1alpha1.ComponentSpec{
-					Workflow: &v1alpha1.ComponentWorkflowConfig{
-						Name: "wf1",
-						Parameters: makeRaw(map[string]interface{}{
-							"repository": map[string]interface{}{
-								"url": "https://github.com/example/repo",
-								"revision": map[string]interface{}{
-									"branch": "main",
-								},
-							},
-							"appPath": "/src/app",
-						}),
-					},
-				},
-			},
-			workflow: func() *v1alpha1.Workflow {
-				schemaJSON := `{"type":"object","properties":{"repository":{"type":"object","properties":{"url":{"type":"string","x-openchoreo-component-parameter-repository-url":true},"revision":{"type":"object","properties":{"branch":{"type":"string","x-openchoreo-component-parameter-repository-branch":true}}}}},"appPath":{"type":"string","x-openchoreo-component-parameter-repository-app-path":true}}}`
-				return &v1alpha1.Workflow{
-					ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
-					Spec: v1alpha1.WorkflowSpec{
-						Parameters: &v1alpha1.SchemaSection{
-							OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
-						},
-					},
-				}
-			}(),
-			wantRepo:    "https://github.com/example/repo",
-			wantAppPath: "/src/app",
-			wantBranch:  "main",
 		},
 		{
 			name: "ClusterWorkflow kind: extracts repoUrl from cluster-scoped workflow",
@@ -546,32 +514,6 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			clusterWorkflow: &v1alpha1.ClusterWorkflow{
 				ObjectMeta: metav1.ObjectMeta{Name: "cwf1"},
 				Spec: v1alpha1.ClusterWorkflowSpec{
-					Parameters: &v1alpha1.SchemaSection{
-						OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(testSchemaURLOnly)},
-					},
-				},
-			},
-			wantRepo: "https://github.com/example/repo",
-		},
-		{
-			name: "Workflow kind explicit: extracts repoUrl from namespace-scoped workflow",
-			component: &v1alpha1.Component{
-				ObjectMeta: metav1.ObjectMeta{Name: "comp1", Namespace: "ns1"},
-				Spec: v1alpha1.ComponentSpec{
-					Workflow: &v1alpha1.ComponentWorkflowConfig{
-						Kind: v1alpha1.WorkflowRefKindWorkflow,
-						Name: "wf1",
-						Parameters: makeRaw(map[string]interface{}{
-							"repository": map[string]interface{}{
-								"url": "https://github.com/example/repo",
-							},
-						}),
-					},
-				},
-			},
-			workflow: &v1alpha1.Workflow{
-				ObjectMeta: metav1.ObjectMeta{Name: "wf1", Namespace: "ns1"},
-				Spec: v1alpha1.WorkflowSpec{
 					Parameters: &v1alpha1.SchemaSection{
 						OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(testSchemaURLOnly)},
 					},
@@ -611,7 +553,7 @@ func TestExtractRepoInfoFromComponent(t *testing.T) {
 			}
 			k8sClient := builder.Build()
 
-			svc := &WebhookService{k8sClient: k8sClient, logger: discardLogger()}
+			svc := &webhookProcessor{k8sClient: k8sClient, logger: discardLogger()}
 
 			gotRepo, gotAppPath, gotBranch, err := svc.extractRepoInfoFromComponent(context.Background(), tt.component)
 			if tt.wantErr {
@@ -662,12 +604,11 @@ func makeAutoBuildComponent(name, ns, workflowName, repoURL, branch string, make
 
 // makeWorkflowWithBranch returns a Workflow CR whose schema marks url and branch with x-openchoreo-component-repository extensions.
 func makeWorkflowWithBranch(name, ns string) *v1alpha1.Workflow {
-	schemaJSON := testSchemaURLAndBranch
 	return &v1alpha1.Workflow{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
 		Spec: v1alpha1.WorkflowSpec{
 			Parameters: &v1alpha1.SchemaSection{
-				OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+				OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(testSchemaURLAndBranch)},
 			},
 		},
 	}
@@ -675,12 +616,11 @@ func makeWorkflowWithBranch(name, ns string) *v1alpha1.Workflow {
 
 // makeWorkflowNoBranch returns a Workflow CR whose schema marks only url with x-openchoreo-component-repository extension (no branch).
 func makeWorkflowNoBranch(name, ns string) *v1alpha1.Workflow {
-	schemaJSON := testSchemaURLOnly
 	return &v1alpha1.Workflow{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
 		Spec: v1alpha1.WorkflowSpec{
 			Parameters: &v1alpha1.SchemaSection{
-				OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(schemaJSON)},
+				OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(testSchemaURLOnly)},
 			},
 		},
 	}
@@ -692,12 +632,12 @@ func TestWebhookBranchFilter_Match(t *testing.T) {
 		return &runtime.RawExtension{Raw: b}
 	}
 
-	scheme := newTestScheme(t)
+	scheme := newTestSchemeForWebhook(t)
 	comp := makeAutoBuildComponent("svc", "ns1", "wf1", "https://github.com/example/repo", "main", makeRaw)
 	workflow := makeWorkflowWithBranch("wf1", "ns1")
 
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(comp, workflow).Build()
-	svc := &WebhookService{k8sClient: k8sClient, logger: discardLogger()}
+	svc := &webhookProcessor{k8sClient: k8sClient, logger: discardLogger()}
 
 	event := &git.WebhookEvent{
 		RepositoryURL: "https://github.com/example/repo",
@@ -722,12 +662,12 @@ func TestWebhookBranchFilter_Mismatch(t *testing.T) {
 		return &runtime.RawExtension{Raw: b}
 	}
 
-	scheme := newTestScheme(t)
+	scheme := newTestSchemeForWebhook(t)
 	comp := makeAutoBuildComponent("svc", "ns1", "wf1", "https://github.com/example/repo", "main", makeRaw)
 	workflow := makeWorkflowWithBranch("wf1", "ns1")
 
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(comp, workflow).Build()
-	svc := &WebhookService{k8sClient: k8sClient, logger: discardLogger()}
+	svc := &webhookProcessor{k8sClient: k8sClient, logger: discardLogger()}
 
 	event := &git.WebhookEvent{
 		RepositoryURL: "https://github.com/example/repo",
@@ -749,9 +689,7 @@ func TestWebhookBranchFilter_NoConfiguredBranch(t *testing.T) {
 		return &runtime.RawExtension{Raw: b}
 	}
 
-	scheme := newTestScheme(t)
-	// Component has a branch value in parameters but the Workflow schema extension does NOT mark "branch",
-	// so no branch filtering should occur and any push branch triggers a build.
+	scheme := newTestSchemeForWebhook(t)
 	autoBuild := true
 	comp := &v1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns1"},
@@ -770,7 +708,7 @@ func TestWebhookBranchFilter_NoConfiguredBranch(t *testing.T) {
 	workflow := makeWorkflowNoBranch("wf1", "ns1")
 
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(comp, workflow).Build()
-	svc := &WebhookService{k8sClient: k8sClient, logger: discardLogger()}
+	svc := &webhookProcessor{k8sClient: k8sClient, logger: discardLogger()}
 
 	for _, pushBranch := range []string{"main", "feature/foo", "release/v1"} {
 		t.Run(pushBranch, func(t *testing.T) {

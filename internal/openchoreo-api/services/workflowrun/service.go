@@ -5,10 +5,13 @@ package workflowrun
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -17,6 +20,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -679,4 +683,367 @@ func (s *workflowRunService) getArgoWorkflowPodEvents(ctx context.Context, workf
 	}
 
 	return &eventList, nil
+}
+
+// workflowRunStatusPending and related constants describe workflow run statuses.
+const (
+	workflowRunStatusPending   = "Pending"
+	workflowRunStatusRunning   = "Running"
+	workflowRunStatusSucceeded = "Succeeded"
+	workflowRunStatusFailed    = "Failed"
+)
+
+// GetWorkflowRunStatus retrieves the status and step information for a specific WorkflowRun.
+func (s *workflowRunService) GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.WorkflowRunStatusResponse, error) {
+	logger := s.logger.With("namespace", namespaceName, "run", runName)
+	logger.Debug("Getting workflow run status")
+
+	wfRun := &openchoreov1alpha1.WorkflowRun{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      runName,
+		Namespace: namespaceName,
+	}, wfRun); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			logger.Warn("WorkflowRun not found")
+			return nil, ErrWorkflowRunNotFound
+		}
+		logger.Error("Failed to get WorkflowRun", "error", err)
+		return nil, fmt.Errorf("failed to get WorkflowRun: %w", err)
+	}
+
+	overallStatus := computeWorkflowRunStatus(wfRun.Status.Conditions)
+
+	steps := make([]models.WorkflowStepStatus, 0, len(wfRun.Status.Tasks))
+	for _, task := range wfRun.Status.Tasks {
+		step := models.WorkflowStepStatus{
+			Name:  task.Name,
+			Phase: task.Phase,
+		}
+		if task.StartedAt != nil {
+			startedAt := task.StartedAt.Time
+			step.StartedAt = &startedAt
+		}
+		if task.CompletedAt != nil {
+			completedAt := task.CompletedAt.Time
+			step.FinishedAt = &completedAt
+		}
+		steps = append(steps, step)
+	}
+
+	hasLiveObservability := s.argoWorkflowExists(ctx, namespaceName, gatewayURL, wfRun)
+
+	return &models.WorkflowRunStatusResponse{
+		Status:               overallStatus,
+		Steps:                steps,
+		HasLiveObservability: hasLiveObservability,
+	}, nil
+}
+
+// argoWorkflowExists checks whether the Argo Workflow referenced by the given WorkflowRun
+// still exists on the workflow plane. Returns true if it exists.
+func (s *workflowRunService) argoWorkflowExists(ctx context.Context, namespaceName, gatewayURL string, wfRun *openchoreov1alpha1.WorkflowRun) bool {
+	runReference := wfRun.Status.RunReference
+	if runReference == nil || runReference.Name == "" || runReference.Namespace == "" {
+		return false
+	}
+
+	workflowPlaneRef, err := s.resolveWorkflowPlaneRef(ctx, namespaceName, wfRun.Spec.Workflow)
+	if err != nil {
+		s.logger.Debug("Failed to resolve workflow plane ref for existence check", "error", err)
+		return false
+	}
+
+	wpClient, err := s.getWorkflowPlaneClient(ctx, namespaceName, gatewayURL, workflowPlaneRef)
+	if err != nil {
+		s.logger.Debug("Failed to get workflow plane client for workflow existence check", "error", err)
+		return false
+	}
+
+	var argoWorkflow argoproj.Workflow
+	if err := wpClient.Get(ctx, types.NamespacedName{
+		Name:      runReference.Name,
+		Namespace: runReference.Namespace,
+	}, &argoWorkflow); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return false
+		}
+		s.logger.Debug("Failed to check argo workflow existence on workflow plane", "error", err)
+		return false
+	}
+
+	return true
+}
+
+// computeWorkflowRunStatus determines the user-friendly status from workflow run conditions.
+func computeWorkflowRunStatus(conditions []metav1.Condition) string {
+	if len(conditions) == 0 {
+		return workflowRunStatusPending
+	}
+
+	for _, condition := range conditions {
+		if condition.Type == "WorkflowFailed" && condition.Status == metav1.ConditionTrue {
+			return workflowRunStatusFailed
+		}
+	}
+
+	for _, condition := range conditions {
+		if condition.Type == "WorkflowSucceeded" && condition.Status == metav1.ConditionTrue {
+			return workflowRunStatusSucceeded
+		}
+	}
+
+	for _, condition := range conditions {
+		if condition.Type == "WorkflowRunning" && condition.Status == metav1.ConditionTrue {
+			return workflowRunStatusRunning
+		}
+	}
+
+	return workflowRunStatusPending
+}
+
+// TriggerWorkflow creates a new WorkflowRun from a component's workflow configuration.
+// This is used by both the authorized API handler path and the webhook path (unauthz).
+func (s *workflowRunService) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error) {
+	s.logger.Debug("Triggering component workflow", "namespace", namespaceName, "project", projectName, "component", componentName, "commit", commit)
+
+	// Retrieve component
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      componentName,
+		Namespace: namespaceName,
+	}, &component); err != nil {
+		s.logger.Error("Failed to get component", "error", err, "namespace", namespaceName, "component", componentName)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Derive the canonical project from the component's owner and validate against the caller.
+	canonicalProject := component.Spec.Owner.ProjectName
+	if projectName != "" && projectName != canonicalProject {
+		return nil, fmt.Errorf("project %q does not match component owner project %q", projectName, canonicalProject)
+	}
+	projectName = canonicalProject
+
+	// Check if component has workflow configuration
+	if component.Spec.Workflow == nil || component.Spec.Workflow.Name == "" {
+		s.logger.Error("Component does not have a workflow configured", "component", componentName)
+		return nil, fmt.Errorf("component %s does not have a workflow configured", componentName)
+	}
+
+	// Fetch the Workflow or ClusterWorkflow CR to get the schema
+	var workflowParameters *openchoreov1alpha1.SchemaSection
+	if component.Spec.Workflow.Kind == openchoreov1alpha1.WorkflowRefKindClusterWorkflow {
+		cw := &openchoreov1alpha1.ClusterWorkflow{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{
+			Name: component.Spec.Workflow.Name,
+		}, cw); err != nil {
+			s.logger.Error("Failed to get ClusterWorkflow", "error", err, "workflow", component.Spec.Workflow.Name)
+			return nil, fmt.Errorf("failed to get ClusterWorkflow %s: %w", component.Spec.Workflow.Name, err)
+		}
+		workflowParameters = cw.Spec.Parameters
+	} else {
+		workflow := &openchoreov1alpha1.Workflow{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{
+			Name:      component.Spec.Workflow.Name,
+			Namespace: namespaceName,
+		}, workflow); err != nil {
+			s.logger.Error("Failed to get workflow", "error", err, "workflow", component.Spec.Workflow.Name)
+			return nil, fmt.Errorf("failed to get workflow %s: %w", component.Spec.Workflow.Name, err)
+		}
+		workflowParameters = workflow.Spec.Parameters
+	}
+
+	// Extract parameter paths from x-openchoreo-component-repository schema extensions
+	paramMap, err := controller.ExtractComponentRepositoryPaths(workflowParameters.GetRaw())
+	if err != nil {
+		s.logger.Error("Failed to extract component repository paths from workflow schema", "error", err, "workflow", component.Spec.Workflow.Name)
+		return nil, fmt.Errorf("failed to extract component repository paths from workflow %s schema: %w", component.Spec.Workflow.Name, err)
+	}
+
+	// Validate that repoUrl is configured in the component parameters.
+	if repoURLPath, ok := paramMap["url"]; ok {
+		repoURL, err := getNestedStringInParams(component.Spec.Workflow.Parameters, repoURLPath)
+		if err != nil {
+			s.logger.Error("Failed to read repository URL from component parameters", "error", err, "path", repoURLPath, "component", componentName)
+			return nil, fmt.Errorf("failed to read repository URL for component %s at path %s: %w", componentName, repoURLPath, err)
+		}
+		if repoURL == "" {
+			s.logger.Error("Repository URL is empty in component parameters", "component", componentName)
+			return nil, fmt.Errorf("component %s has an empty repository URL configured", componentName)
+		}
+	}
+
+	// Validate commit SHA format if provided
+	if commit != "" {
+		commitPattern := regexp.MustCompile(`^[0-9a-fA-F]{7,40}$`)
+		if !commitPattern.MatchString(commit) {
+			return nil, ErrInvalidCommitSHA
+		}
+	}
+
+	// Start with the component's existing parameters
+	parameters := component.Spec.Workflow.Parameters
+
+	// Inject commit SHA into parameters at the mapped path if a commit mapping exists
+	if commit != "" {
+		if commitPath, ok := paramMap["commit"]; ok {
+			updatedParams, err := setNestedStringInParams(parameters, commitPath, commit)
+			if err != nil {
+				return nil, fmt.Errorf("failed to inject commit into workflow parameters: %w", err)
+			}
+			parameters = updatedParams
+		}
+	}
+
+	// Generate a unique workflow run name
+	workflowRunName, err := generateWorkflowRunName(componentName)
+	if err != nil {
+		s.logger.Error("Failed to generate workflow run name", "error", err)
+		return nil, fmt.Errorf("failed to generate workflow run name: %w", err)
+	}
+
+	// Create the WorkflowRun CR
+	workflowRun := &openchoreov1alpha1.WorkflowRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workflowRunName,
+			Namespace: namespaceName,
+			Labels: map[string]string{
+				ocLabels.LabelKeyProjectName:   projectName,
+				ocLabels.LabelKeyComponentName: componentName,
+			},
+		},
+		Spec: openchoreov1alpha1.WorkflowRunSpec{
+			Workflow: openchoreov1alpha1.WorkflowRunConfig{
+				Kind:       component.Spec.Workflow.Kind,
+				Name:       component.Spec.Workflow.Name,
+				Parameters: parameters,
+			},
+		},
+	}
+
+	if err := s.k8sClient.Create(ctx, workflowRun); err != nil {
+		if apierrors.IsInvalid(err) {
+			var statusErr *apierrors.StatusError
+			if errors.As(err, &statusErr) && statusErr.ErrStatus.Details != nil {
+				for _, cause := range statusErr.ErrStatus.Details.Causes {
+					if strings.Contains(cause.Field, "commit") {
+						s.logger.Warn("Commit SHA validation failed", "error", cause.Message, "field", cause.Field)
+						return nil, ErrInvalidCommitSHA
+					}
+				}
+			}
+		}
+		s.logger.Error("Failed to create workflow run", "error", err)
+		return nil, fmt.Errorf("failed to create workflow run: %w", err)
+	}
+
+	s.logger.Info("Workflow run created successfully", "workflow", workflowRunName, "component", componentName, "commit", commit)
+
+	return &models.WorkflowRunTriggerResponse{
+		Name:          workflowRun.Name,
+		UUID:          string(workflowRun.UID),
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		NamespaceName: namespaceName,
+		Commit:        commit,
+		Status:        workflowRunStatusPending,
+		CreatedAt:     workflowRun.CreationTimestamp.Time,
+	}, nil
+}
+
+// generateWorkflowRunName generates a unique name for the workflow run.
+func generateWorkflowRunName(baseName string) (string, error) {
+	bytes := make([]byte, 4) // 8 characters hex string
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("failed to generate random suffix: %w", err)
+	}
+	suffix := hex.EncodeToString(bytes)
+
+	runName := fmt.Sprintf("%s-run-%s", baseName, suffix)
+
+	// Ensure the name doesn't exceed Kubernetes name limits (63 characters)
+	if len(runName) > 63 {
+		maxBaseLen := 63 - len("-run-") - 8 // 8 for hex suffix
+		if maxBaseLen > 0 {
+			runName = fmt.Sprintf("%s-run-%s", baseName[:maxBaseLen], suffix)
+		} else {
+			return "", fmt.Errorf("base name is too long to generate valid run name")
+		}
+	}
+
+	return runName, nil
+}
+
+// getNestedStringInParams navigates a runtime.RawExtension JSON blob using a dotted path
+// and returns the string value. The leading "parameters." prefix is stripped if present.
+func getNestedStringInParams(raw *runtime.RawExtension, dottedPath string) (string, error) {
+	if raw == nil || raw.Raw == nil {
+		return "", fmt.Errorf("parameters is nil")
+	}
+
+	path := strings.TrimPrefix(dottedPath, "parameters.")
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(raw.Raw, &data); err != nil {
+		return "", fmt.Errorf("failed to unmarshal parameters: %w", err)
+	}
+
+	parts := strings.Split(path, ".")
+	current := interface{}(data)
+	for _, part := range parts {
+		m, ok := current.(map[string]interface{})
+		if !ok {
+			return "", fmt.Errorf("path %s: expected object at %s", dottedPath, part)
+		}
+		current, ok = m[part]
+		if !ok {
+			return "", fmt.Errorf("path %s: key %s not found", dottedPath, part)
+		}
+	}
+
+	str, ok := current.(string)
+	if !ok {
+		return "", fmt.Errorf("path %s: value is not a string", dottedPath)
+	}
+	return str, nil
+}
+
+// setNestedStringInParams sets a string value at the given dotted path in a runtime.RawExtension.
+// The leading "parameters." prefix is stripped if present.
+func setNestedStringInParams(raw *runtime.RawExtension, dottedPath, value string) (*runtime.RawExtension, error) {
+	if raw == nil || raw.Raw == nil {
+		return nil, fmt.Errorf("parameters is nil")
+	}
+
+	path := strings.TrimPrefix(dottedPath, "parameters.")
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(raw.Raw, &data); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal parameters: %w", err)
+	}
+
+	parts := strings.Split(path, ".")
+	current := data
+	for _, part := range parts[:len(parts)-1] {
+		next, ok := current[part]
+		if !ok {
+			newObj := make(map[string]interface{})
+			current[part] = newObj
+			current = newObj
+			continue
+		}
+		m, ok := next.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("path %s: expected object at %s", dottedPath, part)
+		}
+		current = m
+	}
+
+	current[parts[len(parts)-1]] = value
+
+	rawBytes, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal parameters: %w", err)
+	}
+
+	return &runtime.RawExtension{Raw: rawBytes}, nil
 }

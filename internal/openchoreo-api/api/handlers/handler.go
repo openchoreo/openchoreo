@@ -9,29 +9,26 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 )
 
 // Handler implements gen.StrictServerInterface
 type Handler struct {
-	legacyServices *legacyservices.Services
-	services       *handlerservices.Services
-	logger         *slog.Logger
-	Config         *config.Config
+	services *handlerservices.Services
+	logger   *slog.Logger
+	Config   *config.Config
 }
 
 // Compile-time check that Handler implements StrictServerInterface
 var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // New creates a new Handler
-func New(legacyServices *legacyservices.Services, svc *handlerservices.Services, logger *slog.Logger, cfg *config.Config) *Handler {
+func New(svc *handlerservices.Services, logger *slog.Logger, cfg *config.Config) *Handler {
 	return &Handler{
-		legacyServices: legacyServices,
-		services:       svc,
-		logger:         logger,
-		Config:         cfg,
+		services: svc,
+		logger:   logger,
+		Config:   cfg,
 	}
 }
 

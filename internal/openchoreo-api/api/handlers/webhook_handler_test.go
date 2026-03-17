@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices/git"
 	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 )
 

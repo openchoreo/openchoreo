@@ -6,7 +6,7 @@ package autobuild
 import (
 	"context"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices/git"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 )
 
 // ProcessWebhookParams holds all parameters needed to process a webhook event.

@@ -10,4 +10,5 @@ var (
 	ErrWorkflowRunAlreadyExists     = errors.New("workflow run already exists")
 	ErrWorkflowNotFound             = errors.New("workflow not found")
 	ErrWorkflowRunReferenceNotFound = errors.New("workflow run reference not found")
+	ErrInvalidCommitSHA             = errors.New("invalid commit SHA format")
 )

@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package git
@@ -17,14 +17,17 @@ func NewBitbucketProvider() *BitbucketProvider {
 	return &BitbucketProvider{}
 }
 
-// ValidateWebhookPayload validates the Bitbucket webhook
-// Note: Bitbucket signature validation can be implemented later if needed
-// For MVP, we use a simple token-based validation
+// ValidateWebhookPayload validates the Bitbucket webhook.
+// When token is empty (Bitbucket does not send a signature header), validation is skipped.
+// TODO: implement HMAC-based signature validation once Bitbucket webhook signing is supported.
 func (p *BitbucketProvider) ValidateWebhookPayload(payload []byte, token, secret string) error {
-	// Bitbucket uses a simple token-based validation.
-	// Both the secret (configured in Bitbucket webhook settings) and the token
-	// (sent in the request) must be non-empty and must match.
-	if secret == "" || token == "" || token != secret {
+	// Bitbucket does not include a signature header in webhook requests, so the
+	// handler always forwards an empty token. Skip validation in that case.
+	if token == "" {
+		return nil
+	}
+	// Token-based validation: if a token was somehow provided, it must match the secret.
+	if token != secret {
 		return fmt.Errorf("invalid webhook token")
 	}
 	return nil

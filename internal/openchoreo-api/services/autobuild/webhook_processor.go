@@ -1,13 +1,14 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package legacyservices
+package autobuild
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,27 +16,39 @@ import (
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices/git"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 )
 
-// WebhookService handles webhook processing for all git providers
-type WebhookService struct {
+// WorkflowRunTrigger is implemented by a workflow run service to trigger a workflow
+// run for a component without user-level authorization (webhook requests are
+// authenticated via HMAC signature validation instead).
+type WorkflowRunTrigger interface {
+	TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error)
+}
+
+// webhookProcessor handles webhook processing for all git providers.
+// It finds affected components and triggers workflow runs for them.
+// sshGitURLRegex matches SSH-style git URLs: git@host:org/repo or git@host:org/repo.git
+var sshGitURLRegex = regexp.MustCompile(`^git@([^:]+):(.+)$`)
+
+type webhookProcessor struct {
 	k8sClient       client.Client
-	workflowService *WorkflowRunService
+	workflowTrigger WorkflowRunTrigger
 	logger          *slog.Logger
 }
 
-// NewWebhookService creates a new WebhookService
-func NewWebhookService(k8sClient client.Client, workflowService *WorkflowRunService, logger *slog.Logger) *WebhookService {
-	return &WebhookService{
+// NewWebhookProcessor creates a new webhookProcessor that implements WebhookProcessor.
+func NewWebhookProcessor(k8sClient client.Client, workflowTrigger WorkflowRunTrigger, logger *slog.Logger) WebhookProcessor {
+	return &webhookProcessor{
 		k8sClient:       k8sClient,
-		workflowService: workflowService,
+		workflowTrigger: workflowTrigger,
 		logger:          logger,
 	}
 }
 
-// ProcessWebhook processes an incoming webhook payload from any git provider
-func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provider, payload []byte) ([]string, error) {
+// ProcessWebhook processes an incoming webhook payload from any git provider.
+func (s *webhookProcessor) ProcessWebhook(ctx context.Context, provider git.Provider, payload []byte) ([]string, error) {
 	// Parse payload using the provider
 	event, err := provider.ParseWebhookPayload(payload)
 	if err != nil {
@@ -72,7 +85,7 @@ func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provid
 			"component", componentName,
 			"commit", event.Commit)
 
-		_, err := s.workflowService.triggerWorkflowInternal(
+		_, err := s.workflowTrigger.TriggerWorkflow(
 			ctx,
 			namespaceName,
 			projectName,
@@ -97,8 +110,8 @@ func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provid
 	return triggeredComponents, nil
 }
 
-// findAffectedComponents finds all components that should be built based on the webhook event
-func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.WebhookEvent) ([]*v1alpha1.Component, error) {
+// findAffectedComponents finds all components that should be built based on the webhook event.
+func (s *webhookProcessor) findAffectedComponents(ctx context.Context, event *git.WebhookEvent) ([]*v1alpha1.Component, error) {
 	// List all components
 	componentList := &v1alpha1.ComponentList{}
 	if err := s.k8sClient.List(ctx, componentList); err != nil {
@@ -164,7 +177,7 @@ func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.
 
 // extractRepoInfoFromComponent extracts repository URL, appPath, and branch from a component's workflow parameters
 // by scanning the Workflow or ClusterWorkflow CR's openAPIV3Schema for x-openchoreo-component-repository extensions.
-func (s *WebhookService) extractRepoInfoFromComponent(ctx context.Context, comp *v1alpha1.Component) (repoURL string, appPath string, branch string, err error) {
+func (s *webhookProcessor) extractRepoInfoFromComponent(ctx context.Context, comp *v1alpha1.Component) (repoURL string, appPath string, branch string, err error) {
 	if comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == "" {
 		return "", "", "", fmt.Errorf("component has no workflow configuration")
 	}
@@ -291,59 +304,17 @@ func getSchemaFieldDefault(schema *runtime.RawExtension, dottedPath string) stri
 	return def
 }
 
-// setNestedValueInParameters takes a runtime.RawExtension, sets a string value at the given
-// dotted path (stripping leading "parameters."), and returns a new runtime.RawExtension.
-func setNestedValueInParameters(raw *runtime.RawExtension, dottedPath, value string) (*runtime.RawExtension, error) {
-	if raw == nil || raw.Raw == nil {
-		return nil, fmt.Errorf("parameters is nil")
-	}
-
-	path := strings.TrimPrefix(dottedPath, "parameters.")
-
-	var data map[string]interface{}
-	if err := json.Unmarshal(raw.Raw, &data); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal parameters: %w", err)
-	}
-
-	parts := strings.Split(path, ".")
-	current := data
-	for _, part := range parts[:len(parts)-1] {
-		next, ok := current[part]
-		if !ok {
-			// Create intermediate objects if they don't exist
-			newObj := make(map[string]interface{})
-			current[part] = newObj
-			current = newObj
-			continue
-		}
-		m, ok := next.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("path %s: expected object at %s", dottedPath, part)
-		}
-		current = m
-	}
-
-	current[parts[len(parts)-1]] = value
-
-	rawBytes, err := json.Marshal(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal parameters: %w", err)
-	}
-
-	return &runtime.RawExtension{Raw: rawBytes}, nil
-}
-
-// matchesRepository checks if component's repository matches the webhook repository
-func (s *WebhookService) matchesRepository(componentRepoURL, webhookRepoURL string) bool {
+// matchesRepository checks if component's repository matches the webhook repository.
+func (s *webhookProcessor) matchesRepository(componentRepoURL, webhookRepoURL string) bool {
 	// Normalize both URLs for comparison
-	componentRepoURL = normalizeRepoURL(componentRepoURL)
-	webhookRepoURL = normalizeRepoURL(webhookRepoURL)
+	componentRepoURL = normalizeWebhookRepoURL(componentRepoURL)
+	webhookRepoURL = normalizeWebhookRepoURL(webhookRepoURL)
 
 	return componentRepoURL == webhookRepoURL
 }
 
-// isComponentAffected checks if any modified path affects the component
-func (s *WebhookService) isComponentAffected(appPath string, modifiedPaths []string) bool {
+// isComponentAffected checks if any modified path affects the component.
+func (s *webhookProcessor) isComponentAffected(appPath string, modifiedPaths []string) bool {
 	// If no specific path filter, component is always affected
 	if appPath == "" {
 		return true
@@ -366,17 +337,17 @@ func (s *WebhookService) isComponentAffected(appPath string, modifiedPaths []str
 	return false
 }
 
-// normalizeRepoURL normalizes repository URLs for comparison
-func normalizeRepoURL(repoURL string) string {
-	// Convert SSH to HTTPS for different providers
-	if strings.HasPrefix(repoURL, "git@github.com:") {
-		repoURL = strings.Replace(repoURL, "git@github.com:", "https://github.com/", 1)
-	}
-	if strings.HasPrefix(repoURL, "git@gitlab.com:") {
-		repoURL = strings.Replace(repoURL, "git@gitlab.com:", "https://gitlab.com/", 1)
-	}
-	if strings.HasPrefix(repoURL, "git@bitbucket.org:") {
-		repoURL = strings.Replace(repoURL, "git@bitbucket.org:", "https://bitbucket.org/", 1)
+// normalizeWebhookRepoURL normalizes repository URLs for comparison.
+// It converts any SSH-style git URL (including self-hosted hosts) to HTTPS form,
+// strips the .git suffix, trailing slash, and lowercases the result.
+func normalizeWebhookRepoURL(repoURL string) string {
+	// Strip ssh:// or git+ssh:// scheme prefixes before applying SSH rewrite
+	repoURL = strings.TrimPrefix(repoURL, "git+ssh://")
+	repoURL = strings.TrimPrefix(repoURL, "ssh://")
+
+	// Convert git@host:path → https://host/path (handles any host, including self-hosted)
+	if m := sshGitURLRegex.FindStringSubmatch(repoURL); m != nil {
+		repoURL = "https://" + m[1] + "/" + m[2]
 	}
 
 	// Remove .git suffix
