@@ -111,18 +111,27 @@ bootstrap:
             \"schema\": {
               \"username\": {
                 \"type\": \"string\",
-                \"required\": true
+                \"required\": true,
+                \"displayName\": \"Username\"
               },
               \"password\": {
                 \"type\": \"string\",
                 \"required\": false,
-                \"credential\": true
+                \"credential\": true,
+                \"displayName\": \"Password\"
               },
               \"given_name\": {
-                \"type\": \"string\"
+                \"type\": \"string\",
+                \"displayName\": \"First Name\"
               },
               \"family_name\": {
-                \"type\": \"string\"
+                \"type\": \"string\",
+                \"displayName\": \"Last Name\"
+              },
+              \"email\": {
+                \"type\": \"string\",
+                \"unique\": true,
+                \"displayName\": \"Email\"
               }
             }
           }" \
@@ -156,6 +165,7 @@ bootstrap:
               \"organizationUnit\": \"$ORG_UNIT_ID\",
               \"attributes\": {
                 \"username\": \"${username}\",
+                \"email\": \"${username}\",
                 \"password\": \"${password}\",
                 \"given_name\": \"${given_name}\",
                 \"family_name\": \"${family_name}\"
@@ -210,10 +220,10 @@ bootstrap:
       PE_ID=$(ensure_user "platform-engineer@openchoreo.dev"  "PE@123"    "Platform"  "Engineer")
       SRE_ID=$(ensure_user "sre@openchoreo.dev"               "SRE@123"   "SRE"       "User")
 
-      ensure_group "admins"             "Admins group"             "$ADMIN_ID"
-      ensure_group "developers"         "Developers group"         "$DEVELOPER_ID"
-      ensure_group "platform-engineers" "Platform Engineers group" "$PE_ID"
-      ensure_group "sres"               "SREs group"               "$SRE_ID"
+      ensure_group "admins"             "Openchoreo Admins group"             "$ADMIN_ID"
+      ensure_group "developers"         "Openchoreo Developers group"         "$DEVELOPER_ID"
+      ensure_group "platform-engineers" "Openchoreo Platform Engineers group" "$PE_ID"
+      ensure_group "sres"               "Openchoreo SREs group"               "$SRE_ID"
 
     51-backstage-app.sh: |
       #!/bin/bash
@@ -270,19 +280,22 @@ bootstrap:
                     "family_name",
                     "username",
                     "groups"
-                  ],
-                  "scope_claims": {
-                    "groups": [
-                      "groups"
-                    ],
-                    "profile": [
-                      "username",
-                      "given_name",
-                      "family_name",
-                      "picture"
-                    ]
-                  }
+                  ]
                 }
+              },
+              "scope_claims": {
+                "email": [
+                  "email"
+                ],
+                "groups": [
+                  "groups"
+                ],
+                "profile": [
+                  "username",
+                  "given_name",
+                  "family_name",
+                  "picture"
+                ]
               }
             }
           }
@@ -485,19 +498,23 @@ bootstrap:
                     "family_name",
                     "username",
                     "groups"
-                  ],
-                  "scope_claims": {
-                    "groups": [
-                      "groups"
-                    ],
-                    "profile": [
-                      "username",
-                      "given_name",
-                      "family_name",
-                      "picture"
-                    ]
-                  }
+                  ]
                 }
+              },
+              "scope_claims": {
+                "email": [
+                  "email"
+                ],
+                "groups": [
+                  "groups"
+                ],
+                "profile": [
+                  "username",
+                  "given_name",
+                  "family_name",
+                  "picture",
+                  "groups"
+                ]
               }
             }
           }

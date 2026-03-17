@@ -27,7 +27,7 @@ Follow these steps to obtain an authentication token if you're using the default
 
 ### Step 1: Get the Application ID
 
-1. Open your browser and navigate to http://thunder.openchoreo.localhost:8080/develop
+1. Open your browser and navigate to http://thunder.openchoreo.localhost:8080/console
    > **Note**: Default credentials are `admin` / `admin`
 
 2. Open the `Sample App` application

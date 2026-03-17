@@ -29,4 +29,4 @@ ESO_REPO="oci://ghcr.io/external-secrets/charts"
 KGATEWAY_VERSION="v2.2.1"
 
 # Thunder configuration
-THUNDER_VERSION="0.26.0"
+THUNDER_VERSION="0.28.0"
