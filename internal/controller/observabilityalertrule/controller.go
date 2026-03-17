@@ -355,8 +355,8 @@ func buildAlertRuleRequest(rule *openchoreov1alpha1.ObservabilityAlertRule) (*al
 		},
 		Condition: alertRuleCondition{
 			Enabled:   enabled,
-			Window:    spec.Condition.Window.Duration.String(),
-			Interval:  spec.Condition.Interval.Duration.String(),
+			Window:    formatMinutesHours(spec.Condition.Window.Duration),
+			Interval:  formatMinutesHours(spec.Condition.Interval.Duration),
 			Operator:  string(spec.Condition.Operator),
 			Threshold: float64(spec.Condition.Threshold),
 		},
@@ -375,6 +375,14 @@ func getObserverInternalBaseURL() string {
 		return v
 	}
 	return defaultObserverInternalBaseURL
+}
+
+// formatMinutesHours converts a duration to a minutes/hours-only string (e.g. "5m", "1h").
+func formatMinutesHours(d time.Duration) string {
+	if d%time.Hour == 0 {
+		return fmt.Sprintf("%dh", d/time.Hour)
+	}
+	return fmt.Sprintf("%dm", d/time.Minute)
 }
 
 // updateStatusWithError sets the rule status to Error and records a failing condition.

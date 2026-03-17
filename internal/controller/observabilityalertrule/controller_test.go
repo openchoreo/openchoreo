@@ -69,8 +69,8 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 					Expect(payload.Condition.Enabled).To(BeTrue())
 					Expect(payload.Condition.Operator).To(Equal("gt"))
 					Expect(payload.Condition.Threshold).To(Equal(10.0))
-					Expect(payload.Condition.Window).To(Equal("5m0s"))
-					Expect(payload.Condition.Interval).To(Equal("1m0s"))
+					Expect(payload.Condition.Window).To(Equal("5m"))
+					Expect(payload.Condition.Interval).To(Equal("1m"))
 
 					var rawPayload map[string]interface{}
 					Expect(json.Unmarshal(body, &rawPayload)).To(Succeed())

@@ -37,7 +37,7 @@ func NewQueryBuilder(indexPrefix string) *QueryBuilder {
 }
 
 // formatDurationForOpenSearch normalizes durations so OpenSearch monitors accept them.
-// Handles hours/minutes/seconds cleanly (e.g., "1h0m0s" -> "1h", "5m0s" -> "5m").
+// Handles hours/minutes cleanly (e.g. "1h0m0s" -> "1h", "5m0s" -> "5m")
 func formatDurationForOpenSearch(d string) (string, error) {
 	parsed, err := time.ParseDuration(d)
 	if err != nil {
@@ -49,10 +49,8 @@ func formatDurationForOpenSearch(d string) (string, error) {
 		return fmt.Sprintf("%dh", parsed/time.Hour), nil
 	case parsed%time.Minute == 0:
 		return fmt.Sprintf("%dm", parsed/time.Minute), nil
-	case parsed%time.Second == 0:
-		return fmt.Sprintf("%ds", parsed/time.Second), nil
 	}
-	return parsed.String(), nil
+	return "", fmt.Errorf("duration must be a whole number of minutes or hours; seconds are not supported: %s", d)
 }
 
 // addTimeRangeFilter adds time range filter to must conditions

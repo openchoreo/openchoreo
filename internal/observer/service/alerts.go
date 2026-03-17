@@ -102,6 +102,10 @@ func NewAlertService(
 // CreateAlertRule creates a new alert rule in the observability backend.
 // Returns an error wrapping ErrAlertRuleAlreadyExists if the rule already exists.
 func (s *AlertService) CreateAlertRule(ctx context.Context, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
+	if err := validateAlertDurations(req.Condition.Interval, req.Condition.Window); err != nil {
+		return nil, err
+	}
+
 	sourceType, err := sourceTypeFromRequest(req)
 	if err != nil {
 		return nil, err
@@ -140,6 +144,10 @@ func (s *AlertService) GetAlertRule(ctx context.Context, ruleName, sourceType st
 // UpdateAlertRule updates an existing alert rule in the observability backend.
 // Returns an error wrapping ErrAlertRuleNotFound if the rule does not exist.
 func (s *AlertService) UpdateAlertRule(ctx context.Context, ruleName string, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
+	if err := validateAlertDurations(req.Condition.Interval, req.Condition.Window); err != nil {
+		return nil, err
+	}
+
 	sourceType, err := sourceTypeFromRequest(req)
 	if err != nil {
 		return nil, err
@@ -1052,6 +1060,51 @@ func extractBoolFilters(query map[string]interface{}) []map[string]interface{} {
 func formatMinutesDuration(minutes float64) string {
 	d := time.Duration(minutes * float64(time.Minute))
 	return d.String()
+}
+
+// validateAlertDurations enforces that interval and window use
+// only minutes/hours and never seconds for alert rules.
+func validateAlertDurations(interval, window *string) error {
+	if interval == nil && window == nil {
+		return fmt.Errorf("condition is required")
+	}
+
+	if window != nil {
+		if err := validateMinutesHoursDuration(*window, "condition.window"); err != nil {
+			return err
+		}
+	}
+	if interval != nil {
+		if err := validateMinutesHoursDuration(*interval, "condition.interval"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateMinutesHoursDuration checks that the provided duration string:
+// - parses as a Go time.Duration
+// - is a whole number of minutes or hours
+// - does not include any seconds component
+func validateMinutesHoursDuration(value, fieldName string) error {
+	if strings.Contains(value, "s") {
+		return fmt.Errorf("%s must be in whole minutes or hours (e.g. 5m, 1h); seconds are not supported", fieldName)
+	}
+
+	d, err := time.ParseDuration(value)
+	if err != nil {
+		return fmt.Errorf("%s must be a valid duration (e.g. 5m, 1h): %w", fieldName, err)
+	}
+	if d <= 0 {
+		return fmt.Errorf("%s must be greater than zero", fieldName)
+	}
+
+	// Reject anything that has a seconds component.
+	if d%time.Minute != 0 {
+		return fmt.Errorf("%s must be in whole minutes or hours (e.g. 5m, 1h); seconds are not supported", fieldName)
+	}
+
+	return nil
 }
 
 // ---- Prometheus mapping helpers ----

@@ -276,22 +276,24 @@ func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
 	if req.Condition.Window == nil {
 		return fmt.Errorf("condition.window is required")
 	}
+	if req.Condition.Interval == nil {
+		return fmt.Errorf("condition.interval is required")
+	}
+
 	windowDuration, err := time.ParseDuration(*req.Condition.Window)
 	if err != nil {
 		return fmt.Errorf("condition.window must be a valid duration (e.g., 5m): %w", err)
 	}
-	if req.Condition.Interval == nil {
-		return fmt.Errorf("condition.interval is required")
+	if windowDuration <= 0 {
+		return fmt.Errorf("condition.window must be greater than zero")
 	}
+
 	intervalDuration, err := time.ParseDuration(*req.Condition.Interval)
 	if err != nil {
 		return fmt.Errorf("condition.interval must be a valid duration (e.g., 1m): %w", err)
 	}
 	if intervalDuration <= 0 {
 		return fmt.Errorf("condition.interval must be greater than zero")
-	}
-	if windowDuration <= 0 {
-		return fmt.Errorf("condition.window must be greater than zero")
 	}
 	if intervalDuration > windowDuration {
 		return fmt.Errorf("condition.interval must not exceed condition.window")
