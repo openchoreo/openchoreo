@@ -180,7 +180,7 @@ func (h *MCPHandler) GetReleaseBinding(
 	return releaseBindingDetail(rb), nil
 }
 
-func (h *MCPHandler) PatchReleaseBinding(
+func (h *MCPHandler) UpdateReleaseBinding(
 	ctx context.Context, namespaceName, bindingName string,
 	req *gen.ReleaseBindingSpec,
 ) (any, error) {

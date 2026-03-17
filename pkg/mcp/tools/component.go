@@ -120,9 +120,9 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"display_name":   stringProperty("Human-readable display name"),
 			"description":    stringProperty("Human-readable description"),
-			"componentType": stringProperty("Component type in {workloadType}/{componentTypeName} format. " +
+			"component_type": stringProperty("Component type in {workloadType}/{componentTypeName} format. " +
 				"Use list_component_types or list_cluster_component_types to discover valid values."),
-			"autoDeploy": map[string]any{
+			"auto_deploy": map[string]any{
 				"type": "boolean",
 				"description": "Optional: Automatically triggers the component deployment if the component or" +
 					" related resources such as build, configs are updated. Defaults to true.",
@@ -136,14 +136,14 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 				"description": "Optional: Component workflow configuration. Use list_workflows to discover available " +
 					"workflow names, and get_workflow_schema to inspect the parameter schema a workflow accepts.",
 			},
-		}, []string{"namespace_name", "project_name", "name", "componentType"}),
+		}, []string{"namespace_name", "project_name", "name", "component_type"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string                 `json:"namespace_name"`
 		ProjectName   string                 `json:"project_name"`
 		Name          string                 `json:"name"`
 		DisplayName   string                 `json:"display_name"`
 		Description   string                 `json:"description"`
-		ComponentType string                 `json:"componentType"`
+		ComponentType string                 `json:"component_type"`
 		AutoDeploy    *bool                  `json:"autoDeploy,omitempty"`
 		Parameters    map[string]interface{} `json:"parameters"`
 		Workflow      map[string]interface{} `json:"workflow"`
@@ -222,18 +222,16 @@ func (t *Toolsets) RegisterListReleaseBindings(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateReleaseBinding(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "patch_release_binding",
-		Description: "Patch (update) a release binding's configuration. Can update the associated release, environment " +
-			"overrides, trait configurations, and workload settings. " +
-			"WARNING: Override fields are destructive — they fully replace the existing values, not merge. ",
+		Name: "update_release_binding",
+		Description: "Update a release binding's configuration (full replacement). Can update the associated release, " +
+			"environment overrides, trait configurations, and workload settings.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"binding_name":   defaultStringProperty(),
 			"release_name":   stringProperty("Optional: update the release associated with this binding"),
-			"environment":    stringProperty("Optional: update the target environment"),
-			"component_type_env_overrides": map[string]any{
+			"component_type_environment_configs": map[string]any{
 				"type":        "object",
 				"description": "Optional: environment-specific overrides for component type parameters",
 			},
@@ -250,15 +248,11 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 		NamespaceName                   string                 `json:"namespace_name"`
 		BindingName                     string                 `json:"binding_name"`
 		ReleaseName                     string                 `json:"release_name"`
-		Environment                     string                 `json:"environment"`
-		ComponentTypeEnvironmentConfigs map[string]interface{} `json:"component_type_env_overrides"`
+		ComponentTypeEnvironmentConfigs map[string]interface{} `json:"component_type_environment_configs"`
 		TraitEnvironmentConfigs         map[string]interface{} `json:"trait_environment_configs"`
 		WorkloadOverrides               map[string]interface{} `json:"workload_overrides"`
 	}) (*mcp.CallToolResult, any, error) {
 		patchReq := &gen.ReleaseBindingSpec{}
-		if args.Environment != "" {
-			patchReq.Environment = args.Environment
-		}
 		if args.ReleaseName != "" {
 			patchReq.ReleaseName = &args.ReleaseName
 		}
@@ -279,7 +273,7 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 			}
 			patchReq.WorkloadOverrides = workloadOverrides
 		}
-		result, err := t.DeploymentToolset.PatchReleaseBinding(
+		result, err := t.DeploymentToolset.UpdateReleaseBinding(
 			ctx, args.NamespaceName, args.BindingName, patchReq)
 		return handleToolResult(result, err)
 	})

@@ -356,7 +356,17 @@ func releaseBindingDetail(rb *openchoreov1alpha1.ReleaseBinding) map[string]any 
 		m["state"] = string(rb.Spec.State)
 	}
 	if rb.Spec.ComponentTypeEnvironmentConfigs != nil {
-		m["overrides"] = rawExtensionToAny(rb.Spec.ComponentTypeEnvironmentConfigs)
+		m["componentTypeEnvironmentConfigs"] = rawExtensionToAny(rb.Spec.ComponentTypeEnvironmentConfigs)
+	}
+	if len(rb.Spec.TraitEnvironmentConfigs) > 0 {
+		tec := make(map[string]any, len(rb.Spec.TraitEnvironmentConfigs))
+		for k, v := range rb.Spec.TraitEnvironmentConfigs {
+			tec[k] = rawExtensionToAny(&v)
+		}
+		m["traitEnvironmentConfigs"] = tec
+	}
+	if rb.Spec.WorkloadOverrides != nil {
+		m["workloadOverrides"] = rb.Spec.WorkloadOverrides
 	}
 	m["endpoints"] = rb.Status.Endpoints
 	setIfNotEmpty(m, "status", readyStatus(rb.Status.Conditions))

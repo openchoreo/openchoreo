@@ -108,13 +108,13 @@ func componentBasicSpecs() []toolTestSpec {
 			toolset:             "component",
 			descriptionKeywords: []string{"create", "component"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "project_name", "name", "componentType"},
+			requiredParams:      []string{"namespace_name", "project_name", "name", "component_type"},
 			optionalParams:      []string{"display_name", "description"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"name":           "new-component",
-				"componentType":  "WebApplication",
+				"component_type":  "WebApplication",
 			},
 			expectedMethod: "CreateComponent",
 			validateCall: func(t *testing.T, args []interface{}) {

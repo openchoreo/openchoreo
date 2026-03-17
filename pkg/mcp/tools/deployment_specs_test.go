@@ -56,13 +56,13 @@ func deploymentBindingSpecs() []toolTestSpec {
 			},
 		},
 		{
-			name:                "patch_release_binding",
+			name:                "update_release_binding",
 			toolset:             "deployment",
-			descriptionKeywords: []string{"patch", "release", "binding"},
+			descriptionKeywords: []string{"update", "release", "binding"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "binding_name"},
 			optionalParams: []string{
-				"release_name", "environment", "component_type_env_overrides",
+				"release_name", "component_type_environment_configs",
 				"trait_environment_configs", "workload_overrides",
 			},
 			testArgs: map[string]any{
@@ -70,7 +70,7 @@ func deploymentBindingSpecs() []toolTestSpec {
 				"binding_name":   "binding-1",
 				"release_name":   testReleaseName,
 			},
-			expectedMethod: "PatchReleaseBinding",
+			expectedMethod: "UpdateReleaseBinding",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName || args[1] != "binding-1" {
 					t.Errorf("Expected (%s, binding-1), got (%v, %v)",

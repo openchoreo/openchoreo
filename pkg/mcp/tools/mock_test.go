@@ -134,11 +134,11 @@ func (m *MockCoreToolsetHandler) GetReleaseBinding(
 	return `{"name":"binding-dev","environment":"dev"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) PatchReleaseBinding(
+func (m *MockCoreToolsetHandler) UpdateReleaseBinding(
 	ctx context.Context, namespaceName, bindingName string,
 	req *gen.ReleaseBindingSpec,
 ) (any, error) {
-	m.recordCall("PatchReleaseBinding", namespaceName, bindingName, req)
+	m.recordCall("UpdateReleaseBinding", namespaceName, bindingName, req)
 	return `{"status":"updated"}`, nil
 }
 
