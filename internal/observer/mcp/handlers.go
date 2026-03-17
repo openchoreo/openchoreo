@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
@@ -244,20 +243,4 @@ func (h *MCPHandler) QueryIncidents(ctx context.Context, namespace, project, com
 		},
 	}
 	return h.alertIncidentService.QueryIncidents(ctx, req)
-}
-
-// strPtr returns a pointer to the string, or nil if the string is empty.
-func strPtr(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}
-
-func parseRFC3339Time(timeStr string) (time.Time, error) {
-	t, err := time.Parse(time.RFC3339, timeStr)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("invalid time format (expected RFC3339): %w", err)
-	}
-	return t, nil
 }

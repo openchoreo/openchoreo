@@ -6,7 +6,6 @@ package mcp
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -40,30 +39,6 @@ func handleToolResult(result any, err error) (*mcpsdk.CallToolResult, any, error
 			&mcpsdk.TextContent{Text: string(jsonData)},
 		},
 	}, result, nil
-}
-
-// setDefaults applies default values for common query parameters
-func setDefaults(limit int, sortOrder string, logLevels []string) (int, string, []string) {
-	if limit == 0 {
-		limit = 100
-	}
-	if sortOrder == "" {
-		sortOrder = "desc"
-	}
-	if logLevels == nil {
-		logLevels = []string{}
-	}
-	return limit, sortOrder, logLevels
-}
-
-func validateComponentScope(namespace, project, component string) error {
-	if namespace == "" {
-		return fmt.Errorf("namespace is required")
-	}
-	if component != "" && project == "" {
-		return fmt.Errorf("project is required when component is provided")
-	}
-	return nil
 }
 
 func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
