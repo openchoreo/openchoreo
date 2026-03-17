@@ -34,7 +34,7 @@ The service exposes several REST endpoints for performing these operations.
 **Functionality:** Retrieves all patients.
 
 The source code is available at:
-https://github.com/wso2/choreo-samples/tree/main/patient-management-service
+https://github.com/openchoreo/sample-workloads/tree/main/service-ballerina-patient-management
 
 
 ## Step 1: Deploy the Application

@@ -34,7 +34,7 @@ The service exposes several REST endpoints for performing these operations.
 **Functionality:** Retrieves all books from the reading list.
 
 The source code is available at:
-https://github.com/wso2/choreo-samples/tree/main/go-reading-list-rest-api
+https://github.com/openchoreo/sample-workloads/tree/main/service-go-reading-list
 
 ## Step 1: Deploy the Application
 

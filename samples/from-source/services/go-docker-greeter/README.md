@@ -14,7 +14,7 @@ Exposed REST endpoints:
 **Functionality:** Sends a greeting to the user.
 
 The source code is available at:
-https://github.com/wso2/choreo-samples/tree/main/greeting-service-go
+https://github.com/openchoreo/sample-workloads/tree/main/service-go-greeter
 
 ## Step 1: Deploy the Application
 
