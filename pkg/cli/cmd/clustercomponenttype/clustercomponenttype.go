@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -37,7 +38,7 @@ func newGetClusterComponentTypeCmd() *cobra.Command {
 		Short:   constants.GetClusterComponentType.Short,
 		Long:    constants.GetClusterComponentType.Long,
 		Example: constants.GetClusterComponentType.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clustercomponenttype.New().Get(clustercomponenttype.GetParams{
@@ -54,7 +55,7 @@ func newDeleteClusterComponentTypeCmd() *cobra.Command {
 		Short:   constants.DeleteClusterComponentType.Short,
 		Long:    constants.DeleteClusterComponentType.Long,
 		Example: constants.DeleteClusterComponentType.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clustercomponenttype.New().Delete(clustercomponenttype.DeleteParams{

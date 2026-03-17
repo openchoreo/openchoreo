@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
@@ -73,7 +74,7 @@ func newContextAddCmd() *cobra.Command {
 		},
 	}).Build()
 
-	cmd.Args = cobra.ExactArgs(1)
+	cmd.Args = cliargs.ExactOneArgWithUsage()
 	_ = cmd.MarkFlagRequired(flags.ControlPlane.Name)
 	_ = cmd.MarkFlagRequired(flags.Credentials.Name)
 
@@ -107,7 +108,7 @@ func newContextDeleteCmd() *cobra.Command {
 		},
 	}).Build()
 
-	cmd.Args = cobra.ExactArgs(1)
+	cmd.Args = cliargs.ExactOneArgWithUsage()
 
 	return cmd
 }
@@ -138,7 +139,7 @@ func newContextUpdateCmd() *cobra.Command {
 		},
 	}).Build()
 
-	cmd.Args = cobra.ExactArgs(1)
+	cmd.Args = cliargs.ExactOneArgWithUsage()
 
 	return cmd
 }
@@ -157,7 +158,7 @@ func newContextUseCmd() *cobra.Command {
 		},
 	}).Build()
 
-	cmd.Args = cobra.ExactArgs(1)
+	cmd.Args = cliargs.ExactOneArgWithUsage()
 
 	return cmd
 }
@@ -196,7 +197,7 @@ func newControlPlaneAddCmd() *cobra.Command {
 		},
 	}).Build()
 
-	cmd.Args = cobra.ExactArgs(1)
+	cmd.Args = cliargs.ExactOneArgWithUsage()
 	_ = cmd.MarkFlagRequired(flags.URL.Name)
 
 	return cmd
@@ -233,7 +234,7 @@ func newControlPlaneUpdateCmd() *cobra.Command {
 		},
 	}).Build()
 
-	cmd.Args = cobra.ExactArgs(1)
+	cmd.Args = cliargs.ExactOneArgWithUsage()
 
 	return cmd
 }
@@ -252,7 +253,7 @@ func newControlPlaneDeleteCmd() *cobra.Command {
 		},
 	}).Build()
 
-	cmd.Args = cobra.ExactArgs(1)
+	cmd.Args = cliargs.ExactOneArgWithUsage()
 
 	return cmd
 }
@@ -286,7 +287,7 @@ func newCredentialsAddCmd() *cobra.Command {
 		},
 	}).Build()
 
-	cmd.Args = cobra.ExactArgs(1)
+	cmd.Args = cliargs.ExactOneArgWithUsage()
 
 	return cmd
 }
@@ -318,7 +319,7 @@ func newCredentialsDeleteCmd() *cobra.Command {
 		},
 	}).Build()
 
-	cmd.Args = cobra.ExactArgs(1)
+	cmd.Args = cliargs.ExactOneArgWithUsage()
 
 	return cmd
 }

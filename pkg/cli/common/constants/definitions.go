@@ -1220,7 +1220,7 @@ Use --workflowrun to specify a particular run.`,
 
 	// ConfigContextAdd holds usage and help texts for "config context add" command.
 	ConfigContextAdd = Command{
-		Use:   "add",
+		Use:   "add [CONTEXT_NAME]",
 		Short: "Add a new configuration context",
 		Long:  "Add a new configuration context with control plane and credentials references.",
 		Example: fmt.Sprintf(`  # Add a new context with control plane and credentials
@@ -1239,7 +1239,7 @@ Use --workflowrun to specify a particular run.`,
 
 	// ConfigContextDelete holds usage and help texts for "config context delete" command.
 	ConfigContextDelete = Command{
-		Use:   "delete",
+		Use:   "delete [CONTEXT_NAME]",
 		Short: "Delete a configuration context",
 		Long:  "Delete a configuration context by name.",
 		Example: fmt.Sprintf(`  # Delete a configuration context
@@ -1248,7 +1248,7 @@ Use --workflowrun to specify a particular run.`,
 
 	// ConfigContextUpdate holds usage and help texts for "config context update" command.
 	ConfigContextUpdate = Command{
-		Use:   "update",
+		Use:   "update [CONTEXT_NAME]",
 		Short: "Update an existing configuration context",
 		Long:  "Update fields of an existing configuration context.",
 		Example: fmt.Sprintf(`  # Update the namespace and project for a context
@@ -1258,7 +1258,7 @@ Use --workflowrun to specify a particular run.`,
 
 	// ConfigContextUse holds usage and help texts for "config context use" command.
 	ConfigContextUse = Command{
-		Use:   "use",
+		Use:   "use [CONTEXT_NAME]",
 		Short: "Switch to a configuration context",
 		Long:  "Set the active context, so subsequent commands automatically use its stored values when flags are omitted.",
 		Example: fmt.Sprintf(`  # Switch to the configuration context named my-context
@@ -1274,7 +1274,7 @@ Use --workflowrun to specify a particular run.`,
 
 	// ConfigControlPlaneAdd holds usage and help texts for "config controlplane add" command.
 	ConfigControlPlaneAdd = Command{
-		Use:   "add",
+		Use:   "add [CONTROLPLANE_NAME]",
 		Short: "Add a new control plane configuration",
 		Long:  "Add a new control plane configuration with a URL.",
 		Example: fmt.Sprintf(`  # Add a control plane
@@ -1292,7 +1292,7 @@ Use --workflowrun to specify a particular run.`,
 
 	// ConfigControlPlaneUpdate holds usage and help texts for "config controlplane update" command.
 	ConfigControlPlaneUpdate = Command{
-		Use:   "update",
+		Use:   "update [CONTROLPLANE_NAME]",
 		Short: "Update a control plane configuration",
 		Long:  "Update the URL of an existing control plane configuration.",
 		Example: fmt.Sprintf(`  # Update a control plane URL
@@ -1301,7 +1301,7 @@ Use --workflowrun to specify a particular run.`,
 
 	// ConfigControlPlaneDelete holds usage and help texts for "config controlplane delete" command.
 	ConfigControlPlaneDelete = Command{
-		Use:   "delete",
+		Use:   "delete [CONTROLPLANE_NAME]",
 		Short: "Delete a control plane configuration",
 		Long:  "Delete a control plane configuration by name.",
 		Example: fmt.Sprintf(`  # Delete a control plane
@@ -1317,7 +1317,7 @@ Use --workflowrun to specify a particular run.`,
 
 	// ConfigCredentialsAdd holds usage and help texts for "config credentials add" command.
 	ConfigCredentialsAdd = Command{
-		Use:   "add",
+		Use:   "add [CREDENTIALS_NAME]",
 		Short: "Add a new credentials configuration",
 		Long:  "Add a new credentials configuration entry.",
 		Example: fmt.Sprintf(`  # Add credentials
@@ -1335,7 +1335,7 @@ Use --workflowrun to specify a particular run.`,
 
 	// ConfigCredentialsDelete holds usage and help texts for "config credentials delete" command.
 	ConfigCredentialsDelete = Command{
-		Use:   "delete",
+		Use:   "delete [CREDENTIALS_NAME]",
 		Short: "Delete a credentials configuration",
 		Long:  "Delete a credentials configuration by name.",
 		Example: fmt.Sprintf(`  # Delete credentials

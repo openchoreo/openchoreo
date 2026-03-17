@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/namespace"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -48,7 +49,7 @@ func newGetNamespaceCmd() *cobra.Command {
 		Short:   constants.GetNamespace.Short,
 		Long:    constants.GetNamespace.Long,
 		Example: constants.GetNamespace.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return namespace.New().Get(args[0])
@@ -64,7 +65,7 @@ func newDeleteNamespaceCmd() *cobra.Command {
 		Short:   constants.DeleteNamespace.Short,
 		Long:    constants.DeleteNamespace.Long,
 		Example: constants.DeleteNamespace.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return namespace.New().Delete(args[0])

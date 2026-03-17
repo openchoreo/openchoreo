@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/authzrolebinding"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -51,7 +52,7 @@ func newGetAuthzRoleBindingCmd() *cobra.Command {
 		Short:   constants.GetAuthzRoleBinding.Short,
 		Long:    constants.GetAuthzRoleBinding.Long,
 		Example: constants.GetAuthzRoleBinding.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -74,7 +75,7 @@ func newDeleteAuthzRoleBindingCmd() *cobra.Command {
 		Short:   constants.DeleteAuthzRoleBinding.Short,
 		Long:    constants.DeleteAuthzRoleBinding.Long,
 		Example: constants.DeleteAuthzRoleBinding.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)

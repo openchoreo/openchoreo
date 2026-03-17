@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/trait"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -37,7 +38,7 @@ func newGetTraitCmd() *cobra.Command {
 		Short:   constants.GetTrait.Short,
 		Long:    constants.GetTrait.Long,
 		Example: constants.GetTrait.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -60,7 +61,7 @@ func newDeleteTraitCmd() *cobra.Command {
 		Short:   constants.DeleteTrait.Short,
 		Long:    constants.DeleteTrait.Long,
 		Example: constants.DeleteTrait.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterdataplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -37,7 +38,7 @@ func newGetClusterDataPlaneCmd() *cobra.Command {
 		Short:   constants.GetClusterDataPlane.Short,
 		Long:    constants.GetClusterDataPlane.Long,
 		Example: constants.GetClusterDataPlane.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clusterdataplane.New().Get(clusterdataplane.GetParams{
@@ -54,7 +55,7 @@ func newDeleteClusterDataPlaneCmd() *cobra.Command {
 		Short:   constants.DeleteClusterDataPlane.Short,
 		Long:    constants.DeleteClusterDataPlane.Long,
 		Example: constants.DeleteClusterDataPlane.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clusterdataplane.New().Delete(clusterdataplane.DeleteParams{

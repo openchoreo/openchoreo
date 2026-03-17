@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterworkflowplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -37,7 +38,7 @@ func newGetClusterWorkflowPlaneCmd() *cobra.Command {
 		Short:   constants.GetClusterWorkflowPlane.Short,
 		Long:    constants.GetClusterWorkflowPlane.Long,
 		Example: constants.GetClusterWorkflowPlane.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clusterworkflowplane.New().Get(clusterworkflowplane.GetParams{
@@ -54,7 +55,7 @@ func newDeleteClusterWorkflowPlaneCmd() *cobra.Command {
 		Short:   constants.DeleteClusterWorkflowPlane.Short,
 		Long:    constants.DeleteClusterWorkflowPlane.Long,
 		Example: constants.DeleteClusterWorkflowPlane.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clusterworkflowplane.New().Delete(clusterworkflowplane.DeleteParams{

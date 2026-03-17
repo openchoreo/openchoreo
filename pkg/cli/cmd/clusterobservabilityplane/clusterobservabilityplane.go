@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterobservabilityplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -37,7 +38,7 @@ func newGetClusterObservabilityPlaneCmd() *cobra.Command {
 		Short:   constants.GetClusterObservabilityPlane.Short,
 		Long:    constants.GetClusterObservabilityPlane.Long,
 		Example: constants.GetClusterObservabilityPlane.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clusterobservabilityplane.New().Get(clusterobservabilityplane.GetParams{
@@ -54,7 +55,7 @@ func newDeleteClusterObservabilityPlaneCmd() *cobra.Command {
 		Short:   constants.DeleteClusterObservabilityPlane.Short,
 		Long:    constants.DeleteClusterObservabilityPlane.Long,
 		Example: constants.DeleteClusterObservabilityPlane.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clusterobservabilityplane.New().Delete(clusterobservabilityplane.DeleteParams{

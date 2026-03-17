@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterauthzrole"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -49,7 +50,7 @@ func newGetClusterAuthzRoleCmd() *cobra.Command {
 		Short:   constants.GetClusterAuthzRole.Short,
 		Long:    constants.GetClusterAuthzRole.Long,
 		Example: constants.GetClusterAuthzRole.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clusterauthzrole.New().Get(clusterauthzrole.GetParams{
@@ -67,7 +68,7 @@ func newDeleteClusterAuthzRoleCmd() *cobra.Command {
 		Short:   constants.DeleteClusterAuthzRole.Short,
 		Long:    constants.DeleteClusterAuthzRole.Long,
 		Example: constants.DeleteClusterAuthzRole.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clusterauthzrole.New().Delete(clusterauthzrole.DeleteParams{

@@ -10,6 +10,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/component"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -59,7 +60,7 @@ func newGetComponentCmd() *cobra.Command {
 		Short:   constants.GetComponent.Short,
 		Long:    constants.GetComponent.Long,
 		Example: constants.GetComponent.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -83,7 +84,7 @@ func newDeleteComponentCmd() *cobra.Command {
 		Short:   constants.DeleteComponent.Short,
 		Long:    constants.DeleteComponent.Long,
 		Example: constants.DeleteComponent.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -107,7 +108,7 @@ func newScaffoldComponentCmd() *cobra.Command {
 		Short:   constants.ScaffoldComponent.Short,
 		Long:    constants.ScaffoldComponent.Long,
 		Example: constants.ScaffoldComponent.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -179,7 +180,7 @@ func newDeployComponentCmd() *cobra.Command {
 		Short:   constants.DeployComponent.Short,
 		Long:    constants.DeployComponent.Long,
 		Example: constants.DeployComponent.Example,
-		Args:    cobra.ExactArgs(1), // Requires COMPONENT_NAME
+		Args:    cliargs.ExactOneArgWithUsage(), // Requires COMPONENT_NAME
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Get component name from positional arg
 			componentName := args[0]
@@ -243,7 +244,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 
   # Follow logs in real-time
   occ component logs my-component --env dev -f`,
-		Args: cobra.ExactArgs(1), // Requires COMPONENT_NAME
+		Args: cliargs.ExactOneArgWithUsage(), // Requires COMPONENT_NAME
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Get component name from positional arg
 			componentName := args[0]
@@ -308,7 +309,7 @@ func newStartComponentWorkflowCmd() *cobra.Command {
 		Short:   constants.StartComponentWorkflow.Short,
 		Long:    constants.StartComponentWorkflow.Long,
 		Example: constants.StartComponentWorkflow.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -359,7 +360,7 @@ func newListComponentWorkflowRunCmd() *cobra.Command {
 		Short:   constants.ListComponentWorkflowRun.Short,
 		Long:    constants.ListComponentWorkflowRun.Long,
 		Example: constants.ListComponentWorkflowRun.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -381,7 +382,7 @@ func newLogsComponentWorkflowRunCmd() *cobra.Command {
 		Short:   constants.LogsComponentWorkflowRun.Short,
 		Long:    constants.LogsComponentWorkflowRun.Long,
 		Example: constants.LogsComponentWorkflowRun.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)

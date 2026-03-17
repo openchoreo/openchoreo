@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/project"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -51,7 +52,7 @@ func newGetProjectCmd() *cobra.Command {
 		Short:   constants.GetProject.Short,
 		Long:    constants.GetProject.Long,
 		Example: constants.GetProject.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -74,7 +75,7 @@ func newDeleteProjectCmd() *cobra.Command {
 		Short:   constants.DeleteProject.Short,
 		Long:    constants.DeleteProject.Long,
 		Example: constants.DeleteProject.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)

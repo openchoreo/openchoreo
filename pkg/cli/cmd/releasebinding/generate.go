@@ -12,6 +12,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -149,7 +150,7 @@ func newGetCmd() *cobra.Command {
 		Short:   constants.GetReleaseBinding.Short,
 		Long:    constants.GetReleaseBinding.Long,
 		Example: constants.GetReleaseBinding.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -169,7 +170,7 @@ func newDeleteCmd() *cobra.Command {
 		Short:   constants.DeleteReleaseBinding.Short,
 		Long:    constants.DeleteReleaseBinding.Long,
 		Example: constants.DeleteReleaseBinding.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)

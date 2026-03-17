@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowplane"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -50,7 +51,7 @@ func newGetWorkflowPlaneCmd() *cobra.Command {
 		Short:   constants.GetWorkflowPlane.Short,
 		Long:    constants.GetWorkflowPlane.Long,
 		Example: constants.GetWorkflowPlane.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -70,7 +71,7 @@ func newDeleteWorkflowPlaneCmd() *cobra.Command {
 		Short:   constants.DeleteWorkflowPlane.Short,
 		Long:    constants.DeleteWorkflowPlane.Long,
 		Example: constants.DeleteWorkflowPlane.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustertrait"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -37,7 +38,7 @@ func newGetClusterTraitCmd() *cobra.Command {
 		Short:   constants.GetClusterTrait.Short,
 		Long:    constants.GetClusterTrait.Long,
 		Example: constants.GetClusterTrait.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clustertrait.New().Get(clustertrait.GetParams{
@@ -54,7 +55,7 @@ func newDeleteClusterTraitCmd() *cobra.Command {
 		Short:   constants.DeleteClusterTrait.Short,
 		Long:    constants.DeleteClusterTrait.Long,
 		Example: constants.DeleteClusterTrait.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clustertrait.New().Delete(clustertrait.DeleteParams{

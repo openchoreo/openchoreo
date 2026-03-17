@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterworkflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -39,7 +40,7 @@ func newGetClusterWorkflowCmd() *cobra.Command {
 		Short:   constants.GetClusterWorkflow.Short,
 		Long:    constants.GetClusterWorkflow.Long,
 		Example: constants.GetClusterWorkflow.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clusterworkflow.New().Get(clusterworkflow.GetParams{
@@ -56,7 +57,7 @@ func newDeleteClusterWorkflowCmd() *cobra.Command {
 		Short:   constants.DeleteClusterWorkflow.Short,
 		Long:    constants.DeleteClusterWorkflow.Long,
 		Example: constants.DeleteClusterWorkflow.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return clusterworkflow.New().Delete(clusterworkflow.DeleteParams{
@@ -73,7 +74,7 @@ func newStartClusterWorkflowCmd() *cobra.Command {
 		Short:   constants.StartClusterWorkflow.Short,
 		Long:    constants.StartClusterWorkflow.Long,
 		Example: constants.StartClusterWorkflow.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -97,7 +98,7 @@ func newLogsClusterWorkflowCmd() *cobra.Command {
 		Short:   constants.LogsClusterWorkflow.Short,
 		Long:    constants.LogsClusterWorkflow.Long,
 		Example: constants.LogsClusterWorkflow.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)

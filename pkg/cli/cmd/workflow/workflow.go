@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -52,7 +53,7 @@ func newGetWorkflowCmd() *cobra.Command {
 		Short:   constants.GetWorkflow.Short,
 		Long:    constants.GetWorkflow.Long,
 		Example: constants.GetWorkflow.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -74,7 +75,7 @@ func newDeleteWorkflowCmd() *cobra.Command {
 		Short:   constants.DeleteWorkflow.Short,
 		Long:    constants.DeleteWorkflow.Long,
 		Example: constants.DeleteWorkflow.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -96,7 +97,7 @@ func newStartWorkflowCmd() *cobra.Command {
 		Short:   constants.StartWorkflow.Short,
 		Long:    constants.StartWorkflow.Long,
 		Example: constants.StartWorkflow.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -120,7 +121,7 @@ func newLogsWorkflowCmd() *cobra.Command {
 		Short:   constants.LogsWorkflow.Short,
 		Long:    constants.LogsWorkflow.Long,
 		Example: constants.LogsWorkflow.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	workloadcmd "github.com/openchoreo/openchoreo/internal/occ/cmd/workload"
+	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
@@ -84,7 +85,7 @@ func newGetWorkloadCmd() *cobra.Command {
 		Short:   constants.GetWorkload.Short,
 		Long:    constants.GetWorkload.Long,
 		Example: constants.GetWorkload.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
@@ -104,7 +105,7 @@ func newDeleteWorkloadCmd() *cobra.Command {
 		Short:   constants.DeleteWorkload.Short,
 		Long:    constants.DeleteWorkload.Long,
 		Example: constants.DeleteWorkload.Example,
-		Args:    cobra.ExactArgs(1),
+		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
