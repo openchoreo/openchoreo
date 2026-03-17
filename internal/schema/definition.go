@@ -9,17 +9,13 @@ import (
 	"sort"
 	"strings"
 
-	"gopkg.in/yaml.v3"
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/defaulting"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/clone"
-	"github.com/openchoreo/openchoreo/internal/schema/extractor"
 )
 
 const (
@@ -29,297 +25,74 @@ const (
 	typeArray   = "array"
 )
 
-// Definition represents a schematized object assembled from one or more field maps.
-type Definition struct {
-	Schemas []map[string]any
-	Options extractor.Options
-}
-
 // ResolveSectionToStructural converts a SchemaSection into a Kubernetes structural schema.
 // Returns nil if the section is nil or empty.
 func ResolveSectionToStructural(section *v1alpha1.SchemaSection) (*apiextschema.Structural, error) {
-	raw := sectionRaw(section)
-	if raw == nil || len(raw.Raw) == 0 {
-		return nil, nil
-	}
-
-	fields, err := unmarshalSection(raw)
+	fields, err := unmarshalSectionSchema(section)
 	if err != nil {
 		return nil, err
 	}
-
-	if isOpenAPIV3Content(fields) {
-		return OpenAPIV3ToStructural(fields)
+	if fields == nil {
+		return nil, nil
 	}
-
-	return ToStructural(Definition{Schemas: []map[string]any{fields}})
+	return OpenAPIV3ToStructural(fields)
 }
 
 // ResolveSectionToBundle converts a SchemaSection into both structural and JSON schema formats.
 // Returns nil for both if the section is nil or empty.
 func ResolveSectionToBundle(section *v1alpha1.SchemaSection) (*apiextschema.Structural, *extv1.JSONSchemaProps, error) {
-	raw := sectionRaw(section)
-	if raw == nil || len(raw.Raw) == 0 {
-		return nil, nil, nil
-	}
-
-	fields, err := unmarshalSection(raw)
+	fields, err := unmarshalSectionSchema(section)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	if isOpenAPIV3Content(fields) {
-		return OpenAPIV3ToStructuralAndJSONSchema(fields)
+	if fields == nil {
+		return nil, nil, nil
 	}
-
-	return ToStructuralAndJSONSchema(Definition{Schemas: []map[string]any{fields}})
+	return OpenAPIV3ToStructuralAndJSONSchema(fields)
 }
 
 // SectionToJSONSchema converts a SchemaSection to JSON Schema for API responses.
 func SectionToJSONSchema(section *v1alpha1.SchemaSection) (*extv1.JSONSchemaProps, error) {
-	raw := sectionRaw(section)
-	if raw == nil || len(raw.Raw) == 0 {
+	fields, err := unmarshalSectionSchema(section)
+	if err != nil {
+		return nil, err
+	}
+	if fields == nil {
 		return &extv1.JSONSchemaProps{
 			Type:       "object",
 			Properties: map[string]extv1.JSONSchemaProps{},
 		}, nil
 	}
-
-	fields, err := unmarshalSection(raw)
-	if err != nil {
-		return nil, err
-	}
-
-	if isOpenAPIV3Content(fields) {
-		return OpenAPIV3ToJSONSchema(fields)
-	}
-
-	return ToJSONSchema(Definition{Schemas: []map[string]any{fields}})
+	return OpenAPIV3ToJSONSchema(fields)
 }
 
 // SectionToRawJSONSchema converts a SchemaSection to a raw map for API responses.
-// For openAPIV3Schema, this preserves vendor extensions (x-*) that are lost when
-// converting through extv1.JSONSchemaProps.
+// This preserves vendor extensions (x-*) that are lost when converting through extv1.JSONSchemaProps.
 func SectionToRawJSONSchema(section *v1alpha1.SchemaSection) (map[string]any, error) {
-	raw := sectionRaw(section)
-	if raw == nil || len(raw.Raw) == 0 {
+	fields, err := unmarshalSectionSchema(section)
+	if err != nil {
+		return nil, err
+	}
+	if fields == nil {
 		return map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
 		}, nil
 	}
-
-	fields, err := unmarshalSection(raw)
-	if err != nil {
-		return nil, err
-	}
-
-	if isOpenAPIV3Content(fields) {
-		return OpenAPIV3ToResolvedSchema(fields)
-	}
-
-	// For shorthand schema, convert through the extractor and re-marshal to map
-	jsonSchema, err := ToJSONSchema(Definition{Schemas: []map[string]any{fields}})
-	if err != nil {
-		return nil, err
-	}
-
-	return jsonSchemaToMap(jsonSchema)
+	return OpenAPIV3ToResolvedSchema(fields)
 }
 
-// jsonSchemaToMap converts extv1.JSONSchemaProps to a raw map via JSON round-trip.
-func jsonSchemaToMap(schema *extv1.JSONSchemaProps) (map[string]any, error) {
-	data, err := json.Marshal(schema)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal schema: %w", err)
+// unmarshalSectionSchema extracts and unmarshals the OpenAPI v3 schema from a SchemaSection.
+// Returns (nil, nil) if the section is nil or has no schema content.
+func unmarshalSectionSchema(section *v1alpha1.SchemaSection) (map[string]any, error) {
+	if section == nil || section.OpenAPIV3Schema == nil || len(section.OpenAPIV3Schema.Raw) == 0 {
+		return nil, nil
 	}
-	var result map[string]any
-	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal schema to map: %w", err)
-	}
-	return result, nil
-}
-
-// sectionRaw returns the raw extension from a SchemaSection, or nil if empty.
-func sectionRaw(section *v1alpha1.SchemaSection) *runtime.RawExtension {
-	if section == nil {
-		return nil
-	}
-	return section.GetRaw()
-}
-
-// isOpenAPIV3Content determines if unmarshaled fields represent standard OpenAPI V3 JSON Schema
-// or shorthand schema format based on content inspection.
-// Returns true if any top-level key is a structural or compositional JSON Schema keyword that
-// would never appear as a field name in shorthand schemas.
-// This is a temporary bridge for Phase 1 — Phase 2 will remove the shorthand extractor entirely.
-//
-// NOTE: We intentionally exclude generic keywords (type, format, description, default, enum,
-// pattern, title, etc.) because these are valid shorthand field names that would cause
-// misclassification. Only structural/object-level markers that unambiguously indicate
-// OpenAPI V3 content are included.
-func isOpenAPIV3Content(fields map[string]any) bool {
-	if len(fields) == 0 {
-		return true
-	}
-	for key := range fields {
-		if openAPIStructuralKeywords[key] {
-			return true
-		}
-	}
-	// A top-level "type" with value "object" or "array" is unambiguously OpenAPI V3.
-	// In shorthand, these are not valid type descriptors at the root level.
-	if typeVal, ok := fields["type"].(string); ok {
-		if typeVal == "object" || typeVal == "array" {
-			return true
-		}
-	}
-	return false
-}
-
-// openAPIStructuralKeywords contains only structural and compositional JSON Schema keywords
-// that unambiguously indicate OpenAPI V3 content. Generic keywords like "type", "format",
-// "description", "default", "enum", "pattern", etc. are excluded because they can also be
-// valid field names in shorthand schemas (e.g., a field named "format" or "description").
-var openAPIStructuralKeywords = map[string]bool{
-	// Structural keywords — define object/array shape
-	"properties": true, "items": true,
-	"additionalProperties": true, "patternProperties": true,
-	// Composition keywords
-	"allOf": true, "oneOf": true, "anyOf": true, "not": true,
-	// Reference keywords ($ prefix never appears in shorthand field names)
-	"$ref": true, "$defs": true, "$id": true, "$schema": true,
-	// Kubernetes extensions
-	"x-kubernetes-preserve-unknown-fields": true,
-	"x-kubernetes-int-or-string":           true,
-	"x-kubernetes-embedded-resource":       true,
-	"x-kubernetes-validations":             true,
-}
-
-// unmarshalSection unmarshals a raw extension into a field map.
-func unmarshalSection(raw *runtime.RawExtension) (map[string]any, error) {
 	var fields map[string]any
-	if err := yaml.Unmarshal(raw.Raw, &fields); err != nil {
+	if err := json.Unmarshal(section.OpenAPIV3Schema.Raw, &fields); err != nil {
 		return nil, fmt.Errorf("failed to parse schema: %w", err)
 	}
 	return fields, nil
-}
-
-// ToJSONSchema converts a schema definition into an OpenAPI v3 JSON schema.
-//
-// This is the primary entry point for converting ComponentType and Trait schemas
-// from the shorthand format into standard JSON Schema that can be used for validation.
-//
-// Process:
-//  1. Merge all schema maps (parameters, environmentConfigs, trait config) into one
-//  2. Convert from shorthand syntax to full JSON Schema via extractor (internal type)
-//  3. Convert from internal to v1 type (for API compatibility and JSON serialization)
-//  4. Sort required fields for deterministic output
-//
-// Example input (shorthand):
-//
-//	schemas: [{replicas: "integer | default=1"}, {environment: "string"}]
-//
-// Example output (JSON Schema):
-//
-//	{type: "object", properties: {replicas: {type: "integer", default: 1}, environment: {type: "string"}}}
-func ToJSONSchema(def Definition) (*extv1.JSONSchemaProps, error) {
-	merged := mergeFieldMaps(def.Schemas)
-	if len(merged) == 0 {
-		return &extv1.JSONSchemaProps{
-			Type:       "object",
-			Properties: map[string]extv1.JSONSchemaProps{},
-		}, nil
-	}
-
-	internalSchema, err := extractor.ExtractSchema(merged, nil, def.Options)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert schema to OpenAPI: %w", err)
-	}
-
-	// Convert from internal to v1 type for API responses (v1 has JSON tags for proper serialization)
-	v1Schema := new(extv1.JSONSchemaProps)
-	if err := extv1.Convert_apiextensions_JSONSchemaProps_To_v1_JSONSchemaProps(internalSchema, v1Schema, nil); err != nil {
-		return nil, fmt.Errorf("failed to convert schema to v1: %w", err)
-	}
-
-	sortRequiredFields(v1Schema)
-	return v1Schema, nil
-}
-
-// ToStructural converts the definition into a Kubernetes structural schema.
-//
-// Structural schemas are a stricter variant of JSON Schema used by Kubernetes for:
-//  1. Server-side validation of CRD instances
-//  2. Defaulting field values based on schema defaults
-//  3. Pruning unknown fields during admission
-//
-// The conversion process:
-//  1. Extract schema using shorthand syntax (returns internal type)
-//  2. Validate and convert to structural format (enforces additional constraints)
-//
-// Structural schema constraints include:
-//   - All objects must have explicit type: "object"
-//   - All arrays must specify item schema
-//   - No x-kubernetes-* extensions in certain contexts
-//
-// This is primarily used with ApplyDefaults to populate default values.
-func ToStructural(def Definition) (*apiextschema.Structural, error) {
-	merged := mergeFieldMaps(def.Schemas)
-	if len(merged) == 0 {
-		emptySchema := &apiext.JSONSchemaProps{
-			Type:       "object",
-			Properties: map[string]apiext.JSONSchemaProps{},
-		}
-		structural, err := apiextschema.NewStructural(emptySchema)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build structural schema: %w", err)
-		}
-		return structural, nil
-	}
-
-	internalSchema, err := extractor.ExtractSchema(merged, nil, def.Options)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert schema to OpenAPI: %w", err)
-	}
-
-	structural, err := apiextschema.NewStructural(internalSchema)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build structural schema: %w", err)
-	}
-	return structural, nil
-}
-
-// ToStructuralAndJSONSchema converts a schema definition to both structural and JSON schema formats.
-// Use this when you need both formats, e.g., for applying defaults (structural) then validating (JSON schema).
-func ToStructuralAndJSONSchema(def Definition) (*apiextschema.Structural, *extv1.JSONSchemaProps, error) {
-	merged := mergeFieldMaps(def.Schemas)
-
-	var internalSchema *apiext.JSONSchemaProps
-	if len(merged) == 0 {
-		internalSchema = &apiext.JSONSchemaProps{
-			Type:       "object",
-			Properties: map[string]apiext.JSONSchemaProps{},
-		}
-	} else {
-		var err error
-		internalSchema, err = extractor.ExtractSchema(merged, nil, def.Options)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to convert schema to OpenAPI: %w", err)
-		}
-	}
-
-	structural, err := apiextschema.NewStructural(internalSchema)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build structural schema: %w", err)
-	}
-
-	v1Schema := new(extv1.JSONSchemaProps)
-	if err := extv1.Convert_apiextensions_JSONSchemaProps_To_v1_JSONSchemaProps(internalSchema, v1Schema, nil); err != nil {
-		return nil, nil, fmt.Errorf("failed to convert schema to v1: %w", err)
-	}
-
-	return structural, v1Schema, nil
 }
 
 // ApplyDefaults applies schema default values to a target object using Kubernetes defaulting logic.
@@ -349,66 +122,6 @@ func ApplyDefaults(target map[string]any, structural *apiextschema.Structural) m
 	}
 	defaulting.Default(target, structural)
 	return target
-}
-
-// mergeFieldMaps combines multiple schema maps into a single unified schema.
-//
-// ComponentType separate schemas into logical groups:
-//   - schema.parameters: Component-level configuration
-//   - schema.environmentConfigs: Environment-specific overrides
-//   - schema.traitConfig: Trait instance configuration (for Traits)
-//
-// This function merges them using deep merge semantics so that:
-//  1. Nested objects are merged recursively
-//  2. Later schemas can extend or override earlier ones
-//  3. The result matches how templates access these values (all under ${spec.*})
-//
-// Example:
-//
-//	Input: [{port: "integer"}, {replicas: "integer"}]
-//	Output: {port: "integer", replicas: "integer"}
-func mergeFieldMaps(maps []map[string]any) map[string]any {
-	result := map[string]any{}
-	for _, fields := range maps {
-		mergeInto(result, fields)
-	}
-	return result
-}
-
-// mergeInto recursively merges src into dst, modifying dst in place.
-//
-// Merge behavior:
-//   - If src value is a map and dst has a map at that key: recursively merge
-//   - Otherwise: overwrite dst's value with a deep copy of src's value
-//   - All values are deep copied to avoid shared references
-//
-// This ensures that nested object schemas are properly combined rather than replaced.
-//
-// Example:
-//
-//	dst: {db: {host: "string"}}
-//	src: {db: {port: "integer"}, replicas: "integer"}
-//	Result: {db: {host: "string", port: "integer"}, replicas: "integer"}
-func mergeInto(dst map[string]any, src map[string]any) {
-	if src == nil {
-		return
-	}
-	if dst == nil {
-		// should not happen, but guard anyway
-		return
-	}
-	for k, v := range src {
-		if vMap, ok := v.(map[string]any); ok {
-			existing, ok := dst[k].(map[string]any)
-			if !ok {
-				dst[k] = clone.DeepCopy(vMap)
-				continue
-			}
-			mergeInto(existing, vMap)
-			continue
-		}
-		dst[k] = clone.DeepCopy(v)
-	}
 }
 
 // sortRequiredFields recursively sorts the 'required' arrays in a JSON schema.

@@ -46,8 +46,13 @@ metadata:
 spec:
   parameters:
     openAPIV3Schema:
-      replicas: "integer | default=1"
-      image: "string"
+      type: object
+      properties:
+        replicas:
+          type: integer
+          default: 1
+        image:
+          type: string
 `,
 			envSettingsYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -124,10 +129,18 @@ metadata:
 spec:
   parameters:
     openAPIV3Schema:
-      cpu: "string | default=100m"
+      type: object
+      properties:
+        cpu:
+          type: string
+          default: 100m
   environmentConfigs:
     openAPIV3Schema:
-      replicas: "integer | default=1"
+      type: object
+      properties:
+        replicas:
+          type: integer
+          default: 1
 `,
 			envSettingsYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -388,7 +401,10 @@ metadata:
 spec:
   parameters:
     openAPIV3Schema:
-      database: "string"
+      type: object
+      properties:
+        database:
+          type: string
 `,
 			componentYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -478,10 +494,17 @@ metadata:
 spec:
   parameters:
     openAPIV3Schema:
-      database: "string"
+      type: object
+      properties:
+        database:
+          type: string
   environmentConfigs:
     openAPIV3Schema:
-      size: "string | default=small"
+      type: object
+      properties:
+        size:
+          type: string
+          default: small
 `,
 			componentYAML: `
 apiVersion: choreo.dev/v1alpha1

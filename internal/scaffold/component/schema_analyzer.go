@@ -4,10 +4,7 @@
 package component
 
 import (
-	"encoding/json"
-
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // GetFieldTypeOrder returns the sort order for a field type.
@@ -32,17 +29,4 @@ func GetFieldTypeOrder(prop extv1.JSONSchemaProps) int {
 	default:
 		return 6 // unknown types last
 	}
-}
-
-// rawExtensionToMap converts a runtime.RawExtension to map[string]any.
-func rawExtensionToMap(ext *runtime.RawExtension) (map[string]any, error) {
-	if ext == nil || len(ext.Raw) == 0 {
-		return nil, nil
-	}
-
-	var result map[string]any
-	if err := json.Unmarshal(ext.Raw, &result); err != nil {
-		return nil, err
-	}
-	return result, nil
 }

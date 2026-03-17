@@ -215,17 +215,8 @@ func validateComponentParameters(t *testing.T, params map[string]any, componentT
 		return
 	}
 
-	// Convert schema to JSONSchema
-	paramsMap, err := rawExtensionToMap(componentType.Spec.Parameters.GetRaw())
-	if err != nil {
-		t.Fatalf("failed to convert ComponentType parameters: %v", err)
-	}
-
-	def := schema.Definition{
-		Schemas: []map[string]any{paramsMap},
-	}
-
-	jsonSchema, err := schema.ToJSONSchema(def)
+	// Convert schema to JSONSchema using OpenAPI v3 path (schemas are now in proper OpenAPI v3 format)
+	jsonSchema, err := schema.SectionToJSONSchema(componentType.Spec.Parameters)
 	if err != nil {
 		t.Fatalf("failed to convert to JSON schema: %v", err)
 	}
@@ -265,17 +256,8 @@ func validateTraitParameters(t *testing.T, traitsSection []any, traits []*corev1
 			continue
 		}
 
-		// Convert trait schema to JSONSchema
-		paramsMap, err := rawExtensionToMap(trait.Spec.Parameters.GetRaw())
-		if err != nil {
-			t.Fatalf("failed to convert Trait %s parameters: %v", traitName, err)
-		}
-
-		def := schema.Definition{
-			Schemas: []map[string]any{paramsMap},
-		}
-
-		jsonSchema, err := schema.ToJSONSchema(def)
+		// Convert trait schema to JSONSchema using OpenAPI v3 path
+		jsonSchema, err := schema.SectionToJSONSchema(trait.Spec.Parameters)
 		if err != nil {
 			t.Fatalf("failed to convert Trait %s to JSON schema: %v", traitName, err)
 		}
@@ -301,17 +283,8 @@ func validateWorkflowParameters(t *testing.T, workflowSection map[string]any, wo
 		return
 	}
 
-	// Convert workflow schema to JSONSchema
-	paramsMap, err := rawExtensionToMap(workflow.Spec.Parameters.GetRaw())
-	if err != nil {
-		t.Fatalf("failed to convert Workflow parameters: %v", err)
-	}
-
-	def := schema.Definition{
-		Schemas: []map[string]any{paramsMap},
-	}
-
-	jsonSchema, err := schema.ToJSONSchema(def)
+	// Convert workflow schema to JSONSchema using OpenAPI v3 path
+	jsonSchema, err := schema.SectionToJSONSchema(workflow.Spec.Parameters)
 	if err != nil {
 		t.Fatalf("failed to convert Workflow to JSON schema: %v", err)
 	}

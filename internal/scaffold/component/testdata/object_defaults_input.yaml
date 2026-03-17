@@ -13,117 +13,236 @@ spec:
   workloadType: deployment
   parameters:
     openAPIV3Schema:
-      $types:
-        # Type with $default - all children have defaults
-        Monitoring:
-          $default: {}
-          enabled: 'boolean | default=false'
-          port: 'integer | default=9090'
-          path: 'string | default=/metrics'
+      type: object
+      required:
+        - endpoint
+        - logging
+        - resources
+        - retryPolicy
+        - service
+        - timeouts
+      properties:
+        # Case 1: Inline object with default, all children have defaults
+        cache:
+          type: object
+          default: {}
+          properties:
+            enabled:
+              type: boolean
+              default: false
+            ttl:
+              type: integer
+              default: 300
+            maxSize:
+              type: integer
+              default: 1000
 
-        # Type with $default - all children have defaults
-        Database:
-          $default: {}
-          host: 'string | default=localhost'
-          port: 'integer | default=5432'
-          ssl: 'boolean | default=true'
+        # Case 2: Inline object with default, all children have defaults
+        storage:
+          type: object
+          default: {}
+          properties:
+            type:
+              type: string
+              default: "persistent"
+            size:
+              type: string
+              default: "10Gi"
+            class:
+              type: string
+              default: "standard"
 
-        # Type without $default - all children have defaults
-        Timeouts:
-          connect: 'integer | default=5'
-          read: 'integer | default=30'
-          write: 'integer | default=30'
+        # Case 3: Inline object without default, all children have defaults
+        retryPolicy:
+          type: object
+          properties:
+            attempts:
+              type: integer
+              default: 3
+            backoff:
+              type: integer
+              default: 1000
+            maxBackoff:
+              type: integer
+              default: 30000
 
-        # Type without $default - has required children
-        ResourceLimits:
-          cpu: string  # required
-          memory: string  # required
-          storage: 'string | default=10Gi'
+        # Case 4: Inline object without default, has required children
+        service:
+          type: object
+          required:
+            - name
+            - port
+          properties:
+            name:
+              type: string
+            port:
+              type: integer
+            protocol:
+              type: string
+              default: "http"
 
-      # Case 1: Inline object with $default, all children have defaults
-      cache:
-        $default: {}
-        enabled: 'boolean | default=false'
-        ttl: 'integer | default=300'
-        maxSize: 'integer | default=1000'
+        # Case 5: Inline object without default, has required children
+        endpoint:
+          type: object
+          required:
+            - host
+            - port
+          properties:
+            host:
+              type: string
+            port:
+              type: integer
+            protocol:
+              type: string
+              default: "https"
 
-      # Case 2: Inline object with $default, all children have defaults
-      storage:
-        $default: {}
-        type: 'string | default=persistent'
-        size: 'string | default=10Gi'
-        class: 'string | default=standard'
+        # Case 6: Reference to type with default, all children have defaults
+        monitoring:
+          type: object
+          default: {}
+          properties:
+            enabled:
+              type: boolean
+              default: false
+            port:
+              type: integer
+              default: 9090
+            path:
+              type: string
+              default: "/metrics"
 
-      # Case 3: Inline object without $default, all children have defaults
-      retryPolicy:
-        attempts: 'integer | default=3'
-        backoff: 'integer | default=1000'
-        maxBackoff: 'integer | default=30000'
+        # Case 7: Reference to type with default, all children have defaults
+        database:
+          type: object
+          default: {}
+          properties:
+            host:
+              type: string
+              default: "localhost"
+            port:
+              type: integer
+              default: 5432
+            ssl:
+              type: boolean
+              default: true
 
-      # Case 4: Inline object without $default, has required children
-      service:
-        name: string  # required
-        port: integer  # required
-        protocol: 'string | default=http'
+        # Case 8: Reference to type without default, all children have defaults
+        timeouts:
+          type: object
+          properties:
+            connect:
+              type: integer
+              default: 5
+            read:
+              type: integer
+              default: 30
+            write:
+              type: integer
+              default: 30
 
-      # Case 5: Inline object without $default, has required children
-      endpoint:
-        host: string  # required
-        port: integer  # required
-        protocol: 'string | default=https'
+        # Case 9: Reference to type without default, has required children
+        resources:
+          type: object
+          required:
+            - cpu
+            - memory
+          properties:
+            cpu:
+              type: string
+            memory:
+              type: string
+            storage:
+              type: string
+              default: "10Gi"
 
-      # Case 6: Reference to type with $default, all children have defaults
-      monitoring: Monitoring
+        # Case 10: Nested objects with mixed defaults
+        logging:
+          type: object
+          required:
+            - format
+          properties:
+            level:
+              type: string
+              default: "info"
+            outputs:
+              type: object
+              default: {}
+              properties:
+                console:
+                  type: boolean
+                  default: true
+                file:
+                  type: boolean
+                  default: false
+                filePath:
+                  type: string
+                  default: "/var/log/app.log"
+            format:
+              type: object
+              properties:
+                type:
+                  type: string
+                  default: "json"
+                timestamp:
+                  type: boolean
+                  default: true
 
-      # Case 7: Reference to type with $default, all children have defaults
-      database: Database
+        # Case 11: Object with non-empty default (should expand, not use {} pattern)
+        config:
+          type: object
+          default:
+            mode: production
+            debug: false
+          properties:
+            mode:
+              type: string
+              default: "development"
+            debug:
+              type: boolean
+              default: true
+            verbose:
+              type: boolean
+              default: false
 
-      # Case 8: Reference to type without $default, all children have defaults
-      timeouts: Timeouts
+        # Case 12: Deep nesting with defaults
+        advanced:
+          type: object
+          default: {}
+          properties:
+            security:
+              type: object
+              default: {}
+              properties:
+                enabled:
+                  type: boolean
+                  default: false
+                maxAttempts:
+                  type: integer
+                  default: 3
+            performance:
+              type: object
+              default: {}
+              properties:
+                caching:
+                  type: object
+                  default: {}
+                  properties:
+                    enabled:
+                      type: boolean
+                      default: false
+                    ttl:
+                      type: integer
+                      default: 600
 
-      # Case 9: Reference to type without $default, has required children
-      resources: ResourceLimits
-
-      # Case 10: Nested objects with mixed defaults
-      logging:
-        level: 'string | default=info'
-        outputs:
-          $default: {}
-          console: 'boolean | default=true'
-          file: 'boolean | default=false'
-          filePath: 'string | default=/var/log/app.log'
-        format:
-          type: 'string | default=json'
-          timestamp: 'boolean | default=true'
-
-      # Case 11: Object with non-empty $default (should expand, not use {} pattern)
-      config:
-        $default:
-          mode: production
-          debug: false
-        mode: 'string | default=development'
-        debug: 'boolean | default=true'
-        verbose: 'boolean | default=false'
-
-      # Case 12: Deep nesting with defaults
-      advanced:
-        $default: {}
-        security:
-          $default: {}
-          enabled: 'boolean | default=false'
-          maxAttempts: 'integer | default=3'
-        performance:
-          $default: {}
-          caching:
-            $default: {}
-            enabled: 'boolean | default=false'
-            ttl: 'integer | default=600'
-
-      # Case 13: Optional object with $default where children have no individual defaults
-      # Tests that children render with example values instead of blank
-      connection:
-        $default:
-          host: localhost
-          port: 5432
-        host: string
-        port: integer
+        # Case 13: Optional object with default where children have no individual defaults
+        # Tests that children render with example values instead of blank
+        connection:
+          type: object
+          default:
+            host: localhost
+            port: 5432
+          properties:
+            host:
+              type: string
+            port:
+              type: integer

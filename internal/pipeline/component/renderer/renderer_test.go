@@ -4,8 +4,11 @@
 package renderer
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -763,4 +766,148 @@ func TestValidateResource(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRenderResources_IncludeWhenError(t *testing.T) {
+	engine := template.NewEngine()
+	r := NewRenderer(engine)
+
+	templatesYAML := `
+- id: my-service
+  includeWhen: ${nonexistent.field}
+  template:
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: test-service
+`
+	var templates []v1alpha1.ResourceTemplate
+	require.NoError(t, yaml.Unmarshal([]byte(templatesYAML), &templates))
+
+	_, err := r.RenderResources(templates, map[string]any{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "my-service", "error should reference the resource ID")
+	assert.Contains(t, err.Error(), "includeWhen", "error should mention includeWhen")
+}
+
+func TestRenderResources_ForEachError(t *testing.T) {
+	engine := template.NewEngine()
+	r := NewRenderer(engine)
+
+	templatesYAML := `
+- id: my-configmap
+  forEach: ${nonexistent.list}
+  var: item
+  template:
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: ${item}
+`
+	var templates []v1alpha1.ResourceTemplate
+	require.NoError(t, yaml.Unmarshal([]byte(templatesYAML), &templates))
+
+	_, err := r.RenderResources(templates, map[string]any{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "my-configmap", "error should reference the resource ID")
+}
+
+func TestRenderResources_TemplateRenderError(t *testing.T) {
+	engine := template.NewEngine()
+	r := NewRenderer(engine)
+
+	templatesYAML := `
+- id: my-deployment
+  template:
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: ${nonexistent.field}
+`
+	var templates []v1alpha1.ResourceTemplate
+	require.NoError(t, yaml.Unmarshal([]byte(templatesYAML), &templates))
+
+	_, err := r.RenderResources(templates, map[string]any{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "my-deployment", "error should reference the resource ID")
+}
+
+func TestRenderResources_TargetPlane(t *testing.T) {
+	engine := template.NewEngine()
+	r := NewRenderer(engine)
+
+	templatesYAML := `
+- id: deployment
+  targetPlane: dataplane
+  template:
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: test-app
+- id: observability
+  targetPlane: observabilityplane
+  template:
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: obs-config
+`
+	var templates []v1alpha1.ResourceTemplate
+	require.NoError(t, yaml.Unmarshal([]byte(templatesYAML), &templates))
+
+	results, err := r.RenderResources(templates, map[string]any{})
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+	assert.Equal(t, "dataplane", results[0].TargetPlane)
+	assert.Equal(t, "observabilityplane", results[1].TargetPlane)
+}
+
+func TestRenderResources_ForEachTargetPlane(t *testing.T) {
+	engine := template.NewEngine()
+	r := NewRenderer(engine)
+
+	templatesYAML := `
+- id: configmap
+  targetPlane: dataplane
+  forEach: ${items}
+  var: item
+  template:
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: ${item}
+`
+	var templates []v1alpha1.ResourceTemplate
+	require.NoError(t, yaml.Unmarshal([]byte(templatesYAML), &templates))
+
+	ctx := map[string]any{
+		"items": []any{"cfg1", "cfg2", "cfg3"},
+	}
+	results, err := r.RenderResources(templates, ctx)
+	require.NoError(t, err)
+	require.Len(t, results, 3)
+	for i, res := range results {
+		assert.Equal(t, "dataplane", res.TargetPlane, "forEach resource at index %d should inherit targetPlane", i)
+	}
+
+	// Verify that each resource also has the correct name
+	names := make([]string, len(results))
+	for i, res := range results {
+		metadata := res.Resource["metadata"].(map[string]any)
+		names[i] = metadata["name"].(string)
+	}
+	assert.ElementsMatch(t, []string{"cfg1", "cfg2", "cfg3"}, names)
+}
+
+func TestShouldInclude_NonBooleanResult(t *testing.T) {
+	engine := template.NewEngine()
+
+	got, err := ShouldInclude(engine, "${parameters.name}", map[string]any{
+		"parameters": map[string]any{
+			"name": "my-app",
+		},
+	})
+	require.Error(t, err)
+	assert.False(t, got)
+	assert.True(t, strings.Contains(err.Error(), "boolean"), "error should mention boolean, got: %s", err.Error())
 }

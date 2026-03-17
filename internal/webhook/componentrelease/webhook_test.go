@@ -92,10 +92,8 @@ var _ = Describe("ComponentRelease Webhook", func() {
 		It("should admit valid ComponentRelease with parameters schema and values", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"replicas": "integer | default=1"}`),
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
 				},
 			}
 			obj.Spec.ComponentType.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -113,15 +111,13 @@ var _ = Describe("ComponentRelease Webhook", func() {
 		})
 
 		It("should admit ComponentRelease when parameter with default is omitted", func() {
-			// Fields with "default=" in the schema are NOT marked as required in the generated JSON Schema.
+			// Fields with defaults are NOT in the required array.
 			// This means omitting them during validation is valid. The actual defaults are applied later
 			// during rendering in the ReleaseBinding controller, not during webhook validation.
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"replicas": "integer | default=1", "image": "string | default=nginx"}`),
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1},"image":{"type":"string","default":"nginx"}}}`),
 				},
 			}
 			obj.Spec.ComponentType.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -141,10 +137,8 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			// "name" has no default so it's required; "replicas" has a default so it's optional
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"replicas": "integer | default=1", "name": "string"}`),
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1},"name":{"type":"string"}},"required":["name"]}`),
 				},
 			}
 			obj.Spec.ComponentType.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -171,7 +165,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 					Spec: openchoreodevv1alpha1.TraitSpec{
 						Parameters: &openchoreodevv1alpha1.SchemaSection{
 							OpenAPIV3Schema: &runtime.RawExtension{
-								Raw: []byte(`{"mountPath": "string", "size": "string | default=10Gi"}`),
+								Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"},"size":{"type":"string","default":"10Gi"}},"required":["mountPath"]}`),
 							},
 						},
 						Creates: []openchoreodevv1alpha1.TraitCreate{
@@ -205,7 +199,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 				OpenAPIV3Schema: &runtime.RawExtension{
-					Raw: []byte(`{"replicas": "integer", "name": "string"}`), // no defaults, both required
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer"},"name":{"type":"string"}},"required":["replicas","name"]}`),
 				},
 			}
 			obj.Spec.ComponentType.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -227,10 +221,8 @@ var _ = Describe("ComponentRelease Webhook", func() {
 		It("should reject when parameter has wrong type", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"replicas": "integer"}`),
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer"}},"required":["replicas"]}`),
 				},
 			}
 			obj.Spec.ComponentType.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -258,7 +250,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 					Spec: openchoreodevv1alpha1.TraitSpec{
 						Parameters: &openchoreodevv1alpha1.SchemaSection{
 							OpenAPIV3Schema: &runtime.RawExtension{
-								Raw: []byte(`{"mountPath": "string", "size": "string"}`), // both required
+								Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"},"size":{"type":"string"}},"required":["mountPath","size"]}`),
 							},
 						},
 						Creates: []openchoreodevv1alpha1.TraitCreate{
@@ -673,10 +665,8 @@ var _ = Describe("ComponentRelease Webhook", func() {
 		It("should admit valid CEL expressions in ComponentType", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"replicas": "integer | default=1", "enabled": "boolean | default=true"}`),
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1},"enabled":{"type":"boolean","default":true}}}`),
 				},
 			}
 			obj.Spec.ComponentType.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -757,7 +747,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 					Spec: openchoreodevv1alpha1.TraitSpec{
 						Parameters: &openchoreodevv1alpha1.SchemaSection{
 							OpenAPIV3Schema: &runtime.RawExtension{
-								Raw: []byte(`{"size": "string | default=10Gi"}`),
+								Raw: []byte(`{"type":"object","properties":{"size":{"type":"string","default":"10Gi"}}}`),
 							},
 						},
 						Creates: []openchoreodevv1alpha1.TraitCreate{
@@ -809,10 +799,8 @@ var _ = Describe("ComponentRelease Webhook", func() {
 		It("should reject non-boolean CEL expression in ComponentType validation rule", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"name": "string | default=app"}`),
+					Raw: []byte(`{"type":"object","properties":{"name":{"type":"string","default":"app"}}}`),
 				},
 			}
 			obj.Spec.ComponentType.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
@@ -827,10 +815,8 @@ var _ = Describe("ComponentRelease Webhook", func() {
 		It("should admit valid validation rules in ComponentType and Traits", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"replicas": "integer | default=1"}`),
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
 				},
 			}
 			obj.Spec.ComponentType.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -849,7 +835,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 					Spec: openchoreodevv1alpha1.TraitSpec{
 						Parameters: &openchoreodevv1alpha1.SchemaSection{
 							OpenAPIV3Schema: &runtime.RawExtension{
-								Raw: []byte(`{"size": "integer | default=10"}`),
+								Raw: []byte(`{"type":"object","properties":{"size":{"type":"integer","default":10}}}`),
 							},
 						},
 						Validations: []openchoreodevv1alpha1.ValidationRule{

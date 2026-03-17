@@ -12,4 +12,10 @@ spec:
   workloadType: deployment
   parameters:
     openAPIV3Schema:
-      port: 'integer | description="Container port"'
+      type: object
+      required:
+        - port
+      properties:
+        port:
+          type: integer
+          description: "Container port"

@@ -12,38 +12,203 @@ spec:
   workloadType: deployment
   parameters:
     openAPIV3Schema:
-      $types:
-        EndpointConfig:
-          host: string
-          port: integer
-          protocol: string
-        ServiceConfig:
-          name: string
-          enabled: boolean
-          endpoints: '[]EndpointConfig'
-      # []map<T> - Array of maps with primitive values
-      envMappings: '[]map<string> | description="Array of maps with string values"'
-      portMappings: '[]map<integer> | description="Array of maps with integer values"'
-      featureSets: '[]map<boolean> | description="Array of maps with boolean values"'
+      type: object
+      required:
+        - envMappings
+        - portMappings
+        - featureSets
+        - endpoints
+        - tagGroups
+        - portGroups
+        - serviceGroups
+        - services
+      properties:
+        # []map<T> - Array of maps with primitive values
+        envMappings:
+          type: array
+          description: "Array of maps with string values"
+          items:
+            type: object
+            additionalProperties:
+              type: string
+        portMappings:
+          type: array
+          description: "Array of maps with integer values"
+          items:
+            type: object
+            additionalProperties:
+              type: integer
+        featureSets:
+          type: array
+          description: "Array of maps with boolean values"
+          items:
+            type: object
+            additionalProperties:
+              type: boolean
 
-      # []map<CustomType> - Array of maps with custom type values
-      endpoints: '[]map<EndpointConfig> | description="Array of maps with custom type values"'
+        # []map<CustomType> - Array of maps with custom type values
+        endpoints:
+          type: array
+          description: "Array of maps with custom type values"
+          items:
+            type: object
+            additionalProperties:
+              type: object
+              required:
+                - host
+                - port
+                - protocol
+              properties:
+                host:
+                  type: string
+                port:
+                  type: integer
+                protocol:
+                  type: string
 
-      # map<[]T> - Map of arrays with primitives
-      tagGroups: 'map<[]string> | description="Map of arrays with string values"'
-      portGroups: 'map<[]integer> | description="Map of arrays with integer values"'
+        # map<[]T> - Map of arrays with primitives
+        tagGroups:
+          type: object
+          description: "Map of arrays with string values"
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        portGroups:
+          type: object
+          description: "Map of arrays with integer values"
+          additionalProperties:
+            type: array
+            items:
+              type: integer
 
-      # map<[]CustomType> - Map of arrays with custom type objects
-      serviceGroups: 'map<[]ServiceConfig> | description="Map of arrays with ServiceConfig objects"'
+        # map<[]CustomType> - Map of arrays with custom type objects
+        serviceGroups:
+          type: object
+          description: "Map of arrays with ServiceConfig objects"
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              required:
+                - enabled
+                - endpoints
+                - name
+              properties:
+                name:
+                  type: string
+                enabled:
+                  type: boolean
+                endpoints:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - host
+                      - port
+                      - protocol
+                    properties:
+                      host:
+                        type: string
+                      port:
+                        type: integer
+                      protocol:
+                        type: string
 
-      # map<CustomType> - Map with custom type that includes array of objects
-      services: 'map<ServiceConfig> | description="Map of services where ServiceConfig includes array of endpoints"'
+        # map<CustomType> - Map with custom type that includes array of objects
+        services:
+          type: object
+          description: "Map of services where ServiceConfig includes array of endpoints"
+          additionalProperties:
+            type: object
+            required:
+              - enabled
+              - endpoints
+              - name
+            properties:
+              name:
+                type: string
+              enabled:
+                type: boolean
+              endpoints:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - host
+                    - port
+                    - protocol
+                  properties:
+                    host:
+                      type: string
+                    port:
+                      type: integer
+                    protocol:
+                      type: string
 
-      # Optional variants with defaults
-      defaultEnvMappings: '[]map<string> | default=[{"DEBUG": "true", "LOG_LEVEL": "info"}, {"CACHE_TTL": "300"}] description="Optional []map with default"'
-      defaultTagGroups: 'map<[]string> | default={"app": ["web", "api"], "env": ["prod"]} description="Optional map<[]T> with default"'
-      customMappings: '[]map<string> | default=[] description="Optional []map with empty default"'
-      customGroups: 'map<[]string> | default={} description="Optional map<[]T> with empty default"'
+        # Optional variants with defaults
+        defaultEnvMappings:
+          type: array
+          description: "Optional []map with default"
+          default:
+            - DEBUG: "true"
+              LOG_LEVEL: "info"
+            - CACHE_TTL: "300"
+          items:
+            type: object
+            additionalProperties:
+              type: string
+        defaultTagGroups:
+          type: object
+          description: "Optional map<[]T> with default"
+          default:
+            app:
+              - "web"
+              - "api"
+            env:
+              - "prod"
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        customMappings:
+          type: array
+          description: "Optional []map with empty default"
+          default: []
+          items:
+            type: object
+            additionalProperties:
+              type: string
+        customGroups:
+          type: object
+          description: "Optional map<[]T> with empty default"
+          default: {}
+          additionalProperties:
+            type: array
+            items:
+              type: string
 
-      # []CustomType with default - tests that array of objects preserves structure (not stringified)
-      defaultEndpoints: '[]EndpointConfig | default=[{"host": "api.example.com", "port": 8080, "protocol": "https"}, {"host": "metrics.example.com", "port": 9090, "protocol": "http"}] description="Optional []CustomType with default"'
+        # []CustomType with default - tests that array of objects preserves structure (not stringified)
+        defaultEndpoints:
+          type: array
+          description: "Optional []CustomType with default"
+          default:
+            - host: "api.example.com"
+              port: 8080
+              protocol: "https"
+            - host: "metrics.example.com"
+              port: 9090
+              protocol: "http"
+          items:
+            type: object
+            required:
+              - host
+              - port
+              - protocol
+            properties:
+              host:
+                type: string
+              port:
+                type: integer
+              protocol:
+                type: string

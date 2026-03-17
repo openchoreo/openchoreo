@@ -81,33 +81,29 @@ var _ = Describe("ClusterTrait Webhook", func() {
 	Context("When creating or updating ClusterTrait under Validating Webhook", func() {
 		It("Should admit cluster trait with valid parameters and environmentConfigs", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"mountPath": "string"}`),
+					Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"}},"required":["mountPath"]}`),
 				},
 			}
 
 			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string"}`),
+					Raw: []byte(`{"type":"object","properties":{"size":{"type":"string","default":"10Gi"},"storageClass":{"type":"string"}},"required":["storageClass"]}`),
 				},
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Should reject cluster trait with invalid environmentConfigs schema syntax", func() {
+		It("Should reject cluster trait with invalid environmentConfigs schema", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 				OpenAPIV3Schema: &runtime.RawExtension{
-					Raw: []byte(`{"mountPath": "string"}`),
+					Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"}}}`),
 				},
 			}
 			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
 				OpenAPIV3Schema: &runtime.RawExtension{
-					Raw: []byte(`{"size": "unknown-type"}`), // invalid type
+					Raw: []byte(`{"type":"object","properties":"not-an-object"}`), // invalid: properties must be an object
 				},
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
@@ -117,10 +113,8 @@ var _ = Describe("ClusterTrait Webhook", func() {
 
 		It("Should admit cluster trait with only environmentConfigs (no parameters)", func() {
 			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string | default=local-path"}`),
+					Raw: []byte(`{"type":"object","properties":{"size":{"type":"string","default":"10Gi"},"storageClass":{"type":"string","default":"local-path"}}}`),
 				},
 			}
 			_, err := validator.ValidateCreate(ctx, obj)
@@ -262,10 +256,8 @@ var _ = Describe("ClusterTrait Webhook", func() {
 
 		It("should reject non-boolean CEL expression in validation rule", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"name": "string | default=app"}`),
+					Raw: []byte(`{"type":"object","properties":{"name":{"type":"string","default":"app"}}}`),
 				},
 			}
 			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
@@ -279,18 +271,14 @@ var _ = Describe("ClusterTrait Webhook", func() {
 
 		It("should admit valid boolean validation rules", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"mountPath": "string"}`),
+					Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"}},"required":["mountPath"]}`),
 				},
 			}
 
 			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"size": "string | default=10Gi"}`),
+					Raw: []byte(`{"type":"object","properties":{"size":{"type":"string","default":"10Gi"}}}`),
 				},
 			}
 			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{

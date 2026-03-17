@@ -12,28 +12,69 @@ spec:
   workloadType: deployment
   parameters:
     openAPIV3Schema:
-      $types:
-        # Custom type for testing map<CustomType>
-        ServiceConfig:
-          endpoint: string
-          port: 'integer | minimum=1 maximum=65535'
-          enabled: 'boolean | default=true'
-          timeout: 'integer | default=30 minimum=1'
+      type: object
+      required:
+        - labels
+        - ports
+        - featureFlags
+        - services
+      properties:
+        # Map with string values (required)
+        labels:
+          type: object
+          description: "Resource labels"
+          additionalProperties:
+            type: string
 
-      # Map with string values (required)
-      labels: 'map<string> | description="Resource labels"'
+        # Map with integer values (required)
+        ports:
+          type: object
+          description: "Named port mappings"
+          additionalProperties:
+            type: integer
 
-      # Map with integer values (required)
-      ports: 'map<integer> | description="Named port mappings"'
+        # Map with boolean values (required)
+        featureFlags:
+          type: object
+          description: "Feature toggle flags"
+          additionalProperties:
+            type: boolean
 
-      # Map with boolean values (required)
-      featureFlags: 'map<boolean> | description="Feature toggle flags"'
+        # Map with custom type values (required)
+        services:
+          type: object
+          description: "Service configurations"
+          additionalProperties:
+            type: object
+            required:
+              - endpoint
+              - port
+            properties:
+              endpoint:
+                type: string
+              port:
+                type: integer
+                minimum: 1
+                maximum: 65535
+              enabled:
+                type: boolean
+                default: true
+              timeout:
+                type: integer
+                default: 30
+                minimum: 1
 
-      # Map with custom type values (required)
-      services: 'map<ServiceConfig> | description="Service configurations"'
+        # Optional map with default
+        annotations:
+          type: object
+          default:
+            app.kubernetes.io/name: my-app
+          additionalProperties:
+            type: string
 
-      # Optional map with default
-      annotations: 'map<string> | default={"app.kubernetes.io/name": "my-app"}'
-
-      # Optional map with empty default
-      customMetadata: 'map<string> | default={}'
+        # Optional map with empty default
+        customMetadata:
+          type: object
+          default: {}
+          additionalProperties:
+            type: string

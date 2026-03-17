@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -186,8 +188,16 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 	baseTrait.Spec.Parameters = &v1alpha1.SchemaSection{
 		OpenAPIV3Schema: &runtime.RawExtension{
 			Raw: mustMarshalJSON(t, map[string]any{
-				"mountPath": "string",
-				"size":      "string | default=\"5Gi\"",
+				"type": "object",
+				"properties": map[string]any{
+					"mountPath": map[string]any{
+						"type": "string",
+					},
+					"size": map[string]any{
+						"type":    "string",
+						"default": "5Gi",
+					},
+				},
 			}),
 		},
 	}
@@ -249,14 +259,26 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 					t.Spec.Parameters = &v1alpha1.SchemaSection{
 						OpenAPIV3Schema: &runtime.RawExtension{
 							Raw: mustMarshalJSON(nil, map[string]any{
-								"format": "string | default=\"json\"",
+								"type": "object",
+								"properties": map[string]any{
+									"format": map[string]any{
+										"type":    "string",
+										"default": "json",
+									},
+								},
 							}),
 						},
 					}
 					t.Spec.EnvironmentConfigs = &v1alpha1.SchemaSection{
 						OpenAPIV3Schema: &runtime.RawExtension{
 							Raw: mustMarshalJSON(nil, map[string]any{
-								"logLevel": "string | default=\"info\"",
+								"type": "object",
+								"properties": map[string]any{
+									"logLevel": map[string]any{
+										"type":    "string",
+										"default": "info",
+									},
+								},
 							}),
 						},
 					}
@@ -289,7 +311,13 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 					t.Spec.EnvironmentConfigs = &v1alpha1.SchemaSection{
 						OpenAPIV3Schema: &runtime.RawExtension{
 							Raw: mustMarshalJSON(nil, map[string]any{
-								"logLevel": "string | default=\"info\"",
+								"type": "object",
+								"properties": map[string]any{
+									"logLevel": map[string]any{
+										"type":    "string",
+										"default": "info",
+									},
+								},
 							}),
 						},
 					}
@@ -317,8 +345,17 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 					t.Spec.Parameters = &v1alpha1.SchemaSection{
 						OpenAPIV3Schema: &runtime.RawExtension{
 							Raw: mustMarshalJSON(nil, map[string]any{
-								"timeout": "string | default=\"30s\"",
-								"retries": "number | default=3",
+								"type": "object",
+								"properties": map[string]any{
+									"timeout": map[string]any{
+										"type":    "string",
+										"default": "30s",
+									},
+									"retries": map[string]any{
+										"type":    "number",
+										"default": float64(3),
+									},
+								},
 							}),
 						},
 					}
@@ -400,4 +437,267 @@ func mustMarshalJSON(t *testing.T, v any) []byte {
 		panic(err)
 	}
 	return data
+}
+
+// validEmbeddedTraitContextInput returns a minimal valid EmbeddedTraitContextInput for use in tests.
+func validEmbeddedTraitContextInput() *EmbeddedTraitContextInput {
+	trait := &v1alpha1.Trait{}
+	trait.Name = "embedded-trait"
+
+	return &EmbeddedTraitContextInput{
+		Trait:          trait,
+		InstanceName:   "embedded-instance",
+		Component:      &v1alpha1.Component{},
+		WorkloadData:   ExtractWorkloadData(nil),
+		Configurations: ExtractConfigurationsFromWorkload(nil, nil),
+		Metadata:       validMetadata(),
+		DataPlane:      &v1alpha1.DataPlane{},
+		Environment: &v1alpha1.Environment{
+			Spec: v1alpha1.EnvironmentSpec{
+				DataPlaneRef: &v1alpha1.DataPlaneRef{
+					Kind: v1alpha1.DataPlaneRefKindDataPlane,
+					Name: "test-dp",
+				},
+			},
+		},
+	}
+}
+
+func TestResolveEmbeddedTraitBindings_EnvConfigsError(t *testing.T) {
+	engine := template.NewEngineWithOptions(
+		template.WithCELExtensions(CELExtensions()...),
+	)
+
+	embeddedTrait := v1alpha1.ComponentTypeTrait{
+		Name:         "bad-env-trait",
+		InstanceName: "bad-env-1",
+		EnvironmentConfigs: &runtime.RawExtension{
+			Raw: mustMarshalJSON(t, map[string]any{
+				"level": "${invalid.nonexistent.field}",
+			}),
+		},
+	}
+
+	componentContext := map[string]any{
+		"parameters": map[string]any{},
+	}
+
+	_, _, err := ResolveEmbeddedTraitBindings(engine, embeddedTrait, componentContext)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "environmentConfigs")
+}
+
+func TestResolveBindings_NilRaw(t *testing.T) {
+	engine := template.NewEngineWithOptions(
+		template.WithCELExtensions(CELExtensions()...),
+	)
+
+	// nil RawExtension
+	result, err := resolveBindings(engine, nil, map[string]any{})
+	require.NoError(t, err)
+	assert.Nil(t, result)
+
+	// Non-nil RawExtension but nil Raw bytes
+	result, err = resolveBindings(engine, &runtime.RawExtension{Raw: nil}, map[string]any{})
+	require.NoError(t, err)
+	assert.Nil(t, result)
+}
+
+func TestResolveBindings_UnmarshalError(t *testing.T) {
+	engine := template.NewEngineWithOptions(
+		template.WithCELExtensions(CELExtensions()...),
+	)
+
+	raw := &runtime.RawExtension{
+		Raw: []byte(`{invalid json`),
+	}
+
+	result, err := resolveBindings(engine, raw, map[string]any{})
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "unmarshal")
+}
+
+func TestBuildEmbeddedTraitContext_ValidationError(t *testing.T) {
+	tests := []struct {
+		name  string
+		input *EmbeddedTraitContextInput
+	}{
+		{
+			name: "nil Trait",
+			input: func() *EmbeddedTraitContextInput {
+				in := validEmbeddedTraitContextInput()
+				in.Trait = nil
+				return in
+			}(),
+		},
+		{
+			name: "empty InstanceName",
+			input: func() *EmbeddedTraitContextInput {
+				in := validEmbeddedTraitContextInput()
+				in.InstanceName = ""
+				return in
+			}(),
+		},
+		{
+			name: "nil Component",
+			input: func() *EmbeddedTraitContextInput {
+				in := validEmbeddedTraitContextInput()
+				in.Component = nil
+				return in
+			}(),
+		},
+		{
+			name: "nil DataPlane",
+			input: func() *EmbeddedTraitContextInput {
+				in := validEmbeddedTraitContextInput()
+				in.DataPlane = nil
+				return in
+			}(),
+		},
+		{
+			name: "nil Environment",
+			input: func() *EmbeddedTraitContextInput {
+				in := validEmbeddedTraitContextInput()
+				in.Environment = nil
+				return in
+			}(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, err := BuildEmbeddedTraitContext(tt.input)
+			require.Error(t, err)
+			assert.Nil(t, ctx)
+			assert.Contains(t, err.Error(), "validation failed")
+		})
+	}
+}
+
+func TestBuildEmbeddedTraitContext_NilMetadataMaps(t *testing.T) {
+	// Nil maps fail validation because of validate:"required" tags on MetadataContext.
+	input := validEmbeddedTraitContextInput()
+	input.Metadata.Labels = nil
+	input.Metadata.Annotations = nil
+	input.Metadata.PodSelectors = nil
+
+	ctx, err := BuildEmbeddedTraitContext(input)
+	require.Error(t, err, "nil metadata maps should be rejected by validator")
+	assert.Nil(t, ctx)
+	assert.Contains(t, err.Error(), "validation failed")
+
+	// When empty maps are provided (passing validation), verify the init code
+	// preserves them as initialized (not nil).
+	input2 := validEmbeddedTraitContextInput()
+	input2.Metadata.Labels = map[string]string{}
+	input2.Metadata.Annotations = map[string]string{}
+	input2.Metadata.PodSelectors = map[string]string{"app": "test"}
+
+	ctx2, err := BuildEmbeddedTraitContext(input2)
+	require.NoError(t, err)
+	require.NotNil(t, ctx2)
+	assert.NotNil(t, ctx2.Metadata.Labels)
+	assert.NotNil(t, ctx2.Metadata.Annotations)
+	assert.NotNil(t, ctx2.Metadata.PodSelectors)
+}
+
+func TestBuildEmbeddedTraitContext_GatewaySet(t *testing.T) {
+	input := validEmbeddedTraitContextInput()
+	input.DataPlane.Spec.Gateway = v1alpha1.GatewaySpec{
+		Ingress: &v1alpha1.GatewayNetworkSpec{
+			External: &v1alpha1.GatewayEndpointSpec{
+				Name:      "ext-gw",
+				Namespace: "gw-ns",
+				HTTPS: &v1alpha1.GatewayListenerSpec{
+					ListenerName: "https",
+					Port:         443,
+					Host:         "api.example.com",
+				},
+			},
+		},
+	}
+
+	ctx, err := BuildEmbeddedTraitContext(input)
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+
+	// Gateway should be derived from Environment (which merges with DataPlane)
+	require.NotNil(t, ctx.Gateway, "ctx.Gateway should not be nil when DataPlane has gateway config")
+	assert.Equal(t, ctx.Environment.Gateway, ctx.Gateway,
+		"ctx.Gateway should equal ctx.Environment.Gateway")
+
+	// Verify the gateway data is populated correctly
+	require.NotNil(t, ctx.Gateway.Ingress)
+	require.NotNil(t, ctx.Gateway.Ingress.External)
+	assert.Equal(t, "ext-gw", ctx.Gateway.Ingress.External.Name)
+	require.NotNil(t, ctx.Gateway.Ingress.External.HTTPS)
+	assert.Equal(t, "api.example.com", ctx.Gateway.Ingress.External.HTTPS.Host)
+	assert.Equal(t, int32(443), ctx.Gateway.Ingress.External.HTTPS.Port)
+}
+
+func TestProcessEmbeddedTraitParameters_SchemaError(t *testing.T) {
+	input := validEmbeddedTraitContextInput()
+	input.Trait.Spec.Parameters = &v1alpha1.SchemaSection{
+		OpenAPIV3Schema: &runtime.RawExtension{
+			Raw: []byte(`{"type": "object", "properties": "invalid"}`),
+		},
+	}
+
+	ctx, err := BuildEmbeddedTraitContext(input)
+	require.Error(t, err)
+	assert.Nil(t, ctx)
+	assert.Contains(t, err.Error(), "failed to build trait schemas")
+}
+
+func TestProcessEmbeddedTraitParameters_ValidationFailure(t *testing.T) {
+	input := validEmbeddedTraitContextInput()
+	input.Trait.Spec.Parameters = openAPIV3Schema(objectSchema(map[string]any{
+		"count": integerPropSchema(),
+	}))
+	// Provide a string value where integer is expected
+	input.ResolvedParameters = map[string]any{
+		"count": "not-a-number",
+	}
+
+	ctx, err := BuildEmbeddedTraitContext(input)
+	require.Error(t, err)
+	assert.Nil(t, ctx)
+	assert.Contains(t, err.Error(), "parameters validation failed")
+}
+
+func TestProcessEmbeddedTraitParameters_PruneAndDefault(t *testing.T) {
+	input := validEmbeddedTraitContextInput()
+	input.Trait.Spec.Parameters = openAPIV3Schema(objectSchema(map[string]any{
+		"name":    stringPropSchema(),
+		"timeout": stringPropSchema("30s"),
+	}))
+	input.Trait.Spec.EnvironmentConfigs = openAPIV3Schema(objectSchema(map[string]any{
+		"replicas": integerPropSchema(1),
+	}))
+
+	// Provide parameters: one valid key, one extra key to be pruned, and omit "timeout" for default
+	input.ResolvedParameters = map[string]any{
+		"name":     "my-app",
+		"extraKey": "should-be-pruned",
+	}
+	// Provide empty environmentConfigs so defaults are applied
+	input.ResolvedEnvironmentConfigs = map[string]any{}
+
+	ctx, err := BuildEmbeddedTraitContext(input)
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+
+	// extraKey should be pruned
+	_, hasExtra := ctx.Parameters["extraKey"]
+	assert.False(t, hasExtra, "extraKey should have been pruned from parameters")
+
+	// name should remain
+	assert.Equal(t, "my-app", ctx.Parameters["name"])
+
+	// timeout should get schema default
+	assert.Equal(t, "30s", ctx.Parameters["timeout"])
+
+	// replicas should get schema default (schema defaults produce int64 for integers)
+	assert.Equal(t, int64(1), ctx.EnvironmentConfigs["replicas"])
 }

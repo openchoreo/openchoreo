@@ -12,49 +12,127 @@ spec:
   workloadType: deployment
   parameters:
     openAPIV3Schema:
-      $types:
-        # Object with $default
-        Monitoring:
-          $default: {}
-          enabled: 'boolean | default=false'
-          port: 'integer | default=9090'
-          interval: 'integer | default=30'
+      type: object
+      required:
+        - enableMetrics
+        - memoryLimit
+        - username
+        - email
+        - region
+        - port
+        - database
+      properties:
+        # Boolean type
+        debug:
+          type: boolean
+          default: false
+        enableMetrics:
+          type: boolean
 
-      # Boolean type
-      debug: 'boolean | default=false'
-      enableMetrics: boolean
+        # Number type (float)
+        cpuThreshold:
+          type: number
+          minimum: 0.1
+          maximum: 1.0
+          default: 0.8
+        memoryLimit:
+          type: number
+          minimum: 0
 
-      # Number type (float)
-      cpuThreshold: 'number | minimum=0.1 maximum=1.0 default=0.8'
-      memoryLimit: 'number | minimum=0'
+        # String with validation constraints
+        username:
+          type: string
+          minLength: 3
+          maxLength: 20
+          pattern: "^[a-z][a-z0-9_]*$"
+        email:
+          type: string
+          format: email
+        region:
+          type: string
+          minLength: 2
+          maxLength: 50
 
-      # String with validation constraints
-      username: 'string | minLength=3 maxLength=20 pattern=^[a-z][a-z0-9_]*$'
-      email: 'string | format=email'
-      region: 'string | minLength=2 maxLength=50'
+        # Integer with validation constraints
+        replicas:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 3
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        timeout:
+          type: integer
+          minimum: 0
+          maximum: 3600
+          default: 30
 
-      # Integer with validation constraints
-      replicas: 'integer | minimum=1 maximum=100 default=3'
-      port: 'integer | minimum=1 maximum=65535'
-      timeout: 'integer | minimum=0 maximum=3600 default=30'
+        # Nested inline objects
+        database:
+          type: object
+          required:
+            - host
+            - options
+            - username
+            - password
+          properties:
+            host:
+              type: string
+            port:
+              type: integer
+              default: 5432
+              minimum: 1
+              maximum: 65535
+            username:
+              type: string
+            password:
+              type: string
+            options:
+              type: object
+              properties:
+                ssl:
+                  type: boolean
+                  default: true
+                timeout:
+                  type: integer
+                  default: 30
+                  minimum: 1
+                maxConnections:
+                  type: integer
+                  default: 10
+                  minimum: 1
+                  maximum: 1000
 
-      # Nested inline objects
-      database:
-        host: string
-        port: 'integer | default=5432 minimum=1 maximum=65535'
-        username: string
-        password: string
-        options:
-          ssl: 'boolean | default=true'
-          timeout: 'integer | default=30 minimum=1'
-          maxConnections: 'integer | default=10 minimum=1 maximum=1000'
+        # Object with default
+        monitoring:
+          type: object
+          default: {}
+          properties:
+            enabled:
+              type: boolean
+              default: false
+            port:
+              type: integer
+              default: 9090
+            interval:
+              type: integer
+              default: 30
 
-      # Reference to type with $default
-      monitoring: Monitoring
-
-      # Nested object with $default
-      cache:
-        $default: {}
-        enabled: 'boolean | default=false'
-        ttl: 'integer | default=300 minimum=60'
-        maxSize: 'integer | default=1000 minimum=100'
+        # Nested object with default
+        cache:
+          type: object
+          default: {}
+          properties:
+            enabled:
+              type: boolean
+              default: false
+            ttl:
+              type: integer
+              default: 300
+              minimum: 60
+            maxSize:
+              type: integer
+              default: 1000
+              minimum: 100

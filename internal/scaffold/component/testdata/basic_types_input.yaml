@@ -12,6 +12,22 @@ spec:
   workloadType: deployment
   parameters:
     openAPIV3Schema:
-      port: 'integer | description="Container port"'
-      replicas: 'integer | default=2 description="Number of pod replicas"'
-      protocol: 'string | enum=http,https,grpc description="Service protocol"'
+      type: object
+      required:
+        - port
+        - protocol
+      properties:
+        port:
+          type: integer
+          description: "Container port"
+        replicas:
+          type: integer
+          default: 2
+          description: "Number of pod replicas"
+        protocol:
+          type: string
+          enum:
+            - http
+            - https
+            - grpc
+          description: "Service protocol"

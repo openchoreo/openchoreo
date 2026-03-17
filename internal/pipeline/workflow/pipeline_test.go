@@ -1929,9 +1929,20 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 				Spec: v1alpha1.WorkflowSpec{
 					Parameters: &v1alpha1.SchemaSection{
 						OpenAPIV3Schema: mustRawExtension(t, map[string]any{
-							"branch":   "string | default=main",
-							"replicas": "integer | default=1",
-							"repo":     "string",
+							"type": "object",
+							"properties": map[string]any{
+								"branch": map[string]any{
+									"type":    "string",
+									"default": "main",
+								},
+								"replicas": map[string]any{
+									"type":    "integer",
+									"default": int64(1),
+								},
+								"repo": map[string]any{
+									"type": "string",
+								},
+							},
 						}),
 					},
 					RunTemplate: mustRawExtension(t, map[string]any{
@@ -1973,6 +1984,10 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		repoParam := params[1].(map[string]any)
 		if repoParam["value"] != testRepoURL {
 			t.Errorf("expected repo value, got %v", repoParam["value"])
+		}
+		replicasParam := params[2].(map[string]any)
+		if replicasParam["value"] != int64(1) {
+			t.Errorf("expected replicas default 1, got %v", replicasParam["value"])
 		}
 	})
 

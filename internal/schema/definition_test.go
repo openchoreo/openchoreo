@@ -22,22 +22,25 @@ const (
 )
 
 func TestApplyDefaults_ArrayFieldBehaviour(t *testing.T) {
-	def := Definition{
-		Schemas: []map[string]any{
-			{
-				"$types": map[string]any{
-					"Item": map[string]any{
-						"name": "string | default=default-name",
+	// Array field without a default value should not be created by defaulting
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"list": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"name": map[string]any{"type": "string", "default": "default-name"},
 					},
 				},
-				"list": "[]Item",
 			},
 		},
 	}
 
-	structural, err := ToStructural(def)
+	structural, err := OpenAPIV3ToStructural(schema)
 	if err != nil {
-		t.Fatalf("ToStructural returned error: %v", err)
+		t.Fatalf("OpenAPIV3ToStructural returned error: %v", err)
 	}
 
 	defaults := ApplyDefaults(nil, structural)
@@ -45,22 +48,26 @@ func TestApplyDefaults_ArrayFieldBehaviour(t *testing.T) {
 		t.Fatalf("expected no default array elements when only item defaults are present, got %v", defaults["list"])
 	}
 
-	defWithArrayDefault := Definition{
-		Schemas: []map[string]any{
-			{
-				"$types": map[string]any{
-					"Item": map[string]any{
-						"name": "string | default=default-name",
+	// Array field WITH a default value should be created by defaulting
+	schemaWithDefault := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"list": map[string]any{
+				"type":    "array",
+				"default": []any{map[string]any{"name": "custom"}},
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"name": map[string]any{"type": "string", "default": "default-name"},
 					},
 				},
-				"list": "[]Item | default=[{\"name\":\"custom\"}]",
 			},
 		},
 	}
 
-	structural, err = ToStructural(defWithArrayDefault)
+	structural, err = OpenAPIV3ToStructural(schemaWithDefault)
 	if err != nil {
-		t.Fatalf("ToStructural returned error: %v", err)
+		t.Fatalf("OpenAPIV3ToStructural returned error: %v", err)
 	}
 
 	defaults = ApplyDefaults(nil, structural)
@@ -74,26 +81,28 @@ func TestApplyDefaults_ArrayFieldBehaviour(t *testing.T) {
 }
 
 func TestApplyDefaults_ArrayItems(t *testing.T) {
-	def := Definition{
-		Schemas: []map[string]any{
-			{
-				"$types": map[string]any{
-					"MountConfig": map[string]any{
-						"containerName": "string",
-						"mountPath":     "string",
-						"readOnly":      "boolean | default=true",
-						"subPath":       "string | default=\"\"",
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"volumeName": map[string]any{"type": "string"},
+			"mounts": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"containerName": map[string]any{"type": "string"},
+						"mountPath":     map[string]any{"type": "string"},
+						"readOnly":      map[string]any{"type": "boolean", "default": true},
+						"subPath":       map[string]any{"type": "string", "default": ""},
 					},
 				},
-				"volumeName": "string",
-				"mounts":     "[]MountConfig",
 			},
 		},
 	}
 
-	structural, err := ToStructural(def)
+	structural, err := OpenAPIV3ToStructural(schema)
 	if err != nil {
-		t.Fatalf("ToStructural returned error: %v", err)
+		t.Fatalf("OpenAPIV3ToStructural returned error: %v", err)
 	}
 
 	values := map[string]any{
@@ -131,17 +140,15 @@ func TestApplyDefaults_ArrayItems(t *testing.T) {
 	}
 }
 
-func makeSchemaSection(isOpenAPIV3 bool, schema map[string]any) *v1alpha1.SchemaSection {
+func makeSchemaSection(schema map[string]any) *v1alpha1.SchemaSection {
 	data, _ := json.Marshal(schema)
-	raw := &runtime.RawExtension{Raw: data}
-	if isOpenAPIV3 {
-		return &v1alpha1.SchemaSection{OpenAPIV3Schema: raw}
+	return &v1alpha1.SchemaSection{
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: data},
 	}
-	return &v1alpha1.SchemaSection{OpenAPIV3Schema: raw}
 }
 
 func TestResolveSectionToStructural_OpenAPIV3(t *testing.T) {
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"replicas": map[string]any{
@@ -171,7 +178,7 @@ func TestResolveSectionToStructural_OpenAPIV3(t *testing.T) {
 }
 
 func TestResolveSectionToStructural_OpenAPIV3_WithRefs(t *testing.T) {
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"$defs": map[string]any{
 			"Port": map[string]any{
@@ -202,7 +209,7 @@ func TestResolveSectionToStructural_OpenAPIV3_WithRefs(t *testing.T) {
 }
 
 func TestResolveSectionToBundle_OpenAPIV3(t *testing.T) {
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"name": map[string]any{
@@ -242,7 +249,7 @@ func TestResolveSectionToStructural_NilSection(t *testing.T) {
 }
 
 func TestSectionToJSONSchema_OpenAPIV3(t *testing.T) {
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"env": map[string]any{
@@ -270,27 +277,6 @@ func TestSectionToJSONSchema_OpenAPIV3(t *testing.T) {
 	}
 }
 
-func TestSectionToJSONSchema_ShorthandSchema(t *testing.T) {
-	section := makeSchemaSection(false, map[string]any{
-		"replicas": "integer | default=1",
-		"image":    "string",
-	})
-
-	jsonSchema, err := SectionToJSONSchema(section)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if jsonSchema == nil {
-		t.Fatal("expected non-nil jsonSchema")
-	}
-	if jsonSchema.Type != typeObject {
-		t.Fatalf("expected type=object, got %s", jsonSchema.Type)
-	}
-	if _, ok := jsonSchema.Properties["replicas"]; !ok {
-		t.Fatal("expected 'replicas' property")
-	}
-}
-
 func TestSectionToJSONSchema_NilSection(t *testing.T) {
 	jsonSchema, err := SectionToJSONSchema(nil)
 	if err != nil {
@@ -305,7 +291,7 @@ func TestSectionToJSONSchema_NilSection(t *testing.T) {
 }
 
 func TestResolveSectionToStructural_OpenAPIV3_DefaultsWork(t *testing.T) {
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"replicas": map[string]any{
@@ -521,7 +507,7 @@ func TestTestdata_SimpleOpenAPIV3_JSONSchema(t *testing.T) {
 func TestSectionToJSONSchema_PreservesVendorExtensions(t *testing.T) {
 	// Task 2.11: Verify that SectionToJSONSchema preserves x-* vendor extensions
 	// in API responses for openAPIV3Schema input.
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"url": map[string]any{
@@ -571,7 +557,7 @@ func TestSectionToJSONSchema_PreservesVendorExtensions(t *testing.T) {
 func TestResolveSectionToBundle_OpenAPIV3_VendorExtensionsStrippedFromStructural(t *testing.T) {
 	// Task 2.11: Verify that the structural schema path strips x-* extensions
 	// (K8s rejects them) while JSON schema path preserves them.
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"url": map[string]any{
@@ -607,7 +593,7 @@ func TestResolveSectionToBundle_OpenAPIV3_VendorExtensionsStrippedFromStructural
 
 func TestValidateWithJSONSchema_OpenAPIV3(t *testing.T) {
 	// End-to-end: openAPIV3Schema → JSON Schema → validate values
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"replicas": map[string]any{
@@ -670,7 +656,7 @@ func TestResolveSectionToBundle_NilSection(t *testing.T) {
 
 func TestSectionToJSONSchema_EmptyOpenAPIV3(t *testing.T) {
 	// OpenAPIV3Schema with no properties should return a valid empty object schema
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 	})
 
@@ -688,7 +674,7 @@ func TestSectionToJSONSchema_EmptyOpenAPIV3(t *testing.T) {
 
 func TestOpenAPIV3_EndToEnd_DefaultsAndValidation(t *testing.T) {
 	// Full pipeline: openAPIV3Schema → structural + JSON schema → defaults → validate
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"$defs": map[string]any{
 			"ResourceQuantity": map[string]any{
@@ -774,26 +760,31 @@ func TestTestdata_WithRefsOpenAPIV3_JSONSchemaPreservesFields(t *testing.T) {
 }
 
 func TestSectionToRawJSONSchema_OpenAPIV3_PreservesVendorExtensions(t *testing.T) {
-	rawYAML := `
-type: object
-properties:
-  replicas:
-    type: integer
-    default: 1
-    x-openchoreo-backstage-portal:
-      ui:field: RepoUrlPicker
-      ui:options:
-        allowedHosts:
-          - github.com
-  imagePullPolicy:
-    type: string
-    default: IfNotPresent
-    x-openchoreo-pull-portal:
-      ui:field: RepoUrlPicker
-`
+	rawJSON := `{
+  "type": "object",
+  "properties": {
+    "replicas": {
+      "type": "integer",
+      "default": 1,
+      "x-openchoreo-backstage-portal": {
+        "ui:field": "RepoUrlPicker",
+        "ui:options": {
+          "allowedHosts": ["github.com"]
+        }
+      }
+    },
+    "imagePullPolicy": {
+      "type": "string",
+      "default": "IfNotPresent",
+      "x-openchoreo-pull-portal": {
+        "ui:field": "RepoUrlPicker"
+      }
+    }
+  }
+}`
 
 	section := &v1alpha1.SchemaSection{
-		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(rawYAML)},
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(rawJSON)},
 	}
 
 	result, err := SectionToRawJSONSchema(section)
@@ -825,25 +816,32 @@ properties:
 }
 
 func TestSectionToRawJSONSchema_OpenAPIV3_RefWithVendorExtension(t *testing.T) {
-	rawYAML := `
-type: object
-$defs:
-  ResourceRequirements:
-    type: object
-    properties:
-      cpu:
-        type: string
-        default: "100m"
-    default: {}
-properties:
-  resources:
-    $ref: "#/$defs/ResourceRequirements"
-    x-openchoreo-resources-portal:
-      ui:field: ResourcePicker
-`
+	rawJSON := `{
+  "type": "object",
+  "$defs": {
+    "ResourceRequirements": {
+      "type": "object",
+      "properties": {
+        "cpu": {
+          "type": "string",
+          "default": "100m"
+        }
+      },
+      "default": {}
+    }
+  },
+  "properties": {
+    "resources": {
+      "$ref": "#/$defs/ResourceRequirements",
+      "x-openchoreo-resources-portal": {
+        "ui:field": "ResourcePicker"
+      }
+    }
+  }
+}`
 
 	section := &v1alpha1.SchemaSection{
-		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(rawYAML)},
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(rawJSON)},
 	}
 
 	result, err := SectionToRawJSONSchema(section)
@@ -884,35 +882,6 @@ func TestSectionToRawJSONSchema_NilSection(t *testing.T) {
 	}
 }
 
-func TestSectionToRawJSONSchema_ShorthandSchema(t *testing.T) {
-	rawYAML := `
-replicas: "integer | default=1"
-name: "string"
-`
-	section := &v1alpha1.SchemaSection{
-		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(rawYAML)},
-	}
-
-	result, err := SectionToRawJSONSchema(section)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if result["type"] != typeObject {
-		t.Fatalf("expected type=object, got %v", result["type"])
-	}
-	props, ok := result["properties"].(map[string]any)
-	if !ok {
-		t.Fatal("expected properties map")
-	}
-	if _, ok := props["replicas"]; !ok {
-		t.Fatal("expected 'replicas' property")
-	}
-	if _, ok := props["name"]; !ok {
-		t.Fatal("expected 'name' property")
-	}
-}
-
 func TestResolveSectionToStructural_BothSchemasSet(t *testing.T) {
 	// When openAPIV3Schema is set, it is used directly.
 	section := &v1alpha1.SchemaSection{
@@ -938,7 +907,7 @@ func TestResolveSectionToStructural_BothSchemasSet(t *testing.T) {
 }
 
 func TestSectionToJSONSchema_ComplexNestedOpenAPIV3(t *testing.T) {
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"$defs": map[string]any{
 			"Credentials": map[string]any{
@@ -1043,7 +1012,7 @@ func TestSectionToJSONSchema_ComplexNestedOpenAPIV3(t *testing.T) {
 
 func TestOpenAPIV3_EndToEnd_DefaultsThenValidation(t *testing.T) {
 	// Full end-to-end: openAPIV3Schema with defaults applied, then validated
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"replicas": map[string]any{
@@ -1107,7 +1076,7 @@ func TestOpenAPIV3_EndToEnd_DefaultsThenValidation(t *testing.T) {
 }
 
 func TestValidateWithJSONSchema_OpenAPIV3_WrongType(t *testing.T) {
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"replicas": map[string]any{"type": "integer"},
@@ -1131,7 +1100,7 @@ func TestValidateWithJSONSchema_OpenAPIV3_WrongType(t *testing.T) {
 }
 
 func TestValidateWithJSONSchema_OpenAPIV3_ExtraFields(t *testing.T) {
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"name": map[string]any{"type": "string"},
@@ -1155,7 +1124,7 @@ func TestValidateWithJSONSchema_OpenAPIV3_ExtraFields(t *testing.T) {
 }
 
 func TestValidateWithJSONSchema_OpenAPIV3_MissingRequired(t *testing.T) {
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"name":  map[string]any{"type": "string"},
@@ -1194,26 +1163,33 @@ func TestValidateWithJSONSchema_OpenAPIV3_MissingRequired(t *testing.T) {
 }
 
 func TestSectionToRawJSONSchema_DeeplyNestedVendorExtensions(t *testing.T) {
-	rawYAML := `
-type: object
-properties:
-  config:
-    type: object
-    x-section: main
-    properties:
-      database:
-        type: object
-        x-category: storage
-        properties:
-          host:
-            type: string
-            x-widget: text-input
-            x-validation:
-              pattern: "^[a-z]+$"
-              message: "Only lowercase letters"
-`
+	rawJSON := `{
+  "type": "object",
+  "properties": {
+    "config": {
+      "type": "object",
+      "x-section": "main",
+      "properties": {
+        "database": {
+          "type": "object",
+          "x-category": "storage",
+          "properties": {
+            "host": {
+              "type": "string",
+              "x-widget": "text-input",
+              "x-validation": {
+                "pattern": "^[a-z]+$",
+                "message": "Only lowercase letters"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}`
 	section := &v1alpha1.SchemaSection{
-		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(rawYAML)},
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(rawJSON)},
 	}
 
 	result, err := SectionToRawJSONSchema(section)
@@ -1277,7 +1253,7 @@ func TestResolveSectionToStructural_EmptyRaw(t *testing.T) {
 
 func TestSectionToRawJSONSchema_EmptyOpenAPIV3(t *testing.T) {
 	// OpenAPIV3Schema with just "type: object" and no properties
-	section := makeSchemaSection(true, map[string]any{
+	section := makeSchemaSection(map[string]any{
 		"type": "object",
 	})
 
@@ -1308,39 +1284,5 @@ func TestSectionToJSONSchema_BothSchemasSet(t *testing.T) {
 
 	if _, ok := jsonSchema.Properties["name"]; !ok {
 		t.Fatal("expected 'name' from openAPIV3Schema")
-	}
-}
-
-func TestMergeFieldMaps_EmptyInput(t *testing.T) {
-	result := mergeFieldMaps(nil)
-	if len(result) != 0 {
-		t.Fatalf("expected empty map, got %v", result)
-	}
-
-	result = mergeFieldMaps([]map[string]any{})
-	if len(result) != 0 {
-		t.Fatalf("expected empty map, got %v", result)
-	}
-}
-
-func TestMergeFieldMaps_NestedMerge(t *testing.T) {
-	maps := []map[string]any{
-		{"db": map[string]any{"host": "localhost"}},
-		{"db": map[string]any{"port": "5432"}, "name": "test"},
-	}
-
-	result := mergeFieldMaps(maps)
-	db, ok := result["db"].(map[string]any)
-	if !ok {
-		t.Fatal("expected db to be map")
-	}
-	if db["host"] != "localhost" {
-		t.Fatalf("expected db.host=localhost, got %v", db["host"])
-	}
-	if db["port"] != "5432" {
-		t.Fatalf("expected db.port=5432, got %v", db["port"])
-	}
-	if result["name"] != "test" {
-		t.Fatalf("expected name=test, got %v", result["name"])
 	}
 }

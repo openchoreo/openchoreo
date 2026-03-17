@@ -120,7 +120,10 @@ spec:
     spec:
       parameters:
         openAPIV3Schema:
-          replicas: "integer"
+          type: object
+          properties:
+            replicas:
+              type: integer
       resources:
         - id: deployment
           template:
@@ -169,7 +172,10 @@ spec:
     spec:
       parameters:
         openAPIV3Schema:
-          expose: "boolean"
+          type: object
+          properties:
+            expose:
+              type: boolean
       resources:
         - id: deployment
           template:
@@ -235,7 +241,12 @@ spec:
     spec:
       parameters:
         openAPIV3Schema:
-          secrets: "[]string"
+          type: object
+          properties:
+            secrets:
+              type: array
+              items:
+                type: string
       resources:
         - id: secrets
           forEach: ${parameters.secrets}
@@ -310,7 +321,10 @@ spec:
       spec:
         parameters:
           openAPIV3Schema:
-            database: "string"
+            type: object
+            properties:
+              database:
+                type: string
         creates:
           - template:
               apiVersion: v1
@@ -442,7 +456,10 @@ spec:
     spec:
       parameters:
         openAPIV3Schema:
-          mountPath: "string"
+          type: object
+          properties:
+            mountPath:
+              type: string
       traits:
         - name: storage
           instanceName: app-storage
@@ -462,8 +479,12 @@ spec:
       spec:
         parameters:
           openAPIV3Schema:
-            mountPath: "string"
-            volumeName: "string"
+            type: object
+            properties:
+              mountPath:
+                type: string
+              volumeName:
+                type: string
         creates:
           - template:
               apiVersion: v1
@@ -607,7 +628,10 @@ spec:
     spec:
       parameters:
         openAPIV3Schema:
-          database: "string"
+          type: object
+          properties:
+            database:
+              type: string
       traits:
         - name: monitoring
           instanceName: embedded-mon
@@ -635,7 +659,10 @@ spec:
       spec:
         parameters:
           openAPIV3Schema:
-            database: "string"
+            type: object
+            properties:
+              database:
+                type: string
         creates:
           - template:
               apiVersion: v1
@@ -709,7 +736,10 @@ spec:
     spec:
       parameters:
         openAPIV3Schema:
-          appPort: "integer"
+          type: object
+          properties:
+            appPort:
+              type: integer
       traits:
         - name: service-exposure
           instanceName: expose-1
@@ -729,8 +759,13 @@ spec:
       spec:
         parameters:
           openAPIV3Schema:
-            port: "integer"
-            protocol: "string | default=\"TCP\""
+            type: object
+            properties:
+              port:
+                type: integer
+              protocol:
+                type: string
+                default: TCP
         creates:
           - template:
               apiVersion: v1
@@ -1037,7 +1072,11 @@ func TestPipeline_SchemaValidation(t *testing.T) {
 spec:
   parameters:
     openAPIV3Schema:
-      replicas: integer
+      type: object
+      required: [replicas]
+      properties:
+        replicas:
+          type: integer
   resources:
     - id: deployment
       template: {apiVersion: v1, kind: Pod, metadata: {name: x}}
@@ -1051,7 +1090,11 @@ spec:
 spec:
   environmentConfigs:
     openAPIV3Schema:
-      logLevel: string
+      type: object
+      required: [logLevel]
+      properties:
+        logLevel:
+          type: string
   resources:
     - id: deployment
       template: {apiVersion: v1, kind: Pod, metadata: {name: x}}
@@ -1080,7 +1123,11 @@ spec:
   spec:
     parameters:
       openAPIV3Schema:
-        size: string
+        type: object
+        required: [size]
+        properties:
+          size:
+            type: string
 `,
 			wantErrMsg: "parameters validation failed",
 		},
@@ -1103,7 +1150,11 @@ spec:
   spec:
     environmentConfigs:
       openAPIV3Schema:
-        storageClass: string
+        type: object
+        required: [storageClass]
+        properties:
+          storageClass:
+            type: string
 `,
 			releaseBindingYAML: `spec: {traitEnvironmentConfigs: {vol1: {}}}`,
 			wantErrMsg:         "environmentConfigs validation failed",
@@ -1193,7 +1244,11 @@ func TestPipeline_ValidationRules(t *testing.T) {
 spec:
   parameters:
     openAPIV3Schema:
-      replicas: "integer | default=1"
+      type: object
+      properties:
+        replicas:
+          type: integer
+          default: 1
   validations:
     - rule: "${parameters.replicas > 0}"
       message: "replicas must be positive"
@@ -1210,7 +1265,11 @@ spec:
 spec:
   parameters:
     openAPIV3Schema:
-      replicas: "integer | default=1"
+      type: object
+      properties:
+        replicas:
+          type: integer
+          default: 1
   validations:
     - rule: "${parameters.replicas > 5}"
       message: "replicas must be greater than 5"
@@ -1248,7 +1307,11 @@ spec:
   spec:
     parameters:
       openAPIV3Schema:
-        size: "integer | default=1"
+        type: object
+        properties:
+          size:
+            type: integer
+            default: 1
     validations:
       - rule: "${parameters.size > 0}"
         message: "size must be positive"
@@ -1278,7 +1341,11 @@ spec:
   spec:
     parameters:
       openAPIV3Schema:
-        size: "integer | default=1"
+        type: object
+        properties:
+          size:
+            type: integer
+            default: 1
     validations:
       - rule: "${parameters.size > 0}"
         message: "size must be positive"
@@ -1299,8 +1366,14 @@ spec:
 spec:
   parameters:
     openAPIV3Schema:
-      replicas: "integer | default=1"
-      name: "string | default=app"
+      type: object
+      properties:
+        replicas:
+          type: integer
+          default: 1
+        name:
+          type: string
+          default: app
   validations:
     - rule: "${parameters.replicas > 10}"
       message: "replicas too low"

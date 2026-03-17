@@ -15,12 +15,12 @@ import (
 func TestExtractStructuralSchemas_ValidSchemas(t *testing.T) {
 	params := &v1alpha1.SchemaSection{
 		OpenAPIV3Schema: &runtime.RawExtension{
-			Raw: []byte(`{"replicas": "integer | default=1", "name": "string"}`),
+			Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1},"name":{"type":"string"}},"required":["name"]}`),
 		},
 	}
 	envConfigs := &v1alpha1.SchemaSection{
 		OpenAPIV3Schema: &runtime.RawExtension{
-			Raw: []byte(`{"environment": "string | default=dev"}`),
+			Raw: []byte(`{"type":"object","properties":{"environment":{"type":"string","default":"dev"}}}`),
 		},
 	}
 
@@ -54,7 +54,7 @@ func TestExtractStructuralSchemas_ValidSchemas(t *testing.T) {
 func TestExtractStructuralSchemas_WithTypes(t *testing.T) {
 	params := &v1alpha1.SchemaSection{
 		OpenAPIV3Schema: &runtime.RawExtension{
-			Raw: []byte(`{"$types": {"Port": {"containerPort": "integer", "protocol": "string | default=TCP"}}, "ports": "[]Port"}`),
+			Raw: []byte(`{"type":"object","properties":{"ports":{"type":"array","items":{"type":"object","properties":{"containerPort":{"type":"integer"},"protocol":{"type":"string","default":"TCP"}},"required":["containerPort"]}}},"required":["ports"]}`),
 		},
 	}
 

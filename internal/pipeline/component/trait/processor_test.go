@@ -4,9 +4,13 @@
 package trait
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -1344,6 +1348,804 @@ func TestFindTargetResources(t *testing.T) {
 			}
 		})
 	}
+}
+
+// singleDeploymentResourceYAML is a common YAML snippet used across multiple tests.
+const singleDeploymentResourceYAML = `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+`
+
+func TestApplyTraitCreates_ForEach(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: sidecar-trait
+spec:
+  creates:
+    - forEach: ${parameters.sidecars}
+      var: sidecar
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${sidecar.name}-config
+        data:
+          port: ${sidecar.port}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{
+		"parameters": map[string]any{
+			"sidecars": []any{
+				map[string]any{"name": "envoy", "port": "9901"},
+				map[string]any{"name": "fluentd", "port": "24224"},
+				map[string]any{"name": "otel", "port": "4317"},
+			},
+		},
+	}
+
+	got, err := processor.ApplyTraitCreates(nil, &trait, ctx)
+	require.NoError(t, err)
+	assert.Len(t, got, 3)
+
+	names := make([]string, len(got))
+	ports := make([]string, len(got))
+	for i, rr := range got {
+		metadata := rr.Resource["metadata"].(map[string]any)
+		names[i] = metadata["name"].(string)
+		data := rr.Resource["data"].(map[string]any)
+		ports[i] = data["port"].(string)
+	}
+	assert.Equal(t, []string{"envoy-config", "fluentd-config", "otel-config"}, names)
+	assert.Equal(t, []string{"9901", "24224", "4317"}, ports)
+}
+
+func TestApplyTraitCreates_ForEachError(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: broken-trait
+spec:
+  creates:
+    - forEach: ${nonexistent.field}
+      var: item
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${item}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	_, err := processor.ApplyTraitCreates(nil, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "forEach")
+}
+
+func TestApplyTraitCreates_RenderError(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: bad-template-trait
+spec:
+  creates:
+    - template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${nonexistent.deeply.nested.field}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	_, err := processor.ApplyTraitCreates(nil, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "render")
+}
+
+func TestApplyTraitCreates_TargetPlane(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: obs-trait
+spec:
+  creates:
+    - targetPlane: observabilityplane
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: metrics-config
+    - targetPlane: dataplane
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: app-config
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	got, err := processor.ApplyTraitCreates(nil, &trait, ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+
+	assert.Equal(t, "metrics-config", got[0].Resource["metadata"].(map[string]any)["name"])
+	assert.Equal(t, v1alpha1.TargetPlaneObservabilityPlane, got[0].TargetPlane)
+	assert.Equal(t, "app-config", got[1].Resource["metadata"].(map[string]any)["name"])
+	assert.Equal(t, v1alpha1.TargetPlaneDataPlane, got[1].TargetPlane)
+}
+
+func TestApplyTraitPatches_ForEach(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+    labels: {}
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: label-trait
+spec:
+  patches:
+    - forEach: ${parameters.labels}
+      var: lbl
+      target:
+        kind: Deployment
+        version: v1
+        group: apps
+      operations:
+        - op: add
+          path: /metadata/labels/${lbl.key}
+          value: ${lbl.value}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{
+		"parameters": map[string]any{
+			"labels": []any{
+				map[string]any{"key": "env", "value": "prod"},
+				map[string]any{"key": "team", "value": "platform"},
+			},
+		},
+	}
+
+	err := processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.NoError(t, err)
+
+	labels := resources[0].Resource["metadata"].(map[string]any)["labels"].(map[string]any)
+	assert.Equal(t, "prod", labels["env"])
+	assert.Equal(t, "platform", labels["team"])
+}
+
+func TestApplyTraitPatches_ForEachError(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := singleDeploymentResourceYAML
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: broken-trait
+spec:
+  patches:
+    - forEach: ${nonexistent.field}
+      var: item
+      target:
+        kind: Deployment
+        version: v1
+        group: apps
+      operations:
+        - op: add
+          path: /metadata/labels/key
+          value: val
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	err := processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "forEach")
+}
+
+func TestApplyTraitPatches_WhereClause(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: web
+    labels:
+      tier: frontend
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: api
+    labels:
+      tier: backend
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: admin
+    labels:
+      tier: frontend
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: frontend-trait
+spec:
+  patches:
+    - target:
+        kind: Deployment
+        version: v1
+        group: apps
+        where: ${resource.metadata.labels.tier == "frontend"}
+      operations:
+        - op: add
+          path: /metadata/annotations
+          value:
+            ingress: "true"
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	err := processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.NoError(t, err)
+
+	// "web" and "admin" should have annotations, "api" should not
+	webMeta := resources[0].Resource["metadata"].(map[string]any)
+	assert.Equal(t, "true", webMeta["annotations"].(map[string]any)["ingress"])
+
+	apiMeta := resources[1].Resource["metadata"].(map[string]any)
+	_, hasAnnotations := apiMeta["annotations"]
+	assert.False(t, hasAnnotations, "backend deployment should not have annotations")
+
+	adminMeta := resources[2].Resource["metadata"].(map[string]any)
+	assert.Equal(t, "true", adminMeta["annotations"].(map[string]any)["ingress"])
+}
+
+func TestApplyTraitPatches_WhereClauseError(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := singleDeploymentResourceYAML
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: broken-where-trait
+spec:
+  patches:
+    - target:
+        kind: Deployment
+        version: v1
+        group: apps
+        where: ${nonexistent.deeply.nested}
+      operations:
+        - op: add
+          path: /metadata/labels/key
+          value: val
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	err := processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "where clause")
+}
+
+func TestApplyTraitPatches_WhereClauseNonBoolean(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+    labels:
+      tier: frontend
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	// where clause evaluates to a string instead of a boolean
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: nonbool-where-trait
+spec:
+  patches:
+    - target:
+        kind: Deployment
+        version: v1
+        group: apps
+        where: ${resource.metadata.labels.tier}
+      operations:
+        - op: add
+          path: /metadata/labels/key
+          value: val
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	err := processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "boolean")
+}
+
+func TestApplyTraitPatches_WhereFiltersAll(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+    labels:
+      tier: backend
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	// Snapshot the resource before patching to verify it is truly unmodified
+	before := deepCopy(resources[0].Resource)
+
+	// where clause matches nothing (looking for frontend, only backend exists)
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: no-match-trait
+spec:
+  patches:
+    - target:
+        kind: Deployment
+        version: v1
+        group: apps
+        where: ${resource.metadata.labels.tier == "frontend"}
+      operations:
+        - op: add
+          path: /metadata/annotations
+          value:
+            patched: "true"
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	err := processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.NoError(t, err)
+
+	// Resource must be completely unmodified
+	if diff := cmp.Diff(before, resources[0].Resource); diff != "" {
+		t.Errorf("resource was modified despite where filtering all targets (-before +after):\n%s", diff)
+	}
+}
+
+func TestApplyTraitPatches_WherePreservesResourceBinding(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+    labels:
+      tier: frontend
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: where-trait
+spec:
+  patches:
+    - target:
+        kind: Deployment
+        version: v1
+        group: apps
+        where: ${resource.metadata.labels.tier == "frontend"}
+      operations:
+        - op: add
+          path: /metadata/annotations
+          value:
+            patched: "true"
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	// Set up a context that already has a "resource" key to verify it's preserved
+	existingResourceValue := map[string]any{"existing": "data"}
+	ctx := map[string]any{
+		"resource": existingResourceValue,
+	}
+
+	err := processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.NoError(t, err)
+
+	// Verify the original "resource" binding is preserved/restored after filtering
+	assert.Equal(t, existingResourceValue, ctx["resource"], "original resource binding should be preserved after where clause evaluation")
+}
+
+func TestApplyTraitPatches_NoMatchingResources(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: my-svc
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	// Patch targets Deployment but only a Service exists
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: noop-trait
+spec:
+  patches:
+    - target:
+        kind: Deployment
+        version: v1
+        group: apps
+      operations:
+        - op: add
+          path: /metadata/labels/key
+          value: val
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	before := deepCopy(resources[0].Resource)
+
+	err := processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.NoError(t, err, "patching with no matching resources should be a no-op")
+
+	if diff := cmp.Diff(before, resources[0].Resource); diff != "" {
+		t.Errorf("resource was modified despite no matching targets (-before +after):\n%s", diff)
+	}
+}
+
+func TestApplyTraitPatches_PatchApplyError(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: my-deploy
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	// Use "replace" on a nonexistent path to trigger an error in patch application
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: bad-patch-trait
+spec:
+  patches:
+    - target:
+        kind: Deployment
+        version: v1
+        group: apps
+      operations:
+        - op: replace
+          path: /spec/nonexistent/deeply/nested/path
+          value: broken
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	err := processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Deployment/my-deploy")
+}
+
+func TestRenderOperations_PathError(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := singleDeploymentResourceYAML
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	// Path references a nonexistent variable
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: bad-path-trait
+spec:
+  patches:
+    - target:
+        kind: Deployment
+        version: v1
+        group: apps
+      operations:
+        - op: add
+          path: /metadata/labels/${nonexistent.var}
+          value: something
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	err := processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "path")
+}
+
+func TestRenderOperations_NonStringPath(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := singleDeploymentResourceYAML
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	// Path evaluates to an integer instead of a string
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: int-path-trait
+spec:
+  patches:
+    - target:
+        kind: Deployment
+        version: v1
+        group: apps
+      operations:
+        - op: add
+          path: ${parameters.pathVal}
+          value: something
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{
+		"parameters": map[string]any{
+			"pathVal": 42,
+		},
+	}
+
+	err := processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "string")
+}
+
+func TestRenderOperations_ValueUnmarshalError(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := singleDeploymentResourceYAML
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	// Construct a trait programmatically with invalid Value.Raw bytes
+	trait := v1alpha1.Trait{}
+	trait.Name = "bad-value-trait"
+	trait.Spec.Patches = []v1alpha1.TraitPatch{
+		{
+			Target: v1alpha1.PatchTarget{
+				Kind:    "Deployment",
+				Version: "v1",
+				Group:   "apps",
+			},
+			Operations: []v1alpha1.JSONPatchOperation{
+				{
+					Op:    "add",
+					Path:  "/metadata/labels/key",
+					Value: &runtime.RawExtension{Raw: []byte("not valid json {{{")},
+				},
+			},
+		},
+	}
+
+	ctx := map[string]any{}
+
+	err := processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unmarshal")
+}
+
+func TestRenderOperations_ValueRenderError(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := singleDeploymentResourceYAML
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	// Construct a trait with a value containing invalid CEL
+	valueJSON, err := json.Marshal("${nonexistent.deeply.nested}")
+	require.NoError(t, err)
+
+	trait := v1alpha1.Trait{}
+	trait.Name = "bad-cel-trait"
+	trait.Spec.Patches = []v1alpha1.TraitPatch{
+		{
+			Target: v1alpha1.PatchTarget{
+				Kind:    "Deployment",
+				Version: "v1",
+				Group:   "apps",
+			},
+			Operations: []v1alpha1.JSONPatchOperation{
+				{
+					Op:    "add",
+					Path:  "/metadata/labels/key",
+					Value: &runtime.RawExtension{Raw: valueJSON},
+				},
+			},
+		},
+	}
+
+	ctx := map[string]any{}
+
+	err = processor.ApplyTraitPatches(resources, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "render value")
+}
+
+func TestProcessTraits_CreatesError(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := singleDeploymentResourceYAML
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	// Create a trait with a broken creates template (references nonexistent variable)
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: broken-creates-trait
+spec:
+  creates:
+    - template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${nonexistent.deeply.nested}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	_, err := processor.ProcessTraits(resources, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "render")
+}
+
+func TestProcessTraits_PatchesError(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := singleDeploymentResourceYAML
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	// Create a trait with valid creates but broken patches (references nonexistent variable in path)
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: broken-patches-trait
+spec:
+  patches:
+    - target:
+        kind: Deployment
+        version: v1
+        group: apps
+      operations:
+        - op: add
+          path: /metadata/labels/${nonexistent.field}
+          value: something
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{}
+
+	_, err := processor.ProcessTraits(resources, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "path")
 }
 
 // Helper functions

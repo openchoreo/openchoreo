@@ -12,7 +12,10 @@ spec:
     spec:
       environmentConfigs:
         openAPIV3Schema:
-          replicas: "integer"
+          type: object
+          properties:
+            replicas:
+              type: integer
       resources:
         - id: deployment
           template:

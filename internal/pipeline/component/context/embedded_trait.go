@@ -155,6 +155,7 @@ func BuildEmbeddedTraitContext(input *EmbeddedTraitContextInput) (*TraitContext,
 
 	ctx.DataPlane = extractDataPlaneData(input.DataPlane)
 	ctx.Environment = extractEnvironmentData(input.Environment, input.DataPlane, input.DefaultNotificationChannel)
+	ctx.Gateway = ctx.Environment.Gateway
 	ctx.Workload = input.WorkloadData
 	ctx.Configurations = input.Configurations
 	ctx.Connections = newConnectionsContextData(input.Connections)

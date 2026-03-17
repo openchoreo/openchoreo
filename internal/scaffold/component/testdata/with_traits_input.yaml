@@ -16,7 +16,12 @@ spec:
   workloadType: deployment
   parameters:
     openAPIV3Schema:
-      port: "integer"
+      type: object
+      required:
+        - port
+      properties:
+        port:
+          type: integer
 ---
 # Multiple traits to verify deterministic ordering (alphabetical: logging, networking, storage)
 apiVersion: openchoreo.dev/v1alpha1
@@ -26,8 +31,16 @@ metadata:
 spec:
   parameters:
     openAPIV3Schema:
-      mountPath: 'string | description="Mount path"'
-      size: string | default=10Gi
+      type: object
+      required:
+        - mountPath
+      properties:
+        mountPath:
+          type: string
+          description: "Mount path"
+        size:
+          type: string
+          default: "10Gi"
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
@@ -36,7 +49,16 @@ metadata:
 spec:
   parameters:
     openAPIV3Schema:
-      level: string | enum=debug,info,warn,error | default=info
+      type: object
+      properties:
+        level:
+          type: string
+          enum:
+            - debug
+            - info
+            - warn
+            - error
+          default: "info"
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
@@ -45,4 +67,10 @@ metadata:
 spec:
   parameters:
     openAPIV3Schema:
-      ingress: 'boolean | description="Enable ingress"'
+      type: object
+      required:
+        - ingress
+      properties:
+        ingress:
+          type: boolean
+          description: "Enable ingress"

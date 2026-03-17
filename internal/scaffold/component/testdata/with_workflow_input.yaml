@@ -13,7 +13,12 @@ spec:
   workloadType: deployment
   parameters:
     openAPIV3Schema:
-      port: "integer"
+      type: object
+      required:
+        - port
+      properties:
+        port:
+          type: integer
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workflow
@@ -22,6 +27,20 @@ metadata:
 spec:
   parameters:
     openAPIV3Schema:
-      context: 'string | default=. description="Docker build context"'
-      dockerfile: 'string | default=./Dockerfile description="Path to Dockerfile"'
-      buildArgs: 'map<string> | description="Build arguments"'
+      type: object
+      required:
+        - buildArgs
+      properties:
+        context:
+          type: string
+          default: "."
+          description: "Docker build context"
+        dockerfile:
+          type: string
+          default: "./Dockerfile"
+          description: "Path to Dockerfile"
+        buildArgs:
+          type: object
+          additionalProperties:
+            type: string
+          description: "Build arguments"

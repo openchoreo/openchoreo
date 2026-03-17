@@ -49,7 +49,7 @@ var _ = Describe("ComponentType Webhook", func() {
 			obj.Spec.WorkloadType = workloadTypeDeployment
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 				OpenAPIV3Schema: &runtime.RawExtension{
-					Raw: []byte(`{"replicas": "integer | default=1"}`),
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -67,12 +67,12 @@ var _ = Describe("ComponentType Webhook", func() {
 			obj.Spec.WorkloadType = workloadTypeDeployment
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 				OpenAPIV3Schema: &runtime.RawExtension{
-					Raw: []byte(`{"replicas": "integer | default=1"}`),
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
 				},
 			}
 			obj.Spec.EnvironmentConfigs = &openchoreodevv1alpha1.SchemaSection{
 				OpenAPIV3Schema: &runtime.RawExtension{
-					Raw: []byte(`{"image": "string"}`),
+					Raw: []byte(`{"type":"object","properties":{"image":{"type":"string"}},"required":["image"]}`),
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -99,10 +99,8 @@ var _ = Describe("ComponentType Webhook", func() {
 			// Set up valid newObj
 			obj.Spec.WorkloadType = workloadTypeDeployment
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"replicas": "integer | default=2"}`),
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":2}}}`),
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -183,12 +181,10 @@ var _ = Describe("ComponentType Webhook", func() {
 			}
 		})
 
-		It("should reject unknown shorthand type in parameters", func() {
+		It("should reject invalid OpenAPI v3 schema in parameters", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"field": "unknown-type"}`),
+					Raw: []byte(`{"type":"object","properties":"not-an-object"}`),
 				},
 			}
 
@@ -197,12 +193,10 @@ var _ = Describe("ComponentType Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
 		})
 
-		It("should reject invalid type reference in parameters", func() {
+		It("should reject circular $ref in parameters", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"$types": {"Database": {"host": "string", "port": "integer"}}, "db": "NonExistent"}`),
+					Raw: []byte(`{"type":"object","$defs":{"A":{"$ref":"#/$defs/B"},"B":{"$ref":"#/$defs/A"}},"properties":{"val":{"$ref":"#/$defs/A"}}}`),
 				},
 			}
 
@@ -283,10 +277,8 @@ var _ = Describe("ComponentType Webhook", func() {
 		// Schema-aware validation catches forEach with non-iterable types at validation time
 		It("should reject forEach with non-iterable expression", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"replicas": "integer"}`),
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer"}},"required":["replicas"]}`),
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
@@ -601,10 +593,8 @@ var _ = Describe("ComponentType Webhook", func() {
 
 		It("should reject non-boolean CEL expression in validation rule", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"name": "string | default=app"}`),
+					Raw: []byte(`{"type":"object","properties":{"name":{"type":"string","default":"app"}}}`),
 				},
 			}
 			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
@@ -618,10 +608,8 @@ var _ = Describe("ComponentType Webhook", func() {
 
 		It("should admit valid boolean validation rules", func() {
 			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
-
 				OpenAPIV3Schema: &runtime.RawExtension{
-
-					Raw: []byte(`{"replicas": "integer | default=1"}`),
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
 				},
 			}
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
