@@ -10,11 +10,18 @@ coverage:
         informational: true
 
 ignore:
-  - "cmd"                                # Application entrypoints
-  - "test"                               # Test helpers and utilities
-  - "**/zz_generated.*.go"               # Generated deepcopy and register files
-  - "api/v1alpha1/groupversion_info.go"  # Generated CRD group/version boilerplate
-  - "internal/openchoreo-api/api/gen"    # Generated OpenAPI server, client, and models
+  # Generated code
+  - "cmd"                                                      # Application entrypoints
+  - "tools/helm-gen"                                           # Generated helm files
+  - "**/zz_generated.*.go"                                     # Generated deepcopy and register files
+  - "api/v1alpha1/groupversion_info.go"                        # Generated CRD group/version boilerplate
+  - "internal/openchoreo-api/api/gen"                          # Generated OpenAPI server, client, and models
+  # Test utilities
+  - "test"                                                     # Test helpers and utilities
+  # Thin wrappers and adapters
+  - "internal/observer/mcp/handlers.go"                        # MCP handler layer — parameter wiring and delegation only
+  - "internal/openchoreo-api/services/handlerservices"         # DI container — wires services, no business logic
+  - "internal/openchoreo-api/services/**/service_authz.go"     # Authz wrapper layer — permission check then delegate to inner service
 
 comment:
   hide_project_coverage: false
