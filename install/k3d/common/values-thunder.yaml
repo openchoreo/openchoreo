@@ -116,20 +116,23 @@ bootstrap:
               },
               \"password\": {
                 \"type\": \"string\",
-                \"required\": false,
+                \"required\": true,
                 \"credential\": true,
                 \"displayName\": \"Password\"
               },
               \"given_name\": {
                 \"type\": \"string\",
+                \"required\": true,
                 \"displayName\": \"First Name\"
               },
               \"family_name\": {
                 \"type\": \"string\",
+                \"required\": true,
                 \"displayName\": \"Last Name\"
               },
               \"email\": {
                 \"type\": \"string\",
+                \"required\": true,
                 \"unique\": true,
                 \"displayName\": \"Email\"
               }
