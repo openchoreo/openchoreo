@@ -335,7 +335,7 @@ spec:
 ```yaml
 # Create HTTPRoutes only for endpoints with external visibility
 - id: httproute-external
-  forEach: '${workload.endpoints.transformList(name, ep, ("external" in ep.visibility && ep.type in ["HTTP", "REST", "GraphQL", "Websocket"]) ? [name] : []).flatten()}'
+  forEach: '${workload.endpoints.transformList(name, ep, ("external" in ep.visibility && ep.type in ["HTTP", "GraphQL", "Websocket"]) ? [name] : []).flatten()}'
   var: endpoint
   template:
     apiVersion: gateway.networking.k8s.io/v1
@@ -369,7 +369,7 @@ spec:
 
 # Create HTTPRoutes only for endpoints with internal visibility
 - id: httproute-internal
-  forEach: '${workload.endpoints.transformList(name, ep, ("internal" in ep.visibility && ep.type in ["HTTP", "REST", "GraphQL", "Websocket"]) ? [name] : []).flatten()}'
+  forEach: '${workload.endpoints.transformList(name, ep, ("internal" in ep.visibility && ep.type in ["HTTP", "GraphQL", "Websocket"]) ? [name] : []).flatten()}'
   var: endpoint
   template:
     apiVersion: gateway.networking.k8s.io/v1

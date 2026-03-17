@@ -205,7 +205,7 @@ Resources are organized under Kubernetes namespaces which serve as organizationa
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | EndpointType | Yes | HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP |
+| `type` | EndpointType | Yes | HTTP, gRPC, GraphQL, Websocket, TCP, UDP |
 | `port` | int32 | Yes | Exposed port |
 | `targetPort` | int32 | No | Container listening port (defaults to port) |
 | `visibility` | []EndpointVisibility | No | project, namespace, internal, external |

@@ -72,7 +72,7 @@ trait.openchoreo.dev/observability-alert-rule         10s
 |------|---------------|-----------------|------------|
 | worker | Deployment | docker, google-cloud-buildpacks | No endpoints |
 | service | Deployment | docker, google-cloud-buildpacks, ballerina-buildpack | At least 1 endpoint |
-| web-application | Deployment | react, docker | HTTP/REST endpoint required |
+| web-application | Deployment | react, docker | HTTP endpoint required |
 | scheduled-task | CronJob | docker, google-cloud-buildpacks | - |
 
 ### Workflows

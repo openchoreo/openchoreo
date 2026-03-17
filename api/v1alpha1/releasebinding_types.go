@@ -202,7 +202,7 @@ type EndpointURLStatus struct {
 	// Name is the endpoint name as defined in the Workload spec.
 	Name string `json:"name"`
 
-	// Type is the endpoint type (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP).
+	// Type is the endpoint type (HTTP, gRPC, GraphQL, Websocket, TCP, UDP).
 	// +optional
 	Type EndpointType `json:"type,omitempty"`
 

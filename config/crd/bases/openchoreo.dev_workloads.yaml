@@ -257,7 +257,6 @@ spec:
                       description: Type indicates the protocol/technology of the endpoint.
                       enum:
                       - HTTP
-                      - REST
                       - gRPC
                       - GraphQL
                       - Websocket

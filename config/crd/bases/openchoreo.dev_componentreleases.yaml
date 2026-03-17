@@ -825,7 +825,6 @@ spec:
                             endpoint.
                           enum:
                           - HTTP
-                          - REST
                           - gRPC
                           - GraphQL
                           - Websocket

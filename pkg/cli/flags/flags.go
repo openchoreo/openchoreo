@@ -190,7 +190,7 @@ var (
 
 	EndpointType = Flag{
 		Name:  "type",
-		Usage: "Type of the endpoint (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP)",
+		Usage: "Type of the endpoint (HTTP, gRPC, GraphQL, Websocket, TCP, UDP)",
 	}
 
 	Port = Flag{

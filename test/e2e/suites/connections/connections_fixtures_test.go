@@ -249,7 +249,7 @@ func componentTypeYAML(cpNamespace string) string {
 				{ID: "service", IncludeWhen: "${size(workload.endpoints) > 0}", Template: mustRawExtension(serviceTemplate)},
 				{
 					ID:       "httproute-internal",
-					ForEach:  `${workload.endpoints.transformList(name, ep, ("internal" in ep.visibility && ep.type in ["HTTP", "REST", "GraphQL", "Websocket"]) ? [name] : []).flatten()}`,
+					ForEach:  `${workload.endpoints.transformList(name, ep, ("internal" in ep.visibility && ep.type in ["HTTP", "GraphQL", "Websocket"]) ? [name] : []).flatten()}`,
 					Var:      "endpoint",
 					Template: mustRawExtension(httpRouteInternalTemplate),
 				},

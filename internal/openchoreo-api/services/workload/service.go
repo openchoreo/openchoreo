@@ -336,7 +336,7 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 			"type": {
 				Type:        stringType,
 				Description: "Protocol/technology of the endpoint.",
-				Enum:        []extv1.JSON{{Raw: []byte(`"HTTP"`)}, {Raw: []byte(`"REST"`)}, {Raw: []byte(`"gRPC"`)}, {Raw: []byte(`"GraphQL"`)}, {Raw: []byte(`"Websocket"`)}, {Raw: []byte(`"TCP"`)}, {Raw: []byte(`"UDP"`)}},
+				Enum:        []extv1.JSON{{Raw: []byte(`"HTTP"`)}, {Raw: []byte(`"gRPC"`)}, {Raw: []byte(`"GraphQL"`)}, {Raw: []byte(`"Websocket"`)}, {Raw: []byte(`"TCP"`)}, {Raw: []byte(`"UDP"`)}},
 			},
 			"port": {
 				Type:        intType,

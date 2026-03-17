@@ -777,7 +777,7 @@ func mapEndpointTypeToProtocol(endpointType string) string {
 	case protocolUDP:
 		return protocolUDP
 	default:
-		// HTTP, REST, gRPC, GraphQL, Websocket all use TCP
+		// HTTP, gRPC, GraphQL, Websocket all use TCP
 		return protocolTCP
 	}
 }

@@ -28,18 +28,18 @@ func TestGetEndpoints(t *testing.T) {
 			wantNil:   true,
 		},
 		{
-			name: "Single REST endpoint with required fields only",
+			name: "Single HTTP endpoint with required fields only",
 			endpoints: map[string]v1alpha1.WorkloadEndpoint{
 				"http": {
-					Type: v1alpha1.EndpointTypeREST,
+					Type: v1alpha1.EndpointTypeHTTP,
 					Port: 8080,
 				},
 			},
 			wantKeys: []string{"http"},
 			validate: func(t *testing.T, result map[string]interface{}) {
 				ep := result["http"].(map[string]interface{})
-				if ep["type"] != "REST" {
-					t.Errorf("type = %v, want REST", ep["type"])
+				if ep["type"] != "HTTP" {
+					t.Errorf("type = %v, want HTTP", ep["type"])
 				}
 				if ep["port"] != int64(8080) {
 					t.Errorf("port = %v, want 8080", ep["port"])
@@ -121,7 +121,7 @@ func TestGetEndpoints(t *testing.T) {
 			name: "Multiple endpoints",
 			endpoints: map[string]v1alpha1.WorkloadEndpoint{
 				"http": {
-					Type: v1alpha1.EndpointTypeREST,
+					Type: v1alpha1.EndpointTypeHTTP,
 					Port: 8080,
 				},
 				"grpc": {

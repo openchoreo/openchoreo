@@ -92,7 +92,6 @@ type EndpointType string
 
 const (
 	EndpointTypeHTTP      EndpointType = "HTTP"
-	EndpointTypeREST      EndpointType = "REST"
 	EndpointTypeGraphQL   EndpointType = "GraphQL"
 	EndpointTypeWebsocket EndpointType = "Websocket"
 	EndpointTypeGRPC      EndpointType = "gRPC"
@@ -133,7 +132,7 @@ type WorkloadEndpoint struct {
 
 	// Type indicates the protocol/technology of the endpoint.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=HTTP;REST;gRPC;GraphQL;Websocket;TCP;UDP
+	// +kubebuilder:validation:Enum=HTTP;gRPC;GraphQL;Websocket;TCP;UDP
 	Type EndpointType `json:"type"`
 
 	// Port exposed by the endpoint. If targetPort is not set, platform defaults to port for both.

@@ -1430,7 +1430,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 							"port": int64(9090),
 						},
 						"metrics": map[string]any{
-							"type": "REST",
+							"type": "HTTP",
 							"port": int64(9091),
 						},
 					},

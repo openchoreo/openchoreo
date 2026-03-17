@@ -2,7 +2,7 @@
 #
 # This sample demonstrates:
 # - Using the default deployment/web-application ComponentType
-# - Web applications require HTTP or REST endpoints
+# - Web applications require HTTP endpoints
 # - Environment-specific resource overrides via ReleaseBinding
 
 ---

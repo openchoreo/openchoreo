@@ -7873,8 +7873,8 @@ components:
           example: http
         type:
           type: string
-          description: Endpoint type (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP)
-          enum: [HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP]
+          description: Endpoint type (HTTP, gRPC, GraphQL, Websocket, TCP, UDP)
+          enum: [HTTP, gRPC, GraphQL, Websocket, TCP, UDP]
           example: HTTP
         serviceURL:
           $ref: '#/components/schemas/EndpointURL'
@@ -9498,7 +9498,7 @@ components:
         type:
           type: string
           description: Protocol/technology of the endpoint
-          enum: [HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP]
+          enum: [HTTP, gRPC, GraphQL, Websocket, TCP, UDP]
         port:
           type: integer
           description: Port exposed by the endpoint

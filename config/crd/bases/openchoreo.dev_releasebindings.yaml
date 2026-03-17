@@ -491,7 +491,7 @@ spec:
                       - host
                       type: object
                     type:
-                      description: Type is the endpoint type (HTTP, REST, gRPC, GraphQL,
+                      description: Type is the endpoint type (HTTP, gRPC, GraphQL,
                         Websocket, TCP, UDP).
                       type: string
                   required:

@@ -275,12 +275,12 @@ func TestMakeComponentPolicies_MixedVisibility(t *testing.T) {
 		PodSelectors:  map[string]string{"app": "mixed-svc"},
 		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
 			"internal-api": {
-				Type:       "REST",
+				Type:       "HTTP",
 				Port:       8080,
 				Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityNamespace},
 			},
 			"public-api": {
-				Type:       "REST",
+				Type:       "HTTP",
 				Port:       8443,
 				Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityExternal},
 			},

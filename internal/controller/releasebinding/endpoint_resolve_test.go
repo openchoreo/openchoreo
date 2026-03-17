@@ -1139,7 +1139,6 @@ var _ = Describe("schemeForEndpointType", func() {
 			Expect(schemeForEndpointType(epType)).To(Equal(expected))
 		},
 		Entry("HTTP", openchoreov1alpha1.EndpointTypeHTTP, "http"),
-		Entry("REST", openchoreov1alpha1.EndpointTypeREST, "http"),
 		Entry("GraphQL", openchoreov1alpha1.EndpointTypeGraphQL, "http"),
 		Entry("Websocket", openchoreov1alpha1.EndpointTypeWebsocket, "ws"),
 		Entry("gRPC", openchoreov1alpha1.EndpointTypeGRPC, "grpc"),

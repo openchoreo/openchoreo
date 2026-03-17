@@ -361,7 +361,7 @@ func TestGenerateRelease_WorkloadEndpointsIncluded(t *testing.T) {
 			},
 			"endpoints": map[string]any{
 				"http": map[string]any{
-					"type": "REST",
+					"type": "HTTP",
 					"port": int64(8080),
 				},
 			},
@@ -414,8 +414,8 @@ func TestGenerateRelease_WorkloadEndpointsIncluded(t *testing.T) {
 		t.Fatalf("expected http endpoint to be a map, got %T", httpEndpoint)
 	}
 
-	if httpMap["type"] != "REST" {
-		t.Errorf("endpoint type = %v, want REST", httpMap["type"])
+	if httpMap["type"] != "HTTP" {
+		t.Errorf("endpoint type = %v, want HTTP", httpMap["type"])
 	}
 	if httpMap["port"] != int64(8080) {
 		t.Errorf("endpoint port = %v, want 8080", httpMap["port"])
@@ -445,7 +445,7 @@ func TestGenerateRelease_WorkloadConnectionsIncluded(t *testing.T) {
 			},
 			"endpoints": map[string]any{
 				"http": map[string]any{
-					"type": "REST",
+					"type": "HTTP",
 					"port": int64(8080),
 				},
 			},

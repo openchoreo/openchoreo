@@ -204,7 +204,6 @@ func buildServiceURL(svc *serviceInfo, ep openchoreov1alpha1.WorkloadEndpoint) *
 func schemeForEndpointType(epType openchoreov1alpha1.EndpointType) string {
 	switch epType {
 	case openchoreov1alpha1.EndpointTypeHTTP,
-		openchoreov1alpha1.EndpointTypeREST,
 		openchoreov1alpha1.EndpointTypeGraphQL:
 		return schemeHTTP
 	case openchoreov1alpha1.EndpointTypeWebsocket:
