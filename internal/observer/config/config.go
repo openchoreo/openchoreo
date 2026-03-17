@@ -130,6 +130,9 @@ type UIDResolverConfig struct {
 	TLSInsecureSkipVerify bool `koanf:"tls.insecure.skip.verify"`
 	// Timeout is the HTTP client timeout for API calls
 	Timeout time.Duration `koanf:"timeout"`
+	// MaxAuthRetry is the maximum number of additional attempts after a 401
+	// response from openchoreo-api when resolving a resource UID.
+	MaxAuthRetry int `koanf:"max_auth_retry"`
 }
 
 // Load loads configuration from environment variables and defaults
@@ -215,6 +218,7 @@ func Load() (*Config, error) {
 		"UID_RESOLVER_OAUTH_CLIENT_SECRET":      "uid_resolver.oauth.client.secret",
 		"UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY": "uid_resolver.tls.insecure.skip.verify",
 		"UID_RESOLVER_TIMEOUT":                  "uid_resolver.timeout",
+		"UID_RESOLVER_MAX_AUTH_RETRY":           "uid_resolver.max_auth_retry",
 	}
 
 	// Environment variables that require string-to-boolean conversion
@@ -364,6 +368,7 @@ func getDefaults() map[string]interface{} {
 			"oauth.client.secret":      "openchoreo-observer-resource-reader-client-secret",
 			"tls.insecure.skip.verify": false,
 			"timeout":                  "30s",
+			"max_auth_retry":           2,
 		},
 		"loglevel": "info",
 	}
@@ -423,6 +428,9 @@ func (c *Config) validate() error {
 	}
 	if c.UIDResolver.Timeout <= 0 {
 		return fmt.Errorf("uid resolver timeout must be positive")
+	}
+	if c.UIDResolver.MaxAuthRetry < 0 {
+		return fmt.Errorf("uid resolver max_auth_retry must be non-negative")
 	}
 
 	c.Alerting.AlertStoreBackend = strings.ToLower(strings.TrimSpace(c.Alerting.AlertStoreBackend))

@@ -27,6 +27,7 @@ type tokenCache struct {
 }
 
 var ErrResourceNotFound = errors.New("resource not found")
+var ErrScopeAuthFailed = errors.New("observer scope resolution auth failed")
 
 // ResourceUIDResolver provides methods to resolve resource names to UIDs
 // by calling the openchoreo-api with OAuth2 client credentials authentication.
@@ -161,68 +162,93 @@ func (r *ResourceUIDResolver) fetchResourceUID(ctx context.Context, path string)
 		return "", fmt.Errorf("openchoreo API URL not configured")
 	}
 
-	// Get access token
-	token, err := r.getAccessToken(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to get access token: %w", err)
-	}
-
 	// Build request URL
 	reqURL := strings.TrimSuffix(r.config.OpenChoreoAPIURL, "/") + path
-
-	reqCtx, reqCancel := context.WithTimeout(ctx, r.config.Timeout)
-	defer reqCancel()
-
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, reqURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Accept", "application/json")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-
-	resp, err := r.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusNotFound {
-			return "", fmt.Errorf("%w: %s", ErrResourceNotFound, path)
+	for attempt := 0; attempt < (r.config.MaxAuthRetry + 1); attempt++ {
+		token, err := r.getAccessToken(ctx)
+		if err != nil {
+			return "", fmt.Errorf("%w: failed to obtain access token: %w", ErrScopeAuthFailed, err)
 		}
-		return "", fmt.Errorf("API returned status %d", resp.StatusCode)
+
+		reqCtx, reqCancel := context.WithTimeout(ctx, r.config.Timeout)
+
+		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, reqURL, nil)
+		if err != nil {
+			reqCancel()
+			return "", fmt.Errorf("failed to create request: %w", err)
+		}
+
+		req.Header.Set("Accept", "application/json")
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+
+		resp, err := r.httpClient.Do(req)
+		reqCancel()
+		if err != nil {
+			return "", fmt.Errorf("request failed: %w", err)
+		}
+
+		switch resp.StatusCode {
+		case http.StatusOK:
+			// Parse response to extract metadata.uid
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				resp.Body.Close()
+				return "", fmt.Errorf("failed to read response body: %w", err)
+			}
+			resp.Body.Close()
+
+			r.logger.Debug("Raw UID resolver response", "path", path, "status", resp.StatusCode, "body", string(body))
+
+			var response struct {
+				Metadata struct {
+					UID string `json:"uid"`
+				} `json:"metadata"`
+			}
+
+			if err := json.Unmarshal(body, &response); err != nil {
+				return "", fmt.Errorf("failed to decode response: %w", err)
+			}
+
+			if response.Metadata.UID == "" {
+				return "", fmt.Errorf("uid not found in response")
+			}
+
+			r.logger.Debug("Resolved resource UID",
+				"path", path,
+				"uid", response.Metadata.UID)
+
+			return response.Metadata.UID, nil
+
+		case http.StatusNotFound:
+			resp.Body.Close()
+			return "", fmt.Errorf("%w: %s", ErrResourceNotFound, path)
+
+		case http.StatusUnauthorized:
+			resp.Body.Close()
+
+			r.tokenMu.Lock()
+			r.tokenEntry = nil
+			r.tokenMu.Unlock()
+
+			remaining := r.config.MaxAuthRetry - attempt
+			if remaining > 0 {
+				r.logger.Debug("Received 401 from openchoreo-api; invalidating cached token and retrying",
+					"path", path, "attempt", attempt+1, "remaining_retries", remaining)
+				continue
+			}
+
+			r.logger.Error("Received 401 from openchoreo-api and retries are exhausted",
+				"path", path, "max_auth_retry", r.config.MaxAuthRetry)
+			return "", fmt.Errorf("%w: received 401 after %d attempt(s)", ErrScopeAuthFailed, r.config.MaxAuthRetry+1)
+
+		default:
+			resp.Body.Close()
+			return "", fmt.Errorf("API returned status %d", resp.StatusCode)
+		}
 	}
-
-	// Parse response to extract data.uid
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	r.logger.Debug("Raw UID resolver response", "path", path, "status", resp.StatusCode, "body", string(body))
-
-	var response struct {
-		Metadata struct {
-			UID string `json:"uid"`
-		} `json:"metadata"`
-	}
-
-	if err := json.Unmarshal(body, &response); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	if response.Metadata.UID == "" {
-		return "", fmt.Errorf("uid not found in response")
-	}
-
-	r.logger.Debug("Resolved resource UID",
-		"path", path,
-		"uid", response.Metadata.UID)
-
-	return response.Metadata.UID, nil
+	return "", fmt.Errorf("%w: retry loop exhausted", ErrScopeAuthFailed)
 }
 
 // getAccessToken returns a valid OAuth2 access token, fetching a new one if needed

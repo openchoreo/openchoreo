@@ -27,4 +27,7 @@ const (
 	ErrorCodeV1TracesRetrievalFailed = "OBS-V1-T-05"
 	ErrorCodeV1TracesInvalidRequest  = "OBS-V1-T-06"
 	ErrorCodeV1TracesSpanNotFound    = "OBS-V1-T-07"
+
+	// Scope resolution auth failure — shared across all APIs.
+	ErrorCodeV1ScopeAuthFailed = "OBS-V1-SCOPE-AUTH-FAILED"
 )

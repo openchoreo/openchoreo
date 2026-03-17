@@ -79,6 +79,15 @@ func (h *Handler) QueryTraces(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("Failed to query traces", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
+		case errors.Is(err, service.ErrScopeAuthFailed):
+			h.writeErrorResponse(
+				w,
+				http.StatusInternalServerError,
+				gen.InternalServerError,
+				types.ErrorCodeV1ScopeAuthFailed,
+				"Unable to resolve resource scope due to an internal authentication failure. Please try again or contact your administrator.",
+			)
+			return
 		case errors.Is(err, service.ErrTracesResolveSearchScope):
 			errorCode = types.ErrorCodeV1TracesResolverFailed
 		case errors.Is(err, service.ErrTracesRetrieval):
@@ -169,6 +178,15 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("Failed to query spans", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
+		case errors.Is(err, service.ErrScopeAuthFailed):
+			h.writeErrorResponse(
+				w,
+				http.StatusInternalServerError,
+				gen.InternalServerError,
+				types.ErrorCodeV1ScopeAuthFailed,
+				"Unable to resolve resource scope due to an internal authentication failure. Please try again or contact your administrator.",
+			)
+			return
 		case errors.Is(err, service.ErrTracesRetrieval):
 			errorCode = types.ErrorCodeV1TracesRetrievalFailed
 		case errors.Is(err, service.ErrTracesInvalidRequest):
