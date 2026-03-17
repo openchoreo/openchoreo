@@ -381,6 +381,15 @@ helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-ob
   --timeout 10m
 ```
 
+#### Install Observability Modules
+
+Install the required logs, metrics and tracing modules. Refer https://openchoreo.dev/modules for more details
+
+```bash
+kubectl wait -n openchoreo-observability-plane \
+  --for=condition=available --timeout=600s deployment --all
+```
+
 ### Register Observability Plane
 
 ```bash
@@ -411,18 +420,6 @@ kubectl patch clusterdataplane default --type merge \
 # If cluster workflow plane is installed:
 kubectl patch clusterworkflowplane default -n default --type merge \
   -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}'
-```
-
-### Enable Log Collection
-
-Enable Fluent Bit for log collection:
-
-```bash
-helm upgrade openchoreo-observability-plane install/helm/openchoreo-observability-plane \
-  --namespace openchoreo-observability-plane \
-  --reuse-values \
-  --set observability-logs-opensearch.fluent-bit.enabled=true \
-  --timeout 10m
 ```
 
 ## Port Mappings

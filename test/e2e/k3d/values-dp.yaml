@@ -6,6 +6,3 @@ gateway:
   httpsPort: 19443
   tls:
     enabled: false
-
-fluent-bit:
-  enabled: false

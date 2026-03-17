@@ -552,28 +552,6 @@ kubectl --context k3d-openchoreo-cp patch clusterworkflowplane default -n defaul
   -p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}'
 ```
 
-### Enable logs collection in the data plane
-
-```bash
-helm upgrade openchoreo-data-plane install/helm/openchoreo-data-plane \
-  --kube-context k3d-openchoreo-dp \
-  --namespace openchoreo-data-plane \
-  --reuse-values \
-  --set fluent-bit.enabled=true \
-  --timeout 10m
-```
-
-### Enable logs collection in the workflow plane (optional)
-
-```bash
-helm upgrade openchoreo-workflow-plane install/helm/openchoreo-workflow-plane \
-  --kube-context k3d-openchoreo-wp \
-  --namespace openchoreo-workflow-plane \
-  --reuse-values \
-  --set fluent-bit.enabled=true \
-  --timeout 10m
-```
-
 ## Port Mappings
 
 | Plane               | Cluster           | Kube API | Port Range |

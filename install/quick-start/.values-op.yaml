@@ -4,19 +4,6 @@
 global:
   installationMode: quickStart
 
-fluent-bit:
-  enabled: false
-
-opentelemetry-collector:
-  enabled: false
-
-openSearch:
-  enabled: false
-
-# OpenSearch cluster configuration
-openSearchCluster:
-  enabled: false
-
 # OpenChoreo Observer Service Configuration
 observer:
   secretName: observer-secret

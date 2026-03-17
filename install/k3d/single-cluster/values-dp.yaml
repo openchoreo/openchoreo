@@ -6,14 +6,3 @@ gateway:
   httpsPort: 19443
   tls:
     enabled: false
-
-fluent-bit:
-  # Skip Secret-based envFrom for local dev, inject env vars directly
-  envFrom: []
-  env:
-    - name: OPENSEARCH_HOST
-      value: opensearch
-    - name: OPENSEARCH_USER
-      value: admin
-    - name: OPENSEARCH_PASSWORD
-      value: ThisIsTheOpenSearchPassword1
