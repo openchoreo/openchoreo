@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
 // ResourceType indicates which type of resource is being validated
@@ -23,6 +24,7 @@ const (
 // CELValidator provides comprehensive CEL expression validation with AST analysis
 type CELValidator struct {
 	baseEnv      *cel.Env
+	typeProvider *apiservercel.DeclTypeProvider
 	resourceType ResourceType
 }
 
@@ -32,13 +34,14 @@ type CELValidator struct {
 // Provides schema-aware type checking when schemas are provided in opts.
 func NewCELValidator(resourceType ResourceType, opts SchemaOptions) (*CELValidator, error) {
 	var env *cel.Env
+	var provider *apiservercel.DeclTypeProvider
 	var err error
 
 	switch resourceType {
 	case ComponentTypeResource:
-		env, err = BuildComponentCELEnv(opts)
+		env, provider, err = BuildComponentCELEnv(opts)
 	case TraitResource:
-		env, err = BuildTraitCELEnv(opts)
+		env, provider, err = BuildTraitCELEnv(opts)
 	default:
 		return nil, fmt.Errorf("unknown resource type: %v", resourceType)
 	}
@@ -49,6 +52,7 @@ func NewCELValidator(resourceType ResourceType, opts SchemaOptions) (*CELValidat
 
 	return &CELValidator{
 		baseEnv:      env,
+		typeProvider: provider,
 		resourceType: resourceType,
 	}, nil
 }
@@ -121,4 +125,10 @@ func (v *CELValidator) ValidateIterableExpression(expr string, env *cel.Env) err
 // GetBaseEnv returns the base CEL environment for this validator
 func (v *CELValidator) GetBaseEnv() *cel.Env {
 	return v.baseEnv
+}
+
+// GetTypeProvider returns the DeclTypeProvider for this validator.
+// Used by forEach analysis to resolve map value types for field validation.
+func (v *CELValidator) GetTypeProvider() *apiservercel.DeclTypeProvider {
+	return v.typeProvider
 }

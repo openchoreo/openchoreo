@@ -144,7 +144,7 @@ spec:
               "secretKey": secret.name,
               "remoteRef": {
                 "key": secret.remoteRef.key,
-                "property": has(secret.remoteRef.property) ? secret.remoteRef.property : oc_omit()
+                ?"property": secret.remoteRef.?property
               }
             })}
     - id: secret-file-external

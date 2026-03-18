@@ -24,8 +24,8 @@ var schemaBasedFields = map[string]bool{
 
 // Cached field info derived from context types (excludes schema-based fields).
 var (
-	componentContextFields = decltype.ExtractFields(reflect.TypeOf(context.ComponentContext{}), schemaBasedFields)
-	traitContextFields     = decltype.ExtractFields(reflect.TypeOf(context.TraitContext{}), schemaBasedFields)
+	componentContextFields = decltype.ExtractFields(reflect.TypeFor[context.ComponentContext](), schemaBasedFields)
+	traitContextFields     = decltype.ExtractFields(reflect.TypeFor[context.TraitContext](), schemaBasedFields)
 )
 
 // SchemaOptions provides schema configuration for CEL environment and validation.
@@ -44,10 +44,12 @@ type SchemaOptions struct {
 // Variables are derived from ComponentContext struct fields:
 //   - parameters, environmentConfigs: Schema-aware types (or empty object if not provided)
 //   - metadata, dataplane, workload, configurations: Types derived via reflection
-func BuildComponentCELEnv(opts SchemaOptions) (*cel.Env, error) {
+//
+// Returns the environment and the DeclTypeProvider (for forEach value type resolution).
+func BuildComponentCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvider, error) {
 	baseEnv, err := createBaseEnv(true)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	numFields := len(componentContextFields) + len(schemaBasedFields)
@@ -72,21 +74,27 @@ func BuildComponentCELEnv(opts SchemaOptions) (*cel.Env, error) {
 	provider := apiservercel.NewDeclTypeProvider(declTypes...)
 	providerOpts, err := provider.EnvOptions(baseEnv.CELTypeProvider())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	varOpts = append(varOpts, providerOpts...)
 
-	return baseEnv.Extend(varOpts...)
+	env, err := baseEnv.Extend(varOpts...)
+	if err != nil {
+		return nil, nil, err
+	}
+	return env, provider, nil
 }
 
 // BuildTraitCELEnv creates a schema-aware CEL environment for trait validation.
 // Variables are derived from TraitContext struct fields:
 //   - parameters, environmentConfigs: Schema-aware types (or empty object if not provided)
 //   - trait, metadata, dataplane, workload, configurations: Types derived via reflection
-func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, error) {
+//
+// Returns the environment and the DeclTypeProvider (for forEach value type resolution).
+func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvider, error) {
 	baseEnv, err := createBaseEnv(true)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	numFields := len(traitContextFields) + len(schemaBasedFields)
@@ -111,11 +119,15 @@ func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, error) {
 	provider := apiservercel.NewDeclTypeProvider(declTypes...)
 	providerOpts, err := provider.EnvOptions(baseEnv.CELTypeProvider())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	varOpts = append(varOpts, providerOpts...)
 
-	return baseEnv.Extend(varOpts...)
+	env, err := baseEnv.Extend(varOpts...)
+	if err != nil {
+		return nil, nil, err
+	}
+	return env, provider, nil
 }
 
 // createBaseEnv creates the base CEL environment with standard extensions.

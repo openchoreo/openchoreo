@@ -406,7 +406,7 @@ files: |
 `,
 		},
 		{
-			name: "optional types with safe navigation",
+			name: "optional types with safe navigation - key absent",
 			template: `
 metadata:
   annotations: '${{"app": metadata.name, ?"custom": spec.?annotations.?custom}}'
@@ -418,6 +418,22 @@ metadata:
 			want: `metadata:
   annotations:
     app: my-app
+`,
+		},
+		{
+			name: "optional types with safe navigation - key present",
+			template: `
+metadata:
+  annotations: '${{"app": metadata.name, ?"custom": spec.?annotations.?custom}}'
+`,
+			inputs: `{
+  "metadata": {"name": "my-app"},
+  "spec": {"annotations": {"custom": "my-value"}}
+}`,
+			want: `metadata:
+  annotations:
+    app: my-app
+    custom: my-value
 `,
 		},
 		{

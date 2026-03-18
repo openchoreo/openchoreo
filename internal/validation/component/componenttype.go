@@ -76,7 +76,7 @@ func ValidateResourceTemplate(
 
 		// Extend environment with the loop variable
 		if forEachInfo != nil {
-			extendedEnv, err := ExtendEnvWithForEach(env, forEachInfo)
+			extendedEnv, err := ExtendEnvWithForEach(env, forEachInfo, validator.GetTypeProvider())
 			if err != nil {
 				allErrs = append(allErrs, field.InternalError(
 					basePath.Child("forEach"),

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
 // ForEachType represents the type of iteration in a forEach expression
@@ -46,6 +47,11 @@ type ForEachInfo struct {
 	// For maps: ObjectType with "key" and "value" fields
 	// For lists: The element type
 	VarType *cel.Type
+
+	// VarDeclType is the DeclType for the loop variable (only for ForEachMap).
+	// Used to register a proper object type with key/value fields so that
+	// CEL can validate field access on the loop variable.
+	VarDeclType *apiservercel.DeclType
 
 	// KeyType is the type of map keys (only for ForEachMap)
 	KeyType *cel.Type
@@ -105,11 +111,10 @@ func AnalyzeForEachExpression(forEachExpr string, varName string, env *cel.Env) 
 			info.ValueType = cel.DynType
 		}
 
-		// Create MapEntry type for the loop variable
-		// This matches CEL's behavior when iterating over maps
-		// For now, we'll use DynType since cel.ObjectType has different signature
-		// In practice, the map iteration will still work correctly
-		info.VarType = cel.DynType
+		// MapEntry DeclType is created in ExtendEnvWithForEach where we have
+		// access to the DeclTypeProvider for resolving the value's actual type.
+		// For now, just record the value type for later resolution.
+		info.VarType = cel.DynType // placeholder; replaced in ExtendEnvWithForEach
 
 	case types.ListKind:
 		// List iteration: loop variable type is the element type
@@ -135,13 +140,87 @@ func AnalyzeForEachExpression(forEachExpr string, varName string, env *cel.Env) 
 }
 
 // ExtendEnvWithForEach extends a CEL environment with the forEach loop variable.
-// The variable is typed appropriately based on the forEach analysis.
-func ExtendEnvWithForEach(env *cel.Env, info *ForEachInfo) (*cel.Env, error) {
+// For map iterations, creates a MapEntry DeclType with properly typed key/value fields
+// so CEL validates field access on the loop variable. The typeProvider is used to
+// resolve the map's value type for deep field validation.
+func ExtendEnvWithForEach(env *cel.Env, info *ForEachInfo, typeProvider *apiservercel.DeclTypeProvider) (*cel.Env, error) {
 	if info == nil {
 		return env, nil
+	}
+
+	if info.Type == ForEachMap {
+		return extendEnvWithMapForEach(env, info, typeProvider)
 	}
 
 	return env.Extend(
 		cel.Variable(info.VarName, info.VarType),
 	)
+}
+
+// extendEnvWithMapForEach creates a MapEntry DeclType with key (string) and value
+// (resolved from the provider if possible, otherwise dyn) fields, registers it,
+// and declares the loop variable with the proper type.
+func extendEnvWithMapForEach(env *cel.Env, info *ForEachInfo, typeProvider *apiservercel.DeclTypeProvider) (*cel.Env, error) {
+	// Resolve the value's DeclType from the provider if the value type is a known object type
+	valueDeclType := resolveValueDeclType(info.ValueType, typeProvider)
+
+	mapEntryType := apiservercel.NewObjectType("MapEntry", map[string]*apiservercel.DeclField{
+		"key":   apiservercel.NewDeclField("key", apiservercel.StringType, true, nil, nil),
+		"value": apiservercel.NewDeclField("value", valueDeclType, true, nil, nil),
+	})
+
+	info.VarDeclType = mapEntryType
+	info.VarType = mapEntryType.CelType()
+
+	provider := apiservercel.NewDeclTypeProvider(mapEntryType)
+	providerOpts, err := provider.EnvOptions(env.CELTypeProvider())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create type provider for forEach variable: %w", err)
+	}
+	opts := make([]cel.EnvOption, 0, 1+len(providerOpts))
+	opts = append(opts, cel.Variable(info.VarName, info.VarType))
+	opts = append(opts, providerOpts...)
+	return env.Extend(opts...)
+}
+
+// resolveValueDeclType creates a shadow DeclType for the map value that mirrors
+// the original type's field structure but uses unique names to avoid conflicts
+// with types already registered in the base environment. Recursively shadows
+// nested object types so that field validation works at all depths.
+func resolveValueDeclType(valueType *cel.Type, typeProvider *apiservercel.DeclTypeProvider) *apiservercel.DeclType {
+	if valueType == nil || typeProvider == nil {
+		return apiservercel.DynType
+	}
+
+	if valueType.Kind() != types.StructKind {
+		return apiservercel.DynType
+	}
+
+	typeName := valueType.String()
+	srcType, found := typeProvider.FindDeclType(typeName)
+	if !found || len(srcType.Fields) == 0 {
+		return apiservercel.DynType
+	}
+
+	return shadowDeclType(srcType, "MapEntry.value", make(map[string]bool))
+}
+
+// shadowDeclType recursively creates a shadow copy of a DeclType with a unique
+// name prefix. Nested object-type fields are shadowed recursively; primitive
+// and other types fall back to DynType.
+func shadowDeclType(src *apiservercel.DeclType, shadowName string, seen map[string]bool) *apiservercel.DeclType {
+	if seen[src.TypeName()] {
+		return apiservercel.DynType
+	}
+	seen[src.TypeName()] = true
+
+	fields := make(map[string]*apiservercel.DeclField, len(src.Fields))
+	for name, field := range src.Fields {
+		fieldType := apiservercel.DynType
+		if field.Type != nil && field.Type.IsObject() && len(field.Type.Fields) > 0 {
+			fieldType = shadowDeclType(field.Type, shadowName+"."+name, seen)
+		}
+		fields[name] = apiservercel.NewDeclField(name, fieldType, field.Required, nil, nil)
+	}
+	return apiservercel.NewObjectType(shadowName, fields)
 }
