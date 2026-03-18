@@ -103,10 +103,17 @@ check_component_status() {
         return
     fi
 
-    # || true prevents set -e from killing the script on kubectl failure
-    local pod_status
+    local pod_status rc
+    set +e
     pod_status=$(kubectl --context="$context" get pods -n "$namespace" -l "$label" \
-        -o jsonpath="{.items[*].status.conditions[?(@.type=='Ready')].status}" 2>/dev/null) || true
+        -o jsonpath="{.items[*].status.conditions[?(@.type=='Ready')].status}" 2>/dev/null)
+    rc=$?
+    set -e
+
+    if (( rc != 0 )); then
+        echo "unknown"
+        return
+    fi
 
     if [[ -z "$pod_status" ]]; then
         echo "not started"
