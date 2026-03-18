@@ -70,7 +70,7 @@ class Agent:
         auth: httpx.Auth,
         usage_callback: BaseCallbackHandler | None = None,
         context: dict[str, Any] | None = None,
-    ) -> Runnable:
+    ) -> tuple[Runnable, LoggingMiddleware | None]:
         tools: list[BaseTool] = []
 
         if self.tools:
@@ -96,6 +96,8 @@ class Agent:
         if self._use_summarization:
             middleware.append(SummarizationMiddleware(model=self.model, trigger=("fraction", 0.8)))
 
+        logging_mw = next((m for m in middleware if isinstance(m, LoggingMiddleware)), None)
+
         agent = create_agent(
             model=self.model,
             tools=tools,
@@ -109,7 +111,7 @@ class Agent:
             runnable_config["callbacks"] = [usage_callback]
 
         logger.info("Created agent with %d tools: %s", len(tools), [t.name for t in tools])
-        return agent.with_config(runnable_config)
+        return agent.with_config(runnable_config), logging_mw
 
 
 RCA_AGENT = Agent(
@@ -188,7 +190,7 @@ async def stream_chat(
         return json.dumps(event) + "\n"  # Newline for ndjson
 
     try:
-        agent = await CHAT_AGENT.create(
+        agent, chat_logging = await CHAT_AGENT.create(
             auth=BearerTokenAuth(token),
             context={"scope": scope, "report_context": report_context},
         )
@@ -232,6 +234,9 @@ async def stream_chat(
         except StructuredOutputValidationError:
             logger.warning("Structured output validation failed, using streamed content")
 
+        if chat_logging and (summary := chat_logging.tool_call_summary()):
+            logger.debug("Chat tool calls: %s", summary)
+
         # Emit actions event if actions exist
         if parser.actions:
             yield emit({"type": "actions", "actions": parser.actions})
@@ -270,7 +275,7 @@ async def run_analysis(
         try:
             usage_callback = UsageMetadataCallbackHandler()
 
-            rca_agent = await RCA_AGENT.create(
+            rca_agent, rca_logging = await RCA_AGENT.create(
                 auth=get_oauth2_auth(), usage_callback=usage_callback
             )
 
@@ -294,6 +299,8 @@ async def run_analysis(
             )
 
             rca_report: RCAReport = rca_result["structured_response"]
+            if rca_logging and (summary := rca_logging.tool_call_summary()):
+                logger.debug("RCA tool calls: %s", summary)
             logger.info("RCA completed: usage=%s", usage_callback.usage_metadata)
 
             report_data = rca_report.model_dump()
@@ -301,7 +308,7 @@ async def run_analysis(
             if settings.remed_agent and isinstance(rca_report.result, RootCauseIdentified):
                 try:
                     logger.info("Running remediation agent")
-                    remed_agent = await REMED_AGENT.create(
+                    remed_agent, remed_logging = await REMED_AGENT.create(
                         auth=get_oauth2_auth(),
                         usage_callback=usage_callback,
                         context={"scope": scope},
@@ -330,6 +337,8 @@ async def run_analysis(
                     )
 
                     remed_report: RemediationResult = remed_result["structured_response"]
+                    if remed_logging and (summary := remed_logging.tool_call_summary()):
+                        logger.debug("Remediation tool calls: %s", summary)
                     report_data["result"]["recommendations"]["recommended_actions"] = [
                         a.model_dump() for a in remed_report.recommended_actions
                     ]

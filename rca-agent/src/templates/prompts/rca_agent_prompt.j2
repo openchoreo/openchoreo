@@ -69,7 +69,7 @@ If instead the alerting component's own metrics show it is OOMKilled or crash-lo
 ## BEFORE PRODUCING YOUR FINAL REPORT
 You MUST NOT produce your report until all of the following are true:
 - You examined logs, metrics, or traces for the alerting component
-- You checked for related failures by examining sibling components or project-level logs around the alert timeframe
+- You called `get_component_release` to check the alerting component's declared dependencies and investigated any in-scope dependencies. If no dependencies were configured, you checked for related failures by examining sibling components or project-level logs around the alert timeframe
 - Your root causes identify the origin of the failure — whether that is the alerting component itself or an upstream dependency
 If any condition is not met, continue investigating.
 

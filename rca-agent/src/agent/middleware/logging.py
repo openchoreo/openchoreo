@@ -1,9 +1,11 @@
 # Copyright 2025 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import logging
 import time
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 from langchain.messages import ToolMessage
@@ -19,6 +21,7 @@ class LoggingMiddleware(AgentMiddleware):
         super().__init__()
         self.model_call_count: int = 0
         self.tool_call_count: int = 0
+        self.tool_calls: list[dict[str, Any]] = []
 
     async def awrap_model_call(
         self,
@@ -91,4 +94,11 @@ class LoggingMiddleware(AgentMiddleware):
         )
         logger.debug("Tool '%s' args: %s", tool_name, tool_args)
 
+        self.tool_calls.append({"name": tool_name, "args": tool_args, "elapsed": round(elapsed, 2)})
+
         return result
+
+    def tool_call_summary(self) -> str | None:
+        if not self.tool_calls:
+            return None
+        return json.dumps(self.tool_calls, default=str)
