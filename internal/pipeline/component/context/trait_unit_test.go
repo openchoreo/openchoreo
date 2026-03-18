@@ -224,8 +224,9 @@ func TestProcessTraitParameters_SchemaCache(t *testing.T) {
 		ParametersSchema: envConfigSchema,
 	})
 	require.NoError(t, err)
-	cache["my-trait:parameters"] = paramBundle
-	cache["my-trait:environmentConfigs"] = envConfigBundle
+	traitCacheKey := traitSchemaCacheKey(input.Trait)
+	setCachedSchemaBundle(cache, traitCacheKey+":parameters", paramBundle)
+	setCachedSchemaBundle(cache, traitCacheKey+":environmentConfigs", envConfigBundle)
 	input.SchemaCache = cache
 
 	// Poison the live trait schema so that rebuilding from scratch would fail.

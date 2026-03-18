@@ -148,10 +148,10 @@ type TraitContextInput struct {
 	// Optional - if not provided, connections context will be empty.
 	Connections ConnectionsData
 
-	// SchemaCache is an optional cache for schema bundles, keyed by trait name with suffix.
+	// SchemaCache is an optional cache for schema bundles, keyed by trait kind+name with suffix.
 	// Used to avoid rebuilding schemas for the same trait used multiple times.
 	// BuildTraitContext will check this cache before building and populate it after.
-	// Cache keys use format "{traitName}:parameters" and "{traitName}:environmentConfigs".
+	// Cache keys use format "{kind}:{traitName}:parameters" and "{kind}:{traitName}:environmentConfigs".
 	SchemaCache map[string]*SchemaBundle
 
 	// DataPlane contains the data plane configuration.

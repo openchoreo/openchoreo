@@ -9,6 +9,7 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 
+	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/schema"
 )
 
@@ -89,12 +90,11 @@ func (t *TraitContext) ToMap() map[string]any {
 // Parameters come from TraitInstance.Parameters only.
 // EnvironmentConfigs come from ReleaseBinding.Spec.TraitEnvironmentConfigs[instanceName] only.
 func processTraitParameters(input *TraitContextInput) (map[string]any, map[string]any, error) {
-	traitName := input.Trait.Name
+	traitCacheKey := traitSchemaCacheKey(input.Trait)
 
 	// Build or retrieve separate schema bundles for parameters and environmentConfigs
-	// Use cache keys with suffixes to distinguish between parameters and environmentConfigs schemas
-	parametersBundle := getCachedSchemaBundle(input.SchemaCache, traitName+":parameters")
-	envConfigsBundle := getCachedSchemaBundle(input.SchemaCache, traitName+":environmentConfigs")
+	parametersBundle := getCachedSchemaBundle(input.SchemaCache, traitCacheKey+":parameters")
+	envConfigsBundle := getCachedSchemaBundle(input.SchemaCache, traitCacheKey+":environmentConfigs")
 
 	// If either bundle is missing, build both in one call to share types unmarshaling
 	if parametersBundle == nil || envConfigsBundle == nil {
@@ -106,8 +106,8 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, map[strin
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to build trait schemas: %w", err)
 		}
-		setCachedSchemaBundle(input.SchemaCache, traitName+":parameters", parametersBundle)
-		setCachedSchemaBundle(input.SchemaCache, traitName+":environmentConfigs", envConfigsBundle)
+		setCachedSchemaBundle(input.SchemaCache, traitCacheKey+":parameters", parametersBundle)
+		setCachedSchemaBundle(input.SchemaCache, traitCacheKey+":environmentConfigs", envConfigsBundle)
 	}
 
 	// Extract trait instance parameters (for parameters section only)
@@ -160,6 +160,12 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, map[strin
 	}
 
 	return parameters, envConfigs, nil
+}
+
+// traitSchemaCacheKey returns a cache key that includes both kind and name,
+// so that a Trait and ClusterTrait with the same name get separate cache entries.
+func traitSchemaCacheKey(trait *v1alpha1.Trait) string {
+	return trait.Kind + ":" + trait.Name
 }
 
 // getCachedSchemaBundle retrieves a schema bundle from the cache

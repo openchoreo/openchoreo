@@ -168,11 +168,11 @@ func BuildEmbeddedTraitContext(input *EmbeddedTraitContextInput) (*TraitContext,
 // Parameters: Come from the resolved bindings (already concrete values from CEL evaluation).
 // EnvironmentConfigs: Come from the resolved bindings (already concrete values from CEL evaluation).
 func processEmbeddedTraitParameters(input *EmbeddedTraitContextInput) (map[string]any, map[string]any, error) {
-	traitName := input.Trait.Name
+	traitCacheKey := traitSchemaCacheKey(input.Trait)
 
 	// Build or retrieve schema bundles
-	parametersBundle := getCachedSchemaBundle(input.SchemaCache, traitName+":parameters")
-	envConfigsBundle := getCachedSchemaBundle(input.SchemaCache, traitName+":environmentConfigs")
+	parametersBundle := getCachedSchemaBundle(input.SchemaCache, traitCacheKey+":parameters")
+	envConfigsBundle := getCachedSchemaBundle(input.SchemaCache, traitCacheKey+":environmentConfigs")
 
 	if parametersBundle == nil || envConfigsBundle == nil {
 		var err error
@@ -183,8 +183,8 @@ func processEmbeddedTraitParameters(input *EmbeddedTraitContextInput) (map[strin
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to build trait schemas: %w", err)
 		}
-		setCachedSchemaBundle(input.SchemaCache, traitName+":parameters", parametersBundle)
-		setCachedSchemaBundle(input.SchemaCache, traitName+":environmentConfigs", envConfigsBundle)
+		setCachedSchemaBundle(input.SchemaCache, traitCacheKey+":parameters", parametersBundle)
+		setCachedSchemaBundle(input.SchemaCache, traitCacheKey+":environmentConfigs", envConfigsBundle)
 	}
 
 	// Process parameters: prune, apply defaults, validate
