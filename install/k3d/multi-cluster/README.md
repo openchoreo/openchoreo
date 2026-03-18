@@ -111,23 +111,6 @@ kubectl --context k3d-openchoreo-cp wait -n openchoreo-control-plane \
   --for=condition=available --timeout=300s deployment --all
 ```
 
-### Extract Cluster Gateway CA
-
-Wait for cert-manager to issue the cluster-gateway CA certificate, then populate the ConfigMap that controller-manager and cluster-agents use to verify the gateway server.
-
-```bash
-kubectl --context k3d-openchoreo-cp wait -n openchoreo-control-plane \
-  --for=condition=Ready certificate/cluster-gateway-ca --timeout=120s
-
-kubectl --context k3d-openchoreo-cp get secret cluster-gateway-ca \
-  -n openchoreo-control-plane \
-  -o jsonpath='{.data.ca\.crt}' | base64 -d | \
-  kubectl --context k3d-openchoreo-cp create configmap cluster-gateway-ca \
-    --from-file=ca.crt=/dev/stdin \
-    -n openchoreo-control-plane \
-    --dry-run=client -o yaml | kubectl --context k3d-openchoreo-cp apply -f -
-```
-
 ## 2. Install Default Resources
 
 ```bash
