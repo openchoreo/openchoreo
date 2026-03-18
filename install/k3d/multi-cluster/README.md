@@ -115,7 +115,7 @@ kubectl --context k3d-openchoreo-cp wait -n openchoreo-control-plane \
 
 ```bash
 kubectl --context k3d-openchoreo-cp apply -f samples/getting-started/all.yaml
-kubectl --context k3d-openchoreo-cp label namespace default openchoreo.dev/control-plane=true --overwrite
+kubectl --context k3d-openchoreo-cp label namespace default openchoreo.dev/control-plane=true
 ```
 
 ## 3. Data Plane
@@ -522,24 +522,7 @@ kubectl --context k3d-openchoreo-op wait -n openchoreo-observability-plane \
 
 #### Install Observability Modules
 
-Install the logs and metrics modules. See [openchoreo.dev/modules](https://openchoreo.dev/modules) for more details.
-
-```bash
-helm upgrade --install observability-logs-opensearch \
-  oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
-  --kube-context k3d-openchoreo-op \
-  --namespace openchoreo-observability-plane \
-  --version 0.3.8 \
-  --set openSearchSetup.openSearchSecretName=opensearch-admin-credentials \
-  --wait --timeout 10m
-
-helm upgrade --install observability-metrics-prometheus \
-  oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
-  --kube-context k3d-openchoreo-op \
-  --namespace openchoreo-observability-plane \
-  --version 0.2.4 \
-  --wait --timeout 10m
-```
+Install the required logs, metrics and tracing modules. Refer https://openchoreo.dev/modules for more details.
 
 ### Register Observability Plane
 
