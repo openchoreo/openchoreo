@@ -167,8 +167,8 @@ func TestValidateParams(t *testing.T) {
 		},
 		// Log params: deployment type valid
 		{
-			name:    "log params deployment valid",
-			cmdType: CmdLogs,
+			name:     "log params deployment valid",
+			cmdType:  CmdLogs,
 			resource: ResourceLogs,
 			params: api.LogParams{
 				Type: "deployment", Namespace: "ns", Project: "proj",
@@ -196,8 +196,8 @@ func TestValidateParams(t *testing.T) {
 		},
 		// Workload create: valid
 		{
-			name:    "workload create valid",
-			cmdType: CmdCreate,
+			name:     "workload create valid",
+			cmdType:  CmdCreate,
 			resource: ResourceWorkload,
 			params: api.CreateWorkloadParams{
 				NamespaceName: "ns", ProjectName: "proj",
@@ -207,8 +207,8 @@ func TestValidateParams(t *testing.T) {
 		},
 		// Workload create: missing image
 		{
-			name:    "workload create missing image",
-			cmdType: CmdCreate,
+			name:     "workload create missing image",
+			cmdType:  CmdCreate,
 			resource: ResourceWorkload,
 			params: api.CreateWorkloadParams{
 				NamespaceName: "ns", ProjectName: "proj",
