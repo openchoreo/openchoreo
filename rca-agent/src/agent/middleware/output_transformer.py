@@ -372,9 +372,9 @@ class OutputTransformerMiddleware(AgentMiddleware):
             logger.debug(f"Processed content length: {len(processed_text)}")
         except Exception as e:
             logger.error(f"Error processing tool output: {e}", exc_info=True)
-            processed_content = result.content
+            return result
 
-        return ToolMessage(
+        return ToolMessage(  # type: ignore[no-matching-overload]
             content=processed_content,
             tool_call_id=result.tool_call_id,
             name=result.name,

@@ -93,7 +93,6 @@ class SQLReportBackend(ReportBackend):
         update_values: dict[str, Any] = {
             "status": status,
             "summary": summary,
-            "timestamp": ts_str,
             "environment_uid": environment_uid,
             "project_uid": project_uid,
         }

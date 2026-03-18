@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+from collections.abc import Callable
 
 import httpx
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel, Field
 
 from src.clients.openchoreo_api import get
@@ -63,6 +64,11 @@ class TOOLS:
         "patch_releasebinding", server=OPENCHOREO, active_form="Patching release binding..."
     )
     GET_RESOURCE = Tool("get_resource", server=OPENCHOREO, active_form="Fetching resource...")
+    GET_COMPONENT_RELEASE = Tool(
+        "get_component_release",
+        server=OPENCHOREO,
+        active_form="Fetching component release...",
+    )
     GET_COMPONENT_RELEASE_SCHEMA = Tool(
         "get_component_release_schema",
         server=OPENCHOREO,
@@ -222,7 +228,7 @@ def create_list_components_tool(auth: httpx.Auth) -> StructuredTool:
     )
 
 
-ALL_TOOL_FACTORIES = [
+ALL_TOOL_FACTORIES: list[Callable[..., BaseTool]] = [
     create_list_release_bindings_tool,
     create_get_component_workloads_tool,
     create_get_component_release_schema_tool,

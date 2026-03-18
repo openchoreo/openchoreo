@@ -23,7 +23,7 @@ def _get_env() -> Environment:
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        _env.tests["match"] = _match_test
+        _env.tests["match"] = _match_test  # type: ignore[assignment]
     return _env
 
 

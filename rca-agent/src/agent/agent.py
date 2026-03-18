@@ -54,7 +54,7 @@ class Agent:
         response_format: type[BaseModel],
         recursion_limit: int,
         use_summarization: bool = False,
-        tool_factories: list[Callable[[httpx.Auth], BaseTool]] | None = None,
+        tool_factories: list[Callable[..., BaseTool]] | None = None,
     ):
         self.template = template
         self.tools = tools
@@ -119,8 +119,8 @@ RCA_AGENT = Agent(
         TOOLS.QUERY_RESOURCE_METRICS,
         TOOLS.QUERY_TRACES,
         TOOLS.QUERY_TRACE_SPANS,
-        # TOOLS.LIST_PROJECTS,
         TOOLS.LIST_COMPONENTS,
+        TOOLS.GET_COMPONENT_RELEASE,
     },
     middleware=[
         LoggingMiddleware,
@@ -152,7 +152,6 @@ CHAT_AGENT = Agent(
         TOOLS.QUERY_RESOURCE_METRICS,
         TOOLS.QUERY_TRACES,
         TOOLS.QUERY_TRACE_SPANS,
-        # TOOLS.LIST_PROJECTS,
         TOOLS.LIST_COMPONENTS,
     },
     middleware=[
