@@ -324,8 +324,18 @@ func componentReleaseDetail(cr *openchoreov1alpha1.ComponentRelease) map[string]
 	m := extractCommonMeta(cr)
 	m["projectName"] = cr.Spec.Owner.ProjectName
 	m["componentName"] = cr.Spec.Owner.ComponentName
+	m["componentType"] = map[string]any{
+		"kind": string(cr.Spec.ComponentType.Kind),
+		"name": cr.Spec.ComponentType.Name,
+	}
 	m["workloadType"] = cr.Spec.ComponentType.Spec.WorkloadType
 	m["image"] = cr.Spec.Workload.Container.Image
+	if len(cr.Spec.Workload.Endpoints) > 0 {
+		m["endpoints"] = cr.Spec.Workload.Endpoints
+	}
+	if cr.Spec.Workload.Dependencies != nil {
+		m["dependencies"] = cr.Spec.Workload.Dependencies
+	}
 	if cr.Spec.ComponentProfile != nil && cr.Spec.ComponentProfile.Parameters != nil {
 		m["parameters"] = rawExtensionToAny(cr.Spec.ComponentProfile.Parameters)
 	}
@@ -372,6 +382,15 @@ func releaseBindingDetail(rb *openchoreov1alpha1.ReleaseBinding) map[string]any 
 		m["workloadOverrides"] = rb.Spec.WorkloadOverrides
 	}
 	m["endpoints"] = rb.Status.Endpoints
+	if len(rb.Status.ConnectionTargets) > 0 {
+		m["connectionTargets"] = rb.Status.ConnectionTargets
+	}
+	if len(rb.Status.ResolvedConnections) > 0 {
+		m["resolvedConnections"] = rb.Status.ResolvedConnections
+	}
+	if len(rb.Status.PendingConnections) > 0 {
+		m["pendingConnections"] = rb.Status.PendingConnections
+	}
 	setIfNotEmpty(m, "status", readyStatus(rb.Status.Conditions))
 	return m
 }
