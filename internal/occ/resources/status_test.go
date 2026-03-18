@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -116,9 +117,7 @@ func TestGetResourceStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := GetResourceStatus(tt.conditions, tt.priorityConditions, tt.defaultStatus, tt.readyStatus, tt.notReadyStatus)
-			if got != tt.want {
-				t.Errorf("GetResourceStatus() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -165,10 +164,7 @@ func TestGetReadyStatus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetReadyStatus(tt.conditions, tt.defaultStatus, tt.readyStatus, tt.notReadyStatus)
-			if got != tt.want {
-				t.Errorf("GetReadyStatus() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, GetReadyStatus(tt.conditions, tt.defaultStatus, tt.readyStatus, tt.notReadyStatus))
 		})
 	}
 }

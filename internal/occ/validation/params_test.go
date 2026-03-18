@@ -4,8 +4,10 @@
 package validation
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
@@ -474,13 +476,14 @@ func TestValidateParams(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateParams(tt.cmdType, tt.resource, tt.params)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateParams() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
 				return
 			}
-			if err != nil && tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-				t.Errorf("error %q does not contain %q", err.Error(), tt.errMsg)
-			}
+			require.NoError(t, err)
 		})
 	}
 }

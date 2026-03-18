@@ -4,8 +4,10 @@
 package validation
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCheckRequiredFields(t *testing.T) {
@@ -32,9 +34,7 @@ func TestCheckRequiredFields(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := checkRequiredFields(tt.fields); got != tt.want {
-				t.Errorf("checkRequiredFields() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, checkRequiredFields(tt.fields))
 		})
 	}
 }
@@ -90,24 +90,15 @@ func TestGenerateHelpError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := generateHelpError(tt.cmdType, tt.resource, tt.fields)
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			msg := err.Error()
+			require.Error(t, err)
 			for _, sub := range tt.wantSubstrs {
-				if !strings.Contains(msg, sub) {
-					t.Errorf("error %q does not contain %q", msg, sub)
-				}
+				assert.Contains(t, err.Error(), sub)
 			}
 		})
 	}
 }
 
 func TestPluralS(t *testing.T) {
-	if got := pluralS(1); got != "" {
-		t.Errorf("pluralS(1) = %q, want %q", got, "")
-	}
-	if got := pluralS(2); got != "s" {
-		t.Errorf("pluralS(2) = %q, want %q", got, "s")
-	}
+	assert.Equal(t, "", pluralS(1))
+	assert.Equal(t, "s", pluralS(2))
 }
