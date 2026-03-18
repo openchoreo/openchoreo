@@ -527,22 +527,3 @@ func RemoveOmittedFields(data any) any {
 		return v
 	}
 }
-
-// IsMissingDataError checks if an error indicates missing data during CEL evaluation.
-// This handles CEL runtime errors for missing keys and compile-time errors for
-// undefined variables. These errors are used for graceful degradation in optional
-// contexts like includeWhen and where clauses.
-//
-// CEL returns:
-//   - "no such key: <key>" for missing map keys/fields at runtime
-//   - "undeclared reference to '<var>'" for undefined variables at compile time
-func IsMissingDataError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// Check for actual CEL error messages
-	msg := err.Error()
-	return strings.Contains(msg, "no such key") ||
-		strings.Contains(msg, "undeclared reference")
-}

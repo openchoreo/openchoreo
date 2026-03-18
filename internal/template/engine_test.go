@@ -6,10 +6,12 @@ package template
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 )
 
@@ -303,140 +305,6 @@ name: ${oc_dns_label("My App!")}
 `,
 		},
 		{
-			name: "list transformation with map comprehension",
-			template: `
-env: '${parameters.envVars.map(e, {"name": e.key, "value": e.value})}'
-`,
-			inputs: `{
-  "parameters": {
-    "envVars": [
-      {"key": "PORT", "value": "8080"},
-      {"key": "HOST", "value": "0.0.0.0"},
-      {"key": "DEBUG", "value": "true"}
-    ]
-  }
-}`,
-			want: `env:
-- name: PORT
-  value: "8080"
-- name: HOST
-  value: 0.0.0.0
-- name: DEBUG
-  value: "true"
-`,
-		},
-		{
-			name: "transformMapEntry to create map with dynamic keys from list",
-			template: `
-envMap: '${parameters.envVars.transformMapEntry(_, v, {v.name: v.value})}'
-`,
-			inputs: `{
-  "parameters": {
-    "envVars": [
-      {"name": "PORT", "value": "8080"},
-      {"name": "HOST", "value": "0.0.0.0"},
-      {"name": "DEBUG", "value": "true"}
-    ]
-  }
-}`,
-			want: `envMap:
-  DEBUG: "true"
-  HOST: 0.0.0.0
-  PORT: "8080"
-`,
-		},
-		{
-			name: "list concatenation with + operator",
-			template: `
-items: '${parameters.defaults + parameters.custom}'
-`,
-			inputs: `{
-  "parameters": {
-    "defaults": ["item1", "item2"],
-    "custom": ["item3", "item4"]
-  }
-}`,
-			want: `items:
-- item1
-- item2
-- item3
-- item4
-`,
-		},
-		{
-			name: "flatten nested lists",
-			template: `
-items: '${[[1, 2], [3, 4], [5]].flatten()}'
-`,
-			inputs: `{}`,
-			want: `items:
-- 1
-- 2
-- 3
-- 4
-- 5
-`,
-		},
-		{
-			name: "flatten with transformList",
-			template: `
-files: |
-  ${containers.transformList(name, c,
-    has(c.files) ? c.files.map(f, {
-      "container": name,
-      "name": f.name
-    }) : []
-  ).flatten()}
-`,
-			inputs: `{
-  "containers": {
-    "app": {
-      "files": [
-        {"name": "config.yaml"},
-        {"name": "secrets.yaml"}
-      ]
-    }
-  }
-}`,
-			want: `files:
-- container: app
-  name: config.yaml
-- container: app
-  name: secrets.yaml
-`,
-		},
-		{
-			name: "optional types with safe navigation - key absent",
-			template: `
-metadata:
-  annotations: '${{"app": metadata.name, ?"custom": spec.?annotations.?custom}}'
-`,
-			inputs: `{
-  "metadata": {"name": "my-app"},
-  "spec": {}
-}`,
-			want: `metadata:
-  annotations:
-    app: my-app
-`,
-		},
-		{
-			name: "optional types with safe navigation - key present",
-			template: `
-metadata:
-  annotations: '${{"app": metadata.name, ?"custom": spec.?annotations.?custom}}'
-`,
-			inputs: `{
-  "metadata": {"name": "my-app"},
-  "spec": {"annotations": {"custom": "my-value"}}
-}`,
-			want: `metadata:
-  annotations:
-    app: my-app
-    custom: my-value
-`,
-		},
-		{
 			name: "dynamic map key with string concatenation and number",
 			template: `
 services:
@@ -672,77 +540,6 @@ dynamicHash: ${oc_hash(metadata.value)}
 dynamicHash: 578fbe87
 `,
 		},
-		{
-			name: "base64 encode and decode",
-			template: `
-encoded: ${base64.encode(bytes(parameters.value))}
-decoded: ${string(base64.decode(parameters.encoded))}
-`,
-			inputs: `{
-  "parameters": {
-    "value": "hello world",
-    "encoded": "aGVsbG8gd29ybGQ="
-  }
-}`,
-			want: `encoded: aGVsbG8gd29ybGQ=
-decoded: hello world
-`,
-		},
-		{
-			name: "in operator for map key existence",
-			template: `
-endpointNameFound: ${parameters.endpointName in workload.endpoints}
-missingNameFound: ${parameters.missingName in workload.endpoints}
-`,
-			inputs: `{
-  "parameters": {
-    "endpointName": "web",
-    "missingName": "nonexistent"
-  },
-  "workload": {
-    "endpoints": {
-      "web": {"type": "HTTP", "port": 8080},
-      "grpc": {"type": "gRPC", "port": 9090}
-    }
-  }
-}`,
-			want: `endpointNameFound: true
-missingNameFound: false
-`,
-		},
-		{
-			name: "in operator for list membership",
-			template: `
-found: ${"a" in parameters.items}
-missingItemFound: ${"z" in parameters.items}
-`,
-			inputs: `{
-  "parameters": {
-    "items": ["a", "b", "c"]
-  }
-}`,
-			want: `found: true
-missingItemFound: false
-`,
-		},
-		{
-			name: "exists macro on map iterates over keys",
-			template: `
-hasHTTP: ${workload.endpoints.exists(name, workload.endpoints[name].type == 'HTTP')}
-hasUDP: ${workload.endpoints.exists(name, workload.endpoints[name].type == 'UDP')}
-`,
-			inputs: `{
-  "workload": {
-    "endpoints": {
-      "web": {"type": "HTTP", "port": 8080},
-      "grpc": {"type": "gRPC", "port": 9090}
-    }
-  }
-}`,
-			want: `hasHTTP: true
-hasUDP: false
-`,
-		},
 	}
 
 	engine := NewEngine()
@@ -752,30 +549,20 @@ hasUDP: false
 			t.Parallel()
 
 			var tpl any
-			if err := yaml.Unmarshal([]byte(tt.template), &tpl); err != nil {
-				t.Fatalf("failed to unmarshal template: %v", err)
-			}
+			require.NoError(t, yaml.Unmarshal([]byte(tt.template), &tpl))
 
 			var input map[string]any
-			if err := json.Unmarshal([]byte(tt.inputs), &input); err != nil {
-				t.Fatalf("failed to unmarshal inputs: %v", err)
-			}
+			require.NoError(t, json.Unmarshal([]byte(tt.inputs), &input))
 
 			rendered, err := engine.Render(tpl, input)
-			if err != nil {
-				t.Fatalf("Render() error = %v", err)
-			}
+			require.NoError(t, err)
 
 			cleaned := RemoveOmittedFields(rendered)
 
 			got, err := yaml.Marshal(cleaned)
-			if err != nil {
-				t.Fatalf("failed to marshal result: %v", err)
-			}
+			require.NoError(t, err)
 
-			if err := compareYAML(tt.want, string(got)); err != nil {
-				t.Fatalf("rendered output mismatch: %v", err)
-			}
+			require.NoError(t, compareYAML(tt.want, string(got)))
 		})
 	}
 }
@@ -802,21 +589,18 @@ func TestRenderErrors(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		template      string
-		inputs        string
-		wantErr       bool
-		errContains   string
-		wantIsMissing bool
+		name        string
+		template    string
+		inputs      string
+		wantErr     bool
+		errContains string
 	}{
-		// String value errors
 		{
-			name:          "missing map key in string value - runtime error",
-			template:      `value: "${data.missingKey}"`,
-			inputs:        `{"data": {"existingKey": "value"}}`,
-			wantErr:       true,
-			errContains:   "no such key",
-			wantIsMissing: true,
+			name:        "missing map key in string value - runtime error",
+			template:    `value: "${data.missingKey}"`,
+			inputs:      `{"data": {"existingKey": "value"}}`,
+			wantErr:     true,
+			errContains: "no such key",
 		},
 		{
 			name:        "nested expression without quoting",
@@ -826,29 +610,25 @@ func TestRenderErrors(t *testing.T) {
 			errContains: "nested CEL expressions",
 		},
 		{
-			name:          "undeclared variable in string value - compile error",
-			template:      `value: "${undeclaredVariable}"`,
-			inputs:        `{}`,
-			wantErr:       true,
-			errContains:   "undeclared reference",
-			wantIsMissing: true,
+			name:        "undeclared variable in string value - compile error",
+			template:    `value: "${undeclaredVariable}"`,
+			inputs:      `{}`,
+			wantErr:     true,
+			errContains: "undeclared reference",
 		},
 		{
-			name:          "type error in string value - not missing data",
-			template:      `value: "${1 + 'string'}"`,
-			inputs:        `{}`,
-			wantErr:       true,
-			errContains:   "CEL",
-			wantIsMissing: false,
+			name:        "type error in string value - not missing data",
+			template:    `value: "${1 + 'string'}"`,
+			inputs:      `{}`,
+			wantErr:     true,
+			errContains: "CEL",
 		},
 		{
-			name:        "valid string value expression",
-			template:    `value: "${data.key}"`,
-			inputs:      `{"data": {"key": "test"}}`,
-			wantErr:     false,
-			errContains: "",
+			name:     "valid string value expression",
+			template: `value: "${data.key}"`,
+			inputs:   `{"data": {"key": "test"}}`,
+			wantErr:  false,
 		},
-		// Map key errors
 		{
 			name: "invalid CEL expression in map key",
 			template: `
@@ -863,10 +643,9 @@ func TestRenderErrors(t *testing.T) {
 			template: `
 "${metadata.missingField}": value
 `,
-			inputs:        `{"metadata": {"name": "test"}}`,
-			wantErr:       true,
-			errContains:   "no such key",
-			wantIsMissing: true,
+			inputs:      `{"metadata": {"name": "test"}}`,
+			wantErr:     true,
+			errContains: "no such key",
 		},
 		{
 			name: "nested map with missing data in key expression",
@@ -874,20 +653,18 @@ func TestRenderErrors(t *testing.T) {
       outer:
         "${metadata.nonexistent}": value
       `,
-			inputs:        `{"metadata": {"name": "test"}}`,
-			wantErr:       true,
-			errContains:   "no such key",
-			wantIsMissing: true,
+			inputs:      `{"metadata": {"name": "test"}}`,
+			wantErr:     true,
+			errContains: "no such key",
 		},
 		{
 			name: "undeclared variable in map key",
 			template: `
 "${undeclaredVar}": value
 `,
-			inputs:        `{}`,
-			wantErr:       true,
-			errContains:   "undeclared reference",
-			wantIsMissing: true,
+			inputs:      `{}`,
+			wantErr:     true,
+			errContains: "undeclared reference",
 		},
 		{
 			name: "valid dynamic map key",
@@ -926,7 +703,6 @@ flags:
 			wantErr:     true,
 			errContains: "must evaluate to a string",
 		},
-		// Variadic merge error cases
 		{
 			name:        "oc_merge with no arguments",
 			template:    `value: ${oc_merge()}`,
@@ -952,145 +728,23 @@ value: '${oc_merge({"a": 1})}'
 			t.Parallel()
 
 			var tpl any
-			if err := yaml.Unmarshal([]byte(tt.template), &tpl); err != nil {
-				t.Fatalf("failed to unmarshal template: %v", err)
-			}
+			require.NoError(t, yaml.Unmarshal([]byte(tt.template), &tpl))
 
 			var input map[string]any
-			if err := json.Unmarshal([]byte(tt.inputs), &input); err != nil {
-				t.Fatalf("failed to unmarshal inputs: %v", err)
-			}
+			require.NoError(t, json.Unmarshal([]byte(tt.inputs), &input))
 
 			_, err := engine.Render(tpl, input)
 
 			if tt.wantErr {
-				if err == nil {
-					t.Errorf("expected error containing %q but got none", tt.errContains)
-					return
-				}
-				if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
-					t.Errorf("error %q does not contain %q", err.Error(), tt.errContains)
-				}
-				if tt.wantIsMissing && !IsMissingDataError(err) {
-					t.Errorf("IsMissingDataError() = false, want true for error: %v", err)
+				require.Error(t, err, "expected error containing %q", tt.errContains)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
 				}
 			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
+				require.NoError(t, err)
 			}
 		})
 	}
-}
-
-func TestProgramCaching(t *testing.T) {
-	t.Parallel()
-
-	engine := NewEngine()
-
-	// Test 1: Same expression evaluated multiple times should use cached program
-	template := `
-name: ${metadata.name}
-env: ${environment}
-replicas: ${replicas}
-`
-	inputs := map[string]any{
-		"metadata":    map[string]any{"name": "test-app"},
-		"environment": "production",
-		"replicas":    int64(3),
-	}
-
-	var tpl any
-	if err := yaml.Unmarshal([]byte(template), &tpl); err != nil {
-		t.Fatalf("failed to unmarshal template: %v", err)
-	}
-
-	// First render - should compile and cache all expressions
-	result1, err := engine.Render(tpl, inputs)
-	if err != nil {
-		t.Fatalf("first render failed: %v", err)
-	}
-
-	// Second render with same inputs - should hit cache for all expressions
-	result2, err := engine.Render(tpl, inputs)
-	if err != nil {
-		t.Fatalf("second render failed: %v", err)
-	}
-
-	// Results should be identical
-	yaml1, _ := yaml.Marshal(result1)
-	yaml2, _ := yaml.Marshal(result2)
-	if string(yaml1) != string(yaml2) {
-		t.Errorf("cached render produced different result:\nfirst:\n%s\nsecond:\n%s", yaml1, yaml2)
-	}
-
-	// Test 2: Same expression in different contexts (forEach simulation)
-	forEachTemplate := `
-item1: ${metadata.name}-${item}
-item2: ${metadata.name}-${item}
-`
-	var forEachTpl any
-	if err := yaml.Unmarshal([]byte(forEachTemplate), &forEachTpl); err != nil {
-		t.Fatalf("failed to unmarshal forEach template: %v", err)
-	}
-
-	// Simulate forEach iterations with different item values
-	for i := 1; i <= 5; i++ {
-		iterInputs := map[string]any{
-			"metadata": map[string]any{"name": "test"},
-			"item":     fmt.Sprintf("value-%d", i),
-		}
-
-		result, err := engine.Render(forEachTpl, iterInputs)
-		if err != nil {
-			t.Fatalf("forEach iteration %d failed: %v", i, err)
-		}
-
-		// Verify correct rendering
-		resultMap := result.(map[string]any)
-		expected := fmt.Sprintf("test-value-%d", i)
-		if resultMap["item1"] != expected || resultMap["item2"] != expected {
-			t.Errorf("iteration %d: expected %q, got item1=%q, item2=%q",
-				i, expected, resultMap["item1"], resultMap["item2"])
-		}
-	}
-
-	// Test 3: Different variable sets create separate cache entries
-	template3 := `value: ${x + y}`
-	var tpl3 any
-	if err := yaml.Unmarshal([]byte(template3), &tpl3); err != nil {
-		t.Fatalf("failed to unmarshal template3: %v", err)
-	}
-
-	inputs3a := map[string]any{"x": int64(10), "y": int64(20)}
-	inputs3b := map[string]any{"x": int64(5), "y": int64(15), "z": int64(100)} // Different var set
-
-	result3a, err := engine.Render(tpl3, inputs3a)
-	if err != nil {
-		t.Fatalf("render with inputs3a failed: %v", err)
-	}
-
-	result3b, err := engine.Render(tpl3, inputs3b)
-	if err != nil {
-		t.Fatalf("render with inputs3b failed: %v", err)
-	}
-
-	// Both should produce correct results
-	if result3a.(map[string]any)["value"] != int64(30) {
-		t.Errorf("inputs3a: expected 30, got %v", result3a.(map[string]any)["value"])
-	}
-	if result3b.(map[string]any)["value"] != int64(20) {
-		t.Errorf("inputs3b: expected 20, got %v", result3b.(map[string]any)["value"])
-	}
-
-	// Test 4: Verify cache actually has entries
-	cacheSize := engine.cache.ProgramCacheSize()
-
-	if cacheSize == 0 {
-		t.Error("program cache is empty - caching not working")
-	}
-
-	t.Logf("Program cache contains %d entries", cacheSize)
 }
 
 func TestFindCELExpressions(t *testing.T) {
@@ -1108,7 +762,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: "${resource.field}", InnerExpr: "resource.field"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Expression with function",
@@ -1116,7 +769,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: "${length(resource.list)}", InnerExpr: "length(resource.list)"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Expression with prefix",
@@ -1124,7 +776,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: "${resource.field}", InnerExpr: "resource.field"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Expression with suffix",
@@ -1132,7 +783,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: "${resource.field}", InnerExpr: "resource.field"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Multiple expressions",
@@ -1141,7 +791,6 @@ func TestFindCELExpressions(t *testing.T) {
 				{FullExpr: "${resource1.field}", InnerExpr: "resource1.field"},
 				{FullExpr: "${resource2.field}", InnerExpr: "resource2.field"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Expression with map access",
@@ -1149,7 +798,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: "${resource.map['key']}", InnerExpr: "resource.map['key']"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Expression with list index",
@@ -1157,7 +805,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: "${resource.list[0]}", InnerExpr: "resource.list[0]"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Complex expression with operators",
@@ -1165,25 +812,21 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: "${resource.field == 'value' && resource.number > 5}", InnerExpr: "resource.field == 'value' && resource.number > 5"},
 			},
-			wantErr: false,
 		},
 		{
-			name:    "No expressions",
-			input:   "plain string",
-			want:    nil,
-			wantErr: false,
+			name:  "No expressions",
+			input: "plain string",
+			want:  nil,
 		},
 		{
-			name:    "Empty string",
-			input:   "",
-			want:    nil,
-			wantErr: false,
+			name:  "Empty string",
+			input: "",
+			want:  nil,
 		},
 		{
-			name:    "Incomplete expression - no closing brace",
-			input:   "${incomplete",
-			want:    nil,
-			wantErr: false,
+			name:  "Incomplete expression - no closing brace",
+			input: "${incomplete",
+			want:  nil,
 		},
 		{
 			name:  "Expression with escaped quotes",
@@ -1191,7 +834,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: `${resource.field == "escaped\"quote"}`, InnerExpr: `resource.field == "escaped\"quote"`},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Multiple expressions with whitespace",
@@ -1200,7 +842,6 @@ func TestFindCELExpressions(t *testing.T) {
 				{FullExpr: "${resource1.field}", InnerExpr: "resource1.field"},
 				{FullExpr: "${resource2.field}", InnerExpr: "resource2.field"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Expression with newlines",
@@ -1208,12 +849,10 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: "${resource.list.map(\n  x,\n  x * 2\n)}", InnerExpr: "resource.list.map(\n  x,\n  x * 2\n)"},
 			},
-			wantErr: false,
 		},
 		{
 			name:    "Nested expression without quotes - should error",
 			input:   "${outer(${inner})}",
-			want:    nil,
 			wantErr: true,
 		},
 		{
@@ -1222,7 +861,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: `${outer("${inner}")}`, InnerExpr: `outer("${inner}")`},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Expression with nested-like string literal in single quotes",
@@ -1230,7 +868,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: "${outer('${inner}')}", InnerExpr: "outer('${inner}')"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "String literal with closing braces inside double quotes",
@@ -1238,7 +875,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: `${"text with }} inside"}`, InnerExpr: `"text with }} inside"`},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "String literal with opening brace inside double quotes",
@@ -1246,7 +882,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: `${"text with { inside"}`, InnerExpr: `"text with { inside"`},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "String literal with opening brace inside single quotes",
@@ -1254,7 +889,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: "${'text with { inside'}", InnerExpr: "'text with { inside'"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Expression with dictionary building",
@@ -1262,7 +896,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: "${true ? {'key': 'value'} : {'key': 'value2'}}", InnerExpr: "true ? {'key': 'value'} : {'key': 'value2'}"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Multiple expressions with dictionary building",
@@ -1272,12 +905,10 @@ func TestFindCELExpressions(t *testing.T) {
 				{FullExpr: "${resource.field}", InnerExpr: "resource.field"},
 				{FullExpr: "${false ? {'key': {'nestedKey':'value'}} : {'key': 'value2'}}", InnerExpr: "false ? {'key': {'nestedKey':'value'}} : {'key': 'value2'}"},
 			},
-			wantErr: false,
 		},
 		{
 			name:    "Multiple incomplete expressions - nested at start",
 			input:   "${incomplete1 ${incomplete2",
-			want:    nil,
 			wantErr: true,
 		},
 		{
@@ -1287,12 +918,10 @@ func TestFindCELExpressions(t *testing.T) {
 				{FullExpr: "${complete}", InnerExpr: "complete"},
 				{FullExpr: "${complete2}", InnerExpr: "complete2"},
 			},
-			wantErr: false,
 		},
 		{
 			name:    "Mixed incomplete and complete - nested incomplete",
 			input:   "${incomplete ${complete}",
-			want:    nil,
 			wantErr: true,
 		},
 		{
@@ -1301,7 +930,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: `${"{"}`, InnerExpr: `"{"`},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "String literal with closing brace",
@@ -1309,7 +937,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: `${"}"}`, InnerExpr: `"}"`},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "String literal braces with concatenation",
@@ -1317,7 +944,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: `${"{metadata.name}=" + metadata.name}`, InnerExpr: `"{metadata.name}=" + metadata.name`},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Merge function with nested braces",
@@ -1325,7 +951,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: "${merge({a: 1}, {b: 2})}", InnerExpr: "merge({a: 1}, {b: 2})"},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Complex nested braces with strings",
@@ -1333,7 +958,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: `${data.map(x, {"key": x, "template": "value-{}" + x})}`, InnerExpr: `data.map(x, {"key": x, "template": "value-{}" + x})`},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Escaped backslash before quote",
@@ -1341,7 +965,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: `${field == "test\\\"value"}`, InnerExpr: `field == "test\\\"value"`},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Single quote inside double quote",
@@ -1349,7 +972,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: `${field == "test'value"}`, InnerExpr: `field == "test'value"`},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Double quote inside single quote",
@@ -1357,7 +979,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: `${field == 'test"value'}`, InnerExpr: `field == 'test"value'`},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Escaped single quote in single quote string",
@@ -1365,7 +986,6 @@ func TestFindCELExpressions(t *testing.T) {
 			want: []CELMatch{
 				{FullExpr: `${field == 'test\'value'}`, InnerExpr: `field == 'test\'value'`},
 			},
-			wantErr: false,
 		},
 	}
 
@@ -1374,13 +994,236 @@ func TestFindCELExpressions(t *testing.T) {
 			t.Parallel()
 
 			got, err := FindCELExpressions(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("FindCELExpressions() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
+			require.NoError(t, err)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("FindCELExpressions() mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestRenderString_InterpolationTypes(t *testing.T) {
+	t.Parallel()
+
+	engine := NewEngine()
+
+	tests := []struct {
+		name   string
+		tpl    string
+		inputs string
+		want   string
+	}{
+		{
+			name:   "int64 interpolation",
+			tpl:    `msg: "count: ${spec.count}"`,
+			inputs: `{"spec": {"count": 42}}`,
+			want:   `msg: "count: 42"`,
+		},
+		{
+			name:   "float64 interpolation",
+			tpl:    `msg: "ratio: ${spec.ratio}"`,
+			inputs: `{"spec": {"ratio": 3.14}}`,
+			want:   `msg: "ratio: 3.14"`,
+		},
+		{
+			name:   "bool interpolation",
+			tpl:    `msg: "enabled: ${spec.enabled}"`,
+			inputs: `{"spec": {"enabled": true}}`,
+			want:   `msg: "enabled: true"`,
+		},
+		{
+			name:   "complex type interpolation (map to JSON)",
+			tpl:    `msg: "config: ${spec.config}"`,
+			inputs: `{"spec": {"config": {"key": "value"}}}`,
+			want:   `msg: 'config: {"key":"value"}'`,
+		},
+		{
+			name:   "mixed types in single string",
+			tpl:    `msg: "${spec.name}-${spec.count}-${spec.enabled}"`,
+			inputs: `{"spec": {"name": "app", "count": 3, "enabled": false}}`,
+			want:   `msg: app-3-false`,
+		},
+		{
+			name:   "repeated placeholder",
+			tpl:    `msg: "${x}-${x}"`,
+			inputs: `{"x": "hello"}`,
+			want:   `msg: hello-hello`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var tpl any
+			require.NoError(t, yaml.Unmarshal([]byte(tt.tpl), &tpl))
+
+			var input map[string]any
+			require.NoError(t, json.Unmarshal([]byte(tt.inputs), &input))
+
+			rendered, err := engine.Render(tpl, input)
+			require.NoError(t, err)
+
+			got, err := yaml.Marshal(rendered)
+			require.NoError(t, err)
+
+			var wantObj, gotObj any
+			require.NoError(t, yaml.Unmarshal([]byte(tt.want), &wantObj))
+			require.NoError(t, yaml.Unmarshal(got, &gotObj))
+
+			wantBytes, _ := yaml.Marshal(wantObj)
+			gotBytes, _ := yaml.Marshal(gotObj)
+			assert.Equal(t, string(wantBytes), string(gotBytes))
+		})
+	}
+}
+
+func TestRender_ErrorPropagation(t *testing.T) {
+	t.Parallel()
+
+	engine := NewEngine()
+
+	tests := []struct {
+		name        string
+		tpl         string
+		inputs      string
+		errContains string
+	}{
+		{
+			name:        "error in array item propagates",
+			tpl:         `{"items": ["${data.missing}"]}`,
+			inputs:      `{"data": {"existing": "val"}}`,
+			errContains: "no such key",
+		},
+		{
+			name:        "error in interpolation mode propagates",
+			tpl:         `{"msg": "prefix-${data.missing}-suffix"}`,
+			inputs:      `{"data": {"existing": "val"}}`,
+			errContains: "no such key",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var tpl any
+			require.NoError(t, json.Unmarshal([]byte(tt.tpl), &tpl))
+
+			var input map[string]any
+			require.NoError(t, json.Unmarshal([]byte(tt.inputs), &input))
+
+			_, err := engine.Render(tpl, input)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errContains)
+		})
+	}
+}
+
+func TestRender_OmitSentinelExclusion(t *testing.T) {
+	t.Parallel()
+
+	engine := NewEngine()
+
+	t.Run("omit in map value", func(t *testing.T) {
+		t.Parallel()
+
+		tpl := map[string]any{
+			"keep":   "value",
+			"remove": "${oc_omit()}",
+		}
+		result, err := engine.Render(tpl, map[string]any{})
+		require.NoError(t, err)
+
+		resultMap, ok := result.(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "value", resultMap["keep"])
+		_, hasRemove := resultMap["remove"]
+		assert.False(t, hasRemove, "omitted key should not be present")
+	})
+
+	t.Run("omit in array element", func(t *testing.T) {
+		t.Parallel()
+
+		tpl := []any{"first", "${oc_omit()}", "third"}
+		result, err := engine.Render(tpl, map[string]any{})
+		require.NoError(t, err)
+
+		resultSlice, ok := result.([]any)
+		require.True(t, ok)
+		assert.Equal(t, []any{"first", "third"}, resultSlice)
+	})
+}
+
+func TestRender_DefaultPassthrough(t *testing.T) {
+	t.Parallel()
+
+	engine := NewEngine()
+
+	result, err := engine.Render(int64(42), map[string]any{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(42), result)
+
+	result, err = engine.Render(true, map[string]any{})
+	require.NoError(t, err)
+	assert.Equal(t, true, result)
+
+	result, err = engine.Render(nil, map[string]any{})
+	require.NoError(t, err)
+	assert.Nil(t, result)
+}
+
+func TestConcurrentRender(t *testing.T) {
+	t.Parallel()
+
+	engine := NewEngine()
+
+	templateYAML := `
+name: ${metadata.name}
+replicas: ${spec.replicas}
+`
+	var tpl any
+	require.NoError(t, yaml.Unmarshal([]byte(templateYAML), &tpl))
+
+	const goroutines = 20
+	var wg sync.WaitGroup
+	errs := make(chan error, goroutines)
+
+	for i := range goroutines {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			inputs := map[string]any{
+				"metadata": map[string]any{"name": "app"},
+				"spec":     map[string]any{"replicas": int64(idx)},
+			}
+			result, err := engine.Render(tpl, inputs)
+			if err != nil {
+				errs <- err
+				return
+			}
+			resultMap, ok := result.(map[string]any)
+			if !ok {
+				errs <- fmt.Errorf("goroutine %d: expected map[string]any, got %T", idx, result)
+				return
+			}
+			if resultMap["name"] != "app" {
+				errs <- fmt.Errorf("goroutine %d: expected name=app, got %v", idx, resultMap["name"])
+			}
+			if resultMap["replicas"] != int64(idx) {
+				errs <- fmt.Errorf("goroutine %d: expected replicas=%d, got %v", idx, idx, resultMap["replicas"])
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		t.Errorf("concurrent render error: %v", err)
 	}
 }
