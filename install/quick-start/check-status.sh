@@ -9,21 +9,23 @@ source "${SCRIPT_DIR}/.config.sh"
 get_component_group() {
     local group="$1"
     case "$group" in
-        "Control_Plane") echo "cert_manager controller_manager api_server backstage cluster_gateway" ;;
-        "Data_Plane") echo "gateway_proxy" ;;
-        "Workflow_Plane") echo "argo_workflow_controller registry" ;;
-        "Observability_Plane") echo "opensearch observer" ;;
+        "Infrastructure") echo "cert_manager kgateway external_secrets openbao thunder" ;;
+        "Control_Plane") echo "controller_manager api_server backstage cluster_gateway" ;;
+        "Data_Plane") echo "cluster_agent_dp gateway_proxy" ;;
+        "Workflow_Plane") echo "cluster_agent_wp argo_workflow_controller registry" ;;
+        "Observability_Plane") echo "obs_controller_manager cluster_agent_op opensearch observer" ;;
         *) echo "" ;;
     esac
 }
 
 # Group order for display
-group_order=("Control_Plane" "Data_Plane" "Workflow_Plane" "Observability_Plane")
+group_order=("Infrastructure" "Control_Plane" "Data_Plane" "Workflow_Plane" "Observability_Plane")
 
 # Group display names
 get_group_display_name() {
     local group="$1"
     case "$group" in
+        "Infrastructure") echo "Infrastructure" ;;
         "Control_Plane") echo "Control Plane" ;;
         "Data_Plane") echo "Data Plane" ;;
         "Workflow_Plane") echo "Workflow Plane" ;;
@@ -37,13 +39,21 @@ get_component_display_name() {
     local component="$1"
     case "$component" in
         "cert_manager") echo "Cert Manager" ;;
+        "kgateway") echo "KGateway" ;;
+        "external_secrets") echo "External Secrets" ;;
+        "openbao") echo "OpenBao" ;;
+        "thunder") echo "Thunder" ;;
         "controller_manager") echo "Controller Manager" ;;
         "api_server") echo "API Server" ;;
         "backstage") echo "Backstage" ;;
         "cluster_gateway") echo "Cluster Gateway" ;;
+        "cluster_agent_dp") echo "Cluster Agent" ;;
         "gateway_proxy") echo "Gateway Proxy" ;;
+        "cluster_agent_wp") echo "Cluster Agent" ;;
         "argo_workflow_controller") echo "Argo Workflow Controller" ;;
         "registry") echo "Docker Registry" ;;
+        "obs_controller_manager") echo "Controller Manager" ;;
+        "cluster_agent_op") echo "Cluster Agent" ;;
         "opensearch") echo "OpenSearch" ;;
         "observer") echo "Observer" ;;
         *) echo "$component" ;;
@@ -51,26 +61,39 @@ get_component_display_name() {
 }
 
 # Component lists for multi-cluster mode
-components_cp=("cert_manager" "controller_manager" "api_server" "backstage" "cluster_gateway")
-components_dp=("gateway_proxy")
+components_cp=("cert_manager" "kgateway" "external_secrets" "openbao" "thunder" "controller_manager" "api_server" "backstage" "cluster_gateway")
+components_dp=("cluster_agent_dp" "gateway_proxy")
 
 # Core vs optional classification
-core_components=("cert_manager" "controller_manager" "api_server" "backstage" "cluster_gateway" "gateway_proxy")
-optional_components=("opensearch" "observer" "argo_workflow_controller" "registry")
+core_components=("cert_manager" "kgateway" "external_secrets" "openbao" "thunder" "controller_manager" "api_server" "backstage" "cluster_gateway" "cluster_agent_dp" "gateway_proxy")
+optional_components=("cluster_agent_wp" "argo_workflow_controller" "registry" "obs_controller_manager" "cluster_agent_op" "opensearch" "observer")
 
 # Component configuration: namespace and pod label selector
 # Format is namespace:label-selector
 get_component_config() {
     local component="$1"
     case "$component" in
+        # Infrastructure
         "cert_manager") echo "cert-manager:app.kubernetes.io/name=cert-manager" ;;
+        "kgateway") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=kgateway" ;;
+        "external_secrets") echo "external-secrets:app.kubernetes.io/name=external-secrets" ;;
+        "openbao") echo "openbao:app.kubernetes.io/name=openbao,component=server" ;;
+        "thunder") echo "$THUNDER_NS:app.kubernetes.io/name=thunder" ;;
+        # Control Plane
         "controller_manager") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=controller-manager" ;;
         "api_server") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=api-server" ;;
         "backstage") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=backstage" ;;
         "cluster_gateway") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=cluster-gateway" ;;
+        # Data Plane
+        "cluster_agent_dp") echo "$DATA_PLANE_NS:app.kubernetes.io/name=openchoreo-data-plane,app.kubernetes.io/component=cluster-agent" ;;
         "gateway_proxy") echo "$DATA_PLANE_NS:gateway.networking.k8s.io/gateway-name=gateway-default" ;;
+        # Workflow Plane
+        "cluster_agent_wp") echo "$WORKFLOW_PLANE_NS:app.kubernetes.io/name=openchoreo-workflow-plane,app.kubernetes.io/component=cluster-agent" ;;
         "argo_workflow_controller") echo "$WORKFLOW_PLANE_NS:app.kubernetes.io/name=argo-workflows-workflow-controller" ;;
         "registry") echo "$WORKFLOW_PLANE_NS:app=docker-registry" ;;
+        # Observability Plane
+        "obs_controller_manager") echo "$OBSERVABILITY_NS:app.kubernetes.io/name=openchoreo-observability-plane,app.kubernetes.io/component=controller-manager" ;;
+        "cluster_agent_op") echo "$OBSERVABILITY_NS:app.kubernetes.io/name=openchoreo-observability-plane,app.kubernetes.io/component=cluster-agent" ;;
         "opensearch") echo "$OBSERVABILITY_NS:opster.io/opensearch-cluster=opensearch" ;;
         "observer") echo "$OBSERVABILITY_NS:app.kubernetes.io/name=openchoreo-observability-plane,app.kubernetes.io/component=observer" ;;
         *) echo "unknown:unknown" ;;
@@ -161,7 +184,7 @@ print_grouped_components() {
 
         local group_type=""
         case "$group" in
-            "Control_Plane"|"Data_Plane") group_type="Core" ;;
+            "Infrastructure"|"Control_Plane"|"Data_Plane") group_type="Core" ;;
             "Workflow_Plane"|"Observability_Plane") group_type="Optional" ;;
         esac
 
