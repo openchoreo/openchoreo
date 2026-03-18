@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package config
@@ -12,12 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// setupTestHome sets HOME to a temp dir so LoadStoredConfig/SaveStoredConfig
-// use an isolated config file instead of the real ~/.openchoreo/config.
+// setupTestHome sets home-directory env vars to a temp dir so os.UserHomeDir()
+// resolves to the test directory on all platforms (HOME on Unix, USERPROFILE on Windows).
 func setupTestHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("HOMEDRIVE", "")
+	t.Setenv("HOMEPATH", "")
 	return home
 }
 
