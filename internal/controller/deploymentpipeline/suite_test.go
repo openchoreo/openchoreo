@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -22,6 +23,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -70,19 +72,40 @@ var _ = BeforeSuite(func() {
 
 	// +kubebuilder:scaffold:scheme
 
+	// Create a manager with cache enabled for Project (needed for field index queries
+	// in the DeploymentPipeline finalizer). All other types bypass cache.
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
 		},
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&openchoreov1alpha1.Project{}: {},
+			},
+			DefaultNamespaces: map[string]cache.Config{},
+		},
 		Client: client.Options{
 			Cache: &client.CacheOptions{
 				DisableFor: []client.Object{
+					&openchoreov1alpha1.DataPlane{},
+					&openchoreov1alpha1.Environment{},
 					&openchoreov1alpha1.DeploymentPipeline{},
 				},
 			},
 		},
 	})
+	Expect(err).NotTo(HaveOccurred())
+
+	// Register the field index used by the DeploymentPipeline finalizer to find referencing Projects
+	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Project{},
+		controller.IndexKeyProjectDeploymentPipelineRef, func(obj client.Object) []string {
+			project := obj.(*openchoreov1alpha1.Project)
+			if project.Spec.DeploymentPipelineRef.Name == "" {
+				return nil
+			}
+			return []string{project.Spec.DeploymentPipelineRef.Name}
+		})
 	Expect(err).NotTo(HaveOccurred())
 
 	// Start the manager in a goroutine
@@ -95,6 +118,8 @@ var _ = BeforeSuite(func() {
 	// Wait for cache to sync before running tests
 	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 
+	// Use the manager's client which has field index support for Project
+	// but reads directly from API server for other types
 	k8sClient = mgr.GetClient()
 	Expect(k8sClient).NotTo(BeNil())
 })
