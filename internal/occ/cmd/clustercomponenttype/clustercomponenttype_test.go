@@ -7,9 +7,11 @@ import (
 	"bytes"
 	"io"
 	"os"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
@@ -19,9 +21,7 @@ func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 
 	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
+	require.NoError(t, err)
 
 	origStdout := os.Stdout
 	os.Stdout = w
@@ -37,33 +37,24 @@ func captureStdout(t *testing.T, fn func()) string {
 	w.Close()
 
 	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, r); err != nil {
-		t.Fatalf("failed to read captured output: %v", err)
-	}
+	_, err = io.Copy(&buf, r)
+	require.NoError(t, err)
 
 	return buf.String()
 }
 
 func TestPrint_Nil(t *testing.T) {
 	out := captureStdout(t, func() {
-		if err := printList(nil); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
+		require.NoError(t, printList(nil))
 	})
-	if !strings.Contains(out, "No cluster component types found") {
-		t.Errorf("expected empty message, got %q", out)
-	}
+	assert.Contains(t, out, "No cluster component types found")
 }
 
 func TestPrint_Empty(t *testing.T) {
 	out := captureStdout(t, func() {
-		if err := printList([]gen.ClusterComponentType{}); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
+		require.NoError(t, printList([]gen.ClusterComponentType{}))
 	})
-	if !strings.Contains(out, "No cluster component types found") {
-		t.Errorf("expected empty message, got %q", out)
-	}
+	assert.Contains(t, out, "No cluster component types found")
 }
 
 func TestPrint_WithItems(t *testing.T) {
@@ -87,26 +78,15 @@ func TestPrint_WithItems(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		if err := printList(items); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
+		require.NoError(t, printList(items))
 	})
 
-	// Verify header
-	if !strings.Contains(out, "NAME") || !strings.Contains(out, "WORKLOAD TYPE") || !strings.Contains(out, "AGE") {
-		t.Errorf("expected table header with NAME, WORKLOAD TYPE, AGE columns, got %q", out)
-	}
-
-	// Verify items
-	if !strings.Contains(out, "web-app") {
-		t.Errorf("expected output to contain 'web-app', got %q", out)
-	}
-	if !strings.Contains(out, "deployment") {
-		t.Errorf("expected output to contain 'deployment', got %q", out)
-	}
-	if !strings.Contains(out, "batch-job") {
-		t.Errorf("expected output to contain 'batch-job', got %q", out)
-	}
+	assert.Contains(t, out, "NAME")
+	assert.Contains(t, out, "WORKLOAD TYPE")
+	assert.Contains(t, out, "AGE")
+	assert.Contains(t, out, "web-app")
+	assert.Contains(t, out, "deployment")
+	assert.Contains(t, out, "batch-job")
 }
 
 func TestPrint_NilSpec(t *testing.T) {
@@ -122,12 +102,8 @@ func TestPrint_NilSpec(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		if err := printList(items); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
+		require.NoError(t, printList(items))
 	})
 
-	if !strings.Contains(out, "no-spec-type") {
-		t.Errorf("expected output to contain 'no-spec-type', got %q", out)
-	}
+	assert.Contains(t, out, "no-spec-type")
 }

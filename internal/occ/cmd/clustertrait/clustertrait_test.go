@@ -7,9 +7,11 @@ import (
 	"bytes"
 	"io"
 	"os"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
@@ -19,9 +21,7 @@ func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 
 	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
+	require.NoError(t, err)
 
 	origStdout := os.Stdout
 	os.Stdout = w
@@ -37,33 +37,24 @@ func captureStdout(t *testing.T, fn func()) string {
 	w.Close()
 
 	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, r); err != nil {
-		t.Fatalf("failed to read captured output: %v", err)
-	}
+	_, err = io.Copy(&buf, r)
+	require.NoError(t, err)
 
 	return buf.String()
 }
 
 func TestPrint_Nil(t *testing.T) {
 	out := captureStdout(t, func() {
-		if err := printList(nil); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
+		require.NoError(t, printList(nil))
 	})
-	if !strings.Contains(out, "No cluster traits found") {
-		t.Errorf("expected empty message, got %q", out)
-	}
+	assert.Contains(t, out, "No cluster traits found")
 }
 
 func TestPrint_Empty(t *testing.T) {
 	out := captureStdout(t, func() {
-		if err := printList([]gen.ClusterTrait{}); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
+		require.NoError(t, printList([]gen.ClusterTrait{}))
 	})
-	if !strings.Contains(out, "No cluster traits found") {
-		t.Errorf("expected empty message, got %q", out)
-	}
+	assert.Contains(t, out, "No cluster traits found")
 }
 
 func TestPrint_WithItems(t *testing.T) {
@@ -83,23 +74,13 @@ func TestPrint_WithItems(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		if err := printList(items); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
+		require.NoError(t, printList(items))
 	})
 
-	// Verify header
-	if !strings.Contains(out, "NAME") || !strings.Contains(out, "AGE") {
-		t.Errorf("expected table header with NAME, AGE columns, got %q", out)
-	}
-
-	// Verify items
-	if !strings.Contains(out, "ingress") {
-		t.Errorf("expected output to contain 'ingress', got %q", out)
-	}
-	if !strings.Contains(out, "storage") {
-		t.Errorf("expected output to contain 'storage', got %q", out)
-	}
+	assert.Contains(t, out, "NAME")
+	assert.Contains(t, out, "AGE")
+	assert.Contains(t, out, "ingress")
+	assert.Contains(t, out, "storage")
 }
 
 func TestPrint_NilTimestamp(t *testing.T) {
@@ -113,12 +94,8 @@ func TestPrint_NilTimestamp(t *testing.T) {
 	}
 
 	out := captureStdout(t, func() {
-		if err := printList(items); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
+		require.NoError(t, printList(items))
 	})
 
-	if !strings.Contains(out, "no-timestamp") {
-		t.Errorf("expected output to contain 'no-timestamp', got %q", out)
-	}
+	assert.Contains(t, out, "no-timestamp")
 }

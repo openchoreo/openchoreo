@@ -5,6 +5,9 @@ package setoverride
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestToSjsonPath(t *testing.T) {
@@ -13,84 +16,24 @@ func TestToSjsonPath(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{
-			name:     "simple dot path unchanged",
-			input:    "spec.replicas",
-			expected: "spec.replicas",
-		},
-		{
-			name:     "bracket index at end",
-			input:    "spec.containers[0]",
-			expected: "spec.containers.0",
-		},
-		{
-			name:     "bracket index in middle",
-			input:    "spec.containers[0].name",
-			expected: "spec.containers.0.name",
-		},
-		{
-			name:     "multiple bracket indices",
-			input:    "spec.containers[0].ports[1].containerPort",
-			expected: "spec.containers.0.ports.1.containerPort",
-		},
-		{
-			name:     "negative index for append",
-			input:    "spec.containers[-1]",
-			expected: "spec.containers.-1",
-		},
-		{
-			name:     "nested array indices",
-			input:    "matrix[0][1]",
-			expected: "matrix.0.1",
-		},
-		{
-			name:     "single key unchanged",
-			input:    "name",
-			expected: "name",
-		},
-		{
-			name:     "deeply nested with mixed notation",
-			input:    "a.b[0].c.d[2].e",
-			expected: "a.b.0.c.d.2.e",
-		},
-		{
-			name:     "bare numeric segment becomes object key",
-			input:    "spec.containers.0.image",
-			expected: "spec.containers.:0.image",
-		},
-		{
-			name:     "multiple bare numeric segments become object keys",
-			input:    "a.1.b.2.c",
-			expected: "a.:1.b.:2.c",
-		},
-		{
-			name:     "bare numeric only",
-			input:    "0",
-			expected: ":0",
-		},
-		{
-			name:     "mixed bracket and bare numeric",
-			input:    "spec.items[0].configs.1.name",
-			expected: "spec.items.0.configs.:1.name",
-		},
-		{
-			name:     "escaped dot preserves single key",
-			input:    `labels.foo\.0`,
-			expected: `labels.foo\.0`,
-		},
-		{
-			name:     "escaped dot with deeper path",
-			input:    `metadata.labels.app\.kubernetes\.io/name`,
-			expected: `metadata.labels.app\.kubernetes\.io/name`,
-		},
+		{name: "simple dot path unchanged", input: "spec.replicas", expected: "spec.replicas"},
+		{name: "bracket index at end", input: "spec.containers[0]", expected: "spec.containers.0"},
+		{name: "bracket index in middle", input: "spec.containers[0].name", expected: "spec.containers.0.name"},
+		{name: "multiple bracket indices", input: "spec.containers[0].ports[1].containerPort", expected: "spec.containers.0.ports.1.containerPort"},
+		{name: "negative index for append", input: "spec.containers[-1]", expected: "spec.containers.-1"},
+		{name: "nested array indices", input: "matrix[0][1]", expected: "matrix.0.1"},
+		{name: "single key unchanged", input: "name", expected: "name"},
+		{name: "deeply nested with mixed notation", input: "a.b[0].c.d[2].e", expected: "a.b.0.c.d.2.e"},
+		{name: "bare numeric segment becomes object key", input: "spec.containers.0.image", expected: "spec.containers.:0.image"},
+		{name: "multiple bare numeric segments become object keys", input: "a.1.b.2.c", expected: "a.:1.b.:2.c"},
+		{name: "bare numeric only", input: "0", expected: ":0"},
+		{name: "mixed bracket and bare numeric", input: "spec.items[0].configs.1.name", expected: "spec.items.0.configs.:1.name"},
+		{name: "escaped dot preserves single key", input: `labels.foo\.0`, expected: `labels.foo\.0`},
+		{name: "escaped dot with deeper path", input: `metadata.labels.app\.kubernetes\.io/name`, expected: `metadata.labels.app\.kubernetes\.io/name`},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ToSjsonPath(tt.input)
-			if got != tt.expected {
-				t.Errorf("ToSjsonPath(%q) = %q, want %q", tt.input, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, ToSjsonPath(tt.input))
 		})
 	}
 }
@@ -125,13 +68,9 @@ func TestToJSONLiteral(t *testing.T) {
 		{name: "word", input: "hello", expected: `"hello"`},
 		{name: "empty", input: "", expected: `""`},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := toJSONLiteral(tt.input)
-			if got != tt.expected {
-				t.Errorf("toJSONLiteral(%q) = %q, want %q", tt.input, got, tt.expected)
-			}
+			assert.Equal(t, tt.expected, toJSONLiteral(tt.input))
 		})
 	}
 }
@@ -144,96 +83,29 @@ func TestApply(t *testing.T) {
 		expected  string
 		wantErr   bool
 	}{
-		{
-			name:      "set simple string value",
-			jsonStr:   `{"spec":{"name":"old"}}`,
-			setValues: []string{"spec.name=new"},
-			expected:  `{"spec":{"name":"new"}}`,
-		},
-		{
-			name:      "set numeric value",
-			jsonStr:   `{"spec":{"replicas":1}}`,
-			setValues: []string{"spec.replicas=3"},
-			expected:  `{"spec":{"replicas":3}}`,
-		},
-		{
-			name:      "set boolean value",
-			jsonStr:   `{"spec":{"enabled":false}}`,
-			setValues: []string{"spec.enabled=true"},
-			expected:  `{"spec":{"enabled":true}}`,
-		},
-		{
-			name:      "set array element with bracket notation",
-			jsonStr:   `{"spec":{"items":["a","b","c"]}}`,
-			setValues: []string{"spec.items[1]=x"},
-			expected:  `{"spec":{"items":["a","x","c"]}}`,
-		},
-		{
-			name:      "set nested object in array with bracket notation",
-			jsonStr:   `{"spec":{"containers":[{"name":"app","image":"old"}]}}`,
-			setValues: []string{"spec.containers[0].image=new"},
-			expected:  `{"spec":{"containers":[{"name":"app","image":"new"}]}}`,
-		},
-		{
-			name:      "multiple set values",
-			jsonStr:   `{"spec":{"name":"old","replicas":1}}`,
-			setValues: []string{"spec.name=new", "spec.replicas=5"},
-			expected:  `{"spec":{"name":"new","replicas":5}}`,
-		},
-		{
-			name:      "bare numeric creates object key not array index",
-			jsonStr:   `{"spec":{}}`,
-			setValues: []string{"spec.0=hello"},
-			expected:  `{"spec":{"0":"hello"}}`,
-		},
-		{
-			name:      "empty set values is no-op",
-			jsonStr:   `{"spec":{"name":"old"}}`,
-			setValues: []string{},
-			expected:  `{"spec":{"name":"old"}}`,
-		},
-		{
-			name:      "missing equals sign",
-			jsonStr:   `{}`,
-			setValues: []string{"spec.name"},
-			wantErr:   true,
-		},
-		{
-			name:      "empty key",
-			jsonStr:   `{}`,
-			setValues: []string{"=value"},
-			wantErr:   true,
-		},
-		{
-			name:      "set null value",
-			jsonStr:   `{"spec":{"name":"old"}}`,
-			setValues: []string{"spec.name=null"},
-			expected:  `{"spec":{"name":null}}`,
-		},
-		{
-			name:      "leading zero stays as string",
-			jsonStr:   `{"spec":{}}`,
-			setValues: []string{"spec.id=01"},
-			expected:  `{"spec":{"id":"01"}}`,
-		},
-		{
-			name:      "leading plus stays as string",
-			jsonStr:   `{"spec":{}}`,
-			setValues: []string{"spec.val=+1"},
-			expected:  `{"spec":{"val":"+1"}}`,
-		},
+		{name: "set simple string value", jsonStr: `{"spec":{"name":"old"}}`, setValues: []string{"spec.name=new"}, expected: `{"spec":{"name":"new"}}`},
+		{name: "set numeric value", jsonStr: `{"spec":{"replicas":1}}`, setValues: []string{"spec.replicas=3"}, expected: `{"spec":{"replicas":3}}`},
+		{name: "set boolean value", jsonStr: `{"spec":{"enabled":false}}`, setValues: []string{"spec.enabled=true"}, expected: `{"spec":{"enabled":true}}`},
+		{name: "set array element with bracket notation", jsonStr: `{"spec":{"items":["a","b","c"]}}`, setValues: []string{"spec.items[1]=x"}, expected: `{"spec":{"items":["a","x","c"]}}`},
+		{name: "set nested object in array with bracket notation", jsonStr: `{"spec":{"containers":[{"name":"app","image":"old"}]}}`, setValues: []string{"spec.containers[0].image=new"}, expected: `{"spec":{"containers":[{"name":"app","image":"new"}]}}`},
+		{name: "multiple set values", jsonStr: `{"spec":{"name":"old","replicas":1}}`, setValues: []string{"spec.name=new", "spec.replicas=5"}, expected: `{"spec":{"name":"new","replicas":5}}`},
+		{name: "bare numeric creates object key not array index", jsonStr: `{"spec":{}}`, setValues: []string{"spec.0=hello"}, expected: `{"spec":{"0":"hello"}}`},
+		{name: "empty set values is no-op", jsonStr: `{"spec":{"name":"old"}}`, setValues: []string{}, expected: `{"spec":{"name":"old"}}`},
+		{name: "missing equals sign", jsonStr: `{}`, setValues: []string{"spec.name"}, wantErr: true},
+		{name: "empty key", jsonStr: `{}`, setValues: []string{"=value"}, wantErr: true},
+		{name: "set null value", jsonStr: `{"spec":{"name":"old"}}`, setValues: []string{"spec.name=null"}, expected: `{"spec":{"name":null}}`},
+		{name: "leading zero stays as string", jsonStr: `{"spec":{}}`, setValues: []string{"spec.id=01"}, expected: `{"spec":{"id":"01"}}`},
+		{name: "leading plus stays as string", jsonStr: `{"spec":{}}`, setValues: []string{"spec.val=+1"}, expected: `{"spec":{"val":"+1"}}`},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := Apply(tt.jsonStr, tt.setValues)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Apply() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-			if !tt.wantErr && got != tt.expected {
-				t.Errorf("Apply() = %q, want %q", got, tt.expected)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
