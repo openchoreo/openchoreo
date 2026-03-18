@@ -313,6 +313,33 @@ var _ = Describe("Trait Webhook", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("should allow creates template with metadata.namespace set to ${metadata.namespace}", func() {
+			obj.Spec.Creates = []openchoreodevv1alpha1.TraitCreate{
+				{
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc", "namespace": "${metadata.namespace}"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject creates template with hardcoded metadata.namespace", func() {
+			obj.Spec.Creates = []openchoreodevv1alpha1.TraitCreate{
+				{
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc", "namespace": "hardcoded-ns"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("${metadata.namespace}"))
+		})
+
 		It("should validate creates templates on update", func() {
 			// Valid old object
 			oldObj.Spec.Creates = []openchoreodevv1alpha1.TraitCreate{

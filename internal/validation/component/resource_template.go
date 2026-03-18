@@ -21,9 +21,14 @@ type resourceTemplateHeader struct {
 	APIVersion string `json:"apiVersion"`
 	Kind       string `json:"kind"`
 	Metadata   struct {
-		Name any `json:"name"` // Can be string or CEL expression
+		Name      any  `json:"name"`      // Can be string or CEL expression
+		Namespace *any `json:"namespace"` // Optional; if present, must be ${metadata.namespace}
 	} `json:"metadata"`
 }
+
+// allowedNamespaceValue is the only permitted value for metadata.namespace in resource templates.
+// The rendering pipeline sets the target namespace, so templates must not hardcode it.
+const allowedNamespaceValue = "${metadata.namespace}"
 
 // ValidateWorkloadResources validates resource templates and ensures workloadType matches a resource kind
 func ValidateWorkloadResources(workloadType string, resources []v1alpha1.ResourceTemplate, basePath *field.Path) field.ErrorList {
@@ -129,6 +134,19 @@ func ValidateResourceTemplateStructure(template runtime.RawExtension, fieldPath 
 			"metadata.name is required in resource template"))
 	}
 
+	// Validate metadata.namespace if present: only ${metadata.namespace} is allowed.
+	// We trim outer whitespace and normalize inner CEL whitespace so that
+	// "  ${metadata.namespace}  " and "${ metadata.namespace }" are accepted.
+	if header.Metadata.Namespace != nil {
+		nsStr, ok := (*header.Metadata.Namespace).(string)
+		if !ok || !isAllowedNamespaceValue(nsStr) {
+			allErrs = append(allErrs, field.Invalid(
+				fieldPath.Child("metadata", "namespace"),
+				*header.Metadata.Namespace,
+				fmt.Sprintf("if metadata.namespace is specified, it must be %q", allowedNamespaceValue)))
+		}
+	}
+
 	// Build partial object metadata for return value (for kind matching)
 	obj := &metav1.PartialObjectMetadata{}
 	obj.APIVersion = header.APIVersion
@@ -138,4 +156,17 @@ func ValidateResourceTemplateStructure(template runtime.RawExtension, fieldPath 
 	}
 
 	return obj, allErrs
+}
+
+// isAllowedNamespaceValue checks whether the given string is an acceptable
+// metadata.namespace value. It trims outer whitespace and normalizes
+// whitespace inside the ${...} delimiters so that variations like
+// "  ${metadata.namespace}  " and "${ metadata.namespace }" are accepted.
+func isAllowedNamespaceValue(val string) bool {
+	trimmed := strings.TrimSpace(val)
+	if !strings.HasPrefix(trimmed, "${") || !strings.HasSuffix(trimmed, "}") {
+		return false
+	}
+	inner := strings.TrimSpace(trimmed[2 : len(trimmed)-1])
+	return inner == "metadata.namespace"
 }
