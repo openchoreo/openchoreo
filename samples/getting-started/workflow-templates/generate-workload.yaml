@@ -59,7 +59,9 @@ spec:
             EOF
 
             # --- Step 1: Generate workload CR using occ ---
+            WORKLOAD_FROM_SOURCE="false"
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
+              WORKLOAD_FROM_SOURCE="true"
               echo "Found workload.yaml descriptor, using it for workload creation"
               podman run --rm --network=none \
               -v $DESCRIPTOR_PATH:/app:rw -w /app \
@@ -142,13 +144,52 @@ spec:
             if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 300 ]; then
               echo "Workload created successfully (HTTP ${HTTP_CODE}): ${BODY}"
             elif [ "${HTTP_CODE}" -eq 409 ]; then
-              echo "Workload already exists, updating via PUT..."
-              RESPONSE=$(curl -s -w "\n%{http_code}" \
-                -X PUT "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads/${WORKLOAD_NAME}" \
-                -H "Host: ${API_HOST}" \
-                -H "Content-Type: application/json" \
-                -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-                -d @/mnt/vol/workload-cr.json)
+              if [ "${WORKLOAD_FROM_SOURCE}" = "true" ]; then
+                echo "Workload already exists, updating via PUT (full replace - source-defined)..."
+                RESPONSE=$(curl -s -w "\n%{http_code}" \
+                  -X PUT "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads/${WORKLOAD_NAME}" \
+                  -H "Host: ${API_HOST}" \
+                  -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                  -d @/mnt/vol/workload-cr.json)
+              else
+                echo "Workload already exists, updating only container image (auto-generated)..."
+                # GET the existing workload
+                GET_RESPONSE=$(curl -s -w "\n%{http_code}" \
+                  -X GET "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads/${WORKLOAD_NAME}" \
+                  -H "Host: ${API_HOST}" \
+                  -H "Authorization: Bearer ${ACCESS_TOKEN}")
+
+                GET_HTTP_CODE=$(echo "${GET_RESPONSE}" | tail -1)
+                GET_BODY=$(echo "${GET_RESPONSE}" | sed '$d')
+
+                if [ "${GET_HTTP_CODE}" -lt 200 ] || [ "${GET_HTTP_CODE}" -ge 300 ]; then
+                  echo "Failed to get existing workload (HTTP ${GET_HTTP_CODE}): ${GET_BODY}"
+                  exit 1
+                fi
+
+                # Extract the new image from the generated workload and merge into existing
+                echo "${GET_BODY}" > /mnt/vol/workload-existing.json
+                NEW_IMAGE=$(podman run --rm \
+                  -v /mnt/vol:/data:ro \
+                  ghcr.io/jqlang/jq:1.7.1 -r '.spec.container.image' /data/workload-cr.json)
+
+                echo "Updating container image to: ${NEW_IMAGE}"
+                podman run --rm \
+                  -v /mnt/vol:/data:rw \
+                  ghcr.io/jqlang/jq:1.7.1 \
+                  --arg img "${NEW_IMAGE}" \
+                  '.spec.container.image = $img' \
+                  /data/workload-existing.json \
+                  > /mnt/vol/workload-merged.json
+
+                RESPONSE=$(curl -s -w "\n%{http_code}" \
+                  -X PUT "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads/${WORKLOAD_NAME}" \
+                  -H "Host: ${API_HOST}" \
+                  -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+                  -d @/mnt/vol/workload-merged.json)
+              fi
 
               HTTP_CODE=$(echo "${RESPONSE}" | tail -1)
               BODY=$(echo "${RESPONSE}" | sed '$d')
@@ -182,14 +223,25 @@ spec:
 
             # Add the workload CR as a compact JSON string annotation on the WorkflowRun
             # Use jq --rawfile to read the compact JSON as a raw string (no escape interpretation)
+            # If workload is source-defined, also add the workload-from-source annotation
             echo "${WF_RUN_BODY}" > /mnt/vol/workflowrun-get.json
-            podman run --rm \
-              -v /mnt/vol:/data:rw \
-              ghcr.io/jqlang/jq:1.7.1 \
-              --rawfile wl /data/workload-cr.json \
-              '.metadata.annotations["openchoreo.dev/workload"] = ($wl | rtrimstr("\n"))' \
-              /data/workflowrun-get.json \
-              > /mnt/vol/workflowrun-updated.json
+            if [ "${WORKLOAD_FROM_SOURCE}" = "true" ]; then
+              podman run --rm \
+                -v /mnt/vol:/data:rw \
+                ghcr.io/jqlang/jq:1.7.1 \
+                --rawfile wl /data/workload-cr.json \
+                '.metadata.annotations["openchoreo.dev/workload"] = ($wl | rtrimstr("\n")) | .metadata.annotations["openchoreo.dev/workload-from-source"] = "true"' \
+                /data/workflowrun-get.json \
+                > /mnt/vol/workflowrun-updated.json
+            else
+              podman run --rm \
+                -v /mnt/vol:/data:rw \
+                ghcr.io/jqlang/jq:1.7.1 \
+                --rawfile wl /data/workload-cr.json \
+                '.metadata.annotations["openchoreo.dev/workload"] = ($wl | rtrimstr("\n")) | .metadata.annotations["openchoreo.dev/workload-from-source"] = "false"' \
+                /data/workflowrun-get.json \
+                > /mnt/vol/workflowrun-updated.json
+            fi
 
             echo "Updating WorkflowRun with workload annotation..."
             UPDATE_RESPONSE=$(curl -s -w "\n%{http_code}" \
