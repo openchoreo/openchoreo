@@ -81,25 +81,6 @@ type ProfileRequest struct {
 	Scope ResourceHierarchy `json:"scope"`
 }
 
-// Role represents a role with a set of allowed actions
-// If Namespace is empty, it's a cluster-scoped role; otherwise it's namespace-scoped
-type Role struct {
-	// Name is the unique identifier for the role
-	Name string `json:"name"`
-
-	// Actions is the list of actions this role permits
-	Actions []string `json:"actions"`
-
-	// Namespace is the namespace for namespace-scoped roles, empty for cluster roles
-	Namespace string `json:"namespace,omitempty"`
-
-	// IsInternal indicates if this role should be hidden from public listings
-	IsInternal bool `json:"-"`
-
-	// Description provides a human-readable description of the role
-	Description string `json:"description,omitempty"`
-}
-
 // RoleRef uniquely identifies a role by name and namespace
 type RoleRef struct {
 	// Name is the role name
@@ -118,66 +99,6 @@ type Entitlement struct {
 
 	// Value is the entitlement value (e.g., "admin-group", "service-123")
 	Value string `json:"value" yaml:"value"`
-}
-
-// RoleEntitlementMapping represents the assignment of a role to an entitlement within a hierarchical scope
-type RoleEntitlementMapping struct {
-	// Name is the unique identifier for the mapping (CRD name)
-	Name string `json:"name" yaml:"name,omitempty"`
-
-	// RoleRef identifies the role being assigned
-	RoleRef RoleRef `json:"role" yaml:"role"`
-
-	// Entitlement contains the claim and value for this mapping
-	Entitlement Entitlement `json:"entitlement" yaml:"entitlement"`
-
-	// Hierarchy defines the resource hierarchy scope where this role applies
-	// Empty hierarchy means global scope (*)
-	Hierarchy ResourceHierarchy `json:"hierarchy" yaml:"hierarchy,omitempty"`
-
-	// Effect indicates whether the mapping is to allow or deny access
-	Effect PolicyEffectType `json:"effect" yaml:"effect"`
-
-	// Context provides optional additional context metadata for this mapping
-	Context Context `json:"context" yaml:"context,omitempty"`
-
-	// IsInternal indicates if this mapping should be hidden from public listings
-	IsInternal bool `json:"-" yaml:"-"`
-}
-
-// MappingRef identifies a role-entitlement binding
-type MappingRef struct {
-	// Name is the binding name
-	Name string `json:"name" yaml:"name"`
-
-	// Namespace identifies the binding scope:
-	// - Empty string ("") = cluster-scoped binding (ClusterAuthzRoleBinding)
-	// - Non-empty = namespace-scoped binding (AuthzRoleBinding) in the specified namespace
-	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
-}
-
-// RoleEntitlementMappingFilter provides filters for listing role-entitlement mappings
-type RoleEntitlementMappingFilter struct {
-	// RoleRef filters mappings by role reference (name and namespace)
-	RoleRef *RoleRef
-
-	// Entitlement filters mappings by entitlement claim and value
-	Entitlement *Entitlement
-
-	// Effect filters mappings by policy effect
-	Effect *PolicyEffectType
-}
-
-// RoleFilter provides filters for listing roles
-type RoleFilter struct {
-	// Namespace filters roles by namespace scope:
-	// - "" (empty) = cluster-scoped roles only
-	// - "ns1" = namespace-scoped roles in "ns1" only
-	// Ignored when IncludeAll is true
-	Namespace string
-
-	// IncludeAll when true returns all roles (cluster + all namespaces)
-	IncludeAll bool
 }
 
 // ActionCapability represents capabilities for a specific action

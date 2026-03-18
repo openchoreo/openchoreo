@@ -30,36 +30,6 @@ type PDP interface {
 
 // PAP (Policy Administration Point) interface defines the contract for policy management
 type PAP interface {
-	// Deprecated: Use CreateClusterRole or CreateNamespacedRole instead.
-	AddRole(ctx context.Context, role *Role) error
-
-	// Deprecated: Use the K8s client directly to delete roles.
-	RemoveRole(ctx context.Context, roleRef *RoleRef) error
-
-	// Deprecated: Use GetClusterRole or GetNamespacedRole instead.
-	GetRole(ctx context.Context, roleRef *RoleRef) (*Role, error)
-
-	// Deprecated: Use UpdateClusterRole or UpdateNamespacedRole instead.
-	UpdateRole(ctx context.Context, role *Role) error
-
-	// Deprecated: Use ListClusterRoles or ListNamespacedRoles instead.
-	ListRoles(ctx context.Context, filter *RoleFilter) ([]*Role, error)
-
-	// Deprecated: Use GetClusterRoleBinding or GetNamespacedRoleBinding instead.
-	GetRoleEntitlementMapping(ctx context.Context, mappingRef *MappingRef) (*RoleEntitlementMapping, error)
-
-	// Deprecated: Use CreateClusterRoleBinding or CreateNamespacedRoleBinding instead.
-	AddRoleEntitlementMapping(ctx context.Context, mapping *RoleEntitlementMapping) error
-
-	// Deprecated: Use UpdateClusterRoleBinding or UpdateNamespacedRoleBinding instead.
-	UpdateRoleEntitlementMapping(ctx context.Context, mapping *RoleEntitlementMapping) error
-
-	// Deprecated: Use the K8s client directly to delete role bindings.
-	RemoveRoleEntitlementMapping(ctx context.Context, mappingRef *MappingRef) error
-
-	// Deprecated: Use ListClusterRoleBindings or ListNamespacedRoleBindings instead.
-	ListRoleEntitlementMappings(ctx context.Context, filter *RoleEntitlementMappingFilter) ([]*RoleEntitlementMapping, error)
-
 	// ListActions lists all public actions in the system
 	ListActions(ctx context.Context) ([]Action, error)
 

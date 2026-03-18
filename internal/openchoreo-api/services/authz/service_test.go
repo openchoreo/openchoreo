@@ -162,35 +162,6 @@ func (m *mockPAP) DeleteNamespacedRoleBinding(context.Context, string, string) e
 
 func (m *mockPAP) ListActions(context.Context) ([]authzcore.Action, error) { return nil, nil }
 
-// Deprecated PAP methods — the service never calls these.
-
-func (m *mockPAP) AddRole(context.Context, *authzcore.Role) error { panic("deprecated") }
-func (m *mockPAP) RemoveRole(context.Context, *authzcore.RoleRef) error {
-	panic("deprecated")
-}
-func (m *mockPAP) GetRole(context.Context, *authzcore.RoleRef) (*authzcore.Role, error) {
-	panic("deprecated")
-}
-func (m *mockPAP) UpdateRole(context.Context, *authzcore.Role) error { panic("deprecated") }
-func (m *mockPAP) ListRoles(context.Context, *authzcore.RoleFilter) ([]*authzcore.Role, error) {
-	panic("deprecated")
-}
-func (m *mockPAP) GetRoleEntitlementMapping(context.Context, *authzcore.MappingRef) (*authzcore.RoleEntitlementMapping, error) {
-	panic("deprecated")
-}
-func (m *mockPAP) AddRoleEntitlementMapping(context.Context, *authzcore.RoleEntitlementMapping) error {
-	panic("deprecated")
-}
-func (m *mockPAP) UpdateRoleEntitlementMapping(context.Context, *authzcore.RoleEntitlementMapping) error {
-	panic("deprecated")
-}
-func (m *mockPAP) RemoveRoleEntitlementMapping(context.Context, *authzcore.MappingRef) error {
-	panic("deprecated")
-}
-func (m *mockPAP) ListRoleEntitlementMappings(context.Context, *authzcore.RoleEntitlementMappingFilter) ([]*authzcore.RoleEntitlementMapping, error) {
-	panic("deprecated")
-}
-
 // --- Mock PDP ---
 
 type mockPDP struct {

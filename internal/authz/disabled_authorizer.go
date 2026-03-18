@@ -88,58 +88,8 @@ func (da *DisabledAuthorizer) GetSubjectProfile(ctx context.Context, request *au
 // PAP Implementation - All policy operations fail
 // ============================================================================
 
-// AddRole fails with error
-func (da *DisabledAuthorizer) AddRole(ctx context.Context, role *authz.Role) error {
-	return authz.ErrAuthzDisabled
-}
-
-// RemoveRole fails with error
-func (da *DisabledAuthorizer) RemoveRole(ctx context.Context, roleRef *authz.RoleRef) error {
-	return authz.ErrAuthzDisabled
-}
-
-// GetRole fails with error
-func (da *DisabledAuthorizer) GetRole(ctx context.Context, roleRef *authz.RoleRef) (*authz.Role, error) {
-	return nil, authz.ErrAuthzDisabled
-}
-
-// UpdateRole fails with error
-func (da *DisabledAuthorizer) UpdateRole(ctx context.Context, role *authz.Role) error {
-	return authz.ErrAuthzDisabled
-}
-
-// ListRoles fails with error
-func (da *DisabledAuthorizer) ListRoles(ctx context.Context, filter *authz.RoleFilter) ([]*authz.Role, error) {
-	return nil, authz.ErrAuthzDisabled
-}
-
-// AddRoleEntitlementMapping fails with error
-func (da *DisabledAuthorizer) AddRoleEntitlementMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
-	return authz.ErrAuthzDisabled
-}
-
-// UpdateRoleEntitlementMapping fails with error
-func (da *DisabledAuthorizer) UpdateRoleEntitlementMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
-	return authz.ErrAuthzDisabled
-}
-
-// RemoveRoleEntitlementMapping fails with error
-func (da *DisabledAuthorizer) RemoveRoleEntitlementMapping(ctx context.Context, mappingRef *authz.MappingRef) error {
-	return authz.ErrAuthzDisabled
-}
-
-// ListRoleEntitlementMappings fails with error
-func (da *DisabledAuthorizer) ListRoleEntitlementMappings(ctx context.Context, filter *authz.RoleEntitlementMappingFilter) ([]*authz.RoleEntitlementMapping, error) {
-	return nil, authz.ErrAuthzDisabled
-}
-
 // ListActions fails with error
 func (da *DisabledAuthorizer) ListActions(ctx context.Context) ([]authz.Action, error) {
-	return nil, authz.ErrAuthzDisabled
-}
-
-// GetRoleEntitlementMapping fails with error
-func (da *DisabledAuthorizer) GetRoleEntitlementMapping(ctx context.Context, mappingRef *authz.MappingRef) (*authz.RoleEntitlementMapping, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 

@@ -175,12 +175,6 @@ const (
 	ConditionStatusUnknown ConditionStatus = "Unknown"
 )
 
-// Defines values for CreateClusterRoleBindingRequestEffect.
-const (
-	CreateClusterRoleBindingRequestEffectAllow CreateClusterRoleBindingRequestEffect = "allow"
-	CreateClusterRoleBindingRequestEffectDeny  CreateClusterRoleBindingRequestEffect = "deny"
-)
-
 // Defines values for CreateGitSecretRequestSecretType.
 const (
 	BasicAuth CreateGitSecretRequestSecretType = "basic-auth"
@@ -191,12 +185,6 @@ const (
 const (
 	CreateGitSecretRequestWorkflowPlaneKindClusterWorkflowPlane CreateGitSecretRequestWorkflowPlaneKind = "ClusterWorkflowPlane"
 	CreateGitSecretRequestWorkflowPlaneKindWorkflowPlane        CreateGitSecretRequestWorkflowPlaneKind = "WorkflowPlane"
-)
-
-// Defines values for CreateNamespaceRoleBindingRequestEffect.
-const (
-	CreateNamespaceRoleBindingRequestEffectAllow CreateNamespaceRoleBindingRequestEffect = "allow"
-	CreateNamespaceRoleBindingRequestEffectDeny  CreateNamespaceRoleBindingRequestEffect = "deny"
 )
 
 // Defines values for EndpointURLStatusType.
@@ -286,12 +274,6 @@ const (
 	RenderedReleaseStatusResourcesHealthStatusUnknown     RenderedReleaseStatusResourcesHealthStatus = "Unknown"
 )
 
-// Defines values for RoleEntitlementMappingEffect.
-const (
-	RoleEntitlementMappingEffectAllow RoleEntitlementMappingEffect = "allow"
-	RoleEntitlementMappingEffectDeny  RoleEntitlementMappingEffect = "deny"
-)
-
 // Defines values for SecretTemplateType.
 const (
 	BootstrapKubernetesIotoken   SecretTemplateType = "bootstrap.kubernetes.io/token"
@@ -331,24 +313,6 @@ const (
 const (
 	TraitSpecPatchesTargetPlaneDataplane          TraitSpecPatchesTargetPlane = "dataplane"
 	TraitSpecPatchesTargetPlaneObservabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
-)
-
-// Defines values for UpdateClusterRoleBindingRequestEffect.
-const (
-	UpdateClusterRoleBindingRequestEffectAllow UpdateClusterRoleBindingRequestEffect = "allow"
-	UpdateClusterRoleBindingRequestEffectDeny  UpdateClusterRoleBindingRequestEffect = "deny"
-)
-
-// Defines values for UpdateNamespaceRoleBindingRequestEffect.
-const (
-	UpdateNamespaceRoleBindingRequestEffectAllow UpdateNamespaceRoleBindingRequestEffect = "allow"
-	UpdateNamespaceRoleBindingRequestEffectDeny  UpdateNamespaceRoleBindingRequestEffect = "deny"
-)
-
-// Defines values for UpdateRoleMappingRequestEffect.
-const (
-	UpdateRoleMappingRequestEffectAllow UpdateRoleMappingRequestEffect = "allow"
-	UpdateRoleMappingRequestEffectDeny  UpdateRoleMappingRequestEffect = "deny"
 )
 
 // Defines values for WorkflowPlaneRefKind.
@@ -934,12 +898,6 @@ type ClusterObservabilityPlaneStatus struct {
 
 	// ObservedGeneration Generation of the most recently observed ClusterObservabilityPlane
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
-}
-
-// ClusterRoleRef Reference to a cluster role by name only (legacy)
-type ClusterRoleRef struct {
-	// Name Cluster role name
-	Name string `json:"name"`
 }
 
 // ClusterTrait ClusterTrait resource.
@@ -1541,36 +1499,6 @@ type ContainerOverride struct {
 	Files *[]FileVar `json:"files,omitempty"`
 }
 
-// CreateClusterRoleBindingRequest Request to create a cluster-scoped role binding (legacy, single mapping only)
-type CreateClusterRoleBindingRequest struct {
-	// Effect Policy effect (allow or deny)
-	Effect *CreateClusterRoleBindingRequestEffect `json:"effect,omitempty"`
-
-	// Entitlement Entitlement with claim and value
-	Entitlement Entitlement `json:"entitlement"`
-
-	// Name Unique cluster role binding name
-	Name string `json:"name"`
-
-	// Role Cluster role name
-	Role string `json:"role"`
-}
-
-// CreateClusterRoleBindingRequestEffect Policy effect (allow or deny)
-type CreateClusterRoleBindingRequestEffect string
-
-// CreateClusterRoleRequest Request to create a cluster-scoped role (legacy)
-type CreateClusterRoleRequest struct {
-	// Actions List of actions this role permits
-	Actions []string `json:"actions"`
-
-	// Description Human-readable description of the role
-	Description *string `json:"description,omitempty"`
-
-	// Name Unique cluster role name
-	Name string `json:"name"`
-}
-
 // CreateComponentRequest Request to create a new component
 type CreateComponentRequest struct {
 	// AutoDeploy Whether to automatically deploy to default environment
@@ -1634,39 +1562,6 @@ type CreateGitSecretRequestSecretType string
 
 // CreateGitSecretRequestWorkflowPlaneKind Kind of the workflow plane resource
 type CreateGitSecretRequestWorkflowPlaneKind string
-
-// CreateNamespaceRoleBindingRequest Request to create a namespace-scoped role binding (legacy, single mapping only)
-type CreateNamespaceRoleBindingRequest struct {
-	// Effect Policy effect (allow or deny)
-	Effect *CreateNamespaceRoleBindingRequestEffect `json:"effect,omitempty"`
-
-	// Entitlement Entitlement with claim and value
-	Entitlement Entitlement `json:"entitlement"`
-
-	// Name Unique namespace role binding name
-	Name string `json:"name"`
-
-	// Role Reference to a role by name and namespace (legacy)
-	Role RoleRef `json:"role"`
-
-	// TargetPath Target resource path within a namespace (project/component only) (legacy)
-	TargetPath *TargetPath `json:"targetPath,omitempty"`
-}
-
-// CreateNamespaceRoleBindingRequestEffect Policy effect (allow or deny)
-type CreateNamespaceRoleBindingRequestEffect string
-
-// CreateNamespaceRoleRequest Request to create a namespace-scoped role (legacy)
-type CreateNamespaceRoleRequest struct {
-	// Actions List of actions this role permits
-	Actions []string `json:"actions"`
-
-	// Description Human-readable description of the role
-	Description *string `json:"description,omitempty"`
-
-	// Name Unique namespace role name
-	Name string `json:"name"`
-}
 
 // CreateWorkflowRunRequest Request to create a new workflow run
 type CreateWorkflowRunRequest struct {
@@ -2844,54 +2739,6 @@ type ResourceReference struct {
 	Namespace  *string `json:"namespace,omitempty"`
 }
 
-// Role Authorization role with permitted actions (legacy)
-type Role struct {
-	// Actions List of actions this role permits
-	Actions []string `json:"actions"`
-
-	// Description Human-readable description of the role
-	Description *string `json:"description,omitempty"`
-
-	// Name Unique role name
-	Name string `json:"name"`
-
-	// Namespace Namespace for namespace-scoped roles, empty for cluster roles
-	Namespace *string `json:"namespace,omitempty"`
-}
-
-// RoleEntitlementMapping Mapping of a role to an entitlement within a scope (legacy)
-type RoleEntitlementMapping struct {
-	// Context Additional context for authorization
-	Context *AuthzContext `json:"context,omitempty"`
-
-	// Effect Policy effect (allow or deny)
-	Effect RoleEntitlementMappingEffect `json:"effect"`
-
-	// Entitlement Entitlement with claim and value
-	Entitlement Entitlement `json:"entitlement"`
-
-	// Hierarchy Resource hierarchy scope
-	Hierarchy ResourceHierarchy `json:"hierarchy"`
-
-	// Name Unique mapping name
-	Name string `json:"name"`
-
-	// Role Reference to a role by name and namespace (legacy)
-	Role RoleRef `json:"role"`
-}
-
-// RoleEntitlementMappingEffect Policy effect (allow or deny)
-type RoleEntitlementMappingEffect string
-
-// RoleRef Reference to a role by name and namespace (legacy)
-type RoleRef struct {
-	// Name Role name
-	Name string `json:"name"`
-
-	// Namespace Namespace for namespace-scoped roles, empty for cluster roles
-	Namespace *string `json:"namespace,omitempty"`
-}
-
 // SchemaResponse JSON Schema response for component types, traits, or workflows
 type SchemaResponse map[string]interface{}
 
@@ -3051,15 +2898,6 @@ type TargetEnvironmentRef struct {
 // TargetEnvironmentRefKind Kind of environment resource
 type TargetEnvironmentRefKind string
 
-// TargetPath Target resource path within a namespace (project/component only) (legacy)
-type TargetPath struct {
-	// Component Component name
-	Component *string `json:"component,omitempty"`
-
-	// Project Project name
-	Project *string `json:"project,omitempty"`
-}
-
 // Trait Trait resource.
 // Defines composable cross-cutting concerns that can be applied to components.
 type Trait struct {
@@ -3167,84 +3005,6 @@ type TraitSpecPatchesTargetPlane string
 
 // TraitStatus Observed state of a Trait
 type TraitStatus = map[string]interface{}
-
-// UpdateClusterRoleBindingRequest Request to update a cluster role binding (legacy, single mapping only)
-type UpdateClusterRoleBindingRequest struct {
-	// Effect Policy effect (allow or deny)
-	Effect UpdateClusterRoleBindingRequestEffect `json:"effect"`
-
-	// Entitlement Entitlement with claim and value
-	Entitlement Entitlement `json:"entitlement"`
-
-	// Role Cluster role name
-	Role string `json:"role"`
-}
-
-// UpdateClusterRoleBindingRequestEffect Policy effect (allow or deny)
-type UpdateClusterRoleBindingRequestEffect string
-
-// UpdateClusterRoleRequest Request to update a cluster role (legacy)
-type UpdateClusterRoleRequest struct {
-	// Actions List of actions this role permits
-	Actions []string `json:"actions"`
-
-	// Description Human-readable description of the role
-	Description *string `json:"description,omitempty"`
-}
-
-// UpdateNamespaceRoleBindingRequest Request to update a namespace role binding (legacy, single mapping only)
-type UpdateNamespaceRoleBindingRequest struct {
-	// Effect Policy effect (allow or deny)
-	Effect UpdateNamespaceRoleBindingRequestEffect `json:"effect"`
-
-	// Entitlement Entitlement with claim and value
-	Entitlement Entitlement `json:"entitlement"`
-
-	// Role Reference to a role by name and namespace (legacy)
-	Role RoleRef `json:"role"`
-
-	// TargetPath Target resource path within a namespace (project/component only) (legacy)
-	TargetPath TargetPath `json:"targetPath"`
-}
-
-// UpdateNamespaceRoleBindingRequestEffect Policy effect (allow or deny)
-type UpdateNamespaceRoleBindingRequestEffect string
-
-// UpdateNamespaceRoleRequest Request to update a namespace role (legacy)
-type UpdateNamespaceRoleRequest struct {
-	// Actions List of actions this role permits
-	Actions []string `json:"actions"`
-
-	// Description Human-readable description of the role
-	Description *string `json:"description,omitempty"`
-}
-
-// UpdateRoleMappingRequest Request to update a role mapping (legacy)
-type UpdateRoleMappingRequest struct {
-	// Context Additional context for authorization
-	Context *AuthzContext `json:"context,omitempty"`
-
-	// Effect Policy effect (allow or deny)
-	Effect UpdateRoleMappingRequestEffect `json:"effect"`
-
-	// Entitlement Entitlement with claim and value
-	Entitlement Entitlement `json:"entitlement"`
-
-	// Hierarchy Resource hierarchy scope
-	Hierarchy ResourceHierarchy `json:"hierarchy"`
-
-	// Role Reference to a role by name and namespace (legacy)
-	Role RoleRef `json:"role"`
-}
-
-// UpdateRoleMappingRequestEffect Policy effect (allow or deny)
-type UpdateRoleMappingRequestEffect string
-
-// UpdateRoleRequest Request to update a role's actions (legacy)
-type UpdateRoleRequest struct {
-	// Actions New list of actions for the role
-	Actions []string `json:"actions"`
-}
 
 // UserCapabilitiesResponse User authorization profile response
 type UserCapabilitiesResponse struct {
