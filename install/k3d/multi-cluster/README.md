@@ -2,6 +2,11 @@
 
 Production-like setup with each OpenChoreo plane running in its own k3d cluster.
 
+> [!NOTE]
+> This guide is for **contributors and developers** working from a local checkout.
+> It uses local Helm charts (`install/helm/...`) and standalone setup scripts.
+> If you just want to try OpenChoreo, follow the [public getting-started guide](https://openchoreo.dev/docs/getting-started/try-it-out/on-your-environment/) instead.
+
 Planes communicate via **cluster agents** over WebSocket. Data/Build/Observability
 plane agents connect to the Control Plane's cluster-gateway. Secured with mTLS,
 no need to expose Kubernetes APIs externally.
@@ -104,6 +109,23 @@ helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-
 ```bash
 kubectl --context k3d-openchoreo-cp wait -n openchoreo-control-plane \
   --for=condition=available --timeout=300s deployment --all
+```
+
+### Extract Cluster Gateway CA
+
+Wait for cert-manager to issue the cluster-gateway CA certificate, then populate the ConfigMap that controller-manager and cluster-agents use to verify the gateway server.
+
+```bash
+kubectl --context k3d-openchoreo-cp wait -n openchoreo-control-plane \
+  --for=condition=Ready certificate/cluster-gateway-ca --timeout=120s
+
+kubectl --context k3d-openchoreo-cp get secret cluster-gateway-ca \
+  -n openchoreo-control-plane \
+  -o jsonpath='{.data.ca\.crt}' | base64 -d | \
+  kubectl --context k3d-openchoreo-cp create configmap cluster-gateway-ca \
+    --from-file=ca.crt=/dev/stdin \
+    -n openchoreo-control-plane \
+    --dry-run=client -o yaml | kubectl --context k3d-openchoreo-cp apply -f -
 ```
 
 ## 2. Install Default Resources
@@ -511,13 +533,30 @@ helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-ob
   --timeout 10m
 ```
 
-#### Install Observability Modules
-
-Install the required logs, metrics and tracing modules. Refer https://openchoreo.dev/modules for more details
-
 ```bash
 kubectl --context k3d-openchoreo-op wait -n openchoreo-observability-plane \
   --for=condition=available --timeout=600s deployment --all
+```
+
+#### Install Observability Modules
+
+Install the logs and metrics modules. See [openchoreo.dev/modules](https://openchoreo.dev/modules) for more details.
+
+```bash
+helm upgrade --install observability-logs-opensearch \
+  oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
+  --kube-context k3d-openchoreo-op \
+  --namespace openchoreo-observability-plane \
+  --version 0.3.8 \
+  --set openSearchSetup.openSearchSecretName=opensearch-admin-credentials \
+  --wait --timeout 10m
+
+helm upgrade --install observability-metrics-prometheus \
+  oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
+  --kube-context k3d-openchoreo-op \
+  --namespace openchoreo-observability-plane \
+  --version 0.2.4 \
+  --wait --timeout 10m
 ```
 
 ### Register Observability Plane
