@@ -1,14 +1,28 @@
-# OpenChoreo
-Internal Developer Platform
+<div align="left">
+  <p></p><p></p>
+  <p>
+    <img 
+    src="./docs/images/openchoreo-horizontal-color.png" alt="OpenChoreo Platform Abstractions" 
+    width="600"/>
+  </p>
+  <h1 style="font-size: 1.5em;">
+    A complete, open-source developer platform for Kubernetes
+  </h1>
+  <p>OpenChoreo is a developer platform for Kubernetes offering development and architecture abstractions, a Backstage-powered developer portal, application CI/CD, GitOps, and observability.</P>
 
-<!-- License, compliance, and project health badges -->
+<!-- Governance & Social -->
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![CNCF Sandbox](https://img.shields.io/badge/CNCF-Sandbox-00ADD8?logo=cloud-native-computing-foundation&logoColor=white)](https://www.cncf.io/projects/)
+[![Twitter Follow](https://img.shields.io/twitter/follow/openchoreo?style=social)](https://x.com/openchoreo)
+[![Slack](https://img.shields.io/badge/slack-openchoreo-blue?logo=slack)](https://cloud-native.slack.com/archives/C0ABYRG1MND)
+
+
+<!-- Compliance & Security -->
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fopenchoreo%2Fopenchoreo.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fopenchoreo%2Fopenchoreo?ref=badge_shield)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11819/badge)](https://www.bestpractices.dev/projects/11819)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/openchoreo/openchoreo/badge)](https://scorecard.dev/viewer/?uri=github.com/openchoreo/openchoreo)
 [![CLOMonitor](https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/openchoreo/badge)](https://clomonitor.io/projects/cncf/openchoreo)
 [![LFX Health Score](https://insights.linuxfoundation.org/api/badge/health-score?project=openchoreo)](https://insights.linuxfoundation.org/project/openchoreo)
-
 <!-- Build, code quality, and project info badges -->
 [![Build and Test](https://github.com/openchoreo/openchoreo/actions/workflows/build-and-test.yml/badge.svg?branch=main)](https://github.com/openchoreo/openchoreo/actions/workflows/build-and-test.yml)
 [![Codecov](https://codecov.io/gh/openchoreo/openchoreo/branch/main/graph/badge.svg)](https://codecov.io/gh/openchoreo/openchoreo)
@@ -16,8 +30,7 @@ Internal Developer Platform
 [![GitHub Release](https://img.shields.io/github/v/release/openchoreo/openchoreo)](https://github.com/openchoreo/openchoreo/releases/latest)
 [![GitHub last commit](https://img.shields.io/github/last-commit/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/commits/main)
 [![GitHub issues](https://img.shields.io/github/issues/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/issues)
-
-OpenChoreo is a developer platform for Kubernetes offering development and architecture abstractions, a Backstage-powered developer portal, application CI/CD, GitOps, and observability. It composes CNCF and complementary projects into a modular, extensible framework that provides both strong governance for platform engineers and simplified abstractions for developers.
+</div>
 
 ## Why OpenChoreo?
 Kubernetes gives you powerful primitives like Namespaces, Deployments, CronJobs, Services and NetworkPolicies—but they are too low-level for most developers.
