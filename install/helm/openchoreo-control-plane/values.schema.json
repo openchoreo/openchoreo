@@ -405,6 +405,30 @@
           "additionalProperties": false,
           "description": "Feature flags for enabling/disabling OpenChoreo features in Backstage",
           "properties": {
+            "auth": {
+              "additionalProperties": false,
+              "description": "Authentication feature flags",
+              "properties": {
+                "redirectFlow": {
+                  "additionalProperties": false,
+                  "description": "Experimental redirect flow authentication configuration",
+                  "properties": {
+                    "enabled": {
+                      "default": true,
+                      "description": "Enable experimental redirect flow - silently redirects to IDP instead of showing sign-in popup",
+                      "title": "enabled",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [],
+                  "title": "redirectFlow",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "auth",
+              "type": "object"
+            },
             "observability": {
               "additionalProperties": false,
               "description": "Observability plane features (Metrics, Traces, Runtime Logs)",

@@ -2260,6 +2260,22 @@ backstage:
       # default: true
       # @schema
       enabled: true
+    # @schema
+    # type: object
+    # description: Authentication feature flags
+    # @schema
+    auth:
+      # @schema
+      # type: object
+      # description: Experimental redirect flow authentication configuration
+      # @schema
+      redirectFlow:
+        # @schema
+        # type: boolean
+        # description: Enable experimental redirect flow - silently redirects to IDP instead of showing sign-in popup
+        # default: true
+        # @schema
+        enabled: true
 
   # @schema
   # type: object

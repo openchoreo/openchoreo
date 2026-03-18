@@ -102,6 +102,8 @@ spec:
           value: {{ .Values.security.enabled | quote }}
         - name: OPENCHOREO_FEATURES_AUTHZ_ENABLED
           value: {{ .Values.security.authz.enabled | quote }}
+        - name: OPENCHOREO_FEATURES_AUTH_REDIRECT_FLOW_ENABLED
+          value: {{ .Values.backstage.features.auth.redirectFlow.enabled | quote }}
         # External CI Platform Integrations
         # Jenkins: requires jenkins.io/job-full-name annotation on entity
         - name: JENKINS_BASE_URL
