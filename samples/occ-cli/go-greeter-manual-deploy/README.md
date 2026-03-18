@@ -81,6 +81,12 @@ occ releasebinding list
 
 ## Step 5: Test the Application
 
+Wait for the release binding status to show `Ready` before proceeding:
+
+```bash
+occ releasebinding list
+```
+
 Get the invoke URL from the release binding status and test the endpoint:
 
 ```bash
