@@ -35,18 +35,21 @@ var (
 	}
 
 	Namespace = Flag{
-		Name:  "namespace",
-		Usage: messages.FlagNamespaceDesc,
+		Name:      "namespace",
+		Shorthand: "n",
+		Usage:     messages.FlagNamespaceDesc,
 	}
 
 	Project = Flag{
-		Name:  "project",
-		Usage: messages.FlagProjDesc,
+		Name:      "project",
+		Shorthand: "p",
+		Usage:     messages.FlagProjDesc,
 	}
 
 	Component = Flag{
-		Name:  "component",
-		Usage: messages.FlagCompDesc,
+		Name:      "component",
+		Shorthand: "c",
+		Usage:     messages.FlagCompDesc,
 	}
 	Build = Flag{
 		Name:  "build",
