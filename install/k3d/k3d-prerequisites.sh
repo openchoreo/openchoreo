@@ -5,19 +5,24 @@ set -euo pipefail
 # Gateway API CRDs, cert-manager, External Secrets Operator, kgateway,
 # OpenBao (with ClusterSecretStore), and CoreDNS rewrite rules.
 #
-# Versions are sourced from install/quick-start/.config.sh to stay in sync
-# with the rest of the install tooling.
+# Designed to work with curl | bash:
+#   curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/main/install/k3d/k3d-prerequisites.sh | bash
 #
-# Usage:
+# Or run from a local checkout:
 #   install/k3d/k3d-prerequisites.sh
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-
-# shellcheck source=../quick-start/.config.sh
-source "$REPO_ROOT/install/quick-start/.config.sh"
-
+# -- versions (update these on release branches) --
+OPENCHOREO_REF="main"
 GATEWAY_API_VERSION="v1.4.1"
+CERT_MANAGER_VERSION="v1.19.2"
+ESO_VERSION="1.3.2"
+KGATEWAY_VERSION="v2.2.1"
+OPENBAO_CHART_VERSION="0.25.6"
+
+# -- derived constants --
+RAW_BASE="https://raw.githubusercontent.com/openchoreo/openchoreo/${OPENCHOREO_REF}"
+CONTROL_PLANE_NS="openchoreo-control-plane"
+OPENBAO_NS="openbao"
 
 step() {
     echo ""
@@ -29,7 +34,7 @@ kubectl apply --server-side \
     -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/experimental-install.yaml"
 
 step "Installing cert-manager ($CERT_MANAGER_VERSION)..."
-helm upgrade --install cert-manager "$CERT_MANAGER_REPO/cert-manager" \
+helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
     --namespace cert-manager \
     --create-namespace \
     --version "$CERT_MANAGER_VERSION" \
@@ -37,7 +42,7 @@ helm upgrade --install cert-manager "$CERT_MANAGER_REPO/cert-manager" \
     --wait --timeout 180s
 
 step "Installing External Secrets Operator ($ESO_VERSION)..."
-helm upgrade --install external-secrets "$ESO_REPO/external-secrets" \
+helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
     --namespace external-secrets \
     --create-namespace \
     --version "$ESO_VERSION" \
@@ -55,11 +60,43 @@ helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgatew
     --version "$KGATEWAY_VERSION" \
     --set controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true
 
-step "Installing OpenBao and ClusterSecretStore..."
-"$REPO_ROOT/install/prerequisites/openbao/setup.sh" --dev --seed-dev-secrets
+step "Installing OpenBao ($OPENBAO_CHART_VERSION)..."
+helm upgrade --install openbao oci://ghcr.io/openbao/charts/openbao \
+    --namespace "$OPENBAO_NS" \
+    --create-namespace \
+    --version "$OPENBAO_CHART_VERSION" \
+    --values "${RAW_BASE}/install/k3d/common/values-openbao.yaml" \
+    --wait --timeout 300s
+
+step "Creating ClusterSecretStore and ServiceAccount..."
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-secrets-openbao
+  namespace: ${OPENBAO_NS}
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: default
+spec:
+  provider:
+    vault:
+      server: "http://openbao.${OPENBAO_NS}.svc:8200"
+      path: "secret"
+      version: "v2"
+      auth:
+        kubernetes:
+          mountPath: "kubernetes"
+          role: "openchoreo-secret-writer-role"
+          serviceAccountRef:
+            name: "external-secrets-openbao"
+            namespace: "${OPENBAO_NS}"
+EOF
 
 step "Configuring CoreDNS rewrite..."
-kubectl apply -f "$REPO_ROOT/install/k3d/common/coredns-custom.yaml"
+kubectl apply -f "${RAW_BASE}/install/k3d/common/coredns-custom.yaml"
 
 echo ""
 echo "==> All prerequisites installed successfully."
