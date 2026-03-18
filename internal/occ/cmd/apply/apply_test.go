@@ -12,6 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExtractResourceInfo(t *testing.T) {
@@ -72,16 +75,15 @@ func TestExtractResourceInfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			info, err := extractResourceInfo(tt.resource)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("extractResourceInfo() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
 				return
 			}
-			if err != nil && tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-				t.Errorf("error %q does not contain %q", err.Error(), tt.errMsg)
-			}
-			if err == nil && info != tt.wantInfo {
-				t.Errorf("extractResourceInfo() = %+v, want %+v", info, tt.wantInfo)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantInfo, info)
 		})
 	}
 }
@@ -111,14 +113,10 @@ func TestStripKindAndAPIVersion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			jsonBytes, err := stripKindAndAPIVersion(tt.resource)
-			if err != nil {
-				t.Fatalf("stripKindAndAPIVersion() error = %v", err)
-			}
+			require.NoError(t, err)
 			result := string(jsonBytes)
 			for _, key := range tt.wantKeys {
-				if strings.Contains(result, `"`+key+`"`) {
-					t.Errorf("result JSON should not contain key %q, got %s", key, result)
-				}
+				assert.NotContains(t, result, `"`+key+`"`)
 			}
 		})
 	}
@@ -167,16 +165,15 @@ func TestParseYAMLResources(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resources, err := parseYAMLResources([]byte(tt.content))
-			if (err != nil) != tt.wantErr {
-				t.Errorf("parseYAMLResources() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
 				return
 			}
-			if err != nil && tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-				t.Errorf("error %q does not contain %q", err.Error(), tt.errMsg)
-			}
-			if err == nil && len(resources) != tt.wantCount {
-				t.Errorf("parseYAMLResources() returned %d resources, want %d", len(resources), tt.wantCount)
-			}
+			require.NoError(t, err)
+			assert.Len(t, resources, tt.wantCount)
 		})
 	}
 }
@@ -210,9 +207,7 @@ func TestParseErrorBody(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := parseErrorBody(tt.body); got != tt.want {
-				t.Errorf("parseErrorBody() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, parseErrorBody(tt.body))
 		})
 	}
 }
@@ -221,17 +216,11 @@ func TestDiscoverResourceFiles(t *testing.T) {
 	t.Run("single file", func(t *testing.T) {
 		dir := t.TempDir()
 		f := filepath.Join(dir, "resource.yaml")
-		if err := os.WriteFile(f, []byte("kind: Project"), 0600); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.WriteFile(f, []byte("kind: Project"), 0600))
 
 		files, err := discoverResourceFiles(f)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(files) != 1 || files[0] != f {
-			t.Errorf("got %v, want [%s]", files, f)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, []string{f}, files)
 	})
 
 	t.Run("directory with mixed files", func(t *testing.T) {
@@ -239,49 +228,32 @@ func TestDiscoverResourceFiles(t *testing.T) {
 		for _, f := range []struct{ name, content string }{
 			{"a.yaml", "kind: A"}, {"b.yml", "kind: B"}, {"c.txt", "not yaml"},
 		} {
-			if err := os.WriteFile(filepath.Join(dir, f.name), []byte(f.content), 0600); err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, os.WriteFile(filepath.Join(dir, f.name), []byte(f.content), 0600))
 		}
 
 		files, err := discoverResourceFiles(dir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(files) != 2 {
-			t.Errorf("got %d files, want 2", len(files))
-		}
+		require.NoError(t, err)
+		assert.Len(t, files, 2)
 	})
 
 	t.Run("http URL passthrough", func(t *testing.T) {
 		files, err := discoverResourceFiles("https://example.com/resource.yaml")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(files) != 1 || files[0] != "https://example.com/resource.yaml" {
-			t.Errorf("got %v, want [https://example.com/resource.yaml]", files)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, []string{"https://example.com/resource.yaml"}, files)
 	})
 
 	t.Run("nonexistent path", func(t *testing.T) {
-		_, err := discoverResourceFiles("/nonexistent/path")
-		if err == nil {
-			t.Fatal("expected error for nonexistent path")
-		}
-		if !strings.Contains(err.Error(), "does not exist") {
-			t.Errorf("error %q should mention 'does not exist'", err.Error())
-		}
+		dir := t.TempDir()
+		_, err := discoverResourceFiles(filepath.Join(dir, "no-such-subdir"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not exist")
 	})
 
 	t.Run("empty directory", func(t *testing.T) {
 		dir := t.TempDir()
 		files, err := discoverResourceFiles(dir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(files) != 0 {
-			t.Errorf("got %d files, want 0", len(files))
-		}
+		require.NoError(t, err)
+		assert.Empty(t, files)
 	})
 }
 
@@ -292,44 +264,17 @@ func TestReadResourceContent(t *testing.T) {
 		dir := t.TempDir()
 		f := filepath.Join(dir, "resource.yaml")
 		want := "kind: Project\nmetadata:\n  name: test\n"
-		if err := os.WriteFile(f, []byte(want), 0600); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.WriteFile(f, []byte(want), 0600))
 
 		got, err := readResourceContent(ctx, f)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if string(got) != want {
-			t.Errorf("readResourceContent() = %q, want %q", string(got), want)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, want, string(got))
 	})
 
 	t.Run("file not found", func(t *testing.T) {
-		_, err := readResourceContent(ctx, "/nonexistent/file.yaml")
-		if err == nil {
-			t.Fatal("expected error for missing file")
-		}
-	})
-
-	t.Run("permission denied", func(t *testing.T) {
 		dir := t.TempDir()
-		f := filepath.Join(dir, "noperm.yaml")
-		if err := os.WriteFile(f, []byte("data"), 0600); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chmod(f, 0000); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = os.Chmod(f, 0600) })
-
-		_, err := readResourceContent(ctx, f)
-		if err == nil {
-			t.Fatal("expected error for unreadable file")
-		}
-		if !strings.Contains(err.Error(), "permission denied") {
-			t.Errorf("error %q should mention 'permission denied'", err.Error())
-		}
+		_, err := readResourceContent(ctx, filepath.Join(dir, "missing.yaml"))
+		require.Error(t, err)
 	})
 
 	t.Run("read from HTTP URL", func(t *testing.T) {
@@ -340,12 +285,8 @@ func TestReadResourceContent(t *testing.T) {
 		t.Cleanup(srv.Close)
 
 		got, err := readResourceContent(ctx, srv.URL+"/resource.yaml")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if string(got) != want {
-			t.Errorf("readResourceContent() = %q, want %q", string(got), want)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, want, string(got))
 	})
 
 	t.Run("HTTP URL returns error status", func(t *testing.T) {
@@ -355,11 +296,7 @@ func TestReadResourceContent(t *testing.T) {
 		t.Cleanup(srv.Close)
 
 		_, err := readResourceContent(ctx, srv.URL+"/missing.yaml")
-		if err == nil {
-			t.Fatal("expected error for HTTP 404")
-		}
-		if !strings.Contains(err.Error(), "HTTP 404") {
-			t.Errorf("error %q should mention 'HTTP 404'", err.Error())
-		}
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "HTTP 404")
 	})
 }

@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -63,13 +66,9 @@ func TestFilterNewEntries(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := filterNewEntries(tt.entries, tt.lastSeen)
-			if len(got) != tt.wantCount {
-				t.Errorf("filterNewEntries() returned %d, want %d", len(got), tt.wantCount)
-			}
+			require.Len(t, got, tt.wantCount)
 			for i, log := range tt.wantLogs {
-				if got[i].Log != log {
-					t.Errorf("filterNewEntries()[%d].Log = %q, want %q", i, got[i].Log, log)
-				}
+				assert.Equal(t, log, got[i].Log)
 			}
 		})
 	}
@@ -89,9 +88,7 @@ func TestParseSinceToSeconds(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := parseSinceToSeconds(tt.since); got != tt.want {
-				t.Errorf("parseSinceToSeconds(%q) = %d, want %d", tt.since, got, tt.want)
-			}
+			assert.Equal(t, tt.want, parseSinceToSeconds(tt.since))
 		})
 	}
 }

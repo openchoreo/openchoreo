@@ -6,6 +6,9 @@ package workflow
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
@@ -56,9 +59,7 @@ func TestIsComponentWorkflow(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isComponentWorkflow(tt.wf); got != tt.want {
-				t.Errorf("isComponentWorkflow() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, isComponentWorkflow(tt.wf))
 		})
 	}
 }
@@ -82,45 +83,29 @@ func TestApplySetOverrides(t *testing.T) {
 	t.Run("empty set values returns unchanged", func(t *testing.T) {
 		req := baseRun("noop-run", "build-wf")
 		got, err := applySetOverrides(req, "build-wf", nil)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got.Metadata.Name != "noop-run" {
-			t.Errorf("name = %q, want %q", got.Metadata.Name, "noop-run")
-		}
-		if got.Spec.Workflow.Name != "build-wf" {
-			t.Errorf("workflow name = %q, want %q", got.Spec.Workflow.Name, "build-wf")
-		}
+		require.NoError(t, err)
+		assert.Equal(t, "noop-run", got.Metadata.Name)
+		assert.Equal(t, "build-wf", got.Spec.Workflow.Name)
 	})
 
 	t.Run("override metadata name", func(t *testing.T) {
 		req := baseRun("original-run", "deploy-wf")
 		got, err := applySetOverrides(req, "deploy-wf", []string{"metadata.name=renamed-run"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got.Metadata.Name != "renamed-run" {
-			t.Errorf("name = %q, want %q", got.Metadata.Name, "renamed-run")
-		}
+		require.NoError(t, err)
+		assert.Equal(t, "renamed-run", got.Metadata.Name)
 	})
 
 	t.Run("workflow name override is enforced back", func(t *testing.T) {
 		req := baseRun("enforce-run", "protected-wf")
 		got, err := applySetOverrides(req, "protected-wf", []string{"spec.workflow.name=hijacked"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got.Spec.Workflow.Name != "protected-wf" {
-			t.Errorf("workflow name = %q, want %q (should be enforced)", got.Spec.Workflow.Name, "protected-wf")
-		}
+		require.NoError(t, err)
+		assert.Equal(t, "protected-wf", got.Spec.Workflow.Name, "workflow name should be enforced")
 	})
 
 	t.Run("invalid set value returns error", func(t *testing.T) {
 		req := baseRun("bad-input-run", "test-wf")
 		_, err := applySetOverrides(req, "test-wf", []string{"no-equals-sign"})
-		if err == nil {
-			t.Fatal("expected error for invalid set value")
-		}
+		require.Error(t, err)
 	})
 
 	t.Run("multiple overrides applied", func(t *testing.T) {
@@ -128,15 +113,8 @@ func TestApplySetOverrides(t *testing.T) {
 		got, err := applySetOverrides(req, "ci-wf", []string{
 			"metadata.name=custom-run",
 		})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got.Metadata.Name != "custom-run" {
-			t.Errorf("name = %q, want %q", got.Metadata.Name, "custom-run")
-		}
-		// Workflow name should still be enforced
-		if got.Spec.Workflow.Name != "ci-wf" {
-			t.Errorf("workflow name = %q, want %q", got.Spec.Workflow.Name, "ci-wf")
-		}
+		require.NoError(t, err)
+		assert.Equal(t, "custom-run", got.Metadata.Name)
+		assert.Equal(t, "ci-wf", got.Spec.Workflow.Name, "workflow name should be enforced")
 	})
 }

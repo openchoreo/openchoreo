@@ -6,6 +6,9 @@ package workflowrun
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -43,22 +46,16 @@ func TestFilterByComponent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FilterByComponent(runs, tt.component)
-			if len(got) != tt.wantCount {
-				t.Errorf("FilterByComponent() returned %d, want %d", len(got), tt.wantCount)
-			}
+			require.Len(t, got, tt.wantCount)
 			for i, name := range tt.wantNames {
-				if got[i].Metadata.Name != name {
-					t.Errorf("FilterByComponent()[%d].Name = %q, want %q", i, got[i].Metadata.Name, name)
-				}
+				assert.Equal(t, name, got[i].Metadata.Name)
 			}
 		})
 	}
 
 	t.Run("empty list", func(t *testing.T) {
 		got := FilterByComponent(nil, "comp")
-		if len(got) != 0 {
-			t.Errorf("FilterByComponent(nil) returned %d, want 0", len(got))
-		}
+		assert.Empty(t, got)
 	})
 }
 
@@ -88,13 +85,9 @@ func TestExcludeComponentRuns(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ExcludeComponentRuns(tt.input)
-			if len(got) != tt.wantCount {
-				t.Errorf("ExcludeComponentRuns() returned %d, want %d", len(got), tt.wantCount)
-			}
+			require.Len(t, got, tt.wantCount)
 			for i, name := range tt.wantNames {
-				if got[i].Metadata.Name != name {
-					t.Errorf("ExcludeComponentRuns()[%d].Name = %q, want %q", i, got[i].Metadata.Name, name)
-				}
+				assert.Equal(t, name, got[i].Metadata.Name)
 			}
 		})
 	}
@@ -112,9 +105,7 @@ func TestGetComponentLabel(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getComponentLabel(tt.run); got != tt.want {
-				t.Errorf("getComponentLabel() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, getComponentLabel(tt.run))
 		})
 	}
 }
@@ -141,9 +132,7 @@ func TestDeriveStatus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := deriveStatus(tt.conditions); got != tt.want {
-				t.Errorf("deriveStatus() = %q, want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, deriveStatus(tt.conditions))
 		})
 	}
 }

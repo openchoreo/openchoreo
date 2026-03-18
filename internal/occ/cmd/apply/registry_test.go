@@ -5,16 +5,13 @@ package apply
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSupportedKinds(t *testing.T) {
 	kinds := supportedKinds()
-	if len(kinds) == 0 {
-		t.Fatal("supportedKinds() returned empty list")
-	}
-	for i := 1; i < len(kinds); i++ {
-		if kinds[i] < kinds[i-1] {
-			t.Errorf("supportedKinds() not sorted: %q before %q", kinds[i-1], kinds[i])
-		}
-	}
+	require.NotEmpty(t, kinds)
+	assert.IsNonDecreasing(t, kinds)
 }

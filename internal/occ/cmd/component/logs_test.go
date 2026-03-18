@@ -6,6 +6,9 @@ package component
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
@@ -52,13 +55,9 @@ func TestReverseLogs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reverseLogs(tt.logs)
-			if len(tt.logs) != len(tt.want) {
-				t.Fatalf("reverseLogs() length = %d, want %d", len(tt.logs), len(tt.want))
-			}
+			require.Len(t, tt.logs, len(tt.want))
 			for i, w := range tt.want {
-				if tt.logs[i].Log != w {
-					t.Errorf("reverseLogs()[%d].Log = %q, want %q", i, tt.logs[i].Log, w)
-				}
+				assert.Equal(t, w, tt.logs[i].Log)
 			}
 		})
 	}
@@ -149,13 +148,12 @@ func TestFindRootEnvironment(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := findRootEnvironment(tt.pipeline)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("findRootEnvironment() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-			if err == nil && got != tt.want {
-				t.Errorf("findRootEnvironment() = %q, want %q", got, tt.want)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
