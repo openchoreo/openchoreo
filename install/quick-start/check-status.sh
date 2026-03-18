@@ -5,19 +5,19 @@ set -eo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/.config.sh"
 
-# Component groups organized by architectural layers (bash 3.2 compatible)
+# Component groups organized by architectural layers
 get_component_group() {
     local group="$1"
     case "$group" in
-        "Control_Plane") echo "cert_manager controller_manager" ;; # TODO: add api_server, backstage and thunder
-        "Data_Plane") echo "gateway_controller" ;;
+        "Control_Plane") echo "cert_manager controller_manager api_server backstage cluster_gateway" ;;
+        "Data_Plane") echo "gateway_proxy" ;;
         "Workflow_Plane") echo "argo_workflow_controller registry" ;;
         "Observability_Plane") echo "opensearch observer" ;;
         *) echo "" ;;
     esac
 }
 
-# Group order for display (using underscores for bash compatibility)
+# Group order for display
 group_order=("Control_Plane" "Data_Plane" "Workflow_Plane" "Observability_Plane")
 
 # Group display names
@@ -32,31 +32,51 @@ get_group_display_name() {
     esac
 }
 
-# Component lists for multi-cluster mode (kept for backward compatibility)
-components_cp=("cert_manager" "controller_manager" "api_server")
-components_dp=("gateway_controller")
+# Human-readable component names for display
+get_component_display_name() {
+    local component="$1"
+    case "$component" in
+        "cert_manager") echo "Cert Manager" ;;
+        "controller_manager") echo "Controller Manager" ;;
+        "api_server") echo "API Server" ;;
+        "backstage") echo "Backstage" ;;
+        "cluster_gateway") echo "Cluster Gateway" ;;
+        "gateway_proxy") echo "Gateway Proxy" ;;
+        "argo_workflow_controller") echo "Argo Workflow Controller" ;;
+        "registry") echo "Docker Registry" ;;
+        "opensearch") echo "OpenSearch" ;;
+        "observer") echo "Observer" ;;
+        *) echo "$component" ;;
+    esac
+}
 
-# Core vs optional component classification (used in multi-cluster mode)
-core_components=("cert_manager" "controller_manager" "api_server" "gateway_controller")
-optional_components=("opensearch" "observer")
+# Component lists for multi-cluster mode
+components_cp=("cert_manager" "controller_manager" "api_server" "backstage" "cluster_gateway")
+components_dp=("gateway_proxy")
 
-# Function to get component configuration (namespace:label)
+# Core vs optional classification
+core_components=("cert_manager" "controller_manager" "api_server" "backstage" "cluster_gateway" "gateway_proxy")
+optional_components=("opensearch" "observer" "argo_workflow_controller" "registry")
+
+# Component configuration: namespace and pod label selector
+# Format is namespace:label-selector
 get_component_config() {
     local component="$1"
     case "$component" in
         "cert_manager") echo "cert-manager:app.kubernetes.io/name=cert-manager" ;;
         "controller_manager") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=controller-manager" ;;
         "api_server") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=api-server" ;;
-        "gateway_controller") echo "$DATA_PLANE_NS:app.kubernetes.io/name=gateway-default" ;;
+        "backstage") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=backstage" ;;
+        "cluster_gateway") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=cluster-gateway" ;;
+        "gateway_proxy") echo "$DATA_PLANE_NS:gateway.networking.k8s.io/gateway-name=gateway-default" ;;
         "argo_workflow_controller") echo "$WORKFLOW_PLANE_NS:app.kubernetes.io/name=argo-workflows-workflow-controller" ;;
         "registry") echo "$WORKFLOW_PLANE_NS:app=docker-registry" ;;
-        "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-master" ;;
-        "observer") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=observer" ;;
+        "opensearch") echo "$OBSERVABILITY_NS:opster.io/opensearch-cluster=opensearch" ;;
+        "observer") echo "$OBSERVABILITY_NS:app.kubernetes.io/name=openchoreo-observability-plane,app.kubernetes.io/component=observer" ;;
         *) echo "unknown:unknown" ;;
     esac
 }
 
-# Helper function to check if a namespace exists
 namespace_exists() {
     local namespace="$1"
     local context="$2"
@@ -68,7 +88,6 @@ check_component_status() {
     local component="$1"
     local context="$2"
 
-    # Get namespace and label from component config
     local config
     config=$(get_component_config "$component")
     if [[ "$config" == "unknown:unknown" ]]; then
@@ -79,47 +98,46 @@ check_component_status() {
     local namespace="${config%%:*}"
     local label="${config##*:}"
 
-    # Check if namespace exists
     if ! namespace_exists "$namespace" "$context"; then
         echo "not installed"
         return
     fi
 
-    # Get pod status
+    # || true prevents set -e from killing the script on kubectl failure
     local pod_status
     pod_status=$(kubectl --context="$context" get pods -n "$namespace" -l "$label" \
-        -o jsonpath="{.items[*].status.conditions[?(@.type=='Ready')].status}" 2>/dev/null)
+        -o jsonpath="{.items[*].status.conditions[?(@.type=='Ready')].status}" 2>/dev/null) || true
 
     if [[ -z "$pod_status" ]]; then
         echo "not started"
         return
     fi
 
-    if [[ "$pod_status" =~ "False" ]]; then
+    if [[ "$pod_status" =~ False ]]; then
         echo "pending"
-    elif [[ "$pod_status" =~ "True" ]]; then
+    elif [[ "$pod_status" =~ True ]]; then
         echo "ready"
     else
         echo "unknown"
     fi
 }
 
-# Get status text for a component
 get_status_text() {
     local status="$1"
     case "$status" in
         "ready") echo "[READY]" ;;
-        "not installed") echo "[NOT_INSTALLED]" ;;
+        "not installed") echo "[NOT INSTALLED]" ;;
         "pending") echo "[PENDING]" ;;
-        "not started") echo "[ERROR]" ;;
+        "not started") echo "[NOT STARTED]" ;;
         "unknown") echo "[UNKNOWN]" ;;
-        *) echo "[ERROR]" ;;
+        *) echo "[UNKNOWN]" ;;
     esac
 }
 
 # Print components grouped by architectural layers
 print_grouped_components() {
     local context="$1"
+    local total_width=70
 
     printf "\n"
     printf "======================================================================\n"
@@ -134,29 +152,16 @@ print_grouped_components() {
         local group_display_name
         group_display_name=$(get_group_display_name "$group")
 
-        # Determine group type
         local group_type=""
         case "$group" in
-            "Control_Plane")
-                group_type="Core"
-                ;;
-            "Data_Plane")
-                group_type="Core"
-                ;;
-            "Workflow_Plane")
-                group_type="Optional"
-                ;;
-            "Observability_Plane")
-                group_type="Optional"
-                ;;
+            "Control_Plane"|"Data_Plane") group_type="Core" ;;
+            "Workflow_Plane"|"Observability_Plane") group_type="Optional" ;;
         esac
 
         echo ""
-        # Fixed width: 70 characters total
-        local total_width=70
         local header_text="${group_display_name} (${group_type})"
         local header_length=${#header_text}
-        local dashes_length=$((total_width - header_length - 5))  # 5 for "+- ", " ", and "+"
+        local dashes_length=$((total_width - header_length - 5))
         local header_padding=""
         for ((i=0; i<dashes_length; i++)); do
             header_padding="${header_padding}-"
@@ -170,19 +175,20 @@ print_grouped_components() {
             local status_text
             status_text=$(get_status_text "$status")
 
-            # Fixed layout: "| component (25 chars) status (rest) |"
-            local content="${component} ${status_text}"
+            local display_name
+            display_name=$(get_component_display_name "$component")
+
+            local content="${display_name} ${status_text}"
             local content_length=${#content}
-            local padding_length=$((total_width - content_length - 4))  # 4 for "| " and " |"
+            local padding_length=$((total_width - content_length - 4))
             local padding=""
             for ((i=0; i<padding_length; i++)); do
                 padding="${padding} "
             done
 
-            printf "| %s %s%s |\n" "$component" "$status_text" "$padding"
+            printf "| %s %s%s |\n" "$display_name" "$status_text" "$padding"
         done
 
-        # Bottom border - exact width
         printf "+"
         for ((i=0; i<total_width-2; i++)); do
             printf "-"
@@ -205,21 +211,21 @@ print_component_status() {
     printf "\n%-30s %-15s %-15s\n" "Component" "Status" "Type"
     printf "%-30s %-15s %-15s\n" "-----------------------------" "---------------" "---------------"
 
-    # Use eval to get the array contents by name
     eval "local comp_list=(\"\${${comp_list_name}[@]}\")"
 
     for component in "${comp_list[@]}"; do
         local status
         local component_type="core"
 
-        # Check if this is an optional component
         if [[ " ${optional_components[*]} " =~ " ${component} " ]]; then
             component_type="optional"
         fi
 
         status=$(check_component_status "$component" "$context")
+        local display_name
+        display_name=$(get_component_display_name "$component")
 
-        printf "%-30s %-15s %-15s\n" "$component" "$status" "$component_type"
+        printf "%-30s %-15s %-15s\n" "$display_name" "$status" "$component_type"
     done
 }
 
@@ -229,7 +235,6 @@ print_component_status() {
 
 SINGLE_CLUSTER=true
 
-# Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --multi-cluster)
