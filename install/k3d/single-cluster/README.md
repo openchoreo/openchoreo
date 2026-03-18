@@ -2,8 +2,10 @@
 
 All-in-one OpenChoreo setup with all planes running in a single k3d cluster.
 
-> [!TIP]
-> For a detailed walkthrough with explanations, see the [public getting started guide](https://openchoreo.dev/docs/getting-started/try-it-out/locally/).
+> [!NOTE]
+> This guide is for **contributors and developers** working from a local checkout.
+> It uses local Helm charts (`install/helm/...`) and standalone setup scripts.
+> If you just want to try OpenChoreo, follow the [public getting-started guide](https://openchoreo.dev/docs/getting-started/try-it-out/locally/) instead, which uses published OCI chart releases.
 
 > [!IMPORTANT]
 > If you're using Colima, set `K3D_FIX_DNS=0` when creating clusters.
@@ -22,6 +24,16 @@ docker exec k3d-openchoreo-server-0 sh -c \
 > For faster setup, consider using [Image Preloading](#image-preloading) after creating the cluster.
 
 ## 2. Install Prerequisites
+
+You can install all prerequisites at once (Gateway API CRDs, cert-manager, ESO, kgateway, OpenBao, and CoreDNS rewrite):
+
+```bash
+install/k3d/k3d-prerequisites.sh
+```
+
+If you use this script, skip ahead to [Setup Control Plane](#3-setup-control-plane) (step 3), starting at "Backstage Secrets". The script also covers the OpenBao and CoreDNS steps from later sections.
+
+Or install them individually:
 
 ### Gateway API CRDs
 
