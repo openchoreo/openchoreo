@@ -25,16 +25,6 @@ docker exec k3d-openchoreo-server-0 sh -c \
 
 ## 2. Install Prerequisites
 
-You can install all prerequisites at once (Gateway API CRDs, cert-manager, ESO, kgateway, OpenBao, and CoreDNS rewrite):
-
-```bash
-install/k3d/k3d-prerequisites.sh
-```
-
-If you use this script, skip ahead to [Setup Control Plane](#3-setup-control-plane) (step 3), starting at "Backstage Secrets". The script also covers the OpenBao and CoreDNS steps from later sections.
-
-Or install them individually:
-
 ### Gateway API CRDs
 
 ```bash

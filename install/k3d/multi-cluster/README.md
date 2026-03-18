@@ -115,7 +115,7 @@ kubectl --context k3d-openchoreo-cp wait -n openchoreo-control-plane \
 
 ```bash
 kubectl --context k3d-openchoreo-cp apply -f samples/getting-started/all.yaml
-kubectl --context k3d-openchoreo-cp label namespace default openchoreo.dev/control-plane=true
+kubectl --context k3d-openchoreo-cp label namespace default openchoreo.dev/control-plane=true --overwrite
 ```
 
 ## 3. Data Plane
@@ -380,7 +380,7 @@ docker exec k3d-openchoreo-op-server-0 sh -c \
 kubectl apply --context k3d-openchoreo-op --server-side \
   -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
 
-# Install kgateway
+# kgateway
 helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
   --create-namespace --namespace openchoreo-observability-plane --kube-context k3d-openchoreo-op \
   --version v2.2.1
@@ -390,7 +390,6 @@ helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgatew
   --version v2.2.1 \
   --set controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true
 
-# Install Cert Manager (required for TLS certificates)
 # cert-manager
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --kube-context k3d-openchoreo-op \
