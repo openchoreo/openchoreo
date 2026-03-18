@@ -1,0 +1,161 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package component
+
+import (
+	"testing"
+
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+)
+
+func TestReverseLogs(t *testing.T) {
+	tests := []struct {
+		name string
+		logs []client.LogEntry
+		want []string
+	}{
+		{
+			name: "multiple entries",
+			logs: []client.LogEntry{
+				{Timestamp: "t1", Log: "a"},
+				{Timestamp: "t2", Log: "b"},
+				{Timestamp: "t3", Log: "c"},
+			},
+			want: []string{"c", "b", "a"},
+		},
+		{
+			name: "single entry",
+			logs: []client.LogEntry{{Timestamp: "t1", Log: "only"}},
+			want: []string{"only"},
+		},
+		{
+			name: "two entries",
+			logs: []client.LogEntry{
+				{Timestamp: "t1", Log: "first"},
+				{Timestamp: "t2", Log: "second"},
+			},
+			want: []string{"second", "first"},
+		},
+		{
+			name: "empty slice",
+			logs: []client.LogEntry{},
+			want: []string{},
+		},
+		{
+			name: "nil slice",
+			logs: nil,
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reverseLogs(tt.logs)
+			if len(tt.logs) != len(tt.want) {
+				t.Fatalf("reverseLogs() length = %d, want %d", len(tt.logs), len(tt.want))
+			}
+			for i, w := range tt.want {
+				if tt.logs[i].Log != w {
+					t.Errorf("reverseLogs()[%d].Log = %q, want %q", i, tt.logs[i].Log, w)
+				}
+			}
+		})
+	}
+}
+
+func makePipeline(name string, paths []gen.PromotionPath) *gen.DeploymentPipeline {
+	p := &gen.DeploymentPipeline{
+		Metadata: gen.ObjectMeta{Name: name},
+	}
+	if paths != nil {
+		p.Spec = &gen.DeploymentPipelineSpec{
+			PromotionPaths: &paths,
+		}
+	}
+	return p
+}
+
+func promotionPath(source string, targets ...string) gen.PromotionPath {
+	refs := make([]gen.TargetEnvironmentRef, len(targets))
+	for i, t := range targets {
+		refs[i] = gen.TargetEnvironmentRef{Name: t}
+	}
+	pp := gen.PromotionPath{
+		TargetEnvironmentRefs: refs,
+	}
+	pp.SourceEnvironmentRef.Name = source
+	return pp
+}
+
+func TestFindRootEnvironment(t *testing.T) {
+	tests := []struct {
+		name     string
+		pipeline *gen.DeploymentPipeline
+		want     string
+		wantErr  bool
+	}{
+		{
+			name: "linear dev->staging->prod",
+			pipeline: makePipeline("p", []gen.PromotionPath{
+				promotionPath("dev", "staging"),
+				promotionPath("staging", "prod"),
+			}),
+			want: "dev",
+		},
+		{
+			name: "diamond: dev->staging, dev->qa, staging->prod, qa->prod",
+			pipeline: makePipeline("p", []gen.PromotionPath{
+				promotionPath("dev", "staging", "qa"),
+				promotionPath("staging", "prod"),
+				promotionPath("qa", "prod"),
+			}),
+			want: "dev",
+		},
+		{
+			name: "single path",
+			pipeline: makePipeline("p", []gen.PromotionPath{
+				promotionPath("dev", "prod"),
+			}),
+			want: "dev",
+		},
+		{
+			name:     "nil spec",
+			pipeline: &gen.DeploymentPipeline{Metadata: gen.ObjectMeta{Name: "p"}},
+			wantErr:  true,
+		},
+		{
+			name:     "empty promotion paths",
+			pipeline: makePipeline("p", []gen.PromotionPath{}),
+			wantErr:  true,
+		},
+		{
+			name: "all sources are also targets",
+			pipeline: makePipeline("p", []gen.PromotionPath{
+				promotionPath("a", "b"),
+				promotionPath("b", "a"),
+			}),
+			wantErr: true,
+		},
+		{
+			name: "skips empty source name",
+			pipeline: makePipeline("p", []gen.PromotionPath{
+				promotionPath("", "staging"),
+				promotionPath("dev", "staging"),
+			}),
+			want: "dev",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := findRootEnvironment(tt.pipeline)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("findRootEnvironment() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil && got != tt.want {
+				t.Errorf("findRootEnvironment() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
