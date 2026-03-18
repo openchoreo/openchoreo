@@ -383,4 +383,3 @@ func (ce *CasbinEnforcer) DeleteNamespacedRoleBinding(ctx context.Context, name 
 	ce.logger.Debug("deleted AuthzRoleBinding", "name", name, "namespace", namespace)
 	return nil
 }
-

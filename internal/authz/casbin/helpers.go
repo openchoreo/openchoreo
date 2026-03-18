@@ -233,11 +233,6 @@ func parseSubject(subject string) (claim, value string, err error) {
 	return parts[0], parts[1], nil
 }
 
-// isClusterScoped returns true if the namespace is empty (cluster-scoped)
-func isClusterScoped(namespace string) bool {
-	return namespace == ""
-}
-
 // validateBatchEvaluateRequest checks if each EvaluateRequest in the BatchEvaluateRequest has all required fields
 func validateBatchEvaluateRequest(req *authzcore.BatchEvaluateRequest) error {
 	if req == nil {
