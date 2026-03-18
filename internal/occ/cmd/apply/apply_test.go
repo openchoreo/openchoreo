@@ -221,7 +221,9 @@ func TestDiscoverResourceFiles(t *testing.T) {
 	t.Run("single file", func(t *testing.T) {
 		dir := t.TempDir()
 		f := filepath.Join(dir, "resource.yaml")
-		os.WriteFile(f, []byte("kind: Project"), 0644)
+		if err := os.WriteFile(f, []byte("kind: Project"), 0600); err != nil {
+			t.Fatal(err)
+		}
 
 		files, err := discoverResourceFiles(f)
 		if err != nil {
@@ -234,9 +236,13 @@ func TestDiscoverResourceFiles(t *testing.T) {
 
 	t.Run("directory with mixed files", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "a.yaml"), []byte("kind: A"), 0644)
-		os.WriteFile(filepath.Join(dir, "b.yml"), []byte("kind: B"), 0644)
-		os.WriteFile(filepath.Join(dir, "c.txt"), []byte("not yaml"), 0644)
+		for _, f := range []struct{ name, content string }{
+			{"a.yaml", "kind: A"}, {"b.yml", "kind: B"}, {"c.txt", "not yaml"},
+		} {
+			if err := os.WriteFile(filepath.Join(dir, f.name), []byte(f.content), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
 
 		files, err := discoverResourceFiles(dir)
 		if err != nil {
@@ -286,7 +292,9 @@ func TestReadResourceContent(t *testing.T) {
 		dir := t.TempDir()
 		f := filepath.Join(dir, "resource.yaml")
 		want := "kind: Project\nmetadata:\n  name: test\n"
-		os.WriteFile(f, []byte(want), 0644)
+		if err := os.WriteFile(f, []byte(want), 0600); err != nil {
+			t.Fatal(err)
+		}
 
 		got, err := readResourceContent(ctx, f)
 		if err != nil {
@@ -307,9 +315,13 @@ func TestReadResourceContent(t *testing.T) {
 	t.Run("permission denied", func(t *testing.T) {
 		dir := t.TempDir()
 		f := filepath.Join(dir, "noperm.yaml")
-		os.WriteFile(f, []byte("data"), 0644)
-		os.Chmod(f, 0000)
-		t.Cleanup(func() { os.Chmod(f, 0644) })
+		if err := os.WriteFile(f, []byte("data"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(f, 0000); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(f, 0600) })
 
 		_, err := readResourceContent(ctx, f)
 		if err == nil {

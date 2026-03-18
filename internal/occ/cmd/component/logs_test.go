@@ -64,9 +64,9 @@ func TestReverseLogs(t *testing.T) {
 	}
 }
 
-func makePipeline(name string, paths []gen.PromotionPath) *gen.DeploymentPipeline {
+func makePipeline(paths []gen.PromotionPath) *gen.DeploymentPipeline {
 	p := &gen.DeploymentPipeline{
-		Metadata: gen.ObjectMeta{Name: name},
+		Metadata: gen.ObjectMeta{Name: "test-pipeline"},
 	}
 	if paths != nil {
 		p.Spec = &gen.DeploymentPipelineSpec{
@@ -97,7 +97,7 @@ func TestFindRootEnvironment(t *testing.T) {
 	}{
 		{
 			name: "linear dev->staging->prod",
-			pipeline: makePipeline("p", []gen.PromotionPath{
+			pipeline: makePipeline([]gen.PromotionPath{
 				promotionPath("dev", "staging"),
 				promotionPath("staging", "prod"),
 			}),
@@ -105,7 +105,7 @@ func TestFindRootEnvironment(t *testing.T) {
 		},
 		{
 			name: "diamond: dev->staging, dev->qa, staging->prod, qa->prod",
-			pipeline: makePipeline("p", []gen.PromotionPath{
+			pipeline: makePipeline([]gen.PromotionPath{
 				promotionPath("dev", "staging", "qa"),
 				promotionPath("staging", "prod"),
 				promotionPath("qa", "prod"),
@@ -114,7 +114,7 @@ func TestFindRootEnvironment(t *testing.T) {
 		},
 		{
 			name: "single path",
-			pipeline: makePipeline("p", []gen.PromotionPath{
+			pipeline: makePipeline([]gen.PromotionPath{
 				promotionPath("dev", "prod"),
 			}),
 			want: "dev",
@@ -126,12 +126,12 @@ func TestFindRootEnvironment(t *testing.T) {
 		},
 		{
 			name:     "empty promotion paths",
-			pipeline: makePipeline("p", []gen.PromotionPath{}),
+			pipeline: makePipeline([]gen.PromotionPath{}),
 			wantErr:  true,
 		},
 		{
 			name: "all sources are also targets",
-			pipeline: makePipeline("p", []gen.PromotionPath{
+			pipeline: makePipeline([]gen.PromotionPath{
 				promotionPath("a", "b"),
 				promotionPath("b", "a"),
 			}),
@@ -139,7 +139,7 @@ func TestFindRootEnvironment(t *testing.T) {
 		},
 		{
 			name: "skips empty source name",
-			pipeline: makePipeline("p", []gen.PromotionPath{
+			pipeline: makePipeline([]gen.PromotionPath{
 				promotionPath("", "staging"),
 				promotionPath("dev", "staging"),
 			}),
