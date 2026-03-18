@@ -24,6 +24,7 @@ https://github.com/openchoreo/sample-workloads/tree/main/service-go-greeter
 - A running OpenChoreo cluster (see [Getting Started](https://openchoreo.dev/docs/getting-started/))
 - The `occ` CLI installed and configured (see [CLI Installation](https://openchoreo.dev/docs/user-guide/cli-installation/))
 - Logged in via `occ login`
+- [`yq`](https://github.com/mikefarah/yq#install) installed (used to extract the invoke URL in Step 5)
 
 ## Step 1: Apply the Component
 
