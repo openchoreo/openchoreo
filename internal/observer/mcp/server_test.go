@@ -15,6 +15,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
@@ -280,9 +282,7 @@ func setupTestServer(t *testing.T) (*mcpsdk.ClientSession, *testServices) {
 
 	svcs := newTestServices()
 	handler, err := buildMCPHandler(svcs)
-	if err != nil {
-		t.Fatalf("Failed to build MCPHandler: %v", err)
-	}
+	require.NoError(t, err, "Failed to build MCPHandler")
 
 	server := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    "test-openchoreo-observer",
@@ -294,9 +294,8 @@ func setupTestServer(t *testing.T) (*mcpsdk.ClientSession, *testServices) {
 	ctx := context.Background()
 	clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
 
-	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
-		t.Fatalf("Failed to connect server: %v", err)
-	}
+	_, err = server.Connect(ctx, serverTransport, nil)
+	require.NoError(t, err, "Failed to connect server")
 
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{
 		Name:    "test-client",
@@ -304,9 +303,7 @@ func setupTestServer(t *testing.T) (*mcpsdk.ClientSession, *testServices) {
 	}, nil)
 
 	clientSession, err := client.Connect(ctx, clientTransport, nil)
-	if err != nil {
-		t.Fatalf("Failed to connect client: %v", err)
-	}
+	require.NoError(t, err, "Failed to connect client")
 
 	return clientSession, svcs
 }
@@ -351,43 +348,22 @@ var allToolSpecs = []toolTestSpec{
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
 			req := svcs.logs.lastRequest()
-			if req == nil {
-				t.Fatal("Expected QueryLogs to be called")
-			}
-			if req.SearchScope == nil || req.SearchScope.Component == nil {
-				t.Fatal("Expected ComponentSearchScope")
-			}
+			require.NotNil(t, req, "Expected QueryLogs to be called")
+			require.NotNil(t, req.SearchScope)
+			require.NotNil(t, req.SearchScope.Component)
 			scope := req.SearchScope.Component
-			if scope.Namespace != testNamespace {
-				t.Errorf("Expected namespace %q, got %q", testNamespace, scope.Namespace)
-			}
-			if scope.Project != testProject {
-				t.Errorf("Expected project %q, got %q", testProject, scope.Project)
-			}
-			if scope.Component != testComponent {
-				t.Errorf("Expected component %q, got %q", testComponent, scope.Component)
-			}
-			if scope.Environment != testEnvironment {
-				t.Errorf("Expected environment %q, got %q", testEnvironment, scope.Environment)
-			}
-			if req.StartTime != testStartTime {
-				t.Errorf("Expected start_time %q, got %q", testStartTime, req.StartTime)
-			}
-			if req.EndTime != testEndTime {
-				t.Errorf("Expected end_time %q, got %q", testEndTime, req.EndTime)
-			}
-			if req.SearchPhrase != "error" {
-				t.Errorf("Expected search_phrase 'error', got %q", req.SearchPhrase)
-			}
+			assert.Equal(t, testNamespace, scope.Namespace)
+			assert.Equal(t, testProject, scope.Project)
+			assert.Equal(t, testComponent, scope.Component)
+			assert.Equal(t, testEnvironment, scope.Environment)
+			assert.Equal(t, testStartTime, req.StartTime)
+			assert.Equal(t, testEndTime, req.EndTime)
+			assert.Equal(t, "error", req.SearchPhrase)
 			if diff := cmp.Diff([]string{"ERROR", "WARN"}, req.LogLevels); diff != "" {
 				t.Errorf("log_levels mismatch (-want +got):\n%s", diff)
 			}
-			if req.Limit != 50 {
-				t.Errorf("Expected limit 50, got %d", req.Limit)
-			}
-			if req.SortOrder != sortOrderAsc {
-				t.Errorf("Expected sort_order 'asc', got %q", req.SortOrder)
-			}
+			assert.Equal(t, 50, req.Limit)
+			assert.Equal(t, sortOrderAsc, req.SortOrder)
 		},
 	},
 	{
@@ -410,34 +386,19 @@ var allToolSpecs = []toolTestSpec{
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
 			req := svcs.logs.lastRequest()
-			if req == nil {
-				t.Fatal("Expected QueryLogs to be called")
-			}
-			if req.SearchScope == nil || req.SearchScope.Workflow == nil {
-				t.Fatal("Expected WorkflowSearchScope")
-			}
+			require.NotNil(t, req, "Expected QueryLogs to be called")
+			require.NotNil(t, req.SearchScope)
+			require.NotNil(t, req.SearchScope.Workflow)
 			scope := req.SearchScope.Workflow
-			if scope.Namespace != testNamespace {
-				t.Errorf("Expected namespace %q, got %q", testNamespace, scope.Namespace)
-			}
-			if scope.WorkflowRunName != "my-workflow-run" {
-				t.Errorf("Expected workflow_run_name 'my-workflow-run', got %q", scope.WorkflowRunName)
-			}
-			if scope.TaskName != "build-step" {
-				t.Errorf("Expected task_name 'build-step', got %q", scope.TaskName)
-			}
-			if req.SearchPhrase != "failed" {
-				t.Errorf("Expected search_phrase 'failed', got %q", req.SearchPhrase)
-			}
+			assert.Equal(t, testNamespace, scope.Namespace)
+			assert.Equal(t, "my-workflow-run", scope.WorkflowRunName)
+			assert.Equal(t, "build-step", scope.TaskName)
+			assert.Equal(t, "failed", req.SearchPhrase)
 			if diff := cmp.Diff([]string{"ERROR"}, req.LogLevels); diff != "" {
 				t.Errorf("log_levels mismatch (-want +got):\n%s", diff)
 			}
-			if req.Limit != 75 {
-				t.Errorf("Expected limit 75, got %d", req.Limit)
-			}
-			if req.SortOrder != sortOrderDesc {
-				t.Errorf("Expected sort_order %q, got %q", sortOrderDesc, req.SortOrder)
-			}
+			assert.Equal(t, 75, req.Limit)
+			assert.Equal(t, sortOrderDesc, req.SortOrder)
 		},
 	},
 	{
@@ -458,33 +419,16 @@ var allToolSpecs = []toolTestSpec{
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
 			req := svcs.metrics.lastRequest()
-			if req == nil {
-				t.Fatal("Expected QueryMetrics to be called")
-			}
-			if req.Metric != types.MetricTypeResource {
-				t.Errorf("Expected metric type %q, got %q", types.MetricTypeResource, req.Metric)
-			}
-			if req.SearchScope.Namespace != testNamespace {
-				t.Errorf("Expected namespace %q, got %q", testNamespace, req.SearchScope.Namespace)
-			}
-			if req.SearchScope.Project != testProject {
-				t.Errorf("Expected project %q, got %q", testProject, req.SearchScope.Project)
-			}
-			if req.SearchScope.Component != testComponent {
-				t.Errorf("Expected component %q, got %q", testComponent, req.SearchScope.Component)
-			}
-			if req.SearchScope.Environment != testEnvironment {
-				t.Errorf("Expected environment %q, got %q", testEnvironment, req.SearchScope.Environment)
-			}
-			if req.StartTime != testStartTime {
-				t.Errorf("Expected start_time %q, got %q", testStartTime, req.StartTime)
-			}
-			if req.EndTime != testEndTime {
-				t.Errorf("Expected end_time %q, got %q", testEndTime, req.EndTime)
-			}
-			if req.Step == nil || *req.Step != "5m" {
-				t.Errorf("Expected step '5m', got %v", req.Step)
-			}
+			require.NotNil(t, req, "Expected QueryMetrics to be called")
+			assert.Equal(t, types.MetricTypeResource, req.Metric)
+			assert.Equal(t, testNamespace, req.SearchScope.Namespace)
+			assert.Equal(t, testProject, req.SearchScope.Project)
+			assert.Equal(t, testComponent, req.SearchScope.Component)
+			assert.Equal(t, testEnvironment, req.SearchScope.Environment)
+			assert.Equal(t, testStartTime, req.StartTime)
+			assert.Equal(t, testEndTime, req.EndTime)
+			require.NotNil(t, req.Step)
+			assert.Equal(t, "5m", *req.Step)
 		},
 	},
 	{
@@ -505,18 +449,11 @@ var allToolSpecs = []toolTestSpec{
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
 			req := svcs.metrics.lastRequest()
-			if req == nil {
-				t.Fatal("Expected QueryMetrics to be called")
-			}
-			if req.Metric != types.MetricTypeHTTP {
-				t.Errorf("Expected metric type %q, got %q", types.MetricTypeHTTP, req.Metric)
-			}
-			if req.SearchScope.Namespace != testNamespace {
-				t.Errorf("Expected namespace %q, got %q", testNamespace, req.SearchScope.Namespace)
-			}
-			if req.Step == nil || *req.Step != "1h" {
-				t.Errorf("Expected step '1h', got %v", req.Step)
-			}
+			require.NotNil(t, req, "Expected QueryMetrics to be called")
+			assert.Equal(t, types.MetricTypeHTTP, req.Metric)
+			assert.Equal(t, testNamespace, req.SearchScope.Namespace)
+			require.NotNil(t, req.Step)
+			assert.Equal(t, "1h", *req.Step)
 		},
 	},
 	{
@@ -538,35 +475,17 @@ var allToolSpecs = []toolTestSpec{
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
 			req := svcs.traces.lastTracesRequest()
-			if req == nil {
-				t.Fatal("Expected QueryTraces to be called")
-			}
-			if req.SearchScope.Namespace != testNamespace {
-				t.Errorf("Expected namespace %q, got %q", testNamespace, req.SearchScope.Namespace)
-			}
-			if req.SearchScope.Project != testProject {
-				t.Errorf("Expected project %q, got %q", testProject, req.SearchScope.Project)
-			}
-			if req.SearchScope.Component != testComponent {
-				t.Errorf("Expected component %q, got %q", testComponent, req.SearchScope.Component)
-			}
-			if req.SearchScope.Environment != testEnvironment {
-				t.Errorf("Expected environment %q, got %q", testEnvironment, req.SearchScope.Environment)
-			}
+			require.NotNil(t, req, "Expected QueryTraces to be called")
+			assert.Equal(t, testNamespace, req.SearchScope.Namespace)
+			assert.Equal(t, testProject, req.SearchScope.Project)
+			assert.Equal(t, testComponent, req.SearchScope.Component)
+			assert.Equal(t, testEnvironment, req.SearchScope.Environment)
 			expectedStart, _ := time.Parse(time.RFC3339, testStartTime)
-			if !req.StartTime.Equal(expectedStart) {
-				t.Errorf("Expected start_time %v, got %v", expectedStart, req.StartTime)
-			}
+			assert.True(t, req.StartTime.Equal(expectedStart), "Expected start_time %v, got %v", expectedStart, req.StartTime)
 			expectedEnd, _ := time.Parse(time.RFC3339, testEndTime)
-			if !req.EndTime.Equal(expectedEnd) {
-				t.Errorf("Expected end_time %v, got %v", expectedEnd, req.EndTime)
-			}
-			if req.Limit != 25 {
-				t.Errorf("Expected limit 25, got %d", req.Limit)
-			}
-			if req.SortOrder != sortOrderAsc {
-				t.Errorf("Expected sort 'asc', got %q", req.SortOrder)
-			}
+			assert.True(t, req.EndTime.Equal(expectedEnd), "Expected end_time %v, got %v", expectedEnd, req.EndTime)
+			assert.Equal(t, 25, req.Limit)
+			assert.Equal(t, sortOrderAsc, req.SortOrder)
 		},
 	},
 	{
@@ -589,25 +508,13 @@ var allToolSpecs = []toolTestSpec{
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
 			req := svcs.traces.lastSpansRequest()
-			if req == nil {
-				t.Fatal("Expected QuerySpans to be called")
-			}
-			if len(svcs.traces.spanDetailsTraceIDs) == 0 {
-				t.Fatal("Expected trace ID to be recorded")
-			}
+			require.NotNil(t, req, "Expected QuerySpans to be called")
+			require.NotEmpty(t, svcs.traces.spanDetailsTraceIDs, "Expected trace ID to be recorded")
 			lastTraceID := svcs.traces.spanDetailsTraceIDs[len(svcs.traces.spanDetailsTraceIDs)-1]
-			if lastTraceID != testTraceID {
-				t.Errorf("Expected trace_id %q, got %q", testTraceID, lastTraceID)
-			}
-			if req.SearchScope.Namespace != testNamespace {
-				t.Errorf("Expected namespace %q, got %q", testNamespace, req.SearchScope.Namespace)
-			}
-			if req.Limit != 200 {
-				t.Errorf("Expected limit 200, got %d", req.Limit)
-			}
-			if req.SortOrder != sortOrderDesc {
-				t.Errorf("Expected sort %q, got %q", sortOrderDesc, req.SortOrder)
-			}
+			assert.Equal(t, testTraceID, lastTraceID)
+			assert.Equal(t, testNamespace, req.SearchScope.Namespace)
+			assert.Equal(t, 200, req.Limit)
+			assert.Equal(t, sortOrderDesc, req.SortOrder)
 		},
 	},
 	{
@@ -622,16 +529,11 @@ var allToolSpecs = []toolTestSpec{
 		},
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
-			if len(svcs.traces.spanDetailsTraceIDs) == 0 || len(svcs.traces.spanDetailsSpanIDs) == 0 {
-				t.Fatal("Expected GetSpanDetails to be called")
-			}
+			require.NotEmpty(t, svcs.traces.spanDetailsTraceIDs, "Expected GetSpanDetails to be called")
+			require.NotEmpty(t, svcs.traces.spanDetailsSpanIDs, "Expected GetSpanDetails to be called")
 			lastIdx := len(svcs.traces.spanDetailsSpanIDs) - 1
-			if svcs.traces.spanDetailsTraceIDs[lastIdx] != testTraceID {
-				t.Errorf("Expected trace_id %q, got %q", testTraceID, svcs.traces.spanDetailsTraceIDs[lastIdx])
-			}
-			if svcs.traces.spanDetailsSpanIDs[lastIdx] != testSpanID {
-				t.Errorf("Expected span_id %q, got %q", testSpanID, svcs.traces.spanDetailsSpanIDs[lastIdx])
-			}
+			assert.Equal(t, testTraceID, svcs.traces.spanDetailsTraceIDs[lastIdx])
+			assert.Equal(t, testSpanID, svcs.traces.spanDetailsSpanIDs[lastIdx])
 		},
 	},
 	{
@@ -653,35 +555,22 @@ var allToolSpecs = []toolTestSpec{
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
 			req := svcs.alertsIncidents.lastAlertsRequest()
-			if req == nil {
-				t.Fatal("Expected QueryAlerts to be called")
-			}
-			if req.SearchScope.Namespace != testNamespace {
-				t.Errorf("Expected namespace %q, got %q", testNamespace, req.SearchScope.Namespace)
-			}
-			if req.SearchScope.Project == nil || *req.SearchScope.Project != testProject {
-				t.Errorf("Expected project %q, got %v", testProject, req.SearchScope.Project)
-			}
-			if req.SearchScope.Component == nil || *req.SearchScope.Component != testComponent {
-				t.Errorf("Expected component %q, got %v", testComponent, req.SearchScope.Component)
-			}
-			if req.SearchScope.Environment == nil || *req.SearchScope.Environment != testEnvironment {
-				t.Errorf("Expected environment %q, got %v", testEnvironment, req.SearchScope.Environment)
-			}
+			require.NotNil(t, req, "Expected QueryAlerts to be called")
+			assert.Equal(t, testNamespace, req.SearchScope.Namespace)
+			require.NotNil(t, req.SearchScope.Project)
+			assert.Equal(t, testProject, *req.SearchScope.Project)
+			require.NotNil(t, req.SearchScope.Component)
+			assert.Equal(t, testComponent, *req.SearchScope.Component)
+			require.NotNil(t, req.SearchScope.Environment)
+			assert.Equal(t, testEnvironment, *req.SearchScope.Environment)
 			expectedStart, _ := time.Parse(time.RFC3339, testStartTime)
-			if !req.StartTime.Equal(expectedStart) {
-				t.Errorf("Expected start_time %v, got %v", expectedStart, req.StartTime)
-			}
+			assert.True(t, req.StartTime.Equal(expectedStart), "Expected start_time %v, got %v", expectedStart, req.StartTime)
 			expectedEnd, _ := time.Parse(time.RFC3339, testEndTime)
-			if !req.EndTime.Equal(expectedEnd) {
-				t.Errorf("Expected end_time %v, got %v", expectedEnd, req.EndTime)
-			}
-			if req.Limit == nil || *req.Limit != 50 {
-				t.Errorf("Expected limit 50, got %v", req.Limit)
-			}
-			if req.SortOrder == nil || string(*req.SortOrder) != sortOrderAsc {
-				t.Errorf("Expected sort_order 'asc', got %v", req.SortOrder)
-			}
+			assert.True(t, req.EndTime.Equal(expectedEnd), "Expected end_time %v, got %v", expectedEnd, req.EndTime)
+			require.NotNil(t, req.Limit)
+			assert.Equal(t, 50, *req.Limit)
+			require.NotNil(t, req.SortOrder)
+			assert.Equal(t, sortOrderAsc, string(*req.SortOrder))
 		},
 	},
 	{
@@ -703,35 +592,22 @@ var allToolSpecs = []toolTestSpec{
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
 			req := svcs.alertsIncidents.lastIncidentsRequest()
-			if req == nil {
-				t.Fatal("Expected QueryIncidents to be called")
-			}
-			if req.SearchScope.Namespace != testNamespace {
-				t.Errorf("Expected namespace %q, got %q", testNamespace, req.SearchScope.Namespace)
-			}
-			if req.SearchScope.Project == nil || *req.SearchScope.Project != testProject {
-				t.Errorf("Expected project %q, got %v", testProject, req.SearchScope.Project)
-			}
-			if req.SearchScope.Component == nil || *req.SearchScope.Component != testComponent {
-				t.Errorf("Expected component %q, got %v", testComponent, req.SearchScope.Component)
-			}
-			if req.SearchScope.Environment == nil || *req.SearchScope.Environment != testEnvironment {
-				t.Errorf("Expected environment %q, got %v", testEnvironment, req.SearchScope.Environment)
-			}
+			require.NotNil(t, req, "Expected QueryIncidents to be called")
+			assert.Equal(t, testNamespace, req.SearchScope.Namespace)
+			require.NotNil(t, req.SearchScope.Project)
+			assert.Equal(t, testProject, *req.SearchScope.Project)
+			require.NotNil(t, req.SearchScope.Component)
+			assert.Equal(t, testComponent, *req.SearchScope.Component)
+			require.NotNil(t, req.SearchScope.Environment)
+			assert.Equal(t, testEnvironment, *req.SearchScope.Environment)
 			expectedStart, _ := time.Parse(time.RFC3339, testStartTime)
-			if !req.StartTime.Equal(expectedStart) {
-				t.Errorf("Expected start_time %v, got %v", expectedStart, req.StartTime)
-			}
+			assert.True(t, req.StartTime.Equal(expectedStart), "Expected start_time %v, got %v", expectedStart, req.StartTime)
 			expectedEnd, _ := time.Parse(time.RFC3339, testEndTime)
-			if !req.EndTime.Equal(expectedEnd) {
-				t.Errorf("Expected end_time %v, got %v", expectedEnd, req.EndTime)
-			}
-			if req.Limit == nil || *req.Limit != 25 {
-				t.Errorf("Expected limit 25, got %v", req.Limit)
-			}
-			if req.SortOrder == nil || string(*req.SortOrder) != sortOrderDesc {
-				t.Errorf("Expected sort_order %q, got %v", sortOrderDesc, req.SortOrder)
-			}
+			assert.True(t, req.EndTime.Equal(expectedEnd), "Expected end_time %v, got %v", expectedEnd, req.EndTime)
+			require.NotNil(t, req.Limit)
+			assert.Equal(t, 25, *req.Limit)
+			require.NotNil(t, req.SortOrder)
+			assert.Equal(t, sortOrderDesc, string(*req.SortOrder))
 		},
 	},
 }
@@ -767,9 +643,7 @@ func TestNewMCPHandlerValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := NewMCPHandler(tt.health, tt.logs, tt.metrics, tt.alertIncidentService, tt.traces, tt.log)
-			if err == nil {
-				t.Errorf("Expected error for %s, got nil", tt.name)
-			}
+			require.Error(t, err, "Expected error for %s", tt.name)
 		})
 	}
 }
@@ -781,9 +655,7 @@ func TestToolRegistration(t *testing.T) {
 
 	ctx := context.Background()
 	toolsResult, err := clientSession.ListTools(ctx, nil)
-	if err != nil {
-		t.Fatalf("Failed to list tools: %v", err)
-	}
+	require.NoError(t, err, "Failed to list tools")
 
 	expectedTools := make(map[string]bool)
 	for _, spec := range allToolSpecs {
@@ -793,20 +665,14 @@ func TestToolRegistration(t *testing.T) {
 	registeredTools := make(map[string]bool)
 	for _, tool := range toolsResult.Tools {
 		registeredTools[tool.Name] = true
-		if !expectedTools[tool.Name] {
-			t.Errorf("Unexpected tool %q found in registered tools", tool.Name)
-		}
+		assert.True(t, expectedTools[tool.Name], "Unexpected tool %q found in registered tools", tool.Name)
 	}
 
 	for expected := range expectedTools {
-		if !registeredTools[expected] {
-			t.Errorf("Expected tool %q not found in registered tools", expected)
-		}
+		assert.True(t, registeredTools[expected], "Expected tool %q not found in registered tools", expected)
 	}
 
-	if len(toolsResult.Tools) != len(expectedTools) {
-		t.Errorf("Expected %d tools, got %d", len(expectedTools), len(toolsResult.Tools))
-	}
+	assert.Len(t, toolsResult.Tools, len(expectedTools))
 }
 
 // TestToolDescriptions verifies that tool descriptions are meaningful and distinguishable.
@@ -816,9 +682,7 @@ func TestToolDescriptions(t *testing.T) {
 
 	ctx := context.Background()
 	toolsResult, err := clientSession.ListTools(ctx, nil)
-	if err != nil {
-		t.Fatalf("Failed to list tools: %v", err)
-	}
+	require.NoError(t, err, "Failed to list tools")
 
 	toolsByName := make(map[string]*mcpsdk.Tool)
 	for _, tool := range toolsResult.Tools {
@@ -828,20 +692,16 @@ func TestToolDescriptions(t *testing.T) {
 	for _, spec := range allToolSpecs {
 		t.Run(spec.name, func(t *testing.T) {
 			tool, exists := toolsByName[spec.name]
-			if !exists {
-				t.Fatalf("Tool %q not found", spec.name)
-			}
+			require.True(t, exists, "Tool %q not found", spec.name)
 
 			desc := strings.ToLower(tool.Description)
 
-			if len(desc) < spec.descriptionMinLen {
-				t.Errorf("Description too short: got %d chars, want at least %d", len(desc), spec.descriptionMinLen)
-			}
+			assert.GreaterOrEqual(t, len(desc), spec.descriptionMinLen,
+				"Description too short: got %d chars, want at least %d", len(desc), spec.descriptionMinLen)
 
 			for _, word := range spec.descriptionKeywords {
-				if !strings.Contains(desc, strings.ToLower(word)) {
-					t.Errorf("Description missing required keyword %q: %s", word, tool.Description)
-				}
+				assert.Contains(t, desc, strings.ToLower(word),
+					"Description missing required keyword %q: %s", word, tool.Description)
 			}
 		})
 	}
@@ -864,9 +724,7 @@ func TestToolSchemas(t *testing.T) {
 
 	ctx := context.Background()
 	toolsResult, err := clientSession.ListTools(ctx, nil)
-	if err != nil {
-		t.Fatalf("Failed to list tools: %v", err)
-	}
+	require.NoError(t, err, "Failed to list tools")
 
 	toolsByName := make(map[string]*mcpsdk.Tool)
 	for _, tool := range toolsResult.Tools {
@@ -876,23 +734,14 @@ func TestToolSchemas(t *testing.T) {
 	for _, spec := range allToolSpecs {
 		t.Run(spec.name, func(t *testing.T) {
 			tool, exists := toolsByName[spec.name]
-			if !exists {
-				t.Fatalf("Tool %q not found", spec.name)
-			}
-
-			if tool.InputSchema == nil {
-				t.Fatal("InputSchema is nil")
-			}
+			require.True(t, exists, "Tool %q not found", spec.name)
+			require.NotNil(t, tool.InputSchema, "InputSchema is nil")
 
 			schemaMap, ok := tool.InputSchema.(map[string]any)
-			if !ok {
-				t.Fatalf("Expected InputSchema to be map[string]any, got %T", tool.InputSchema)
-			}
+			require.True(t, ok, "Expected InputSchema to be map[string]any, got %T", tool.InputSchema)
 
 			schemaType, ok := schemaMap["type"].(string)
-			if !ok || schemaType != "object" {
-				t.Errorf("Expected schema type 'object', got %v", schemaMap["type"])
-			}
+			assert.True(t, ok && schemaType == "object", "Expected schema type 'object', got %v", schemaMap["type"])
 
 			// Check required parameters appear in schema.required
 			if len(spec.requiredParams) > 0 {
@@ -905,9 +754,7 @@ func TestToolSchemas(t *testing.T) {
 					}
 				}
 				for _, param := range spec.requiredParams {
-					if !requiredInSchema[param] {
-						t.Errorf("Required parameter %q not found in schema.required", param)
-					}
+					assert.True(t, requiredInSchema[param], "Required parameter %q not found in schema.required", param)
 				}
 			}
 
@@ -915,13 +762,10 @@ func TestToolSchemas(t *testing.T) {
 			allParams := append(append([]string{}, spec.requiredParams...), spec.optionalParams...)
 			if len(allParams) > 0 {
 				properties, ok := schemaMap["properties"].(map[string]any)
-				if !ok {
-					t.Fatal("Properties is not a map")
-				}
+				require.True(t, ok, "Properties is not a map")
 				for _, param := range allParams {
-					if _, exists := properties[param]; !exists {
-						t.Errorf("Parameter %q not found in schema.properties", param)
-					}
+					_, exists := properties[param]
+					assert.True(t, exists, "Parameter %q not found in schema.properties", param)
 				}
 			}
 		})
@@ -943,13 +787,8 @@ func TestToolParameterWiring(t *testing.T) {
 				Name:      spec.name,
 				Arguments: spec.testArgs,
 			})
-			if err != nil {
-				t.Fatalf("Failed to call tool: %v", err)
-			}
-
-			if len(result.Content) == 0 {
-				t.Fatal("Expected non-empty result content")
-			}
+			require.NoError(t, err, "Failed to call tool")
+			require.NotEmpty(t, result.Content, "Expected non-empty result content")
 
 			spec.validateCall(t, svcs)
 		})
@@ -970,23 +809,15 @@ func TestToolResponseFormat(t *testing.T) {
 				Name:      spec.name,
 				Arguments: spec.testArgs,
 			})
-			if err != nil {
-				t.Fatalf("Failed to call tool: %v", err)
-			}
-
-			if len(result.Content) == 0 {
-				t.Fatal("Expected non-empty result content")
-			}
+			require.NoError(t, err, "Failed to call tool")
+			require.NotEmpty(t, result.Content, "Expected non-empty result content")
 
 			textContent, ok := result.Content[0].(*mcpsdk.TextContent)
-			if !ok {
-				t.Fatal("Expected TextContent")
-			}
+			require.True(t, ok, "Expected TextContent")
 
 			var data any
-			if err := json.Unmarshal([]byte(textContent.Text), &data); err != nil {
-				t.Errorf("Response is not valid JSON: %v\nResponse: %s", err, textContent.Text)
-			}
+			err = json.Unmarshal([]byte(textContent.Text), &data)
+			assert.NoError(t, err, "Response is not valid JSON: %s", textContent.Text)
 		})
 	}
 }
@@ -1006,9 +837,7 @@ func TestToolErrorHandling(t *testing.T) {
 		}
 	}
 
-	if testSpec.name == "" {
-		t.Fatal("No tool with required parameters found in allToolSpecs")
-	}
+	require.NotEmpty(t, testSpec.name, "No tool with required parameters found in allToolSpecs")
 
 	mockHandler.resetAll()
 
@@ -1017,9 +846,7 @@ func TestToolErrorHandling(t *testing.T) {
 		Arguments: map[string]any{}, // Empty - missing required params
 	})
 
-	if err == nil {
-		t.Errorf("Expected error for tool %q with missing required parameters, got nil", testSpec.name)
-	}
+	require.Error(t, err, "Expected error for tool %q with missing required parameters", testSpec.name)
 }
 
 // TestMinimalParameterSets verifies that tools work with only required parameters.
@@ -1107,23 +934,15 @@ func TestMinimalParameterSets(t *testing.T) {
 				Name:      tt.toolName,
 				Arguments: tt.args,
 			})
-			if err != nil {
-				t.Fatalf("Failed to call tool with minimal parameters: %v", err)
-			}
-
-			if len(result.Content) == 0 {
-				t.Fatal("Expected non-empty result content")
-			}
+			require.NoError(t, err, "Failed to call tool with minimal parameters")
+			require.NotEmpty(t, result.Content, "Expected non-empty result content")
 
 			textContent, ok := result.Content[0].(*mcpsdk.TextContent)
-			if !ok {
-				t.Fatal("Expected TextContent")
-			}
+			require.True(t, ok, "Expected TextContent")
 
 			var data any
-			if err := json.Unmarshal([]byte(textContent.Text), &data); err != nil {
-				t.Errorf("Response is not valid JSON: %v", err)
-			}
+			err = json.Unmarshal([]byte(textContent.Text), &data)
+			assert.NoError(t, err, "Response is not valid JSON")
 		})
 	}
 }
@@ -1138,9 +957,7 @@ func TestHandlerErrorPropagation(t *testing.T) {
 		setupErr(svcs)
 
 		handler, err := buildMCPHandler(svcs)
-		if err != nil {
-			t.Fatalf("Failed to build MCPHandler: %v", err)
-		}
+		require.NoError(t, err, "Failed to build MCPHandler")
 
 		server := mcpsdk.NewServer(&mcpsdk.Implementation{
 			Name:    "test-openchoreo-observer",
@@ -1149,9 +966,8 @@ func TestHandlerErrorPropagation(t *testing.T) {
 		registerTools(server, handler)
 
 		clientTransport, serverTransport := mcpsdk.NewInMemoryTransports()
-		if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
-			t.Fatalf("Failed to connect server: %v", err)
-		}
+		_, err = server.Connect(ctx, serverTransport, nil)
+		require.NoError(t, err, "Failed to connect server")
 
 		client := mcpsdk.NewClient(&mcpsdk.Implementation{
 			Name:    "test-client",
@@ -1159,9 +975,7 @@ func TestHandlerErrorPropagation(t *testing.T) {
 		}, nil)
 
 		session, err := client.Connect(ctx, clientTransport, nil)
-		if err != nil {
-			t.Fatalf("Failed to connect client: %v", err)
-		}
+		require.NoError(t, err, "Failed to connect client")
 		return session
 	}
 
@@ -1315,10 +1129,9 @@ func TestHandlerErrorPropagation(t *testing.T) {
 			})
 
 			// MCP SDK wraps errors in result.IsError rather than returning Go errors
-			if err == nil && (result == nil || !result.IsError) {
-				t.Errorf("Expected error from handler, got err=%v, result.IsError=%v",
-					err, result != nil && result.IsError)
-			}
+			assert.True(t, err != nil || (result != nil && result.IsError),
+				"Expected error from handler, got err=%v, result.IsError=%v",
+				err, result != nil && result.IsError)
 		})
 	}
 }
@@ -1327,15 +1140,11 @@ func TestHandlerErrorPropagation(t *testing.T) {
 func TestNewHTTPServer(t *testing.T) {
 	svcs := newTestServices()
 	handler, err := buildMCPHandler(svcs)
-	if err != nil {
-		t.Fatalf("Failed to build MCPHandler: %v", err)
-	}
+	require.NoError(t, err, "Failed to build MCPHandler")
 
 	httpHandler := NewHTTPServer(handler)
 
-	if httpHandler == nil {
-		t.Fatal("Expected non-nil HTTP handler")
-	}
+	require.NotNil(t, httpHandler)
 
 	var _ http.Handler = httpHandler
 }
@@ -1363,18 +1172,10 @@ func TestOptionalParametersDefaults(t *testing.T) {
 			},
 			validateCall: func(t *testing.T, svcs *testServices) {
 				req := svcs.logs.lastRequest()
-				if req == nil {
-					t.Fatal("Expected QueryLogs to be called")
-				}
-				if req.Limit != 100 {
-					t.Errorf("Expected default limit 100, got %d", req.Limit)
-				}
-				if req.SortOrder != sortOrderDesc {
-					t.Errorf("Expected default sort_order %q, got %q", sortOrderDesc, req.SortOrder)
-				}
-				if len(req.LogLevels) != 0 {
-					t.Errorf("Expected empty log_levels by default, got %v", req.LogLevels)
-				}
+				require.NotNil(t, req, "Expected QueryLogs to be called")
+				assert.Equal(t, 100, req.Limit)
+				assert.Equal(t, sortOrderDesc, req.SortOrder)
+				assert.Empty(t, req.LogLevels)
 			},
 		},
 		{
@@ -1387,15 +1188,9 @@ func TestOptionalParametersDefaults(t *testing.T) {
 			},
 			validateCall: func(t *testing.T, svcs *testServices) {
 				req := svcs.logs.lastRequest()
-				if req == nil {
-					t.Fatal("Expected QueryLogs to be called")
-				}
-				if req.Limit != 100 {
-					t.Errorf("Expected default limit 100, got %d", req.Limit)
-				}
-				if req.SortOrder != sortOrderDesc {
-					t.Errorf("Expected default sort_order %q, got %q", sortOrderDesc, req.SortOrder)
-				}
+				require.NotNil(t, req, "Expected QueryLogs to be called")
+				assert.Equal(t, 100, req.Limit)
+				assert.Equal(t, sortOrderDesc, req.SortOrder)
 			},
 		},
 		{
@@ -1408,12 +1203,8 @@ func TestOptionalParametersDefaults(t *testing.T) {
 			},
 			validateCall: func(t *testing.T, svcs *testServices) {
 				req := svcs.metrics.lastRequest()
-				if req == nil {
-					t.Fatal("Expected QueryMetrics to be called")
-				}
-				if req.Step != nil {
-					t.Errorf("Expected nil step when not provided, got %v", req.Step)
-				}
+				require.NotNil(t, req, "Expected QueryMetrics to be called")
+				assert.Nil(t, req.Step)
 			},
 		},
 		{
@@ -1426,15 +1217,9 @@ func TestOptionalParametersDefaults(t *testing.T) {
 			},
 			validateCall: func(t *testing.T, svcs *testServices) {
 				req := svcs.traces.lastTracesRequest()
-				if req == nil {
-					t.Fatal("Expected QueryTraces to be called")
-				}
-				if req.Limit != 100 {
-					t.Errorf("Expected default limit 100, got %d", req.Limit)
-				}
-				if req.SortOrder != sortOrderDesc {
-					t.Errorf("Expected default sort %q, got %q", sortOrderDesc, req.SortOrder)
-				}
+				require.NotNil(t, req, "Expected QueryTraces to be called")
+				assert.Equal(t, 100, req.Limit)
+				assert.Equal(t, sortOrderDesc, req.SortOrder)
 			},
 		},
 		{
@@ -1447,15 +1232,11 @@ func TestOptionalParametersDefaults(t *testing.T) {
 			},
 			validateCall: func(t *testing.T, svcs *testServices) {
 				req := svcs.alertsIncidents.lastAlertsRequest()
-				if req == nil {
-					t.Fatal("Expected QueryAlerts to be called")
-				}
-				if req.Limit == nil || *req.Limit != 100 {
-					t.Errorf("Expected default limit 100, got %v", req.Limit)
-				}
-				if req.SortOrder == nil || string(*req.SortOrder) != sortOrderDesc {
-					t.Errorf("Expected default sort %q, got %v", sortOrderDesc, req.SortOrder)
-				}
+				require.NotNil(t, req, "Expected QueryAlerts to be called")
+				require.NotNil(t, req.Limit)
+				assert.Equal(t, 100, *req.Limit)
+				require.NotNil(t, req.SortOrder)
+				assert.Equal(t, sortOrderDesc, string(*req.SortOrder))
 			},
 		},
 		{
@@ -1468,15 +1249,11 @@ func TestOptionalParametersDefaults(t *testing.T) {
 			},
 			validateCall: func(t *testing.T, svcs *testServices) {
 				req := svcs.alertsIncidents.lastIncidentsRequest()
-				if req == nil {
-					t.Fatal("Expected QueryIncidents to be called")
-				}
-				if req.Limit == nil || *req.Limit != 100 {
-					t.Errorf("Expected default limit 100, got %v", req.Limit)
-				}
-				if req.SortOrder == nil || string(*req.SortOrder) != sortOrderDesc {
-					t.Errorf("Expected default sort %q, got %v", sortOrderDesc, req.SortOrder)
-				}
+				require.NotNil(t, req, "Expected QueryIncidents to be called")
+				require.NotNil(t, req.Limit)
+				assert.Equal(t, 100, *req.Limit)
+				require.NotNil(t, req.SortOrder)
+				assert.Equal(t, sortOrderDesc, string(*req.SortOrder))
 			},
 		},
 	}
@@ -1489,9 +1266,7 @@ func TestOptionalParametersDefaults(t *testing.T) {
 				Name:      tt.toolName,
 				Arguments: tt.args,
 			})
-			if err != nil {
-				t.Fatalf("Failed to call tool: %v", err)
-			}
+			require.NoError(t, err, "Failed to call tool")
 
 			tt.validateCall(t, svcs)
 		})
@@ -1518,37 +1293,20 @@ func TestParameterMappingRegression(t *testing.T) {
 			"limit":         42,
 		},
 	})
-	if err != nil {
-		t.Fatalf("Failed to call tool: %v", err)
-	}
+	require.NoError(t, err, "Failed to call tool")
 
 	req := svcs.logs.lastRequest()
-	if req == nil {
-		t.Fatal("Expected QueryLogs to be called")
-	}
-	if req.SearchScope == nil || req.SearchScope.Component == nil {
-		t.Fatal("Expected ComponentSearchScope")
-	}
+	require.NotNil(t, req, "Expected QueryLogs to be called")
+	require.NotNil(t, req.SearchScope)
+	require.NotNil(t, req.SearchScope.Component)
 
 	scope := req.SearchScope.Component
-	if scope.Namespace != "my-org" {
-		t.Errorf("Namespace mapping broken: expected 'my-org', got %q", scope.Namespace)
-	}
-	if scope.Project != "my-project" {
-		t.Errorf("Project mapping broken: expected 'my-project', got %q", scope.Project)
-	}
-	if scope.Component != "my-service" {
-		t.Errorf("Component mapping broken: expected 'my-service', got %q", scope.Component)
-	}
-	if scope.Environment != "production" {
-		t.Errorf("Environment mapping broken: expected 'production', got %q", scope.Environment)
-	}
-	if req.SearchPhrase != "my-search" {
-		t.Errorf("SearchPhrase mapping broken: expected 'my-search', got %q", req.SearchPhrase)
-	}
-	if req.Limit != 42 {
-		t.Errorf("Limit mapping broken: expected 42, got %d", req.Limit)
-	}
+	assert.Equal(t, "my-org", scope.Namespace)
+	assert.Equal(t, "my-project", scope.Project)
+	assert.Equal(t, "my-service", scope.Component)
+	assert.Equal(t, "production", scope.Environment)
+	assert.Equal(t, "my-search", req.SearchPhrase)
+	assert.Equal(t, 42, req.Limit)
 }
 
 // TestSchemaPropertyTypes verifies that schema properties have the correct JSON types.
@@ -1558,9 +1316,7 @@ func TestSchemaPropertyTypes(t *testing.T) {
 
 	ctx := context.Background()
 	toolsResult, err := clientSession.ListTools(ctx, nil)
-	if err != nil {
-		t.Fatalf("Failed to list tools: %v", err)
-	}
+	require.NoError(t, err, "Failed to list tools")
 
 	expectedTypes := map[string]map[string]string{
 		"query_component_logs": {
@@ -1639,14 +1395,10 @@ func TestSchemaPropertyTypes(t *testing.T) {
 
 		t.Run(tool.Name, func(t *testing.T) {
 			schemaMap, ok := tool.InputSchema.(map[string]any)
-			if !ok {
-				t.Fatalf("Expected InputSchema to be map[string]any, got %T", tool.InputSchema)
-			}
+			require.True(t, ok, "Expected InputSchema to be map[string]any, got %T", tool.InputSchema)
 
 			properties, ok := schemaMap["properties"].(map[string]any)
-			if !ok {
-				t.Fatal("Properties is not a map")
-			}
+			require.True(t, ok, "Properties is not a map")
 
 			for propName, expectedType := range expectedProps {
 				prop, exists := properties[propName]
@@ -1667,9 +1419,7 @@ func TestSchemaPropertyTypes(t *testing.T) {
 					continue
 				}
 
-				if actualType != expectedType {
-					t.Errorf("Property %q has type %q, expected %q", propName, actualType, expectedType)
-				}
+				assert.Equal(t, expectedType, actualType, "Property %q type mismatch", propName)
 			}
 		})
 	}

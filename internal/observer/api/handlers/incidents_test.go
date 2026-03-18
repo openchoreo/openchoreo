@@ -11,9 +11,11 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
@@ -83,9 +85,7 @@ func TestUpdateIncident_Success(t *testing.T) {
 		Description: ptrString("desc"),
 	}
 	raw, err := json.Marshal(body)
-	if err != nil {
-		t.Fatalf("failed to marshal request: %v", err)
-	}
+	require.NoError(t, err, "failed to marshal request")
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1", bytes.NewReader(raw))
 	req.SetPathValue("incidentId", "inc-1")
@@ -93,28 +93,18 @@ func TestUpdateIncident_Success(t *testing.T) {
 
 	h.UpdateIncident(rr, req)
 
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", rr.Code)
-	}
+	require.Equal(t, http.StatusOK, rr.Code)
 
 	respBytes, err := io.ReadAll(rr.Body)
-	if err != nil {
-		t.Fatalf("failed to read response body: %v", err)
-	}
+	require.NoError(t, err, "failed to read response body")
 	out := string(respBytes)
 	for _, expected := range []string{`"incidentId":"inc-1"`, `"alertId":"a-1"`, `"status":"acknowledged"`} {
-		if !contains(out, expected) {
-			t.Fatalf("expected %q in response: %s", expected, out)
-		}
+		assert.Contains(t, out, expected)
 	}
 
 	// Assert the fake updater received the correct ID and request.
-	if updater.lastID != "inc-1" {
-		t.Fatalf("expected lastID %q, got %q", "inc-1", updater.lastID)
-	}
-	if updater.lastReq.Status != gen.IncidentPutRequestStatusAcknowledged {
-		t.Fatalf("expected status %q passed through, got %q", gen.IncidentPutRequestStatusAcknowledged, updater.lastReq.Status)
-	}
+	assert.Equal(t, "inc-1", updater.lastID)
+	assert.Equal(t, gen.IncidentPutRequestStatusAcknowledged, updater.lastReq.Status)
 }
 
 func TestUpdateIncident_NotFound(t *testing.T) {
@@ -135,9 +125,7 @@ func TestUpdateIncident_NotFound(t *testing.T) {
 
 	h.UpdateIncident(rr, req)
 
-	if rr.Code != http.StatusNotFound {
-		t.Fatalf("expected status 404, got %d", rr.Code)
-	}
+	require.Equal(t, http.StatusNotFound, rr.Code)
 }
 
 // Helper functions for tests.
@@ -148,8 +136,4 @@ func ptrBool(b bool) *bool { return &b }
 
 func ptrIncidentPutStatus(s gen.IncidentPutResponseStatus) *gen.IncidentPutResponseStatus {
 	return &s
-}
-
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
 }

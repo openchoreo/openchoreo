@@ -11,6 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSQLiteInitializeAndWriteAlertEntry(t *testing.T) {
@@ -20,19 +23,13 @@ func TestSQLiteInitializeAndWriteAlertEntry(t *testing.T) {
 	dsn := "file:" + filepath.Join(tempDir, "alerts.db")
 
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
 	id, err := store.WriteAlertEntry(ctx, &AlertEntry{
 		Timestamp:            "2026-03-07T10:20:30Z",
@@ -58,16 +55,11 @@ func TestSQLiteInitializeAndWriteAlertEntry(t *testing.T) {
 		ConditionWindow:      "5m0s",
 		ConditionInterval:    "1m0s",
 	})
-	if err != nil {
-		t.Fatalf("failed to write alert entry: %v", err)
-	}
-	if id == "" {
-		t.Fatal("expected non-empty id")
-	}
+	require.NoError(t, err, "failed to write alert entry")
+	require.NotEmpty(t, id)
 
-	if _, statErr := os.Stat(filepath.Join(tempDir, "alerts.db")); statErr != nil {
-		t.Fatalf("expected sqlite db file to exist: %v", statErr)
-	}
+	_, statErr := os.Stat(filepath.Join(tempDir, "alerts.db"))
+	require.NoError(t, statErr, "expected sqlite db file to exist")
 }
 
 func TestWriteAlertEntryWithNilEntry(t *testing.T) {
@@ -75,23 +67,16 @@ func TestWriteAlertEntryWithNilEntry(t *testing.T) {
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
-	if _, err := store.WriteAlertEntry(ctx, nil); err == nil {
-		t.Fatal("expected error for nil alert entry")
-	}
+	_, err = store.WriteAlertEntry(ctx, nil)
+	require.Error(t, err, "expected error for nil alert entry")
 }
 
 func TestQueryAlertEntries(t *testing.T) {
@@ -99,19 +84,13 @@ func TestQueryAlertEntries(t *testing.T) {
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
 	entries := []*AlertEntry{
 		{
@@ -144,9 +123,8 @@ func TestQueryAlertEntries(t *testing.T) {
 		},
 	}
 	for _, entry := range entries {
-		if _, err := store.WriteAlertEntry(ctx, entry); err != nil {
-			t.Fatalf("failed to write alert entry: %v", err)
-		}
+		_, err := store.WriteAlertEntry(ctx, entry)
+		require.NoError(t, err, "failed to write alert entry")
 	}
 
 	got, total, err := store.QueryAlertEntries(ctx, QueryParams{
@@ -157,16 +135,8 @@ func TestQueryAlertEntries(t *testing.T) {
 		Limit:         10,
 		SortOrder:     "desc",
 	})
-	if err != nil {
-		t.Fatalf("failed to query alert entries: %v", err)
-	}
-	if total != 1 {
-		t.Fatalf("expected total=1, got %d", total)
-	}
-	if len(got) != 1 {
-		t.Fatalf("expected 1 row, got %d", len(got))
-	}
-	if got[0].AlertRuleName != "rule-b" {
-		t.Fatalf("expected rule-b, got %s", got[0].AlertRuleName)
-	}
+	require.NoError(t, err, "failed to query alert entries")
+	require.Equal(t, 1, total)
+	require.Len(t, got, 1)
+	assert.Equal(t, "rule-b", got[0].AlertRuleName)
 }

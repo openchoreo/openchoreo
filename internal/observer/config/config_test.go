@@ -7,6 +7,9 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoad_WithDefaults(t *testing.T) {
@@ -20,38 +23,16 @@ func TestLoad_WithDefaults(t *testing.T) {
 	}
 
 	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Failed to load config: %v", err)
-	}
+	require.NoError(t, err, "Failed to load config")
 
 	// Test defaults
-	if cfg.Server.Port != 9097 {
-		t.Errorf("Expected default port 9097, got %d", cfg.Server.Port)
-	}
-
-	if cfg.Server.ReadTimeout != 30*time.Second {
-		t.Errorf("Expected read timeout 30s, got %v", cfg.Server.ReadTimeout)
-	}
-
-	if cfg.OpenSearch.Address != "http://localhost:9200" {
-		t.Errorf("Expected default OpenSearch address, got %s", cfg.OpenSearch.Address)
-	}
-
-	if cfg.OpenSearch.Username != "admin" {
-		t.Errorf("Expected default username 'admin', got %s", cfg.OpenSearch.Username)
-	}
-
-	if cfg.LogLevel != "info" {
-		t.Errorf("Expected default log level 'info', got %s", cfg.LogLevel)
-	}
-
-	if cfg.Auth.EnableAuth != false {
-		t.Errorf("Expected auth disabled by default, got %t", cfg.Auth.EnableAuth)
-	}
-
-	if cfg.Logging.MaxLogLimit != 10000 {
-		t.Errorf("Expected max log limit 10000, got %d", cfg.Logging.MaxLogLimit)
-	}
+	assert.Equal(t, 9097, cfg.Server.Port)
+	assert.Equal(t, 30*time.Second, cfg.Server.ReadTimeout)
+	assert.Equal(t, "http://localhost:9200", cfg.OpenSearch.Address)
+	assert.Equal(t, "admin", cfg.OpenSearch.Username)
+	assert.Equal(t, "info", cfg.LogLevel)
+	assert.False(t, cfg.Auth.EnableAuth)
+	assert.Equal(t, 10000, cfg.Logging.MaxLogLimit)
 }
 
 func TestLoad_WithEnvironmentVariables(t *testing.T) {
@@ -77,38 +58,16 @@ func TestLoad_WithEnvironmentVariables(t *testing.T) {
 	}()
 
 	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Failed to load config: %v", err)
-	}
+	require.NoError(t, err, "Failed to load config")
 
 	// Test environment variable overrides
-	if cfg.Server.Port != 8080 {
-		t.Errorf("Expected port 8080 from env, got %d", cfg.Server.Port)
-	}
-
-	if cfg.LogLevel != "debug" {
-		t.Errorf("Expected log level 'debug' from env, got %s", cfg.LogLevel)
-	}
-
-	if cfg.OpenSearch.Address != "https://opensearch.example.com:9200" {
-		t.Errorf("Expected OpenSearch address from env, got %s", cfg.OpenSearch.Address)
-	}
-
-	if cfg.OpenSearch.Username != "testuser" {
-		t.Errorf("Expected username 'testuser' from env, got %s", cfg.OpenSearch.Username)
-	}
-
-	if cfg.OpenSearch.Password != "testpass" {
-		t.Errorf("Expected password 'testpass' from env, got %s", cfg.OpenSearch.Password)
-	}
-
-	if cfg.Auth.EnableAuth != true {
-		t.Errorf("Expected auth enabled from env, got %t", cfg.Auth.EnableAuth)
-	}
-
-	if cfg.Logging.MaxLogLimit != 5000 {
-		t.Errorf("Expected max log limit 5000 from env, got %d", cfg.Logging.MaxLogLimit)
-	}
+	assert.Equal(t, 8080, cfg.Server.Port)
+	assert.Equal(t, "debug", cfg.LogLevel)
+	assert.Equal(t, "https://opensearch.example.com:9200", cfg.OpenSearch.Address)
+	assert.Equal(t, "testuser", cfg.OpenSearch.Username)
+	assert.Equal(t, "testpass", cfg.OpenSearch.Password)
+	assert.True(t, cfg.Auth.EnableAuth)
+	assert.Equal(t, 5000, cfg.Logging.MaxLogLimit)
 }
 
 func TestLoad_CORSAllowedOrigins(t *testing.T) {
@@ -163,17 +122,11 @@ func TestLoad_CORSAllowedOrigins(t *testing.T) {
 			}
 
 			cfg, err := Load()
-			if err != nil {
-				t.Fatalf("Failed to load config: %v", err)
-			}
+			require.NoError(t, err, "Failed to load config")
 
-			if len(cfg.CORS.AllowedOrigins) != len(tt.expected) {
-				t.Fatalf("Expected %d origins, got %d: %v", len(tt.expected), len(cfg.CORS.AllowedOrigins), cfg.CORS.AllowedOrigins)
-			}
+			require.Len(t, cfg.CORS.AllowedOrigins, len(tt.expected))
 			for i, want := range tt.expected {
-				if cfg.CORS.AllowedOrigins[i] != want {
-					t.Errorf("Origin[%d]: expected %q, got %q", i, want, cfg.CORS.AllowedOrigins[i])
-				}
+				assert.Equal(t, want, cfg.CORS.AllowedOrigins[i], "Origin[%d]", i)
 			}
 		})
 	}
@@ -237,18 +190,12 @@ func TestLoad_BooleanEnvParsing(t *testing.T) {
 			t.Setenv("TRACING_ADAPTER_ENABLED", tt.tracingAdapterEnabled)
 
 			cfg, err := Load()
-			if err != nil {
-				t.Fatalf("Failed to load config: %v", err)
-			}
+			require.NoError(t, err, "Failed to load config")
 
-			if cfg.Adapters.LogsAdapterEnabled != tt.expectedLogs {
-				t.Errorf("LogsAdapterEnabled: expected %v, got %v (env=%q)",
-					tt.expectedLogs, cfg.Adapters.LogsAdapterEnabled, tt.logsAdapterEnabled)
-			}
-			if cfg.Adapters.TracingAdapterEnabled != tt.expectedTracing {
-				t.Errorf("TracingAdapterEnabled: expected %v, got %v (env=%q)",
-					tt.expectedTracing, cfg.Adapters.TracingAdapterEnabled, tt.tracingAdapterEnabled)
-			}
+			assert.Equal(t, tt.expectedLogs, cfg.Adapters.LogsAdapterEnabled,
+				"LogsAdapterEnabled (env=%q)", tt.logsAdapterEnabled)
+			assert.Equal(t, tt.expectedTracing, cfg.Adapters.TracingAdapterEnabled,
+				"TracingAdapterEnabled (env=%q)", tt.tracingAdapterEnabled)
 		})
 	}
 }
@@ -270,9 +217,7 @@ func TestLoad_BooleanEnvParsing_InvalidValues(t *testing.T) {
 			t.Setenv("TRACING_ADAPTER_ENABLED", tt.value)
 
 			_, err := Load()
-			if err == nil {
-				t.Errorf("Expected error for invalid boolean value %q, but got none", tt.value)
-			}
+			require.Error(t, err, "Expected error for invalid boolean value %q", tt.value)
 		})
 	}
 }
@@ -283,16 +228,10 @@ func TestLoad_BooleanEnvParsing_Unset(t *testing.T) {
 	os.Unsetenv("TRACING_ADAPTER_ENABLED")
 
 	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Failed to load config: %v", err)
-	}
+	require.NoError(t, err, "Failed to load config")
 
-	if cfg.Adapters.LogsAdapterEnabled != false {
-		t.Errorf("Expected LogsAdapterEnabled default false, got %v", cfg.Adapters.LogsAdapterEnabled)
-	}
-	if cfg.Adapters.TracingAdapterEnabled != false {
-		t.Errorf("Expected TracingAdapterEnabled default false, got %v", cfg.Adapters.TracingAdapterEnabled)
-	}
+	assert.False(t, cfg.Adapters.LogsAdapterEnabled)
+	assert.False(t, cfg.Adapters.TracingAdapterEnabled)
 }
 
 func TestValidate(t *testing.T) {
@@ -533,11 +472,10 @@ func TestValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.config.validate()
-			if tt.expectErr && err == nil {
-				t.Error("Expected validation error but got none")
-			}
-			if !tt.expectErr && err != nil {
-				t.Errorf("Unexpected validation error: %v", err)
+			if tt.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}

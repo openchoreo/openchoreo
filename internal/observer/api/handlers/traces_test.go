@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
@@ -31,16 +34,12 @@ func TestConvertTracesResponseToGen(t *testing.T) {
 	}
 
 	genResp := convertTracesResponseToGen(resp)
-	if genResp == nil {
-		t.Fatal("Expected non-nil response")
-	}
+	require.NotNil(t, genResp)
 }
 
 func TestConvertTracesResponseToGen_NilResponse(t *testing.T) {
 	genResp := convertTracesResponseToGen(nil)
-	if genResp != nil {
-		t.Errorf("Expected nil response, got %v", genResp)
-	}
+	assert.Nil(t, genResp)
 }
 
 func TestConvertTracesResponseToGen_EmptyTraces(t *testing.T) {
@@ -51,9 +50,7 @@ func TestConvertTracesResponseToGen_EmptyTraces(t *testing.T) {
 	}
 
 	genResp := convertTracesResponseToGen(resp)
-	if genResp == nil {
-		t.Fatal("Expected non-nil response")
-	}
+	require.NotNil(t, genResp)
 }
 
 func TestConvertTracesResponseToGen_MultipleTraces(t *testing.T) {
@@ -84,9 +81,7 @@ func TestConvertTracesResponseToGen_MultipleTraces(t *testing.T) {
 	}
 
 	genResp := convertTracesResponseToGen(resp)
-	if genResp == nil {
-		t.Fatal("Expected non-nil response")
-	}
+	require.NotNil(t, genResp)
 }
 
 func TestConvertSpansResponseToGen(t *testing.T) {
@@ -105,16 +100,12 @@ func TestConvertSpansResponseToGen(t *testing.T) {
 	}
 
 	genResp := convertSpansResponseToGen(resp)
-	if genResp == nil {
-		t.Fatal("Expected non-nil response")
-	}
+	require.NotNil(t, genResp)
 }
 
 func TestConvertSpansResponseToGen_NilResponse(t *testing.T) {
 	genResp := convertSpansResponseToGen(nil)
-	if genResp != nil {
-		t.Errorf("Expected nil response, got %v", genResp)
-	}
+	assert.Nil(t, genResp)
 }
 
 func TestConvertSpansResponseToGen_MultipleSpans(t *testing.T) {
@@ -147,9 +138,7 @@ func TestConvertSpansResponseToGen_MultipleSpans(t *testing.T) {
 	}
 
 	genResp := convertSpansResponseToGen(resp)
-	if genResp == nil {
-		t.Fatal("Expected non-nil response")
-	}
+	require.NotNil(t, genResp)
 }
 
 func TestConvertSpanDetailsToGen(t *testing.T) {
@@ -170,19 +159,13 @@ func TestConvertSpanDetailsToGen(t *testing.T) {
 	}
 
 	spanData := convertSpanDetailsToGen(span)
-	if spanData == nil {
-		t.Fatal("Expected non-nil span data")
-	}
-	if spanData["spanId"] != "span-1" {
-		t.Errorf("Expected spanId 'span-1', got %v", spanData["spanId"])
-	}
+	require.NotNil(t, spanData)
+	assert.Equal(t, "span-1", spanData["spanId"])
 }
 
 func TestConvertSpanDetailsToGen_NilSpan(t *testing.T) {
 	spanData := convertSpanDetailsToGen(nil)
-	if spanData != nil {
-		t.Errorf("Expected nil span data, got %v", spanData)
-	}
+	assert.Nil(t, spanData)
 }
 
 func TestConvertSpanDetailsToGen_NoParent(t *testing.T) {
@@ -197,13 +180,10 @@ func TestConvertSpanDetailsToGen_NoParent(t *testing.T) {
 	}
 
 	spanData := convertSpanDetailsToGen(span)
-	if spanData == nil {
-		t.Fatal("Expected non-nil span data")
-	}
+	require.NotNil(t, spanData)
 	// Parent span ID should not be in the response at all
-	if _, ok := spanData["parentSpanId"]; ok {
-		t.Errorf("Expected parentSpanId to be absent from response")
-	}
+	_, ok := spanData["parentSpanId"]
+	assert.False(t, ok, "Expected parentSpanId to be absent from response")
 }
 
 func TestConvertSpanDetailsToGen_WithAttributes(t *testing.T) {
@@ -229,40 +209,25 @@ func TestConvertSpanDetailsToGen_WithAttributes(t *testing.T) {
 	}
 
 	spanData := convertSpanDetailsToGen(span)
-	if spanData == nil {
-		t.Fatal("Expected non-nil span data")
-	}
-
-	if spanData["attributes"] == nil {
-		t.Errorf("Expected attributes to be present")
-	}
-	if spanData["resourceAttributes"] == nil {
-		t.Errorf("Expected resourceAttributes to be present")
-	}
+	require.NotNil(t, spanData)
+	assert.NotNil(t, spanData["attributes"])
+	assert.NotNil(t, spanData["resourceAttributes"])
 }
 
 func TestDerefInt(t *testing.T) {
 	val := 100
 	result := derefInt(&val, 50)
-	if result != 100 {
-		t.Errorf("Expected 100, got %d", result)
-	}
+	assert.Equal(t, 100, result)
 
 	result = derefInt(nil, 50)
-	if result != 50 {
-		t.Errorf("Expected default 50, got %d", result)
-	}
+	assert.Equal(t, 50, result)
 }
 
 func TestDerefString(t *testing.T) {
 	val := "test"
 	result := derefString(&val)
-	if result != "test" {
-		t.Errorf("Expected 'test', got '%s'", result)
-	}
+	assert.Equal(t, "test", result)
 
 	result = derefString(nil)
-	if result != "" {
-		t.Errorf("Expected empty string, got '%s'", result)
-	}
+	assert.Equal(t, "", result)
 }

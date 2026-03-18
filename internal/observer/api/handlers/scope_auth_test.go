@@ -17,6 +17,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
@@ -55,19 +58,17 @@ func (f *fakeScopeAuthFailedTracesService) GetSpanDetails(_ context.Context, _, 
 func validLogsRequestBody(t *testing.T) io.Reader {
 	t.Helper()
 	now := time.Now().UTC()
-	req := map[string]interface{}{
+	req := map[string]any{
 		"startTime": now.Add(-1 * time.Hour).Format(time.RFC3339),
 		"endTime":   now.Format(time.RFC3339),
-		"searchScope": map[string]interface{}{
+		"searchScope": map[string]any{
 			"namespace": "test-ns",
 			"project":   "test-project",
 			"component": "test-component",
 		},
 	}
 	b, err := json.Marshal(req)
-	if err != nil {
-		t.Fatalf("failed to marshal logs request: %v", err)
-	}
+	require.NoError(t, err, "failed to marshal logs request")
 	return bytes.NewReader(b)
 }
 
@@ -75,18 +76,16 @@ func validLogsRequestBody(t *testing.T) io.Reader {
 func validMetricsRequestBody(t *testing.T) io.Reader {
 	t.Helper()
 	now := time.Now().UTC()
-	req := map[string]interface{}{
+	req := map[string]any{
 		"metric":    "resource",
 		"startTime": now.Add(-1 * time.Hour).Format(time.RFC3339),
 		"endTime":   now.Format(time.RFC3339),
-		"searchScope": map[string]interface{}{
+		"searchScope": map[string]any{
 			"namespace": "test-ns",
 		},
 	}
 	b, err := json.Marshal(req)
-	if err != nil {
-		t.Fatalf("failed to marshal metrics request: %v", err)
-	}
+	require.NoError(t, err, "failed to marshal metrics request")
 	return bytes.NewReader(b)
 }
 
@@ -94,17 +93,15 @@ func validMetricsRequestBody(t *testing.T) io.Reader {
 func validTracesRequestBody(t *testing.T) io.Reader {
 	t.Helper()
 	now := time.Now().UTC()
-	req := map[string]interface{}{
+	req := map[string]any{
 		"startTime": now.Add(-1 * time.Hour).Format(time.RFC3339),
 		"endTime":   now.Format(time.RFC3339),
-		"searchScope": map[string]interface{}{
+		"searchScope": map[string]any{
 			"namespace": "test-ns",
 		},
 	}
 	b, err := json.Marshal(req)
-	if err != nil {
-		t.Fatalf("failed to marshal traces request: %v", err)
-	}
+	require.NoError(t, err, "failed to marshal traces request")
 	return bytes.NewReader(b)
 }
 
@@ -112,25 +109,16 @@ func validTracesRequestBody(t *testing.T) io.Reader {
 // OBS-V1-SCOPE-AUTH-FAILED error code.
 func assertScopeAuthFailedResponse(t *testing.T, rr *httptest.ResponseRecorder) {
 	t.Helper()
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("expected HTTP 500, got %d", rr.Code)
-	}
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
 	body, err := io.ReadAll(rr.Body)
-	if err != nil {
-		t.Fatalf("failed to read response body: %v", err)
-	}
+	require.NoError(t, err, "failed to read response body")
 
-	var errResp map[string]interface{}
-	if err := json.Unmarshal(body, &errResp); err != nil {
-		t.Fatalf("failed to unmarshal error response: %v\nbody: %s", err, string(body))
-	}
+	var errResp map[string]any
+	require.NoError(t, json.Unmarshal(body, &errResp), "failed to unmarshal error response, body: %s", string(body))
 
 	got, _ := errResp["errorCode"].(string)
-	if got != types.ErrorCodeV1ScopeAuthFailed {
-		t.Errorf("expected errorCode %q, got %q\nfull body: %s",
-			types.ErrorCodeV1ScopeAuthFailed, got, string(body))
-	}
+	assert.Equal(t, types.ErrorCodeV1ScopeAuthFailed, got, "full body: %s", string(body))
 }
 
 // ---- test cases ----------------------------------------------------------------

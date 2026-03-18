@@ -5,7 +5,6 @@ package incidententry
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -13,6 +12,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSQLiteInitializeAndWriteIncidentEntry(t *testing.T) {
@@ -22,19 +24,13 @@ func TestSQLiteInitializeAndWriteIncidentEntry(t *testing.T) {
 	dsn := "file:" + filepath.Join(tempDir, "incidents.db")
 
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
 	id, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
 		AlertID:         "alt-1",
@@ -51,16 +47,11 @@ func TestSQLiteInitializeAndWriteIncidentEntry(t *testing.T) {
 		EnvironmentID:   "d4e5f6a7-8901-23de-f012-4567890abcde",
 		ProjectID:       "b2c3d4e5-6789-01bc-def0-234567890abc",
 	})
-	if err != nil {
-		t.Fatalf("failed to write incident entry: %v", err)
-	}
-	if id == "" {
-		t.Fatal("expected non-empty id")
-	}
+	require.NoError(t, err, "failed to write incident entry")
+	require.NotEmpty(t, id)
 
-	if _, statErr := os.Stat(filepath.Join(tempDir, "incidents.db")); statErr != nil {
-		t.Fatalf("expected sqlite db file to exist: %v", statErr)
-	}
+	_, statErr := os.Stat(filepath.Join(tempDir, "incidents.db"))
+	require.NoError(t, statErr, "expected sqlite db file to exist")
 }
 
 func TestWriteIncidentEntryWithNilEntry(t *testing.T) {
@@ -68,23 +59,16 @@ func TestWriteIncidentEntryWithNilEntry(t *testing.T) {
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
-	if _, err := store.WriteIncidentEntry(ctx, nil); err == nil {
-		t.Fatal("expected error for nil incident entry")
-	}
+	_, err = store.WriteIncidentEntry(ctx, nil)
+	require.Error(t, err, "expected error for nil incident entry")
 }
 
 func TestWriteIncidentEntryWithMissingAlertID(t *testing.T) {
@@ -92,23 +76,16 @@ func TestWriteIncidentEntryWithMissingAlertID(t *testing.T) {
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
-	if _, err := store.WriteIncidentEntry(ctx, &IncidentEntry{}); err == nil {
-		t.Fatal("expected error for missing alert id")
-	}
+	_, err = store.WriteIncidentEntry(ctx, &IncidentEntry{})
+	require.Error(t, err, "expected error for missing alert id")
 }
 
 func TestQueryIncidentEntries(t *testing.T) {
@@ -116,19 +93,13 @@ func TestQueryIncidentEntries(t *testing.T) {
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
 	entries := []*IncidentEntry{
 		{
@@ -158,9 +129,8 @@ func TestQueryIncidentEntries(t *testing.T) {
 		},
 	}
 	for _, entry := range entries {
-		if _, err := store.WriteIncidentEntry(ctx, entry); err != nil {
-			t.Fatalf("failed to write incident entry: %v", err)
-		}
+		_, err := store.WriteIncidentEntry(ctx, entry)
+		require.NoError(t, err, "failed to write incident entry")
 	}
 
 	got, total, err := store.QueryIncidentEntries(ctx, QueryParams{
@@ -170,18 +140,10 @@ func TestQueryIncidentEntries(t *testing.T) {
 		Limit:         10,
 		SortOrder:     "desc",
 	})
-	if err != nil {
-		t.Fatalf("failed to query incident entries: %v", err)
-	}
-	if total != 1 {
-		t.Fatalf("expected total=1, got %d", total)
-	}
-	if len(got) != 1 {
-		t.Fatalf("expected 1 row, got %d", len(got))
-	}
-	if got[0].AlertID != "a-2" {
-		t.Fatalf("expected alert a-2, got %s", got[0].AlertID)
-	}
+	require.NoError(t, err, "failed to query incident entries")
+	require.Equal(t, 1, total)
+	require.Len(t, got, 1)
+	assert.Equal(t, "a-2", got[0].AlertID)
 }
 
 func TestUpdateIncidentEntry_AcknowledgeAndResolve(t *testing.T) {
@@ -189,19 +151,13 @@ func TestUpdateIncidentEntry_AcknowledgeAndResolve(t *testing.T) {
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
 	createdAt := time.Date(2026, 3, 7, 10, 20, 30, 0, time.UTC)
 	id, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
@@ -216,9 +172,7 @@ func TestUpdateIncidentEntry_AcknowledgeAndResolve(t *testing.T) {
 		EnvironmentName: "dev",
 		ProjectName:     "project-a",
 	})
-	if err != nil {
-		t.Fatalf("failed to write incident entry: %v", err)
-	}
+	require.NoError(t, err, "failed to write incident entry")
 
 	now := time.Date(2026, 3, 7, 10, 21, 0, 0, time.UTC)
 	sqlStore := store.(*sqlStore)
@@ -226,44 +180,22 @@ func TestUpdateIncidentEntry_AcknowledgeAndResolve(t *testing.T) {
 	ackNotes := "ack-notes"
 	ackDesc := "ack-desc"
 	updated, err := sqlStore.UpdateIncidentEntry(ctx, id, StatusAcknowledged, &ackNotes, &ackDesc, now)
-	if err != nil {
-		t.Fatalf("failed to acknowledge incident: %v", err)
-	}
-	if updated.Status != StatusAcknowledged {
-		t.Fatalf("expected status %q, got %q", StatusAcknowledged, updated.Status)
-	}
-	if updated.AcknowledgedAt == "" {
-		t.Fatalf("expected acknowledgedAt to be set")
-	}
-	if updated.ResolvedAt != "" {
-		t.Fatalf("expected resolvedAt to be empty, got %q", updated.ResolvedAt)
-	}
-	if updated.Notes != "ack-notes" {
-		t.Fatalf("expected notes %q, got %q", "ack-notes", updated.Notes)
-	}
-	if updated.Description != "ack-desc" {
-		t.Fatalf("expected description %q, got %q", "ack-desc", updated.Description)
-	}
+	require.NoError(t, err, "failed to acknowledge incident")
+	assert.Equal(t, StatusAcknowledged, updated.Status)
+	assert.NotEmpty(t, updated.AcknowledgedAt)
+	assert.Empty(t, updated.ResolvedAt)
+	assert.Equal(t, "ack-notes", updated.Notes)
+	assert.Equal(t, "ack-desc", updated.Description)
 
 	resolveTime := now.Add(5 * time.Minute)
 	resNotes := "res-notes"
 	resDesc := "res-desc"
 	resolved, err := sqlStore.UpdateIncidentEntry(ctx, id, StatusResolved, &resNotes, &resDesc, resolveTime)
-	if err != nil {
-		t.Fatalf("failed to resolve incident: %v", err)
-	}
-	if resolved.Status != StatusResolved {
-		t.Fatalf("expected status %q, got %q", StatusResolved, resolved.Status)
-	}
-	if resolved.ResolvedAt == "" {
-		t.Fatalf("expected resolvedAt to be set")
-	}
-	if resolved.Notes != "res-notes" {
-		t.Fatalf("expected notes %q, got %q", "res-notes", resolved.Notes)
-	}
-	if resolved.Description != "res-desc" {
-		t.Fatalf("expected description %q, got %q", "res-desc", resolved.Description)
-	}
+	require.NoError(t, err, "failed to resolve incident")
+	assert.Equal(t, StatusResolved, resolved.Status)
+	assert.NotEmpty(t, resolved.ResolvedAt)
+	assert.Equal(t, "res-notes", resolved.Notes)
+	assert.Equal(t, "res-desc", resolved.Description)
 }
 
 func TestUpdateIncidentEntry_NotFound(t *testing.T) {
@@ -271,28 +203,18 @@ func TestUpdateIncidentEntry_NotFound(t *testing.T) {
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
 	sqlStore := store.(*sqlStore)
 	_, err = sqlStore.UpdateIncidentEntry(ctx, "non-existent-id", StatusActive, nil, nil, time.Now())
-	if err == nil {
-		t.Fatal("expected error for non-existent incident id")
-	}
-	if !errors.Is(err, ErrIncidentNotFound) {
-		t.Fatalf("expected ErrIncidentNotFound, got %v", err)
-	}
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrIncidentNotFound)
 }
 
 func TestUpdateIncidentEntry_PreservesOmittedFields(t *testing.T) {
@@ -300,19 +222,13 @@ func TestUpdateIncidentEntry_PreservesOmittedFields(t *testing.T) {
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
 	createdAt := time.Date(2026, 3, 7, 10, 20, 30, 0, time.UTC)
 	id, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
@@ -328,24 +244,16 @@ func TestUpdateIncidentEntry_PreservesOmittedFields(t *testing.T) {
 		EnvironmentName: "dev",
 		ProjectName:     "project-a",
 	})
-	if err != nil {
-		t.Fatalf("failed to write incident entry: %v", err)
-	}
+	require.NoError(t, err, "failed to write incident entry")
 
 	sqlStore := store.(*sqlStore)
 	now := time.Date(2026, 3, 7, 10, 21, 0, 0, time.UTC)
 
 	// Omit notes and description (pass nil) - should preserve existing values
 	updated, err := sqlStore.UpdateIncidentEntry(ctx, id, StatusAcknowledged, nil, nil, now)
-	if err != nil {
-		t.Fatalf("failed to update incident: %v", err)
-	}
-	if updated.Notes != "original-notes" {
-		t.Fatalf("expected notes preserved %q, got %q", "original-notes", updated.Notes)
-	}
-	if updated.Description != "original-description" {
-		t.Fatalf("expected description preserved %q, got %q", "original-description", updated.Description)
-	}
+	require.NoError(t, err, "failed to update incident")
+	assert.Equal(t, "original-notes", updated.Notes)
+	assert.Equal(t, "original-description", updated.Description)
 
 	// Verify persisted: query back and check
 	entries, _, err := store.QueryIncidentEntries(ctx, QueryParams{
@@ -353,9 +261,7 @@ func TestUpdateIncidentEntry_PreservesOmittedFields(t *testing.T) {
 		EndTime:   "2026-03-07T11:00:00Z",
 		Limit:     10,
 	})
-	if err != nil {
-		t.Fatalf("failed to query: %v", err)
-	}
+	require.NoError(t, err, "failed to query")
 	var found *IncidentEntry
 	for i := range entries {
 		if entries[i].ID == id {
@@ -363,15 +269,9 @@ func TestUpdateIncidentEntry_PreservesOmittedFields(t *testing.T) {
 			break
 		}
 	}
-	if found == nil {
-		t.Fatal("incident not found after update")
-	}
-	if found.Notes != "original-notes" {
-		t.Fatalf("expected persisted notes %q, got %q", "original-notes", found.Notes)
-	}
-	if found.Description != "original-description" {
-		t.Fatalf("expected persisted description %q, got %q", "original-description", found.Description)
-	}
+	require.NotNil(t, found, "incident not found after update")
+	assert.Equal(t, "original-notes", found.Notes)
+	assert.Equal(t, "original-description", found.Description)
 }
 
 func TestUpdateIncidentEntry_ForwardOnlyTransitions(t *testing.T) {
@@ -379,19 +279,13 @@ func TestUpdateIncidentEntry_ForwardOnlyTransitions(t *testing.T) {
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
 	createdAt := time.Date(2026, 3, 7, 10, 20, 30, 0, time.UTC)
 	sqlStore := store.(*sqlStore)
@@ -409,21 +303,15 @@ func TestUpdateIncidentEntry_ForwardOnlyTransitions(t *testing.T) {
 		EnvironmentName: "env",
 		ProjectName:     "proj",
 	})
-	if err != nil {
-		t.Fatalf("failed to write resolved incident: %v", err)
-	}
+	require.NoError(t, err, "failed to write resolved incident")
 
-	// Backward transition: resolved → acknowledged should fail.
+	// Backward transition: resolved -> acknowledged should fail.
 	_, err = sqlStore.UpdateIncidentEntry(ctx, resolvedID, StatusAcknowledged, nil, nil, time.Now())
-	if !errors.Is(err, ErrInvalidStatusTransition) {
-		t.Fatalf("expected ErrInvalidStatusTransition for resolved→acknowledged, got %v", err)
-	}
+	require.ErrorIs(t, err, ErrInvalidStatusTransition)
 
-	// Backward transition: resolved → active should fail.
+	// Backward transition: resolved -> active should fail.
 	_, err = sqlStore.UpdateIncidentEntry(ctx, resolvedID, StatusActive, nil, nil, time.Now())
-	if !errors.Is(err, ErrInvalidStatusTransition) {
-		t.Fatalf("expected ErrInvalidStatusTransition for resolved→active, got %v", err)
-	}
+	require.ErrorIs(t, err, ErrInvalidStatusTransition)
 
 	// Write an acknowledged incident.
 	ackID, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
@@ -438,24 +326,16 @@ func TestUpdateIncidentEntry_ForwardOnlyTransitions(t *testing.T) {
 		EnvironmentName: "env",
 		ProjectName:     "proj",
 	})
-	if err != nil {
-		t.Fatalf("failed to write acknowledged incident: %v", err)
-	}
+	require.NoError(t, err, "failed to write acknowledged incident")
 
-	// Backward transition: acknowledged → active should fail.
+	// Backward transition: acknowledged -> active should fail.
 	_, err = sqlStore.UpdateIncidentEntry(ctx, ackID, StatusActive, nil, nil, time.Now())
-	if !errors.Is(err, ErrInvalidStatusTransition) {
-		t.Fatalf("expected ErrInvalidStatusTransition for acknowledged→active, got %v", err)
-	}
+	require.ErrorIs(t, err, ErrInvalidStatusTransition)
 
-	// Allowed transition: acknowledged → resolved should succeed.
+	// Allowed transition: acknowledged -> resolved should succeed.
 	updated, err := sqlStore.UpdateIncidentEntry(ctx, ackID, StatusResolved, nil, nil, time.Now())
-	if err != nil {
-		t.Fatalf("expected acknowledged→resolved to succeed, got %v", err)
-	}
-	if updated.Status != StatusResolved {
-		t.Fatalf("expected status %q, got %q", StatusResolved, updated.Status)
-	}
+	require.NoError(t, err, "expected acknowledged->resolved to succeed")
+	assert.Equal(t, StatusResolved, updated.Status)
 }
 
 func TestUpdateIncidentEntry_TimestampsSetOnce(t *testing.T) {
@@ -463,19 +343,13 @@ func TestUpdateIncidentEntry_TimestampsSetOnce(t *testing.T) {
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
 	createdAt := time.Date(2026, 3, 7, 10, 20, 30, 0, time.UTC)
 	id, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
@@ -489,27 +363,19 @@ func TestUpdateIncidentEntry_TimestampsSetOnce(t *testing.T) {
 		EnvironmentName: "env",
 		ProjectName:     "proj",
 	})
-	if err != nil {
-		t.Fatalf("failed to write incident: %v", err)
-	}
+	require.NoError(t, err, "failed to write incident")
 
 	sqlStore := store.(*sqlStore)
 	ackTime1 := time.Date(2026, 3, 7, 10, 21, 0, 0, time.UTC)
 	first, err := sqlStore.UpdateIncidentEntry(ctx, id, StatusAcknowledged, nil, nil, ackTime1)
-	if err != nil {
-		t.Fatalf("first acknowledge failed: %v", err)
-	}
+	require.NoError(t, err, "first acknowledge failed")
 	firstAckAt := first.AcknowledgedAt
 
 	// Re-acknowledge with a later time; acknowledgedAt must NOT change.
 	ackTime2 := ackTime1.Add(10 * time.Minute)
 	second, err := sqlStore.UpdateIncidentEntry(ctx, id, StatusAcknowledged, nil, nil, ackTime2)
-	if err != nil {
-		t.Fatalf("second acknowledge failed: %v", err)
-	}
-	if second.AcknowledgedAt != firstAckAt {
-		t.Fatalf("expected acknowledgedAt to remain %q, got %q", firstAckAt, second.AcknowledgedAt)
-	}
+	require.NoError(t, err, "second acknowledge failed")
+	assert.Equal(t, firstAckAt, second.AcknowledgedAt)
 }
 
 func TestUpdateIncidentEntry_RowsAffectedZeroIsNotFound(t *testing.T) {
@@ -517,19 +383,13 @@ func TestUpdateIncidentEntry_RowsAffectedZeroIsNotFound(t *testing.T) {
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
 	store, err := New(BackendSQLite, dsn, slog.Default())
-	if err != nil {
-		t.Fatalf("failed to create store: %v", err)
-	}
+	require.NoError(t, err, "failed to create store")
 	t.Cleanup(func() {
-		if closeErr := store.Close(); closeErr != nil {
-			t.Fatalf("failed to close store: %v", closeErr)
-		}
+		require.NoError(t, store.Close(), "failed to close store")
 	})
 
 	ctx := context.Background()
-	if err := store.Initialize(ctx); err != nil {
-		t.Fatalf("failed to initialize store: %v", err)
-	}
+	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
 	// Write then hard-delete a row to simulate a row disappearing between SELECT and UPDATE.
 	createdAt := time.Date(2026, 3, 7, 10, 20, 30, 0, time.UTC)
@@ -544,18 +404,13 @@ func TestUpdateIncidentEntry_RowsAffectedZeroIsNotFound(t *testing.T) {
 		EnvironmentName: "env",
 		ProjectName:     "proj",
 	})
-	if err != nil {
-		t.Fatalf("failed to write incident: %v", err)
-	}
+	require.NoError(t, err, "failed to write incident")
 
 	// Delete the row directly so the UPDATE inside the transaction finds 0 rows.
 	sqlStore := store.(*sqlStore)
-	if _, err := sqlStore.db.ExecContext(ctx, "DELETE FROM incident_entries WHERE id = ?", id); err != nil {
-		t.Fatalf("failed to delete row: %v", err)
-	}
+	_, err = sqlStore.db.ExecContext(ctx, "DELETE FROM incident_entries WHERE id = ?", id)
+	require.NoError(t, err, "failed to delete row")
 
 	_, err = sqlStore.UpdateIncidentEntry(ctx, id, StatusAcknowledged, nil, nil, time.Now())
-	if !errors.Is(err, ErrIncidentNotFound) {
-		t.Fatalf("expected ErrIncidentNotFound when row deleted between SELECT and UPDATE, got %v", err)
-	}
+	require.ErrorIs(t, err, ErrIncidentNotFound)
 }

@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 )
 
@@ -30,21 +33,10 @@ func TestConvertToObservabilityTrace_SingleSpan(t *testing.T) {
 
 	trace := convertToObservabilityTrace(testTraceID, spans)
 
-	if trace.TraceID != testTraceID {
-		t.Errorf("Expected traceId %q, got %s", testTraceID, trace.TraceID)
-	}
-
-	if trace.SpanCount != 1 {
-		t.Errorf("Expected 1 span, got %d", trace.SpanCount)
-	}
-
-	if trace.RootSpanID != testSpanID {
-		t.Errorf("Expected rootSpanId %q, got %s", testSpanID, trace.RootSpanID)
-	}
-
-	if trace.RootSpanName != "http.request" {
-		t.Errorf("Expected rootSpanName 'http.request', got %s", trace.RootSpanName)
-	}
+	assert.Equal(t, testTraceID, trace.TraceID)
+	assert.Equal(t, 1, trace.SpanCount)
+	assert.Equal(t, testSpanID, trace.RootSpanID)
+	assert.Equal(t, "http.request", trace.RootSpanName)
 }
 
 func TestConvertToObservabilityTrace_MultipleSpans(t *testing.T) {
@@ -78,34 +70,18 @@ func TestConvertToObservabilityTrace_MultipleSpans(t *testing.T) {
 
 	trace := convertToObservabilityTrace(testTraceID, spans)
 
-	if trace.TraceID != testTraceID {
-		t.Errorf("Expected traceId %q, got %s", testTraceID, trace.TraceID)
-	}
-
-	if trace.SpanCount != 3 {
-		t.Errorf("Expected 3 spans, got %d", trace.SpanCount)
-	}
-
-	if trace.RootSpanID != testSpanID {
-		t.Errorf("Expected rootSpanId %q, got %s", testSpanID, trace.RootSpanID)
-	}
-
-	if len(trace.Spans) != 3 {
-		t.Errorf("Expected 3 spans in trace, got %d", len(trace.Spans))
-	}
+	assert.Equal(t, testTraceID, trace.TraceID)
+	assert.Equal(t, 3, trace.SpanCount)
+	assert.Equal(t, testSpanID, trace.RootSpanID)
+	assert.Len(t, trace.Spans, 3)
 }
 
 func TestConvertToObservabilityTrace_EmptySpans(t *testing.T) {
 	spans := []opensearch.Span{}
 	trace := convertToObservabilityTrace(testTraceID, spans)
 
-	if trace.TraceID != testTraceID {
-		t.Errorf("Expected traceId %q, got %s", testTraceID, trace.TraceID)
-	}
-
-	if trace.SpanCount != 0 {
-		t.Errorf("Expected 0 spans, got %d", trace.SpanCount)
-	}
+	assert.Equal(t, testTraceID, trace.TraceID)
+	assert.Equal(t, 0, trace.SpanCount)
 }
 
 func TestConvertToObservabilityTrace_RootSpanDetection(t *testing.T) {
@@ -131,13 +107,8 @@ func TestConvertToObservabilityTrace_RootSpanDetection(t *testing.T) {
 	trace := convertToObservabilityTrace(testTraceID, spans)
 
 	// The root span should be the one with no parent
-	if trace.RootSpanID != "span-2" {
-		t.Errorf("Expected rootSpanId 'span-2', got %s", trace.RootSpanID)
-	}
-
-	if trace.RootSpanName != "db.query" {
-		t.Errorf("Expected rootSpanName 'db.query', got %s", trace.RootSpanName)
-	}
+	assert.Equal(t, "span-2", trace.RootSpanID)
+	assert.Equal(t, "db.query", trace.RootSpanName)
 }
 
 func TestConvertToObservabilityTrace_TraceName(t *testing.T) {
@@ -154,9 +125,7 @@ func TestConvertToObservabilityTrace_TraceName(t *testing.T) {
 
 	trace := convertToObservabilityTrace(testTraceID, spans)
 
-	if trace.TraceName != "user.request" {
-		t.Errorf("Expected traceName 'user.request', got %s", trace.TraceName)
-	}
+	assert.Equal(t, "user.request", trace.TraceName)
 }
 
 func TestConvertToObservabilityTrace_TimeCalculation(t *testing.T) {
@@ -176,27 +145,18 @@ func TestConvertToObservabilityTrace_TimeCalculation(t *testing.T) {
 
 	trace := convertToObservabilityTrace(testTraceID, spans)
 
-	expectedDuration := int64(500000000)
-	if trace.DurationNs != expectedDuration {
-		t.Errorf("Expected duration %d, got %d", expectedDuration, trace.DurationNs)
-	}
-
-	if !trace.StartTime.Equal(startTime) {
-		t.Errorf("Expected start time %v, got %v", startTime, trace.StartTime)
-	}
-
-	if !trace.EndTime.Equal(endTime) {
-		t.Errorf("Expected end time %v, got %v", endTime, trace.EndTime)
-	}
+	assert.Equal(t, int64(500000000), trace.DurationNs)
+	assert.True(t, trace.StartTime.Equal(startTime), "Expected start time %v, got %v", startTime, trace.StartTime)
+	assert.True(t, trace.EndTime.Equal(endTime), "Expected end time %v, got %v", endTime, trace.EndTime)
 }
 
 func TestConvertToObservabilityTrace_SpanAttributes(t *testing.T) {
 	now := time.Now()
-	attrs := map[string]interface{}{
+	attrs := map[string]any{
 		"http.method": "POST",
 		"http.url":    "http://example.com",
 	}
-	resourceAttrs := map[string]interface{}{
+	resourceAttrs := map[string]any{
 		"service.name": "my-service",
 	}
 
@@ -215,17 +175,11 @@ func TestConvertToObservabilityTrace_SpanAttributes(t *testing.T) {
 
 	trace := convertToObservabilityTrace(testTraceID, spans)
 
-	if len(trace.Spans) != 1 {
-		t.Fatalf("Expected 1 span, got %d", len(trace.Spans))
-	}
+	require.Len(t, trace.Spans, 1)
 
 	span := trace.Spans[0]
-	if span.Attributes == nil {
-		t.Errorf("Expected attributes, got nil")
-	}
-	if span.ResourceAttributes == nil {
-		t.Errorf("Expected resource attributes, got nil")
-	}
+	assert.NotNil(t, span.Attributes)
+	assert.NotNil(t, span.ResourceAttributes)
 }
 
 func TestConvertToObservabilityTrace_ComplexHierarchy(t *testing.T) {
@@ -263,17 +217,11 @@ func TestConvertToObservabilityTrace_ComplexHierarchy(t *testing.T) {
 
 	trace := convertToObservabilityTrace(testTraceID, spans)
 
-	if trace.SpanCount != 4 {
-		t.Errorf("Expected 4 spans, got %d", trace.SpanCount)
-	}
+	assert.Equal(t, 4, trace.SpanCount)
 
 	// Verify the root span is correctly identified
-	if trace.RootSpanID != testSpanID {
-		t.Errorf("Expected rootSpanId %q, got %s", testSpanID, trace.RootSpanID)
-	}
+	assert.Equal(t, testSpanID, trace.RootSpanID)
 
 	// Verify all spans are in the trace
-	if len(trace.Spans) != 4 {
-		t.Errorf("Expected 4 spans in trace, got %d", len(trace.Spans))
-	}
+	assert.Len(t, trace.Spans, 4)
 }

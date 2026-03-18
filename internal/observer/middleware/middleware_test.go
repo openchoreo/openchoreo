@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCORS(t *testing.T) {
@@ -99,25 +101,15 @@ func TestCORS(t *testing.T) {
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, req)
 
-			if nextCalled != tt.expectNext {
-				t.Errorf("next handler called = %v, want %v", nextCalled, tt.expectNext)
-			}
-
-			if rec.Code != tt.expectStatus {
-				t.Errorf("status = %d, want %d", rec.Code, tt.expectStatus)
-			}
+			assert.Equal(t, tt.expectNext, nextCalled, "next handler called")
+			assert.Equal(t, tt.expectStatus, rec.Code, "status code")
 
 			for header, want := range tt.expectHeaders {
-				got := rec.Header().Get(header)
-				if got != want {
-					t.Errorf("header %q = %q, want %q", header, got, want)
-				}
+				assert.Equal(t, want, rec.Header().Get(header), "header %q", header)
 			}
 
 			for _, header := range tt.rejectHeaders {
-				if got := rec.Header().Get(header); got != "" {
-					t.Errorf("header %q should be absent, got %q", header, got)
-				}
+				assert.Empty(t, rec.Header().Get(header), "header %q should be absent", header)
 			}
 		})
 	}
