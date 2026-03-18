@@ -40,7 +40,7 @@ var _ = Describe("ClusterDataPlane Controller — gateway paths", func() {
 		})
 		AfterEach(func() { forceDeleteCDP(ctx, nn) })
 
-		It("notifies gateway and populates AgentConnection when status GET succeeds", func() {
+		It("notifies gateway and skips immediate status poll to avoid HA flapping", func() {
 			gwClient, calls, shutdown := testgateway.StartFakeGateway(http.StatusOK, &gw.PlaneConnectionStatus{
 				Connected: true, ConnectedAgents: 1,
 			})
@@ -51,11 +51,12 @@ var _ = Describe("ClusterDataPlane Controller — gateway paths", func() {
 			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
 			Expect(*calls).To(Equal(1))
 
+			// After gateway notification, status poll is intentionally skipped to avoid
+			// catching agents mid-reconnect (HA flapping). AgentConnection will be
+			// populated on the next periodic requeue.
 			fresh := &openchoreov1alpha1.ClusterDataPlane{}
 			Expect(k8sClient.Get(ctx, nn, fresh)).To(Succeed())
-			Expect(fresh.Status.AgentConnection).NotTo(BeNil())
-			Expect(fresh.Status.AgentConnection.Connected).To(BeTrue())
-			Expect(fresh.Status.AgentConnection.Message).To(Equal("1 agent connected"))
+			Expect(fresh.Status.AgentConnection).To(BeNil())
 		})
 
 		// When populateAgentConnectionStatus returns an error (status GET fails),

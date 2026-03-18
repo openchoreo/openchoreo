@@ -106,19 +106,27 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Notify gateway of ClusterDataPlane reconciliation (create/update)
 	// Using "updated" since Reconcile handles both CREATE and UPDATE events
 	// and the gateway treats both identically (triggers agent reconnection)
+	gatewayNotified := false
 	if r.GatewayClient != nil {
 		if err := r.notifyGateway(ctx, clusterDataPlane, "updated"); err != nil {
 			if shouldRetry, result, retryErr := gatewayClient.HandleGatewayError(logger, err, "ClusterDataPlane reconciliation"); shouldRetry {
 				return result, retryErr
 			}
+		} else {
+			gatewayNotified = true
 		}
 	}
 
-	// Query agent connection status from gateway and add to clusterDataPlane status
-	// This must be done BEFORE updating status to avoid conflicts
-	if err := r.populateAgentConnectionStatus(ctx, clusterDataPlane); err != nil {
-		logger.Error(err, "failed to get agent connection status")
-		// Don't fail reconciliation for status query errors
+	// Skip immediate status poll after gateway notification — agents may be reconnecting
+	// after a revalidation/disconnect cycle. The next periodic requeue will capture the
+	// settled state, avoiding false "disconnected" flaps with HA agent replicas.
+	if !gatewayNotified {
+		if err := r.populateAgentConnectionStatus(ctx, clusterDataPlane); err != nil {
+			logger.Error(err, "failed to get agent connection status")
+			// Don't fail reconciliation for status query errors
+		}
+	} else {
+		logger.Info("skipping immediate status poll after gateway notification, agents may be reconnecting")
 	}
 
 	// We use Status().Update() directly instead of UpdateStatusConditions to preserve agentConnection field

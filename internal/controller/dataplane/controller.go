@@ -87,6 +87,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// Check if spec has changed (generation > observedGeneration)
 		// If so, notify gateway to re-validate agent certificates with updated CA
 		specChanged := dataPlane.Status.ObservedGeneration < dataPlane.Generation
+		specChangeNotified := false
 		if specChanged && r.GatewayClient != nil {
 			logger.Info("detected spec change, notifying gateway for certificate re-validation",
 				"generation", dataPlane.Generation,
@@ -96,14 +97,22 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				if shouldRetry, result, retryErr := gatewayClient.HandleGatewayError(logger, err, "DataPlane spec update"); shouldRetry {
 					return result, retryErr
 				}
+			} else {
+				specChangeNotified = true
 			}
 			// Update observedGeneration to track that we processed this change
 			dataPlane.Status.ObservedGeneration = dataPlane.Generation
 		}
 
-		if err := r.populateAgentConnectionStatus(ctx, dataPlane); err != nil {
-			logger.Error(err, "failed to get agent connection status")
-			// Don't fail reconciliation for status query errors
+		// Skip immediate status poll after gateway notification — agents may be reconnecting
+		// after a revalidation cycle. The next periodic requeue will capture the settled state.
+		if !specChangeNotified {
+			if err := r.populateAgentConnectionStatus(ctx, dataPlane); err != nil {
+				logger.Error(err, "failed to get agent connection status")
+				// Don't fail reconciliation for status query errors
+			}
+		} else {
+			logger.Info("skipping immediate status poll after spec-change notification, agents may be reconnecting")
 		}
 
 		// We use Status().Update() directly instead of UpdateStatusConditions to preserve agentConnection field
@@ -127,19 +136,27 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Notify gateway of DataPlane reconciliation (create/update)
 	// Using "updated" since Reconcile handles both CREATE and UPDATE events
 	// and the gateway treats both identically (triggers agent reconnection)
+	gatewayNotified := false
 	if r.GatewayClient != nil {
 		if err := r.notifyGateway(ctx, dataPlane, "updated"); err != nil {
 			if shouldRetry, result, retryErr := gatewayClient.HandleGatewayError(logger, err, "DataPlane reconciliation"); shouldRetry {
 				return result, retryErr
 			}
+		} else {
+			gatewayNotified = true
 		}
 	}
 
-	// Query agent connection status from gateway and add to dataPlane status
-	// This must be done BEFORE updating status to avoid conflicts
-	if err := r.populateAgentConnectionStatus(ctx, dataPlane); err != nil {
-		logger.Error(err, "failed to get agent connection status")
-		// Don't fail reconciliation for status query errors
+	// Skip immediate status poll after gateway notification — agents may be reconnecting
+	// after a revalidation/disconnect cycle. The next periodic requeue will capture the
+	// settled state, avoiding false "disconnected" flaps with HA agent replicas.
+	if !gatewayNotified {
+		if err := r.populateAgentConnectionStatus(ctx, dataPlane); err != nil {
+			logger.Error(err, "failed to get agent connection status")
+			// Don't fail reconciliation for status query errors
+		}
+	} else {
+		logger.Info("skipping immediate status poll after gateway notification, agents may be reconnecting")
 	}
 
 	// We use Status().Update() directly instead of UpdateStatusConditions to preserve agentConnection field

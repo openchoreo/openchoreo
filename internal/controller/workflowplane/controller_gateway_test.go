@@ -39,7 +39,7 @@ var _ = Describe("WorkflowPlane Controller — gateway paths", func() {
 		})
 		AfterEach(func() { forceDeleteWP(ctx, nn) })
 
-		It("notifies gateway once and populates AgentConnection status", func() {
+		It("notifies gateway once and skips immediate status poll to avoid HA flapping", func() {
 			gwClient, calls, shutdown := testgateway.StartFakeGateway(http.StatusOK, &gw.PlaneConnectionStatus{
 				Connected: true, ConnectedAgents: 2,
 			})
@@ -50,12 +50,12 @@ var _ = Describe("WorkflowPlane Controller — gateway paths", func() {
 			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
 			Expect(*calls).To(Equal(1))
 
+			// After gateway notification, status poll is intentionally skipped to avoid
+			// catching agents mid-reconnect (HA flapping). AgentConnection will be
+			// populated on the next periodic requeue.
 			fresh := &openchoreov1alpha1.WorkflowPlane{}
 			Expect(k8sClient.Get(ctx, nn, fresh)).To(Succeed())
-			Expect(fresh.Status.AgentConnection).NotTo(BeNil())
-			Expect(fresh.Status.AgentConnection.Connected).To(BeTrue())
-			Expect(fresh.Status.AgentConnection.ConnectedAgents).To(BeEquivalentTo(2))
-			Expect(fresh.Status.AgentConnection.Message).To(Equal("2 agents connected (HA mode)"))
+			Expect(fresh.Status.AgentConnection).To(BeNil())
 		})
 
 		It("returns error on transient gateway failure (5xx)", func() {

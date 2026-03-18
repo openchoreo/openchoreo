@@ -90,31 +90,20 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 	result.Success = true
 
 	switch notification.Event {
-	case "created":
-		// New CR: Disconnect agents to pick up new CA
-		disconnectedCount := api.connMgr.DisconnectAllForPlane(notification.PlaneType, notification.PlaneID)
-		api.logger.Info("disconnected agents for new CR",
-			"planeType", notification.PlaneType,
-			"planeID", notification.PlaneID,
-			"disconnectedAgents", disconnectedCount,
-		)
-		result.Action = "disconnect"
-		result.DisconnectedAgents = &disconnectedCount
-
-	case "updated":
+	case "created", "updated":
+		// For both "created" and "updated" events, attempt to revalidate agent certificates
+		// using the CR's CA. This avoids disconnecting all HA agent replicas unnecessarily.
 		caData, err := api.fetchCRClientCA(notification)
 		if err != nil {
-			api.logger.Error("failed to fetch CR CA for re-validation", "error", err)
-			// Fall back to disconnect on error
-			disconnectedCount := api.connMgr.DisconnectAllForPlane(notification.PlaneType, notification.PlaneID)
-			api.logger.Warn("falling back to disconnect due to CA fetch error",
+			api.logger.Error("failed to fetch CR CA for re-validation", "error", err,
 				"planeType", notification.PlaneType,
 				"planeID", notification.PlaneID,
-				"disconnectedAgents", disconnectedCount,
+				"event", notification.Event,
 			)
-			result.Action = "disconnect_fallback"
-			result.DisconnectedAgents = &disconnectedCount
-			result.Error = err.Error()
+			// Return 503 so the controller treats this as a transient error and retries.
+			// Do NOT disconnect agents — existing connections are still valid.
+			http.Error(w, fmt.Sprintf("failed to fetch CR CA for re-validation: %v", err), http.StatusServiceUnavailable)
+			return
 		} else {
 			updated, removed, err := api.connMgr.RevalidateCR(
 				notification.PlaneType,
@@ -131,6 +120,7 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 			api.logger.Info("CR re-validation completed",
 				"planeType", notification.PlaneType,
 				"planeID", notification.PlaneID,
+				"event", notification.Event,
 				"cr", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
 				"authorizationsGranted", updated,
 				"authorizationsRevoked", removed,
