@@ -113,7 +113,7 @@ func TestExchangeAuthCode(t *testing.T) {
 			assert.Equal(t, "test-verifier", params.Get("code_verifier"))
 
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(PKCETokenResponse{
+			_ = json.NewEncoder(w).Encode(PKCETokenResponse{
 				AccessToken:  "access-token-abc",
 				RefreshToken: "refresh-token-xyz",
 				TokenType:    "Bearer",
@@ -140,7 +140,7 @@ func TestExchangeAuthCode(t *testing.T) {
 	t.Run("server returns error status", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(`{"error":"invalid_grant"}`))
+			_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
 		}))
 		defer server.Close()
 
@@ -152,7 +152,7 @@ func TestExchangeAuthCode(t *testing.T) {
 
 	t.Run("server returns invalid JSON", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(`not json`))
+			_, _ = w.Write([]byte(`not json`))
 		}))
 		defer server.Close()
 
@@ -179,7 +179,7 @@ func TestRefreshAccessToken(t *testing.T) {
 			assert.Equal(t, "old-refresh-token", params.Get("refresh_token"))
 
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(PKCETokenResponse{
+			_ = json.NewEncoder(w).Encode(PKCETokenResponse{
 				AccessToken:  "new-access-token",
 				RefreshToken: "new-refresh-token",
 				TokenType:    "Bearer",
@@ -199,7 +199,7 @@ func TestRefreshAccessToken(t *testing.T) {
 	t.Run("server returns error status", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"error":"invalid_token"}`))
+			_, _ = w.Write([]byte(`{"error":"invalid_token"}`))
 		}))
 		defer server.Close()
 
@@ -210,7 +210,7 @@ func TestRefreshAccessToken(t *testing.T) {
 
 	t.Run("server returns invalid JSON", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(`not json`))
+			_, _ = w.Write([]byte(`not json`))
 		}))
 		defer server.Close()
 

@@ -31,7 +31,7 @@ func TestClientCredentialsGetToken(t *testing.T) {
 			assert.Equal(t, "my-secret", params.Get("client_secret"))
 
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(TokenResponse{
+			_ = json.NewEncoder(w).Encode(TokenResponse{
 				AccessToken: "access-token-123",
 				TokenType:   "Bearer",
 				ExpiresIn:   3600,
@@ -57,7 +57,7 @@ func TestClientCredentialsGetToken(t *testing.T) {
 	t.Run("server returns error status", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"error":"invalid_client"}`))
+			_, _ = w.Write([]byte(`{"error":"invalid_client"}`))
 		}))
 		defer server.Close()
 
@@ -69,7 +69,7 @@ func TestClientCredentialsGetToken(t *testing.T) {
 
 	t.Run("server returns invalid JSON", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(`not json`))
+			_, _ = w.Write([]byte(`not json`))
 		}))
 		defer server.Close()
 

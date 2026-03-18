@@ -20,14 +20,14 @@ func TestFetchOIDCConfig(t *testing.T) {
 		defer server.Close()
 
 		mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(protectedResourceResponse{
+			_ = json.NewEncoder(w).Encode(protectedResourceResponse{
 				AuthorizationServers:      []string{server.URL},
 				OpenChoreoClients:         []clientInfo{{Name: "cli", ClientID: "cli-client-id", Scopes: []string{"openid", "profile"}}},
 				OpenChoreoSecurityEnabled: true,
 			})
 		})
 		mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(oidcProviderDiscovery{
+			_ = json.NewEncoder(w).Encode(oidcProviderDiscovery{
 				AuthorizationEndpoint: "https://auth.example.com/authorize",
 				TokenEndpoint:         "https://auth.example.com/token",
 				JwksURI:               "https://auth.example.com/jwks",
@@ -47,7 +47,7 @@ func TestFetchOIDCConfig(t *testing.T) {
 
 	t.Run("no authorization servers", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(protectedResourceResponse{
+			_ = json.NewEncoder(w).Encode(protectedResourceResponse{
 				AuthorizationServers: []string{},
 				OpenChoreoClients: []clientInfo{
 					{Name: "cli", ClientID: "c", Scopes: []string{"openid"}},
@@ -63,7 +63,7 @@ func TestFetchOIDCConfig(t *testing.T) {
 
 	t.Run("no CLI client in openchoreo_clients", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(protectedResourceResponse{
+			_ = json.NewEncoder(w).Encode(protectedResourceResponse{
 				AuthorizationServers: []string{"https://issuer.example.com"},
 				OpenChoreoClients: []clientInfo{
 					{Name: "web", ClientID: "web-id", Scopes: []string{"openid"}},
@@ -80,7 +80,7 @@ func TestFetchOIDCConfig(t *testing.T) {
 	t.Run("404 from protected resource includes URL hint", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("not found"))
+			_, _ = w.Write([]byte("not found"))
 		}))
 		defer server.Close()
 
@@ -93,7 +93,7 @@ func TestFetchOIDCConfig(t *testing.T) {
 	t.Run("non-404 error from protected resource", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("internal error"))
+			_, _ = w.Write([]byte("internal error"))
 		}))
 		defer server.Close()
 
@@ -108,13 +108,13 @@ func TestFetchOIDCConfig(t *testing.T) {
 		defer server.Close()
 
 		mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(protectedResourceResponse{
+			_ = json.NewEncoder(w).Encode(protectedResourceResponse{
 				AuthorizationServers: []string{server.URL},
 				OpenChoreoClients:    []clientInfo{{Name: "cli", ClientID: "c", Scopes: []string{"openid"}}},
 			})
 		})
 		mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(oidcProviderDiscovery{
+			_ = json.NewEncoder(w).Encode(oidcProviderDiscovery{
 				TokenEndpoint: "https://auth.example.com/token",
 			})
 		})
@@ -130,13 +130,13 @@ func TestFetchOIDCConfig(t *testing.T) {
 		defer server.Close()
 
 		mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(protectedResourceResponse{
+			_ = json.NewEncoder(w).Encode(protectedResourceResponse{
 				AuthorizationServers: []string{server.URL},
 				OpenChoreoClients:    []clientInfo{{Name: "cli", ClientID: "c", Scopes: []string{"openid"}}},
 			})
 		})
 		mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(oidcProviderDiscovery{
+			_ = json.NewEncoder(w).Encode(oidcProviderDiscovery{
 				AuthorizationEndpoint: "https://auth.example.com/authorize",
 			})
 		})
