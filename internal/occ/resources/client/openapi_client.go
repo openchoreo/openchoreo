@@ -30,7 +30,7 @@ func apiError(statusCode int, body []byte) error {
 				}
 			}
 		}
-		return fmt.Errorf("%s (HTTP %d)", msg, statusCode)
+		return fmt.Errorf("%s", msg)
 	}
 	if len(body) > 0 {
 		return fmt.Errorf("unexpected response (HTTP %d): %s", statusCode, string(body))

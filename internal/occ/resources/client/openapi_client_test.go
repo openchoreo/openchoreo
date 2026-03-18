@@ -18,19 +18,19 @@ func TestApiError(t *testing.T) {
 			name:       "structured error with message",
 			statusCode: 404,
 			body:       []byte(`{"code":"NOT_FOUND","error":"component \"foo\" not found"}`),
-			wantMsg:    `component "foo" not found (HTTP 404)`,
+			wantMsg:    `component "foo" not found`,
 		},
 		{
 			name:       "structured error with details",
 			statusCode: 400,
 			body:       []byte(`{"code":"VALIDATION_ERROR","error":"validation failed","details":[{"field":"name","message":"must not be empty"}]}`),
-			wantMsg:    `validation failed; name: must not be empty (HTTP 400)`,
+			wantMsg:    `validation failed; name: must not be empty`,
 		},
 		{
 			name:       "structured error with multiple details",
 			statusCode: 400,
 			body:       []byte(`{"code":"VALIDATION_ERROR","error":"validation failed","details":[{"field":"name","message":"must not be empty"},{"field":"project","message":"is required"}]}`),
-			wantMsg:    `validation failed; name: must not be empty; project: is required (HTTP 400)`,
+			wantMsg:    `validation failed; name: must not be empty; project: is required`,
 		},
 		{
 			name:       "non-JSON body",
