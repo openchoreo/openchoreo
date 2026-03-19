@@ -64,6 +64,10 @@ const (
 	// - Data plane runtime namespaces (e.g., dp-*)
 	LabelKeyControlPlaneNamespace = "openchoreo.dev/control-plane"
 
+	// LabelKeySystemComponent identifies platform infrastructure pods (e.g., gateway) that need
+	// network access to user workloads. Used in NetworkPolicy rules to allow ingress from system components.
+	LabelKeySystemComponent = "openchoreo.dev/system-component"
+
 	// AnnotationKeyDPResourceHash contains a hash of all dataplane resources (excluding the main workload)
 	// to trigger pod rollout when dependent ConfigMaps, Secrets, etc. change.
 	AnnotationKeyDPResourceHash = "openchoreo.dev/dp-resource-hash"

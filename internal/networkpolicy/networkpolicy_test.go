@@ -208,10 +208,11 @@ spec:
         - protocol: TCP
           port: 8080
     - from:
-        - namespaceSelector:
+        - namespaceSelector: {}
+          podSelector:
             matchExpressions:
-              - key: openchoreo.dev/namespace
-                operator: DoesNotExist
+              - key: openchoreo.dev/system-component
+                operator: Exists
       ports:
         - protocol: TCP
           port: 8080
@@ -256,10 +257,11 @@ spec:
         - protocol: TCP
           port: 8080
     - from:
-        - namespaceSelector:
+        - namespaceSelector: {}
+          podSelector:
             matchExpressions:
-              - key: openchoreo.dev/namespace
-                operator: DoesNotExist
+              - key: openchoreo.dev/system-component
+                operator: Exists
       ports:
         - protocol: TCP
           port: 8080
@@ -327,10 +329,11 @@ spec:
         - protocol: TCP
           port: 8080
     - from:
-        - namespaceSelector:
+        - namespaceSelector: {}
+          podSelector:
             matchExpressions:
-              - key: openchoreo.dev/namespace
-                operator: DoesNotExist
+              - key: openchoreo.dev/system-component
+                operator: Exists
       ports:
         - protocol: TCP
           port: 8443

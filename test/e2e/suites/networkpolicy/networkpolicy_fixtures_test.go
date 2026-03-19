@@ -120,7 +120,8 @@ func nonOCPodsYAML() string {
 			Name:      "gateway-proxy",
 			Namespace: nsGateway,
 			Labels: map[string]string{
-				"app": "gateway-proxy",
+				"app":                             "gateway-proxy",
+				"openchoreo.dev/system-component": "gateway",
 			},
 		},
 		Spec: corev1.PodSpec{Containers: []corev1.Container{{
@@ -130,7 +131,23 @@ func nonOCPodsYAML() string {
 		}}},
 	}
 
-	return mustYAMLDocs(extServicePod, extServiceSVC, gatewayProxyPod)
+	extClientPod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{APIVersion: kubernetesAPIVerV1, Kind: "Pod"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ext-client",
+			Namespace: nsExtSvc,
+			Labels: map[string]string{
+				"app": "ext-client",
+			},
+		},
+		Spec: corev1.PodSpec{Containers: []corev1.Container{{
+			Name:    "client",
+			Image:   "busybox:1.36",
+			Command: []string{"sleep", "3600"},
+		}}},
+	}
+
+	return mustYAMLDocs(extServicePod, extServiceSVC, extClientPod, gatewayProxyPod)
 }
 
 // platformResourcesYAML returns the platform resources for a given OC namespace.

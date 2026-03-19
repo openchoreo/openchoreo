@@ -385,7 +385,16 @@ gateway:
   #         service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
   #         service.beta.kubernetes.io/aws-load-balancer-eip-allocations: "eipalloc-xxx"
   # @schema
-  infrastructure: {}
+  infrastructure:
+    # @schema
+    # type: object
+    # properties: {}
+    # additionalProperties:
+    #   type: string
+    # default: {"openchoreo.dev/system-component": "gateway"}
+    # @schema
+    labels:
+      openchoreo.dev/system-component: gateway
 
   # @schema
   # type: object

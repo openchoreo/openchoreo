@@ -7,6 +7,9 @@ metadata:
   namespace: openchoreo-data-plane
 spec:
   gatewayClassName: kgateway
+  infrastructure:
+    labels:
+      openchoreo.dev/system-component: gateway
   listeners:
     - name: http
       protocol: HTTP

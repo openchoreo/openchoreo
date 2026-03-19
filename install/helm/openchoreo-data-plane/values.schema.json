@@ -678,6 +678,19 @@
         "infrastructure": {
           "additionalProperties": true,
           "description": "Gateway infrastructure configuration passed to the generated Service.\nUsed to configure cloud provider load balancer settings via annotations.\nExample for AWS with Elastic IP:\n  infrastructure:\n    annotations:\n      service.beta.kubernetes.io/aws-load-balancer-type: \"external\"\n      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: \"ip\"\n      service.beta.kubernetes.io/aws-load-balancer-scheme: \"internet-facing\"\n      service.beta.kubernetes.io/aws-load-balancer-eip-allocations: \"eipalloc-xxx\"",
+          "properties": {
+            "labels": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {
+                "openchoreo.dev/system-component": "gateway"
+              },
+              "required": [],
+              "title": "labels",
+              "type": "object"
+            }
+          },
           "required": [],
           "title": "infrastructure",
           "type": "object"

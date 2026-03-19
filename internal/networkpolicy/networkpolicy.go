@@ -146,16 +146,17 @@ func makeIngressRules(params ComponentPolicyParams) []any {
 		})
 	}
 
-	// Rule 3: gateway / non-OpenChoreo namespaces (internal or external visibility)
+	// Rule 3: system components (e.g., gateway) from any namespace (internal or external visibility)
 	if len(broadAccessPorts) > 0 {
 		ingressRules = append(ingressRules, map[string]any{
 			"from": []any{
 				map[string]any{
-					"namespaceSelector": map[string]any{
+					"namespaceSelector": map[string]any{},
+					"podSelector": map[string]any{
 						"matchExpressions": []any{
 							map[string]any{
-								"key":      labels.LabelKeyNamespaceName,
-								"operator": "DoesNotExist",
+								"key":      labels.LabelKeySystemComponent,
+								"operator": "Exists",
 							},
 						},
 					},

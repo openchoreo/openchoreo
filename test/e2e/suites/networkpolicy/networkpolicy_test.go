@@ -569,6 +569,16 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			expectAllow: true,
 		},
 		{
+			name:        "blocks non-system-component pod from reaching external-visible endpoint",
+			intent:      "ext-client does not carry the openchoreo.dev/system-component label, so it should be blocked from reaching comp-a despite external visibility.",
+			sourceNS:    func() string { return nsExtSvc },
+			sourceLabel: "app=ext-client",
+			sourceCtr:   "",
+			targetHost:  func() string { return fqdn("comp-a", dpAcmeProj1Dev) },
+			targetPort:  8080,
+			expectAllow: false,
+		},
+		{
 			name:        "allows egress to non-OC namespace",
 			intent:      "client-a should reach ext-service in a k8s namespace that is not an OC namespace.",
 			sourceNS:    func() string { return dpAcmeProj1Dev },
