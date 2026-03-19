@@ -970,8 +970,7 @@ extract_cluster_gateway_ca() {
 install_data_plane() {
     log_info "Installing OpenChoreo Data Plane..."
     install_helm_chart "openchoreo-data-plane" "openchoreo-data-plane" "$DATA_PLANE_NS" "true" "true" "true" "1800" \
-        "--values" "$HOME/.values-dp.yaml" \
-        "--set" "observability.enabled=${ENABLE_OBSERVABILITY:-false}"
+        "--values" "$HOME/.values-dp.yaml"
 }
 
 # Configure the dataplane and workflowplane with observabilityplane reference
