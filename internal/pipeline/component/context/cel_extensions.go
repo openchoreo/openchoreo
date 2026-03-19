@@ -27,84 +27,8 @@ const (
 	protocolUDP              = "UDP"
 )
 
-// CELExtensions returns CEL environment options for configuration helpers used by the runtime template engine.
-// IMPORTANT: Keep in sync with CELValidationExtensions() in cel_return_types.go.
-// When adding a new function or macro here, add the corresponding typed declaration there.
-// These include:
-//   - Macro: configurations.toConfigFileList() -> configurationsToConfigFileList(configurations, prefix)
-//   - Function: configurationsToConfigFileList
-//   - Macro: configurations.toSecretFileList() -> configurationsToSecretFileList(configurations, prefix)
-//   - Function: configurationsToSecretFileList
-//   - Macro: configurations.toContainerEnvFrom() -> configurationsToContainerEnvFrom(configurations, prefix)
-//   - Function: configurationsToContainerEnvFrom
-//   - Macro: configurations.toContainerVolumeMounts() -> configurationsToContainerVolumeMounts(configurations)
-//   - Function: configurationsToContainerVolumeMounts
-//   - Macro: configurations.toVolumes() -> configurationsToVolumes(configurations, prefix)
-//   - Function: configurationsToVolumes
-//   - Macro: configurations.toConfigEnvsByContainer() -> configurationsToConfigEnvsByContainer(configurations, prefix)
-//   - Function: configurationsToConfigEnvsByContainer
-//   - Macro: configurations.toSecretEnvsByContainer() -> configurationsToSecretEnvsByContainer(configurations, prefix)
-//   - Function: configurationsToSecretEnvsByContainer
-//   - Macro: workload.toServicePorts() -> workloadToServicePorts(workload)
-//   - Function: workloadToServicePorts
-//   - Macro: connections.toContainerEnv() -> connections.envVars (rewrite only, no function)
-//
-// Where prefix = metadata.componentName + "-" + metadata.environmentName (automatically injected by macros)
-func CELExtensions() []cel.EnvOption {
-	return []cel.EnvOption{
-		// Register the macros
-		cel.Macros(toConfigFileListMacro, toSecretFileListMacro, toContainerEnvFromMacro, toContainerVolumeMountsMacro, toVolumesMacro, toConfigEnvsByContainerMacro, toSecretEnvsByContainerMacro, toServicePortsMacro, toContainerEnvMacro),
-		// Register the functions
-		cel.Function("configurationsToConfigFileList",
-			cel.Overload("configurationsToConfigFileList_dyn_string",
-				[]*cel.Type{cel.DynType, cel.StringType}, cel.ListType(cel.DynType),
-				cel.BinaryBinding(configurationsToConfigFileListFunction),
-			),
-		),
-		cel.Function("configurationsToSecretFileList",
-			cel.Overload("configurationsToSecretFileList_dyn_string",
-				[]*cel.Type{cel.DynType, cel.StringType}, cel.ListType(cel.DynType),
-				cel.BinaryBinding(configurationsToSecretFileListFunction),
-			),
-		),
-		cel.Function("configurationsToContainerEnvFrom",
-			cel.Overload("configurationsToContainerEnvFrom_dyn_string",
-				[]*cel.Type{cel.DynType, cel.StringType}, cel.ListType(cel.DynType),
-				cel.BinaryBinding(configurationsToContainerEnvFromFunction),
-			),
-		),
-		cel.Function("configurationsToContainerVolumeMounts",
-			cel.Overload("configurationsToContainerVolumeMounts_dyn",
-				[]*cel.Type{cel.DynType}, cel.ListType(cel.DynType),
-				cel.UnaryBinding(configurationsToContainerVolumeMountsFunction),
-			),
-		),
-		cel.Function("configurationsToVolumes",
-			cel.Overload("configurationsToVolumes_dyn_string",
-				[]*cel.Type{cel.DynType, cel.StringType}, cel.ListType(cel.DynType),
-				cel.BinaryBinding(configurationsToVolumesFunction),
-			),
-		),
-		cel.Function("configurationsToConfigEnvsByContainer",
-			cel.Overload("configurationsToConfigEnvsByContainer_dyn_string",
-				[]*cel.Type{cel.DynType, cel.StringType}, cel.ListType(cel.DynType),
-				cel.BinaryBinding(configurationsToConfigEnvsByContainerFunction),
-			),
-		),
-		cel.Function("configurationsToSecretEnvsByContainer",
-			cel.Overload("configurationsToSecretEnvsByContainer_dyn_string",
-				[]*cel.Type{cel.DynType, cel.StringType}, cel.ListType(cel.DynType),
-				cel.BinaryBinding(configurationsToSecretEnvsByContainerFunction),
-			),
-		),
-		cel.Function("workloadToServicePorts",
-			cel.Overload("workloadToServicePorts_dyn",
-				[]*cel.Type{cel.DynType}, cel.ListType(cel.DynType),
-				cel.UnaryBinding(workloadToServicePortsFunction),
-			),
-		),
-	}
-}
+// CELExtensions and CELValidationExtensions are generated from helperFuncRegistry
+// in cel_return_types.go. To add a new helper function, add an entry there.
 
 // buildPrefixExpr creates an AST expression for: metadata.componentName + "-" + metadata.environmentName
 func buildPrefixExpr(eh parser.ExprHelper) ast.Expr {

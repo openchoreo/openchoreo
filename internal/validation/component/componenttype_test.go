@@ -431,6 +431,25 @@ func TestValidateResourceTemplate_ForEachListFieldAccess(t *testing.T) {
 			errMsg:    "undefined field 'nonExistent'",
 		},
 		{
+			name: "invalid forEach with toSecretEnvsByContainer accessing nested field on envs element",
+			cct: &v1alpha1.ClusterComponentType{
+				Spec: v1alpha1.ClusterComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID:      "secret",
+							ForEach: `${configurations.toSecretEnvsByContainer()}`,
+							Var:     "secretEnv",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "Secret", "metadata": {"name": "${secretEnv.envs[0].nonExistent}"}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: true,
+			errMsg:    "undefined field 'nonExistent'",
+		},
+		{
 			name: "invalid forEach with toServicePorts accessing invalid field",
 			cct: &v1alpha1.ClusterComponentType{
 				Spec: v1alpha1.ClusterComponentTypeSpec{

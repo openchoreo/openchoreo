@@ -29,17 +29,16 @@ var (
 )
 
 // functionReturnDeclTypes are DeclTypes for the return types of CEL helper functions.
-// Registered with the DeclTypeProvider so the type checker can resolve field access
-// on forEach loop variables that iterate over function results.
-var functionReturnDeclTypes = []*apiservercel.DeclType{
-	decltype.FromGoType(reflect.TypeFor[context.ConfigFileListEntry]()),
-	decltype.FromGoType(reflect.TypeFor[context.SecretFileListEntry]()),
-	decltype.FromGoType(reflect.TypeFor[context.EnvFromEntry]()),
-	decltype.FromGoType(reflect.TypeFor[context.VolumeMountEntry]()),
-	decltype.FromGoType(reflect.TypeFor[context.VolumeEntry]()),
-	decltype.FromGoType(reflect.TypeFor[context.EnvsByContainerEntry]()),
-	decltype.FromGoType(reflect.TypeFor[context.ServicePortEntry]()),
-}
+// Derived from context.FunctionReturnTypes() so the type list stays in sync
+// with CELExtensions() and CELValidationExtensions() automatically.
+var functionReturnDeclTypes = func() []*apiservercel.DeclType {
+	returnTypes := context.FunctionReturnTypes()
+	result := make([]*apiservercel.DeclType, len(returnTypes))
+	for i, t := range returnTypes {
+		result[i] = decltype.FromGoType(t)
+	}
+	return result
+}()
 
 // SchemaOptions provides schema configuration for CEL environment and validation.
 // Used by both component and trait CEL environments.
