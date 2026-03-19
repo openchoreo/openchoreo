@@ -74,6 +74,17 @@ func TestTraitGetSpec(t *testing.T) {
 			wantParams: true,
 		},
 		{
+			name: "environmentConfigs present",
+			trait: &Trait{
+				Trait: &v1alpha1.Trait{
+					Spec: v1alpha1.TraitSpec{
+						EnvironmentConfigs: &v1alpha1.SchemaSection{OpenAPIV3Schema: &runtime.RawExtension{Raw: schemaJSON}},
+					},
+				},
+			},
+			wantEnv: true,
+		},
+		{
 			name: "no schemas",
 			trait: &Trait{
 				Trait: &v1alpha1.Trait{

@@ -59,6 +59,7 @@ func TestFromEntry(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.NotNil(t, result)
+			assert.Equal(t, tt.wantNS, result.GetNamespace())
 		})
 	}
 }
