@@ -72,7 +72,8 @@ func TestParseReleaseName(t *testing.T) {
 }
 
 // makeTestIndex builds an in-memory fsmode.Index with ComponentRelease entries.
-func makeTestIndex(releaseNames []string) *fsmode.Index {
+func makeTestIndex(t *testing.T, releaseNames []string) *fsmode.Index {
+	t.Helper()
 	idx := index.New("/test")
 	for _, name := range releaseNames {
 		entry := &index.ResourceEntry{
@@ -85,7 +86,7 @@ func makeTestIndex(releaseNames []string) *fsmode.Index {
 			},
 			FilePath: "/test/" + name + ".yaml",
 		}
-		_ = idx.Add(entry)
+		require.NoError(t, idx.Add(entry), "failed to add entry %q", name)
 	}
 	return fsmode.WrapIndex(idx)
 }
@@ -94,21 +95,21 @@ func TestGenerateReleaseName(t *testing.T) {
 	date := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
 
 	t.Run("explicit version skips auto-detect", func(t *testing.T) {
-		idx := makeTestIndex(nil)
+		idx := makeTestIndex(t, nil)
 		name, err := GenerateReleaseName("my-comp", date, "5", idx)
 		require.NoError(t, err)
 		assert.Equal(t, "my-comp-20250315-5", name)
 	})
 
 	t.Run("auto-detect version with no existing releases", func(t *testing.T) {
-		idx := makeTestIndex(nil)
+		idx := makeTestIndex(t, nil)
 		name, err := GenerateReleaseName("my-comp", date, "", idx)
 		require.NoError(t, err)
 		assert.Equal(t, "my-comp-20250315-1", name)
 	})
 
 	t.Run("auto-detect version increments from latest", func(t *testing.T) {
-		idx := makeTestIndex([]string{
+		idx := makeTestIndex(t, []string{
 			"my-comp-20250315-1",
 			"my-comp-20250315-3",
 			"my-comp-20250315-2",
@@ -119,7 +120,7 @@ func TestGenerateReleaseName(t *testing.T) {
 	})
 
 	t.Run("auto-detect ignores different component", func(t *testing.T) {
-		idx := makeTestIndex([]string{
+		idx := makeTestIndex(t, []string{
 			"other-comp-20250315-10",
 		})
 		name, err := GenerateReleaseName("my-comp", date, "", idx)
@@ -128,7 +129,7 @@ func TestGenerateReleaseName(t *testing.T) {
 	})
 
 	t.Run("auto-detect ignores different date", func(t *testing.T) {
-		idx := makeTestIndex([]string{
+		idx := makeTestIndex(t, []string{
 			"my-comp-20250314-5",
 		})
 		name, err := GenerateReleaseName("my-comp", date, "", idx)
@@ -137,22 +138,24 @@ func TestGenerateReleaseName(t *testing.T) {
 	})
 
 	t.Run("zero date uses current date", func(t *testing.T) {
-		idx := makeTestIndex(nil)
+		idx := makeTestIndex(t, nil)
+		before := time.Now().Format("20060102")
 		name, err := GenerateReleaseName("my-comp", time.Time{}, "1", idx)
 		require.NoError(t, err)
-		today := time.Now().Format("20060102")
-		assert.Equal(t, "my-comp-"+today+"-1", name)
+		after := time.Now().Format("20060102")
+		valid := name == "my-comp-"+before+"-1" || name == "my-comp-"+after+"-1"
+		assert.True(t, valid, "expected name with date %s or %s, got %s", before, after, name)
 	})
 }
 
 func TestGetLatestVersionForDate(t *testing.T) {
 	t.Run("no releases returns 0", func(t *testing.T) {
-		idx := makeTestIndex(nil)
+		idx := makeTestIndex(t, nil)
 		assert.Equal(t, "0", getLatestVersionForDate("comp", "20250315", idx))
 	})
 
 	t.Run("finds highest version for matching component and date", func(t *testing.T) {
-		idx := makeTestIndex([]string{
+		idx := makeTestIndex(t, []string{
 			"comp-20250315-1",
 			"comp-20250315-3",
 			"comp-20250315-2",
@@ -161,21 +164,21 @@ func TestGetLatestVersionForDate(t *testing.T) {
 	})
 
 	t.Run("ignores different component", func(t *testing.T) {
-		idx := makeTestIndex([]string{
+		idx := makeTestIndex(t, []string{
 			"other-20250315-10",
 		})
 		assert.Equal(t, "0", getLatestVersionForDate("comp", "20250315", idx))
 	})
 
 	t.Run("ignores different date", func(t *testing.T) {
-		idx := makeTestIndex([]string{
+		idx := makeTestIndex(t, []string{
 			"comp-20250314-5",
 		})
 		assert.Equal(t, "0", getLatestVersionForDate("comp", "20250315", idx))
 	})
 
 	t.Run("ignores malformed release names", func(t *testing.T) {
-		idx := makeTestIndex([]string{
+		idx := makeTestIndex(t, []string{
 			"not-a-valid-release",
 			"comp-20250315-2",
 		})

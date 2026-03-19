@@ -410,7 +410,10 @@ func TestGenerateRelease_WorkloadConnectionsIncluded(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	workload, _, _ := unstructured.NestedMap(release.Object, "spec", "workload")
+	workload, ok, err := unstructured.NestedMap(release.Object, "spec", "workload")
+	require.NoError(t, err)
+	require.True(t, ok, "expected spec.workload to exist")
+
 	dependencies, ok := workload["dependencies"]
 	require.True(t, ok, "expected spec.workload.dependencies to exist")
 	require.NotNil(t, dependencies)
