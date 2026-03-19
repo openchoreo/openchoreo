@@ -489,8 +489,7 @@ helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-ob
   --kube-context k3d-openchoreo-op \
   --namespace openchoreo-observability-plane \
   --create-namespace \
-  --values install/k3d/multi-cluster/values-op.yaml \
-  --timeout 10m
+  --values install/k3d/multi-cluster/values-op.yaml
 ```
 
 ```bash
@@ -500,7 +499,195 @@ kubectl --context k3d-openchoreo-op wait -n openchoreo-observability-plane \
 
 #### Install Observability Modules
 
-Install the required logs, metrics and tracing modules. Refer https://openchoreo.dev/modules for more details.
+Install the logs, metrics, and tracing community modules. The steps below use OpenSearch for logs/tracing and Prometheus for metrics. To use alternative modules visit https://openchoreo.dev/modules.
+
+##### Pre-requisites
+
+Create the `opensearch-admin-credentials` secret needed by the logs and tracing modules:
+
+```bash
+kubectl --context k3d-openchoreo-op apply -f - <<EOF
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: opensearch-admin-credentials
+  namespace: openchoreo-observability-plane
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: default
+  target:
+    name: opensearch-admin-credentials
+  data:
+  - secretKey: username
+    remoteRef:
+      key: opensearch-username
+      property: value
+  - secretKey: password
+    remoteRef:
+      key: opensearch-password
+      property: value
+EOF
+```
+
+Create the `openchoreo-observability-plane` namespace and `opensearch-admin-credentials` secret in the data plane cluster:
+
+```bash
+kubectl --context k3d-openchoreo-dp create namespace openchoreo-observability-plane \
+  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-dp apply -f -
+
+kubectl --context k3d-openchoreo-dp apply -f - <<EOF
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: opensearch-admin-credentials
+  namespace: openchoreo-observability-plane
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: default
+  target:
+    name: opensearch-admin-credentials
+  data:
+  - secretKey: username
+    remoteRef:
+      key: opensearch-username
+      property: value
+  - secretKey: password
+    remoteRef:
+      key: opensearch-password
+      property: value
+EOF
+```
+
+If the workflow plane is installed, create the namespace and secret there too:
+
+> **Note:** The workflow plane does not have a `ClusterSecretStore`, so the secret is created directly.
+
+```bash
+kubectl --context k3d-openchoreo-wp create namespace openchoreo-observability-plane \
+  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-wp apply -f -
+
+kubectl --context k3d-openchoreo-wp create secret generic opensearch-admin-credentials \
+  -n openchoreo-observability-plane \
+  --from-literal=username=admin \
+  --from-literal=password=ThisIsTheOpenSearchPassword1
+```
+
+##### Logs (observability-logs-opensearch)
+
+Install the OpenSearch operator:
+
+```bash
+helm repo add opensearch-operator https://opensearch-project.github.io/opensearch-k8s-operator/
+helm repo update
+helm upgrade --install opensearch-operator opensearch-operator/opensearch-operator \
+  --kube-context k3d-openchoreo-op \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 2.8.0 \
+  --set kubeRbacProxy.image.repository=quay.io/brancz/kube-rbac-proxy \
+  --set kubeRbacProxy.image.tag=v0.15.0
+```
+
+Install the OpenSearch logs module
+
+```bash
+helm upgrade --install observability-logs-opensearch \
+  oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
+  --kube-context k3d-openchoreo-op \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 0.3.10 \
+  --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
+  --set openSearchCluster.credentialsSecretName="opensearch-admin-credentials" \
+  --set openSearch.enabled=false \
+  --set openSearchCluster.enabled=true
+```
+
+Enable Fluent Bit in the data plane cluster:
+
+```bash
+helm upgrade --install observability-logs-opensearch \
+  oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
+  --kube-context k3d-openchoreo-dp \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 0.3.10 \
+  --set openSearch.enabled=false \
+  --set openSearchCluster.enabled=false \
+  --set openSearchSetup.enabled=false \
+  --set fluent-bit.enabled=true \
+  --set fluent-bit.openSearchHost=host.k3d.internal \
+  --set fluent-bit.openSearchPort=11085 \
+  --set fluent-bit.openSearchVHost=opensearch.observability.openchoreo.localhost
+```
+
+If the workflow plane is installed, enable Fluent Bit there too:
+
+```bash
+helm upgrade --install observability-logs-opensearch \
+  oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
+  --kube-context k3d-openchoreo-wp \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 0.3.10 \
+  --set openSearch.enabled=false \
+  --set openSearchCluster.enabled=false \
+  --set openSearchSetup.enabled=false \
+  --set fluent-bit.enabled=true \
+  --set fluent-bit.openSearchHost=host.k3d.internal \
+  --set fluent-bit.openSearchPort=11085 \
+  --set fluent-bit.openSearchVHost=opensearch.observability.openchoreo.localhost
+```
+
+##### Tracing (observability-tracing-opensearch)
+
+Install the tracing receiver in the observability plane cluster. Since the logs module already installed OpenSearch, disable it here:
+
+```bash
+helm upgrade --install observability-tracing-opensearch \
+  oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
+  --kube-context k3d-openchoreo-op \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 0.3.9 \
+  --set global.installationMode="multiClusterReceiver" \
+  --set openSearch.enabled=false \
+  --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
+  --set-json opentelemetryCollectorCustomizations.http.hostnames='["opentelemetry.observability.openchoreo.localhost", "host.k3d.internal"]'
+```
+
+Install the tracing exporter in the data plane cluster:
+
+```bash
+helm upgrade --install observability-tracing-opensearch \
+  oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
+  --kube-context k3d-openchoreo-dp \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 0.3.9 \
+  --set global.installationMode="multiClusterExporter" \
+  --set openSearch.enabled=false \
+  --set openSearchCluster.enabled=false \
+  --set openSearchSetup.enabled=false \
+  --set-json opentelemetry-collector.extraEnvs='[]' \
+  --set opentelemetryCollectorCustomizations.http.observabilityPlaneUrl="http://host.k3d.internal:11080" \
+  --set opentelemetryCollectorCustomizations.http.observabilityPlaneVirtualHost="opentelemetry.observability.openchoreo.localhost"
+```
+
+##### Metrics (observability-metrics-prometheus)
+
+```bash
+helm upgrade --install observability-metrics-prometheus \
+  oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
+  --kube-context k3d-openchoreo-op \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 0.2.5
+```
 
 ### Register Observability Plane
 
