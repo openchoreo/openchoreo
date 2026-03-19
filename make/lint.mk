@@ -122,7 +122,6 @@ samples-gen: ## Generate samples/getting-started/all.yaml from individual files
 # customization points that users apply (and replace) separately.
 WORKFLOW_TEMPLATE_DIR := $(GETTING_STARTED_DIR)/workflow-templates
 WORKFLOW_TEMPLATE_FILES := \
-	$(WORKFLOW_TEMPLATE_DIR)/generate-workload.yaml \
 	$(WORKFLOW_TEMPLATE_DIR)/paketo-buildpacks-build.yaml \
 	$(WORKFLOW_TEMPLATE_DIR)/gcp-buildpacks-build.yaml \
 	$(WORKFLOW_TEMPLATE_DIR)/ballerina-buildpack-build.yaml \
@@ -143,9 +142,10 @@ workflow-templates-gen: ## Generate samples/getting-started/workflow-templates.y
 	printf '# applied separately so they can be replaced independently.\n'; \
 	printf '#\n'; \
 	printf '# Usage:\n'; \
-	printf '#   kubectl apply -f .../workflow-templates/checkout-source-build-step.yaml\n'; \
+	printf '#   kubectl apply -f .../workflow-templates/checkout-source.yaml\n'; \
 	printf '#   kubectl apply -f .../workflow-templates.yaml\n'; \
-	printf '#   kubectl apply -f .../workflow-templates/publish-image-build-step.yaml\n'; \
+	printf '#   kubectl apply -f .../workflow-templates/publish-image.yaml\n'; \
+	printf '#   kubectl apply -f .../workflow-templates/generate-workload.yaml\n'; \
 	for f in $(WORKFLOW_TEMPLATE_FILES); do \
 		printf '\n---\n'; \
 		cat "$$f"; \
