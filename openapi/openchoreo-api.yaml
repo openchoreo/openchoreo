@@ -5096,6 +5096,16 @@ components:
           format: date-time
           description: Creation timestamp
           example: "2025-01-06T10:00:00Z"
+        deletionTimestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the resource was requested to be deleted
+          example: "2025-01-06T12:00:00Z"
+        deletionGracePeriodSeconds:
+          type: integer
+          format: int64
+          description: Number of seconds before the object is removed after deletion is requested
+          example: 0
 
     Condition:
       type: object

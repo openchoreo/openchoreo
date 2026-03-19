@@ -2162,6 +2162,12 @@ type ObjectMeta struct {
 	// CreationTimestamp Creation timestamp
 	CreationTimestamp *time.Time `json:"creationTimestamp,omitempty"`
 
+	// DeletionGracePeriodSeconds Number of seconds before the object is removed after deletion is requested
+	DeletionGracePeriodSeconds *int64 `json:"deletionGracePeriodSeconds,omitempty"`
+
+	// DeletionTimestamp Timestamp when the resource was requested to be deleted
+	DeletionTimestamp *time.Time `json:"deletionTimestamp,omitempty"`
+
 	// Labels Map of string keys and values for organizing resources
 	Labels *map[string]string `json:"labels,omitempty"`
 
