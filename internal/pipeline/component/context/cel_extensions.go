@@ -27,7 +27,9 @@ const (
 	protocolUDP              = "UDP"
 )
 
-// CELExtensions returns CEL environment options for configuration helpers.
+// CELExtensions returns CEL environment options for configuration helpers used by the runtime template engine.
+// IMPORTANT: Keep in sync with CELValidationExtensions() in cel_return_types.go.
+// When adding a new function or macro here, add the corresponding typed declaration there.
 // These include:
 //   - Macro: configurations.toConfigFileList() -> configurationsToConfigFileList(configurations, prefix)
 //   - Function: configurationsToConfigFileList

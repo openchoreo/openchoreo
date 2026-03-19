@@ -15,10 +15,15 @@ const (
 	maxMapSize  = 1000
 )
 
-// fromGoType converts a Go type to a CEL DeclType using reflection.
+// FromGoType converts a Go type to a CEL DeclType using reflection.
 // This is used for fixed-structure types like MetadataContext, WorkloadData, etc.
-func fromGoType(t reflect.Type) *apiservercel.DeclType {
+func FromGoType(t reflect.Type) *apiservercel.DeclType {
 	return typeToDecl(t, make(map[reflect.Type]*apiservercel.DeclType))
+}
+
+// fromGoType is an internal alias for FromGoType.
+func fromGoType(t reflect.Type) *apiservercel.DeclType {
+	return FromGoType(t)
 }
 
 func typeToDecl(t reflect.Type, seen map[reflect.Type]*apiservercel.DeclType) *apiservercel.DeclType {

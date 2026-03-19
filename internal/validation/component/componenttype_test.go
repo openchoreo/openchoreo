@@ -303,7 +303,7 @@ func TestValidateResourceTemplate_ForEachListFieldAccess(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "valid list forEach with dyn-typed elements",
+			name: "valid list forEach with typed elements from toConfigFileList",
 			cct: &v1alpha1.ClusterComponentType{
 				Spec: v1alpha1.ClusterComponentTypeSpec{
 					Resources: []v1alpha1.ResourceTemplate{
@@ -366,6 +366,81 @@ func TestValidateResourceTemplate_ForEachListFieldAccess(t *testing.T) {
 							Var:     "endpoint",
 							Template: &runtime.RawExtension{
 								Raw: []byte(`{"apiVersion": "v1", "kind": "Service", "metadata": {"name": "${endpoint.key}"}, "spec": {"port": "${endpoint.value.nonExistent}"}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: true,
+			errMsg:    "undefined field 'nonExistent'",
+		},
+		{
+			name: "valid forEach with toSecretEnvsByContainer accessing valid fields",
+			cct: &v1alpha1.ClusterComponentType{
+				Spec: v1alpha1.ClusterComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID:      "secret",
+							ForEach: `${configurations.toSecretEnvsByContainer()}`,
+							Var:     "secretEnv",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "Secret", "metadata": {"name": "${secretEnv.resourceName}"}, "data": "${secretEnv.envs}"}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid forEach with toSecretEnvsByContainer accessing invalid field",
+			cct: &v1alpha1.ClusterComponentType{
+				Spec: v1alpha1.ClusterComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID:      "secret",
+							ForEach: `${configurations.toSecretEnvsByContainer()}`,
+							Var:     "secretEnv",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "Secret", "metadata": {"name": "${secretEnv.nonExistent}"}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: true,
+			errMsg:    "undefined field 'nonExistent'",
+		},
+		{
+			name: "invalid forEach with toConfigFileList accessing invalid field",
+			cct: &v1alpha1.ClusterComponentType{
+				Spec: v1alpha1.ClusterComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID:      "config",
+							ForEach: `${configurations.toConfigFileList()}`,
+							Var:     "config",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "${config.nonExistent}"}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: true,
+			errMsg:    "undefined field 'nonExistent'",
+		},
+		{
+			name: "invalid forEach with toServicePorts accessing invalid field",
+			cct: &v1alpha1.ClusterComponentType{
+				Spec: v1alpha1.ClusterComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID:      "service-port",
+							ForEach: `${workload.toServicePorts()}`,
+							Var:     "sp",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "Service", "metadata": {"name": "${sp.nonExistent}"}}`),
 							},
 						},
 					},

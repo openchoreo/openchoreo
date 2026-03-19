@@ -28,6 +28,19 @@ var (
 	traitContextFields     = decltype.ExtractFields(reflect.TypeFor[context.TraitContext](), schemaBasedFields)
 )
 
+// functionReturnDeclTypes are DeclTypes for the return types of CEL helper functions.
+// Registered with the DeclTypeProvider so the type checker can resolve field access
+// on forEach loop variables that iterate over function results.
+var functionReturnDeclTypes = []*apiservercel.DeclType{
+	decltype.FromGoType(reflect.TypeFor[context.ConfigFileListEntry]()),
+	decltype.FromGoType(reflect.TypeFor[context.SecretFileListEntry]()),
+	decltype.FromGoType(reflect.TypeFor[context.EnvFromEntry]()),
+	decltype.FromGoType(reflect.TypeFor[context.VolumeMountEntry]()),
+	decltype.FromGoType(reflect.TypeFor[context.VolumeEntry]()),
+	decltype.FromGoType(reflect.TypeFor[context.EnvsByContainerEntry]()),
+	decltype.FromGoType(reflect.TypeFor[context.ServicePortEntry]()),
+}
+
 // SchemaOptions provides schema configuration for CEL environment and validation.
 // Used by both component and trait CEL environments.
 type SchemaOptions struct {
@@ -53,7 +66,7 @@ func BuildComponentCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeP
 	}
 
 	numFields := len(componentContextFields) + len(schemaBasedFields)
-	declTypes := make([]*apiservercel.DeclType, 0, numFields)
+	declTypes := make([]*apiservercel.DeclType, 0, numFields+len(functionReturnDeclTypes))
 	varOpts := make([]cel.EnvOption, 0, numFields)
 
 	// Register schema-based fields
@@ -70,6 +83,9 @@ func BuildComponentCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeP
 		declTypes = append(declTypes, f.DeclType)
 		varOpts = append(varOpts, cel.Variable(f.Name, f.DeclType.CelType()))
 	}
+
+	// Register function return types so the type checker can validate field access
+	declTypes = append(declTypes, functionReturnDeclTypes...)
 
 	provider := apiservercel.NewDeclTypeProvider(declTypes...)
 	providerOpts, err := provider.EnvOptions(baseEnv.CELTypeProvider())
@@ -98,7 +114,7 @@ func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvi
 	}
 
 	numFields := len(traitContextFields) + len(schemaBasedFields)
-	declTypes := make([]*apiservercel.DeclType, 0, numFields)
+	declTypes := make([]*apiservercel.DeclType, 0, numFields+len(functionReturnDeclTypes))
 	varOpts := make([]cel.EnvOption, 0, numFields)
 
 	// Register schema-based fields
@@ -116,6 +132,9 @@ func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvi
 		varOpts = append(varOpts, cel.Variable(f.Name, f.DeclType.CelType()))
 	}
 
+	// Register function return types so the type checker can validate field access
+	declTypes = append(declTypes, functionReturnDeclTypes...)
+
 	provider := apiservercel.NewDeclTypeProvider(declTypes...)
 	providerOpts, err := provider.EnvOptions(baseEnv.CELTypeProvider())
 	if err != nil {
@@ -131,11 +150,13 @@ func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvi
 }
 
 // createBaseEnv creates the base CEL environment with standard extensions.
+// Uses CELValidationExtensions() which provides typed function return types
+// so the type checker can validate field access on forEach loop variables.
 func createBaseEnv(includeConfigExtensions bool) (*cel.Env, error) {
 	baseEnvOpts := template.BaseCELExtensions()
 
 	if includeConfigExtensions {
-		baseEnvOpts = append(baseEnvOpts, context.CELExtensions()...)
+		baseEnvOpts = append(baseEnvOpts, context.CELValidationExtensions()...)
 	}
 
 	return cel.NewEnv(baseEnvOpts...)
