@@ -178,7 +178,7 @@ type templateMetadata struct {
 	} `json:"metadata"`
 }
 
-// validateTemplateNamespace validates that the template's metadata.namespace is "${metadata.namespace}"
+// validateTemplateNamespace validates that the template's metadata.namespace is "${metadata.namespace}".
 func validateTemplateNamespace(template runtime.RawExtension, fieldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 

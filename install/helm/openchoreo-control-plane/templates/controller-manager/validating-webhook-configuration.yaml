@@ -127,3 +127,43 @@ webhooks:
     resources:
     - traits
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ .Values.controllerManager.name }}-webhook-service
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-openchoreo-dev-v1alpha1-workflow
+  failurePolicy: Fail
+  name: vworkflow-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - workflows
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ .Values.controllerManager.name }}-webhook-service
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-openchoreo-dev-v1alpha1-clusterworkflow
+  failurePolicy: Fail
+  name: vclusterworkflow-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clusterworkflows
+  sideEffects: None
