@@ -68,7 +68,7 @@ func OpenAPIV3ToStructuralAndJSONSchema(rawSchema map[string]any) (*apiextschema
 	}
 
 	// For structural: strip vendor extensions (K8s rejects x-* keys)
-	stripped := stripVendorExtensions(resolved)
+	stripped := StripVendorExtensions(resolved)
 	internalSchema, err := mapToInternalJSONSchema(stripped)
 	if err != nil {
 		return nil, nil, err
@@ -96,7 +96,7 @@ func openAPIV3ToInternal(rawSchema map[string]any) (*apiext.JSONSchemaProps, err
 		return nil, fmt.Errorf("failed to resolve $ref: %w", err)
 	}
 
-	stripped := stripVendorExtensions(resolved)
+	stripped := StripVendorExtensions(resolved)
 
 	return mapToInternalJSONSchema(stripped)
 }
@@ -130,9 +130,9 @@ func mapToV1JSONSchema(schema map[string]any) (*extv1.JSONSchemaProps, error) {
 	return v1Schema, nil
 }
 
-// stripVendorExtensions recursively removes vendor extension keys (x-*) from a schema tree,
+// StripVendorExtensions recursively removes vendor extension keys (x-*) from a schema tree,
 // but preserves x-kubernetes-* keys which are supported by Kubernetes structural schemas.
-func stripVendorExtensions(schema map[string]any) map[string]any {
+func StripVendorExtensions(schema map[string]any) map[string]any {
 	if schema == nil {
 		return nil
 	}
@@ -151,7 +151,7 @@ func stripVendorExtensions(schema map[string]any) map[string]any {
 func stripVendorExtensionsValue(v any) any {
 	switch val := v.(type) {
 	case map[string]any:
-		return stripVendorExtensions(val)
+		return StripVendorExtensions(val)
 	case []any:
 		result := make([]any, len(val))
 		for i, item := range val {

@@ -4,8 +4,11 @@
 package schemautil
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -44,4 +47,50 @@ func ExtractStructuralSchemas(
 	}
 
 	return parametersSchema, envConfigsSchema, allErrs
+}
+
+// ValidateOpenAPIV3SchemaFields performs strict field validation on an openAPIV3Schema.
+// It rejects unknown fields (e.g., "types" instead of "type") by resolving $ref/$defs,
+// stripping vendor extensions (x-*), and then strict-decoding into JSONSchemaProps.
+func ValidateOpenAPIV3SchemaFields(section *v1alpha1.SchemaSection, fieldPath *field.Path) field.ErrorList {
+	if section == nil || section.OpenAPIV3Schema == nil || len(section.OpenAPIV3Schema.Raw) == 0 {
+		return nil
+	}
+
+	// Parse raw schema into map
+	var rawSchema map[string]any
+	if err := json.Unmarshal(section.OpenAPIV3Schema.Raw, &rawSchema); err != nil {
+		// Parse errors are already caught by ExtractStructuralSchemas
+		return nil
+	}
+
+	// Resolve $ref/$defs so they don't appear as unknown fields
+	resolved, err := schema.ResolveRefs(rawSchema)
+	if err != nil {
+		// Ref resolution errors are already caught by ExtractStructuralSchemas
+		return nil
+	}
+
+	// Strip vendor extensions (x-*) which are valid but not in JSONSchemaProps
+	stripped := schema.StripVendorExtensions(resolved)
+
+	// Re-marshal and strict-decode to catch unknown fields
+	data, err := json.Marshal(stripped)
+	if err != nil {
+		return nil
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+
+	var props extv1.JSONSchemaProps
+	if err := decoder.Decode(&props); err != nil {
+		return field.ErrorList{field.Invalid(
+			fieldPath,
+			omitValue,
+			fmt.Sprintf("openAPIV3Schema contains unknown or invalid fields: %v", err),
+		)}
+	}
+
+	return nil
 }

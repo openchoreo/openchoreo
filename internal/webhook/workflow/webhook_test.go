@@ -212,6 +212,28 @@ var _ = Describe("Workflow Webhook", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
 		})
+
+		It("Should reject parameters schema with typo 'types' instead of 'type'", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"types":"object","properties":{"url":{"type":"string"}}}`),
+				},
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("unknown or invalid fields"))
+		})
+
+		It("Should reject parameters schema with unknown nested field", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"url":{"types":"string"}}}`),
+				},
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("unknown or invalid fields"))
+		})
 	})
 
 	Context("When updating Workflow under Validating Webhook", func() {

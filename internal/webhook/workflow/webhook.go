@@ -166,6 +166,11 @@ func ValidateWorkflowSpec(
 		basePath := field.NewPath("spec")
 		_, _, schemaErrs := schemautil.ExtractStructuralSchemas(parameters, nil, basePath)
 		allErrs = append(allErrs, schemaErrs...)
+
+		// Strict field validation: reject unknown fields like "types" instead of "type"
+		allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+			parameters, basePath.Child("parameters"),
+		)...)
 	}
 
 	return allErrs
@@ -221,8 +226,14 @@ func InjectServiceAccountName(runTemplate *runtime.RawExtension) error {
 		return fmt.Errorf("failed to unmarshal runTemplate: %w", err)
 	}
 
-	spec, ok := raw["spec"].(map[string]any)
-	if !ok {
+	var spec map[string]any
+	if v, exists := raw["spec"]; exists {
+		var ok bool
+		spec, ok = v.(map[string]any)
+		if !ok {
+			return fmt.Errorf("failed to default runTemplate: spec is %T, expected object", v)
+		}
+	} else {
 		spec = make(map[string]any)
 		raw["spec"] = spec
 	}

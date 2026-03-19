@@ -351,7 +351,7 @@ func TestStripVendorExtensions(t *testing.T) {
 		},
 	}
 
-	result := stripVendorExtensions(schema)
+	result := StripVendorExtensions(schema)
 
 	if _, ok := result["x-ui-widget"]; ok {
 		t.Fatal("expected x-ui-widget to be stripped")
@@ -371,7 +371,7 @@ func TestStripVendorExtensions(t *testing.T) {
 }
 
 func TestStripVendorExtensions_Nil(t *testing.T) {
-	result := stripVendorExtensions(nil)
+	result := StripVendorExtensions(nil)
 	if result != nil {
 		t.Fatalf("expected nil, got %v", result)
 	}
@@ -1050,7 +1050,7 @@ func TestStripVendorExtensions_NestedInArray(t *testing.T) {
 		},
 	}
 
-	result := stripVendorExtensions(schema)
+	result := StripVendorExtensions(schema)
 
 	allOf := result["allOf"].([]any)
 	first := allOf[0].(map[string]any)
@@ -1130,7 +1130,7 @@ func TestStripVendorExtensions_PreservesXKubernetes(t *testing.T) {
 		},
 	}
 
-	result := stripVendorExtensions(schema)
+	result := StripVendorExtensions(schema)
 
 	// Custom vendor extensions should be stripped
 	if _, ok := result["x-ui-widget"]; ok {
