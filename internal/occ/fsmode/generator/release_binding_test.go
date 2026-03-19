@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
@@ -51,36 +53,17 @@ func TestGenerateBindingWithInfo_Create(t *testing.T) {
 		PipelineInfo:  newTestPipelineInfo(targetEnv),
 		Namespace:     namespace,
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify CREATE path fields
-	if info.IsUpdate {
-		t.Error("expected IsUpdate to be false for a new binding")
-	}
-	if info.ExistingFilePath != "" {
-		t.Errorf("expected empty ExistingFilePath, got %q", info.ExistingFilePath)
-	}
-	if info.ProjectName != projectName {
-		t.Errorf("ProjectName: got %q, want %q", info.ProjectName, projectName)
-	}
-	if info.ComponentName != componentName {
-		t.Errorf("ComponentName: got %q, want %q", info.ComponentName, componentName)
-	}
-	if info.Environment != targetEnv {
-		t.Errorf("Environment: got %q, want %q", info.Environment, targetEnv)
-	}
-	if info.ReleaseName != releaseName {
-		t.Errorf("ReleaseName: got %q, want %q", info.ReleaseName, releaseName)
-	}
-	wantBindingName := componentName + "-" + targetEnv
-	if info.BindingName != wantBindingName {
-		t.Errorf("BindingName: got %q, want %q", info.BindingName, wantBindingName)
-	}
-	if info.Binding == nil {
-		t.Fatal("expected non-nil Binding")
-	}
+	assert.False(t, info.IsUpdate, "expected IsUpdate to be false for a new binding")
+	assert.Empty(t, info.ExistingFilePath)
+	assert.Equal(t, projectName, info.ProjectName)
+	assert.Equal(t, componentName, info.ComponentName)
+	assert.Equal(t, targetEnv, info.Environment)
+	assert.Equal(t, releaseName, info.ReleaseName)
+	assert.Equal(t, componentName+"-"+targetEnv, info.BindingName)
+	require.NotNil(t, info.Binding)
 }
 
 func TestGenerateBindingWithInfo_Update(t *testing.T) {
@@ -114,9 +97,7 @@ spec:
   releaseName: my-comp-20250101-0
   customField: preserve-this
 `
-	if err := os.WriteFile(bindingFile, []byte(existingYAML), 0600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(bindingFile, []byte(existingYAML), 0600))
 
 	idx := index.New(tmpDir)
 
@@ -138,54 +119,30 @@ spec:
 		PipelineInfo:  newTestPipelineInfo(targetEnv),
 		Namespace:     namespace,
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// Verify UPDATE path fields
-	if !info.IsUpdate {
-		t.Error("expected IsUpdate to be true for an existing binding")
-	}
-	if info.ExistingFilePath != bindingFile {
-		t.Errorf("ExistingFilePath: got %q, want %q", info.ExistingFilePath, bindingFile)
-	}
-	if info.ProjectName != projectName {
-		t.Errorf("ProjectName: got %q, want %q", info.ProjectName, projectName)
-	}
-	if info.ComponentName != componentName {
-		t.Errorf("ComponentName: got %q, want %q", info.ComponentName, componentName)
-	}
-	if info.Environment != targetEnv {
-		t.Errorf("Environment: got %q, want %q", info.Environment, targetEnv)
-	}
-	if info.ReleaseName != newRelease {
-		t.Errorf("ReleaseName: got %q, want %q", info.ReleaseName, newRelease)
-	}
-	if info.Binding == nil {
-		t.Fatal("expected non-nil Binding")
-	}
+	assert.True(t, info.IsUpdate, "expected IsUpdate to be true for an existing binding")
+	assert.Equal(t, bindingFile, info.ExistingFilePath)
+	assert.Equal(t, projectName, info.ProjectName)
+	assert.Equal(t, componentName, info.ComponentName)
+	assert.Equal(t, targetEnv, info.Environment)
+	assert.Equal(t, newRelease, info.ReleaseName)
+	require.NotNil(t, info.Binding)
 
 	// Verify releaseName was updated in the binding object
 	gotRelease := getNestedString(info.Binding.Object, "spec", "releaseName")
-	if gotRelease != newRelease {
-		t.Errorf("binding spec.releaseName: got %q, want %q", gotRelease, newRelease)
-	}
+	assert.Equal(t, newRelease, gotRelease)
 
 	// Verify extra fields from the original file are preserved
 	gotCustom := getNestedString(info.Binding.Object, "spec", "customField")
-	if gotCustom != "preserve-this" {
-		t.Errorf("binding spec.customField: got %q, want %q (field lost during update)", gotCustom, "preserve-this")
-	}
+	assert.Equal(t, "preserve-this", gotCustom, "field lost during update")
 
 	labels, _, _ := unstructured.NestedStringMap(info.Binding.Object, "metadata", "labels")
-	if labels["team"] != "platform" {
-		t.Errorf("binding metadata.labels.team: got %q, want %q", labels["team"], "platform")
-	}
+	assert.Equal(t, "platform", labels["team"])
 
 	annotations, _, _ := unstructured.NestedStringMap(info.Binding.Object, "metadata", "annotations")
-	if annotations["note"] != "do-not-lose-me" {
-		t.Errorf("binding metadata.annotations.note: got %q, want %q", annotations["note"], "do-not-lose-me")
-	}
+	assert.Equal(t, "do-not-lose-me", annotations["note"])
 }
 
 // addRelease adds a ComponentRelease resource entry to the index.
@@ -210,9 +167,7 @@ func addRelease(t *testing.T, idx *index.Index, namespace, name, project, compon
 		},
 		FilePath: filePath,
 	}
-	if err := idx.Add(entry); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, idx.Add(entry))
 }
 
 // addReleaseBinding adds a ReleaseBinding resource entry to the index.
@@ -239,7 +194,5 @@ func addReleaseBinding(t *testing.T, idx *index.Index, namespace, name, project,
 		},
 		FilePath: filePath,
 	}
-	if err := idx.Add(entry); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, idx.Add(entry))
 }

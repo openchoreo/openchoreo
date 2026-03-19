@@ -7,14 +7,16 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadReleaseConfig(t *testing.T) {
 	tests := []struct {
 		name      string
 		content   string
-		wantErr   bool
-		errMsg    string
+		wantErr   string
 		checkFunc func(*testing.T, *ReleaseConfig)
 	}{
 		{
@@ -31,20 +33,11 @@ componentReleaseDefaults:
     ecommerce-demo:
       defaultOutputDir: ./projects/ecommerce/releases
 `,
-			wantErr: false,
 			checkFunc: func(t *testing.T, cfg *ReleaseConfig) {
-				if cfg.ComponentReleaseDefaults == nil {
-					t.Fatal("expected componentReleaseDefaults to be non-nil")
-				}
-				if cfg.ComponentReleaseDefaults.DefaultOutputDir != "./releases" {
-					t.Errorf("expected defaultOutputDir './releases', got '%s'", cfg.ComponentReleaseDefaults.DefaultOutputDir)
-				}
-				if len(cfg.ComponentReleaseDefaults.Projects) != 2 {
-					t.Errorf("expected 2 projects, got %d", len(cfg.ComponentReleaseDefaults.Projects))
-				}
-				if cfg.ComponentReleaseDefaults.Projects["demo-project"].DefaultOutputDir != "./projects/demo/releases" {
-					t.Errorf("unexpected project defaultOutputDir")
-				}
+				require.NotNil(t, cfg.ComponentReleaseDefaults)
+				assert.Equal(t, "./releases", cfg.ComponentReleaseDefaults.DefaultOutputDir)
+				assert.Len(t, cfg.ComponentReleaseDefaults.Projects, 2)
+				assert.Equal(t, "./projects/demo/releases", cfg.ComponentReleaseDefaults.Projects["demo-project"].DefaultOutputDir)
 			},
 		},
 		{
@@ -52,10 +45,8 @@ componentReleaseDefaults:
 			content: `apiVersion: openchoreo.dev/v1alpha1
 kind: ReleaseConfig
 `,
-			wantErr: false,
 			checkFunc: func(t *testing.T, cfg *ReleaseConfig) {
 				// ComponentReleaseDefaults can be nil for minimal config
-				// This is valid - it means no custom output directories configured
 			},
 		},
 		{
@@ -63,32 +54,28 @@ kind: ReleaseConfig
 			content: `kind: ReleaseConfig
 defaultOutputDir: ./releases
 `,
-			wantErr: true,
-			errMsg:  "apiVersion is required",
+			wantErr: "apiVersion is required",
 		},
 		{
 			name: "missing kind",
 			content: `apiVersion: openchoreo.dev/v1alpha1
 defaultOutputDir: ./releases
 `,
-			wantErr: true,
-			errMsg:  "kind is required",
+			wantErr: "kind is required",
 		},
 		{
 			name: "wrong apiVersion",
 			content: `apiVersion: v1
 kind: ReleaseConfig
 `,
-			wantErr: true,
-			errMsg:  "unsupported apiVersion",
+			wantErr: "unsupported apiVersion",
 		},
 		{
 			name: "wrong kind",
 			content: `apiVersion: openchoreo.dev/v1alpha1
 kind: WrongKind
 `,
-			wantErr: true,
-			errMsg:  "unsupported kind",
+			wantErr: "unsupported kind",
 		},
 		{
 			name: "invalid YAML",
@@ -96,38 +83,25 @@ kind: WrongKind
 kind: ReleaseConfig
 invalid: [unclosed
 `,
-			wantErr: true,
-			errMsg:  "failed to parse config file",
+			wantErr: "failed to parse config file",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create temp file
 			tmpDir := t.TempDir()
 			configPath := filepath.Join(tmpDir, "config.yaml")
-			if err := os.WriteFile(configPath, []byte(tt.content), 0600); err != nil {
-				t.Fatalf("failed to write test config: %v", err)
-			}
+			require.NoError(t, os.WriteFile(configPath, []byte(tt.content), 0600))
 
-			// Load config
 			cfg, err := LoadReleaseConfig(configPath)
 
-			// Check error
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("expected error containing '%s', got nil", tt.errMsg)
-				} else if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
-					t.Errorf("expected error containing '%s', got '%s'", tt.errMsg, err.Error())
-				}
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			// Run custom check function if provided
+			require.NoError(t, err)
 			if tt.checkFunc != nil {
 				tt.checkFunc(t, cfg)
 			}
@@ -137,12 +111,8 @@ invalid: [unclosed
 
 func TestLoadReleaseConfig_FileNotFound(t *testing.T) {
 	_, err := LoadReleaseConfig("/nonexistent/path/config.yaml")
-	if err == nil {
-		t.Error("expected error for nonexistent file, got nil")
-	}
-	if !contains(err.Error(), "failed to read config file") {
-		t.Errorf("expected 'failed to read config file' error, got: %v", err)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read config file")
 }
 
 func TestGetReleaseOutputDir(t *testing.T) {
@@ -208,20 +178,15 @@ func TestGetReleaseOutputDir(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := cfg.GetReleaseOutputDir(tt.projectName, tt.componentName)
-			if got != tt.want {
-				t.Errorf("GetReleaseOutputDir(%q, %q) = %q, want %q",
-					tt.projectName, tt.componentName, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestGetReleaseOutputDir_NilConfig(t *testing.T) {
-	var cfg *ReleaseConfig = nil
+	var cfg *ReleaseConfig
 	got := cfg.GetReleaseOutputDir("project", "component")
-	if got != "" {
-		t.Errorf("expected empty string for nil config, got %q", got)
-	}
+	assert.Empty(t, got)
 }
 
 func TestGetReleaseOutputDir_NilComponentReleaseDefaults(t *testing.T) {
@@ -231,17 +196,14 @@ func TestGetReleaseOutputDir_NilComponentReleaseDefaults(t *testing.T) {
 		ComponentReleaseDefaults: nil,
 	}
 	got := cfg.GetReleaseOutputDir("project", "component")
-	if got != "" {
-		t.Errorf("expected empty string when ComponentReleaseDefaults is nil, got %q", got)
-	}
+	assert.Empty(t, got)
 }
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  ReleaseConfig
-		wantErr bool
-		errMsg  string
+		wantErr string
 	}{
 		{
 			name: "valid config",
@@ -249,73 +211,38 @@ func TestValidate(t *testing.T) {
 				APIVersion: "openchoreo.dev/v1alpha1",
 				Kind:       "ReleaseConfig",
 			},
-			wantErr: false,
 		},
 		{
-			name: "missing apiVersion",
-			config: ReleaseConfig{
-				Kind: "ReleaseConfig",
-			},
-			wantErr: true,
-			errMsg:  "apiVersion is required",
+			name:    "missing apiVersion",
+			config:  ReleaseConfig{Kind: "ReleaseConfig"},
+			wantErr: "apiVersion is required",
 		},
 		{
-			name: "missing kind",
-			config: ReleaseConfig{
-				APIVersion: "openchoreo.dev/v1alpha1",
-			},
-			wantErr: true,
-			errMsg:  "kind is required",
+			name:    "missing kind",
+			config:  ReleaseConfig{APIVersion: "openchoreo.dev/v1alpha1"},
+			wantErr: "kind is required",
 		},
 		{
-			name: "wrong apiVersion",
-			config: ReleaseConfig{
-				APIVersion: "v1",
-				Kind:       "ReleaseConfig",
-			},
-			wantErr: true,
-			errMsg:  "unsupported apiVersion",
+			name:    "wrong apiVersion",
+			config:  ReleaseConfig{APIVersion: "v1", Kind: "ReleaseConfig"},
+			wantErr: "unsupported apiVersion",
 		},
 		{
-			name: "wrong kind",
-			config: ReleaseConfig{
-				APIVersion: "openchoreo.dev/v1alpha1",
-				Kind:       "ConfigMap",
-			},
-			wantErr: true,
-			errMsg:  "unsupported kind",
+			name:    "wrong kind",
+			config:  ReleaseConfig{APIVersion: "openchoreo.dev/v1alpha1", Kind: "ConfigMap"},
+			wantErr: "unsupported kind",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.config.Validate()
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("expected error containing '%s', got nil", tt.errMsg)
-				} else if !contains(err.Error(), tt.errMsg) {
-					t.Errorf("expected error containing '%s', got '%s'", tt.errMsg, err.Error())
-				}
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
 			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
+				assert.NoError(t, err)
 			}
 		})
 	}
-}
-
-// Helper function to check if string contains substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && len(substr) > 0 && containsHelper(s, substr)))
-}
-
-func containsHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

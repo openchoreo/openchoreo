@@ -4,9 +4,10 @@
 package generator
 
 import (
-	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
@@ -38,9 +39,7 @@ func addComponent(t *testing.T, idx *index.Index, namespace, name, project, comp
 		},
 		FilePath: filePath,
 	}
-	if err := idx.Add(entry); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, idx.Add(entry))
 }
 
 // addComponentType adds a ComponentType resource entry to the index.
@@ -64,9 +63,7 @@ func addComponentType(t *testing.T, idx *index.Index, name, workloadType string,
 		},
 		FilePath: filePath,
 	}
-	if err := idx.Add(entry); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, idx.Add(entry))
 }
 
 // addWorkload adds a Workload resource entry to the index.
@@ -95,9 +92,7 @@ func addWorkload(t *testing.T, idx *index.Index, namespace, name, project, compo
 		},
 		FilePath: filePath,
 	}
-	if err := idx.Add(entry); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, idx.Add(entry))
 }
 
 // addTrait adds a Trait resource entry to the index.
@@ -117,9 +112,7 @@ func addTrait(t *testing.T, idx *index.Index, name string, spec map[string]any, 
 		},
 		FilePath: filePath,
 	}
-	if err := idx.Add(entry); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, idx.Add(entry))
 }
 
 // addComponentWithTraits adds a Component with trait references to the index.
@@ -151,9 +144,7 @@ func addComponentWithTraits(t *testing.T, idx *index.Index, namespace, name, pro
 		},
 		FilePath: filePath,
 	}
-	if err := idx.Add(entry); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, idx.Add(entry))
 }
 
 func TestGenerateRelease_ManifestShape(t *testing.T) {
@@ -166,7 +157,6 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	// Component with two trait refs: one explicit "Trait" kind, one with empty kind (should normalize to "Trait")
 	addComponentWithTraits(t, idx, namespace, componentName, projectName, "deployment/service",
 		[]map[string]any{
 			{"kind": "Trait", "name": "ingress", "instanceName": "ingress-1"},
@@ -200,98 +190,58 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 		Namespace:     namespace,
 		ReleaseName:   releaseName,
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	// --- Verify top-level metadata ---
-	if got := release.GetKind(); got != "ComponentRelease" {
-		t.Errorf("kind = %q, want ComponentRelease", got)
-	}
-	if got := release.GetName(); got != releaseName {
-		t.Errorf("metadata.name = %q, want %q", got, releaseName)
-	}
-	if got := release.GetNamespace(); got != namespace {
-		t.Errorf("metadata.namespace = %q, want %q", got, namespace)
-	}
+	// Verify top-level metadata
+	assert.Equal(t, "ComponentRelease", release.GetKind())
+	assert.Equal(t, releaseName, release.GetName())
+	assert.Equal(t, namespace, release.GetNamespace())
 
-	// --- Verify spec.componentType ---
+	// Verify spec.componentType
 	ctKind, _, _ := unstructured.NestedString(release.Object, "spec", "componentType", "kind")
 	ctName, _, _ := unstructured.NestedString(release.Object, "spec", "componentType", "name")
 	ctWorkloadType, _, _ := unstructured.NestedString(release.Object, "spec", "componentType", "spec", "workloadType")
-	if ctKind != "ComponentType" {
-		t.Errorf("spec.componentType.kind = %q, want ComponentType", ctKind)
-	}
-	if ctName != "deployment/service" {
-		t.Errorf("spec.componentType.name = %q, want deployment/service", ctName)
-	}
-	if ctWorkloadType != "deployment" {
-		t.Errorf("spec.componentType.spec.workloadType = %q, want deployment", ctWorkloadType)
-	}
+	assert.Equal(t, "ComponentType", ctKind)
+	assert.Equal(t, "deployment/service", ctName)
+	assert.Equal(t, "deployment", ctWorkloadType)
 
-	// --- Verify spec.traits[] ---
+	// Verify spec.traits[]
 	traitsSlice, ok, _ := unstructured.NestedSlice(release.Object, "spec", "traits")
-	if !ok {
-		t.Fatal("expected spec.traits to exist")
-	}
-	if len(traitsSlice) != 2 {
-		t.Fatalf("expected 2 traits in spec.traits, got %d", len(traitsSlice))
-	}
+	require.True(t, ok, "expected spec.traits to exist")
+	require.Len(t, traitsSlice, 2)
+
 	for i, expected := range []struct{ kind, name string }{
 		{"Trait", "ingress"},
 		{"Trait", "logging"},
 	} {
 		traitMap, ok := traitsSlice[i].(map[string]interface{})
-		if !ok {
-			t.Fatalf("spec.traits[%d] is not a map", i)
-		}
-		if traitMap["kind"] != expected.kind {
-			t.Errorf("spec.traits[%d].kind = %v, want %q", i, traitMap["kind"], expected.kind)
-		}
-		if traitMap["name"] != expected.name {
-			t.Errorf("spec.traits[%d].name = %v, want %q", i, traitMap["name"], expected.name)
-		}
-		if traitMap["spec"] == nil {
-			t.Errorf("spec.traits[%d].spec should not be nil", i)
-		}
+		require.True(t, ok, "spec.traits[%d] is not a map", i)
+		assert.Equal(t, expected.kind, traitMap["kind"], "spec.traits[%d].kind", i)
+		assert.Equal(t, expected.name, traitMap["name"], "spec.traits[%d].name", i)
+		assert.NotNil(t, traitMap["spec"], "spec.traits[%d].spec should not be nil", i)
 	}
 
-	// --- Verify spec.componentProfile.traits[] ---
+	// Verify spec.componentProfile.traits[]
 	profileTraits, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentProfile", "traits")
-	if !ok {
-		t.Fatal("expected spec.componentProfile.traits to exist")
-	}
-	if len(profileTraits) != 2 {
-		t.Fatalf("expected 2 profile traits, got %d", len(profileTraits))
-	}
+	require.True(t, ok, "expected spec.componentProfile.traits to exist")
+	require.Len(t, profileTraits, 2)
+
 	for i, expected := range []struct{ kind, name, instanceName string }{
 		{"Trait", "ingress", "ingress-1"},
 		{"Trait", "logging", "logging-1"},
 	} {
 		pt, ok := profileTraits[i].(map[string]interface{})
-		if !ok {
-			t.Fatalf("spec.componentProfile.traits[%d] is not a map", i)
-		}
-		if pt["kind"] != expected.kind {
-			t.Errorf("spec.componentProfile.traits[%d].kind = %v, want %q", i, pt["kind"], expected.kind)
-		}
-		if pt["name"] != expected.name {
-			t.Errorf("spec.componentProfile.traits[%d].name = %v, want %q", i, pt["name"], expected.name)
-		}
-		if pt["instanceName"] != expected.instanceName {
-			t.Errorf("spec.componentProfile.traits[%d].instanceName = %v, want %q", i, pt["instanceName"], expected.instanceName)
-		}
+		require.True(t, ok, "spec.componentProfile.traits[%d] is not a map", i)
+		assert.Equal(t, expected.kind, pt["kind"], "spec.componentProfile.traits[%d].kind", i)
+		assert.Equal(t, expected.name, pt["name"], "spec.componentProfile.traits[%d].name", i)
+		assert.Equal(t, expected.instanceName, pt["instanceName"], "spec.componentProfile.traits[%d].instanceName", i)
 	}
 
-	// --- Verify spec.owner ---
+	// Verify spec.owner
 	ownerComp, _, _ := unstructured.NestedString(release.Object, "spec", "owner", "componentName")
 	ownerProj, _, _ := unstructured.NestedString(release.Object, "spec", "owner", "projectName")
-	if ownerComp != componentName {
-		t.Errorf("spec.owner.componentName = %q, want %q", ownerComp, componentName)
-	}
-	if ownerProj != projectName {
-		t.Errorf("spec.owner.projectName = %q, want %q", ownerProj, projectName)
-	}
+	assert.Equal(t, componentName, ownerComp)
+	assert.Equal(t, projectName, ownerProj)
 }
 
 func TestGenerateRelease_ClusterTraitRefErrors(t *testing.T) {
@@ -327,12 +277,9 @@ func TestGenerateRelease_ClusterTraitRefErrors(t *testing.T) {
 		Namespace:     namespace,
 		ReleaseName:   "test-release",
 	})
-	if err == nil {
-		t.Fatal("expected error for ClusterTrait reference, got nil")
-	}
-	if got := err.Error(); !strings.Contains(got, "ClusterTrait") || !strings.Contains(got, "global-ingress") {
-		t.Errorf("error should mention ClusterTrait and trait name, got: %s", got)
-	}
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ClusterTrait")
+	assert.Contains(t, err.Error(), "global-ingress")
 }
 
 func TestGenerateRelease_WorkloadEndpointsIncluded(t *testing.T) {
@@ -377,49 +324,29 @@ func TestGenerateRelease_WorkloadEndpointsIncluded(t *testing.T) {
 		Namespace:     namespace,
 		ReleaseName:   releaseName,
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	// Verify the release has the workload section
 	workload, ok, err := unstructured.NestedMap(release.Object, "spec", "workload")
-	if err != nil || !ok {
-		t.Fatalf("expected spec.workload to exist, ok=%v, err=%v", ok, err)
-	}
+	require.NoError(t, err)
+	require.True(t, ok, "expected spec.workload to exist")
 
-	// Verify container is present
-	container, ok := workload["container"]
-	if !ok || container == nil {
-		t.Fatal("expected spec.workload.container to exist")
-	}
+	assert.NotNil(t, workload["container"], "expected spec.workload.container to exist")
 
-	// Verify endpoints are present
 	endpoints, ok := workload["endpoints"]
-	if !ok || endpoints == nil {
-		t.Fatal("expected spec.workload.endpoints to exist — this was the bug: endpoints were dropped during ComponentRelease generation")
-	}
+	require.True(t, ok, "expected spec.workload.endpoints to exist")
+	require.NotNil(t, endpoints)
 
 	endpointsMap, ok := endpoints.(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected endpoints to be a map, got %T", endpoints)
-	}
+	require.True(t, ok, "expected endpoints to be a map")
 
 	httpEndpoint, ok := endpointsMap["http"]
-	if !ok {
-		t.Fatal("expected 'http' endpoint in endpoints map")
-	}
+	require.True(t, ok, "expected 'http' endpoint in endpoints map")
 
 	httpMap, ok := httpEndpoint.(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected http endpoint to be a map, got %T", httpEndpoint)
-	}
+	require.True(t, ok, "expected http endpoint to be a map")
 
-	if httpMap["type"] != "HTTP" {
-		t.Errorf("endpoint type = %v, want HTTP", httpMap["type"])
-	}
-	if httpMap["port"] != int64(8080) {
-		t.Errorf("endpoint port = %v, want 8080", httpMap["port"])
-	}
+	assert.Equal(t, "HTTP", httpMap["type"])
+	assert.Equal(t, int64(8080), httpMap["port"])
 }
 
 func TestGenerateRelease_WorkloadConnectionsIncluded(t *testing.T) {
@@ -481,40 +408,25 @@ func TestGenerateRelease_WorkloadConnectionsIncluded(t *testing.T) {
 		Namespace:     namespace,
 		ReleaseName:   releaseName,
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	// Verify dependencies.endpoints are present
 	workload, _, _ := unstructured.NestedMap(release.Object, "spec", "workload")
 	dependencies, ok := workload["dependencies"]
-	if !ok || dependencies == nil {
-		t.Fatal("expected spec.workload.dependencies to exist — this was the bug: connections were dropped during ComponentRelease generation")
-	}
+	require.True(t, ok, "expected spec.workload.dependencies to exist")
+	require.NotNil(t, dependencies)
 
 	depsMap, ok := dependencies.(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected dependencies to be a map, got %T", dependencies)
-	}
+	require.True(t, ok, "expected dependencies to be a map")
 
 	connSlice, ok := depsMap["endpoints"].([]interface{})
-	if !ok {
-		t.Fatalf("expected dependencies.endpoints to be a slice, got %T", depsMap["endpoints"])
-	}
-
-	if len(connSlice) != 2 {
-		t.Fatalf("expected 2 endpoint connections, got %d", len(connSlice))
-	}
+	require.True(t, ok, "expected dependencies.endpoints to be a slice")
+	require.Len(t, connSlice, 2)
 
 	first := connSlice[0].(map[string]interface{})
-	if first["component"] != "postgres" {
-		t.Errorf("first connection component = %v, want postgres", first["component"])
-	}
+	assert.Equal(t, "postgres", first["component"])
 
 	second := connSlice[1].(map[string]interface{})
-	if second["component"] != "nats" {
-		t.Errorf("second connection component = %v, want nats", second["component"])
-	}
+	assert.Equal(t, "nats", second["component"])
 }
 
 func TestGenerateRelease_WorkloadWithoutEndpoints(t *testing.T) {
@@ -550,26 +462,13 @@ func TestGenerateRelease_WorkloadWithoutEndpoints(t *testing.T) {
 		Namespace:     namespace,
 		ReleaseName:   releaseName,
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	// Verify the release has the workload section with container only
 	workload, ok, err := unstructured.NestedMap(release.Object, "spec", "workload")
-	if err != nil || !ok {
-		t.Fatalf("expected spec.workload to exist, ok=%v, err=%v", ok, err)
-	}
+	require.NoError(t, err)
+	require.True(t, ok, "expected spec.workload to exist")
 
-	// Container should be present
-	if _, ok := workload["container"]; !ok {
-		t.Fatal("expected spec.workload.container to exist")
-	}
-
-	// Endpoints and connections should not be present when empty
-	if _, ok := workload["endpoints"]; ok {
-		t.Error("expected spec.workload.endpoints to be absent when workload has no endpoints")
-	}
-	if _, ok := workload["connections"]; ok {
-		t.Error("expected spec.workload.connections to be absent when workload has no connections")
-	}
+	assert.NotNil(t, workload["container"], "expected spec.workload.container to exist")
+	assert.Nil(t, workload["endpoints"], "expected spec.workload.endpoints to be absent")
+	assert.Nil(t, workload["connections"], "expected spec.workload.connections to be absent")
 }
