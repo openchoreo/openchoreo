@@ -199,6 +199,60 @@ func TestGetReleaseOutputDir_NilComponentReleaseDefaults(t *testing.T) {
 	assert.Empty(t, got)
 }
 
+func TestGetBindingOutputDir(t *testing.T) {
+	cfg := &ReleaseConfig{
+		ReleaseBindingDefaults: &ReleaseBindingDefaults{
+			DefaultOutputDir: "./global-bindings",
+			Projects: map[string]ProjectBindingConfig{
+				"demo-project": {
+					DefaultOutputDir: "./projects/demo/bindings",
+					Components: map[string]string{
+						"greeter": "./projects/demo/components/greeter/bindings",
+					},
+				},
+				"minimal-project": {},
+			},
+		},
+	}
+
+	tests := []struct {
+		name          string
+		projectName   string
+		componentName string
+		want          string
+	}{
+		{
+			name:          "component override",
+			projectName:   "demo-project",
+			componentName: "greeter",
+			want:          "./projects/demo/components/greeter/bindings",
+		},
+		{
+			name:          "project default",
+			projectName:   "demo-project",
+			componentName: "other-comp",
+			want:          "./projects/demo/bindings",
+		},
+		{
+			name:          "global default",
+			projectName:   "nonexistent-project",
+			componentName: "comp",
+			want:          "./global-bindings",
+		},
+		{
+			name:          "project with no default falls back to global",
+			projectName:   "minimal-project",
+			componentName: "comp",
+			want:          "./global-bindings",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, cfg.GetBindingOutputDir(tt.projectName, tt.componentName))
+		})
+	}
+}
+
 func TestValidate(t *testing.T) {
 	tests := []struct {
 		name    string

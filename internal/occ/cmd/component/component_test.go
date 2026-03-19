@@ -4,6 +4,7 @@
 package component
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -364,4 +365,44 @@ func TestMergeOverridesWithBinding(t *testing.T) {
 		assert.Equal(t, "dev", rb.Spec.Environment)
 		assert.Equal(t, "my-comp", rb.Spec.Owner.ComponentName)
 	})
+}
+
+func TestUnmarshalSchema(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     *json.RawMessage
+		wantErr bool
+		wantKey string
+	}{
+		{
+			name: "valid JSON schema",
+			raw: func() *json.RawMessage {
+				r := json.RawMessage(`{"type":"object","properties":{"port":{"type":"integer"}}}`)
+				return &r
+			}(),
+			wantKey: "port",
+		},
+		{
+			name: "invalid JSON",
+			raw: func() *json.RawMessage {
+				r := json.RawMessage(`not-json`)
+				return &r
+			}(),
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			schema, err := unmarshalSchema(tt.raw)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, schema)
+			if tt.wantKey != "" {
+				assert.Contains(t, schema.Properties, tt.wantKey)
+			}
+		})
+	}
 }
