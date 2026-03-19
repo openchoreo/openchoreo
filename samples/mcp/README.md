@@ -47,14 +47,15 @@ Deploy a complete service from source code to production using the OpenChoreo MC
 
 **Time:** 15-20 minutes
 
-### 3. [Log Analysis](./log-analysis/)
-Analyze application logs to identify errors and get AI-powered fix suggestions. Learn to query logs by severity, spot recurring patterns, and correlate with distributed traces.
+### 3. [Log Analysis & Debugging](./log-analysis/)
+Debug a cascading failure in the GCP Microservices Demo (Online Boutique) using logs, traces, and workload inspection. You'll intentionally break the product catalog service, then use AI-assisted observability to diagnose and fix the issue.
 
 **Prerequisites:** All prerequisites above, plus:
-- Deployed components with active workloads generating logs
+- [GCP Microservices Demo](../gcp-microservices-demo/) deployed and running
 - Observability plane configured and running
+- Both Control Plane and Observability Plane MCP servers configured
 
-**Time:** ~5 minutes
+**Time:** ~10 minutes
 
 ### 4. [Build Failure Diagnosis](./build-failures/)
 Diagnose build failures by inspecting workflow runs, retrieving build logs, and getting AI-powered root cause analysis with actionable fix suggestions.

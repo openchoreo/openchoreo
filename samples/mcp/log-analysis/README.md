@@ -1,6 +1,6 @@
-# Log Analysis with OpenChoreo MCP Server
+# Log Analysis & Debugging with OpenChoreo MCP Server
 
-This guide walks you through analyzing application logs to identify errors and suggest fixes using the OpenChoreo MCP server and AI assistants.
+This guide walks you through a real debugging scenario using the OpenChoreo MCP server and AI assistants. You'll intentionally break a multi-service application, then use logs, traces, and metrics to diagnose and fix the issue.
 
 ## Prerequisites
 
@@ -8,72 +8,119 @@ Before starting this guide, ensure you have completed all [prerequisites](../REA
 
 Additionally, you need:
 
-1. **Deployed components** with active workloads generating logs
-2. **Observability plane** configured and running
-   - See [Observability & Alerting](https://openchoreo.dev/docs/operations/observability-alerting/) for setup instructions
+1. **GCP Microservices Demo deployed** — follow the [GCP Microservices Demo](../../gcp-microservices-demo/) sample to deploy the Online Boutique application
+2. **Observability plane** configured and running — see [Observability & Alerting](https://openchoreo.dev/docs/operations/observability-alerting/) for setup instructions
+3. **Both MCP servers configured** — you need both the Control Plane and Observability Plane MCP servers connected to your AI assistant. See the [Configuration Guide](https://openchoreo.dev/docs/ai/mcp-servers)
 
 ## What You'll Learn
 
-In this guide, you'll learn:
-- How to discover components and query their logs using MCP tools
-- How to filter logs by severity and time range
-- How to use AI assistants to analyze error patterns and suggest fixes
-- How to correlate logs with distributed traces for deeper analysis
+- How to use AI assistants to investigate errors across a distributed microservices application
+- How to query and analyze component logs filtered by severity and time range
+- How to trace requests across service boundaries to find the root cause
+- How to correlate logs, traces, and metrics for a complete picture
 
-## Step 1: Discover Components
+## Scenario: Breaking the Product Catalog
 
-First, list the components in your project to identify which ones to analyze.
+The GCP Microservices Demo (Online Boutique) has interconnected services. The **product catalog** service is a critical dependency — **checkout**, **recommendation**, and **frontend** all depend on it. We'll scale it down to zero replicas to simulate an outage, then debug the cascading failures.
 
-```
-List all components in the "default" namespace and "my-project" project.
-```
-
-**What agent will do:**
-1. Call `list_components` with the namespace and project name
-2. Display each component's name, type, and status
-
-## Step 2: Query Recent Error Logs
-
-Now query the logs for a specific component, filtering for errors.
+### Architecture context
 
 ```
-Show me the error logs from the "greeter-service" component in the last 1 hour.
+frontend ──→ productcatalog   ← we'll break this
+frontend ──→ checkout ──→ productcatalog
+frontend ──→ recommendation ──→ productcatalog
 ```
 
-**What agent will do:**
-1. Call `query_component_logs` with the component name, severity filter set to error level, and a time range of the last hour
-2. Display the log entries with timestamps, severity, and message content
-3. Highlight any recurring error patterns
+## Step 1: Introduce the Failure
 
-## Step 3: Analyze Errors and Suggest Fixes
+Scale the product catalog service down to zero replicas to simulate an outage:
 
-Ask the AI assistant to analyze the errors and provide actionable recommendations.
-
-```
-Analyze these errors and suggest possible fixes. Group them by root cause if there are multiple issues.
+```bash
+kubectl scale deployment productcatalog-development-default \
+  -n dp-default --replicas=0
 ```
 
-**What agent will do:**
-1. Review the log entries from the previous step
-2. Group errors by root cause or pattern
-3. Provide specific fix suggestions for each error category
-4. Recommend priority based on frequency and severity
+Now visit the frontend in your browser. You should see errors when browsing products or attempting checkout. Let it run for a minute or two so logs and traces accumulate.
 
-## Step 4 (Optional): Correlate with Traces
+## Step 2: Discover the Problem Through Logs
 
-For deeper analysis, correlate error logs with distributed traces to understand the full request flow.
+Start your debugging session by asking the AI assistant to check for errors.
 
 ```
-Find traces related to these errors. Show me the spans for any failed requests.
+Are there any errors in the GCP microservices demo application? Check the logs
+for components in the "default" namespace, "gcp-microservice-demo" project,
+"development" environment. Look at the last 15 minutes.
 ```
 
 **What agent will do:**
-1. Call `query_traces` to find traces matching the error time window and component
-2. Call `query_trace_spans` to get detailed span information for failed traces
-3. Display the end-to-end request flow showing where failures occurred
-4. Identify upstream or downstream dependencies involved in the errors
+1. Call `list_components` (Control Plane MCP) to discover all components in the project
+2. Call `query_component_logs` (Observability MCP) for each component, filtering by error severity and the last 15 minutes
+3. Report which components are logging errors and summarize the error messages
 
-**Expected:** A complete picture of the error context including which services are affected, where in the request chain the failure occurs, and targeted fix recommendations.
+**Expected:** The assistant should report errors in **frontend**, **checkout**, and **recommendation** — all complaining about failed connections to the product catalog service.
+
+## Step 3: Trace a Failed Request
+
+Pick a failing request and trace it across service boundaries.
+
+```
+Find traces for failed requests in the frontend component over the last 15 minutes.
+Show me the spans for one of the failed traces so I can see where the request broke.
+```
+
+**What agent will do:**
+1. Call `query_traces` (Observability MCP) filtered to the frontend component and recent time window
+2. Identify traces with error status
+3. Call `query_trace_spans` with a specific trace ID to get the full span tree
+4. Display the request flow showing which span failed and in which service
+
+**Expected:** The trace should show the frontend calling the product catalog service (or checkout calling it), with the final span showing a connection failure — gRPC `UNAVAILABLE` or connection refused.
+
+## Step 4: Check Resource State
+
+Confirm the root cause by checking the workload state.
+
+```
+Show me the workload details for the "productcatalog" component.
+Is it running? How many replicas are configured?
+```
+
+**What agent will do:**
+1. Call `get_workload` (Control Plane MCP) for the productcatalog component
+2. Display the current replica count, resource configuration, and status
+
+**Expected:** The assistant should report that the product catalog has **0 replicas** — confirming why all dependent services are failing.
+
+## Step 5: Fix and Verify
+
+Restore the product catalog service and verify recovery.
+
+```bash
+kubectl scale deployment productcatalog-development-default \
+  -n dp-default --replicas=1
+```
+
+Wait a minute for the service to come back up, then verify:
+
+```
+Check the logs again for the last 2 minutes. Are the errors resolved?
+Are there any new traces showing successful requests?
+```
+
+**What agent will do:**
+1. Call `query_component_logs` for the affected components over the last 2 minutes
+2. Call `query_traces` to find recent successful traces
+3. Confirm the errors have stopped and requests are completing successfully
+
+## MCP Tools Used
+
+| Tool | MCP Server | Purpose |
+|------|------------|---------|
+| `list_components` | Control Plane | Discover services in the project |
+| `query_component_logs` | Observability | Query logs filtered by severity and time |
+| `query_traces` | Observability | Find distributed traces for failed requests |
+| `query_trace_spans` | Observability | Inspect individual spans within a trace |
+| `get_workload` | Control Plane | Check component replica count and status |
 
 ## Next Steps
 
