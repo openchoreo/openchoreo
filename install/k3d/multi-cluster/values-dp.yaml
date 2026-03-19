@@ -15,9 +15,3 @@ kube-prometheus-stack:
     prometheusSpec:
       remoteWrite:
       - url: "http://host.k3d.internal:11084/api/v1/write"
-
-observability:
-  observabilityPlaneUrl: "http://host.k3d.internal:11086"
-
-opentelemetry-collector:
-  enabled: true

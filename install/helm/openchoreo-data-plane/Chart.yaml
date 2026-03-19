@@ -30,7 +30,3 @@ dependencies:
     repository: https://prometheus-community.github.io/helm-charts
     version: 81.6.3
     condition: kube-prometheus-stack.enabled
-  - name: opentelemetry-collector
-    repository: https://open-telemetry.github.io/opentelemetry-helm-charts
-    version: 0.146.1
-    condition: opentelemetry-collector.enabled
