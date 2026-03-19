@@ -68,13 +68,14 @@ Debug a Docker build failure in the Go Greeter service. You'll trigger a build w
 **Time:** ~10 minutes
 
 ### 5. [Resource Optimization](./resource-optimization/)
-Analyze resource allocation versus actual usage and get right-sizing recommendations. Identify over-provisioned and under-provisioned workloads to optimize costs.
+Detect and fix over-provisioned workloads in the GCP Microservices Demo. You'll intentionally allocate excessive CPU and memory, then use AI-assisted analysis to compare allocation vs actual usage and apply right-sized configurations.
 
 **Prerequisites:** All prerequisites above, plus:
-- Deployed components with workloads running for at least 24 hours
+- [GCP Microservices Demo](../gcp-microservices-demo/) deployed and running
 - Observability plane configured and running
+- Both Control Plane and Observability Plane MCP servers configured
 
-**Time:** ~5-10 minutes
+**Time:** ~10 minutes
 
 ## Getting Help
 

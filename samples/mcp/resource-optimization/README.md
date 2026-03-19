@@ -1,6 +1,6 @@
 # Resource Optimization with OpenChoreo MCP Server
 
-This guide walks you through analyzing resource allocation versus actual usage and getting AI-powered right-sizing recommendations using the OpenChoreo MCP server.
+This guide walks you through a resource optimization scenario using the OpenChoreo MCP server and AI assistants. You'll intentionally over-provision services in the GCP Microservices Demo, then use AI-assisted analysis to detect the waste and right-size the workloads.
 
 ## Prerequisites
 
@@ -8,89 +8,148 @@ Before starting this guide, ensure you have completed all [prerequisites](../REA
 
 Additionally, you need:
 
-1. **Deployed components** with active workloads running for at least 24 hours (for meaningful usage data)
-2. **Observability plane** configured and running
-   - See [Observability & Alerting](https://openchoreo.dev/docs/operations/observability-alerting/) for setup instructions
+1. **GCP Microservices Demo deployed** — follow the [GCP Microservices Demo](../../gcp-microservices-demo/) sample to deploy the Online Boutique application
+2. **Observability plane** configured and running — see [Observability & Alerting](https://openchoreo.dev/docs/operations/observability-alerting/) for setup instructions
+3. **Both MCP servers configured** — you need both the Control Plane and Observability Plane MCP servers connected to your AI assistant. See the [Configuration Guide](https://openchoreo.dev/docs/ai/mcp-servers)
 
 ## What You'll Learn
 
-In this guide, you'll learn:
-- How to check current resource configuration (CPU and memory limits/requests)
-- How to query actual resource usage metrics over time
-- How to identify over-provisioned and under-provisioned workloads
-- How to get AI-powered right-sizing recommendations
-- How to apply optimized resource configurations
+- How to inspect current resource allocation for workloads using MCP tools
+- How to query actual CPU and memory usage metrics
+- How to use AI assistants to compare allocation vs usage and detect waste
+- How to get right-sizing recommendations and apply them via MCP
 
-## Step 1: Check Current Resource Configuration
+## Scenario: Over-Provisioned Microservices
 
-Start by examining the current resource allocation for your workload.
+In real clusters, services often get allocated far more CPU and memory than they actually need — either from copy-pasting defaults or cautious initial sizing. We'll simulate this by patching several services with excessive resource requests, then use the AI assistant to find and fix the waste.
+
+### Architecture context
 
 ```
-Show me the workload details for the "greeter-service" component in the "default" namespace and "my-project" project. Include CPU and memory limits and requests.
+frontend (over-provisioned: 2 CPU, 2Gi memory)
+checkout (over-provisioned: 2 CPU, 2Gi memory)
+cart     (over-provisioned: 1 CPU, 1Gi memory)
+```
+
+These lightweight services typically use a fraction of these resources.
+
+## Step 1: Introduce Over-Provisioning
+
+Patch the frontend, checkout, and cart services with excessive resource allocations:
+
+```bash
+# Over-provision frontend: 2 CPU / 2Gi memory
+kubectl patch deployment frontend-development-default \
+  -n dp-default --type=merge -p '{
+  "spec": {"template": {"spec": {"containers": [{"name": "workload",
+    "resources": {"requests": {"cpu": "2", "memory": "2Gi"},
+                  "limits": {"cpu": "2", "memory": "2Gi"}}}]}}}}'
+
+# Over-provision checkout: 2 CPU / 2Gi memory
+kubectl patch deployment checkout-development-default \
+  -n dp-default --type=merge -p '{
+  "spec": {"template": {"spec": {"containers": [{"name": "workload",
+    "resources": {"requests": {"cpu": "2", "memory": "2Gi"},
+                  "limits": {"cpu": "2", "memory": "2Gi"}}}]}}}}'
+
+# Over-provision cart: 1 CPU / 1Gi memory
+kubectl patch deployment cart-development-default \
+  -n dp-default --type=merge -p '{
+  "spec": {"template": {"spec": {"containers": [{"name": "workload",
+    "resources": {"requests": {"cpu": "1", "memory": "1Gi"},
+                  "limits": {"cpu": "1", "memory": "1Gi"}}}]}}}}'
+```
+
+Wait a couple of minutes for the pods to restart and for usage metrics to start flowing.
+
+## Step 2: Inspect Resource Allocation
+
+Ask the AI assistant to check the current resource configuration across the project.
+
+```
+Show me the workload details for all components in the "default" namespace,
+"gcp-microservice-demo" project. Focus on CPU and memory requests and limits.
 ```
 
 **What agent will do:**
-1. Call `get_workload` with the component, namespace, and project details
-2. Display the current resource configuration including CPU requests/limits and memory requests/limits
-3. Show the number of replicas and other workload settings
+1. Call `list_components` (Control Plane MCP) to discover all components
+2. Call `get_workload` (Control Plane MCP) for each component
+3. Display a summary of resource allocations across all services
 
-## Step 2: Query Actual Resource Usage
+**Expected:** The assistant should show that **frontend**, **checkout**, and **cart** have significantly higher resource allocations than the other services.
 
-Now get the actual resource consumption metrics over the last 24 hours.
+## Step 3: Query Actual Resource Usage
 
-```
-Show me the CPU and memory usage metrics for the "greeter-service" workload over the last 24 hours.
-```
-
-**What agent will do:**
-1. Call `query_resource_metrics` for CPU and memory usage over a 24-hour window
-2. Display usage patterns including average, peak, and minimum utilization
-3. Show how usage compares to the configured limits and requests
-
-## Step 3: Compare and Analyze
-
-Ask the AI assistant to compare the configured resources with actual usage.
+Now compare the allocations against what the services are actually consuming.
 
 ```
-Compare the resource allocation with actual usage. Are there any over-provisioned or under-provisioned resources?
+Query the CPU and memory usage metrics for the frontend, checkout, and cart
+components in the "default" namespace, "gcp-microservice-demo" project,
+"development" environment over the last 15 minutes. Compare with their
+configured limits.
 ```
 
 **What agent will do:**
-1. Analyze the gap between allocated resources and actual usage from previous steps
-2. Identify over-provisioned resources (allocated much more than used)
-3. Identify under-provisioned resources (usage approaching or exceeding limits)
-4. Calculate potential cost savings from right-sizing
+1. Call `query_resource_metrics` (Observability MCP) for each of the three components
+2. Display actual CPU and memory consumption alongside configured requests/limits
+3. Highlight the gap between allocation and usage
+
+**Expected:** The metrics should show that actual usage is a small fraction of the allocated resources — e.g., frontend using ~50m CPU out of 2000m allocated, or ~100Mi memory out of 2Gi allocated.
 
 ## Step 4: Get Right-Sizing Recommendations
 
-Get specific recommendations for optimal resource values.
+Ask the AI assistant to analyze the waste and suggest optimal values.
 
 ```
-Suggest optimal CPU and memory requests and limits based on the usage data. Explain the reasoning.
-```
-
-**What agent will do:**
-1. Calculate recommended values based on actual usage patterns with appropriate headroom
-2. Provide specific CPU and memory request/limit values
-3. Explain the reasoning behind each recommendation (e.g., peak usage plus 20% buffer)
-4. Highlight any risks or trade-offs with the recommendations
-
-## Step 5 (Optional): Apply Changes
-
-If you're satisfied with the recommendations, apply the new resource configuration.
-
-```
-Update the "greeter-service" workload with the recommended resource values.
+Based on the actual usage data, these services look over-provisioned.
+Suggest optimal CPU and memory requests and limits for frontend, checkout,
+and cart. Include a safety buffer and explain your reasoning.
 ```
 
 **What agent will do:**
-1. Call `update_workload` with the new CPU and memory request/limit values
-2. Confirm the changes were applied successfully
-3. Suggest monitoring the workload after changes to verify stability
+1. Compare actual usage patterns against current allocations
+2. Calculate recommended values with appropriate headroom (e.g., 2x peak usage for requests, 3x for limits)
+3. Provide specific values for each service
+4. Estimate the resource savings
 
-**Expected:** Your workload is now right-sized with optimal resource allocation, reducing waste while maintaining sufficient headroom for traffic spikes.
+## Step 5: Apply the Recommendations
+
+Apply the optimized resource configuration using the MCP server.
+
+```
+Update the workloads for frontend, checkout, and cart with the recommended
+resource values.
+```
+
+**What agent will do:**
+1. Call `update_workload` (Control Plane MCP) for each component with the new resource values
+2. Confirm each update was applied successfully
+
+## Step 6: Verify the Changes
+
+Confirm the new configuration is in place and the services are healthy.
+
+```
+Show me the updated workload details for frontend, checkout, and cart.
+Are all pods running and healthy?
+```
+
+**What agent will do:**
+1. Call `get_workload` (Control Plane MCP) for each component to confirm the new values
+2. Report on pod status and health
+
+**Expected:** All three services should be running with the optimized resource allocations, with pods healthy and no OOMKilled or resource-related restarts.
+
+## MCP Tools Used
+
+| Tool | MCP Server | Purpose |
+|------|------------|---------|
+| `list_components` | Control Plane | Discover services in the project |
+| `get_workload` | Control Plane | Inspect resource allocation per component |
+| `query_resource_metrics` | Observability | Query actual CPU and memory usage |
+| `update_workload` | Control Plane | Apply optimized resource values |
 
 ## Next Steps
 
-- Try the [Log Analysis](../log-analysis/) guide to monitor runtime errors
+- Try the [Log Analysis & Debugging](../log-analysis/) guide to debug cascading failures
 - Try the [Build Failure Diagnosis](../build-failures/) guide to troubleshoot CI/CD issues
