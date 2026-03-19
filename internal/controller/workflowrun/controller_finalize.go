@@ -48,20 +48,17 @@ func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.
 		return ctrl.Result{}, nil
 	}
 
-	// Fetch the Workflow to get its WorkflowPlaneRef for workflow plane resolution.
+	// Fetch the Workflow or ClusterWorkflow (based on Kind) to get its WorkflowPlaneRef for workflow plane resolution.
 	// If the Workflow is already deleted, skip workflow plane cleanup and remove finalizer.
-	workflow := &openchoreodevv1alpha1.Workflow{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      cwRun.Spec.Workflow.Name,
-		Namespace: cwRun.Namespace,
-	}, workflow); err != nil {
+	workflowResult, err := controller.ResolveWorkflow(ctx, r.Client, cwRun.Namespace, cwRun.Spec.Workflow.Kind, cwRun.Spec.Workflow.Name)
+	if err != nil {
 		if !errors.IsNotFound(err) {
 			return ctrl.Result{Requeue: true}, err
 		}
 		logger.Info("Workflow not found, removing finalizer without workflow plane cleanup", "workflow", cwRun.Spec.Workflow.Name)
 		return r.removeFinalizer(ctx, cwRun)
 	}
-	workflowPlaneRef := workflow.Spec.WorkflowPlaneRef
+	workflowPlaneRef := workflowResult.GetWorkflowSpec().WorkflowPlaneRef
 
 	// Get workflow plane client (supports both WorkflowPlane and ClusterWorkflowPlane)
 	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, r.Client, cwRun.Namespace, workflowPlaneRef)
