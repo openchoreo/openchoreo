@@ -264,6 +264,7 @@ The build pipeline is composed of shared ClusterWorkflowTemplates that each hand
 kubectl apply -f samples/getting-started/workflow-templates/checkout-source.yaml
 kubectl apply -f samples/getting-started/workflow-templates.yaml
 kubectl apply -f samples/getting-started/workflow-templates/publish-image-k3d.yaml
+kubectl apply -f samples/getting-started/workflow-templates/generate-workload-k3d.yaml
 ```
 
 `publish-image-k3d.yaml` pushes images to the local k3d registry at `host.k3d.internal:10082`. To use a different registry, replace this with your own `publish-image` ClusterWorkflowTemplate.
