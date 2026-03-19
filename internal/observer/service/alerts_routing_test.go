@@ -69,48 +69,41 @@ func (c *searchExistsOpenSearchClient) SearchMonitorByName(_ context.Context, _ 
 func TestAlertServiceRouting(t *testing.T) {
 	t.Parallel()
 
-	logSourceType := gen.AlertRuleRequestSourceTypeLog
 	ruleName := "test-rule"
 	query := "level=error"
-	ns := "test-ns"
-	condEnabled := true
-	condInterval := "1m"
-	condOperator := gen.AlertRuleRequestConditionOperatorGt
-	condThreshold := float32(10)
-	condWindow := "5m"
 
 	logAlertReq := gen.AlertRuleRequest{
-		Source: &struct {
+		Source: struct {
 			Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
 			Query  *string                           `json:"query,omitempty"`
-			Type   *gen.AlertRuleRequestSourceType   `json:"type,omitempty"`
+			Type   gen.AlertRuleRequestSourceType    `json:"type"`
 		}{
-			Type:  &logSourceType,
+			Type:  gen.AlertRuleRequestSourceTypeLog,
 			Query: &query,
 		},
 		//nolint:revive,staticcheck // field names match generated code (e.g. ComponentUid not ComponentUID)
-		Metadata: &struct {
-			ComponentUid   *openapi_types.UUID `json:"componentUid,omitempty"`
-			EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
-			Name           *string             `json:"name,omitempty"`
-			Namespace      *string             `json:"namespace,omitempty"`
-			ProjectUid     *openapi_types.UUID `json:"projectUid,omitempty"`
+		Metadata: struct {
+			ComponentUid   openapi_types.UUID `json:"componentUid"`
+			EnvironmentUid openapi_types.UUID `json:"environmentUid"`
+			Name           string             `json:"name"`
+			Namespace      string             `json:"namespace"`
+			ProjectUid     openapi_types.UUID `json:"projectUid"`
 		}{
-			Name:      &ruleName,
-			Namespace: &ns,
+			Name:      ruleName,
+			Namespace: "test-ns",
 		},
-		Condition: &struct {
-			Enabled   *bool                                  `json:"enabled,omitempty"`
-			Interval  *string                                `json:"interval,omitempty"`
-			Operator  *gen.AlertRuleRequestConditionOperator `json:"operator,omitempty"`
-			Threshold *float32                               `json:"threshold,omitempty"`
-			Window    *string                                `json:"window,omitempty"`
+		Condition: struct {
+			Enabled   bool                                  `json:"enabled"`
+			Interval  string                                `json:"interval"`
+			Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
+			Threshold float32                               `json:"threshold"`
+			Window    string                                `json:"window"`
 		}{
-			Enabled:   &condEnabled,
-			Interval:  &condInterval,
-			Operator:  &condOperator,
-			Threshold: &condThreshold,
-			Window:    &condWindow,
+			Enabled:   true,
+			Interval:  "1m",
+			Operator:  gen.AlertRuleRequestConditionOperatorGt,
+			Threshold: float32(10),
+			Window:    "5m",
 		},
 	}
 

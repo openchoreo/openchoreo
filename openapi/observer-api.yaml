@@ -1065,9 +1065,11 @@ components:
     # Request schemas for alert rules
     AlertRuleRequest:
       type: object
+      required: [metadata, source, condition]
       properties:
         metadata:
           type: object
+          required: [name, namespace, projectUid, environmentUid, componentUid]
           properties:
             name:
               type: string
@@ -1089,6 +1091,7 @@ components:
               format: uuid
         source:
           type: object
+          required: [type]
           properties:
             type:
               type: string
@@ -1107,6 +1110,7 @@ components:
                 - memory_usage
         condition:
           type: object
+          required: [enabled, window, interval, operator, threshold]
           properties:
             enabled:
               type: boolean

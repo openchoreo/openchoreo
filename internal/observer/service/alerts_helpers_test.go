@@ -26,9 +26,6 @@ const (
 func TestSourceTypeFromRequest(t *testing.T) {
 	t.Parallel()
 
-	logType := gen.AlertRuleRequestSourceTypeLog
-	metricType := gen.AlertRuleRequestSourceTypeMetric
-
 	tests := []struct {
 		name      string
 		req       gen.AlertRuleRequest
@@ -36,40 +33,29 @@ func TestSourceTypeFromRequest(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			name:      "nil source",
+			name:      "empty source type",
 			req:       gen.AlertRuleRequest{},
-			expectErr: true,
-		},
-		{
-			name: "nil source type",
-			req: gen.AlertRuleRequest{
-				Source: &struct {
-					Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
-					Query  *string                           `json:"query,omitempty"`
-					Type   *gen.AlertRuleRequestSourceType   `json:"type,omitempty"`
-				}{},
-			},
 			expectErr: true,
 		},
 		{
 			name: "log type",
 			req: gen.AlertRuleRequest{
-				Source: &struct {
+				Source: struct {
 					Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
 					Query  *string                           `json:"query,omitempty"`
-					Type   *gen.AlertRuleRequestSourceType   `json:"type,omitempty"`
-				}{Type: &logType},
+					Type   gen.AlertRuleRequestSourceType    `json:"type"`
+				}{Type: gen.AlertRuleRequestSourceTypeLog},
 			},
 			expected: "log",
 		},
 		{
 			name: "metric type",
 			req: gen.AlertRuleRequest{
-				Source: &struct {
+				Source: struct {
 					Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
 					Query  *string                           `json:"query,omitempty"`
-					Type   *gen.AlertRuleRequestSourceType   `json:"type,omitempty"`
-				}{Type: &metricType},
+					Type   gen.AlertRuleRequestSourceType    `json:"type"`
+				}{Type: gen.AlertRuleRequestSourceTypeMetric},
 			},
 			expected: "metric",
 		},
@@ -123,15 +109,7 @@ func TestGenRequestToLegacyRequest(t *testing.T) {
 	t.Parallel()
 
 	t.Run("full request", func(t *testing.T) {
-		logType := gen.AlertRuleRequestSourceTypeLog
-		name := "rule-1"
-		ns := testNamespace
 		query := testQuery
-		window := "5m"
-		interval := "1m"
-		operator := gen.AlertRuleRequestConditionOperatorGt
-		threshold := float32(10)
-		enabled := true
 
 		compUID := openapi_types.UUID{0x01}
 		projUID := openapi_types.UUID{0x02}
@@ -139,28 +117,28 @@ func TestGenRequestToLegacyRequest(t *testing.T) {
 
 		req := gen.AlertRuleRequest{
 			//nolint:revive,staticcheck
-			Metadata: &struct {
-				ComponentUid   *openapi_types.UUID `json:"componentUid,omitempty"`
-				EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
-				Name           *string             `json:"name,omitempty"`
-				Namespace      *string             `json:"namespace,omitempty"`
-				ProjectUid     *openapi_types.UUID `json:"projectUid,omitempty"`
+			Metadata: struct {
+				ComponentUid   openapi_types.UUID `json:"componentUid"`
+				EnvironmentUid openapi_types.UUID `json:"environmentUid"`
+				Name           string             `json:"name"`
+				Namespace      string             `json:"namespace"`
+				ProjectUid     openapi_types.UUID `json:"projectUid"`
 			}{
-				Name: &name, Namespace: &ns,
-				ComponentUid: &compUID, ProjectUid: &projUID, EnvironmentUid: &envUID,
+				Name: "rule-1", Namespace: testNamespace,
+				ComponentUid: compUID, ProjectUid: projUID, EnvironmentUid: envUID,
 			},
-			Source: &struct {
+			Source: struct {
 				Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
 				Query  *string                           `json:"query,omitempty"`
-				Type   *gen.AlertRuleRequestSourceType   `json:"type,omitempty"`
-			}{Type: &logType, Query: &query},
-			Condition: &struct {
-				Enabled   *bool                                  `json:"enabled,omitempty"`
-				Interval  *string                                `json:"interval,omitempty"`
-				Operator  *gen.AlertRuleRequestConditionOperator `json:"operator,omitempty"`
-				Threshold *float32                               `json:"threshold,omitempty"`
-				Window    *string                                `json:"window,omitempty"`
-			}{Enabled: &enabled, Window: &window, Interval: &interval, Operator: &operator, Threshold: &threshold},
+				Type   gen.AlertRuleRequestSourceType    `json:"type"`
+			}{Type: gen.AlertRuleRequestSourceTypeLog, Query: &query},
+			Condition: struct {
+				Enabled   bool                                  `json:"enabled"`
+				Interval  string                                `json:"interval"`
+				Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
+				Threshold float32                               `json:"threshold"`
+				Window    string                                `json:"window"`
+			}{Enabled: true, Window: "5m", Interval: "1m", Operator: gen.AlertRuleRequestConditionOperatorGt, Threshold: float32(10)},
 		}
 
 		legacy := genRequestToLegacyRequest(req)
@@ -173,7 +151,7 @@ func TestGenRequestToLegacyRequest(t *testing.T) {
 		assert.InDelta(t, float64(10), legacy.Condition.Threshold, 0.001)
 	})
 
-	t.Run("nil sub-fields", func(t *testing.T) {
+	t.Run("zero-value sub-fields", func(t *testing.T) {
 		legacy := genRequestToLegacyRequest(gen.AlertRuleRequest{})
 		assert.Equal(t, "", legacy.Metadata.Name)
 		assert.Equal(t, "", legacy.Source.Type)
@@ -621,26 +599,20 @@ func TestMapMonitorToAlertRuleResponse(t *testing.T) {
 func TestValidateAlertDurations(t *testing.T) {
 	t.Parallel()
 
-	t.Run("both nil", func(t *testing.T) {
-		require.Error(t, validateAlertDurations(nil, nil))
+	t.Run("both empty", func(t *testing.T) {
+		require.Error(t, validateAlertDurations("", ""))
 	})
 
 	t.Run("valid values", func(t *testing.T) {
-		interval := "1m"
-		window := "5m"
-		require.NoError(t, validateAlertDurations(&interval, &window))
+		require.NoError(t, validateAlertDurations("1m", "5m"))
 	})
 
 	t.Run("invalid window", func(t *testing.T) {
-		interval := "1m"
-		window := "30s"
-		require.Error(t, validateAlertDurations(&interval, &window))
+		require.Error(t, validateAlertDurations("1m", "30s"))
 	})
 
 	t.Run("invalid interval", func(t *testing.T) {
-		interval := "30s"
-		window := "5m"
-		require.Error(t, validateAlertDurations(&interval, &window))
+		require.Error(t, validateAlertDurations("30s", "5m"))
 	})
 }
 

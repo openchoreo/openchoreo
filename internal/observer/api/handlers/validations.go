@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
@@ -227,30 +229,21 @@ func ValidateLogLevels(logLevels []string) error {
 // validateAlertRuleRequest validates the new API AlertRuleRequest type.
 func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
 	// Metadata validations
-	if req.Metadata == nil {
-		return fmt.Errorf("metadata is required")
-	}
-	if req.Metadata.Name == nil || strings.TrimSpace(*req.Metadata.Name) == "" {
+	if strings.TrimSpace(req.Metadata.Name) == "" {
 		return fmt.Errorf("metadata.name is required")
 	}
-	if req.Metadata.ComponentUid == nil {
+	if req.Metadata.ComponentUid == (openapi_types.UUID{}) {
 		return fmt.Errorf("metadata.componentUid is required")
 	}
-	if req.Metadata.ProjectUid == nil {
+	if req.Metadata.ProjectUid == (openapi_types.UUID{}) {
 		return fmt.Errorf("metadata.projectUid is required")
 	}
-	if req.Metadata.EnvironmentUid == nil {
+	if req.Metadata.EnvironmentUid == (openapi_types.UUID{}) {
 		return fmt.Errorf("metadata.environmentUid is required")
 	}
 
 	// Source validations
-	if req.Source == nil {
-		return fmt.Errorf("source is required")
-	}
-	if req.Source.Type == nil {
-		return fmt.Errorf("source.type is required")
-	}
-	sourceType := string(*req.Source.Type)
+	sourceType := string(req.Source.Type)
 	if sourceType != sourceTypeLog && sourceType != sourceTypeMetric {
 		return fmt.Errorf("source.type must be 'log' or 'metric'")
 	}
@@ -270,17 +263,7 @@ func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
 	}
 
 	// Condition validations
-	if req.Condition == nil {
-		return fmt.Errorf("condition is required")
-	}
-	if req.Condition.Window == nil {
-		return fmt.Errorf("condition.window is required")
-	}
-	if req.Condition.Interval == nil {
-		return fmt.Errorf("condition.interval is required")
-	}
-
-	windowDuration, err := time.ParseDuration(*req.Condition.Window)
+	windowDuration, err := time.ParseDuration(req.Condition.Window)
 	if err != nil {
 		return fmt.Errorf("condition.window must be a valid duration (e.g., 5m): %w", err)
 	}
@@ -288,7 +271,7 @@ func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
 		return fmt.Errorf("condition.window must be greater than zero")
 	}
 
-	intervalDuration, err := time.ParseDuration(*req.Condition.Interval)
+	intervalDuration, err := time.ParseDuration(req.Condition.Interval)
 	if err != nil {
 		return fmt.Errorf("condition.interval must be a valid duration (e.g., 1m): %w", err)
 	}
@@ -299,15 +282,12 @@ func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
 		return fmt.Errorf("condition.interval must not exceed condition.window")
 	}
 
-	if req.Condition.Operator == nil {
-		return fmt.Errorf("condition.operator is required")
-	}
 	allowedOps := []string{"gt", "gte", "lt", "lte", "eq", "neq"}
-	if !slices.Contains(allowedOps, string(*req.Condition.Operator)) {
+	if !slices.Contains(allowedOps, string(req.Condition.Operator)) {
 		return fmt.Errorf("condition.operator must be one of %s", strings.Join(allowedOps, ", "))
 	}
 
-	if req.Condition.Threshold == nil || *req.Condition.Threshold <= 0 {
+	if req.Condition.Threshold <= 0 {
 		return fmt.Errorf("condition.threshold must be greater than zero")
 	}
 

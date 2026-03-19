@@ -506,7 +506,7 @@ var ErrAlertRuleAlreadyExists = errors.New("alert rule already exists")
 // ---- OpenSearch implementations ----
 
 func (s *AlertService) createOpenSearchAlertRule(ctx context.Context, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
-	ruleName := stringPtrVal(req.Metadata.Name)
+	ruleName := req.Metadata.Name
 
 	monitorBody, err := s.buildOpenSearchMonitorBody(req)
 	if err != nil {
@@ -606,7 +606,7 @@ func (s *AlertService) createPrometheusAlertRule(ctx context.Context, req gen.Al
 		return nil, fmt.Errorf("kubernetes client not configured")
 	}
 
-	ruleName := stringPtrVal(req.Metadata.Name)
+	ruleName := req.Metadata.Name
 	prometheusRule, err := s.buildPrometheusRule(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build PrometheusRule: %w", err)
@@ -749,55 +749,30 @@ func (s *AlertService) buildPrometheusRule(req gen.AlertRuleRequest) (*monitorin
 
 // genRequestToLegacyRequest converts the generated API type to the legacy type used by the builders.
 func genRequestToLegacyRequest(req gen.AlertRuleRequest) legacytypes.AlertingRuleRequest {
-	var meta legacytypes.AlertingRuleMetadata
-	if req.Metadata != nil {
-		if req.Metadata.Name != nil {
-			meta.Name = *req.Metadata.Name
-		}
-		if req.Metadata.Namespace != nil {
-			meta.Namespace = *req.Metadata.Namespace
-		}
-		if req.Metadata.ComponentUid != nil {
-			meta.ComponentUID = req.Metadata.ComponentUid.String()
-		}
-		if req.Metadata.ProjectUid != nil {
-			meta.ProjectUID = req.Metadata.ProjectUid.String()
-		}
-		if req.Metadata.EnvironmentUid != nil {
-			meta.EnvironmentUID = req.Metadata.EnvironmentUid.String()
-		}
+	meta := legacytypes.AlertingRuleMetadata{
+		Name:           req.Metadata.Name,
+		Namespace:      req.Metadata.Namespace,
+		ComponentUID:   req.Metadata.ComponentUid.String(),
+		ProjectUID:     req.Metadata.ProjectUid.String(),
+		EnvironmentUID: req.Metadata.EnvironmentUid.String(),
 	}
 
-	var src legacytypes.AlertingRuleSource
-	if req.Source != nil {
-		if req.Source.Type != nil {
-			src.Type = string(*req.Source.Type)
-		}
-		if req.Source.Query != nil {
-			src.Query = *req.Source.Query
-		}
-		if req.Source.Metric != nil {
-			src.Metric = string(*req.Source.Metric)
-		}
+	src := legacytypes.AlertingRuleSource{
+		Type: string(req.Source.Type),
+	}
+	if req.Source.Query != nil {
+		src.Query = *req.Source.Query
+	}
+	if req.Source.Metric != nil {
+		src.Metric = string(*req.Source.Metric)
 	}
 
-	var cond legacytypes.AlertingRuleCondition
-	if req.Condition != nil {
-		if req.Condition.Enabled != nil {
-			cond.Enabled = *req.Condition.Enabled
-		}
-		if req.Condition.Window != nil {
-			cond.Window = *req.Condition.Window
-		}
-		if req.Condition.Interval != nil {
-			cond.Interval = *req.Condition.Interval
-		}
-		if req.Condition.Operator != nil {
-			cond.Operator = string(*req.Condition.Operator)
-		}
-		if req.Condition.Threshold != nil {
-			cond.Threshold = float64(*req.Condition.Threshold)
-		}
+	cond := legacytypes.AlertingRuleCondition{
+		Enabled:   req.Condition.Enabled,
+		Window:    req.Condition.Window,
+		Interval:  req.Condition.Interval,
+		Operator:  string(req.Condition.Operator),
+		Threshold: float64(req.Condition.Threshold),
 	}
 
 	return legacytypes.AlertingRuleRequest{
@@ -1064,20 +1039,12 @@ func formatMinutesDuration(minutes float64) string {
 
 // validateAlertDurations enforces that interval and window use
 // only minutes/hours and never seconds for alert rules.
-func validateAlertDurations(interval, window *string) error {
-	if interval == nil && window == nil {
-		return fmt.Errorf("condition is required")
+func validateAlertDurations(interval, window string) error {
+	if err := validateMinutesHoursDuration(window, "condition.window"); err != nil {
+		return err
 	}
-
-	if window != nil {
-		if err := validateMinutesHoursDuration(*window, "condition.window"); err != nil {
-			return err
-		}
-	}
-	if interval != nil {
-		if err := validateMinutesHoursDuration(*interval, "condition.interval"); err != nil {
-			return err
-		}
+	if err := validateMinutesHoursDuration(interval, "condition.interval"); err != nil {
+		return err
 	}
 	return nil
 }
@@ -1249,10 +1216,11 @@ func extractPromOperatorAndThreshold(expr string) (string, *float32) {
 // ---- Utility helpers ----
 
 func sourceTypeFromRequest(req gen.AlertRuleRequest) (string, error) {
-	if req.Source == nil || req.Source.Type == nil {
+	sourceType := string(req.Source.Type)
+	if sourceType == "" {
 		return "", fmt.Errorf("source.type is required")
 	}
-	return string(*req.Source.Type), nil
+	return sourceType, nil
 }
 
 func stringPtrVal(s *string) string {

@@ -40,47 +40,40 @@ func (c *alreadyExistsOpenSearchClient) SearchMonitorByName(_ context.Context, _
 
 // Helper to build a valid log alert request for CRUD tests.
 func newLogAlertRequest(ruleName string) gen.AlertRuleRequest {
-	logType := gen.AlertRuleRequestSourceTypeLog
 	query := "level=error"
-	ns := "test-ns"
-	enabled := true
-	interval := "1m"
-	operator := gen.AlertRuleRequestConditionOperatorGt
-	threshold := float32(10)
-	window := "5m"
 
 	return gen.AlertRuleRequest{
 		//nolint:revive,staticcheck
-		Metadata: &struct {
-			ComponentUid   *openapi_types.UUID `json:"componentUid,omitempty"`
-			EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
-			Name           *string             `json:"name,omitempty"`
-			Namespace      *string             `json:"namespace,omitempty"`
-			ProjectUid     *openapi_types.UUID `json:"projectUid,omitempty"`
+		Metadata: struct {
+			ComponentUid   openapi_types.UUID `json:"componentUid"`
+			EnvironmentUid openapi_types.UUID `json:"environmentUid"`
+			Name           string             `json:"name"`
+			Namespace      string             `json:"namespace"`
+			ProjectUid     openapi_types.UUID `json:"projectUid"`
 		}{
-			Name:      &ruleName,
-			Namespace: &ns,
+			Name:      ruleName,
+			Namespace: "test-ns",
 		},
-		Source: &struct {
+		Source: struct {
 			Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
 			Query  *string                           `json:"query,omitempty"`
-			Type   *gen.AlertRuleRequestSourceType   `json:"type,omitempty"`
+			Type   gen.AlertRuleRequestSourceType    `json:"type"`
 		}{
-			Type:  &logType,
+			Type:  gen.AlertRuleRequestSourceTypeLog,
 			Query: &query,
 		},
-		Condition: &struct {
-			Enabled   *bool                                  `json:"enabled,omitempty"`
-			Interval  *string                                `json:"interval,omitempty"`
-			Operator  *gen.AlertRuleRequestConditionOperator `json:"operator,omitempty"`
-			Threshold *float32                               `json:"threshold,omitempty"`
-			Window    *string                                `json:"window,omitempty"`
+		Condition: struct {
+			Enabled   bool                                  `json:"enabled"`
+			Interval  string                                `json:"interval"`
+			Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
+			Threshold float32                               `json:"threshold"`
+			Window    string                                `json:"window"`
 		}{
-			Enabled:   &enabled,
-			Interval:  &interval,
-			Operator:  &operator,
-			Threshold: &threshold,
-			Window:    &window,
+			Enabled:   true,
+			Interval:  "1m",
+			Operator:  gen.AlertRuleRequestConditionOperatorGt,
+			Threshold: float32(10),
+			Window:    "5m",
 		},
 	}
 }
@@ -110,22 +103,19 @@ func TestCreateAlertRule_UnsupportedSourceType(t *testing.T) {
 
 	svc := newTestAlertService(&trackingOpenSearchClient{})
 
-	badType := gen.AlertRuleRequestSourceType("unsupported")
-	interval := "1m"
-	window := "5m"
 	req := gen.AlertRuleRequest{
-		Source: &struct {
+		Source: struct {
 			Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
 			Query  *string                           `json:"query,omitempty"`
-			Type   *gen.AlertRuleRequestSourceType   `json:"type,omitempty"`
-		}{Type: &badType},
-		Condition: &struct {
-			Enabled   *bool                                  `json:"enabled,omitempty"`
-			Interval  *string                                `json:"interval,omitempty"`
-			Operator  *gen.AlertRuleRequestConditionOperator `json:"operator,omitempty"`
-			Threshold *float32                               `json:"threshold,omitempty"`
-			Window    *string                                `json:"window,omitempty"`
-		}{Interval: &interval, Window: &window},
+			Type   gen.AlertRuleRequestSourceType    `json:"type"`
+		}{Type: gen.AlertRuleRequestSourceType("unsupported")},
+		Condition: struct {
+			Enabled   bool                                  `json:"enabled"`
+			Interval  string                                `json:"interval"`
+			Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
+			Threshold float32                               `json:"threshold"`
+			Window    string                                `json:"window"`
+		}{Interval: "1m", Window: "5m"},
 	}
 
 	_, err := svc.CreateAlertRule(context.Background(), req)

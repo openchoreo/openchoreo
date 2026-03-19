@@ -33,13 +33,9 @@ func (h *InternalHandler) CreateAlertRule(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if req.Source == nil || req.Source.Type == nil || string(*req.Source.Type) != sourceType {
-		bodyType := ""
-		if req.Source != nil && req.Source.Type != nil {
-			bodyType = string(*req.Source.Type)
-		}
+	if string(req.Source.Type) != sourceType {
 		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "SOURCE_TYPE_MISMATCH",
-			fmt.Sprintf("path sourceType %q does not match body source.type %q", sourceType, bodyType))
+			fmt.Sprintf("path sourceType %q does not match body source.type %q", sourceType, string(req.Source.Type)))
 		return
 	}
 
@@ -112,13 +108,9 @@ func (h *InternalHandler) UpdateAlertRule(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if req.Source == nil || req.Source.Type == nil || string(*req.Source.Type) != sourceType {
-		bodyType := ""
-		if req.Source != nil && req.Source.Type != nil {
-			bodyType = string(*req.Source.Type)
-		}
+	if string(req.Source.Type) != sourceType {
 		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "SOURCE_TYPE_MISMATCH",
-			fmt.Sprintf("path sourceType %q does not match body source.type %q", sourceType, bodyType))
+			fmt.Sprintf("path sourceType %q does not match body source.type %q", sourceType, string(req.Source.Type)))
 		return
 	}
 
