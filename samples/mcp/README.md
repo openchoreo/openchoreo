@@ -58,13 +58,14 @@ Debug a cascading failure in the GCP Microservices Demo (Online Boutique) using 
 **Time:** ~10 minutes
 
 ### 4. [Build Failure Diagnosis](./build-failures/)
-Diagnose build failures by inspecting workflow runs, retrieving build logs, and getting AI-powered root cause analysis with actionable fix suggestions.
+Debug a Docker build failure in the Go Greeter service. You'll trigger a build with a misconfigured Dockerfile path, then use AI-assisted workflow inspection and log analysis to diagnose and fix the issue.
 
 **Prerequisites:** All prerequisites above, plus:
-- Component workflows configured (Docker or Buildpacks)
-- At least one workflow run to inspect
+- [Go Docker Greeter](../from-source/services/go-docker-greeter/) sample deployed with a successful initial build
+- Workflow plane installed and running
+- Both Control Plane and Observability Plane MCP servers configured
 
-**Time:** ~5 minutes
+**Time:** ~10 minutes
 
 ### 5. [Resource Optimization](./resource-optimization/)
 Analyze resource allocation versus actual usage and get right-sizing recommendations. Identify over-provisioned and under-provisioned workloads to optimize costs.
