@@ -600,7 +600,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.10 \
+  --version 0.3.11 \
   --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
   --set openSearchCluster.credentialsSecretName="opensearch-admin-credentials" \
   --set openSearch.enabled=false \
@@ -615,7 +615,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.10 \
+  --version 0.3.11 \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
@@ -633,7 +633,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-wp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.10 \
+  --version 0.3.11 \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
@@ -653,7 +653,7 @@ helm upgrade --install observability-tracing-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.9 \
+  --version 0.3.10 \
   --set global.installationMode="multiClusterReceiver" \
   --set openSearch.enabled=false \
   --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
@@ -668,7 +668,7 @@ helm upgrade --install observability-tracing-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.9 \
+  --version 0.3.10 \
   --set global.installationMode="multiClusterExporter" \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \

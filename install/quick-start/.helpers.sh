@@ -1072,13 +1072,13 @@ install_observability_plane() {
     log_info "Installing observability modules..."
 
     install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
-        "--version" "0.3.10" \
+        "--version" "0.3.11" \
         "--set" "openSearchSetup.openSearchSecretName=opensearch-admin-credentials"
 
     # Enable fluent-bit after opensearch is installed and ready
     log_info "Enabling fluent-bit for log collection..."
     install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
-        "--version" "0.3.10" \
+        "--version" "0.3.11" \
         "--reuse-values" \
         "--set" "fluent-bit.enabled=true"
 
