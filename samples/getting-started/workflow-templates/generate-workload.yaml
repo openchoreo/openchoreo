@@ -21,7 +21,7 @@ spec:
           # --- OpenChoreo API Server Configuration ---
           # Update these when the API server URL or host changes.
           - name: api-server-url
-            default: "https://host.k3d.internal:8080.svc"
+            default: "http://host.k3d.internal:8080"
       container:
         image: ghcr.io/openchoreo/podman-runner:v1.0
         command:
