@@ -245,6 +245,20 @@ func TestProcessTraitParameters_SchemaCache(t *testing.T) {
 	assert.Equal(t, "hello", ctx.Parameters["name"])
 }
 
+func TestTraitSchemaCacheKey_DistinguishesKinds(t *testing.T) {
+	trait := &v1alpha1.Trait{}
+	trait.Kind = "Trait"
+	trait.Name = "storage"
+
+	clusterTrait := &v1alpha1.Trait{}
+	clusterTrait.Kind = "ClusterTrait"
+	clusterTrait.Name = "storage"
+
+	assert.Equal(t, "Trait:storage", traitSchemaCacheKey(trait))
+	assert.Equal(t, "ClusterTrait:storage", traitSchemaCacheKey(clusterTrait))
+	assert.NotEqual(t, traitSchemaCacheKey(trait), traitSchemaCacheKey(clusterTrait))
+}
+
 func TestGetCachedSchemaBundle_NilCache(t *testing.T) {
 	result := getCachedSchemaBundle(nil, "any-key")
 	assert.Nil(t, result)

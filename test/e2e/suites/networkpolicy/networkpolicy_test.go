@@ -220,21 +220,13 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 		output, err = framework.KubectlApplyLiteral(kubeContext, platformResourcesYAML(cpNsBeta, []string{"development", "staging"}, []string{"proj1"}))
 		Expect(err).NotTo(HaveOccurred(), "failed to apply beta platform resources: %s", output)
 
-		By("applying ComponentTypes for acme")
-		output, err = framework.KubectlApplyLiteral(kubeContext, componentTypesYAML(cpNsAcme))
-		Expect(err).NotTo(HaveOccurred(), "failed to apply acme ComponentTypes: %s", output)
-
-		By("applying ComponentTypes for beta")
-		output, err = framework.KubectlApplyLiteral(kubeContext, componentTypesYAML(cpNsBeta))
-		Expect(err).NotTo(HaveOccurred(), "failed to apply beta ComponentTypes: %s", output)
-
 		By("creating Components and Workloads in acme")
 		// comp-a: http-echo with project + namespace + external visibility.
 		output, err = framework.KubectlApplyLiteral(kubeContext, componentYAML(
 			cpNsAcme,
 			"proj1",
 			"comp-a",
-			"deployment/e2e-service",
+			"deployment/service",
 			"hashicorp/http-echo",
 			[]string{"-text=comp-a", "-listen=:8080"},
 			map[string]endpointDef{
@@ -248,7 +240,7 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			cpNsAcme,
 			"proj1",
 			"comp-b",
-			"deployment/e2e-service",
+			"deployment/service",
 			"hashicorp/http-echo",
 			[]string{"-text=comp-b", "-listen=:8080"},
 			map[string]endpointDef{
@@ -262,7 +254,7 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			cpNsAcme,
 			"proj1",
 			"comp-c",
-			"deployment/e2e-service",
+			"deployment/service",
 			"hashicorp/http-echo",
 			[]string{"-text=comp-c", "-listen=:8080"},
 			map[string]endpointDef{
@@ -276,7 +268,7 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			cpNsAcme,
 			"proj1",
 			"client-a",
-			"deployment/e2e-worker",
+			"deployment/worker",
 			"busybox:1.36",
 			[]string{"sleep", "3600"},
 			nil,
@@ -288,7 +280,7 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			cpNsAcme,
 			"proj2",
 			"client-b",
-			"deployment/e2e-worker",
+			"deployment/worker",
 			"busybox:1.36",
 			[]string{"sleep", "3600"},
 			nil,
@@ -301,7 +293,7 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			cpNsBeta,
 			"proj1",
 			"comp-d",
-			"deployment/e2e-service",
+			"deployment/service",
 			"hashicorp/http-echo",
 			[]string{"-text=comp-d", "-listen=:8080"},
 			map[string]endpointDef{
@@ -315,7 +307,7 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
 			cpNsBeta,
 			"proj1",
 			"client-d",
-			"deployment/e2e-worker",
+			"deployment/worker",
 			"busybox:1.36",
 			[]string{"sleep", "3600"},
 			nil,

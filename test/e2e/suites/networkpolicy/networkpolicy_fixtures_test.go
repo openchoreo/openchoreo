@@ -4,14 +4,12 @@
 package e2e
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
 
@@ -33,14 +31,6 @@ var (
 	nsExtSvc  = fmt.Sprintf("e2e-np-external-services-%s", npRunID)
 	nsGateway = fmt.Sprintf("e2e-np-gateway-system-%s", npRunID)
 )
-
-func mustRawExtension(value any) *runtime.RawExtension {
-	data, err := json.Marshal(value)
-	if err != nil {
-		panic(fmt.Sprintf("failed to marshal raw extension: %v", err))
-	}
-	return &runtime.RawExtension{Raw: data}
-}
 
 func mustYAMLDocs(objects ...any) string {
 	docs := make([]string, 0, len(objects))
@@ -226,106 +216,6 @@ func platformResourcesYAML(cpNamespace string, environments, projects []string) 
 	return mustYAMLDocs(docs...)
 }
 
-// componentTypesYAML returns minimal ComponentType definitions for testing.
-// e2e-service: renders Deployment + Service (no HTTPRoute/ConfigMap/ExternalSecret).
-// e2e-worker: renders Deployment only (for busybox client pods).
-func componentTypesYAML(cpNamespace string) string {
-	deploymentTemplate := map[string]any{
-		"apiVersion": "apps/v1",
-		"kind":       "Deployment",
-		"metadata": map[string]any{
-			"name":      "${metadata.name}",
-			"namespace": "${metadata.namespace}",
-			"labels":    "${metadata.labels}",
-		},
-		"spec": map[string]any{
-			"replicas": "${environmentConfigs.replicas}",
-			"selector": map[string]any{
-				"matchLabels": "${metadata.podSelectors}",
-			},
-			"template": map[string]any{
-				"metadata": map[string]any{
-					"labels": "${metadata.podSelectors}",
-				},
-				"spec": map[string]any{
-					"containers": []any{map[string]any{
-						"name":    "main",
-						"image":   "${workload.container.image}",
-						"command": "${has(workload.container.command) ? workload.container.command : oc_omit()}",
-						"args":    "${has(workload.container.args) ? workload.container.args : oc_omit()}",
-					}},
-				},
-			},
-		},
-	}
-
-	serviceTemplate := map[string]any{
-		"apiVersion": "v1",
-		"kind":       "Service",
-		"metadata": map[string]any{
-			"name":      "${metadata.componentName}",
-			"namespace": "${metadata.namespace}",
-			"labels":    "${metadata.labels}",
-		},
-		"spec": map[string]any{
-			"type":     "ClusterIP",
-			"selector": "${metadata.podSelectors}",
-			"ports":    "${workload.toServicePorts()}",
-		},
-	}
-
-	e2eServiceCT := &openchoreov1alpha1.ComponentType{
-		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "ComponentType"},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "e2e-service",
-			Namespace: cpNamespace,
-		},
-		Spec: openchoreov1alpha1.ComponentTypeSpec{
-			WorkloadType: "deployment",
-			Validations: []openchoreov1alpha1.ValidationRule{{
-				Rule:    "${size(workload.endpoints) > 0}",
-				Message: "e2e-service must have at least one endpoint.",
-			}},
-			Parameters: &openchoreov1alpha1.SchemaSection{
-				OpenAPIV3Schema: mustRawExtension(map[string]any{}),
-			},
-			EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-				OpenAPIV3Schema: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
-			},
-			Resources: []openchoreov1alpha1.ResourceTemplate{
-				{ID: "deployment", Template: mustRawExtension(deploymentTemplate)},
-				{ID: "service", IncludeWhen: "${size(workload.endpoints) > 0}", Template: mustRawExtension(serviceTemplate)},
-			},
-		},
-	}
-
-	e2eWorkerCT := &openchoreov1alpha1.ComponentType{
-		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "ComponentType"},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "e2e-worker",
-			Namespace: cpNamespace,
-		},
-		Spec: openchoreov1alpha1.ComponentTypeSpec{
-			WorkloadType: "deployment",
-			Validations: []openchoreov1alpha1.ValidationRule{{
-				Rule:    "${size(workload.endpoints) == 0}",
-				Message: "e2e-worker must not have endpoints.",
-			}},
-			Parameters: &openchoreov1alpha1.SchemaSection{
-				OpenAPIV3Schema: mustRawExtension(map[string]any{}),
-			},
-			EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-				OpenAPIV3Schema: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
-			},
-			Resources: []openchoreov1alpha1.ResourceTemplate{
-				{ID: "deployment", Template: mustRawExtension(deploymentTemplate)},
-			},
-		},
-	}
-
-	return mustYAMLDocs(e2eServiceCT, e2eWorkerCT)
-}
-
 // componentYAML returns a Component + Workload pair.
 func componentYAML(cpNamespace, project, name, componentType, image string, args []string, endpoints map[string]endpointDef) string {
 	comp := &openchoreov1alpha1.Component{
@@ -340,6 +230,7 @@ func componentYAML(cpNamespace, project, name, componentType, image string, args
 		Spec: openchoreov1alpha1.ComponentSpec{
 			Owner: openchoreov1alpha1.ComponentOwner{ProjectName: project},
 			ComponentType: openchoreov1alpha1.ComponentTypeRef{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindClusterComponentType,
 				Name: componentType,
 			},
 			AutoDeploy: true,
