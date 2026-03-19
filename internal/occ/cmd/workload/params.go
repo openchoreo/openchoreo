@@ -20,7 +20,8 @@ func (p CreateParams) GetNamespace() string { return p.NamespaceName }
 
 // ListParams defines parameters for listing workloads
 type ListParams struct {
-	Namespace string
+	Namespace     string
+	ComponentName string
 }
 
 func (p ListParams) GetNamespace() string { return p.Namespace }
