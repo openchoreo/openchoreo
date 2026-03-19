@@ -16,9 +16,9 @@ import (
 func TestDiscoverComponents(t *testing.T) {
 	idx := index.New("/repo")
 
-	addComponent(t, idx, "default", "comp-a", "proj-1", "deployment/service", "/repo/comp-a.yaml")
-	addComponent(t, idx, "default", "comp-b", "proj-1", "deployment/service", "/repo/comp-b.yaml")
-	addComponent(t, idx, "default", "comp-c", "proj-2", "deployment/worker", "/repo/comp-c.yaml")
+	addComponent(t, idx, "comp-a", "proj-1", "deployment/service", "/repo/comp-a.yaml")
+	addComponent(t, idx, "comp-b", "proj-1", "deployment/service", "/repo/comp-b.yaml")
+	addComponent(t, idx, "comp-c", "proj-2", "deployment/worker", "/repo/comp-c.yaml")
 
 	ocIndex := fsmode.WrapIndex(idx)
 	gen := NewReleaseGenerator(ocIndex)
@@ -52,8 +52,8 @@ func TestGenerateBulkReleases(t *testing.T) {
 	t.Run("generates releases for all components in a project", func(t *testing.T) {
 		idx := index.New("/repo")
 
-		addComponent(t, idx, "default", "svc-a", "myproj", "deployment/service", "/repo/svc-a.yaml")
-		addComponent(t, idx, "default", "svc-b", "myproj", "deployment/service", "/repo/svc-b.yaml")
+		addComponent(t, idx, "svc-a", "myproj", "deployment/service", "/repo/svc-a.yaml")
+		addComponent(t, idx, "svc-b", "myproj", "deployment/service", "/repo/svc-b.yaml")
 
 		addComponentType(t, idx, "service", "deployment", "/repo/ct-service.yaml")
 
@@ -91,8 +91,8 @@ func TestGenerateBulkReleases(t *testing.T) {
 		idx := index.New("/repo")
 
 		// svc-good has a workload, svc-bad does not — GenerateRelease will fail for svc-bad
-		addComponent(t, idx, "default", "svc-good", "myproj", "deployment/service", "/repo/svc-good.yaml")
-		addComponent(t, idx, "default", "svc-bad", "myproj", "deployment/service", "/repo/svc-bad.yaml")
+		addComponent(t, idx, "svc-good", "myproj", "deployment/service", "/repo/svc-good.yaml")
+		addComponent(t, idx, "svc-bad", "myproj", "deployment/service", "/repo/svc-bad.yaml")
 
 		addComponentType(t, idx, "service", "deployment", "/repo/ct-service.yaml")
 

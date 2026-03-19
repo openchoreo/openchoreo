@@ -15,7 +15,7 @@ import (
 )
 
 // addComponent adds a Component resource entry to the index.
-func addComponent(t *testing.T, idx *index.Index, namespace, name, project, componentTypeName string, filePath string) {
+func addComponent(t *testing.T, idx *index.Index, name, project, componentTypeName string, filePath string) {
 	t.Helper()
 	entry := &index.ResourceEntry{
 		Resource: &unstructured.Unstructured{
@@ -24,7 +24,7 @@ func addComponent(t *testing.T, idx *index.Index, namespace, name, project, comp
 				"kind":       "Component",
 				"metadata": map[string]any{
 					"name":      name,
-					"namespace": namespace,
+					"namespace": "default",
 				},
 				"spec": map[string]any{
 					"owner": map[string]any{
@@ -292,7 +292,7 @@ func TestGenerateRelease_WorkloadEndpointsIncluded(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponent(t, idx, namespace, componentName, projectName, "deployment/service",
+	addComponent(t, idx, componentName, projectName, "deployment/service",
 		"/repo/projects/doclet/components/document-svc/component.yaml")
 
 	addComponentType(t, idx, "service", "deployment",
@@ -359,7 +359,7 @@ func TestGenerateRelease_WorkloadConnectionsIncluded(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponent(t, idx, namespace, componentName, projectName, "deployment/service",
+	addComponent(t, idx, componentName, projectName, "deployment/service",
 		"/repo/projects/doclet/components/document-svc/component.yaml")
 
 	addComponentType(t, idx, "service", "deployment",
@@ -439,7 +439,7 @@ func TestGenerateRelease_WorkloadWithoutEndpoints(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponent(t, idx, namespace, componentName, projectName, "deployment/worker",
+	addComponent(t, idx, componentName, projectName, "deployment/worker",
 		"/repo/projects/doclet/components/worker-svc/component.yaml")
 
 	addComponentType(t, idx, "worker", "statefulset",
