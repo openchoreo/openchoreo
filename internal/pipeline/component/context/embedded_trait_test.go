@@ -16,6 +16,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
+const testTraitNameStorage = "storage"
+
 func TestResolveEmbeddedTraitBindings(t *testing.T) {
 	engine := template.NewEngineWithOptions(
 		template.WithCELExtensions(CELExtensions()...),
@@ -34,7 +36,7 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 		{
 			name: "concrete-only values (locked by PE)",
 			embeddedTrait: v1alpha1.ComponentTypeTrait{
-				Name:         "storage",
+				Name:         testTraitNameStorage,
 				InstanceName: "app-storage",
 				Parameters: &runtime.RawExtension{
 					Raw: mustMarshalJSON(t, map[string]any{
@@ -57,7 +59,7 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 		{
 			name: "CEL expressions referencing parameters",
 			embeddedTrait: v1alpha1.ComponentTypeTrait{
-				Name:         "storage",
+				Name:         testTraitNameStorage,
 				InstanceName: "app-storage",
 				Parameters: &runtime.RawExtension{
 					Raw: mustMarshalJSON(t, map[string]any{
@@ -184,7 +186,7 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 
 func TestBuildEmbeddedTraitContext(t *testing.T) {
 	baseTrait := &v1alpha1.Trait{}
-	baseTrait.Name = "storage"
+	baseTrait.Name = testTraitNameStorage
 	baseTrait.Spec.Parameters = &v1alpha1.SchemaSection{
 		OpenAPIV3Schema: &runtime.RawExtension{
 			Raw: mustMarshalJSON(t, map[string]any{
@@ -247,7 +249,7 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 				"size":      "10Gi",
 			},
 			wantEnvironmentConfigs: map[string]any{},
-			wantTraitName:          "storage",
+			wantTraitName:          testTraitNameStorage,
 			wantInstanceName:       "app-storage",
 		},
 		{

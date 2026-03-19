@@ -164,13 +164,9 @@ var _ = Describe("Connection Resolution", Ordered, func() {
 			platformResourcesYAML(cpNs, []string{"development", "staging"}, []string{"proj1"}))
 		Expect(err).NotTo(HaveOccurred(), "failed to apply platform resources: %s", output)
 
-		By("applying ComponentType e2e-conn-service")
-		output, err = framework.KubectlApplyLiteral(kubeContext, componentTypeYAML(cpNs))
-		Expect(err).NotTo(HaveOccurred(), "failed to apply ComponentType: %s", output)
-
 		By("deploying provider-a (HTTP:8080, project+namespace visibility)")
 		output, err = framework.KubectlApplyLiteral(kubeContext, componentWithConnectionsYAML(
-			cpNs, "proj1", "provider-a", "deployment/e2e-conn-service",
+			cpNs, "proj1", "provider-a", "deployment/service",
 			"hashicorp/http-echo",
 			[]string{"-text=provider-a", "-listen=:8080"},
 			map[string]endpointDef{
@@ -182,7 +178,7 @@ var _ = Describe("Connection Resolution", Ordered, func() {
 
 		By("deploying provider-b (HTTP:9090, project visibility)")
 		output, err = framework.KubectlApplyLiteral(kubeContext, componentWithConnectionsYAML(
-			cpNs, "proj1", "provider-b", "deployment/e2e-conn-service",
+			cpNs, "proj1", "provider-b", "deployment/service",
 			"hashicorp/http-echo",
 			[]string{"-text=provider-b", "-listen=:9090"},
 			map[string]endpointDef{
@@ -206,7 +202,7 @@ var _ = Describe("Connection Resolution", Ordered, func() {
 
 		By("deploying consumer with project-visibility connections to both providers")
 		output, err = framework.KubectlApplyLiteral(kubeContext, componentWithConnectionsYAML(
-			cpNs, "proj1", "consumer", "deployment/e2e-conn-service",
+			cpNs, "proj1", "consumer", "deployment/service",
 			"hashicorp/http-echo",
 			[]string{"-text=consumer", "-listen=:3000"},
 			map[string]endpointDef{
@@ -312,7 +308,7 @@ var _ = Describe("Connection Resolution", Ordered, func() {
 		It("keeps connections pending for non-existent endpoint", func() {
 			By("deploying consumer-bad with connection to nonexistent component")
 			output, err := framework.KubectlApplyLiteral(kubeContext, componentWithConnectionsYAML(
-				cpNs, "proj1", "consumer-bad", "deployment/e2e-conn-service",
+				cpNs, "proj1", "consumer-bad", "deployment/service",
 				"hashicorp/http-echo",
 				[]string{"-text=consumer-bad", "-listen=:3000"},
 				map[string]endpointDef{
