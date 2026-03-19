@@ -48,11 +48,11 @@ func TestCompareReleaseSpecs(t *testing.T) {
 		assert.Contains(t, err.Error(), "spec not found")
 	})
 
-	t.Run("nil release panics", func(t *testing.T) {
+	t.Run("nil release returns error", func(t *testing.T) {
 		r1 := makeRelease("r1", map[string]interface{}{"image": "nginx"})
-		assert.Panics(t, func() {
-			_, _ = CompareReleaseSpecs(r1, nil)
-		})
+		_, err := CompareReleaseSpecs(r1, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "release cannot be nil")
 	})
 }
 

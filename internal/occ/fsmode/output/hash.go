@@ -20,6 +20,10 @@ import (
 // and file-loaded releases (which have float64 types from YAML parsing), we normalize
 // both specs by serializing to YAML and back before hashing.
 func CompareReleaseSpecs(release1, release2 *unstructured.Unstructured) (bool, error) {
+	if release1 == nil || release2 == nil {
+		return false, fmt.Errorf("release cannot be nil")
+	}
+
 	spec1, err := extractAndNormalizeSpec(release1)
 	if err != nil {
 		return false, fmt.Errorf("failed to extract spec from first release (kind=%s, namespace=%s, name=%s): %w",
