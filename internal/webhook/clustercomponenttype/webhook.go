@@ -102,6 +102,14 @@ func validateClusterComponentType(cct *openchoreodevv1alpha1.ClusterComponentTyp
 	)
 	allErrs = append(allErrs, schemaErrs...)
 
+	// Strict field validation: reject unknown fields in openAPIV3Schema
+	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+		cct.Spec.Parameters, basePath.Child("parameters"),
+	)...)
+	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+		cct.Spec.EnvironmentConfigs, basePath.Child("environmentConfigs"),
+	)...)
+
 	// Validate CEL expressions with schema-aware type checking
 	celErrs := component.ValidateClusterComponentTypeResourcesWithSchema(
 		cct,

@@ -55,6 +55,14 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	)
 	allErrs = append(allErrs, schemaErrs...)
 
+	// Strict field validation: reject unknown fields in openAPIV3Schema
+	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+		trait.Spec.Parameters, basePath.Child("parameters"),
+	)...)
+	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+		trait.Spec.EnvironmentConfigs, basePath.Child("environmentConfigs"),
+	)...)
+
 	templateErrs := validateTraitCreatesTemplateStructure(trait)
 	allErrs = append(allErrs, templateErrs...)
 
@@ -89,6 +97,14 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		newTrait.Spec.Parameters, newTrait.Spec.EnvironmentConfigs, basePath,
 	)
 	allErrs = append(allErrs, schemaErrs...)
+
+	// Strict field validation: reject unknown fields in openAPIV3Schema
+	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+		newTrait.Spec.Parameters, basePath.Child("parameters"),
+	)...)
+	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+		newTrait.Spec.EnvironmentConfigs, basePath.Child("environmentConfigs"),
+	)...)
 
 	templateErrs := validateTraitCreatesTemplateStructure(newTrait)
 	allErrs = append(allErrs, templateErrs...)

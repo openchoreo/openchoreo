@@ -102,6 +102,14 @@ func validateComponentType(ct *openchoreodevv1alpha1.ComponentType) field.ErrorL
 	)
 	allErrs = append(allErrs, schemaErrs...)
 
+	// Strict field validation: reject unknown fields in openAPIV3Schema
+	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+		ct.Spec.Parameters, basePath.Child("parameters"),
+	)...)
+	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+		ct.Spec.EnvironmentConfigs, basePath.Child("environmentConfigs"),
+	)...)
+
 	// Validate CEL expressions with schema-aware type checking
 	celErrs := component.ValidateComponentTypeResourcesWithSchema(
 		ct,

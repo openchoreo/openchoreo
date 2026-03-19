@@ -55,6 +55,14 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	)
 	allErrs = append(allErrs, schemaErrs...)
 
+	// Strict field validation: reject unknown fields in openAPIV3Schema
+	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+		ct.Spec.Parameters, basePath.Child("parameters"),
+	)...)
+	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+		ct.Spec.EnvironmentConfigs, basePath.Child("environmentConfigs"),
+	)...)
+
 	templateErrs := validateClusterTraitCreatesTemplateStructure(ct)
 	allErrs = append(allErrs, templateErrs...)
 
@@ -89,6 +97,14 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		newClusterTrait.Spec.Parameters, newClusterTrait.Spec.EnvironmentConfigs, basePath,
 	)
 	allErrs = append(allErrs, schemaErrs...)
+
+	// Strict field validation: reject unknown fields in openAPIV3Schema
+	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+		newClusterTrait.Spec.Parameters, basePath.Child("parameters"),
+	)...)
+	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
+		newClusterTrait.Spec.EnvironmentConfigs, basePath.Child("environmentConfigs"),
+	)...)
 
 	templateErrs := validateClusterTraitCreatesTemplateStructure(newClusterTrait)
 	allErrs = append(allErrs, templateErrs...)
