@@ -47,6 +47,33 @@ Deploy a complete service from source code to production using the OpenChoreo MC
 
 **Time:** 15-20 minutes
 
+### 3. [Log Analysis](./log-analysis/)
+Analyze application logs to identify errors and get AI-powered fix suggestions. Learn to query logs by severity, spot recurring patterns, and correlate with distributed traces.
+
+**Prerequisites:** All prerequisites above, plus:
+- Deployed components with active workloads generating logs
+- Observability plane configured and running
+
+**Time:** ~5 minutes
+
+### 4. [Build Failure Diagnosis](./build-failures/)
+Diagnose build failures by inspecting workflow runs, retrieving build logs, and getting AI-powered root cause analysis with actionable fix suggestions.
+
+**Prerequisites:** All prerequisites above, plus:
+- Component workflows configured (Docker or Buildpacks)
+- At least one workflow run to inspect
+
+**Time:** ~5 minutes
+
+### 5. [Resource Optimization](./resource-optimization/)
+Analyze resource allocation versus actual usage and get right-sizing recommendations. Identify over-provisioned and under-provisioned workloads to optimize costs.
+
+**Prerequisites:** All prerequisites above, plus:
+- Deployed components with workloads running for at least 24 hours
+- Observability plane configured and running
+
+**Time:** ~5-10 minutes
+
 ## Getting Help
 
 - [OpenChoreo Documentation](https://openchoreo.dev/)
