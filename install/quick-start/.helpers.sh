@@ -1104,7 +1104,8 @@ install_workflow_templates() {
     local checkout_yaml="$templates_dir/workflow-templates/checkout-source.yaml"
     local bulk_yaml="$templates_dir/workflow-templates.yaml"
     local publish_yaml="$templates_dir/workflow-templates/publish-image-k3d.yaml"
-    for f in "$checkout_yaml" "$bulk_yaml" "$publish_yaml"; do
+    local generate_workload_yaml="$templates_dir/workflow-templates/generate-workload-k3d.yaml"
+    for f in "$checkout_yaml" "$bulk_yaml" "$publish_yaml" "$generate_workload_yaml"; do
         if [[ ! -f "$f" ]]; then
             log_error "Required workflow template not found: $f"
             return 1
@@ -1116,6 +1117,7 @@ install_workflow_templates() {
     kubectl apply -f "$checkout_yaml" >/dev/null
     kubectl apply -f "$bulk_yaml" >/dev/null
     kubectl apply -f "$publish_yaml" >/dev/null
+    kubectl apply -f "$generate_workload_yaml" >/dev/null
 
     log_success "ClusterWorkflowTemplates installed"
 }
