@@ -242,7 +242,15 @@ func componentTypeYAML(cpNamespace string) string {
 				OpenAPIV3Schema: mustRawExtension(map[string]any{}),
 			},
 			EnvironmentConfigs: &openchoreov1alpha1.SchemaSection{
-				OpenAPIV3Schema: mustRawExtension(map[string]any{"replicas": "integer | default=1"}),
+				OpenAPIV3Schema: mustRawExtension(map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"replicas": map[string]any{
+							"type":    "integer",
+							"default": 1,
+						},
+					},
+				}),
 			},
 			Resources: []openchoreov1alpha1.ResourceTemplate{
 				{ID: "deployment", Template: mustRawExtension(deploymentTemplate)},
