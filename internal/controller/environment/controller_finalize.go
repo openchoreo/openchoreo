@@ -77,13 +77,13 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *openchoreov
 		return ctrl.Result{}, nil
 	}
 
-	// Step 2: Wait for all release bindings referencing this environment to be gone.
-	pendingCount, err := r.countReleaseBindings(ctx, environment)
+	// Step 2: Delete all release bindings referencing this environment and wait for them to be gone.
+	pendingCount, err := r.deleteAndCountReleaseBindings(ctx, environment)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if pendingCount > 0 {
-		msg := fmt.Sprintf("Waiting for %d release binding(s) to be removed", pendingCount)
+		msg := fmt.Sprintf("Deleting %d release binding(s)", pendingCount)
 		logger.Info(msg)
 		if meta.SetStatusCondition(&environment.Status.Conditions, NewReleaseBindingsPendingCondition(environment.Generation, msg)) {
 			if err := controller.UpdateStatusConditions(ctx, r.Client, old, environment); err != nil {
@@ -226,8 +226,9 @@ func (r *Reconciler) findReferencingPipeline(ctx context.Context, environment *o
 	return "", nil
 }
 
-// countReleaseBindings returns the number of release bindings that still reference this environment.
-func (r *Reconciler) countReleaseBindings(ctx context.Context, environment *openchoreov1alpha1.Environment) (int, error) {
+// deleteAndCountReleaseBindings deletes all release bindings that reference this environment
+// and returns the count of those still present (pending deletion or not yet deleted).
+func (r *Reconciler) deleteAndCountReleaseBindings(ctx context.Context, environment *openchoreov1alpha1.Environment) (int, error) {
 	releaseBindingList := &openchoreov1alpha1.ReleaseBindingList{}
 	if err := r.List(ctx, releaseBindingList, client.InNamespace(environment.Namespace)); err != nil {
 		return 0, fmt.Errorf("failed to list release bindings: %w", err)
@@ -235,8 +236,15 @@ func (r *Reconciler) countReleaseBindings(ctx context.Context, environment *open
 
 	count := 0
 	for i := range releaseBindingList.Items {
-		if releaseBindingList.Items[i].Spec.Environment == environment.Name {
-			count++
+		rb := &releaseBindingList.Items[i]
+		if rb.Spec.Environment != environment.Name {
+			continue
+		}
+		count++
+		if rb.DeletionTimestamp.IsZero() {
+			if err := r.Delete(ctx, rb); err != nil && !apierrors.IsNotFound(err) {
+				return 0, fmt.Errorf("failed to delete release binding %s: %w", rb.Name, err)
+			}
 		}
 	}
 

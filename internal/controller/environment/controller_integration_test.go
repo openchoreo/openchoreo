@@ -527,8 +527,9 @@ var _ = Describe("Environment Controller", func() {
 				rbNN = types.NamespacedName{Namespace: ns, Name: "rb-for-env-cleanup"}
 				rb := &openchoreov1alpha1.ReleaseBinding{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      rbNN.Name,
-						Namespace: ns,
+						Name:       rbNN.Name,
+						Namespace:  ns,
+						Finalizers: []string{"openchoreo.dev/releasebinding-cleanup"},
 					},
 					Spec: openchoreov1alpha1.ReleaseBindingSpec{
 						Owner: openchoreov1alpha1.ReleaseBindingOwner{
@@ -554,7 +555,7 @@ var _ = Describe("Environment Controller", func() {
 				}
 			})
 
-			It("should wait for release bindings without deleting them and requeue", func() {
+			It("should delete release bindings and requeue while they are still present", func() {
 				r := newTestReconciler()
 
 				By("first reconcile — sets Finalizing condition")
@@ -562,15 +563,15 @@ var _ = Describe("Environment Controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result.Requeue).To(BeFalse())
 
-				By("second reconcile — detects release binding and requeues")
+				By("second reconcile — deletes release binding and requeues")
 				result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result.RequeueAfter).To(Equal(5 * time.Second))
 
-				By("verifying the release binding is NOT deleted (controller only waits)")
+				By("verifying the release binding is being deleted")
 				rb := &openchoreov1alpha1.ReleaseBinding{}
 				Expect(k8sClient.Get(ctx, rbNN, rb)).To(Succeed())
-				Expect(rb.DeletionTimestamp).To(BeNil())
+				Expect(rb.DeletionTimestamp).NotTo(BeNil())
 
 				By("verifying the ReleaseBindingsPending condition is set")
 				env := &openchoreov1alpha1.Environment{}
@@ -581,27 +582,29 @@ var _ = Describe("Environment Controller", func() {
 				Expect(cond.Reason).To(Equal(string(ReasonReleaseBindingsPending)))
 			})
 
-			It("should proceed with finalization after release bindings are externally removed", func() {
+			It("should proceed with finalization after release bindings are deleted", func() {
 				r := newTestReconciler()
 
 				By("first reconcile — sets Finalizing condition")
 				_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 				Expect(err).NotTo(HaveOccurred())
 
-				By("second reconcile — waits for release bindings")
+				By("second reconcile — deletes the release binding and requeues")
 				result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result.RequeueAfter).To(Equal(5 * time.Second))
 
-				By("externally removing the release binding")
-				Expect(k8sClient.Delete(ctx, &openchoreov1alpha1.ReleaseBinding{
-					ObjectMeta: metav1.ObjectMeta{Name: rbNN.Name, Namespace: ns},
-				})).To(Succeed())
+				By("simulating ReleaseBinding controller: removing finalizer so deletion completes")
+				rb := &openchoreov1alpha1.ReleaseBinding{}
+				Expect(k8sClient.Get(ctx, rbNN, rb)).To(Succeed())
+				Expect(rb.DeletionTimestamp).NotTo(BeNil())
+				controllerutil.RemoveFinalizer(rb, "openchoreo.dev/releasebinding-cleanup")
+				Expect(k8sClient.Update(ctx, rb)).To(Succeed())
 				Eventually(func() bool {
 					return apierrors.IsNotFound(k8sClient.Get(ctx, rbNN, &openchoreov1alpha1.ReleaseBinding{}))
 				}, "5s", "100ms").Should(BeTrue())
 
-				By("third reconcile — no release bindings, re-sets Finalizing condition")
+				By("third reconcile — no release bindings, Finalizing guard passes, proceeds to namespace cleanup")
 				_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 				Expect(err).NotTo(HaveOccurred())
 
