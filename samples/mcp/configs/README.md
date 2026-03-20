@@ -2,7 +2,7 @@
 
 This guide has moved to the OpenChoreo documentation site.
 
-**[Configure MCP Servers with AI Assistants →](https://openchoreo.dev/docs/ai/mcp-servers)**
+**[Configure MCP Servers with AI Assistants →](https://openchoreo.dev/docs/next/ai/mcp-servers)**
 
 The docs site covers:
 - Browser-based OAuth authentication (recommended)

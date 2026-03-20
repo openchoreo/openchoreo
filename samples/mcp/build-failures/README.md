@@ -10,7 +10,7 @@ Additionally, you need:
 
 1. **Go Docker Greeter sample deployed** — follow the [Go Docker Greeter](../../from-source/services/go-docker-greeter/) sample to deploy the greeting service from source. Wait for the initial build (`greeting-service-build-01`) to complete successfully before proceeding.
 2. **Workflow plane** installed and running — see [Setup Workflow Plane](https://openchoreo.dev/docs/getting-started/production/single-cluster/#step-3-setup-workflow-plane-optional) guide
-3. **Both MCP servers configured** — you need both the Control Plane and Observability Plane MCP servers connected to your AI assistant. See the [Configuration Guide](https://openchoreo.dev/docs/ai/mcp-servers)
+3. **Both MCP servers configured** — you need both the Control Plane and Observability Plane MCP servers connected to your AI assistant. See the [Configuration Guide](https://openchoreo.dev/docs/next/ai/mcp-servers)
 
 ## What You'll Learn
 

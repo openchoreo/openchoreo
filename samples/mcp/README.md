@@ -15,7 +15,7 @@ You need a running OpenChoreo instance. If you haven't set one up yet:
 
 ### 2. Configure MCP Server
 
-The OpenChoreo MCP server must be configured and accessible. See the [Configuration Guide](https://openchoreo.dev/docs/ai/mcp-servers) for detailed instructions to obtain:
+The OpenChoreo MCP server must be configured and accessible. See the [Configuration Guide](https://openchoreo.dev/docs/next/ai/mcp-servers) for detailed instructions to obtain:
 
 - MCP server endpoint
 - An access token

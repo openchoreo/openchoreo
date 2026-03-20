@@ -22,7 +22,7 @@ Do you have access to the OpenChoreo MCP server? List the available tools.
 
 **Expected:** The assistant should confirm MCP access and list available OpenChoreo tools like `list_namespaces`, `list_projects`, `create_component`, etc.
 
-If the connection isn't working, review the [Configuration Guide](https://openchoreo.dev/docs/ai/mcp-servers) to ensure your setup is correct.
+If the connection isn't working, review the [Configuration Guide](https://openchoreo.dev/docs/next/ai/mcp-servers) to ensure your setup is correct.
 
 ## Step 2: Explore OpenChoreo Resources
 

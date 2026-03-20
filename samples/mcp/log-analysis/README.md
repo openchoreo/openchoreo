@@ -10,7 +10,7 @@ Additionally, you need:
 
 1. **GCP Microservices Demo deployed** — follow the [GCP Microservices Demo](../../gcp-microservices-demo/) sample to deploy the Online Boutique application
 2. **Observability plane** configured and running — see [Observability & Alerting](https://openchoreo.dev/docs/operations/observability-alerting/) for setup instructions
-3. **Both MCP servers configured** — you need both the Control Plane and Observability Plane MCP servers connected to your AI assistant. See the [Configuration Guide](https://openchoreo.dev/docs/ai/mcp-servers)
+3. **Both MCP servers configured** — you need both the Control Plane and Observability Plane MCP servers connected to your AI assistant. See the [Configuration Guide](https://openchoreo.dev/docs/next/ai/mcp-servers)
 
 ## What You'll Learn
 
