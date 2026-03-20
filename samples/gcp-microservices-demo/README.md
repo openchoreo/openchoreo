@@ -71,6 +71,39 @@ kubectl apply \
 
 This will deploy all the microservices using official Google Container Registry images.
 
+## (Optional) Enable Distributed Tracing
+
+Most services in this demo are pre-instrumented with OpenTelemetry. You can enable trace collection by pointing them to OpenChoreo's OpenTelemetry Collector.
+
+> [!NOTE]
+> #### Per-service tracing support
+> | Service | Language | Tracing support |
+> |---|---|---|
+> | frontend, checkout, productcatalog | Go | Full — via `COLLECTOR_SERVICE_ADDR` + `ENABLE_TRACING=1` |
+> | currency, payment | Node.js | Full — via `COLLECTOR_SERVICE_ADDR` + `ENABLE_TRACING=1` |
+> | email, recommendation | Python | Full — via `COLLECTOR_SERVICE_ADDR` + `ENABLE_TRACING=1` |
+> | shipping | Go | Not implemented (TODO in source) |
+> | ad | Java | Not implemented (TODO in source) |
+> | cart | .NET | Not implemented |
+
+Patch the workloads to add the collector address:
+
+```bash
+COLLECTOR_ADDR="opentelemetry-collector.openchoreo-observability-plane.svc.cluster.local:4317"
+# frontend, checkout, productcatalog, currency, payment, email, recommendation
+for svc in checkout currency email frontend payment productcatalog recommendation; do
+  kubectl patch workload "$svc" -n default --type='json' -p='[
+    {"op": "add", "path": "/spec/container/env/-", "value": {"key": "COLLECTOR_SERVICE_ADDR", "value": "'"$COLLECTOR_ADDR"'"}},
+    {"op": "add", "path": "/spec/container/env/-", "value": {"key": "ENABLE_TRACING", "value": "1"}}
+  ]'
+done
+```
+
+> [!NOTE]
+> `shipping` (Go), `ad` (Java), and `cart` (C#/.NET) do not have OpenTelemetry tracing implemented in the current upstream source and will not emit traces regardless of configuration.
+
+For more details on traces, see the [Observability & Alerting guide](https://openchoreo.dev/docs/next/platform-engineer-guide/observability-alerting/#traces).
+
 ## Step 3: Test the Application
 
 Access the frontend application in your browser:
