@@ -196,7 +196,7 @@ func TestAddDependenciesFromDescriptor(t *testing.T) {
 						{
 							Component:  "svc-a",
 							Name:       "http-ep",
-							Visibility: "public",
+							Visibility: "external",
 							EnvBindings: WorkloadDescriptorConnectionEnvBindings{
 								Address: "SVC_A_URL",
 							},

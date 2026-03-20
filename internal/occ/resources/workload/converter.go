@@ -291,6 +291,13 @@ var validEndpointVisibilities = map[openchoreov1alpha1.EndpointVisibility]bool{
 	openchoreov1alpha1.EndpointVisibilityExternal:  true,
 }
 
+// validDependencyVisibilities is the set of allowed visibility values for dependency endpoint connections.
+// WorkloadConnection.Visibility is restricted to project and namespace by the CRD validation.
+var validDependencyVisibilities = map[openchoreov1alpha1.EndpointVisibility]bool{
+	openchoreov1alpha1.EndpointVisibilityProject:   true,
+	openchoreov1alpha1.EndpointVisibilityNamespace: true,
+}
+
 // addDependenciesFromDescriptor adds dependencies from the descriptor to the workload
 func addDependenciesFromDescriptor(workload *openchoreov1alpha1.Workload, descriptor *WorkloadDescriptor) error {
 	if descriptor.Dependencies == nil || len(descriptor.Dependencies.Endpoints) == 0 {
@@ -309,8 +316,8 @@ func addDependenciesFromDescriptor(workload *openchoreov1alpha1.Workload, descri
 			return fmt.Errorf("dependency endpoint[%d] (component %q): visibility is required", i, dc.Component)
 		}
 		visibility := openchoreov1alpha1.EndpointVisibility(dc.Visibility)
-		if !validEndpointVisibilities[visibility] {
-			return fmt.Errorf("invalid dependency endpoint visibility %q for component %q endpoint %q: must be one of [project, namespace, internal, external]",
+		if !validDependencyVisibilities[visibility] {
+			return fmt.Errorf("invalid dependency endpoint visibility %q for component %q endpoint %q: must be one of [project, namespace]",
 				dc.Visibility, dc.Component, dc.Name)
 		}
 		connection := openchoreov1alpha1.WorkloadConnection{
