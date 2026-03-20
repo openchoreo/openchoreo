@@ -1097,6 +1097,7 @@ openchoreoApi:
               actions:
                 - "workload:create"
                 - "workload:update"
+                - "workload:view"
                 - "workflowrun:view"
                 - "workflowrun:update"
             
