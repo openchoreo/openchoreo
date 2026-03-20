@@ -1,11 +1,11 @@
 # ============================================================
 # ClusterWorkflowTemplate — Argo Workflows execution template
-# Deploy this to the Workflow Plane cluster
+# Deploy this to the Build Plane cluster
 # ============================================================
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: aws-rds-postgres-delete
+  name: aws-rds-postgres-create
 spec:
   entrypoint: pipeline
   templates:
@@ -13,12 +13,16 @@ spec:
       steps:
         - - name: clone
             template: clone-step
+        - - name: setup
+            template: setup-step
         - - name: init
             template: init-step
-        - - name: plan-destroy
-            template: plan-destroy-step
-        - - name: destroy
-            template: destroy-step
+        - - name: plan
+            template: plan-step
+        - - name: apply
+            template: apply-step
+        - - name: report
+            template: report-step
 
     # Step 1: Clone the Terraform repo to get the Terraform files
     - name: clone-step
@@ -42,7 +46,54 @@ spec:
           - name: data
             mountPath: /mnt/data
 
-    # Step 2: terraform init — connect to the existing S3 state
+    # Step 2: Create the S3 bucket for Terraform state if it does not exist yet
+    - name: setup-step
+      container:
+        image: amazon/aws-cli:2.22.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            echo "Checking S3 bucket ${TFSTATE_S3_BUCKET} ..."
+            HEAD_OUTPUT=$(aws s3api head-bucket --bucket "$TFSTATE_S3_BUCKET" 2>&1) && BUCKET_EXISTS=true || BUCKET_EXISTS=false
+            if [ "$BUCKET_EXISTS" = "true" ]; then
+              echo "Bucket already exists — skipping creation."
+            elif echo "$HEAD_OUTPUT" | grep -q "404\|NoSuchBucket"; then
+              echo "Creating S3 bucket ${TFSTATE_S3_BUCKET} in region ${AWS_REGION} ..."
+              if [ "$AWS_REGION" = "us-east-1" ]; then
+                aws s3api create-bucket \
+                  --bucket "$TFSTATE_S3_BUCKET" \
+                  --region "$AWS_REGION"
+              else
+                aws s3api create-bucket \
+                  --bucket "$TFSTATE_S3_BUCKET" \
+                  --region "$AWS_REGION" \
+                  --create-bucket-configuration LocationConstraint="$AWS_REGION"
+              fi
+              echo "Bucket created."
+            else
+              echo "ERROR: Cannot access bucket ${TFSTATE_S3_BUCKET}."
+              echo "It may be owned by another AWS account. Choose a different bucket name."
+              echo "Details: ${HEAD_OUTPUT}"
+              exit 1
+            fi
+        env:
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: accessKeyId
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: secretAccessKey
+          - name: AWS_REGION
+            value: "{{workflow.parameters.aws-region}}"
+          - name: TFSTATE_S3_BUCKET
+            value: "{{workflow.parameters.tfstate-s3-bucket}}"
+
+    # Step 3: terraform init — configure S3 backend at runtime
     - name: init-step
       container:
         image: hashicorp/terraform:1.9
@@ -83,8 +134,8 @@ spec:
           - name: data
             mountPath: /mnt/data
 
-    # Step 3: terraform plan -destroy — dry run showing what will be deleted
-    - name: plan-destroy-step
+    # Step 4: terraform plan — dry run for visibility in logs
+    - name: plan-step
       container:
         image: hashicorp/terraform:1.9
         command: [sh, -c]
@@ -95,9 +146,8 @@ spec:
             TF_DIR="/mnt/data/repo/${GIT_TF_PATH}"
             cd "$TF_DIR"
 
-            echo "Running terraform plan -destroy ..."
+            echo "Running terraform plan ..."
             terraform plan \
-              -destroy \
               -var="aws_region=${AWS_REGION}" \
               -var="db_identifier=${DB_IDENTIFIER}" \
               -var="db_name=${DB_NAME}" \
@@ -137,8 +187,8 @@ spec:
           - name: data
             mountPath: /mnt/data
 
-    # Step 4: terraform destroy — delete the RDS instance and all associated resources
-    - name: destroy-step
+    # Step 5: terraform apply — provision the RDS instance and save outputs
+    - name: apply-step
       container:
         image: hashicorp/terraform:1.9
         command: [sh, -c]
@@ -149,8 +199,8 @@ spec:
             TF_DIR="/mnt/data/repo/${GIT_TF_PATH}"
             cd "$TF_DIR"
 
-            echo "Running terraform destroy ..."
-            terraform destroy \
+            echo "Running terraform apply ..."
+            terraform apply \
               -auto-approve \
               -var="aws_region=${AWS_REGION}" \
               -var="db_identifier=${DB_IDENTIFIER}" \
@@ -160,13 +210,9 @@ spec:
               -var="db_engine_version=${DB_ENGINE_VERSION}" \
               -input=false
 
-            echo "================================================="
-            echo "  AWS RDS PostgreSQL Instance Deleted            "
-            echo "================================================="
-            echo "Identifier: ${DB_IDENTIFIER}"
-            echo "The instance, subnet group, and security group"
-            echo "have been removed from AWS."
-            echo "================================================="
+            echo "Saving terraform outputs ..."
+            terraform output -json > /mnt/data/tf-outputs.json
+            echo "Apply complete."
         env:
           - name: AWS_ACCESS_KEY_ID
             valueFrom:
@@ -195,6 +241,53 @@ spec:
             value: "{{workflow.parameters.db-engine-version}}"
           - name: GIT_TF_PATH
             value: "{{workflow.parameters.git-tf-path}}"
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+    # Step 6: Parse terraform outputs and print the connection summary
+    - name: report-step
+      container:
+        image: alpine:3
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            apk add --no-cache jq -q
+
+            if ! jq -e '.db_address.value' /mnt/data/tf-outputs.json > /dev/null 2>&1; then
+              echo "ERROR: terraform outputs not found. Apply step may have failed."
+              cat /mnt/data/tf-outputs.json
+              exit 1
+            fi
+
+            ADDRESS=$(jq -r '.db_address.value' /mnt/data/tf-outputs.json)
+            PORT=$(jq -r '.db_port.value' /mnt/data/tf-outputs.json)
+            DB_NAME_OUT=$(jq -r '.db_name.value' /mnt/data/tf-outputs.json)
+            DB_USER=$(jq -r '.db_username.value' /mnt/data/tf-outputs.json)
+            ARN=$(jq -r '.db_arn.value' /mnt/data/tf-outputs.json)
+            CONN_STRING_TEMPLATE="postgresql://${DB_USER}:<password>@${ADDRESS}:${PORT}/${DB_NAME_OUT}"
+
+            echo "================================================="
+            echo "  AWS RDS PostgreSQL Instance Created            "
+            echo "================================================="
+            echo "Host:              ${ADDRESS}"
+            echo "Port:              ${PORT}"
+            echo "Database:          ${DB_NAME_OUT}"
+            echo "Username:          ${DB_USER}"
+            echo "ARN:               ${ARN}"
+            echo "-------------------------------------------------"
+            echo "Connection String (template):"
+            echo "  ${CONN_STRING_TEMPLATE}"
+            echo ""
+            echo "NOTE: Password is stored in the '{{workflow.parameters.credentials-secret}}'"
+            echo "      Kubernetes Secret under the 'dbPassword' key."
+            echo "      Retrieve it with:"
+            echo "      kubectl get secret {{workflow.parameters.credentials-secret}} \\"
+            echo "        -o jsonpath='{.data.dbPassword}' | base64 -d"
+            echo "================================================="
+            echo ""
+            echo "NOTE: The instance is publicly accessible on port 5432."
         volumeMounts:
           - name: data
             mountPath: /mnt/data
@@ -217,10 +310,10 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workflow
 metadata:
-  name: aws-rds-postgres-delete
+  name: aws-rds-postgres-create
   namespace: default
   annotations:
-    openchoreo.dev/description: "Destroy an AWS RDS PostgreSQL instance provisioned by aws-rds-postgres-create"
+    openchoreo.dev/description: "Provision an AWS RDS PostgreSQL instance using Terraform with state stored in S3"
 spec:
   # Template Variable Reference (processed by controller):
   # ${metadata.workflowRunName}  - WorkflowRun CR name
@@ -236,19 +329,19 @@ spec:
         git:
           type: object
           default: {}
-          description: "Source repository that contains the Terraform files (must match the values used when creating the instance)"
+          description: "Source repository that contains the Terraform files"
           properties:
             repoUrl:
               type: string
               default: "https://github.com/openchoreo/openchoreo.git"
-              description: "Git repository URL to clone at runtime (HTTPS)"
+              description: "Git repository URL to clone at runtime (HTTPS). Override this to point to your own repo."
             branch:
               type: string
               default: "main"
               description: "Branch or tag to check out"
             tfPath:
               type: string
-              default: "samples/workflows/aws-rds-postgres-create/terraform"
+              default: "samples/workflows/aws-rds-postgres/terraform"
               description: "Relative path inside the cloned repo that contains the Terraform files"
         aws:
           type: object
@@ -257,7 +350,7 @@ spec:
             region:
               type: string
               default: "us-east-1"
-              description: "AWS region where the RDS instance was created"
+              description: "AWS region where the RDS instance will be created"
             credentialsSecret:
               type: string
               description: "Name of the Kubernetes Secret containing 'accessKeyId', 'secretAccessKey', and 'dbPassword' keys"
@@ -267,24 +360,24 @@ spec:
           properties:
             s3Bucket:
               type: string
-              description: "S3 bucket name used to store the Terraform state file (must match the value used when creating the instance)"
+              description: "S3 bucket name for storing the Terraform state file"
         db:
           type: object
           default: {}
           properties:
             identifier:
               type: string
-              description: "RDS instance identifier to delete — must exactly match the identifier used when creating the instance"
+              description: "Unique RDS instance identifier (e.g. my-app-db). Also used as the Terraform state key prefix."
             name:
               type: string
-              description: "Database name used when creating the instance"
+              description: "Name of the initial database to create inside the instance"
             username:
               type: string
-              description: "Master username used when creating the instance"
+              description: "Master username for the database"
             engineVersion:
               type: string
               default: "16"
-              description: "PostgreSQL engine major version used when creating the instance"
+              description: "PostgreSQL engine major version (e.g. '16', '15')"
 
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
@@ -318,25 +411,25 @@ spec:
       serviceAccountName: workflow-sa
       workflowTemplateRef:
         clusterScope: true
-        name: aws-rds-postgres-delete
+        name: aws-rds-postgres-create
 
 ---
 # ============================================================
-# WorkflowRun — triggers a single deletion
-# Use the same parameter values that were used to create the instance
+# WorkflowRun — triggers a single execution
+# Edit the parameters below and apply to run the workflow
 # ============================================================
 apiVersion: openchoreo.dev/v1alpha1
 kind: WorkflowRun
 metadata:
-  name: aws-rds-postgres-delete-run
+  name: aws-rds-postgres-create-run
 spec:
   workflow:
-    name: aws-rds-postgres-delete
+    name: aws-rds-postgres-create
     parameters:
       git:
         repoUrl: "https://github.com/openchoreo/openchoreo.git"
         branch: "main"
-        tfPath: "samples/workflows/aws-rds-postgres-create/terraform"
+        tfPath: "samples/workflows/aws-rds-postgres/terraform"
       aws:
         region: "us-east-1"
         credentialsSecret: "aws-rds-credentials"

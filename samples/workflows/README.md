@@ -8,7 +8,7 @@ This directory contains Workflow definitions for OpenChoreo. Each subdirectory p
 
 | Directory | Description |
 |-----------|-------------|
-| [`aws-rds-postgres-create/`](./aws-rds-postgres-create/) | Provision and destroy AWS RDS PostgreSQL instances using Terraform |
+| [`aws-rds-postgres/`](./aws-rds-postgres/) | Provision and destroy AWS RDS PostgreSQL instances using Terraform |
 | [`github-stats-report/`](./github-stats-report/) | Generate GitHub repository statistics reports |
 | [`scm-create-repo/`](./scm-create-repo/) | Create repositories in GitHub or AWS CodeCommit |
 
