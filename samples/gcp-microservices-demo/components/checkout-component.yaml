@@ -66,7 +66,7 @@ spec:
         envBindings:
           address: CART_SERVICE_ADDR
   container:
-    image: us-central1-docker.pkg.dev/google-samples/microservices-demo/checkoutservice:v0.10.3
+    image: us-central1-docker.pkg.dev/google-samples/microservices-demo/checkoutservice:v0.10.5
     env:
       - key: DISABLE_PROFILER
         value: "1"

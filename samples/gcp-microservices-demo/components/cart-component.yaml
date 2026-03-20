@@ -36,7 +36,7 @@ spec:
         envBindings:
           address: REDIS_ADDR
   container:
-    image: us-central1-docker.pkg.dev/google-samples/microservices-demo/cartservice:v0.10.3
+    image: us-central1-docker.pkg.dev/google-samples/microservices-demo/cartservice:v0.10.5
     env:
       - key: PORT
         value: "7070"
