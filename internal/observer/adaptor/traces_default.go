@@ -90,7 +90,7 @@ func (a *DefaultTracesAdaptor) GetTraces(ctx context.Context, params observabili
 
 	return &observability.TracesQueryResult{
 		Traces:     traces,
-		TotalCount: len(traces),
+		TotalCount: min(response.Hits.Total.Value, config.MaxLimit),
 		Took:       response.Took,
 	}, nil
 }

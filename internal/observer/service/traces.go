@@ -312,7 +312,7 @@ func (s *TracesService) convertSpansToResponse(result *observability.TracesQuery
 
 	return &types.SpansQueryResponse{
 		Spans:  spans,
-		Total:  len(spans),
+		Total:  min(result.TotalCount, config.MaxLimit),
 		TookMs: result.Took,
 	}
 }

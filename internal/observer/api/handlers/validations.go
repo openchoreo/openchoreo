@@ -12,12 +12,12 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 const (
 	defaultLimit      = 100
-	maxLimit          = 10000
 	defaultSortOrder  = "desc"
 	sortOrderAsc      = "asc"
 	maxQueryTimeRange = 30 * 24 * time.Hour // 30 days
@@ -145,8 +145,8 @@ func ValidateAndSetLimit(limit *int) error {
 	if *limit < 0 {
 		return fmt.Errorf("limit must be a positive integer")
 	}
-	if *limit > maxLimit {
-		return fmt.Errorf("limit cannot exceed %d", maxLimit)
+	if *limit > config.MaxLimit {
+		return fmt.Errorf("limit cannot exceed %d", config.MaxLimit)
 	}
 	return nil
 }
@@ -346,8 +346,8 @@ func ValidateTracesQueryRequest(req *gen.TracesQueryRequest) error {
 		if *req.Limit <= 0 {
 			return fmt.Errorf("limit must be a positive integer greater than zero")
 		}
-		if *req.Limit > maxLimit {
-			return fmt.Errorf("limit cannot exceed %d", maxLimit)
+		if *req.Limit > config.MaxLimit {
+			return fmt.Errorf("limit cannot exceed %d", config.MaxLimit)
 		}
 	}
 
@@ -389,8 +389,8 @@ func ValidateAlertsQueryRequest(req *gen.AlertsQueryRequest) error {
 		if *req.Limit <= 0 {
 			return fmt.Errorf("limit must be a positive integer greater than zero")
 		}
-		if *req.Limit > maxLimit {
-			return fmt.Errorf("limit cannot exceed %d", maxLimit)
+		if *req.Limit > config.MaxLimit {
+			return fmt.Errorf("limit cannot exceed %d", config.MaxLimit)
 		}
 	}
 	if req.SortOrder != nil {
@@ -429,8 +429,8 @@ func ValidateIncidentsQueryRequest(req *gen.IncidentsQueryRequest) error {
 		if *req.Limit <= 0 {
 			return fmt.Errorf("limit must be a positive integer greater than zero")
 		}
-		if *req.Limit > maxLimit {
-			return fmt.Errorf("limit cannot exceed %d", maxLimit)
+		if *req.Limit > config.MaxLimit {
+			return fmt.Errorf("limit cannot exceed %d", config.MaxLimit)
 		}
 	}
 	if req.SortOrder != nil {

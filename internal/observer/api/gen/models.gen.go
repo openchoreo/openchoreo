@@ -720,7 +720,7 @@ type LogsQueryResponse struct {
 	// TookMs The time taken to query the logs in milliseconds
 	TookMs *int `json:"tookMs,omitempty"`
 
-	// Total The total number of logs queried
+	// Total The total number of matching log entries, capped at 1000
 	Total *int `json:"total,omitempty"`
 }
 
@@ -836,7 +836,7 @@ type TraceSpansQueryResponse struct {
 	// TookMs The time taken to query the spans in milliseconds
 	TookMs *int `json:"tookMs,omitempty"`
 
-	// Total The total number of spans
+	// Total The total number of matching spans, capped at 1000
 	Total *int `json:"total,omitempty"`
 }
 
@@ -864,7 +864,7 @@ type TracesQueryResponse struct {
 	// TookMs The time taken to query the traces in milliseconds
 	TookMs *int `json:"tookMs,omitempty"`
 
-	// Total The total number of traces
+	// Total The total number of matching traces, capped at 1000
 	Total *int `json:"total,omitempty"`
 
 	// Traces The list of traces

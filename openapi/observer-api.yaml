@@ -804,7 +804,7 @@ components:
           description: The logs queried successfully
         total:
           type: integer
-          description: The total number of logs queried
+          description: The total number of matching log entries, capped at 1000
         tookMs:
           type: integer
           description: The time taken to query the logs in milliseconds
@@ -980,7 +980,7 @@ components:
                 description: The duration of the trace in nanoseconds
         total:
           type: integer
-          description: The total number of traces
+          description: The total number of matching traces, capped at 1000
         tookMs:
           type: integer
           description: The time taken to query the traces in milliseconds
@@ -1020,7 +1020,7 @@ components:
                 description: The parent span ID
         total:
           type: integer
-          description: The total number of spans
+          description: The total number of matching spans, capped at 1000
         tookMs:
           type: integer
           description: The time taken to query the spans in milliseconds

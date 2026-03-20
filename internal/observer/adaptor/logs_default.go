@@ -125,7 +125,7 @@ func (a *DefaultLogsAdaptor) GetComponentApplicationLogs(
 
 	return &observability.ComponentApplicationLogsResult{
 		Logs:       logs,
-		TotalCount: response.Hits.Total.Value,
+		TotalCount: min(response.Hits.Total.Value, config.MaxLimit),
 		Took:       response.Took,
 	}, nil
 }
@@ -208,7 +208,7 @@ func (a *DefaultLogsAdaptor) GetWorkflowLogs(
 
 	return &observability.WorkflowLogsResult{
 		Logs:       logs,
-		TotalCount: response.Hits.Total.Value,
+		TotalCount: min(response.Hits.Total.Value, config.MaxLimit),
 		Took:       response.Took,
 	}, nil
 }

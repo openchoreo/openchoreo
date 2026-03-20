@@ -17,6 +17,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/subject"
 )
 
+// MaxLimit is the maximum number of results that can be returned by any query endpoint.
+// This matches the OpenAPI spec's maximum for the limit field and is used to cap
+// the total count reported by OpenSearch (whose hits.total.value caps at 10000).
+const MaxLimit = 1000
+
 // Config holds all configuration for the logging service
 type Config struct {
 	Server      ServerConfig      `koanf:"server"`
