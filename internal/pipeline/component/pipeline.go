@@ -87,8 +87,8 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	// Pre-compute workload data and configurations once and share across all contexts
 	workloadData := context.ExtractWorkloadData(workload)
 	configurations := context.ExtractConfigurationsFromWorkload(input.SecretReferences, workload)
-	connectionsData := context.ConnectionsData{
-		Items: input.ConnectionItems,
+	dependenciesData := context.ConnectionsData{
+		Items: input.DependencyItems,
 	}
 
 	// Build component context
@@ -100,7 +100,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Environment:                input.Environment,
 		WorkloadData:               workloadData,
 		Configurations:             configurations,
-		Connections:                connectionsData,
+		Dependencies:               dependenciesData,
 		Metadata:                   input.Metadata,
 		DefaultNotificationChannel: input.DefaultNotificationChannel,
 	})
@@ -178,7 +178,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			Component:                  input.Component,
 			WorkloadData:               workloadData,
 			Configurations:             configurations,
-			Connections:                connectionsData,
+			Dependencies:               dependenciesData,
 			Metadata:                   input.Metadata,
 			SchemaCache:                schemaCache,
 			DataPlane:                  input.DataPlane,
@@ -231,7 +231,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			ReleaseBinding:             input.ReleaseBinding,
 			WorkloadData:               workloadData,
 			Configurations:             configurations,
-			Connections:                connectionsData,
+			Dependencies:               dependenciesData,
 			Metadata:                   input.Metadata,
 			SchemaCache:                schemaCache,
 			DataPlane:                  input.DataPlane,

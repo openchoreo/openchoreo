@@ -49,7 +49,7 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 	// WorkloadData, Configurations, and Connections should be pre-computed by the caller
 	ctx.Workload = input.WorkloadData
 	ctx.Configurations = input.Configurations
-	ctx.Connections = newConnectionsContextData(input.Connections)
+	ctx.Dependencies = newDependenciesContextData(input.Dependencies)
 
 	// Ensure metadata maps are always initialized
 	ctx.Metadata = input.Metadata

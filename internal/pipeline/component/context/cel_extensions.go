@@ -22,7 +22,7 @@ import (
 
 const (
 	configurationsIdentifier = "configurations"
-	connectionsIdentifier    = "connections"
+	dependenciesIdentifier   = "dependencies"
 	protocolTCP              = "TCP"
 	protocolUDP              = "UDP"
 )
@@ -126,10 +126,10 @@ var toServicePortsMacro = cel.ReceiverMacro("toServicePorts", 0,
 		return nil, nil
 	})
 
-// toContainerEnvMacro rewrites connections.toContainerEnv() to connections.envVars at compile time.
-var toContainerEnvMacro = cel.ReceiverMacro("toContainerEnv", 0,
+// toContainerEnvsMacro rewrites dependencies.toContainerEnvs() to dependencies.envVars at compile time.
+var toContainerEnvsMacro = cel.ReceiverMacro("toContainerEnvs", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
-		if target.Kind() == ast.IdentKind && target.AsIdent() == connectionsIdentifier {
+		if target.Kind() == ast.IdentKind && target.AsIdent() == dependenciesIdentifier {
 			return eh.NewSelect(target, "envVars"), nil
 		}
 		return nil, nil

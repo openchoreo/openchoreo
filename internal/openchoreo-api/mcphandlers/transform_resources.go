@@ -167,7 +167,7 @@ func workloadDetail(w *openchoreov1alpha1.Workload) map[string]any {
 			}
 			conns = append(conns, c)
 		}
-		m["connections"] = conns
+		m["dependencies"] = conns
 	}
 	return m
 }

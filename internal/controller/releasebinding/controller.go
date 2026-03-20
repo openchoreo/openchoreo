@@ -437,7 +437,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	releaseBinding.Status.PendingConnections = pendingConns
 
 	// Pre-compute connection items with per-item env vars from resolved connections
-	connectionItems := buildConnectionItems(releaseBinding, snapshotWorkload.Spec.GetDependencyEndpoints())
+	dependencyItems := buildConnectionItems(releaseBinding, snapshotWorkload.Spec.GetDependencyEndpoints())
 
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
@@ -451,7 +451,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		SecretReferences:           secretReferences,
 		Metadata:                   metadataContext,
 		DefaultNotificationChannel: defaultNotificationChannel,
-		ConnectionItems:            connectionItems,
+		DependencyItems:            dependencyItems,
 	}
 
 	// Render resources using the shared pipeline instance

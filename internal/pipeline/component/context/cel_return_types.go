@@ -150,7 +150,7 @@ var helperFuncRegistry = []helperFuncDef{
 var helperMacros = []cel.Macro{
 	toConfigFileListMacro, toSecretFileListMacro, toContainerEnvFromMacro,
 	toContainerVolumeMountsMacro, toVolumesMacro, toConfigEnvsByContainerMacro,
-	toSecretEnvsByContainerMacro, toServicePortsMacro, toContainerEnvMacro,
+	toSecretEnvsByContainerMacro, toServicePortsMacro, toContainerEnvsMacro,
 }
 
 // FunctionReturnTypes returns the unique Go types used as return types by CEL helper functions.

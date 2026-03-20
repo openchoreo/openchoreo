@@ -8,8 +8,8 @@ OpenChoreo uses two context types depending on where the template is evaluated:
 
 | Context Type | Used In | Key Variables |
 |--------------|---------|---------------|
-| **ComponentContext** | ComponentType `validations` and `resources` | `metadata`, `parameters`, `environmentConfigs`, `dataplane`, `gateway`, `environment`, `workload`, `configurations`, `connections` |
-| **TraitContext** | Trait `validations`, `creates`, and `patches` | `metadata`, `parameters`, `environmentConfigs`, `dataplane`, `gateway`, `environment`, `trait`, `workload`, `configurations`, `connections` |
+| **ComponentContext** | ComponentType `validations` and `resources` | `metadata`, `parameters`, `environmentConfigs`, `dataplane`, `gateway`, `environment`, `workload`, `configurations`, `dependencies` |
+| **TraitContext** | Trait `validations`, `creates`, and `patches` | `metadata`, `parameters`, `environmentConfigs`, `dataplane`, `gateway`, `environment`, `trait`, `workload`, `configurations`, `dependencies` |
 
 ## ComponentContext
 
@@ -806,7 +806,7 @@ The entire rendered Kubernetes resource is available, including:
 | `environment.*` | ✅ | ✅ |
 | `workload.*` | ✅ | ✅ |
 | `configurations.*` | ✅ | ✅ |
-| `connections.*` | ✅ | ✅ |
+| `dependencies.*` | ✅ | ✅ |
 | `trait.*` | ❌ | ✅ |
 | Loop variable | ✅ (in forEach) | ✅ (in forEach) |
 | `resource` | ❌ | ✅ (in where only) |

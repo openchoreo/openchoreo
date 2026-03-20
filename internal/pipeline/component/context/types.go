@@ -107,9 +107,9 @@ type ComponentContextInput struct {
 	// Required - controller must provide this.
 	Metadata MetadataContext `validate:"required"`
 
-	// Connections contains pre-computed connection environment variables.
-	// Optional - if not provided, connections context will be empty.
-	Connections ConnectionsData
+	// Dependencies contains pre-computed dependency environment variables.
+	// Optional - if not provided, dependencies context will be empty.
+	Dependencies ConnectionsData
 
 	// DefaultNotificationChannel is the default notification channel name for the environment.
 	// Optional - if not provided, the defaultNotificationChannel field in EnvironmentData will be empty.
@@ -144,9 +144,9 @@ type TraitContextInput struct {
 	// Required - controller must provide this.
 	Metadata MetadataContext `validate:"required"`
 
-	// Connections contains pre-computed connection environment variables.
-	// Optional - if not provided, connections context will be empty.
-	Connections ConnectionsData
+	// Dependencies contains pre-computed dependency environment variables.
+	// Optional - if not provided, dependencies context will be empty.
+	Dependencies ConnectionsData
 
 	// SchemaCache is an optional cache for schema bundles, keyed by trait kind+name with suffix.
 	// Used to avoid rebuilding schemas for the same trait used multiple times.
@@ -214,9 +214,9 @@ type ComponentContext struct {
 	// Accessed via ${configurations.configs.envs}, ${configurations.secrets.files}, etc.
 	Configurations ContainerConfigurations `json:"configurations"`
 
-	// Connections contains connection metadata and merged env vars for templates.
-	// Accessed via ${connections.items} and ${connections.envVars}.
-	Connections ConnectionsContextData `json:"connections"`
+	// Dependencies contains dependency metadata and merged env vars for templates.
+	// Accessed via ${dependencies.items} and ${dependencies.envVars}.
+	Dependencies ConnectionsContextData `json:"dependencies"`
 }
 
 // DataPlaneData provides data plane configuration in templates.
@@ -354,10 +354,10 @@ type ConnectionsContextData struct {
 	EnvVars []ConnectionEnvVar `json:"envVars"`
 }
 
-// newConnectionsContextData creates a ConnectionsContextData from ConnectionsData,
+// newDependenciesContextData creates a ConnectionsContextData from ConnectionsData,
 // merging all per-item env vars into the top-level EnvVars field.
 // Ensures no nil slices so CEL templates always see empty lists instead of null.
-func newConnectionsContextData(data ConnectionsData) ConnectionsContextData {
+func newDependenciesContextData(data ConnectionsData) ConnectionsContextData {
 	items := make([]ConnectionItem, len(data.Items))
 	merged := make([]ConnectionEnvVar, 0, len(data.Items))
 	for i, item := range data.Items {
@@ -415,9 +415,9 @@ type TraitContext struct {
 	// Accessed via ${configurations.configs.envs}, ${configurations.secrets.files}, etc.
 	Configurations ContainerConfigurations `json:"configurations"`
 
-	// Connections contains connection metadata and merged env vars for templates.
-	// Accessed via ${connections.items} and ${connections.envVars}.
-	Connections ConnectionsContextData `json:"connections"`
+	// Dependencies contains dependency metadata and merged env vars for templates.
+	// Accessed via ${dependencies.items} and ${dependencies.envVars}.
+	Dependencies ConnectionsContextData `json:"dependencies"`
 }
 
 // TraitMetadata contains trait-specific metadata.

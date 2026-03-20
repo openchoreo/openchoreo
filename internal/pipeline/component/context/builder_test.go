@@ -101,7 +101,7 @@ metadata:
 						"files": []any{},
 					},
 				},
-				"connections": map[string]any{
+				"dependencies": map[string]any{
 					"items":   []any{},
 					"envVars": []any{},
 				},
@@ -193,7 +193,7 @@ spec:
 						"files": []any{},
 					},
 				},
-				"connections": map[string]any{
+				"dependencies": map[string]any{
 					"items":   []any{},
 					"envVars": []any{},
 				},
@@ -275,7 +275,7 @@ metadata:
 						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 					},
 				},
-				"connections": map[string]any{
+				"dependencies": map[string]any{
 					"items":   []any{},
 					"envVars": []any{},
 				},
@@ -477,7 +477,7 @@ metadata:
 						"files": []any{},
 					},
 				},
-				"connections": map[string]any{
+				"dependencies": map[string]any{
 					"items":   []any{},
 					"envVars": []any{},
 				},
@@ -579,7 +579,7 @@ spec:
 						"files": []any{},
 					},
 				},
-				"connections": map[string]any{
+				"dependencies": map[string]any{
 					"items":   []any{},
 					"envVars": []any{},
 				},

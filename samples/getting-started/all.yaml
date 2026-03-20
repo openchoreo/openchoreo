@@ -195,7 +195,7 @@ spec:
                     limits:
                       cpu: ${environmentConfigs.resources.limits.cpu}
                       memory: ${environmentConfigs.resources.limits.memory}
-                  env: ${connections.toContainerEnv()}
+                  env: ${dependencies.toContainerEnvs()}
                   envFrom: ${configurations.toContainerEnvFrom()}
                   volumeMounts: ${configurations.toContainerVolumeMounts()}
               volumes: ${configurations.toVolumes()}
@@ -379,7 +379,7 @@ spec:
                     limits:
                       cpu: ${environmentConfigs.resources.limits.cpu}
                       memory: ${environmentConfigs.resources.limits.memory}
-                  env: ${connections.toContainerEnv()}
+                  env: ${dependencies.toContainerEnvs()}
                   envFrom: ${configurations.toContainerEnvFrom()}
                   volumeMounts: ${configurations.toContainerVolumeMounts()}
               volumes: ${configurations.toVolumes()}
@@ -628,7 +628,7 @@ spec:
                     limits:
                       cpu: ${environmentConfigs.resources.limits.cpu}
                       memory: ${environmentConfigs.resources.limits.memory}
-                  env: ${connections.toContainerEnv()}
+                  env: ${dependencies.toContainerEnvs()}
                   envFrom: ${configurations.toContainerEnvFrom()}
                   volumeMounts: ${configurations.toContainerVolumeMounts()}
               volumes: ${configurations.toVolumes()}
@@ -884,7 +884,7 @@ spec:
                         limits:
                           cpu: ${environmentConfigs.resources.limits.cpu}
                           memory: ${environmentConfigs.resources.limits.memory}
-                      env: ${connections.toContainerEnv()}
+                      env: ${dependencies.toContainerEnvs()}
                       envFrom: ${configurations.toContainerEnvFrom()}
                       volumeMounts: ${configurations.toContainerVolumeMounts()}
                   volumes: ${configurations.toVolumes()}

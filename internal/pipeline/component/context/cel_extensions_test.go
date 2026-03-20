@@ -884,7 +884,7 @@ func TestEnvFromCanBeUsedWithCELOperations(t *testing.T) {
 }
 
 func TestConnectionsContextData(t *testing.T) {
-	t.Run("newConnectionsContextData merges env vars from items", func(t *testing.T) {
+	t.Run("newDependenciesContextData merges env vars from items", func(t *testing.T) {
 		data := ConnectionsData{
 			Items: []ConnectionItem{
 				{
@@ -905,7 +905,7 @@ func TestConnectionsContextData(t *testing.T) {
 			},
 		}
 
-		ctx := newConnectionsContextData(data)
+		ctx := newDependenciesContextData(data)
 
 		wantEnvVars := []ConnectionEnvVar{
 			{Name: "SVC_A_URL", Value: "http://svc-a:8080"},
@@ -920,8 +920,8 @@ func TestConnectionsContextData(t *testing.T) {
 		}
 	})
 
-	t.Run("newConnectionsContextData with no items returns empty slices", func(t *testing.T) {
-		ctx := newConnectionsContextData(ConnectionsData{})
+	t.Run("newDependenciesContextData with no items returns empty slices", func(t *testing.T) {
+		ctx := newDependenciesContextData(ConnectionsData{})
 		if ctx.EnvVars == nil || len(ctx.EnvVars) != 0 {
 			t.Errorf("expected empty envVars, got %v", ctx.EnvVars)
 		}
@@ -948,7 +948,7 @@ func TestConnectionsContextData(t *testing.T) {
 			},
 		}
 
-		ctx := newConnectionsContextData(data)
+		ctx := newDependenciesContextData(data)
 
 		// Merged top-level envVars should only contain svc-b's env var
 		wantEnvVars := []ConnectionEnvVar{
@@ -967,10 +967,10 @@ func TestConnectionsContextData(t *testing.T) {
 		}
 	})
 
-	t.Run("connections.toContainerEnv() macro rewrites to connections.envVars", func(t *testing.T) {
+	t.Run("dependencies.toContainerEnvs() macro rewrites to dependencies.envVars", func(t *testing.T) {
 		engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 		inputs := map[string]any{
-			"connections": map[string]any{
+			"dependencies": map[string]any{
 				"items": []any{
 					map[string]any{
 						"namespace": "ns1", "project": "proj1", "component": "svc-a",
@@ -994,7 +994,7 @@ func TestConnectionsContextData(t *testing.T) {
 			},
 		}
 
-		result, err := engine.Render(`${connections.toContainerEnv()}`, inputs)
+		result, err := engine.Render(`${dependencies.toContainerEnvs()}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1004,7 +1004,7 @@ func TestConnectionsContextData(t *testing.T) {
 			map[string]any{"name": "SVC_B_URL", "value": "grpc://svc-b:9090"},
 		}
 		if diff := cmp.Diff(want, result); diff != "" {
-			t.Errorf("connections.toContainerEnv() mismatch (-want +got):\n%s", diff)
+			t.Errorf("dependencies.toContainerEnvs() mismatch (-want +got):\n%s", diff)
 		}
 	})
 }

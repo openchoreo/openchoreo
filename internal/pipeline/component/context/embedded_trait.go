@@ -40,8 +40,8 @@ type EmbeddedTraitContextInput struct {
 	// Configurations is the pre-computed configurations from workload.
 	Configurations ContainerConfigurations
 
-	// Connections contains pre-computed connection environment variables.
-	Connections ConnectionsData
+	// Dependencies contains pre-computed dependency environment variables.
+	Dependencies ConnectionsData
 
 	// Metadata provides structured naming and labeling information.
 	Metadata MetadataContext `validate:"required"`
@@ -158,7 +158,7 @@ func BuildEmbeddedTraitContext(input *EmbeddedTraitContextInput) (*TraitContext,
 	ctx.Gateway = ctx.Environment.Gateway
 	ctx.Workload = input.WorkloadData
 	ctx.Configurations = input.Configurations
-	ctx.Connections = newConnectionsContextData(input.Connections)
+	ctx.Dependencies = newDependenciesContextData(input.Dependencies)
 
 	return ctx, nil
 }

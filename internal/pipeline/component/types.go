@@ -59,9 +59,9 @@ type RenderInput struct {
 	// Optional - if not provided, traits won't have access to a default notification channel.
 	DefaultNotificationChannel string
 
-	// ConnectionItems contains connection metadata and pre-computed env vars per connection.
-	// Optional - if nil, connections.items will be empty.
-	ConnectionItems []pipelinecontext.ConnectionItem
+	// DependencyItems contains dependency metadata and pre-computed env vars per dependency.
+	// Optional - if nil, dependencies.items will be empty.
+	DependencyItems []pipelinecontext.ConnectionItem
 }
 
 // ApplyTargetPlaneDefaults normalizes empty targetPlane fields to "dataplane".
