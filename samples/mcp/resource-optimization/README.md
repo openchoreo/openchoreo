@@ -1,6 +1,6 @@
 # Resource Optimization with OpenChoreo MCP Server
 
-This guide walks you through a resource optimization scenario using the OpenChoreo MCP server and AI assistants. You'll intentionally over-provision services in the GCP Microservices Demo, then use AI-assisted analysis to detect the waste and right-size the workloads.
+This guide walks you through a resource optimization scenario using the OpenChoreo MCP server and AI assistants. You'll intentionally over-provision services in the GCP Microservices Demo, then use AI-assisted analysis to detect the waste and right-size the deployments.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ Additionally, you need:
 
 ## What You'll Learn
 
-- How to inspect current resource allocation for workloads using MCP tools
+- How to inspect current resource allocation for release bindings using MCP tools
 - How to query actual CPU and memory usage metrics
 - How to use AI assistants to compare allocation vs usage and detect waste
 - How to get right-sizing recommendations and apply them via MCP
@@ -35,36 +35,29 @@ These lightweight services typically use a fraction of these resources.
 
 ## Step 1: Introduce Over-Provisioning
 
-First, find the deployments (the namespace and deployment names include generated hashes and cannot be hardcoded):
+Patch the ReleaseBindings with excessive resource allocations. This is the OpenChoreo-native way to configure resources — patching deployments directly would be overwritten by the controllers.
 
 ```bash
-# List deployments for the components we'll patch
-kubectl get deployment -A -l openchoreo.dev/component=frontend
-kubectl get deployment -A -l openchoreo.dev/component=checkout
-kubectl get deployment -A -l openchoreo.dev/component=cart
-```
+# Over-provision frontend: 2 CPU / 2Gi memory
+kubectl patch releasebinding frontend-development -n default \
+  --type=merge -p '{
+  "spec": {"componentTypeEnvironmentConfigs": {
+    "resources": {"requests": {"cpu": "2", "memory": "2Gi"},
+                  "limits": {"cpu": "2", "memory": "2Gi"}}}}}'
 
-Now patch them with excessive resource allocations using a helper function:
+# Over-provision checkout: 2 CPU / 2Gi memory
+kubectl patch releasebinding checkout-development -n default \
+  --type=merge -p '{
+  "spec": {"componentTypeEnvironmentConfigs": {
+    "resources": {"requests": {"cpu": "2", "memory": "2Gi"},
+                  "limits": {"cpu": "2", "memory": "2Gi"}}}}}'
 
-```bash
-# Helper to patch a component's deployment by label
-patch_resources() {
-  local component=$1 cpu=$2 memory=$3
-  local ns=$(kubectl get deployment -A -l openchoreo.dev/component="$component" \
-    -o jsonpath='{.items[0].metadata.namespace}')
-  local name=$(kubectl get deployment -A -l openchoreo.dev/component="$component" \
-    -o jsonpath='{.items[0].metadata.name}')
-  kubectl patch deployment "$name" -n "$ns" --type=merge -p "{
-    \"spec\": {\"template\": {\"spec\": {\"containers\": [{\"name\": \"workload\",
-      \"resources\": {\"requests\": {\"cpu\": \"$cpu\", \"memory\": \"$memory\"},
-                      \"limits\": {\"cpu\": \"$cpu\", \"memory\": \"$memory\"}}}]}}}}"
-  echo "Patched $component ($name in $ns): $cpu CPU, $memory memory"
-}
-
-# Over-provision the services
-patch_resources frontend 2 2Gi
-patch_resources checkout 2 2Gi
-patch_resources cart     1 1Gi
+# Over-provision cart: 1 CPU / 1Gi memory
+kubectl patch releasebinding cart-development -n default \
+  --type=merge -p '{
+  "spec": {"componentTypeEnvironmentConfigs": {
+    "resources": {"requests": {"cpu": "1", "memory": "1Gi"},
+                  "limits": {"cpu": "1", "memory": "1Gi"}}}}}'
 ```
 
 Wait a couple of minutes for the pods to restart and for usage metrics to start flowing.
@@ -74,14 +67,16 @@ Wait a couple of minutes for the pods to restart and for usage metrics to start 
 Ask the AI assistant to check the current resource configuration across the project.
 
 ```
-Show me the workload details for all components in the "default" namespace,
-"gcp-microservice-demo" project. Focus on CPU and memory requests and limits.
+Show me the resource configuration (CPU and memory requests and limits) from
+the release bindings for all components in the "default" namespace,
+"gcp-microservice-demo" project.
 ```
 
 **What agent will do:**
-1. Call `list_components` (Control Plane MCP) to discover all components
-2. Call `get_workload` (Control Plane MCP) for each component
-3. Display a summary of resource allocations across all services
+1. Call `list_components` (Control Plane MCP) to discover all components in the project
+2. Call `list_release_bindings` (Control Plane MCP) to discover release bindings of each component
+3. Call `get_release_binding` (Control Plane MCP) for each release binding
+4. Display a summary of resource allocations across all components
 
 **Expected:** The assistant should show that **frontend**, **checkout**, and **cart** have significantly higher resource allocations than the other services.
 
@@ -124,12 +119,11 @@ and cart. Include a safety buffer and explain your reasoning.
 Apply the optimized resource configuration using the MCP server.
 
 ```
-Update the workloads for frontend, checkout, and cart with the recommended
-resource values.
+Update the release bindings for frontend, checkout, and cart with the recommended resource values.
 ```
 
 **What agent will do:**
-1. Call `update_workload` (Control Plane MCP) for each component with the new resource values
+1. Call `update_release_binding` (Control Plane MCP) for each component with the new resource values
 2. Confirm each update was applied successfully
 
 ## Step 6: Verify the Changes
@@ -137,24 +131,25 @@ resource values.
 Confirm the new configuration is in place and the services are healthy.
 
 ```
-Show me the updated workload details for frontend, checkout, and cart.
-Are all pods running and healthy?
+Show me the updated release binding details for frontend, checkout, and cart.
+Confirm the resource values were applied correctly and check if the components are running.
 ```
 
 **What agent will do:**
-1. Call `get_workload` (Control Plane MCP) for each component to confirm the new values
-2. Report on pod status and health
+1. Call `get_release_binding` (Control Plane MCP) for each component to confirm the new values
+2. Report on the deployment status and whether the components are running
 
-**Expected:** All three services should be running with the optimized resource allocations, with pods healthy and no OOMKilled or resource-related restarts.
+**Expected:** All three services should be running with the optimized resource allocations and no resource-related restarts.
 
 ## MCP Tools Used
 
 | Tool | MCP Server | Purpose |
 |------|------------|---------|
 | `list_components` | Control Plane | Discover services in the project |
-| `get_workload` | Control Plane | Inspect resource allocation per component |
+| `list_release_bindings` | Control Plane | Discover release bindings for each component |
+| `get_release_binding` | Control Plane | Inspect resource allocation per component |
 | `query_resource_metrics` | Observability | Query actual CPU and memory usage |
-| `update_workload` | Control Plane | Apply optimized resource values |
+| `update_release_binding` | Control Plane | Apply optimized resource values |
 
 ## Next Steps
 

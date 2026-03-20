@@ -115,7 +115,8 @@ Ask the AI assistant to analyze the failure and recommend a fix.
 
 ```
 Analyze this build failure. What's the root cause and how should I fix it?
-Also check what Dockerfile path the previous successful build used.
+Also look at "greeting-service-build-01" (the previous successful run) to compare
+the Dockerfile path it used.
 ```
 
 **What agent will do:**

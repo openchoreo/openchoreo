@@ -33,22 +33,11 @@ frontend ──→ recommendation ──→ productcatalog
 
 ## Step 1: Introduce the Failure
 
-First, find the product catalog deployment (the namespace and deployment name include generated hashes and cannot be hardcoded):
+Scale the product catalog service to zero replicas by patching its ReleaseBinding. This is the OpenChoreo-native way to change replica count — patching the deployment directly would be overwritten by the controllers.
 
 ```bash
-# Find the productcatalog deployment across all namespaces
-kubectl get deployment -A -l openchoreo.dev/component=productcatalog
-```
-
-Then scale it down to zero replicas to simulate an outage:
-
-```bash
-# Store the namespace and deployment name
-DEPLOY_NS=$(kubectl get deployment -A -l openchoreo.dev/component=productcatalog -o jsonpath='{.items[0].metadata.namespace}')
-DEPLOY_NAME=$(kubectl get deployment -A -l openchoreo.dev/component=productcatalog -o jsonpath='{.items[0].metadata.name}')
-
-# Scale to zero
-kubectl scale deployment "$DEPLOY_NAME" -n "$DEPLOY_NS" --replicas=0
+kubectl patch releasebinding productcatalog-development -n default \
+  --type=merge -p '{"spec": {"componentTypeEnvironmentConfigs": {"replicas": 0}}}'
 ```
 
 Now visit the frontend in your browser. You should see errors when browsing products or attempting checkout. Let it run for a minute or two so logs and traces accumulate.
@@ -87,29 +76,32 @@ Show me the spans for one of the failed traces so I can see where the request br
 
 **Expected:** The trace should show the frontend calling the product catalog service (or checkout calling it), with the final span showing a connection failure — gRPC `UNAVAILABLE` or connection refused.
 
-## Step 4: Check Resource State
+## Step 4: Check Deployment State
 
-Confirm the root cause by checking the workload state.
+Confirm the root cause by checking the deployment state.
 
 ```
-Show me the workload details for the "productcatalog" component.
-Is it running? How many replicas are configured?
+Show me the release binding details for the "productcatalog" component in the
+"development" environment. Is it running? How many replicas are configured?
 ```
 
 **What agent will do:**
-1. Call `get_workload` (Control Plane MCP) for the productcatalog component
+1. Call `get_release_binding` (Control Plane MCP) for the productcatalog component's development release binding
 2. Display the current replica count, resource configuration, and status
 
 **Expected:** The assistant should report that the product catalog has **0 replicas** — confirming why all dependent services are failing.
 
 ## Step 5: Fix and Verify
 
-Restore the product catalog service and verify recovery.
+Ask the AI assistant to fix the issue and verify recovery.
 
-```bash
-# Scale back up (using the same variables from Step 1)
-kubectl scale deployment "$DEPLOY_NAME" -n "$DEPLOY_NS" --replicas=1
 ```
+Update the productcatalog release binding to set replicas back to 1.
+```
+
+**What agent will do:**
+1. Call `update_release_binding` (Control Plane MCP) to set the productcatalog replicas to 1
+2. Confirm the update was applied
 
 Wait a minute for the service to come back up, then verify:
 
@@ -131,9 +123,10 @@ Are there any new traces showing successful requests?
 | `query_component_logs` | Observability | Query logs filtered by severity and time |
 | `query_traces` | Observability | Find distributed traces for failed requests |
 | `query_trace_spans` | Observability | Inspect individual spans within a trace |
-| `get_workload` | Control Plane | Check component replica count and status |
+| `get_release_binding` | Control Plane | Check component replica count and deployment status |
+| `update_release_binding` | Control Plane | Fix the replica count to restore the service |
 
 ## Next Steps
 
 - Try the [Build Failure Diagnosis](../build-failures/) guide to troubleshoot CI/CD issues
-- Try the [Resource Optimization](../resource-optimization/) guide to right-size your workloads
+- Try the [Resource Optimization](../resource-optimization/) guide to right-size your deployments
