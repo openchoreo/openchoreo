@@ -548,7 +548,6 @@ func TestExtractWorkloadType_KnownTypes(t *testing.T) {
 		{"deployment/http-service", WorkloadTypeDeployment},
 		{"statefulset/db", WorkloadTypeStatefulSet},
 		{"cronjob/nightly-task", WorkloadTypeCronJob},
-		{"job/migration", WorkloadTypeJob},
 		{"proxy/my-proxy", WorkloadTypeProxy},
 		{"", WorkloadTypeUnknown},
 		{"unknown/something", WorkloadTypeUnknown},
@@ -573,7 +572,6 @@ func TestIsPrimaryWorkload(t *testing.T) {
 		{schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, WorkloadTypeDeployment, true},
 		{schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}, WorkloadTypeStatefulSet, true},
 		{schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "CronJob"}, WorkloadTypeCronJob, true},
-		{schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}, WorkloadTypeJob, true},
 		// wrong kind for workload type
 		{schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, WorkloadTypeStatefulSet, false},
 		// proxy has no primary workload
@@ -598,7 +596,6 @@ func TestCategorizeResource(t *testing.T) {
 		// Primary workload matches workloadType
 		{schema.GroupVersionKind{Group: "apps", Kind: "Deployment"}, WorkloadTypeDeployment, CategoryPrimaryWorkload},
 		{schema.GroupVersionKind{Group: "apps", Kind: "StatefulSet"}, WorkloadTypeStatefulSet, CategoryPrimaryWorkload},
-		{schema.GroupVersionKind{Group: "batch", Kind: "Job"}, WorkloadTypeJob, CategoryPrimaryWorkload},
 		{schema.GroupVersionKind{Group: "batch", Kind: "CronJob"}, WorkloadTypeCronJob, CategoryPrimaryWorkload},
 		// Supporting resources
 		{schema.GroupVersionKind{Group: "", Kind: "Service"}, WorkloadTypeDeployment, CategorySupporting},
@@ -834,50 +831,6 @@ func TestEvaluateCronJobStatus_AllPathsAndNoPrimary(t *testing.T) {
 
 	// No primary CronJob
 	ready, reason, _ := evaluateCronJobStatus([]openchoreov1alpha1.ResourceStatus{}, WorkloadTypeCronJob)
-	if ready || reason != string(ReasonResourcesProgressing) {
-		t.Errorf("no primary: ready=%v reason=%q, want false/%q", ready, reason, ReasonResourcesProgressing)
-	}
-}
-
-// ─── evaluateJobStatus ────────────────────────────────────────────────────────
-
-func jobResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
-		Group:        "batch",
-		Version:      "v1",
-		Kind:         "Job",
-		Name:         "test-job",
-		HealthStatus: status,
-	}
-}
-
-func TestEvaluateJobStatus_AllPathsAndNoPrimary(t *testing.T) {
-	tests := []struct {
-		status     openchoreov1alpha1.HealthStatus
-		wantReady  bool
-		wantReason string
-	}{
-		{openchoreov1alpha1.HealthStatusDegraded, false, string(ReasonJobFailed)},
-		{openchoreov1alpha1.HealthStatusUnknown, false, string(ReasonResourcesUnknown)},
-		{openchoreov1alpha1.HealthStatusProgressing, false, string(ReasonJobRunning)},
-		{openchoreov1alpha1.HealthStatusSuspended, false, string(ReasonJobRunning)},
-		{openchoreov1alpha1.HealthStatusHealthy, true, string(ReasonJobCompleted)},
-	}
-	for _, tc := range tests {
-		ready, reason, _ := evaluateJobStatus(
-			[]openchoreov1alpha1.ResourceStatus{jobResource(tc.status)},
-			WorkloadTypeJob,
-		)
-		if ready != tc.wantReady {
-			t.Errorf("status=%q: ready=%v, want %v", tc.status, ready, tc.wantReady)
-		}
-		if reason != tc.wantReason {
-			t.Errorf("status=%q: reason=%q, want %q", tc.status, reason, tc.wantReason)
-		}
-	}
-
-	// No primary Job
-	ready, reason, _ := evaluateJobStatus([]openchoreov1alpha1.ResourceStatus{}, WorkloadTypeJob)
 	if ready || reason != string(ReasonResourcesProgressing) {
 		t.Errorf("no primary: ready=%v reason=%q, want false/%q", ready, reason, ReasonResourcesProgressing)
 	}
@@ -1410,40 +1363,6 @@ func TestSetResourcesReadyStatus_CronJobScheduled(t *testing.T) {
 	}
 	if cond.Reason != string(ReasonCronJobScheduled) {
 		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonCronJobScheduled)
-	}
-}
-
-func TestSetResourcesReadyStatus_JobCompleted(t *testing.T) {
-	r := newTestReconciler()
-	rb := makeReleaseBindingForConditions()
-	release := &openchoreov1alpha1.RenderedRelease{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
-		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
-				{Group: "batch", Version: "v1", Kind: "Job", Name: "migration", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
-			},
-		},
-	}
-	comp := &openchoreov1alpha1.Component{
-		Spec: openchoreov1alpha1.ComponentSpec{
-			ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "job/migration"},
-		},
-	}
-
-	err := r.setResourcesReadyStatus(testContext(), rb, release, comp)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	cond := findCondition(rb.Status.Conditions, string(ConditionResourcesReady))
-	if cond == nil {
-		t.Fatal("ResourcesReady condition should be set")
-	}
-	if cond.Status != metav1.ConditionTrue {
-		t.Errorf("Status = %q, want True", cond.Status)
-	}
-	if cond.Reason != string(ReasonJobCompleted) {
-		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonJobCompleted)
 	}
 }
 

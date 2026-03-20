@@ -47,7 +47,6 @@ const (
 	kindDeployment  = "Deployment"
 	kindStatefulSet = "StatefulSet"
 	kindDaemonSet   = "DaemonSet"
-	kindJob         = "Job"
 	kindCronJob     = "CronJob"
 )
 
@@ -111,9 +110,6 @@ func (r *Reconciler) setResourcesReadyStatus(
 
 	case WorkloadTypeCronJob:
 		ready, reason, message = evaluateCronJobStatus(release.Status.Resources, workloadType)
-
-	case WorkloadTypeJob:
-		ready, reason, message = evaluateJobStatus(release.Status.Resources, workloadType)
 
 	case WorkloadTypeProxy:
 		// Proxy components are generic resources without traditional workload semantics
@@ -208,7 +204,7 @@ func categorizeResource(gvk schema.GroupVersionKind, workloadType WorkloadType) 
 	// Workload resources (if not primary, these are secondary workloads)
 	case gvk.Group == appsAPIGroup && (gvk.Kind == kindDeployment || gvk.Kind == kindStatefulSet || gvk.Kind == kindDaemonSet):
 		return CategoryPrimaryWorkload
-	case gvk.Group == batchAPIGroup && (gvk.Kind == kindJob || gvk.Kind == kindCronJob):
+	case gvk.Group == batchAPIGroup && gvk.Kind == kindCronJob:
 		return CategoryPrimaryWorkload
 	case gvk.Group == "" && gvk.Kind == "Pod":
 		return CategoryOperational
@@ -256,8 +252,6 @@ func isPrimaryWorkload(gvk schema.GroupVersionKind, workloadType WorkloadType) b
 		return gvk.Group == appsAPIGroup && gvk.Kind == kindStatefulSet
 	case WorkloadTypeCronJob:
 		return gvk.Group == batchAPIGroup && gvk.Kind == kindCronJob
-	case WorkloadTypeJob:
-		return gvk.Group == batchAPIGroup && gvk.Kind == kindJob
 	default:
 		return false
 	}
@@ -427,59 +421,6 @@ func evaluateCronJobStatus(resources []openchoreov1alpha1.ResourceStatus, worklo
 	}
 
 	return false, string(ReasonResourcesUnknown), "Unable to determine CronJob status"
-}
-
-// evaluateJobStatus evaluates status for Job workload type.
-// Jobs must complete (Healthy) to be considered ready. Progressing is expected until completion.
-func evaluateJobStatus(resources []openchoreov1alpha1.ResourceStatus, workloadType WorkloadType) (ready bool, reason, message string) {
-	// Find primary Job
-	var primaryWorkload *openchoreov1alpha1.ResourceStatus
-
-	for i := range resources {
-		res := &resources[i]
-		gvk := schema.GroupVersionKind{
-			Group:   res.Group,
-			Version: res.Version,
-			Kind:    res.Kind,
-		}
-
-		if isPrimaryWorkload(gvk, workloadType) {
-			primaryWorkload = res
-			break
-		}
-	}
-
-	if primaryWorkload == nil {
-		return false, string(ReasonResourcesProgressing), "Primary Job not found"
-	}
-
-	// Check primary Job status
-	switch primaryWorkload.HealthStatus {
-	case openchoreov1alpha1.HealthStatusDegraded:
-		return false, string(ReasonJobFailed),
-			fmt.Sprintf("Job %s failed", primaryWorkload.Name)
-
-	case openchoreov1alpha1.HealthStatusUnknown:
-		return false, string(ReasonResourcesUnknown),
-			fmt.Sprintf("Job %s status unknown", primaryWorkload.Name)
-
-	case openchoreov1alpha1.HealthStatusProgressing:
-		// Progressing is expected for Jobs until completion
-		return false, string(ReasonJobRunning),
-			fmt.Sprintf("Job %s is running", primaryWorkload.Name)
-
-	case openchoreov1alpha1.HealthStatusSuspended:
-		// Suspended Job - not ready yet
-		return false, string(ReasonJobRunning),
-			fmt.Sprintf("Job %s is suspended", primaryWorkload.Name)
-
-	case openchoreov1alpha1.HealthStatusHealthy:
-		// Healthy means Job completed successfully
-		return true, string(ReasonJobCompleted),
-			fmt.Sprintf("Job %s completed successfully", primaryWorkload.Name)
-	}
-
-	return false, string(ReasonResourcesUnknown), "Unable to determine Job status"
 }
 
 // evaluateGenericStatus evaluates status for unknown/generic workload types.

@@ -108,15 +108,6 @@ const (
 	// ReasonReadyWithSuspendedResources indicates ready with suspended workload (scaled to 0)
 	ReasonReadyWithSuspendedResources controller.ConditionReason = "ReadyWithSuspendedResources"
 
-	// Job-specific reasons
-
-	// ReasonJobCompleted indicates Job completed successfully
-	ReasonJobCompleted controller.ConditionReason = "JobCompleted"
-	// ReasonJobRunning indicates Job is running
-	ReasonJobRunning controller.ConditionReason = "JobRunning"
-	// ReasonJobFailed indicates Job failed
-	ReasonJobFailed controller.ConditionReason = "JobFailed"
-
 	// CronJob-specific reasons
 
 	// ReasonCronJobScheduled indicates CronJob is scheduled and ready

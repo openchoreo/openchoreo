@@ -5531,7 +5531,7 @@ components:
               type: string
               description: "Component type reference in format: {workloadType}/{componentTypeName}"
               example: deployment/go-service
-              pattern: '^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+              pattern: '^(deployment|statefulset|cronjob|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
         autoDeploy:
           type: boolean
           description: Whether to automatically deploy to default environment when created
@@ -6481,7 +6481,7 @@ components:
         workloadType:
           type: string
           description: Primary workload resource type for this component type
-          enum: [deployment, statefulset, cronjob, job, proxy]
+          enum: [deployment, statefulset, cronjob, proxy]
           example: deployment
         allowedWorkflows:
           type: array
@@ -6777,7 +6777,7 @@ components:
         workloadType:
           type: string
           description: Primary workload resource type for this component type
-          enum: [deployment, statefulset, cronjob, job, proxy]
+          enum: [deployment, statefulset, cronjob, proxy]
           example: deployment
         allowedWorkflows:
           type: array

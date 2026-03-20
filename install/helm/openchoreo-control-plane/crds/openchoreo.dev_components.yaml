@@ -79,7 +79,7 @@ spec:
                   name:
                     description: 'Name is the component type reference in format:
                       {workloadType}/{componentTypeName}'
-                    pattern: ^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    pattern: ^(deployment|statefulset|cronjob|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
                 required:
                 - name

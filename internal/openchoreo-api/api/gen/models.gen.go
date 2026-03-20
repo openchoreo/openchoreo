@@ -71,7 +71,6 @@ const (
 const (
 	ClusterComponentTypeSpecWorkloadTypeCronjob     ClusterComponentTypeSpecWorkloadType = "cronjob"
 	ClusterComponentTypeSpecWorkloadTypeDeployment  ClusterComponentTypeSpecWorkloadType = "deployment"
-	ClusterComponentTypeSpecWorkloadTypeJob         ClusterComponentTypeSpecWorkloadType = "job"
 	ClusterComponentTypeSpecWorkloadTypeProxy       ClusterComponentTypeSpecWorkloadType = "proxy"
 	ClusterComponentTypeSpecWorkloadTypeStatefulset ClusterComponentTypeSpecWorkloadType = "statefulset"
 )
@@ -151,7 +150,6 @@ const (
 const (
 	ComponentTypeSpecWorkloadTypeCronjob     ComponentTypeSpecWorkloadType = "cronjob"
 	ComponentTypeSpecWorkloadTypeDeployment  ComponentTypeSpecWorkloadType = "deployment"
-	ComponentTypeSpecWorkloadTypeJob         ComponentTypeSpecWorkloadType = "job"
 	ComponentTypeSpecWorkloadTypeProxy       ComponentTypeSpecWorkloadType = "proxy"
 	ComponentTypeSpecWorkloadTypeStatefulset ComponentTypeSpecWorkloadType = "statefulset"
 )

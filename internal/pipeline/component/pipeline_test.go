@@ -1939,7 +1939,6 @@ func TestIsMainWorkloadKind(t *testing.T) {
 		{"Deployment", "statefulset", false},
 		{"StatefulSet", "deployment", false},
 		{"CronJob", "cronjob", false},
-		{"Job", "job", false},
 		{"ConfigMap", "deployment", false},
 	}
 
