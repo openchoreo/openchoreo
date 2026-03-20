@@ -133,11 +133,15 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 			},
 			"workflow": map[string]any{
 				"type": "object",
-				"description": "Optional: Component workflow configuration. Use list_cluster_workflows to discover " +
-					"available cluster-scoped workflow names (ClusterWorkflow kind, used with ClusterComponentType), " +
-					"or list_workflows for namespace-scoped workflows (Workflow kind). " +
-					"Use get_cluster_workflow_schema or get_workflow_schema to inspect the parameter schema. " +
-					"Set 'kind' to 'ClusterWorkflow' or 'Workflow' to match the workflow resource type.",
+				"description": "Optional: Component workflow configuration. " +
+					"Set 'name' to the workflow name, 'kind' to 'ClusterWorkflow' or 'Workflow' " +
+					"to match the workflow resource type, and 'parameters' to the workflow parameters " +
+					"that strictly adhere to the workflow schema. " +
+					"Use list_cluster_workflows or list_workflows to discover available workflow names " +
+					"for cluster-scoped (ClusterWorkflow kind, used with ClusterComponentType) or " +
+					"namespace-scoped (Workflow kind) workflows respectively. " +
+					"Use get_cluster_workflow_schema or get_workflow_schema to inspect the " +
+					"parameter schema for a given workflow.",
 			},
 		}, []string{"namespace_name", "project_name", "name", "component_type"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
