@@ -202,12 +202,15 @@ func main() {
 	}
 
 	// Create OpenAPI handler with middleware chain (order: logger → auth → webhookBody → handler)
-	// webhookRawBodyMiddleware must run innermost (before the strict handler decodes the body)
+	// Middlewares are applied last-to-first (last entry becomes the outermost wrapper).
+	// Execution order: loggerMiddleware → authMiddleware → webhookRawBodyMiddleware → handler.
+	// loggerMiddleware must be outermost so it captures all responses, including 401s from auth.
+	// webhookRawBodyMiddleware must be innermost (before the strict handler decodes the body)
 	// so that HMAC signature validation can access the original raw bytes.
 	// The generated routes are registered on the baseMux alongside /mcp.
 	handler := gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
 		BaseRouter:  baseMux,
-		Middlewares: []gen.MiddlewareFunc{openapihandlers.WebhookRawBodyMiddleware, loggerMiddleware, authMiddleware},
+		Middlewares: []gen.MiddlewareFunc{openapihandlers.WebhookRawBodyMiddleware, authMiddleware, loggerMiddleware},
 	})
 
 	// Create server from configuration
