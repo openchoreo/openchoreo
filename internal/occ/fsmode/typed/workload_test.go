@@ -188,7 +188,7 @@ func TestGetEndpoints(t *testing.T) {
 	}
 }
 
-func TestGetConnections(t *testing.T) {
+func TestGetDependencies(t *testing.T) {
 	tests := []struct {
 		name        string
 		connections []v1alpha1.WorkloadConnection
@@ -339,7 +339,7 @@ func TestGetConnections(t *testing.T) {
 					},
 				},
 			}
-			result := wl.GetConnections()
+			result := wl.GetDependencies()
 			if tt.wantNil {
 				if result != nil {
 					t.Errorf("expected nil, got %v", result)

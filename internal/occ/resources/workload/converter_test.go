@@ -4,6 +4,7 @@
 package synth
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -138,7 +139,7 @@ func TestCreateBaseWorkload(t *testing.T) {
 	}
 }
 
-func TestAddConnectionsFromDescriptor(t *testing.T) {
+func TestAddDependenciesFromDescriptor(t *testing.T) {
 	baseWorkload := func() *openchoreov1alpha1.Workload {
 		return &openchoreov1alpha1.Workload{
 			Spec: openchoreov1alpha1.WorkloadSpec{
@@ -152,45 +153,121 @@ func TestAddConnectionsFromDescriptor(t *testing.T) {
 		descriptor     *WorkloadDescriptor
 		wantEndpoints  int
 		wantNilDeps    bool
+		wantErr        string
 		wantComponent  string
 		wantVisibility openchoreov1alpha1.EndpointVisibility
 	}{
 		{
-			name: "valid connections",
+			name: "valid dependencies with project visibility",
 			descriptor: &WorkloadDescriptor{
-				Connections: []WorkloadDescriptorConnection{
-					{
-						Project:    "proj-a",
-						Component:  "svc-b",
-						Name:       "http-ep",
-						Visibility: "Project",
-						EnvBindings: WorkloadDescriptorConnectionEnvBindings{
-							Address: "SVC_B_URL",
-							Host:    "SVC_B_HOST",
-							Port:    "SVC_B_PORT",
+				Dependencies: &WorkloadDescriptorDependencies{
+					Endpoints: []WorkloadDescriptorConnection{
+						{
+							Project:    "proj-a",
+							Component:  "svc-b",
+							Name:       "http-ep",
+							Visibility: "project",
+							EnvBindings: WorkloadDescriptorConnectionEnvBindings{
+								Address: "SVC_B_URL",
+								Host:    "SVC_B_HOST",
+								Port:    "SVC_B_PORT",
+							},
 						},
-					},
-					{
-						Component:  "svc-c",
-						Name:       "grpc-ep",
-						Visibility: "Organization",
-						EnvBindings: WorkloadDescriptorConnectionEnvBindings{
-							Address: "SVC_C_URL",
+						{
+							Component:  "svc-c",
+							Name:       "grpc-ep",
+							Visibility: "namespace",
+							EnvBindings: WorkloadDescriptorConnectionEnvBindings{
+								Address: "SVC_C_URL",
+							},
 						},
 					},
 				},
 			},
 			wantEndpoints:  2,
 			wantComponent:  "svc-b",
-			wantVisibility: openchoreov1alpha1.EndpointVisibility("Project"),
+			wantVisibility: openchoreov1alpha1.EndpointVisibilityProject,
 		},
 		{
-			name:        "empty connections",
-			descriptor:  &WorkloadDescriptor{Connections: []WorkloadDescriptorConnection{}},
+			name: "invalid visibility returns error",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Endpoints: []WorkloadDescriptorConnection{
+						{
+							Component:  "svc-a",
+							Name:       "http-ep",
+							Visibility: "public",
+							EnvBindings: WorkloadDescriptorConnectionEnvBindings{
+								Address: "SVC_A_URL",
+							},
+						},
+					},
+				},
+			},
+			wantErr: "invalid dependency endpoint visibility",
+		},
+		{
+			name: "missing component returns error",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Endpoints: []WorkloadDescriptorConnection{
+						{
+							Name:       "http-ep",
+							Visibility: "project",
+							EnvBindings: WorkloadDescriptorConnectionEnvBindings{
+								Address: "URL",
+							},
+						},
+					},
+				},
+			},
+			wantErr: "component is required",
+		},
+		{
+			name: "missing name returns error",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Endpoints: []WorkloadDescriptorConnection{
+						{
+							Component:  "svc-a",
+							Visibility: "project",
+							EnvBindings: WorkloadDescriptorConnectionEnvBindings{
+								Address: "URL",
+							},
+						},
+					},
+				},
+			},
+			wantErr: "name is required",
+		},
+		{
+			name: "missing visibility returns error",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Endpoints: []WorkloadDescriptorConnection{
+						{
+							Component: "svc-a",
+							Name:      "http-ep",
+							EnvBindings: WorkloadDescriptorConnectionEnvBindings{
+								Address: "URL",
+							},
+						},
+					},
+				},
+			},
+			wantErr: "visibility is required",
+		},
+		{
+			name: "empty dependency endpoints",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Endpoints: []WorkloadDescriptorConnection{},
+				},
+			},
 			wantNilDeps: true,
 		},
 		{
-			name:        "nil connections",
+			name:        "nil dependencies",
 			descriptor:  &WorkloadDescriptor{},
 			wantNilDeps: true,
 		},
@@ -198,7 +275,13 @@ func TestAddConnectionsFromDescriptor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := baseWorkload()
-			addConnectionsFromDescriptor(w, tt.descriptor)
+			err := addDependenciesFromDescriptor(w, tt.descriptor)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
 			if tt.wantNilDeps {
 				assert.Nil(t, w.Spec.Dependencies)
 				return
@@ -211,6 +294,121 @@ func TestAddConnectionsFromDescriptor(t *testing.T) {
 			assert.Equal(t, "SVC_B_URL", w.Spec.Dependencies.Endpoints[0].EnvBindings.Address)
 			assert.Equal(t, "SVC_B_HOST", w.Spec.Dependencies.Endpoints[0].EnvBindings.Host)
 			assert.Equal(t, "SVC_B_PORT", w.Spec.Dependencies.Endpoints[0].EnvBindings.Port)
+		})
+	}
+}
+
+func TestReadWorkloadDescriptorDependencies(t *testing.T) {
+	tests := []struct {
+		name          string
+		yaml          string
+		wantNilDeps   bool
+		wantEndpoints int
+		wantComponent string
+	}{
+		{
+			name: "parses dependencies with endpoints",
+			yaml: `apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: my-service
+dependencies:
+  endpoints:
+    - component: postgres
+      name: tcp
+      visibility: project
+      envBindings:
+        address: DATABASE_URL
+    - component: redis
+      name: tcp
+      visibility: namespace
+      envBindings:
+        address: REDIS_URL
+        host: REDIS_HOST
+`,
+			wantEndpoints: 2,
+			wantComponent: "postgres",
+		},
+		{
+			name: "no dependencies section",
+			yaml: `apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: my-service
+`,
+			wantNilDeps: true,
+		},
+		{
+			name: "old connections field is ignored",
+			yaml: `apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: my-service
+connections:
+  - component: postgres
+    name: tcp
+    visibility: project
+    envBindings:
+      address: DATABASE_URL
+`,
+			wantNilDeps: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.yaml)
+			descriptor, err := readWorkloadDescriptorFromReader(reader)
+			require.NoError(t, err)
+			if tt.wantNilDeps {
+				assert.True(t, descriptor.Dependencies == nil || len(descriptor.Dependencies.Endpoints) == 0)
+				return
+			}
+			require.NotNil(t, descriptor.Dependencies)
+			assert.Len(t, descriptor.Dependencies.Endpoints, tt.wantEndpoints)
+			assert.Equal(t, tt.wantComponent, descriptor.Dependencies.Endpoints[0].Component)
+		})
+	}
+}
+
+func TestAddEndpointsFromDescriptorVisibilityValidation(t *testing.T) {
+	baseWorkload := func() *openchoreov1alpha1.Workload {
+		return &openchoreov1alpha1.Workload{
+			Spec: openchoreov1alpha1.WorkloadSpec{
+				WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{},
+			},
+		}
+	}
+
+	tests := []struct {
+		name    string
+		desc    *WorkloadDescriptor
+		wantErr string
+	}{
+		{
+			name: "valid visibility values accepted",
+			desc: &WorkloadDescriptor{
+				Endpoints: []WorkloadDescriptorEndpoint{
+					{Name: "ep1", Port: 8080, Type: "HTTP", Visibility: []string{"project", "external"}},
+				},
+			},
+		},
+		{
+			name: "invalid visibility rejected",
+			desc: &WorkloadDescriptor{
+				Endpoints: []WorkloadDescriptorEndpoint{
+					{Name: "ep1", Port: 8080, Type: "HTTP", Visibility: []string{"public"}},
+				},
+			},
+			wantErr: "invalid endpoint visibility",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := baseWorkload()
+			err := addEndpointsFromDescriptor(w, tt.desc, "/tmp/workload.yaml")
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
 		})
 	}
 }

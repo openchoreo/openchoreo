@@ -22,7 +22,7 @@ type WorkloadDescriptor struct {
 	APIVersion     string                          `yaml:"apiVersion"`
 	Metadata       WorkloadDescriptorMetadata      `yaml:"metadata"`
 	Endpoints      []WorkloadDescriptorEndpoint    `yaml:"endpoints,omitempty"`
-	Connections    []WorkloadDescriptorConnection  `yaml:"connections,omitempty"`
+	Dependencies   *WorkloadDescriptorDependencies `yaml:"dependencies,omitempty"`
 	Configurations WorkloadDescriptorConfiguration `yaml:"configurations,omitempty"`
 }
 
@@ -40,6 +40,12 @@ type WorkloadDescriptorEndpoint struct {
 	SchemaFile  string   `yaml:"schemaFile,omitempty"`
 	Context     string   `yaml:"context,omitempty"`
 	Visibility  []string `yaml:"visibility,omitempty"`
+}
+
+// WorkloadDescriptorDependencies represents the dependencies section in workload.yaml
+type WorkloadDescriptorDependencies struct {
+	// Endpoints define how this workload consumes endpoints from other components.
+	Endpoints []WorkloadDescriptorConnection `yaml:"endpoints,omitempty"`
 }
 
 type WorkloadDescriptorConnection struct {
@@ -214,8 +220,10 @@ func convertDescriptorToWorkload(descriptor *WorkloadDescriptor, params api.Crea
 		return nil, fmt.Errorf("failed to add endpoints: %w", err)
 	}
 
-	// Add connections from descriptor if present
-	addConnectionsFromDescriptor(workload, descriptor)
+	// Add dependencies from descriptor if present
+	if err := addDependenciesFromDescriptor(workload, descriptor); err != nil {
+		return nil, fmt.Errorf("failed to add dependencies: %w", err)
+	}
 
 	// Add configurations from descriptor if present
 	if err := addConfigurationsFromDescriptor(workload, descriptor, descriptorPath); err != nil {
@@ -235,7 +243,12 @@ func addEndpointsFromDescriptor(workload *openchoreov1alpha1.Workload, descripto
 	for _, descriptorEndpoint := range descriptor.Endpoints {
 		var visibility []openchoreov1alpha1.EndpointVisibility
 		for _, v := range descriptorEndpoint.Visibility {
-			visibility = append(visibility, openchoreov1alpha1.EndpointVisibility(v))
+			vis := openchoreov1alpha1.EndpointVisibility(v)
+			if !validEndpointVisibilities[vis] {
+				return fmt.Errorf("invalid endpoint visibility %q for endpoint %q: must be one of [project, namespace, internal, external]",
+					v, descriptorEndpoint.Name)
+			}
+			visibility = append(visibility, vis)
 		}
 
 		endpoint := openchoreov1alpha1.WorkloadEndpoint{
@@ -270,19 +283,41 @@ func addEndpointsFromDescriptor(workload *openchoreov1alpha1.Workload, descripto
 	return nil
 }
 
-// addConnectionsFromDescriptor adds connections from the descriptor to the workload
-func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descriptor *WorkloadDescriptor) {
-	if len(descriptor.Connections) == 0 {
-		return
+// validEndpointVisibilities is the set of allowed visibility values for endpoints.
+var validEndpointVisibilities = map[openchoreov1alpha1.EndpointVisibility]bool{
+	openchoreov1alpha1.EndpointVisibilityProject:   true,
+	openchoreov1alpha1.EndpointVisibilityNamespace: true,
+	openchoreov1alpha1.EndpointVisibilityInternal:  true,
+	openchoreov1alpha1.EndpointVisibilityExternal:  true,
+}
+
+// addDependenciesFromDescriptor adds dependencies from the descriptor to the workload
+func addDependenciesFromDescriptor(workload *openchoreov1alpha1.Workload, descriptor *WorkloadDescriptor) error {
+	if descriptor.Dependencies == nil || len(descriptor.Dependencies.Endpoints) == 0 {
+		return nil
 	}
 
-	connections := make([]openchoreov1alpha1.WorkloadConnection, 0, len(descriptor.Connections))
-	for _, dc := range descriptor.Connections {
+	connections := make([]openchoreov1alpha1.WorkloadConnection, 0, len(descriptor.Dependencies.Endpoints))
+	for i, dc := range descriptor.Dependencies.Endpoints {
+		if dc.Component == "" {
+			return fmt.Errorf("dependency endpoint[%d]: component is required", i)
+		}
+		if dc.Name == "" {
+			return fmt.Errorf("dependency endpoint[%d] (component %q): name is required", i, dc.Component)
+		}
+		if dc.Visibility == "" {
+			return fmt.Errorf("dependency endpoint[%d] (component %q): visibility is required", i, dc.Component)
+		}
+		visibility := openchoreov1alpha1.EndpointVisibility(dc.Visibility)
+		if !validEndpointVisibilities[visibility] {
+			return fmt.Errorf("invalid dependency endpoint visibility %q for component %q endpoint %q: must be one of [project, namespace, internal, external]",
+				dc.Visibility, dc.Component, dc.Name)
+		}
 		connection := openchoreov1alpha1.WorkloadConnection{
 			Project:    dc.Project,
 			Component:  dc.Component,
 			Name:       dc.Name,
-			Visibility: openchoreov1alpha1.EndpointVisibility(dc.Visibility),
+			Visibility: visibility,
 			EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
 				Address:  dc.EnvBindings.Address,
 				Host:     dc.EnvBindings.Host,
@@ -296,6 +331,7 @@ func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descrip
 		workload.Spec.Dependencies = &openchoreov1alpha1.WorkloadDependencies{}
 	}
 	workload.Spec.Dependencies.Endpoints = connections
+	return nil
 }
 
 // addConfigurationsFromDescriptor adds configurations (env vars and files) from the descriptor to the workload

@@ -161,7 +161,7 @@ func (g *ReleaseGenerator) buildTraitsData(traitRefs []typed2.TraitRef) (
 }
 
 // buildWorkloadData constructs the workload section for the ComponentRelease spec,
-// including container, endpoints, and connections from the Workload resource.
+// including container, endpoints, and dependencies from the Workload resource.
 func (g *ReleaseGenerator) buildWorkloadData(wl *typed2.Workload) map[string]interface{} {
 	workloadMap := map[string]interface{}{
 		"container": wl.GetContainer(),
@@ -169,7 +169,7 @@ func (g *ReleaseGenerator) buildWorkloadData(wl *typed2.Workload) map[string]int
 	if endpoints := wl.GetEndpoints(); len(endpoints) > 0 {
 		workloadMap["endpoints"] = endpoints
 	}
-	if connections := wl.GetConnections(); len(connections) > 0 {
+	if connections := wl.GetDependencies(); len(connections) > 0 {
 		workloadMap["dependencies"] = map[string]interface{}{
 			"endpoints": connections,
 		}

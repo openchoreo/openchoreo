@@ -140,8 +140,8 @@ func (w *Workload) GetEndpoints() map[string]interface{} {
 	return endpointsMap
 }
 
-// GetConnections returns the connections definition as a slice for template processing.
-func (w *Workload) GetConnections() []interface{} {
+// GetDependencies returns the dependencies definition as a slice for template processing.
+func (w *Workload) GetDependencies() []interface{} {
 	deps := w.Spec.GetDependencyEndpoints()
 	if len(deps) == 0 {
 		return nil
