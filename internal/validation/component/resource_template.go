@@ -36,7 +36,7 @@ func ValidateWorkloadResources(workloadType string, resources []v1alpha1.Resourc
 
 	// Proxy workload type doesn't require workload resource validation
 	if workloadType == "proxy" {
-		// Still validate template structure for all resources
+		// Still validate template structure and reject workload resources
 		for i, resource := range resources {
 			resourcePath := basePath.Index(i)
 			templatePath := resourcePath.Child("template")
@@ -44,8 +44,15 @@ func ValidateWorkloadResources(workloadType string, resources []v1alpha1.Resourc
 				allErrs = append(allErrs, field.Required(templatePath, "template is required"))
 				continue
 			}
-			_, errs := ValidateResourceTemplateStructure(*resource.Template, templatePath)
+			obj, errs := ValidateResourceTemplateStructure(*resource.Template, templatePath)
 			allErrs = append(allErrs, errs...)
+
+			if obj != nil && IsWorkloadResourceKind(obj.Kind) {
+				allErrs = append(allErrs, field.Forbidden(
+					templatePath.Child("kind"),
+					fmt.Sprintf("proxy ComponentType must not contain workload resources (kind %q)", obj.Kind),
+				))
+			}
 		}
 		return allErrs
 	}
@@ -64,10 +71,20 @@ func ValidateWorkloadResources(workloadType string, resources []v1alpha1.Resourc
 		obj, errs := ValidateResourceTemplateStructure(*resource.Template, templatePath)
 		allErrs = append(allErrs, errs...)
 
+		if obj == nil {
+			continue
+		}
+
 		// Check if this resource's kind matches the workloadType
-		if obj != nil && strings.EqualFold(obj.Kind, workloadType) {
+		if strings.EqualFold(obj.Kind, workloadType) {
 			workloadTypeMatchCount++
 			workloadTypeIndices = append(workloadTypeIndices, i)
+		} else if IsWorkloadResourceKind(obj.Kind) {
+			// Reject workload resource kinds that don't match the declared workloadType
+			allErrs = append(allErrs, field.Forbidden(
+				templatePath.Child("kind"),
+				fmt.Sprintf("resource kind %q is a workload type that does not match the declared workloadType %q; only one workload resource is allowed", obj.Kind, workloadType),
+			))
 		}
 	}
 
@@ -120,11 +137,15 @@ func ValidateResourceTemplateStructure(template runtime.RawExtension, fieldPath 
 			"apiVersion is required in resource template"))
 	}
 
-	// Validate kind exists
+	// Validate kind exists and is a literal value (CEL expressions are not allowed)
 	if header.Kind == "" {
 		allErrs = append(allErrs, field.Required(
 			fieldPath.Child("kind"),
 			"kind is required in resource template"))
+	} else if strings.Contains(header.Kind, "${") {
+		allErrs = append(allErrs, field.Forbidden(
+			fieldPath.Child("kind"),
+			"kind must be a literal value, not a template expression"))
 	}
 
 	// Validate metadata.name exists (can be any value including CEL expression)
@@ -156,6 +177,23 @@ func ValidateResourceTemplateStructure(template runtime.RawExtension, fieldPath 
 	}
 
 	return obj, allErrs
+}
+
+// workloadResourceKinds contains the Kubernetes resource kinds that represent primary workloads.
+// Each component can have only one primary workload defined by the ComponentType.
+// Traits must not create these, and ComponentTypes must not include additional workload kinds
+// beyond the declared workloadType.
+var workloadResourceKinds = map[string]bool{
+	"deployment":  true,
+	"statefulset": true,
+	"daemonset":   true,
+	"cronjob":     true,
+	"job":         true,
+}
+
+// IsWorkloadResourceKind returns true if the given kind (case-insensitive) is a workload resource kind.
+func IsWorkloadResourceKind(kind string) bool {
+	return workloadResourceKinds[strings.ToLower(kind)]
 }
 
 // isAllowedNamespaceValue checks whether the given string is an acceptable

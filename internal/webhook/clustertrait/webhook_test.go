@@ -241,6 +241,101 @@ var _ = Describe("ClusterTrait Webhook", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("apiVersion is required"))
 		})
+
+		It("should reject Deployment kind in creates template", func() {
+			obj.Spec.Creates = []openchoreodevv1alpha1.TraitCreate{
+				{
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "extra-deploy"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("traits must not create workload resources"))
+			Expect(err.Error()).To(ContainSubstring("Deployment"))
+		})
+
+		It("should reject StatefulSet kind in creates template", func() {
+			obj.Spec.Creates = []openchoreodevv1alpha1.TraitCreate{
+				{
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "StatefulSet", "metadata": {"name": "extra-sts"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("traits must not create workload resources"))
+			Expect(err.Error()).To(ContainSubstring("StatefulSet"))
+		})
+
+		It("should reject CronJob kind in creates template", func() {
+			obj.Spec.Creates = []openchoreodevv1alpha1.TraitCreate{
+				{
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "batch/v1", "kind": "CronJob", "metadata": {"name": "extra-cron"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("traits must not create workload resources"))
+			Expect(err.Error()).To(ContainSubstring("CronJob"))
+		})
+
+		It("should reject Job kind in creates template", func() {
+			obj.Spec.Creates = []openchoreodevv1alpha1.TraitCreate{
+				{
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "batch/v1", "kind": "Job", "metadata": {"name": "extra-job"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("traits must not create workload resources"))
+			Expect(err.Error()).To(ContainSubstring("Job"))
+		})
+
+		It("should reject workload resource kind case-insensitively", func() {
+			obj.Spec.Creates = []openchoreodevv1alpha1.TraitCreate{
+				{
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "deployment", "metadata": {"name": "extra"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("traits must not create workload resources"))
+		})
+
+		It("should reject workload resource in creates on update", func() {
+			oldObj.Spec.Creates = []openchoreodevv1alpha1.TraitCreate{
+				{
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "test"}}`),
+					},
+				},
+			}
+			obj.Spec.Creates = []openchoreodevv1alpha1.TraitCreate{
+				{
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "extra"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateUpdate(ctx, oldObj, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("traits must not create workload resources"))
+		})
 	})
 
 	Context("Validation Rules CEL Validation", func() {

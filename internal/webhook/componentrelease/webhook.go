@@ -312,12 +312,20 @@ func validateEmbeddedResourceTemplates(release *openchoreodevv1alpha1.ComponentR
 	traitsBasePath := field.NewPath("spec", "traits")
 	for i, rt := range release.Spec.Traits {
 		traitKey := string(rt.Kind) + ":" + rt.Name
-		traitPath := traitsBasePath.Key(traitKey).Child("creates")
+		traitPath := traitsBasePath.Key(traitKey).Child("spec", "creates")
 		for j, create := range rt.Spec.Creates {
 			createPath := traitPath.Index(j)
 			if create.Template != nil && len(create.Template.Raw) > 0 {
-				_, errs := component.ValidateResourceTemplateStructure(*create.Template, createPath.Child("template"))
+				templatePath := createPath.Child("template")
+				obj, errs := component.ValidateResourceTemplateStructure(*create.Template, templatePath)
 				allErrs = append(allErrs, errs...)
+
+				if obj != nil && component.IsWorkloadResourceKind(obj.Kind) {
+					allErrs = append(allErrs, field.Forbidden(
+						templatePath.Child("kind"),
+						fmt.Sprintf("traits must not create workload resources (kind %q); the primary workload is defined by the ComponentType", obj.Kind),
+					))
+				}
 			}
 		}
 

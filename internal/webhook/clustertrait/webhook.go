@@ -150,8 +150,15 @@ func validateClusterTraitCreatesTemplateStructure(ct *openchoreodevv1alpha1.Clus
 			continue
 		}
 
-		_, errs := component.ValidateResourceTemplateStructure(*create.Template, templatePath)
+		obj, errs := component.ValidateResourceTemplateStructure(*create.Template, templatePath)
 		allErrs = append(allErrs, errs...)
+
+		if obj != nil && component.IsWorkloadResourceKind(obj.Kind) {
+			allErrs = append(allErrs, field.Forbidden(
+				templatePath.Child("kind"),
+				fmt.Sprintf("traits must not create workload resources (kind %q); the primary workload is defined by the ComponentType", obj.Kind),
+			))
+		}
 	}
 
 	return allErrs

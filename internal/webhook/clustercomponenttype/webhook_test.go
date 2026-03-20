@@ -417,6 +417,69 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("metadata.name is required"))
 		})
 
+		It("should reject additional workload resource kind that does not match workloadType", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+				{
+					ID: "statefulset",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "StatefulSet", "metadata": {"name": "extra-sts"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("does not match the declared workloadType"))
+			Expect(err.Error()).To(ContainSubstring("StatefulSet"))
+		})
+
+		It("should admit primary workload with non-workload resources like Service", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+				{
+					ID: "service",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "v1", "kind": "Service", "metadata": {"name": "test-svc"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject workload resource in proxy ClusterComponentType", func() {
+			obj.Spec.WorkloadType = "proxy"
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "gateway",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "gateway.networking.k8s.io/v1", "kind": "Gateway", "metadata": {"name": "test"}}`),
+					},
+				},
+				{
+					ID: "deployment",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "extra"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("proxy ComponentType must not contain workload resources"))
+			Expect(err.Error()).To(ContainSubstring("Deployment"))
+		})
+
 		It("should allow workloadType=proxy without matching resource kind", func() {
 			obj.Spec.WorkloadType = "proxy"
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{

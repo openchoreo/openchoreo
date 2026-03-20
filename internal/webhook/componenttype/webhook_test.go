@@ -13,7 +13,10 @@ import (
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-const workloadTypeDeployment = "deployment"
+const (
+	workloadTypeDeployment = "deployment"
+	workloadTypeProxy      = "proxy"
+)
 
 var _ = Describe("ComponentType Webhook", func() {
 	var (
@@ -371,7 +374,7 @@ var _ = Describe("ComponentType Webhook", func() {
 		})
 
 		It("should reject nil template in proxy workloadType", func() {
-			obj.Spec.WorkloadType = "proxy"
+			obj.Spec.WorkloadType = workloadTypeProxy
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
 				{
 					ID:       "gateway",
@@ -432,8 +435,98 @@ var _ = Describe("ComponentType Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("metadata.name is required"))
 		})
 
+		It("should reject additional workload resource kind that does not match workloadType", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+				{
+					ID: "statefulset",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "StatefulSet", "metadata": {"name": "extra-sts"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("does not match the declared workloadType"))
+			Expect(err.Error()).To(ContainSubstring("StatefulSet"))
+		})
+
+		It("should reject multiple non-matching workload resource kinds", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+				{
+					ID: "job",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "batch/v1", "kind": "Job", "metadata": {"name": "extra-job"}}`),
+					},
+				},
+				{
+					ID: "cronjob",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "batch/v1", "kind": "CronJob", "metadata": {"name": "extra-cron"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(MatchRegexp(`"Job"`))
+			Expect(err.Error()).To(ContainSubstring("CronJob"))
+		})
+
+		It("should admit Deployment with non-workload resources like Service", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+				{
+					ID: "service",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "v1", "kind": "Service", "metadata": {"name": "test-svc"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject workload resource in proxy ComponentType", func() {
+			obj.Spec.WorkloadType = workloadTypeProxy
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "gateway",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "gateway.networking.k8s.io/v1", "kind": "Gateway", "metadata": {"name": "test"}}`),
+					},
+				},
+				{
+					ID: "deployment",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "extra"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("proxy ComponentType must not contain workload resources"))
+			Expect(err.Error()).To(ContainSubstring("Deployment"))
+		})
+
 		It("should allow workloadType=proxy without matching resource kind", func() {
-			obj.Spec.WorkloadType = "proxy"
+			obj.Spec.WorkloadType = workloadTypeProxy
 			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
 				{
 					ID: "gateway",
@@ -445,6 +538,22 @@ var _ = Describe("ComponentType Webhook", func() {
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject template expression in kind field", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "deployment",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "${parameters.kind}", "metadata": {"name": "test"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("kind must be a literal value"))
 		})
 
 		It("should match workloadType case-insensitively", func() {
