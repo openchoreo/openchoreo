@@ -12,7 +12,7 @@ set -euo pipefail
 
 # -- versions (update these on release branches) --
 OPENCHOREO_REF="main"
-OPENCHOREO_OP_VERSION="v1.0.0-rc.1"
+OPENCHOREO_OP_VERSION="0.0.0-latest-dev"
 LOGS_OPENSEARCH_VERSION="0.3.11"
 TRACES_OPENSEARCH_VERSION="0.3.10"
 METRICS_PROMETHEUS_VERSION="0.2.5"
