@@ -33,11 +33,22 @@ frontend ──→ recommendation ──→ productcatalog
 
 ## Step 1: Introduce the Failure
 
-Scale the product catalog service down to zero replicas to simulate an outage:
+First, find the product catalog deployment (the namespace and deployment name include generated hashes and cannot be hardcoded):
 
 ```bash
-kubectl scale deployment productcatalog-development-default \
-  -n dp-default --replicas=0
+# Find the productcatalog deployment across all namespaces
+kubectl get deployment -A -l openchoreo.dev/component=productcatalog
+```
+
+Then scale it down to zero replicas to simulate an outage:
+
+```bash
+# Store the namespace and deployment name
+DEPLOY_NS=$(kubectl get deployment -A -l openchoreo.dev/component=productcatalog -o jsonpath='{.items[0].metadata.namespace}')
+DEPLOY_NAME=$(kubectl get deployment -A -l openchoreo.dev/component=productcatalog -o jsonpath='{.items[0].metadata.name}')
+
+# Scale to zero
+kubectl scale deployment "$DEPLOY_NAME" -n "$DEPLOY_NS" --replicas=0
 ```
 
 Now visit the frontend in your browser. You should see errors when browsing products or attempting checkout. Let it run for a minute or two so logs and traces accumulate.
@@ -96,8 +107,8 @@ Is it running? How many replicas are configured?
 Restore the product catalog service and verify recovery.
 
 ```bash
-kubectl scale deployment productcatalog-development-default \
-  -n dp-default --replicas=1
+# Scale back up (using the same variables from Step 1)
+kubectl scale deployment "$DEPLOY_NAME" -n "$DEPLOY_NS" --replicas=1
 ```
 
 Wait a minute for the service to come back up, then verify:

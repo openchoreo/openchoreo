@@ -35,29 +35,36 @@ These lightweight services typically use a fraction of these resources.
 
 ## Step 1: Introduce Over-Provisioning
 
-Patch the frontend, checkout, and cart services with excessive resource allocations:
+First, find the deployments (the namespace and deployment names include generated hashes and cannot be hardcoded):
 
 ```bash
-# Over-provision frontend: 2 CPU / 2Gi memory
-kubectl patch deployment frontend-development-default \
-  -n dp-default --type=merge -p '{
-  "spec": {"template": {"spec": {"containers": [{"name": "workload",
-    "resources": {"requests": {"cpu": "2", "memory": "2Gi"},
-                  "limits": {"cpu": "2", "memory": "2Gi"}}}]}}}}'
+# List deployments for the components we'll patch
+kubectl get deployment -A -l openchoreo.dev/component=frontend
+kubectl get deployment -A -l openchoreo.dev/component=checkout
+kubectl get deployment -A -l openchoreo.dev/component=cart
+```
 
-# Over-provision checkout: 2 CPU / 2Gi memory
-kubectl patch deployment checkout-development-default \
-  -n dp-default --type=merge -p '{
-  "spec": {"template": {"spec": {"containers": [{"name": "workload",
-    "resources": {"requests": {"cpu": "2", "memory": "2Gi"},
-                  "limits": {"cpu": "2", "memory": "2Gi"}}}]}}}}'
+Now patch them with excessive resource allocations using a helper function:
 
-# Over-provision cart: 1 CPU / 1Gi memory
-kubectl patch deployment cart-development-default \
-  -n dp-default --type=merge -p '{
-  "spec": {"template": {"spec": {"containers": [{"name": "workload",
-    "resources": {"requests": {"cpu": "1", "memory": "1Gi"},
-                  "limits": {"cpu": "1", "memory": "1Gi"}}}]}}}}'
+```bash
+# Helper to patch a component's deployment by label
+patch_resources() {
+  local component=$1 cpu=$2 memory=$3
+  local ns=$(kubectl get deployment -A -l openchoreo.dev/component="$component" \
+    -o jsonpath='{.items[0].metadata.namespace}')
+  local name=$(kubectl get deployment -A -l openchoreo.dev/component="$component" \
+    -o jsonpath='{.items[0].metadata.name}')
+  kubectl patch deployment "$name" -n "$ns" --type=merge -p "{
+    \"spec\": {\"template\": {\"spec\": {\"containers\": [{\"name\": \"workload\",
+      \"resources\": {\"requests\": {\"cpu\": \"$cpu\", \"memory\": \"$memory\"},
+                      \"limits\": {\"cpu\": \"$cpu\", \"memory\": \"$memory\"}}}]}}}}"
+  echo "Patched $component ($name in $ns): $cpu CPU, $memory memory"
+}
+
+# Over-provision the services
+patch_resources frontend 2 2Gi
+patch_resources checkout 2 2Gi
+patch_resources cart     1 1Gi
 ```
 
 Wait a couple of minutes for the pods to restart and for usage metrics to start flowing.
