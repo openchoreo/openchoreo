@@ -321,7 +321,7 @@ type LogsQueryResponse struct {
 	// TookMs The time taken to query the logs in milliseconds
 	TookMs *int `json:"tookMs,omitempty"`
 
-	// Total The total number of logs queried
+	// Total The total number of matching log entries, capped at 1000
 	Total *int `json:"total,omitempty"`
 }
 
