@@ -1135,7 +1135,7 @@ spec:
           refreshInterval: 15s
           secretStoreRef:
             kind: ClusterSecretStore
-            name: default
+            name: ${workflowplane.secretStore}
           target:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
@@ -1160,7 +1160,7 @@ spec:
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
+            name: ${workflowplane.secretStore}
             kind: ClusterSecretStore
           target:
             name: ${metadata.workflowRunName}-registry-push-secret
@@ -1344,7 +1344,7 @@ spec:
           refreshInterval: 15s
           secretStoreRef:
             kind: ClusterSecretStore
-            name: default
+            name: ${workflowplane.secretStore}
           target:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
@@ -1368,7 +1368,7 @@ spec:
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
+            name: ${workflowplane.secretStore}
             kind: ClusterSecretStore
           target:
             name: ${metadata.workflowRunName}-registry-push-secret
@@ -1554,7 +1554,7 @@ spec:
           refreshInterval: 15s
           secretStoreRef:
             kind: ClusterSecretStore
-            name: default
+            name: ${workflowplane.secretStore}
           target:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
@@ -1578,7 +1578,7 @@ spec:
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
+            name: ${workflowplane.secretStore}
             kind: ClusterSecretStore
           target:
             name: ${metadata.workflowRunName}-registry-push-secret
@@ -1799,7 +1799,7 @@ spec:
           refreshInterval: 15s
           secretStoreRef:
             kind: ClusterSecretStore
-            name: default
+            name: ${workflowplane.secretStore}
           target:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
@@ -1823,7 +1823,7 @@ spec:
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
+            name: ${workflowplane.secretStore}
             kind: ClusterSecretStore
           target:
             name: ${metadata.workflowRunName}-registry-push-secret

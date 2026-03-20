@@ -1163,6 +1163,81 @@ func TestWorkflowPlaneResult_GetObservabilityPlane_NeitherSet(t *testing.T) {
 }
 
 // ============================================================================
+// Tests for WorkflowPlaneResult.GetSecretStoreName
+// ============================================================================
+
+func TestWorkflowPlaneResult_GetSecretStoreName_WithWorkflowPlane(t *testing.T) {
+	result := &WorkflowPlaneResult{
+		WorkflowPlane: &openchoreov1alpha1.WorkflowPlane{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-wp",
+				Namespace: "test-ns",
+			},
+			Spec: openchoreov1alpha1.WorkflowPlaneSpec{
+				SecretStoreRef: &openchoreov1alpha1.SecretStoreRef{
+					Name: "my-secret-store",
+				},
+			},
+		},
+	}
+
+	assert.Equal(t, "my-secret-store", result.GetSecretStoreName())
+}
+
+func TestWorkflowPlaneResult_GetSecretStoreName_WithClusterWorkflowPlane(t *testing.T) {
+	result := &WorkflowPlaneResult{
+		ClusterWorkflowPlane: &openchoreov1alpha1.ClusterWorkflowPlane{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster-wp",
+			},
+			Spec: openchoreov1alpha1.ClusterWorkflowPlaneSpec{
+				SecretStoreRef: &openchoreov1alpha1.SecretStoreRef{
+					Name: "cluster-secret-store",
+				},
+			},
+		},
+	}
+
+	assert.Equal(t, "cluster-secret-store", result.GetSecretStoreName())
+}
+
+func TestWorkflowPlaneResult_GetSecretStoreName_WithWorkflowPlane_NilRef(t *testing.T) {
+	result := &WorkflowPlaneResult{
+		WorkflowPlane: &openchoreov1alpha1.WorkflowPlane{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-wp",
+				Namespace: "test-ns",
+			},
+			Spec: openchoreov1alpha1.WorkflowPlaneSpec{
+				SecretStoreRef: nil,
+			},
+		},
+	}
+
+	assert.Equal(t, "", result.GetSecretStoreName())
+}
+
+func TestWorkflowPlaneResult_GetSecretStoreName_WithClusterWorkflowPlane_NilRef(t *testing.T) {
+	result := &WorkflowPlaneResult{
+		ClusterWorkflowPlane: &openchoreov1alpha1.ClusterWorkflowPlane{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster-wp",
+			},
+			Spec: openchoreov1alpha1.ClusterWorkflowPlaneSpec{
+				SecretStoreRef: nil,
+			},
+		},
+	}
+
+	assert.Equal(t, "", result.GetSecretStoreName())
+}
+
+func TestWorkflowPlaneResult_GetSecretStoreName_NeitherSet(t *testing.T) {
+	result := &WorkflowPlaneResult{}
+	assert.Equal(t, "", result.GetSecretStoreName())
+}
+
+// ============================================================================
 // Tests for ResolveWorkflow
 // ============================================================================
 

@@ -71,4 +71,14 @@ type WorkflowContext struct {
 	// Entries are injected into the CEL context under the "externalRefs" map
 	// and accessed as ${externalRefs['<id>'].spec.*}, e.g. ${externalRefs['git-secret-reference'].spec.template.type}.
 	ExternalRefs map[string]any
+
+	// WorkflowPlane contains workflow plane configuration data exposed to CEL as ${workflowplane.*}.
+	WorkflowPlane WorkflowPlaneData
+}
+
+// WorkflowPlaneData contains workflow plane configuration exposed to CEL templates.
+type WorkflowPlaneData struct {
+	// SecretStore is the name of the ESO ClusterSecretStore configured on the workflow plane.
+	// Exposed as ${workflowplane.secretStore}.
+	SecretStore string
 }

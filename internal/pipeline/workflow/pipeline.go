@@ -229,9 +229,14 @@ func (p *Pipeline) BuildCELContext(input *RenderInput) (map[string]any, error) {
 		return nil, fmt.Errorf("failed to build parameters: %w", err)
 	}
 
+	workflowplane := map[string]any{
+		"secretStore": input.Context.WorkflowPlane.SecretStore,
+	}
+
 	celContext := map[string]any{
-		"metadata":   metadata,
-		"parameters": parameters,
+		"metadata":      metadata,
+		"parameters":    parameters,
+		"workflowplane": workflowplane,
 	}
 
 	// Inject resolved externalRefs as a container map accessible via externalRefs['id']

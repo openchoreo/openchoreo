@@ -253,6 +253,18 @@ func (r *WorkflowPlaneResult) GetK8sClient(
 	return nil, fmt.Errorf("no workflow plane set in result")
 }
 
+// GetSecretStoreName returns the secret store name from the workflow plane (either WorkflowPlane or ClusterWorkflowPlane).
+// Returns empty string if no secret store ref is configured.
+func (r *WorkflowPlaneResult) GetSecretStoreName() string {
+	if r.WorkflowPlane != nil && r.WorkflowPlane.Spec.SecretStoreRef != nil {
+		return r.WorkflowPlane.Spec.SecretStoreRef.Name
+	}
+	if r.ClusterWorkflowPlane != nil && r.ClusterWorkflowPlane.Spec.SecretStoreRef != nil {
+		return r.ClusterWorkflowPlane.Spec.SecretStoreRef.Name
+	}
+	return ""
+}
+
 // GetObservabilityPlane resolves the observability plane for this workflow plane result.
 func (r *WorkflowPlaneResult) GetObservabilityPlane(ctx context.Context, c client.Client) (*ObservabilityPlaneResult, error) {
 	if r.WorkflowPlane != nil {

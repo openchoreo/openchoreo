@@ -1343,6 +1343,92 @@ func TestPipeline_Render_ExternalRefVariables(t *testing.T) {
 	})
 }
 
+func TestPipeline_Render_WorkflowPlaneVariables(t *testing.T) {
+	t.Run("workflowplane.secretStore rendered correctly", func(t *testing.T) {
+		input := &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name: "test-workflow",
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				Spec: v1alpha1.WorkflowSpec{
+					RunTemplate: mustRawExtension(t, map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "ConfigMap",
+						"metadata": map[string]interface{}{
+							"name": "secret-store-test",
+						},
+						"data": map[string]interface{}{
+							"secretStoreName": "${workflowplane.secretStore}",
+						},
+					}),
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "test-namespace",
+				WorkflowRunName: "test-run",
+				WorkflowPlane: WorkflowPlaneData{
+					SecretStore: "my-cluster-secret-store",
+				},
+			},
+		}
+
+		output, err := NewPipeline().Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		data := output.Resource["data"].(map[string]interface{})
+		if data["secretStoreName"] != "my-cluster-secret-store" {
+			t.Errorf("expected secretStoreName 'my-cluster-secret-store', got %v", data["secretStoreName"])
+		}
+	})
+
+	t.Run("workflowplane.secretStore defaults to empty string when not set", func(t *testing.T) {
+		input := &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name: "test-workflow",
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				Spec: v1alpha1.WorkflowSpec{
+					RunTemplate: mustRawExtension(t, map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "ConfigMap",
+						"metadata": map[string]interface{}{
+							"name": "secret-store-empty-test",
+						},
+						"data": map[string]interface{}{
+							"secretStoreName": "${workflowplane.secretStore}",
+						},
+					}),
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "test-namespace",
+				WorkflowRunName: "test-run",
+				// WorkflowPlane not set — defaults to zero value
+			},
+		}
+
+		output, err := NewPipeline().Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		data := output.Resource["data"].(map[string]interface{})
+		if data["secretStoreName"] != "" {
+			t.Errorf("expected secretStoreName to be empty, got %v", data["secretStoreName"])
+		}
+	})
+}
+
 func TestPipeline_Render_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name    string
