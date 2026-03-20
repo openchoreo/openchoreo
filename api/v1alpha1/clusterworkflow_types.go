@@ -25,6 +25,16 @@ type ClusterWorkflowSpec struct {
 	Parameters *SchemaSection `json:"parameters,omitempty"`
 
 	// RunTemplate is the Kubernetes resource template to be rendered and applied to the cluster.
+	// Template variables are substituted with context and parameter values.
+	// Supported template variables:
+	//   - ${metadata.workflowRunName} - WorkflowRun name (the execution instance)
+	//   - ${metadata.namespaceName} - Namespace name
+	//   - ${metadata.namespace} - Enforced workflow execution namespace (e.g., "workflows-<namespaceName>")
+	//   - ${metadata.labels['key']} - WorkflowRun labels
+	//   - ${parameters.*} - Developer-provided parameter values
+	//   - ${workflowplane.secretStore} - ESO ClusterSecretStore name from the WorkflowPlane
+	//   - ${externalRefs['<id>'].spec.*} - Resolved external CR specs (declared via externalRefs)
+	//
 	// +required
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
