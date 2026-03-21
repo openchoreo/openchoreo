@@ -40,6 +40,20 @@ spec:
             APP_PATH="{{workflow.parameters.app-path}}"
             BUILD_ENV_JSON='{{workflow.parameters.build-env}}'
 
+            # --- Parameter Validation ---
+            echo ">> === Paketo Buildpacks Build ==="
+            echo ">> Image: $IMAGE"
+            echo ">> App path: $APP_PATH"
+            echo ">> Builder: docker.io/paketobuildpacks/builder-jammy-full:0.3.603"
+
+            if [ ! -d "$WORKDIR/$APP_PATH" ]; then
+              echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
+              echo ">> Hint: Verify that the application path points to a valid directory in your repository."
+              echo ">> Repository contents:"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
             mkdir -p /etc/containers
             cat > /etc/containers/storage.conf <<EOF
             [storage]
@@ -50,6 +64,7 @@ spec:
             mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
+            echo ">> Initializing build environment"
             podman system service --time=0 &
             until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
 
@@ -64,6 +79,7 @@ spec:
                 tr '\n' ' ')
             fi
 
+            echo ">> Building image with Paketo buildpacks"
             /usr/local/bin/pack build "$IMAGE" \
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
@@ -72,6 +88,8 @@ spec:
               --pull-policy always \
               $ENV_ARGS
 
+            echo ">> Image built successfully"
+            echo ">> Saving image"
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:
           privileged: true
@@ -105,6 +123,18 @@ spec:
             APP_PATH="{{workflow.parameters.app-path}}"
             BUILD_ENV_JSON='{{workflow.parameters.build-env}}'
 
+            # --- Parameter Validation ---
+            echo ">> Image: $IMAGE"
+            echo ">> App path: $APP_PATH"
+
+            if [ ! -d "$WORKDIR/$APP_PATH" ]; then
+              echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
+              echo ">> Hint: Verify that the application path points to a valid directory in your repository."
+              echo ">> Repository contents:"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
             mkdir -p /etc/containers
             cat > /etc/containers/storage.conf <<EOF
             [storage]
@@ -115,6 +145,7 @@ spec:
             mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
+            echo ">> Initializing build environment"
             podman system service --time=0 &
             until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
 
@@ -129,6 +160,7 @@ spec:
                 tr '\n' ' ')
             fi
 
+            echo ">> Building image with GCP buildpacks"
             /usr/local/bin/pack build "$IMAGE" \
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
@@ -137,6 +169,8 @@ spec:
               --pull-policy always \
               $ENV_ARGS
 
+            echo ">> Image built successfully"
+            echo ">> Saving image"
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:
           privileged: true
@@ -171,6 +205,19 @@ spec:
             APP_PATH="{{workflow.parameters.app-path}}"
             BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
 
+            # --- Parameter Validation ---
+            echo ">> Image: $IMAGE"
+            echo ">> App path: $APP_PATH"
+            echo ">> Builder: ghcr.io/openchoreo/buildpack/ballerina:18"
+
+            if [ ! -d "$WORKDIR/$APP_PATH" ]; then
+              echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
+              echo ">> Hint: Verify that the application path points to a valid directory in your repository."
+              echo ">> Repository contents:"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
             mkdir -p /etc/containers
             cat > /etc/containers/storage.conf <<EOF
             [storage]
@@ -181,6 +228,7 @@ spec:
             mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
+            echo ">> Initializing build environment"
             podman system service --time=0 &
             until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
 
@@ -195,6 +243,7 @@ spec:
                 tr '\n' ' ')
             fi
 
+            echo ">> Building image with Ballerina buildpack"
             /usr/local/bin/pack build "$IMAGE" \
               --builder "$BUILDER" \
               --run-image "$RUN_IMAGE" \
@@ -204,6 +253,8 @@ spec:
               --pull-policy always \
               $ENV_ARGS
 
+            echo ">> Image built successfully"
+            echo ">> Saving image"
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:
           privileged: true
@@ -240,6 +291,27 @@ spec:
             BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
             BUILD_ARGS_JSON='{{inputs.parameters.build-args}}'
 
+            # --- Parameter Validation ---
+            echo ">> Image: $IMAGE"
+            echo ">> Dockerfile: $DOCKERFILE_PATH"
+            echo ">> Docker context: $DOCKER_CONTEXT"
+
+            if [ ! -f "$WORKDIR/$DOCKERFILE_PATH" ]; then
+              echo ">> Error: Dockerfile not found at: '$DOCKERFILE_PATH'"
+              echo ">> Hint: Verify that the Dockerfile path is correct and relative to the repository root."
+              echo ">> Repository contents:"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
+            if [ ! -d "$WORKDIR/$DOCKER_CONTEXT" ]; then
+              echo ">> Error: Docker build context directory not found: '$DOCKER_CONTEXT'"
+              echo ">> Hint: Verify that the Docker build context points to a valid directory relative to the repository root."
+              echo ">> Repository contents:"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
             mkdir -p /etc/containers
             cat > /etc/containers/storage.conf <<EOF
             [storage]
@@ -266,7 +338,10 @@ spec:
                 tr '\n' ' ')
             fi
 
+            echo ">> Building image"
             podman build -t $IMAGE -f $WORKDIR/$DOCKERFILE_PATH $ENV_ARGS $BUILD_ARG_ARGS $WORKDIR/$DOCKER_CONTEXT
+            echo ">> Image built successfully"
+            echo ">> Saving image"
             podman save -o /mnt/vol/app-image.tar $IMAGE
         securityContext:
           privileged: true
