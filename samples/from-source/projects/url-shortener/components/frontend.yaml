@@ -1,0 +1,65 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: snip-frontend
+  namespace: default
+spec:
+  owner:
+    projectName: url-shortener
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/web-application
+
+  autoDeploy: true
+
+  traits:
+    - kind: ClusterTrait
+      name: observability-alert-rule
+      instanceName: frontend-5xx-log-alert
+      parameters:
+        description: "Alert when frontend logs indicate HTTP 500 responses"
+        severity: critical
+        source:
+          type: log
+          query: "status=500"
+        condition:
+          window: 1m
+          interval: 1m
+          operator: gt
+          threshold: 5
+
+  workflow:
+    kind: ClusterWorkflow
+    name: dockerfile-builder
+    parameters:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+        appPath: "/project-url-shortener/frontend"
+      docker:
+        context: "/project-url-shortener/frontend"
+        filePath: "/project-url-shortener/frontend/Dockerfile"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: WorkflowRun
+metadata:
+  name: snip-frontend-build-01
+  labels:
+    openchoreo.dev/project: "url-shortener"
+    openchoreo.dev/component: "snip-frontend"
+spec:
+  workflow:
+    kind: ClusterWorkflow
+    name: dockerfile-builder
+    parameters:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+        appPath: "/project-url-shortener/frontend"
+      docker:
+        context: "/project-url-shortener/frontend"
+        filePath: "/project-url-shortener/frontend/Dockerfile"

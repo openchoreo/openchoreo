@@ -1,0 +1,13 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Project
+metadata:
+  annotations:
+    openchoreo.dev/description: URL Shortener Demo — shorten URLs, track clicks
+    openchoreo.dev/display-name: URL Shortener
+  labels:
+    openchoreo.dev/name: url-shortener
+  name: url-shortener
+  namespace: default
+spec:
+  deploymentPipelineRef:
+    name: default

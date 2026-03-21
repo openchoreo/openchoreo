@@ -1,0 +1,79 @@
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityAlertsNotificationChannel
+metadata:
+  name: webhook-notification-channel-development
+  namespace: default
+spec:
+  environment: development
+  type: webhook
+  webhookConfig:
+    url: https://webhook.example.com
+    headers:
+      Content-Type:
+        value: "application/json"
+      X-API-Key:
+        valueFrom:
+          secretKeyRef:
+            name: webhook-notification-channel-development-webhook-auth
+            key: api-key
+    payloadTemplate: |
+      {
+        "text": "Alert: ${alertName}",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "OpenChoreo Alert: ${alertName}"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Severity:*\n${alertSeverity}"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Value:*\n${alertValue}"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Threshold:*\n${alertThreshold}"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Component:*\n${component}"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Description:*\n${alertDescription}"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Project: ${project} | Environment: ${environment} | Time: ${alertTimestamp}"
+              }
+            ]
+          }
+        ]
+      }
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: webhook-notification-channel-development-webhook-auth
+  namespace: default
+type: Opaque
+stringData:
+  api-key: dummy-webhook-api-key
