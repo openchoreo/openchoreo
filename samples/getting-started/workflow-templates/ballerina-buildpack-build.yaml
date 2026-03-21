@@ -27,7 +27,6 @@ spec:
             # --- Parameter Validation ---
             echo ">> Image: $IMAGE"
             echo ">> App path: $APP_PATH"
-            echo ">> Builder: ghcr.io/openchoreo/buildpack/ballerina:18"
 
             if [ ! -d "$WORKDIR/$APP_PATH" ]; then
               echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"

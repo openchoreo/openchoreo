@@ -24,10 +24,8 @@ spec:
             BUILD_ENV_JSON='{{workflow.parameters.build-env}}'
 
             # --- Parameter Validation ---
-            echo ">> === Paketo Buildpacks Build ==="
             echo ">> Image: $IMAGE"
             echo ">> App path: $APP_PATH"
-            echo ">> Builder: docker.io/paketobuildpacks/builder-jammy-full:0.3.603"
 
             if [ ! -d "$WORKDIR/$APP_PATH" ]; then
               echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
