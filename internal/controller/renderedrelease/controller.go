@@ -467,7 +467,12 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 		// Core Kubernetes Resources
 		{Group: "", Version: "v1", Kind: "Service"},
 		{Group: "", Version: "v1", Kind: "ConfigMap"},
-		{Group: "", Version: "v1", Kind: "Secret"},
+		// Secret is excluded from well-known GVKs because the cluster gateway blocks
+		// cluster-wide secret listing (/api/v1/secrets) for security reasons.
+		// Secrets are tracked and cleaned up through external secrets.
+		// TODO: Switch listLiveResourcesByGVKs to namespace-scoped listing so secrets
+		// can be safely re-added here without hitting the cluster gateway block.
+		// {Group: "", Version: "v1", Kind: "Secret"},
 		{Group: "", Version: "v1", Kind: "ServiceAccount"},
 		{Group: "", Version: "v1", Kind: "Namespace"},
 		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
