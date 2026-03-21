@@ -2641,8 +2641,12 @@
                                           "description": "Component scope (requires project)",
                                           "type": "string"
                                         },
+                                        "namespace": {
+                                          "description": "Namespace scope (ClusterAuthzRoleBinding only, omit for cluster-wide)",
+                                          "type": "string"
+                                        },
                                         "project": {
-                                          "description": "Project scope",
+                                          "description": "Project scope (requires namespace for cluster bindings)",
                                           "type": "string"
                                         }
                                       },

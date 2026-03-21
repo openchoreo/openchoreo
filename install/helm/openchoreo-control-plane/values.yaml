@@ -1365,9 +1365,12 @@ openchoreoApi:
           #             type: object
           #             description: Scopes this mapping within the ownership hierarchy
           #             properties:
+          #               namespace:
+          #                 type: string
+          #                 description: Namespace scope (ClusterAuthzRoleBinding only, omit for cluster-wide)
           #               project:
           #                 type: string
-          #                 description: Project scope
+          #                 description: Project scope (requires namespace for cluster bindings)
           #               component:
           #                 type: string
           #                 description: Component scope (requires project)
