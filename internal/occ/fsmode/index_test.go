@@ -99,3 +99,110 @@ func TestExtractOwnerRef(t *testing.T) {
 		})
 	}
 }
+
+func addClusterComponentTypeEntry(t *testing.T, idx *index.Index, name string) {
+	t.Helper()
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "ClusterComponentType",
+				"metadata":   map[string]any{"name": name},
+				"spec": map[string]any{
+					"workloadType": "deployment",
+					"resources":    []any{},
+				},
+			},
+		},
+		FilePath: "/repo/platform/cluster-component-types/" + name + ".yaml",
+	}
+	require.NoError(t, idx.Add(entry))
+}
+
+func addClusterTraitEntry(t *testing.T, idx *index.Index, name string) {
+	t.Helper()
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "ClusterTrait",
+				"metadata":   map[string]any{"name": name},
+				"spec":       map[string]any{},
+			},
+		},
+		FilePath: "/repo/platform/cluster-traits/" + name + ".yaml",
+	}
+	require.NoError(t, idx.Add(entry))
+}
+
+func TestGetClusterComponentType(t *testing.T) {
+	idx := index.New("/repo")
+	addClusterComponentTypeEntry(t, idx, "service")
+	ocIndex := WrapIndex(idx)
+
+	t.Run("found", func(t *testing.T) {
+		entry, ok := ocIndex.GetClusterComponentType("service")
+		require.True(t, ok)
+		assert.Equal(t, "service", entry.Name())
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		_, ok := ocIndex.GetClusterComponentType("nonexistent")
+		assert.False(t, ok)
+	})
+}
+
+func TestGetClusterTrait(t *testing.T) {
+	idx := index.New("/repo")
+	addClusterTraitEntry(t, idx, "global-ingress")
+	ocIndex := WrapIndex(idx)
+
+	t.Run("found", func(t *testing.T) {
+		entry, ok := ocIndex.GetClusterTrait("global-ingress")
+		require.True(t, ok)
+		assert.Equal(t, "global-ingress", entry.Name())
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		_, ok := ocIndex.GetClusterTrait("nonexistent")
+		assert.False(t, ok)
+	})
+}
+
+func TestGetTypedClusterComponentType(t *testing.T) {
+	idx := index.New("/repo")
+	addClusterComponentTypeEntry(t, idx, "service")
+	ocIndex := WrapIndex(idx)
+
+	t.Run("found", func(t *testing.T) {
+		cct, err := ocIndex.GetTypedClusterComponentType("service")
+		require.NoError(t, err)
+		assert.Equal(t, "deployment", cct.WorkloadType())
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		_, err := ocIndex.GetTypedClusterComponentType("nonexistent")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cluster component type")
+		assert.Contains(t, err.Error(), "nonexistent")
+	})
+}
+
+func TestGetTypedClusterTrait(t *testing.T) {
+	idx := index.New("/repo")
+	addClusterTraitEntry(t, idx, "global-ingress")
+	ocIndex := WrapIndex(idx)
+
+	t.Run("found", func(t *testing.T) {
+		ct, err := ocIndex.GetTypedClusterTrait("global-ingress")
+		require.NoError(t, err)
+		require.NotNil(t, ct)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		_, err := ocIndex.GetTypedClusterTrait("nonexistent")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cluster trait")
+		assert.Contains(t, err.Error(), "nonexistent")
+	})
+}

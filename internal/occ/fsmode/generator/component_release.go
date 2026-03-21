@@ -52,12 +52,38 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 			opts.ComponentName, comp.ProjectName(), opts.ProjectName)
 	}
 
-	// 2. Fetch ComponentType
+	// 2. Fetch ComponentType or ClusterComponentType based on kind
 	typeName := comp.ComponentTypeName()
-	ct, err := g.index.GetTypedComponentType(typeName)
-	if err != nil {
-		return nil, fmt.Errorf("component type %q not found (referenced by component %q): %w",
-			typeName, opts.ComponentName, err)
+	ctKind := string(comp.Spec.ComponentType.Kind)
+	if ctKind == "" {
+		ctKind = "ComponentType"
+	}
+
+	var workloadType string
+	var ctResources []interface{}
+	var ctSchema map[string]interface{}
+
+	switch ctKind {
+	case "ComponentType":
+		ct, err := g.index.GetTypedComponentType(typeName)
+		if err != nil {
+			return nil, fmt.Errorf("component type %q not found (referenced by component %q): %w",
+				typeName, opts.ComponentName, err)
+		}
+		workloadType = ct.WorkloadType()
+		ctResources = ct.GetResources()
+		ctSchema = ct.GetSchema()
+	case "ClusterComponentType":
+		cct, err := g.index.GetTypedClusterComponentType(typeName)
+		if err != nil {
+			return nil, fmt.Errorf("cluster component type %q not found (referenced by component %q): %w",
+				typeName, opts.ComponentName, err)
+		}
+		workloadType = cct.WorkloadType()
+		ctResources = cct.GetResources()
+		ctSchema = cct.GetSchema()
+	default:
+		return nil, fmt.Errorf("unsupported component type kind %q for component %q", ctKind, opts.ComponentName)
 	}
 
 	// 3. Fetch Workload
@@ -88,7 +114,7 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 	}
 
 	// 6. Build ComponentRelease
-	release := g.buildRelease(releaseName, opts.Namespace, comp, ct, wl, traitsList, profileTraits)
+	release := g.buildRelease(releaseName, opts.Namespace, comp, wl, workloadType, ctResources, ctSchema, ctKind, traitsList, profileTraits)
 
 	return release, nil
 }
@@ -128,7 +154,11 @@ func (g *ReleaseGenerator) buildTraitsData(traitRefs []typed2.TraitRef) (
 			}
 			traitSpec = t.GetSpec()
 		case traitKindClusterTrait:
-			return nil, nil, fmt.Errorf("ClusterTrait %q lookup is not yet supported in fs-mode index", ref.Name)
+			ct, err := g.index.GetTypedClusterTrait(ref.Name)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to look up cluster trait %s/%s: %w", kind, ref.Name, err)
+			}
+			traitSpec = ct.GetSpec()
 		default:
 			return nil, nil, fmt.Errorf("unsupported trait kind %q for trait %q", kind, ref.Name)
 		}
@@ -181,26 +211,23 @@ func (g *ReleaseGenerator) buildWorkloadData(wl *typed2.Workload) map[string]int
 func (g *ReleaseGenerator) buildRelease(
 	releaseName, namespace string,
 	comp *typed2.Component,
-	ct *typed2.ComponentType,
 	wl *typed2.Workload,
+	workloadType string,
+	ctResources []interface{},
+	ctSchema map[string]interface{},
+	ctKind string,
 	traitsList []interface{},
 	profileTraits []interface{},
 ) *unstructured.Unstructured {
 	// Build componentType.spec with workloadType, schema, and resources
 	componentTypeSpec := map[string]interface{}{
-		"workloadType": ct.WorkloadType(),
-		"resources":    ct.GetResources(),
+		"workloadType": workloadType,
+		"resources":    ctResources,
 	}
-	if schema := ct.GetSchema(); len(schema) > 0 {
-		for k, v := range schema {
+	if len(ctSchema) > 0 {
+		for k, v := range ctSchema {
 			componentTypeSpec[k] = v
 		}
-	}
-
-	// Determine the kind from the component's componentType reference
-	ctKind := string(comp.Spec.ComponentType.Kind)
-	if ctKind == "" {
-		ctKind = "ComponentType"
 	}
 
 	spec := map[string]interface{}{

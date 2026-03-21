@@ -56,26 +56,30 @@ type Index struct {
 	mu sync.RWMutex
 
 	// OpenChoreo-specific indexes
-	componentsByProject  map[string][]*index.ResourceEntry // projectName -> components
-	workloadsByComponent map[string]*index.ResourceEntry   // "project/component" -> workload
-	componentTypes       map[string]*index.ResourceEntry   // typeName -> componentType
-	traits               map[string]*index.ResourceEntry   // traitName -> trait
-	releasesByComponent  map[string][]*index.ResourceEntry // "project/component" -> releases
-	releaseBindingsByEnv map[string][]*index.ResourceEntry // "project/component/env" -> bindings
-	deploymentPipelines  map[string]*index.ResourceEntry   // pipelineName -> pipeline
+	componentsByProject   map[string][]*index.ResourceEntry // projectName -> components
+	workloadsByComponent  map[string]*index.ResourceEntry   // "project/component" -> workload
+	componentTypes        map[string]*index.ResourceEntry   // typeName -> componentType
+	traits                map[string]*index.ResourceEntry   // traitName -> trait
+	clusterComponentTypes map[string]*index.ResourceEntry   // typeName -> clusterComponentType
+	clusterTraits         map[string]*index.ResourceEntry   // traitName -> clusterTrait
+	releasesByComponent   map[string][]*index.ResourceEntry // "project/component" -> releases
+	releaseBindingsByEnv  map[string][]*index.ResourceEntry // "project/component/env" -> bindings
+	deploymentPipelines   map[string]*index.ResourceEntry   // pipelineName -> pipeline
 }
 
 // WrapIndex wraps an existing generic index with OpenChoreo-specific functionality
 func WrapIndex(idx *index.Index) *Index {
 	ocIndex := &Index{
-		Index:                idx,
-		componentsByProject:  make(map[string][]*index.ResourceEntry),
-		workloadsByComponent: make(map[string]*index.ResourceEntry),
-		componentTypes:       make(map[string]*index.ResourceEntry),
-		traits:               make(map[string]*index.ResourceEntry),
-		releasesByComponent:  make(map[string][]*index.ResourceEntry),
-		releaseBindingsByEnv: make(map[string][]*index.ResourceEntry),
-		deploymentPipelines:  make(map[string]*index.ResourceEntry),
+		Index:                 idx,
+		componentsByProject:   make(map[string][]*index.ResourceEntry),
+		workloadsByComponent:  make(map[string]*index.ResourceEntry),
+		componentTypes:        make(map[string]*index.ResourceEntry),
+		traits:                make(map[string]*index.ResourceEntry),
+		clusterComponentTypes: make(map[string]*index.ResourceEntry),
+		clusterTraits:         make(map[string]*index.ResourceEntry),
+		releasesByComponent:   make(map[string][]*index.ResourceEntry),
+		releaseBindingsByEnv:  make(map[string][]*index.ResourceEntry),
+		deploymentPipelines:   make(map[string]*index.ResourceEntry),
 	}
 
 	// Build OpenChoreo-specific indexes from existing resources
@@ -118,6 +122,20 @@ func (idx *Index) addToSpecializedIndexesUnsafe(entry *index.ResourceEntry) {
 			idx.traits[name] = entry
 		}
 
+	case ClusterComponentTypeGVK:
+		// Index by type name
+		name := entry.Name()
+		if name != "" {
+			idx.clusterComponentTypes[name] = entry
+		}
+
+	case ClusterTraitGVK:
+		// Index by trait name
+		name := entry.Name()
+		if name != "" {
+			idx.clusterTraits[name] = entry
+		}
+
 	case ComponentReleaseGVK:
 		// Index by component
 		owner := ExtractOwnerRef(entry)
@@ -154,6 +172,8 @@ func (idx *Index) rebuildSpecializedIndexes() {
 	idx.workloadsByComponent = make(map[string]*index.ResourceEntry)
 	idx.componentTypes = make(map[string]*index.ResourceEntry)
 	idx.traits = make(map[string]*index.ResourceEntry)
+	idx.clusterComponentTypes = make(map[string]*index.ResourceEntry)
+	idx.clusterTraits = make(map[string]*index.ResourceEntry)
 	idx.releasesByComponent = make(map[string][]*index.ResourceEntry)
 	idx.releaseBindingsByEnv = make(map[string][]*index.ResourceEntry)
 	idx.deploymentPipelines = make(map[string]*index.ResourceEntry)
@@ -185,6 +205,42 @@ func (idx *Index) GetTrait(name string) (*index.ResourceEntry, bool) {
 
 	entry, ok := idx.traits[name]
 	return entry, ok
+}
+
+// GetClusterComponentType retrieves a cluster component type by name
+func (idx *Index) GetClusterComponentType(name string) (*index.ResourceEntry, bool) {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	entry, ok := idx.clusterComponentTypes[name]
+	return entry, ok
+}
+
+// GetClusterTrait retrieves a cluster trait by name
+func (idx *Index) GetClusterTrait(name string) (*index.ResourceEntry, bool) {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	entry, ok := idx.clusterTraits[name]
+	return entry, ok
+}
+
+// GetTypedClusterComponentType retrieves a cluster component type by name and returns a typed wrapper
+func (idx *Index) GetTypedClusterComponentType(name string) (*typed.ClusterComponentType, error) {
+	entry, ok := idx.GetClusterComponentType(name)
+	if !ok {
+		return nil, fmt.Errorf("cluster component type %q not found", name)
+	}
+	return typed.NewClusterComponentType(entry)
+}
+
+// GetTypedClusterTrait retrieves a cluster trait by name and returns a typed wrapper
+func (idx *Index) GetTypedClusterTrait(name string) (*typed.ClusterTrait, error) {
+	entry, ok := idx.GetClusterTrait(name)
+	if !ok {
+		return nil, fmt.Errorf("cluster trait %q not found", name)
+	}
+	return typed.NewClusterTrait(entry)
 }
 
 // GetWorkloadForComponent retrieves the workload for a specific component

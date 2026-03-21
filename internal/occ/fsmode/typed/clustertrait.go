@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package typed
@@ -10,22 +10,22 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/fsindex/index"
 )
 
-// Trait wraps v1alpha1.Trait with domain-specific helper methods
-type Trait struct {
-	*v1alpha1.Trait
+// ClusterTrait wraps v1alpha1.ClusterTrait with domain-specific helper methods
+type ClusterTrait struct {
+	*v1alpha1.ClusterTrait
 }
 
-// NewTrait creates a Trait wrapper from a ResourceEntry
-func NewTrait(entry *index.ResourceEntry) (*Trait, error) {
-	trait, err := FromEntry[v1alpha1.Trait](entry)
+// NewClusterTrait creates a ClusterTrait wrapper from a ResourceEntry
+func NewClusterTrait(entry *index.ResourceEntry) (*ClusterTrait, error) {
+	trait, err := FromEntry[v1alpha1.ClusterTrait](entry)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert to Trait: %w", err)
+		return nil, fmt.Errorf("failed to convert to ClusterTrait: %w", err)
 	}
-	return &Trait{Trait: trait}, nil
+	return &ClusterTrait{ClusterTrait: trait}, nil
 }
 
-// GetSpec returns the full trait spec as a map for template processing
-func (t *Trait) GetSpec() map[string]interface{} {
+// GetSpec returns the full cluster trait spec as a map for template processing
+func (t *ClusterTrait) GetSpec() map[string]interface{} {
 	spec := make(map[string]interface{})
 
 	// Add schema sections

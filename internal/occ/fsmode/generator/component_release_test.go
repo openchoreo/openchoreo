@@ -174,11 +174,11 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 		"/repo/projects/myproj/components/my-svc/workload.yaml")
 
 	addTrait(t, idx, "ingress",
-		map[string]any{"creates": []any{map[string]any{"apiVersion": "networking.k8s.io/v1", "kind": "Ingress"}}},
+		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "networking.k8s.io/v1", "kind": "Ingress"}}}},
 		"/repo/platform/traits/ingress.yaml")
 
 	addTrait(t, idx, "logging",
-		map[string]any{"creates": []any{map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}},
+		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}}},
 		"/repo/platform/traits/logging.yaml")
 
 	ocIndex := fsmode.WrapIndex(idx)
@@ -244,7 +244,187 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 	assert.Equal(t, projectName, ownerProj)
 }
 
-func TestGenerateRelease_ClusterTraitRefErrors(t *testing.T) {
+// addClusterComponentType adds a ClusterComponentType resource entry to the index.
+func addClusterComponentType(t *testing.T, idx *index.Index, name, workloadType string, filePath string) {
+	t.Helper()
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "ClusterComponentType",
+				"metadata": map[string]any{
+					"name": name,
+				},
+				"spec": map[string]any{
+					"workloadType": workloadType,
+					"resources":    []any{},
+					"schema":       map[string]any{},
+				},
+			},
+		},
+		FilePath: filePath,
+	}
+	require.NoError(t, idx.Add(entry))
+}
+
+// addClusterTrait adds a ClusterTrait resource entry to the index.
+func addClusterTrait(t *testing.T, idx *index.Index, name string, spec map[string]any, filePath string) {
+	t.Helper()
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "ClusterTrait",
+				"metadata": map[string]any{
+					"name": name,
+				},
+				"spec": spec,
+			},
+		},
+		FilePath: filePath,
+	}
+	require.NoError(t, idx.Add(entry))
+}
+
+// addComponentWithKind adds a Component with a specific componentType kind to the index.
+func addComponentWithKind(t *testing.T, idx *index.Index, namespace, name, project, componentTypeName, ctKind string, traits []map[string]any, filePath string) {
+	t.Helper()
+	spec := map[string]any{
+		"owner": map[string]any{
+			"projectName": project,
+		},
+		"componentType": map[string]any{
+			"name": componentTypeName,
+			"kind": ctKind,
+		},
+	}
+	if len(traits) > 0 {
+		spec["traits"] = traits
+	}
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "Component",
+				"metadata": map[string]any{
+					"name":      name,
+					"namespace": namespace,
+				},
+				"spec": spec,
+			},
+		},
+		FilePath: filePath,
+	}
+	require.NoError(t, idx.Add(entry))
+}
+
+func TestGenerateRelease_ClusterComponentType(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+		releaseName   = "my-svc-release-1"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithKind(t, idx, namespace, componentName, projectName, "deployment/service",
+		"ClusterComponentType", nil,
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addClusterComponentType(t, idx, "service", "deployment",
+		"/repo/platform/cluster-component-types/service.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{
+			"container": map[string]any{"image": "reg/my-svc:v1"},
+		},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	require.NoError(t, err)
+
+	// Verify spec.componentType
+	ctKind, _, _ := unstructured.NestedString(release.Object, "spec", "componentType", "kind")
+	ctName, _, _ := unstructured.NestedString(release.Object, "spec", "componentType", "name")
+	ctWorkloadType, _, _ := unstructured.NestedString(release.Object, "spec", "componentType", "spec", "workloadType")
+	assert.Equal(t, "ClusterComponentType", ctKind)
+	assert.Equal(t, "deployment/service", ctName)
+	assert.Equal(t, "deployment", ctWorkloadType)
+}
+
+func TestGenerateRelease_ClusterTrait(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+		releaseName   = "my-svc-release-1"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithTraits(t, idx, namespace, componentName, projectName, "deployment/service",
+		[]map[string]any{
+			{"kind": "ClusterTrait", "name": "global-ingress", "instanceName": "gi-1"},
+		},
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addComponentType(t, idx, "service", "deployment",
+		"/repo/platform/component-types/service.yaml")
+
+	addClusterTrait(t, idx, "global-ingress",
+		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "networking.k8s.io/v1", "kind": "Ingress"}}}},
+		"/repo/platform/cluster-traits/global-ingress.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{
+			"container": map[string]any{"image": "reg/my-svc:v1"},
+		},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	require.NoError(t, err)
+
+	// Verify spec.traits[]
+	traitsSlice, ok, _ := unstructured.NestedSlice(release.Object, "spec", "traits")
+	require.True(t, ok, "expected spec.traits to exist")
+	require.Len(t, traitsSlice, 1)
+
+	traitMap, ok := traitsSlice[0].(map[string]interface{})
+	require.True(t, ok, "spec.traits[0] is not a map")
+	assert.Equal(t, "ClusterTrait", traitMap["kind"])
+	assert.Equal(t, "global-ingress", traitMap["name"])
+	assert.NotNil(t, traitMap["spec"])
+
+	// Verify spec.componentProfile.traits[]
+	profileTraits, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentProfile", "traits")
+	require.True(t, ok, "expected spec.componentProfile.traits to exist")
+	require.Len(t, profileTraits, 1)
+
+	pt, ok := profileTraits[0].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "ClusterTrait", pt["kind"])
+	assert.Equal(t, "global-ingress", pt["name"])
+	assert.Equal(t, "gi-1", pt["instanceName"])
+}
+
+func TestGenerateRelease_MissingClusterTraitErrors(t *testing.T) {
 	const (
 		namespace     = "staging"
 		projectName   = "myproj"
@@ -268,6 +448,8 @@ func TestGenerateRelease_ClusterTraitRefErrors(t *testing.T) {
 		},
 		"/repo/projects/myproj/components/my-svc/workload.yaml")
 
+	// Note: ClusterTrait "global-ingress" is NOT added to the index
+
 	ocIndex := fsmode.WrapIndex(idx)
 	gen := NewReleaseGenerator(ocIndex)
 
@@ -278,8 +460,75 @@ func TestGenerateRelease_ClusterTraitRefErrors(t *testing.T) {
 		ReleaseName:   "test-release",
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "ClusterTrait")
+	assert.Contains(t, err.Error(), "cluster trait")
 	assert.Contains(t, err.Error(), "global-ingress")
+}
+
+func TestGenerateRelease_MissingClusterComponentTypeErrors(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+	)
+
+	idx := index.New("/repo")
+
+	// Component references ClusterComponentType "service" but it doesn't exist in the index
+	addComponentWithKind(t, idx, namespace, componentName, projectName, "deployment/service",
+		"ClusterComponentType", nil,
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{
+			"container": map[string]any{"image": "reg/my-svc:v1"},
+		},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	_, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   "test-release",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cluster component type")
+	assert.Contains(t, err.Error(), "service")
+}
+
+func TestGenerateRelease_UnsupportedComponentTypeKindErrors(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithKind(t, idx, namespace, componentName, projectName, "deployment/service",
+		"InvalidKind", nil,
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{
+			"container": map[string]any{"image": "reg/my-svc:v1"},
+		},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	_, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   "test-release",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported component type kind")
+	assert.Contains(t, err.Error(), "InvalidKind")
 }
 
 func TestGenerateRelease_WorkloadEndpointsIncluded(t *testing.T) {
