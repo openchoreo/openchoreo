@@ -26,6 +26,27 @@ spec:
             BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
             BUILD_ARGS_JSON='{{inputs.parameters.build-args}}'
 
+            # --- Parameter Validation ---
+            echo ">> Image: $IMAGE"
+            echo ">> Dockerfile: $DOCKERFILE_PATH"
+            echo ">> Docker context: $DOCKER_CONTEXT"
+
+            if [ ! -f "$WORKDIR/$DOCKERFILE_PATH" ]; then
+              echo ">> Error: Dockerfile not found at: '$DOCKERFILE_PATH'"
+              echo ">> Hint: Verify that the Dockerfile path is correct and relative to the repository root."
+              echo ">> Repository contents:"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
+            if [ ! -d "$WORKDIR/$DOCKER_CONTEXT" ]; then
+              echo ">> Error: Docker build context directory not found: '$DOCKER_CONTEXT'"
+              echo ">> Hint: Verify that the Docker build context points to a valid directory relative to the repository root."
+              echo ">> Repository contents:"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
             mkdir -p /etc/containers
             cat > /etc/containers/storage.conf <<EOF
             [storage]
@@ -52,7 +73,10 @@ spec:
                 tr '\n' ' ')
             fi
 
+            echo ">> Building image"
             podman build -t $IMAGE -f $WORKDIR/$DOCKERFILE_PATH $ENV_ARGS $BUILD_ARG_ARGS $WORKDIR/$DOCKER_CONTEXT
+            echo ">> Image built successfully"
+            echo ">> Saving image"
             podman save -o /mnt/vol/app-image.tar $IMAGE
         securityContext:
           privileged: true

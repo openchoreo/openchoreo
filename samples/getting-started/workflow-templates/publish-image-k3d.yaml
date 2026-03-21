@@ -35,6 +35,17 @@ spec:
             REGISTRY_ENDPOINT="host.k3d.internal:10082"
             AUTH_FILE="/etc/secrets/registry-push-secret/.dockerconfigjson"
 
+            # --- Parameter Validation ---
+            echo ">> Source image: $SRC_IMAGE"
+            echo ">> Registry: $REGISTRY_ENDPOINT"
+            echo ">> Authentication: $([ -f "$AUTH_FILE" ] && echo "registry secret found" || echo "no registry secret (anonymous push)")"
+
+            if [ ! -f "/mnt/vol/app-image.tar" ]; then
+              echo ">> Error: Built image tar not found at /mnt/vol/app-image.tar"
+              echo ">> Hint: The build step may have failed to produce an image. Check the build step logs."
+              exit 1
+            fi
+
             mkdir -p /etc/containers
             cat <<EOF > /etc/containers/storage.conf
             [storage]
@@ -49,12 +60,14 @@ spec:
 
             podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
 
+            echo ">> Pushing image to registry"
             if [ -f "$AUTH_FILE" ]; then
               podman push --tls-verify=false --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
             else
               podman push --tls-verify=false $REGISTRY_ENDPOINT/$SRC_IMAGE
             fi
 
+            echo ">> Image published successfully: $REGISTRY_ENDPOINT/$SRC_IMAGE"
             echo -n "$REGISTRY_ENDPOINT/$SRC_IMAGE" > /tmp/image.txt
         securityContext:
           privileged: true

@@ -29,13 +29,30 @@ spec:
             COMMIT={{workflow.parameters.commit}}
             GIT_SECRET_PATH="/etc/secrets/git-secret"
 
+            # --- Parameter Validation ---
+            echo ">> Repository: $REPO"
+            echo ">> Branch: ${BRANCH:-<not specified>}"
+            echo ">> Commit: ${COMMIT:-<not specified>}"
+
+            if [ -z "$REPO" ]; then
+              echo ">> Error: Git repository URL is required but was not provided."
+              echo ">> Hint: Ensure a valid git repository URL is configured in your workflow parameters."
+              exit 1
+            fi
+
+            if [ -z "$COMMIT" ] && [ -z "$BRANCH" ]; then
+              echo ">> Error: Either a branch or commit must be specified."
+              echo ">> Hint: Provide a git branch name or a specific commit SHA in your workflow parameters."
+              exit 1
+            fi
+
             # Check if git secret exists (for private repositories)
-            if [ -d "$GIT_SECRET_PATH" ] && [ "$(ls -A $GIT_SECRET_PATH)" ]; then
-                echo "Git secret found, configuring authentication..."
+            if [ -d "$GIT_SECRET_PATH" ] && [ "$(ls $GIT_SECRET_PATH 2>/dev/null)" ]; then
+                echo ">> Configuring repository authentication"
 
                 # SSH key auth (kubernetes.io/ssh-auth)
                 if [ -f "$GIT_SECRET_PATH/ssh-privatekey" ]; then
-                    echo "Using SSH key authentication"
+                    echo ">> Authentication: SSH Key Authentication"
                     mkdir -p ~/.ssh
                     chmod 700 ~/.ssh
 
@@ -45,19 +62,13 @@ spec:
                     chmod 600 ~/.ssh/id_rsa
 
                     if ! grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/id_rsa; then
-                        echo "Error: SSH key does not appear to be valid (missing BEGIN PRIVATE KEY header)"
-                        head -n 1 ~/.ssh/id_rsa
+                        echo ">> Error: The provided SSH key does not appear to be valid."
                         exit 1
                     fi
 
-                    echo "SSH key format detected:"
-                    head -n 1 ~/.ssh/id_rsa
-
                     if ! ssh-keygen -l -f ~/.ssh/id_rsa > /dev/null 2>&1; then
-                        echo "Warning: SSH key validation failed with ssh-keygen"
-                        echo "This might indicate key format issues, but attempting to proceed..."
-                    else
-                        echo "SSH key validated successfully"
+                        echo ">> Warning: SSH key validation failed with ssh-keygen"
+                        echo ">> This might indicate key format issues, but attempting to proceed"
                     fi
 
                     # AWS CodeCommit SSH Key ID
@@ -85,21 +96,18 @@ spec:
                     if echo "$REPO" | grep -q "^ssh://.*git-codecommit"; then
                         if [ -n "$SSH_KEY_ID" ] && ! echo "$REPO" | grep -q "@"; then
                             REPO=$(echo "$REPO" | sed "s|ssh://|ssh://${SSH_KEY_ID}@|")
-                            echo "Added SSH Key ID to AWS CodeCommit SSH URL"
                         fi
                     elif echo "$REPO" | grep -q "^https://" && ! echo "$REPO" | grep -q "git-codecommit"; then
                         REPO=$(echo "$REPO" | sed -E 's|https://([^/]+)/(.+)\.git|git@\1:\2.git|')
-                        echo "Converted HTTPS to SSH format: $REPO"
                     fi
 
                 # Basic auth (kubernetes.io/basic-auth)
                 elif [ -f "$GIT_SECRET_PATH/password" ]; then
-                    echo "Using basic authentication (username/password)"
+                    echo ">> Authentication: Basic Authentication"
                     PASSWORD=$(cat "$GIT_SECRET_PATH/password")
 
                     if [ -f "$GIT_SECRET_PATH/username" ]; then
                         USERNAME=$(cat "$GIT_SECRET_PATH/username")
-                        echo "Username found: $USERNAME"
                     else
                         USERNAME="git"
                     fi
@@ -113,34 +121,38 @@ spec:
 
                         REPO="$PROTOCOL://${USERNAME_ENCODED}:${PASSWORD_ENCODED}@${DOMAIN_PATH}"
                     else
-                        echo "Warning: REPO is not an HTTPS URL, basic auth may not work"
+                        echo ">> Warning: REPO is not an HTTPS URL, basic auth may not work"
                     fi
 
                     git config --global credential.helper store
                 else
-                    echo "Warning: Git secret exists but no recognized credentials found"
+                    echo ">> Error: Git credentials secret was provided but does not contain recognized authentication data."
+                    echo ">> Hint: The secret should contain either an SSH private key (ssh-privatekey) or username/password."
+                    exit 1
                 fi
             else
-                echo "No git secret found, assuming public repository"
+                echo ">> Authentication: none (public repository)"
             fi
 
             if [ -n "$COMMIT" ]; then
-                echo "Cloning specific commit: $COMMIT"
                 git clone --no-checkout --depth 1 "$REPO" /mnt/vol/source
                 cd /mnt/vol/source
                 git config --global advice.detachedHead false
                 git fetch --depth 1 origin "$COMMIT"
                 git checkout "$COMMIT"
                 echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
+                echo ">> Checked out commit: $COMMIT"
             else
-                echo "Cloning branch: $BRANCH with latest commit"
                 git clone --single-branch --branch $BRANCH --depth 1 "$REPO" /mnt/vol/source
                 cd /mnt/vol/source
                 COMMIT_SHA=$(git rev-parse HEAD)
                 echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
+                echo ">> Checked out branch: $BRANCH (commit: $COMMIT_SHA)"
             fi
 
-            echo "Repository cloned successfully"
+            echo ">> Repository cloned successfully"
+            echo ">> Source directory contents:"
+            ls -la /mnt/vol/source/
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace

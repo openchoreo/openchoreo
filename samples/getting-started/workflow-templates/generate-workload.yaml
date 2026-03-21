@@ -41,8 +41,22 @@ spec:
             DESCRIPTOR_PATH="/mnt/vol/source${APP_PATH:+/${APP_PATH#/}}"
             OUTPUT_PATH="/mnt/vol/workload-cr.yaml"
 
-            echo "Creating workload with image: ${IMAGE}"
-            echo "Using descriptor in: ${DESCRIPTOR_PATH}"
+            echo ">> Image: ${IMAGE}"
+            echo ">> Descriptor path: ${DESCRIPTOR_PATH}"
+            echo ">> Namespace: ${NAMESPACE_NAME}, Project: ${PROJECT_NAME}, Component: ${COMPONENT_NAME}"
+            if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
+              echo ">> Workload descriptor: found (${DESCRIPTOR_PATH}/workload.yaml)"
+            else
+              echo ">> Workload descriptor: not found (will generate default workload)"
+            fi
+
+            if [ ! -d "$DESCRIPTOR_PATH" ]; then
+              echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
+              echo ">> Hint: Verify that the application path points to a valid directory in your repository."
+              echo ">> Repository contents:"
+              ls -la /mnt/vol/source/
+              exit 1
+            fi
 
             mkdir -p /etc/containers
             cat <<EOF > /etc/containers/storage.conf
@@ -58,7 +72,7 @@ spec:
             WORKLOAD_FROM_SOURCE="false"
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
               WORKLOAD_FROM_SOURCE="true"
-              echo "Found workload.yaml descriptor, using it for workload creation"
+              echo ">> Generating workload CR from descriptor"
               podman run --rm --network=none \
               -v $DESCRIPTOR_PATH:/app:rw -w /app \
               ghcr.io/openchoreo/openchoreo-cli:latest-dev \
@@ -70,7 +84,7 @@ spec:
                 --descriptor "workload.yaml" \
                 -o "workload-cr.yaml"
             else
-              echo "No workload.yaml descriptor found, creating workload without descriptor"
+              echo ">> Generating default workload CR"
               podman run --rm --network=none \
               -v $DESCRIPTOR_PATH:/app:rw -w /app \
               ghcr.io/openchoreo/openchoreo-cli:latest-dev \
@@ -94,7 +108,7 @@ spec:
                -v /mnt/vol:/data:rw \
                ghcr.io/jqlang/jq:1.7.1 -c '.' /data/workload-cr-raw.json \
                > /mnt/vol/workload-cr.json
-            echo "Generated workload JSON payload:"
+            echo ">> Generated workload JSON payload:"
             cat /mnt/vol/workload-cr.json
 
             # --- Step 3: Get OAuth token ---
@@ -102,7 +116,7 @@ spec:
             CLIENT_ID="{{inputs.parameters.oauth-client-id}}"
             CLIENT_SECRET="{{inputs.parameters.oauth-client-secret}}"
 
-            echo "Requesting OAuth token from ${OAUTH_URL}..."
+            echo ">> Requesting OAuth token from ${OAUTH_URL}"
             TOKEN_RESPONSE=$(curl -sk --fail-with-body \
               -X POST "${OAUTH_URL}" \
               -H "Content-Type: application/x-www-form-urlencoded" \
@@ -111,11 +125,11 @@ spec:
             ACCESS_TOKEN=$(echo "${TOKEN_RESPONSE}" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
 
             if [ -z "${ACCESS_TOKEN}" ]; then
-              echo "Failed to get access token: ${TOKEN_RESPONSE}"
+              echo ">> Failed to get access token: ${TOKEN_RESPONSE}"
               exit 1
             fi
 
-            echo "Successfully obtained access token"
+            echo ">> Successfully obtained access token"
 
             # --- Step 4: Create or update workload via API server ---
             API_URL="{{inputs.parameters.api-server-url}}"
@@ -123,7 +137,7 @@ spec:
             # Extract workload name from the JSON payload for potential update
             WORKLOAD_NAME=$(podman run --rm -v /mnt/vol:/data:ro mikefarah/yq -r '.metadata.name' /data/workload-cr.json)
 
-            echo "Creating workload via ${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads..."
+            echo ">> Creating workload via ${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads"
             RESPONSE=$(curl -sk -w "\n%{http_code}" \
               -X POST "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads" \
               -H "Content-Type: application/json" \
@@ -134,17 +148,17 @@ spec:
             BODY=$(echo "${RESPONSE}" | sed '$d')
 
             if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 300 ]; then
-              echo "Workload created successfully (HTTP ${HTTP_CODE}): ${BODY}"
+              echo ">> Workload created successfully (HTTP ${HTTP_CODE}): ${BODY}"
             elif [ "${HTTP_CODE}" -eq 409 ]; then
               if [ "${WORKLOAD_FROM_SOURCE}" = "true" ]; then
-                echo "Workload already exists, updating via PUT (full replace - source-defined)..."
+                echo ">> Workload already exists, updating via PUT (full replace - source-defined)"
                 RESPONSE=$(curl -sk -w "\n%{http_code}" \
                   -X PUT "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads/${WORKLOAD_NAME}" \
                   -H "Content-Type: application/json" \
                   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
                   -d @/mnt/vol/workload-cr.json)
               else
-                echo "Workload already exists, updating only container image (auto-generated)..."
+                echo ">> Workload already exists, updating only container image (auto-generated)"
                 # GET the existing workload
                 GET_RESPONSE=$(curl -sk -w "\n%{http_code}" \
                   -X GET "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads/${WORKLOAD_NAME}" \
@@ -154,7 +168,7 @@ spec:
                 GET_BODY=$(echo "${GET_RESPONSE}" | sed '$d')
 
                 if [ "${GET_HTTP_CODE}" -lt 200 ] || [ "${GET_HTTP_CODE}" -ge 300 ]; then
-                  echo "Failed to get existing workload (HTTP ${GET_HTTP_CODE}): ${GET_BODY}"
+                  echo ">> Failed to get existing workload (HTTP ${GET_HTTP_CODE}): ${GET_BODY}"
                   exit 1
                 fi
 
@@ -164,7 +178,7 @@ spec:
                   -v /mnt/vol:/data:ro \
                   ghcr.io/jqlang/jq:1.7.1 -r '.spec.container.image' /data/workload-cr.json)
 
-                echo "Updating container image to: ${NEW_IMAGE}"
+                echo ">> Updating container image to: ${NEW_IMAGE}"
                 podman run --rm \
                   -v /mnt/vol:/data:rw \
                   ghcr.io/jqlang/jq:1.7.1 \
@@ -184,19 +198,19 @@ spec:
               BODY=$(echo "${RESPONSE}" | sed '$d')
 
               if [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 300 ]; then
-                echo "Workload updated successfully (HTTP ${HTTP_CODE}): ${BODY}"
+                echo ">> Workload updated successfully (HTTP ${HTTP_CODE}): ${BODY}"
               else
-                echo "Failed to update workload (HTTP ${HTTP_CODE}): ${BODY}"
+                echo ">> Failed to update workload (HTTP ${HTTP_CODE}): ${BODY}"
                 exit 1
               fi
             else
-              echo "Failed to create workload (HTTP ${HTTP_CODE}): ${BODY}"
+              echo ">> Failed to create workload (HTTP ${HTTP_CODE}): ${BODY}"
               exit 1
             fi
 
             # --- Step 5: Annotate the WorkflowRun with the workload CR ---
             # Get the current WorkflowRun
-            echo "Getting WorkflowRun ${RUN_NAME}..."
+            echo ">> Getting WorkflowRun ${RUN_NAME}"
             WF_RUN_RESPONSE=$(curl -sk -w "\n%{http_code}" \
               -X GET "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workflowruns/${RUN_NAME}" \
               -H "Authorization: Bearer ${ACCESS_TOKEN}")
@@ -205,7 +219,7 @@ spec:
             WF_RUN_BODY=$(echo "${WF_RUN_RESPONSE}" | sed '$d')
 
             if [ "${WF_RUN_HTTP_CODE}" -lt 200 ] || [ "${WF_RUN_HTTP_CODE}" -ge 300 ]; then
-              echo "Failed to get WorkflowRun (HTTP ${WF_RUN_HTTP_CODE}): ${WF_RUN_BODY}"
+              echo ">> Failed to get WorkflowRun (HTTP ${WF_RUN_HTTP_CODE}): ${WF_RUN_BODY}"
               exit 1
             fi
 
@@ -231,7 +245,7 @@ spec:
                 > /mnt/vol/workflowrun-updated.json
             fi
 
-            echo "Updating WorkflowRun with workload annotation..."
+            echo ">> Updating WorkflowRun with workload annotation"
             UPDATE_RESPONSE=$(curl -sk -w "\n%{http_code}" \
               -X PUT "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workflowruns/${RUN_NAME}" \
               -H "Content-Type: application/json" \
@@ -242,9 +256,9 @@ spec:
             UPDATE_BODY=$(echo "${UPDATE_RESPONSE}" | sed '$d')
 
             if [ "${UPDATE_HTTP_CODE}" -ge 200 ] && [ "${UPDATE_HTTP_CODE}" -lt 300 ]; then
-              echo "WorkflowRun annotated successfully (HTTP ${UPDATE_HTTP_CODE})"
+              echo ">> WorkflowRun annotated successfully (HTTP ${UPDATE_HTTP_CODE})"
             else
-              echo "Failed to update WorkflowRun (HTTP ${UPDATE_HTTP_CODE}): ${UPDATE_BODY}"
+              echo ">> Failed to update WorkflowRun (HTTP ${UPDATE_HTTP_CODE}): ${UPDATE_BODY}"
               exit 1
             fi
         volumeMounts:

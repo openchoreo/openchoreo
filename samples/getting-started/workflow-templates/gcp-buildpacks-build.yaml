@@ -23,6 +23,18 @@ spec:
             APP_PATH="{{workflow.parameters.app-path}}"
             BUILD_ENV_JSON='{{workflow.parameters.build-env}}'
 
+            # --- Parameter Validation ---
+            echo ">> Image: $IMAGE"
+            echo ">> App path: $APP_PATH"
+
+            if [ ! -d "$WORKDIR/$APP_PATH" ]; then
+              echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
+              echo ">> Hint: Verify that the application path points to a valid directory in your repository."
+              echo ">> Repository contents:"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
             mkdir -p /etc/containers
             cat > /etc/containers/storage.conf <<EOF
             [storage]
@@ -33,6 +45,7 @@ spec:
             mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
+            echo ">> Initializing build environment"
             podman system service --time=0 &
             until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
 
@@ -47,6 +60,7 @@ spec:
                 tr '\n' ' ')
             fi
 
+            echo ">> Building image with GCP buildpacks"
             /usr/local/bin/pack build "$IMAGE" \
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
@@ -55,6 +69,8 @@ spec:
               --pull-policy always \
               $ENV_ARGS
 
+            echo ">> Image built successfully"
+            echo ">> Saving image"
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:
           privileged: true
