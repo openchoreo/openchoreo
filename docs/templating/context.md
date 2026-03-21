@@ -519,6 +519,106 @@ envFrom: |
     [{"configMapRef": {"name": metadata.name + "-config"}}] : []}
 ```
 
+### dependencies
+
+Dependency information for connections declared by the component. Contains both per-connection metadata and a merged flat list of all resolved environment variables.
+
+```yaml
+# Access pattern: ${dependencies.<field>}
+
+dependencies:                                 # ${dependencies}
+  items:                                      # ${dependencies.items}
+    - namespace: "ns1"                        # ${dependencies.items[0].namespace} - target component's namespace
+      project: "proj1"                        # ${dependencies.items[0].project} - target project name
+      component: "svc-a"                      # ${dependencies.items[0].component} - target component name
+      endpoint: "http"                        # ${dependencies.items[0].endpoint} - target endpoint name
+      visibility: "project"                   # ${dependencies.items[0].visibility} - resolved visibility level
+      envVars:                                # ${dependencies.items[0].envVars} - per-connection env vars
+        - name: "SVC_A_URL"
+          value: "http://svc-a:8080"
+    - namespace: "ns1"
+      project: "proj1"
+      component: "svc-b"
+      endpoint: "grpc"
+      visibility: "namespace"
+      envVars:
+        - name: "SVC_B_URL"
+          value: "grpc://svc-b:9090"
+        - name: "SVC_B_HOST"
+          value: "svc-b"
+  envVars:                                    # ${dependencies.envVars} - merged flat list of ALL env vars from all items
+    - name: "SVC_A_URL"
+      value: "http://svc-a:8080"
+    - name: "SVC_B_URL"
+      value: "grpc://svc-b:9090"
+    - name: "SVC_B_HOST"
+      value: "svc-b"
+```
+
+**Structure details:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `dependencies.items` | `[]ConnectionItem` | List of resolved connections with metadata and per-item env vars |
+| `dependencies.envVars` | `[]ConnectionEnvVar` | Merged flat list of all env vars from all connection items |
+
+**ConnectionItem structure:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `namespace` | `string` | Target component's control plane namespace |
+| `project` | `string` | Target project name |
+| `component` | `string` | Target component name |
+| `endpoint` | `string` | Target endpoint name |
+| `visibility` | `string` | Resolved visibility level (e.g., `project`, `namespace`, `internal`, `external`) |
+| `envVars` | `[]ConnectionEnvVar` | Environment variables resolved for this connection |
+
+**ConnectionEnvVar structure:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Environment variable name |
+| `value` | `string` | Resolved environment variable value |
+
+**Example usage:**
+
+```yaml
+# Inject all dependency env vars into a container
+env: |
+  ${dependencies.envVars.map(e, {
+    "name": e.name,
+    "value": e.value
+  })}
+
+# Iterate over individual connection items
+forEach: ${dependencies.items}
+var: dep
+template:
+  # Use dep.component, dep.endpoint, dep.envVars, etc.
+```
+
+**Note:** If no dependencies are configured, both `items` and `envVars` will be empty lists (never null), so CEL expressions like `dependencies.envVars.size()` are always safe to call.
+
+### Dependency Helper Methods
+
+The `dependencies` object provides a helper method to simplify injecting connection environment variables into containers.
+
+| Helper Method | Description |
+|---------------|-------------|
+| `dependencies.toContainerEnvs()` | Returns the merged flat list of all dependency env vars (equivalent to `dependencies.envVars`) |
+
+**Example usage:**
+
+```yaml
+# Using the helper method for cleaner container env injection
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          env: ${dependencies.toContainerEnvs()}
+```
+
 ### Configuration Helper Methods
 
 The `configurations` object provides several helper methods to simplify working with container configurations, environment variables, and file mounts. These helpers reduce boilerplate and make templates more readable.
@@ -722,6 +822,21 @@ configurations:                           # ${configurations}
 - `configurations.toSecretFileList()`
 - `configurations.toContainerVolumeMounts()`
 - `configurations.toVolumes()`
+
+### dependencies
+
+Dependency information for connections. Same structure as ComponentContext dependencies. See [dependencies](#dependencies) section above for full details and helper methods.
+
+```yaml
+# Access pattern: ${dependencies.<field>}
+
+dependencies:                                 # ${dependencies}
+  items: [...]                               # ${dependencies.items} - per-connection metadata and env vars
+  envVars: [...]                             # ${dependencies.envVars} - merged flat list of all env vars
+```
+
+**Available helper methods** (same as ComponentContext):
+- `dependencies.toContainerEnvs()`
 
 ## Special Variables
 
