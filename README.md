@@ -39,7 +39,7 @@ Platform engineers are left to build the actual platform: defining higher-level 
 
 OpenChoreo fills that gap and provides all the essential building blocks of an IDP, including CI, GitOps, observability, RBAC and analytics.
 
-OpenChoreo was originally developed by [WSO2](https://wso2.com) based on experience building internal developer platforms at scale, and donated to the CNCF as an open-source project.
+OpenChoreo was originally developed by [WSO2](https://wso2.com), based on its experience building the SaaS internal developer platform formerly known as WSO2 Choreo (now WSO2 Developer Platform), bringing its core ideas to the open-source community.
 
 ## OpenChoreo concepts
 At its core, OpenChoreo provides a control plane that sits on top of one or more Kubernetes clusters, turning them into a cohesive internal developer platform. 
