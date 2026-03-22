@@ -11,11 +11,11 @@ Before you begin, ensure you have completed the following prerequisites:
 You need a running OpenChoreo instance. If you haven't set one up yet:
 
 - Complete the [Quick Start Guide](https://openchoreo.dev/docs/getting-started/quick-start-guide/)
-- Or follow the [Installation Guide](https://openchoreo.dev/docs/getting-started/production/deployment-planning/) for your preferred setup method
+- Or follow the [Installation Guide](https://openchoreo.dev/docs/getting-started/try-it-out/on-k3d-locally/) for your preferred setup method
 
 ### 2. Configure MCP Server
 
-The OpenChoreo MCP server must be configured and accessible. See the [Configuration Guide](https://openchoreo.dev/docs/next/ai/mcp-servers) for detailed instructions to obtain:
+The OpenChoreo MCP server must be configured and accessible. See the [Configuration Guide](https://openchoreo.dev/docs/ai/mcp-servers) for detailed instructions to obtain:
 
 - MCP server endpoint
 - An access token

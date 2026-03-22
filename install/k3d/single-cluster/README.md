@@ -5,7 +5,7 @@ All-in-one OpenChoreo setup with all planes running in a single k3d cluster.
 > [!NOTE]
 > This guide is for **contributors and developers** working from a local checkout.
 > It uses local Helm charts (`install/helm/...`) and standalone setup scripts.
-> If you just want to try OpenChoreo, follow the [public getting-started guide](https://openchoreo.dev/docs/getting-started/try-it-out/locally/) instead, which uses published OCI chart releases.
+> If you just want to try OpenChoreo, follow the [public getting-started guide](https://openchoreo.dev/docs/getting-started/try-it-out/on-k3d-locally/) instead, which uses published OCI chart releases.
 
 > [!IMPORTANT]
 > If you're using Colima, set `K3D_FIX_DNS=0` when creating clusters.

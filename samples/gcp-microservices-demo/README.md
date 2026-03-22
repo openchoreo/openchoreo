@@ -102,7 +102,7 @@ done
 > [!NOTE]
 > `shipping` (Go), `ad` (Java), and `cart` (C#/.NET) do not have OpenTelemetry tracing implemented in the current upstream source and will not emit traces regardless of configuration.
 
-For more details on traces, see the [Observability & Alerting guide](https://openchoreo.dev/docs/next/platform-engineer-guide/observability-alerting/#traces).
+For more details on traces, see the [Observability & Alerting guide](https://openchoreo.dev/docs/platform-engineer-guide/observability-alerting/#traces).
 
 ## Step 3: Test the Application
 
