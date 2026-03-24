@@ -1,0 +1,53 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: snip-api-service
+  namespace: default
+spec:
+  owner:
+    projectName: url-shortener
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: snip-api-service
+  namespace: default
+spec:
+  owner:
+    componentName: snip-api-service
+    projectName: url-shortener
+  endpoints:
+    http:
+      type: HTTP
+      port: 8080
+  dependencies:
+    endpoints:
+      - project: url-shortener
+        component: snip-postgres
+        name: tcp
+        visibility: project
+        envBindings:
+          address: _
+      - project: url-shortener
+        component: snip-redis
+        name: tcp
+        visibility: project
+        envBindings:
+          address: REDIS_ADDR
+  container:
+    image: ghcr.io/openchoreo/samples/snip-api-service:latest
+    env:
+      - key: PORT
+        value: "8080"
+      - key: POSTGRES_DSN
+        value: "postgres://postgres:postgres@snip-postgres:5432/urlshortener?sslmode=disable"
+      - key: OTEL_ENABLED
+        value: "true"
+      - key: OTEL_EXPORTER_ENDPOINT
+        value: "http://opentelemetry-collector.openchoreo-observability-plane.svc.cluster.local:4318"

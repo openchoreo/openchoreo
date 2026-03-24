@@ -1,0 +1,68 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: snip-frontend
+  namespace: default
+spec:
+  owner:
+    projectName: url-shortener
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/web-application
+  autoDeploy: true
+
+  traits:
+    - kind: ClusterTrait
+      name: observability-alert-rule
+      instanceName: frontend-5xx-log-alert
+      parameters:
+        description: "Alert when frontend logs indicate HTTP 500 responses"
+        severity: critical
+        source:
+          type: log
+          query: "status=500"
+        condition:
+          window: 1m
+          interval: 1m
+          operator: gt
+          threshold: 5
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: snip-frontend
+  namespace: default
+spec:
+  owner:
+    componentName: snip-frontend
+    projectName: url-shortener
+  endpoints:
+    http:
+      type: HTTP
+      port: 3000
+      visibility: [external]
+  dependencies:
+    endpoints:
+      - project: url-shortener
+        component: snip-api-service
+        name: http
+        visibility: project
+        envBindings:
+          address: API_SERVICE_URL
+      - project: url-shortener
+        component: snip-analytics-service
+        name: http
+        visibility: project
+        envBindings:
+          address: ANALYTICS_SERVICE_URL
+  container:
+    image: ghcr.io/openchoreo/samples/snip-frontend:latest
+    env:
+      - key: PORT
+        value: "3000"
+      - key: OTEL_ENABLED
+        value: "true"
+      - key: OTEL_EXPORTER_ENDPOINT
+        value: "http://opentelemetry-collector.openchoreo-observability-plane.svc.cluster.local:4318"

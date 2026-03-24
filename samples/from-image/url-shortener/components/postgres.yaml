@@ -1,0 +1,37 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: snip-postgres
+  namespace: default
+spec:
+  owner:
+    projectName: url-shortener
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: snip-postgres
+  namespace: default
+spec:
+  owner:
+    componentName: snip-postgres
+    projectName: url-shortener
+  endpoints:
+    tcp:
+      type: TCP
+      port: 5432
+  container:
+    image: ghcr.io/openchoreo/samples/snip-postgres:latest
+    env:
+      - key: POSTGRES_USER
+        value: "postgres"
+      - key: POSTGRES_PASSWORD
+        value: "postgres"
+      - key: POSTGRES_DB
+        value: "urlshortener"

@@ -1,0 +1,30 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: snip-redis
+  namespace: default
+spec:
+  owner:
+    projectName: url-shortener
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: snip-redis
+  namespace: default
+spec:
+  owner:
+    componentName: snip-redis
+    projectName: url-shortener
+  endpoints:
+    tcp:
+      type: TCP
+      port: 6379
+  container:
+    image: redis:7-alpine
