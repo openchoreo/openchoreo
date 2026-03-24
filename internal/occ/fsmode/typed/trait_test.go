@@ -98,12 +98,24 @@ func TestTraitGetSpec(t *testing.T) {
 			spec := tt.trait.GetSpec()
 			require.NotNil(t, spec)
 			if tt.wantParams {
-				assert.Contains(t, spec, "parameters")
+				require.Contains(t, spec, "parameters", "spec should contain 'parameters' key")
+				paramsMap, ok := spec["parameters"].(map[string]interface{})
+				require.True(t, ok, "spec[\"parameters\"] should be a map[string]interface{}")
+				require.Contains(t, paramsMap, "openAPIV3Schema", "spec[\"parameters\"] should contain 'openAPIV3Schema' key")
+				schema, ok := paramsMap["openAPIV3Schema"].(map[string]interface{})
+				require.True(t, ok, "spec[\"parameters\"][\"openAPIV3Schema\"] should be a map[string]interface{}")
+				assert.Equal(t, "object", schema["type"], "spec[\"parameters\"][\"openAPIV3Schema\"][\"type\"] should match input schema")
 			} else {
 				assert.NotContains(t, spec, "parameters")
 			}
 			if tt.wantEnv {
-				assert.Contains(t, spec, "environmentConfigs")
+				require.Contains(t, spec, "environmentConfigs", "spec should contain 'environmentConfigs' key")
+				envMap, ok := spec["environmentConfigs"].(map[string]interface{})
+				require.True(t, ok, "spec[\"environmentConfigs\"] should be a map[string]interface{}")
+				require.Contains(t, envMap, "openAPIV3Schema", "spec[\"environmentConfigs\"] should contain 'openAPIV3Schema' key")
+				schema, ok := envMap["openAPIV3Schema"].(map[string]interface{})
+				require.True(t, ok, "spec[\"environmentConfigs\"][\"openAPIV3Schema\"] should be a map[string]interface{}")
+				assert.Equal(t, "object", schema["type"], "spec[\"environmentConfigs\"][\"openAPIV3Schema\"][\"type\"] should match input schema")
 			} else {
 				assert.NotContains(t, spec, "environmentConfigs")
 			}

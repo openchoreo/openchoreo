@@ -30,10 +30,14 @@ func (t *ClusterTrait) GetSpec() map[string]interface{} {
 
 	// Add schema sections
 	if params := t.Spec.Parameters.GetRaw(); params != nil {
-		spec["parameters"] = rawExtensionToMap(params)
+		spec["parameters"] = map[string]interface{}{
+			"openAPIV3Schema": rawExtensionToMap(params),
+		}
 	}
 	if envConfig := t.Spec.EnvironmentConfigs.GetRaw(); envConfig != nil {
-		spec["environmentConfigs"] = rawExtensionToMap(envConfig)
+		spec["environmentConfigs"] = map[string]interface{}{
+			"openAPIV3Schema": rawExtensionToMap(envConfig),
+		}
 	}
 
 	// Add creates
