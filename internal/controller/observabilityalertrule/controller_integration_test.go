@@ -427,6 +427,510 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 	})
 
 	// -----------------------------------------------------------------------
+	// Sync: observer returns non-synced status (POST path)
+	// -----------------------------------------------------------------------
+	Context("When the observer reports a non-synced status after POST", func() {
+		const name = "test-pending-post"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var testServer *httptest.Server
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer GinkgoRecover()
+				if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/rules/"+name) {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/rules") {
+					resp := alertRuleSyncResponse{
+						Status:        "pending",
+						Action:        "created",
+						RuleLogicalID: name,
+						RuleBackendID: "backend-id-pending",
+					}
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusCreated)
+					_ = json.NewEncoder(w).Encode(resp)
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			controllerutil.AddFinalizer(rule, AlertRuleCleanupFinalizer)
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			testServer.Close()
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should set Phase=Error and condition reason SyncNotSynced", func() {
+			r := newReconciler()
+			result, err := r.Reconcile(ctx, reconcileRequest(name))
+			// The non-synced path does NOT call updateStatusWithError; it writes status inline and returns nil error.
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+			Expect(fetched.Status.Phase).To(Equal(openchoreov1alpha1.ObservabilityAlertRulePhaseError))
+
+			cond := apimeta.FindStatusCondition(fetched.Status.Conditions, conditionTypeSynced)
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal("SyncNotSynced"))
+			Expect(cond.Message).To(ContainSubstring(`"pending"`))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// Sync: observer returns non-synced status (PUT path)
+	// -----------------------------------------------------------------------
+	Context("When the observer reports a non-synced status after PUT", func() {
+		const name = "test-pending-put"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var testServer *httptest.Server
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer GinkgoRecover()
+				if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/rules/"+name) {
+					getResp := alertRuleGetResponse{RuleLogicalID: name, RuleBackendID: "existing-id"}
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					_ = json.NewEncoder(w).Encode(getResp)
+					return
+				}
+				if r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/rules/"+name) {
+					resp := alertRuleSyncResponse{
+						Status:        "pending",
+						Action:        "updated",
+						RuleLogicalID: name,
+						RuleBackendID: "existing-id",
+					}
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					_ = json.NewEncoder(w).Encode(resp)
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			controllerutil.AddFinalizer(rule, AlertRuleCleanupFinalizer)
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			testServer.Close()
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should set Phase=Error and condition reason SyncNotSynced", func() {
+			r := newReconciler()
+			_, err := r.Reconcile(ctx, reconcileRequest(name))
+			Expect(err).NotTo(HaveOccurred())
+
+			fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+			Expect(fetched.Status.Phase).To(Equal(openchoreov1alpha1.ObservabilityAlertRulePhaseError))
+
+			cond := apimeta.FindStatusCondition(fetched.Status.Conditions, conditionTypeSynced)
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal("SyncNotSynced"))
+			Expect(cond.Message).To(ContainSubstring(`"pending"`))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// Sync error: GET returns 200 with invalid JSON (decode error)
+	// -----------------------------------------------------------------------
+	Context("When the observer GET returns 200 with invalid JSON", func() {
+		const name = "test-get-invalid-json"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var testServer *httptest.Server
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer GinkgoRecover()
+				if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/rules/"+name) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					// Deliberately malformed JSON to trigger the decode-error branch in getAlertRule.
+					_, _ = w.Write([]byte(`not-valid-json`))
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			controllerutil.AddFinalizer(rule, AlertRuleCleanupFinalizer)
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			testServer.Close()
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should set Error status and return an error about the decode failure", func() {
+			r := newReconciler()
+			_, err := r.Reconcile(ctx, reconcileRequest(name))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to GET alert rule"))
+			Expect(err.Error()).To(ContainSubstring("failed to decode GET response"))
+
+			fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+			Expect(fetched.Status.Phase).To(Equal(openchoreov1alpha1.ObservabilityAlertRulePhaseError))
+
+			cond := apimeta.FindStatusCondition(fetched.Status.Conditions, conditionTypeSynced)
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal("SyncFailed"))
+			Expect(cond.Message).To(ContainSubstring("failed to decode GET response"))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// Sync error: POST returns 409 Conflict
+	// -----------------------------------------------------------------------
+	Context("When the observer returns 409 Conflict on POST", func() {
+		const name = "test-post-409"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var testServer *httptest.Server
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer GinkgoRecover()
+				if r.Method == http.MethodGet {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				if r.Method == http.MethodPost {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusConflict)
+					_, _ = w.Write([]byte(`{"message":"rule already exists"}`))
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			controllerutil.AddFinalizer(rule, AlertRuleCleanupFinalizer)
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			testServer.Close()
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should set Error status and return an error mentioning unexpected status 409", func() {
+			r := newReconciler()
+			_, err := r.Reconcile(ctx, reconcileRequest(name))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("409"))
+
+			fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+			Expect(fetched.Status.Phase).To(Equal(openchoreov1alpha1.ObservabilityAlertRulePhaseError))
+
+			cond := apimeta.FindStatusCondition(fetched.Status.Conditions, conditionTypeSynced)
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal("SyncFailed"))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// Sync error: POST returns 500
+	// -----------------------------------------------------------------------
+	Context("When the observer returns 500 on POST", func() {
+		const name = "test-post-500"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var testServer *httptest.Server
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer GinkgoRecover()
+				if r.Method == http.MethodGet {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				if r.Method == http.MethodPost {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusInternalServerError)
+					_, _ = w.Write([]byte(`{"message":"internal server error"}`))
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			controllerutil.AddFinalizer(rule, AlertRuleCleanupFinalizer)
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			testServer.Close()
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should set Error status and return an error containing status 500", func() {
+			r := newReconciler()
+			_, err := r.Reconcile(ctx, reconcileRequest(name))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("500"))
+
+			fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+			Expect(fetched.Status.Phase).To(Equal(openchoreov1alpha1.ObservabilityAlertRulePhaseError))
+
+			cond := apimeta.FindStatusCondition(fetched.Status.Conditions, conditionTypeSynced)
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal("SyncFailed"))
+			Expect(cond.Message).To(ContainSubstring("500"))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// Sync error: PUT returns 409 Conflict
+	// -----------------------------------------------------------------------
+	Context("When the observer returns 409 Conflict on PUT", func() {
+		const name = "test-put-409"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var testServer *httptest.Server
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer GinkgoRecover()
+				if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/rules/"+name) {
+					getResp := alertRuleGetResponse{RuleLogicalID: name, RuleBackendID: "existing-id"}
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					_ = json.NewEncoder(w).Encode(getResp)
+					return
+				}
+				if r.Method == http.MethodPut {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusConflict)
+					_, _ = w.Write([]byte(`{"message":"optimistic lock conflict"}`))
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			controllerutil.AddFinalizer(rule, AlertRuleCleanupFinalizer)
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			testServer.Close()
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should set Error status and return an error mentioning unexpected status 409", func() {
+			r := newReconciler()
+			_, err := r.Reconcile(ctx, reconcileRequest(name))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("409"))
+
+			fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+			Expect(fetched.Status.Phase).To(Equal(openchoreov1alpha1.ObservabilityAlertRulePhaseError))
+
+			cond := apimeta.FindStatusCondition(fetched.Status.Conditions, conditionTypeSynced)
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal("SyncFailed"))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// Sync error: PUT returns 500
+	// -----------------------------------------------------------------------
+	Context("When the observer returns 500 on PUT", func() {
+		const name = "test-put-500"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var testServer *httptest.Server
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer GinkgoRecover()
+				if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/rules/"+name) {
+					getResp := alertRuleGetResponse{RuleLogicalID: name, RuleBackendID: "existing-id"}
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					_ = json.NewEncoder(w).Encode(getResp)
+					return
+				}
+				if r.Method == http.MethodPut {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusInternalServerError)
+					_, _ = w.Write([]byte(`{"message":"backend failure"}`))
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			controllerutil.AddFinalizer(rule, AlertRuleCleanupFinalizer)
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			testServer.Close()
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should set Error status and return an error containing status 500", func() {
+			r := newReconciler()
+			_, err := r.Reconcile(ctx, reconcileRequest(name))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("500"))
+
+			fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+			Expect(fetched.Status.Phase).To(Equal(openchoreov1alpha1.ObservabilityAlertRulePhaseError))
+
+			cond := apimeta.FindStatusCondition(fetched.Status.Conditions, conditionTypeSynced)
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal("SyncFailed"))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// Finalization: resource has no AlertRuleCleanupFinalizer (early return)
+	// -----------------------------------------------------------------------
+	Context("When finalize() is called but the resource has no alertrule-cleanup finalizer", func() {
+		const name = "test-finalize-no-finalizer"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var requestCount int
+		var testServer *httptest.Server
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+			requestCount = 0
+
+			// Count any HTTP calls to confirm none are made.
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer GinkgoRecover()
+				requestCount++
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			// Use a sentinel finalizer (not AlertRuleCleanupFinalizer) so that Delete sets
+			// DeletionTimestamp while keeping the object alive — allowing Reconcile to reach finalize().
+			rule.Finalizers = []string{"test.dev/sentinel"}
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			testServer.Close()
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should return immediately without making any HTTP calls to the observer", func() {
+			By("Deleting the resource — sentinel finalizer keeps it alive with a DeletionTimestamp")
+			rule := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, rule)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, rule)).To(Succeed())
+
+			By("Verifying DeletionTimestamp is set")
+			updated := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, updated)).To(Succeed())
+			Expect(updated.DeletionTimestamp).NotTo(BeNil())
+
+			By("Reconciling — finalize() should return early since AlertRuleCleanupFinalizer is absent")
+			r := newReconciler()
+			result, err := r.Reconcile(ctx, reconcileRequest(name))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			By("Verifying no HTTP requests were made to the observer backend")
+			Expect(requestCount).To(Equal(0))
+		})
+	})
+
+	// -----------------------------------------------------------------------
 	// Finalization: DELETE succeeds (204)
 	// -----------------------------------------------------------------------
 	Context("When finalizing a deleted resource (backend returns 204)", func() {
@@ -465,6 +969,65 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 		})
 
 		It("should remove finalizer and allow resource deletion", func() {
+			By("Deleting the resource to trigger finalization")
+			rule := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, rule)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, rule)).To(Succeed())
+
+			By("Reconciling to trigger finalize()")
+			r := newReconciler()
+			result, err := r.Reconcile(ctx, reconcileRequest(name))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			By("Verifying the resource is eventually gone")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.ObservabilityAlertRule{})
+				return err != nil
+			}, "5s", "250ms").Should(BeTrue())
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// Finalization: DELETE succeeds (200 OK)
+	// -----------------------------------------------------------------------
+	Context("When finalizing a deleted resource (backend returns 200 OK)", func() {
+		const name = "test-finalize-200"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var testServer *httptest.Server
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer GinkgoRecover()
+				if r.Method == http.MethodDelete {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte(`{"message":"deleted"}`))
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			controllerutil.AddFinalizer(rule, AlertRuleCleanupFinalizer)
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			testServer.Close()
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should treat 200 as success, remove finalizer, and allow resource deletion", func() {
 			By("Deleting the resource to trigger finalization")
 			rule := &openchoreov1alpha1.ObservabilityAlertRule{}
 			Expect(k8sClient.Get(ctx, nn, rule)).To(Succeed())
