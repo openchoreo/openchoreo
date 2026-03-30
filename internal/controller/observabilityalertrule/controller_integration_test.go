@@ -1156,6 +1156,231 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 	})
 
 	// -----------------------------------------------------------------------
+	// Network error: upsert fails when observer is unreachable (GET)
+	// -----------------------------------------------------------------------
+	Context("When the observer backend is unreachable during upsert (GET fails)", func() {
+		const name = "test-network-error-get"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+
+			// Start a server and immediately close it to simulate connection refused.
+			closedServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+			closedServer.Close()
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", closedServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			controllerutil.AddFinalizer(rule, AlertRuleCleanupFinalizer)
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should set Error status and return an error when observer is unreachable", func() {
+			r := newReconciler()
+			_, err := r.Reconcile(ctx, reconcileRequest(name))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("GET request failed"))
+
+			fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+			Expect(fetched.Status.Phase).To(Equal(openchoreov1alpha1.ObservabilityAlertRulePhaseError))
+			cond := apimeta.FindStatusCondition(fetched.Status.Conditions, conditionTypeSynced)
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal("SyncFailed"))
+			Expect(cond.Message).To(ContainSubstring("GET request failed"))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// Network error: upsert fails when POST connection is dropped
+	// -----------------------------------------------------------------------
+	Context("When the observer backend closes the connection during POST", func() {
+		const name = "test-network-error-post"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var testServer *httptest.Server
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer GinkgoRecover()
+				if r.Method == http.MethodGet {
+					// Rule not found — controller will proceed to POST.
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				// Abruptly close the connection on POST to simulate a network error.
+				hj, ok := w.(http.Hijacker)
+				Expect(ok).To(BeTrue())
+				conn, _, err := hj.Hijack()
+				Expect(err).NotTo(HaveOccurred())
+				conn.Close()
+			}))
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			controllerutil.AddFinalizer(rule, AlertRuleCleanupFinalizer)
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			if testServer != nil {
+				testServer.Close()
+			}
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should set Error status and return an error when POST connection is dropped", func() {
+			r := newReconciler()
+			_, err := r.Reconcile(ctx, reconcileRequest(name))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("POST request failed"))
+
+			fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+			Expect(fetched.Status.Phase).To(Equal(openchoreov1alpha1.ObservabilityAlertRulePhaseError))
+			cond := apimeta.FindStatusCondition(fetched.Status.Conditions, conditionTypeSynced)
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal("SyncFailed"))
+			Expect(cond.Message).To(ContainSubstring("POST request failed"))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// Network error: upsert fails when PUT connection is dropped
+	// -----------------------------------------------------------------------
+	Context("When the observer backend closes the connection during PUT", func() {
+		const name = "test-network-error-put"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var testServer *httptest.Server
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+
+			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				defer GinkgoRecover()
+				if r.Method == http.MethodGet {
+					// Rule exists — controller will proceed to PUT.
+					resp := alertRuleGetResponse{
+						RuleLogicalID: name,
+						RuleBackendID: "existing-backend-id",
+					}
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					_ = json.NewEncoder(w).Encode(resp)
+					return
+				}
+				// Abruptly close the connection on PUT to simulate a network error.
+				hj, ok := w.(http.Hijacker)
+				Expect(ok).To(BeTrue())
+				conn, _, err := hj.Hijack()
+				Expect(err).NotTo(HaveOccurred())
+				conn.Close()
+			}))
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			controllerutil.AddFinalizer(rule, AlertRuleCleanupFinalizer)
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			if testServer != nil {
+				testServer.Close()
+			}
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should set Error status and return an error when PUT connection is dropped", func() {
+			r := newReconciler()
+			_, err := r.Reconcile(ctx, reconcileRequest(name))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("PUT request failed"))
+
+			fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+			Expect(fetched.Status.Phase).To(Equal(openchoreov1alpha1.ObservabilityAlertRulePhaseError))
+			cond := apimeta.FindStatusCondition(fetched.Status.Conditions, conditionTypeSynced)
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal("SyncFailed"))
+			Expect(cond.Message).To(ContainSubstring("PUT request failed"))
+		})
+	})
+
+	// -----------------------------------------------------------------------
+	// Network error: finalization fails when observer is unreachable (DELETE)
+	// -----------------------------------------------------------------------
+	Context("When the observer backend is unreachable during finalization (DELETE fails)", func() {
+		const name = "test-network-error-delete"
+		nn := types.NamespacedName{Name: name, Namespace: "default"}
+		var origEndpoint string
+
+		BeforeEach(func() {
+			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
+
+			// Start a server and immediately close it to simulate connection refused.
+			closedServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+			closedServer.Close()
+			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", closedServer.URL)
+
+			rule := newAlertRule(name, defaultLabels())
+			controllerutil.AddFinalizer(rule, AlertRuleCleanupFinalizer)
+			Expect(k8sClient.Create(ctx, rule)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if origEndpoint != "" {
+				os.Setenv("OBSERVER_INTERNAL_ENDPOINT", origEndpoint)
+			} else {
+				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
+			}
+			forceDeleteAlertRule(nn)
+		})
+
+		It("should return an error and keep the finalizer when the DELETE call fails", func() {
+			By("Triggering deletion")
+			rule := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, rule)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, rule)).To(Succeed())
+
+			By("Reconciling — finalize() should fail on the DELETE HTTP call")
+			r := newReconciler()
+			_, err := r.Reconcile(ctx, reconcileRequest(name))
+			Expect(err).To(HaveOccurred())
+
+			By("Verifying the finalizer is still present")
+			fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+			Expect(controllerutil.ContainsFinalizer(fetched, AlertRuleCleanupFinalizer)).To(BeTrue())
+		})
+	})
+
+	// -----------------------------------------------------------------------
 	// Status subresource persistence
 	// -----------------------------------------------------------------------
 	Context("Status subresource persistence", func() {
