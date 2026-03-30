@@ -13,6 +13,8 @@ metadata:
     {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer") | nindent 4 }}
 spec:
   replicas: {{ .Values.observer.replicas | default 1 }}
+  strategy:
+    type: {{ ternary "Recreate" "RollingUpdate" (eq (.Values.observer.alertStoreBackend | default "sqlite") "sqlite") }}
   selector:
     matchLabels:
       {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "observer") | nindent 6 }}
