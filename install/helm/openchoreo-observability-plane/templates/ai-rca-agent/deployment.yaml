@@ -17,6 +17,8 @@ metadata:
     {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" .Values.rca.name) | nindent 4 }}
 spec:
   replicas: {{ .Values.rca.replicas }}
+  strategy:
+    type: {{ ternary "Recreate" "RollingUpdate" (eq (.Values.rca.reportBackend | default "sqlite") "sqlite") }}
   selector:
     matchLabels:
       {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" .Values.rca.name) | nindent 6 }}
