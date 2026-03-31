@@ -1,0 +1,41 @@
+name: Trivy Image Scan
+
+on:
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  scan:
+    name: Scan (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - controller
+          - openchoreo-api
+          - observer
+          - cluster-gateway
+          - cluster-agent
+          - ai-rca-agent
+    steps:
+      - name: Set image tag
+        id: tag
+        run: echo "sha=$(echo '${{ github.sha }}' | cut -c1-8)" >> "$GITHUB_OUTPUT"
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: image
+          image-ref: ghcr.io/openchoreo/${{ matrix.image }}:${{ steps.tag.outputs.sha }}
+          format: sarif
+          output: ${{ matrix.image }}.sarif
+
+      - name: Upload results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4
+        with:
+          sarif_file: ${{ matrix.image }}.sarif
+          category: ${{ matrix.image }}
