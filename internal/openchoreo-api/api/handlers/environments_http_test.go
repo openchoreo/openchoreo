@@ -259,8 +259,13 @@ func TestEnvironmentHTTPCreateForbidden(t *testing.T) {
 func TestEnvironmentHTTPUpdate(t *testing.T) {
 	bundle := newEnvBundle(t, []client.Object{seedEnv("dev")}, &allowAllPDP{})
 
-	// Use just the required metadata; the handler sets the name from the URL path.
-	body, _ := json.Marshal(gen.Environment{Metadata: gen.ObjectMeta{Name: "dev"}})
+	// Include a label so we can assert the updated value is persisted.
+	body, _ := json.Marshal(gen.Environment{
+		Metadata: gen.ObjectMeta{
+			Name:   "dev",
+			Labels: &map[string]string{"env-tier": "staging"},
+		},
+	})
 
 	req, rec := doRequest(t, bundle.handler, http.MethodPut,
 		"/api/v1/namespaces/"+testNS+"/environments/dev", body)
@@ -272,12 +277,14 @@ func TestEnvironmentHTTPUpdate(t *testing.T) {
 	require.NoError(t, json.Unmarshal(bodyBytes, &resp))
 	assert.Equal(t, "dev", resp.Metadata.Name)
 
-	// Concern 3: verify the mutation is reflected in the fake K8s store.
+	// Concern 3: verify the label mutation is reflected in the fake K8s store,
+	// not just that the object still exists.
 	var k8sEnv openchoreov1alpha1.Environment
 	err := bundle.fakeClient.Get(context.Background(),
 		types.NamespacedName{Name: "dev", Namespace: testNS}, &k8sEnv)
 	require.NoError(t, err, "environment must still exist in K8s after update")
-	assert.Equal(t, "dev", k8sEnv.Name)
+	assert.Equal(t, "staging", k8sEnv.Labels["env-tier"],
+		"updated label must be persisted to K8s")
 
 	// Concern 2: validate against OpenAPI contract.
 	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)

@@ -78,14 +78,18 @@ func assertConformsToSpec(t *testing.T, req *http.Request, statusCode int, heade
 	require.NoError(t, err, "failed to load OpenAPI spec")
 	swagger.Servers = nil // disable server URL matching so local test paths are accepted
 
-	router, err := legacyrouter.NewRouter(swagger)
-	if err != nil {
-		// A router build failure usually indicates a spec-level inconsistency
-		// (e.g. mismatched example types). Skip rather than fail so that a spec
-		// bug doesn't block response-level tests.
-		t.Logf("OpenAPI router build failed (skipping schema check): %v", err)
-		return
+	// The RemoteReference.version field has a numeric example (1) on a string
+	// type — a spec inconsistency that causes kin-openapi to reject the document
+	// during router construction. Clear it so the router can be built; this does
+	// not affect response validation for any of the routes under test.
+	if ref, ok := swagger.Components.Schemas["RemoteReference"]; ok && ref.Value != nil {
+		if vProp, ok := ref.Value.Properties["version"]; ok && vProp.Value != nil {
+			vProp.Value.Example = nil
+		}
 	}
+
+	router, err := legacyrouter.NewRouter(swagger)
+	require.NoError(t, err, "failed to build OpenAPI router for %s %s", req.Method, req.URL.Path)
 
 	route, pathParams, err := router.FindRoute(req)
 	if err != nil {
