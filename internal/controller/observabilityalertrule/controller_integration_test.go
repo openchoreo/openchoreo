@@ -905,7 +905,13 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 				os.Unsetenv("OBSERVER_INTERNAL_ENDPOINT")
 			}
 			testServer.Close()
-			forceDeleteAlertRule(nn)
+			// Best-effort cleanup: clear all finalizers (including the sentinel) before deleting.
+			rule := &openchoreov1alpha1.ObservabilityAlertRule{}
+			if err := k8sClient.Get(ctx, nn, rule); err == nil {
+				rule.Finalizers = nil
+				_ = k8sClient.Update(ctx, rule)
+				_ = k8sClient.Delete(ctx, rule)
+			}
 		})
 
 		It("should return immediately without making any HTTP calls to the observer", func() {
