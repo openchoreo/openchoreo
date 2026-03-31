@@ -4,6 +4,7 @@
 package componentrelease
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -97,16 +98,11 @@ func TestIsFlagInArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// isFlagInArgs reads os.Args, so we can't test it directly without
-			// modifying global state. Test the logic inline instead.
-			found := false
-			for _, arg := range tt.args {
-				if arg == tt.flagName || len(arg) > len(tt.flagName) && arg[:len(tt.flagName)+1] == tt.flagName+"=" {
-					found = true
-					break
-				}
-			}
-			assert.Equal(t, tt.want, found)
+			origArgs := os.Args
+			defer func() { os.Args = origArgs }()
+			os.Args = tt.args
+
+			assert.Equal(t, tt.want, isFlagInArgs(tt.flagName))
 		})
 	}
 }

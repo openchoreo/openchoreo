@@ -50,7 +50,7 @@ func TestDataPlaneCmd_NamespaceFlag(t *testing.T) {
 			require.NoError(t, err)
 
 			nsFlag := subCmd.Flags().Lookup("namespace")
-			assert.NotNil(t, nsFlag, "expected --namespace flag on %s", name)
+			require.NotNil(t, nsFlag, "expected --namespace flag on %s", name)
 			assert.Equal(t, "n", nsFlag.Shorthand)
 		})
 	}
