@@ -1,0 +1,9 @@
+with-expecter: true
+filename: "{{.InterfaceName | lower}}.go"
+dir: "{{.InterfaceDir}}/mocks"
+outpkg: mocks
+structname: "{{.InterfaceName}}"
+packages:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz:
+    interfaces:
+      Service:

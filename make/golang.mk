@@ -197,3 +197,8 @@ openapi-codegen: oapi-codegen ## Generate Go server and client code from OpenAPI
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-client.yaml openapi/observer-api.yaml
 	@$(call log, "Generating Observer Logs Adapter API client")
 	$(OAPI_CODEGEN) -config internal/observer/api/cfg-logs-adapter-client.yaml https://openchoreo.dev/api-specs/observability-logs-adapter-api.yaml
+
+.PHONY: mockery-gen
+mockery-gen: mockery ## Regenerate mockery mocks.
+	@$(call log, "Generating openchoreo-api service mocks")
+	$(MOCKERY) --config .mockery.yaml

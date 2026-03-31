@@ -11,6 +11,7 @@ ALL_GO_FILES := $(shell \
 		! -path './internal/observer/api/gen/*' \
 		! -path './internal/observer/api/logsadapterclientgen/*' \
 		! -path './samples/*' \
+		! -path '**/mocks/*' \
 	| sort)
 
 # Path to your tool (update if different)
@@ -154,7 +155,7 @@ workflow-templates-gen: ## Generate samples/getting-started/workflow-templates.y
 	@echo "✓ Generated $(GETTING_STARTED_DIR)/workflow-templates.yaml"
 
 .PHONY: code.gen
-code.gen: manifests generate openapi-codegen go.mod.lint helm-generate samples-gen workflow-templates-gen ## Generate code and fix the code with linter
+code.gen: manifests generate openapi-codegen go.mod.lint helm-generate samples-gen workflow-templates-gen mockery-gen ## Generate code and fix the code with linter
 
 .PHONY: code.gen-check
 code.gen-check: code.gen ## Verify the clean Git status after code generation

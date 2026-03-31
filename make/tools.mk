@@ -34,6 +34,7 @@ YQ ?= $(TOOL_BIN)/yq
 OAPI_CODEGEN ?= $(TOOL_BIN)/oapi-codegen
 HELM_SCHEMA ?= $(TOOL_BIN)/helm-schema
 KUBEBUILDER_HELM_GEN ?= go run $(PROJECT_DIR)/tools/helm-gen
+MOCKERY ?= $(TOOL_BIN)/mockery
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.5.0
@@ -44,6 +45,7 @@ HELMIFY_VERSION ?= v0.4.17
 YQ_VERSION ?= v4.45.1
 OAPI_CODEGEN_VERSION ?= v2.5.1
 HELM_SCHEMA_VERSION ?= 0.20.0-1
+MOCKERY_VERSION ?= v2.53.6
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -84,4 +86,9 @@ $(OAPI_CODEGEN): $(TOOL_BIN)
 helm-schema: $(HELM_SCHEMA) ## Download helm-schema locally if necessary.
 $(HELM_SCHEMA): $(TOOL_BIN)
 	$(call go_install_tool,$(HELM_SCHEMA),github.com/dadav/helm-schema/cmd/helm-schema,$(HELM_SCHEMA_VERSION))
+
+.PHONY: mockery
+mockery: $(MOCKERY) ## Download mockery locally if necessary.
+$(MOCKERY): $(TOOL_BIN)
+	$(call go_install_tool,$(MOCKERY),github.com/vektra/mockery/v2,$(MOCKERY_VERSION))
 
