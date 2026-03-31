@@ -10,6 +10,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
+// HealthChecker is the interface for checking service health.
+type HealthChecker interface {
+	Check(ctx context.Context) error
+}
+
 // LogsQuerier is the interface for querying logs.
 type LogsQuerier interface {
 	QueryLogs(ctx context.Context, req *types.LogsQueryRequest) (*types.LogsQueryResponse, error)
@@ -49,4 +54,14 @@ type AlertIncidentService interface {
 	AlertsQuerier
 	IncidentsQuerier
 	IncidentsUpdater
+}
+
+// AlertRuleService is the interface for managing alert rules
+// and processing incoming alert webhooks.
+type AlertRuleService interface {
+	CreateAlertRule(ctx context.Context, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error)
+	GetAlertRule(ctx context.Context, ruleName, sourceType string) (*gen.AlertRuleResponse, error)
+	UpdateAlertRule(ctx context.Context, ruleName string, req gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error)
+	DeleteAlertRule(ctx context.Context, ruleName, sourceType string) (*gen.AlertingRuleSyncResponse, error)
+	HandleAlertWebhook(ctx context.Context, req gen.AlertWebhookRequest) (*gen.AlertWebhookResponse, error)
 }
