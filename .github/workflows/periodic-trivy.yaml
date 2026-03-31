@@ -1,0 +1,31 @@
+name: Trivy (periodic scan)
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Run daily at 02:30 UTC (08:00 IST)
+    - cron: "30 2 * * *"
+
+permissions: {}
+
+jobs:
+  trigger-scan:
+    name: Trigger scan (${{ matrix.branch }})
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    strategy:
+      fail-fast: false
+      matrix:
+        # Add release branches here as they are created (e.g., release-v1.1).
+        # The branch must contain the trivy-image-scan.yaml workflow.
+        branch:
+          - main
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Trigger Trivy image scan
+        run: |
+          gh workflow run trivy-image-scan.yaml \
+            --repo ${{ github.repository }} \
+            --ref ${{ matrix.branch }}
