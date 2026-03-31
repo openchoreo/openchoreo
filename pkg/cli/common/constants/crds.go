@@ -8,20 +8,9 @@ const (
 )
 
 const (
-	Docker    = "docker"
-	Buildpack = "buildpack"
-)
-
-const (
-	LabelNamespace   = "openchoreo.dev/namespace"
-	LabelProject     = "openchoreo.dev/project"
-	LabelComponent   = "openchoreo.dev/component"
-	LabelName        = "openchoreo.dev/name"
-	LabelType        = "openchoreo.dev/type"
-	LabelVersion     = "openchoreo.dev/version"
-	LabelArtifact    = "openchoreo.dev/deployment-artifact"
-	LabelDeployment  = "openchoreo.dev/deployment"
-	LabelEnvironment = "openchoreo.dev/environment"
+	LabelNamespace = "openchoreo.dev/namespace"
+	LabelProject   = "openchoreo.dev/project"
+	LabelName      = "openchoreo.dev/name"
 )
 const (
 	AnnotationDescription = "openchoreo.dev/description"
@@ -31,16 +20,7 @@ const (
 type APIVersion string
 
 const (
-	V1       APIVersion = "v1"
 	V1Alpha1 APIVersion = "v1alpha1"
-)
-
-const (
-	OutputFormatYAML = "yaml"
-	NamespaceKind    = "Namespace"
-	ProjectKind      = "Project"
-	ComponentKind    = "Component"
-	WorkloadKind     = "Workload"
 )
 
 type CRDConfig struct {
@@ -50,54 +30,9 @@ type CRDConfig struct {
 }
 
 var (
-	NamespaceV1Config = CRDConfig{
-		Group:   "",
-		Version: V1,
-		Kind:    NamespaceKind,
-	}
-	ProjectV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    ProjectKind,
-	}
-	ComponentV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    ComponentKind,
-	}
 	WorkloadV1Config = CRDConfig{
 		Group:   ChoreoGroup,
 		Version: V1Alpha1,
-		Kind:    WorkloadKind,
-	}
-	DeployableArtifactV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    "DeployableArtifact",
-	}
-	DeploymentV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    "Deployment",
-	}
-	DataPlaneV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    "DataPlane",
-	}
-	EndpointV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    "Endpoint",
-	}
-	EnvironmentV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    "Environment",
-	}
-	DeploymentPipelineV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    "DeploymentPipeline",
+		Kind:    "Workload",
 	}
 )

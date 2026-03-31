@@ -24,16 +24,6 @@ const (
 )
 
 var (
-	Kubeconfig = Flag{
-		Name:  "kubeconfig",
-		Usage: messages.KubeconfigFlagDesc,
-	}
-
-	Kubecontext = Flag{
-		Name:  "kubecontext",
-		Usage: messages.KubecontextFlagDesc,
-	}
-
 	Namespace = Flag{
 		Name:      "namespace",
 		Shorthand: "n",
@@ -51,10 +41,7 @@ var (
 		Shorthand: "c",
 		Usage:     messages.FlagCompDesc,
 	}
-	Build = Flag{
-		Name:  "build",
-		Usage: messages.FlagBuildDesc,
-	}
+
 	Environment = Flag{
 		Name:  "env",
 		Usage: messages.FlagEnvironmentDesc,
@@ -73,51 +60,16 @@ var (
 		Usage: messages.FlagNameDesc,
 	}
 
-	GitRepositoryURL = Flag{
-		Name:  "git-repository-url",
-		Usage: messages.FlagURLDesc,
-	}
-
-	Commit = Flag{
-		Name:  "commit",
-		Usage: "Git commit SHA to use for the workflow run",
-	}
-
-	SecretRef = Flag{
-		Name:  "secretRef",
-		Usage: messages.FlagSecretRefDesc,
-	}
-
-	ComponentType = Flag{
-		Name:  "type",
-		Usage: messages.FlagTypeDesc,
-	}
-
 	Output = Flag{
 		Name:      "output",
 		Shorthand: "o", // Keep shorthand for output as it's a common convention
 		Usage:     messages.FlagOutputDesc,
 	}
 
-	DisplayName = Flag{
-		Name:  "display-name",
-		Usage: messages.FlagDisplayDesc,
-	}
-
-	Description = Flag{
-		Name:  "description",
-		Usage: messages.FlagDescriptionDesc,
-	}
-
 	ApplyFileFlag = Flag{
 		Name:      "file",
 		Shorthand: "f",
 		Usage:     messages.ApplyFileFlag,
-	}
-
-	LogType = Flag{
-		Name:  "type",
-		Usage: messages.FlagLogTypeDesc,
 	}
 
 	Tail = Flag{
@@ -135,124 +87,10 @@ var (
 		Name:  "since",
 		Usage: "Only return logs newer than a relative duration like 5m, 1h, or 24h",
 	}
-	BuildTypeName = Flag{
-		Name:  "type",
-		Usage: messages.FlagBuildTypeDesc,
-	}
-
-	DockerContext = Flag{
-		Name:  "docker-context",
-		Usage: messages.FlagDockerContext,
-	}
-	DockerfilePath = Flag{
-		Name:  "dockerfile-path",
-		Usage: messages.FlagDockerfilePath,
-	}
-	BuildpackName = Flag{
-		Name:  "buildpack-name",
-		Usage: messages.FlagBuildpackName,
-	}
-	BuildpackVersion = Flag{
-		Name:  "buildpack-version",
-		Usage: messages.FlagBuildpackVersion,
-	}
-
-	Revision = Flag{
-		Name:  "revision",
-		Usage: messages.FlagRevisionDesc,
-	}
-	Branch = Flag{
-		Name:  "branch",
-		Usage: messages.FlagBranchDesc,
-	}
-
-	Path = Flag{
-		Name:  "path",
-		Usage: messages.FlagPathDesc,
-	}
-
-	AutoBuild = Flag{
-		Name:  "auto-build",
-		Usage: messages.FlagAutoBuildDesc,
-	}
-
-	DeployableArtifact = Flag{
-		Name:  "deployableartifact",
-		Usage: messages.FlagDeployableArtifactDesc,
-	}
-
-	ConnectionConfigRef = Flag{
-		Name:  "connection-config",
-		Usage: "Reference to the connection configuration",
-	}
-
-	ClusterAgentClientCA = Flag{
-		Name:  "cluster-agent-client-ca",
-		Usage: "The CA certificate used to verify the cluster agent's client certificate",
-	}
-
-	EndpointType = Flag{
-		Name:  "type",
-		Usage: "Type of the endpoint (HTTP, gRPC, GraphQL, Websocket, TCP, UDP)",
-	}
-
-	Port = Flag{
-		Name:  "port",
-		Usage: "Port number for the service",
-	}
-
-	DataPlaneRef = Flag{
-		Name:  "dataplane-ref",
-		Usage: "Reference to the data plane",
-	}
-
-	IsProduction = Flag{
-		Name:  "production",
-		Usage: "Whether this is a production environment",
-		Type:  "bool",
-	}
-
-	DNSPrefix = Flag{
-		Name:  "dns-prefix",
-		Usage: "DNS prefix for the environment",
-	}
-
-	APIVersion = Flag{
-		Name:  "api-version",
-		Usage: "API version for the deployment track",
-	}
-
-	AutoDeploy = Flag{
-		Name:  "auto-deploy",
-		Usage: "Enable automatic deployments",
-	}
-
-	DataPlane = Flag{
-		Name:  "dataplane",
-		Usage: "Name of the Data plane",
-	}
-	KubeconfigPath = Flag{
-		Name:  "kubeconfig",
-		Usage: "Path to the kubeconfig file",
-	}
-	KubeContext = Flag{
-		Name:  "kube-context",
-		Usage: "Name of the kubeconfig context to use",
-	}
 
 	WorkloadDescriptor = Flag{
 		Name:  "descriptor",
 		Usage: messages.WorkloadDescriptorFlag,
-	}
-
-	EnvironmentOrder = Flag{
-		Name:  "environment-order",
-		Usage: messages.FlagEnvironmentOrderDesc,
-	}
-
-	DeploymentPipeline = Flag{
-		Name:  "deployment-pipeline",
-		Usage: messages.FlagDeploymentPipelineDesc,
 	}
 
 	// Control plane configuration flags
@@ -265,16 +103,6 @@ var (
 	Credentials = Flag{
 		Name:  "credentials",
 		Usage: "Credentials name for this context",
-	}
-
-	Endpoint = Flag{
-		Name:  "endpoint",
-		Usage: "OpenChoreo API server endpoint URL",
-	}
-
-	Token = Flag{
-		Name:  "token",
-		Usage: "Authentication token for remote OpenChoreo API server",
 	}
 
 	// Scaffold-specific flags
@@ -416,13 +244,6 @@ var (
 		Name:  "set",
 		Usage: "Set override values (format: type.path=value)",
 		Type:  "stringArray",
-	}
-
-	Interactive = Flag{
-		Name:      "interactive",
-		Shorthand: "i",
-		Usage:     "Interactive mode for selecting release and overrides",
-		Type:      "bool",
 	}
 
 	WorkflowRun = Flag{
