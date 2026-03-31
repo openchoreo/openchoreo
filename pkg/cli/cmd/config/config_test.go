@@ -23,6 +23,7 @@ func TestNewConfigCmd_Structure(t *testing.T) {
 	assert.True(t, subCmds["context"], "expected 'context' subcommand")
 	assert.True(t, subCmds["controlplane"], "expected 'controlplane' subcommand")
 	assert.True(t, subCmds["credentials"], "expected 'credentials' subcommand")
+	assert.Len(t, cmd.Commands(), 3, "unexpected subcommands")
 }
 
 func TestContextCmd_Subcommands(t *testing.T) {
@@ -38,6 +39,7 @@ func TestContextCmd_Subcommands(t *testing.T) {
 	for _, name := range expected {
 		assert.True(t, subCmds[name], "expected '%s' subcommand under context", name)
 	}
+	assert.Len(t, ctxCmd.Commands(), len(expected), "unexpected subcommands")
 }
 
 func TestControlPlaneCmd_Subcommands(t *testing.T) {
@@ -53,6 +55,7 @@ func TestControlPlaneCmd_Subcommands(t *testing.T) {
 	for _, name := range expected {
 		assert.True(t, subCmds[name], "expected '%s' subcommand under controlplane", name)
 	}
+	assert.Len(t, cpCmd.Commands(), len(expected), "unexpected subcommands")
 }
 
 func TestCredentialsCmd_Subcommands(t *testing.T) {
@@ -68,6 +71,7 @@ func TestCredentialsCmd_Subcommands(t *testing.T) {
 	for _, name := range expected {
 		assert.True(t, subCmds[name], "expected '%s' subcommand under credentials", name)
 	}
+	assert.Len(t, credCmd.Commands(), len(expected), "unexpected subcommands")
 }
 
 func TestContextAddCmd_RequiredFlags(t *testing.T) {

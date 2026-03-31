@@ -76,6 +76,7 @@ func TestNewComponentCmd_Structure(t *testing.T) {
 	for _, name := range expected {
 		assert.True(t, subCmds[name], "expected '%s' subcommand", name)
 	}
+	assert.Len(t, cmd.Commands(), len(expected), "unexpected subcommands")
 }
 
 func TestComponentCmd_ListFlags(t *testing.T) {
