@@ -28,20 +28,56 @@ func newTestPipelineInfo(rootEnv string) *pipeline.PipelineInfo {
 	}
 }
 
+// generateMatchingRelease generates a ComponentRelease whose spec matches the
+// current component state, using the ReleaseGenerator. This ensures the release
+// spec is exactly what the hash-based comparison expects.
+func generateMatchingRelease(t *testing.T, idx *index.Index, namespace, releaseName, projectName, componentName string) *unstructured.Unstructured {
+	t.Helper()
+	tmpIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(tmpIndex)
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	require.NoError(t, err)
+	return release
+}
+
 func TestGenerateBindingWithInfo_Create(t *testing.T) {
 	const (
-		namespace     = "test-ns"
-		projectName   = "my-proj"
-		componentName = "my-comp"
-		targetEnv     = "dev"
-		releaseName   = "my-comp-20260101-0"
+		namespace         = "test-ns"
+		projectName       = "my-proj"
+		componentName     = "my-comp"
+		targetEnv         = "dev"
+		releaseName       = "my-comp-20260101-0"
+		componentTypeName = "my-type"
+		workloadType      = "Deployment"
+		image             = "my-image:latest"
 	)
 
 	idx := index.New("/repo")
 
-	// Add a ComponentRelease so selectComponentRelease can find the latest release
-	addRelease(t, idx, namespace, releaseName, projectName, componentName,
-		"/repo/projects/my-proj/components/my-comp/releases/my-comp-20260101-0.yaml")
+	// Add component state resources required for release spec generation
+	addComponentWithKind(t, idx, namespace, componentName, projectName, componentTypeName,
+		"ComponentType",
+		"/repo/projects/my-proj/components/my-comp.yaml")
+	addComponentType(t, idx, componentTypeName, workloadType,
+		"/repo/component-types/my-type.yaml")
+	addWorkload(t, idx, namespace, componentName+"-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": image}},
+		"/repo/projects/my-proj/components/my-comp/workload.yaml")
+
+	// Generate a ComponentRelease whose spec matches the current component state
+	release := generateMatchingRelease(t, idx, namespace, releaseName, projectName, componentName)
+
+	// Add the matching release to the index
+	releaseEntry := &index.ResourceEntry{
+		Resource: release,
+		FilePath: "/repo/projects/my-proj/components/my-comp/releases/my-comp-20260101-0.yaml",
+	}
+	require.NoError(t, idx.Add(releaseEntry))
 
 	ocIndex := fsmode.WrapIndex(idx)
 	gen := NewBindingGenerator(ocIndex)
@@ -68,12 +104,15 @@ func TestGenerateBindingWithInfo_Create(t *testing.T) {
 
 func TestGenerateBindingWithInfo_Update(t *testing.T) {
 	const (
-		namespace     = "test-ns"
-		projectName   = "my-proj"
-		componentName = "my-comp"
-		targetEnv     = "dev"
-		newRelease    = "my-comp-20260101-0"
-		oldRelease    = "my-comp-20250101-0"
+		namespace         = "test-ns"
+		projectName       = "my-proj"
+		componentName     = "my-comp"
+		targetEnv         = "dev"
+		newRelease        = "my-comp-20260101-0"
+		oldRelease        = "my-comp-20250101-0"
+		componentTypeName = "my-type"
+		workloadType      = "Deployment"
+		image             = "my-image:latest"
 	)
 
 	tmpDir := t.TempDir()
@@ -101,9 +140,25 @@ spec:
 
 	idx := index.New(tmpDir)
 
-	// Add a ComponentRelease so selectComponentRelease can find the latest release
-	addRelease(t, idx, namespace, newRelease, projectName, componentName,
-		filepath.Join(tmpDir, "releases", "my-comp-20260101-0.yaml"))
+	// Add component state resources required for release spec generation
+	addComponentWithKind(t, idx, namespace, componentName, projectName, componentTypeName,
+		"ComponentType",
+		filepath.Join(tmpDir, "projects", projectName, "components", componentName+".yaml"))
+	addComponentType(t, idx, componentTypeName, workloadType,
+		filepath.Join(tmpDir, "component-types", componentTypeName+".yaml"))
+	addWorkload(t, idx, namespace, componentName+"-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": image}},
+		filepath.Join(tmpDir, "projects", projectName, "components", componentName, "workload.yaml"))
+
+	// Generate a ComponentRelease whose spec matches the current component state
+	release := generateMatchingRelease(t, idx, namespace, newRelease, projectName, componentName)
+
+	// Add the matching release to the index
+	releaseEntry := &index.ResourceEntry{
+		Resource: release,
+		FilePath: filepath.Join(tmpDir, "releases", newRelease+".yaml"),
+	}
+	require.NoError(t, idx.Add(releaseEntry))
 
 	// Add an existing ReleaseBinding pointing to the file on disk
 	addReleaseBinding(t, idx, namespace, componentName+"-"+targetEnv, projectName, componentName, targetEnv,
@@ -143,31 +198,6 @@ spec:
 
 	annotations, _, _ := unstructured.NestedStringMap(info.Binding.Object, "metadata", "annotations")
 	assert.Equal(t, "do-not-lose-me", annotations["note"])
-}
-
-// addRelease adds a ComponentRelease resource entry to the index.
-func addRelease(t *testing.T, idx *index.Index, namespace, name, project, component, filePath string) {
-	t.Helper()
-	entry := &index.ResourceEntry{
-		Resource: &unstructured.Unstructured{
-			Object: map[string]any{
-				"apiVersion": "openchoreo.dev/v1alpha1",
-				"kind":       "ComponentRelease",
-				"metadata": map[string]any{
-					"name":      name,
-					"namespace": namespace,
-				},
-				"spec": map[string]any{
-					"owner": map[string]any{
-						"projectName":   project,
-						"componentName": component,
-					},
-				},
-			},
-		},
-		FilePath: filePath,
-	}
-	require.NoError(t, idx.Add(entry))
 }
 
 // addReleaseBinding adds a ReleaseBinding resource entry to the index.

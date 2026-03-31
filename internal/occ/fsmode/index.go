@@ -316,26 +316,6 @@ func (idx *Index) ListReleasesForComponent(projectName, componentName string) []
 	return idx.releasesByComponent[key]
 }
 
-// GetLatestReleaseForComponent returns the latest component release for a specific component
-// Releases are sorted by name (which includes date and version), so the last one is the latest
-func (idx *Index) GetLatestReleaseForComponent(projectName, componentName string) (*index.ResourceEntry, error) {
-	releases := idx.ListReleasesForComponent(projectName, componentName)
-	if len(releases) == 0 {
-		return nil, fmt.Errorf("no releases found for component %s/%s", projectName, componentName)
-	}
-
-	// Since release names follow the format: <component>-<YYYYMMDD>-<version>
-	// they are lexicographically sortable, and the latest release is the one with the highest name
-	latestRelease := releases[0]
-	for _, release := range releases[1:] {
-		if release.Name() > latestRelease.Name() {
-			latestRelease = release
-		}
-	}
-
-	return latestRelease, nil
-}
-
 // GetProject retrieves a project by namespace and name
 func (idx *Index) GetProject(namespace, name string) (*index.ResourceEntry, bool) {
 	return idx.Index.Get(ProjectGVK, namespace, name)

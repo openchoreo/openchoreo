@@ -287,7 +287,7 @@ func addClusterTrait(t *testing.T, idx *index.Index, name string, spec map[strin
 }
 
 // addComponentWithKind adds a Component with a specific componentType kind to the index.
-func addComponentWithKind(t *testing.T, idx *index.Index, namespace, name, project, componentTypeName, ctKind string, traits []map[string]any, filePath string) {
+func addComponentWithKind(t *testing.T, idx *index.Index, namespace, name, project, componentTypeName, ctKind string, filePath string) {
 	t.Helper()
 	spec := map[string]any{
 		"owner": map[string]any{
@@ -297,9 +297,6 @@ func addComponentWithKind(t *testing.T, idx *index.Index, namespace, name, proje
 			"name": componentTypeName,
 			"kind": ctKind,
 		},
-	}
-	if len(traits) > 0 {
-		spec["traits"] = traits
 	}
 	entry := &index.ResourceEntry{
 		Resource: &unstructured.Unstructured{
@@ -329,7 +326,7 @@ func TestGenerateRelease_ClusterComponentType(t *testing.T) {
 	idx := index.New("/repo")
 
 	addComponentWithKind(t, idx, namespace, componentName, projectName, "deployment/service",
-		"ClusterComponentType", nil,
+		"ClusterComponentType",
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
 	addClusterComponentType(t, idx, "service", "deployment",
@@ -475,7 +472,7 @@ func TestGenerateRelease_MissingClusterComponentTypeErrors(t *testing.T) {
 
 	// Component references ClusterComponentType "service" but it doesn't exist in the index
 	addComponentWithKind(t, idx, namespace, componentName, projectName, "deployment/service",
-		"ClusterComponentType", nil,
+		"ClusterComponentType",
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
 	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
@@ -508,7 +505,7 @@ func TestGenerateRelease_UnsupportedComponentTypeKindErrors(t *testing.T) {
 	idx := index.New("/repo")
 
 	addComponentWithKind(t, idx, namespace, componentName, projectName, "deployment/service",
-		"InvalidKind", nil,
+		"InvalidKind",
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
 	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
