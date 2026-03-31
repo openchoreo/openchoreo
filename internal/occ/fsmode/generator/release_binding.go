@@ -4,6 +4,7 @@
 package generator
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -198,16 +199,22 @@ func (g *BindingGenerator) selectComponentRelease(opts BindingOptions) (string, 
 				opts.ProjectName, opts.ComponentName)
 		}
 
+		var compareErrs []error
 		for _, release := range releases {
 			match, err := output.CompareReleaseSpecs(expectedRelease, release.Resource)
 			if err != nil {
-				continue // skip releases that can't be compared
+				compareErrs = append(compareErrs, err)
+				continue
 			}
 			if match {
 				return release.Name(), nil
 			}
 		}
 
+		if len(compareErrs) > 0 {
+			return "", fmt.Errorf("comparing release specs for %s/%s: %w",
+				opts.ProjectName, opts.ComponentName, errors.Join(compareErrs...))
+		}
 		return "", fmt.Errorf("no matching release found for current component state %s/%s",
 			opts.ProjectName, opts.ComponentName)
 	}

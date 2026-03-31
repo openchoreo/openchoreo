@@ -17,14 +17,14 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/fsindex/index"
 )
 
-// newTestPipelineInfo creates a simple pipeline with a single root environment.
-func newTestPipelineInfo(rootEnv string) *pipeline.PipelineInfo {
+// newTestPipelineInfo creates a simple pipeline with "dev" as the single root environment.
+func newTestPipelineInfo() *pipeline.PipelineInfo {
 	return &pipeline.PipelineInfo{
 		Name:            "test-pipeline",
-		RootEnvironment: rootEnv,
-		Environments:    []string{rootEnv},
-		PromotionPaths:  map[string][]string{rootEnv: {}},
-		EnvPosition:     map[string]int{rootEnv: 0},
+		RootEnvironment: "dev",
+		Environments:    []string{"dev"},
+		PromotionPaths:  map[string][]string{"dev": {}},
+		EnvPosition:     map[string]int{"dev": 0},
 	}
 }
 
@@ -86,7 +86,7 @@ func TestGenerateBindingWithInfo_Create(t *testing.T) {
 		ProjectName:   projectName,
 		ComponentName: componentName,
 		TargetEnv:     targetEnv,
-		PipelineInfo:  newTestPipelineInfo(targetEnv),
+		PipelineInfo:  newTestPipelineInfo(),
 		Namespace:     namespace,
 	})
 	require.NoError(t, err)
@@ -171,7 +171,7 @@ spec:
 		ProjectName:   projectName,
 		ComponentName: componentName,
 		TargetEnv:     targetEnv,
-		PipelineInfo:  newTestPipelineInfo(targetEnv),
+		PipelineInfo:  newTestPipelineInfo(),
 		Namespace:     namespace,
 	})
 	require.NoError(t, err)
@@ -198,6 +198,162 @@ spec:
 
 	annotations, _, _ := unstructured.NestedStringMap(info.Binding.Object, "metadata", "annotations")
 	assert.Equal(t, "do-not-lose-me", annotations["note"])
+}
+
+func TestSelectComponentRelease_GenerateReleaseFailure(t *testing.T) {
+	// Component exists but its ComponentType is missing, so GenerateRelease fails.
+	idx := index.New("/repo")
+
+	// Add component referencing a non-existent ComponentType
+	addComponentWithKind(t, idx, "test-ns", "my-comp", "my-proj", "missing-type",
+		"ComponentType",
+		"/repo/projects/my-proj/components/my-comp.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewBindingGenerator(ocIndex)
+
+	_, err := gen.GenerateBinding(BindingOptions{
+		ProjectName:   "my-proj",
+		ComponentName: "my-comp",
+		TargetEnv:     "dev",
+		PipelineInfo:  newTestPipelineInfo(),
+		Namespace:     "test-ns",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to generate release spec")
+}
+
+func TestSelectComponentRelease_NoReleasesFound(t *testing.T) {
+	// Component state is valid but no ComponentReleases exist in the index.
+	idx := index.New("/repo")
+
+	addComponentWithKind(t, idx, "test-ns", "my-comp", "my-proj", "my-type",
+		"ComponentType",
+		"/repo/projects/my-proj/components/my-comp.yaml")
+	addComponentType(t, idx, "my-type", "Deployment",
+		"/repo/component-types/my-type.yaml")
+	addWorkload(t, idx, "test-ns", "my-comp-workload", "my-proj", "my-comp",
+		map[string]any{"container": map[string]any{"image": "img:v1"}},
+		"/repo/projects/my-proj/components/my-comp/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewBindingGenerator(ocIndex)
+
+	_, err := gen.GenerateBinding(BindingOptions{
+		ProjectName:   "my-proj",
+		ComponentName: "my-comp",
+		TargetEnv:     "dev",
+		PipelineInfo:  newTestPipelineInfo(),
+		Namespace:     "test-ns",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no releases found for component")
+}
+
+func TestSelectComponentRelease_NoMatchingRelease(t *testing.T) {
+	// Releases exist but none match the current component state.
+	idx := index.New("/repo")
+
+	addComponentWithKind(t, idx, "test-ns", "my-comp", "my-proj", "my-type",
+		"ComponentType",
+		"/repo/projects/my-proj/components/my-comp.yaml")
+	addComponentType(t, idx, "my-type", "Deployment",
+		"/repo/component-types/my-type.yaml")
+	addWorkload(t, idx, "test-ns", "my-comp-workload", "my-proj", "my-comp",
+		map[string]any{"container": map[string]any{"image": "img:v2"}},
+		"/repo/projects/my-proj/components/my-comp/workload.yaml")
+
+	// Add a release with a different spec (different image)
+	staleRelease := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "ComponentRelease",
+				"metadata": map[string]any{
+					"name":      "my-comp-20260101-0",
+					"namespace": "test-ns",
+				},
+				"spec": map[string]any{
+					"owner": map[string]any{
+						"projectName":   "my-proj",
+						"componentName": "my-comp",
+					},
+					"workload": map[string]any{
+						"container": map[string]any{"image": "img:v1"},
+					},
+				},
+			},
+		},
+		FilePath: "/repo/projects/my-proj/components/my-comp/releases/my-comp-20260101-0.yaml",
+	}
+	require.NoError(t, idx.Add(staleRelease))
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewBindingGenerator(ocIndex)
+
+	_, err := gen.GenerateBinding(BindingOptions{
+		ProjectName:   "my-proj",
+		ComponentName: "my-comp",
+		TargetEnv:     "dev",
+		PipelineInfo:  newTestPipelineInfo(),
+		Namespace:     "test-ns",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no matching release found for current component state")
+}
+
+func TestSelectComponentRelease_CompareSpecsError(t *testing.T) {
+	// A release whose spec is removed after indexing causes CompareReleaseSpecs to error.
+	idx := index.New("/repo")
+
+	addComponentWithKind(t, idx, "test-ns", "my-comp", "my-proj", "my-type",
+		"ComponentType",
+		"/repo/projects/my-proj/components/my-comp.yaml")
+	addComponentType(t, idx, "my-type", "Deployment",
+		"/repo/component-types/my-type.yaml")
+	addWorkload(t, idx, "test-ns", "my-comp-workload", "my-proj", "my-comp",
+		map[string]any{"container": map[string]any{"image": "img:v1"}},
+		"/repo/projects/my-proj/components/my-comp/workload.yaml")
+
+	// Add a valid release so it gets indexed under the component
+	release := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "ComponentRelease",
+				"metadata": map[string]any{
+					"name":      "my-comp-20260101-0",
+					"namespace": "test-ns",
+				},
+				"spec": map[string]any{
+					"owner": map[string]any{
+						"projectName":   "my-proj",
+						"componentName": "my-comp",
+					},
+				},
+			},
+		},
+		FilePath: "/repo/projects/my-proj/components/my-comp/releases/my-comp-20260101-0.yaml",
+	}
+	require.NoError(t, idx.Add(release))
+
+	ocIndex := fsmode.WrapIndex(idx)
+
+	// After indexing, remove the spec from the release resource so CompareReleaseSpecs
+	// will fail with "spec not found". The specialized index still holds the reference.
+	delete(release.Resource.Object, "spec")
+
+	gen := NewBindingGenerator(ocIndex)
+
+	_, err := gen.GenerateBinding(BindingOptions{
+		ProjectName:   "my-proj",
+		ComponentName: "my-comp",
+		TargetEnv:     "dev",
+		PipelineInfo:  newTestPipelineInfo(),
+		Namespace:     "test-ns",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "comparing release specs")
 }
 
 // addReleaseBinding adds a ReleaseBinding resource entry to the index.
