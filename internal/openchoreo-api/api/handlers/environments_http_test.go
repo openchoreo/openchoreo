@@ -6,11 +6,11 @@ package handlers
 // HTTP-layer integration tests for the environments resource.
 //
 // These tests go beyond the direct-call tests in environments_test.go by
-// exercising all three behavioural concerns raised in code review:
+// exercising all three behavioral concerns raised in code review:
 //
 //  1. HTTP/router layer — requests flow through gen.NewStrictHandler and the
 //     real net/http mux, so route matching, path-parameter extraction, content-
-//     type negotiation, and JSON serialisation are all exercised.
+//     type negotiation, and JSON serialization are all exercised.
 //
 //  2. OpenAPI contract — every success response is validated against the spec
 //     generated from openapi/openchoreo-api.yaml via assertConformsToSpec, so a
@@ -71,11 +71,11 @@ const defaultPlaneName = "default"
 // seedEnv is a convenience constructor for an openchoreov1alpha1.Environment
 // object with a DataPlaneRef already set (the create path requires it or a
 // default DataPlane to be present).
-func seedEnv(name, namespace string) *openchoreov1alpha1.Environment {
+func seedEnv(name string) *openchoreov1alpha1.Environment {
 	return &openchoreov1alpha1.Environment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: testNS,
 		},
 		Spec: openchoreov1alpha1.EnvironmentSpec{
 			DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
@@ -103,8 +103,8 @@ const testNS = "test-ns"
 
 func TestEnvironmentHTTPList(t *testing.T) {
 	bundle := newEnvBundle(t, []client.Object{
-		seedEnv("env-a", testNS),
-		seedEnv("env-b", testNS),
+		seedEnv("env-a"),
+		seedEnv("env-b"),
 	}, &allowAllPDP{})
 
 	req, rec := doRequest(t, bundle.handler, http.MethodGet,
@@ -155,7 +155,7 @@ func TestEnvironmentHTTPListInvalidLabelSelector(t *testing.T) {
 // --- Get ---
 
 func TestEnvironmentHTTPGet(t *testing.T) {
-	bundle := newEnvBundle(t, []client.Object{seedEnv("staging", testNS)}, &allowAllPDP{})
+	bundle := newEnvBundle(t, []client.Object{seedEnv("staging")}, &allowAllPDP{})
 
 	req, rec := doRequest(t, bundle.handler, http.MethodGet,
 		"/api/v1/namespaces/"+testNS+"/environments/staging", nil)
@@ -180,7 +180,7 @@ func TestEnvironmentHTTPGetNotFound(t *testing.T) {
 }
 
 func TestEnvironmentHTTPGetForbidden(t *testing.T) {
-	bundle := newEnvBundle(t, []client.Object{seedEnv("staging", testNS)}, &denyAllPDP{})
+	bundle := newEnvBundle(t, []client.Object{seedEnv("staging")}, &denyAllPDP{})
 
 	_, rec := doRequest(t, bundle.handler, http.MethodGet,
 		"/api/v1/namespaces/"+testNS+"/environments/staging", nil)
@@ -231,7 +231,7 @@ func TestEnvironmentHTTPCreateEmptyName(t *testing.T) {
 }
 
 func TestEnvironmentHTTPCreateAlreadyExists(t *testing.T) {
-	bundle := newEnvBundle(t, []client.Object{seedEnv("prod", testNS), seedDP(testNS)}, &allowAllPDP{})
+	bundle := newEnvBundle(t, []client.Object{seedEnv("prod"), seedDP(testNS)}, &allowAllPDP{})
 
 	body, _ := json.Marshal(gen.Environment{
 		Metadata: gen.ObjectMeta{Name: "prod"},
@@ -257,7 +257,7 @@ func TestEnvironmentHTTPCreateForbidden(t *testing.T) {
 // --- Update ---
 
 func TestEnvironmentHTTPUpdate(t *testing.T) {
-	bundle := newEnvBundle(t, []client.Object{seedEnv("dev", testNS)}, &allowAllPDP{})
+	bundle := newEnvBundle(t, []client.Object{seedEnv("dev")}, &allowAllPDP{})
 
 	// Use just the required metadata; the handler sets the name from the URL path.
 	body, _ := json.Marshal(gen.Environment{Metadata: gen.ObjectMeta{Name: "dev"}})
@@ -294,7 +294,7 @@ func TestEnvironmentHTTPUpdateNotFound(t *testing.T) {
 }
 
 func TestEnvironmentHTTPUpdateForbidden(t *testing.T) {
-	bundle := newEnvBundle(t, []client.Object{seedEnv("dev", testNS)}, &denyAllPDP{})
+	bundle := newEnvBundle(t, []client.Object{seedEnv("dev")}, &denyAllPDP{})
 
 	body, _ := json.Marshal(gen.Environment{Metadata: gen.ObjectMeta{Name: "dev"}})
 	_, rec := doRequest(t, bundle.handler, http.MethodPut,
@@ -306,7 +306,7 @@ func TestEnvironmentHTTPUpdateForbidden(t *testing.T) {
 // --- Delete ---
 
 func TestEnvironmentHTTPDelete(t *testing.T) {
-	bundle := newEnvBundle(t, []client.Object{seedEnv("dev", testNS)}, &allowAllPDP{})
+	bundle := newEnvBundle(t, []client.Object{seedEnv("dev")}, &allowAllPDP{})
 
 	_, rec := doRequest(t, bundle.handler, http.MethodDelete,
 		"/api/v1/namespaces/"+testNS+"/environments/dev", nil)
@@ -331,7 +331,7 @@ func TestEnvironmentHTTPDeleteNotFound(t *testing.T) {
 }
 
 func TestEnvironmentHTTPDeleteForbidden(t *testing.T) {
-	bundle := newEnvBundle(t, []client.Object{seedEnv("dev", testNS)}, &denyAllPDP{})
+	bundle := newEnvBundle(t, []client.Object{seedEnv("dev")}, &denyAllPDP{})
 
 	_, rec := doRequest(t, bundle.handler, http.MethodDelete,
 		"/api/v1/namespaces/"+testNS+"/environments/dev", nil)
