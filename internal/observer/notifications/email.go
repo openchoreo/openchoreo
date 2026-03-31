@@ -38,6 +38,8 @@ type NotificationChannelConfig struct {
 	Webhook WebhookConfig
 }
 
+var smtpSendMail = smtp.SendMail
+
 // SendEmailWithConfig sends an alert email using the provided configuration.
 func SendEmailWithConfig(_ context.Context, config *NotificationChannelConfig, subject, body string) error {
 	to := config.Email.To
@@ -63,7 +65,7 @@ func SendEmailWithConfig(_ context.Context, config *NotificationChannelConfig, s
 		body,
 	)
 
-	return smtp.SendMail(addr, auth, config.Email.SMTP.From, to, []byte(message))
+	return smtpSendMail(addr, auth, config.Email.SMTP.From, to, []byte(message))
 }
 
 // PrepareEmailNotificationConfig prepares email notification configuration from ConfigMap and Secret
