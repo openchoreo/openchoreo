@@ -77,9 +77,9 @@ func seedWorkload(name string) *openchoreov1alpha1.Workload {
 }
 
 // newWorkloadBody returns a gen.Workload body suitable for create/update requests.
-func newWorkloadBody(name, componentName string) *gen.Workload {
+func newWorkloadBody(componentName string) *gen.Workload {
 	return &gen.Workload{
-		Metadata: gen.ObjectMeta{Name: name},
+		Metadata: gen.ObjectMeta{Name: "wl-1"},
 		Spec: &gen.WorkloadSpec{
 			Owner: &struct {
 				ComponentName string `json:"componentName"`
@@ -181,7 +181,7 @@ func TestWorkloadHTTPCreate(t *testing.T) {
 	}
 	bundle := newWLBundle(t, []client.Object{seedComponent}, &allowAllPDP{})
 
-	body, _ := json.Marshal(newWorkloadBody("wl-1", "test-comp"))
+	body, _ := json.Marshal(newWorkloadBody("test-comp"))
 	req, rec := doRequest(t, bundle.handler, http.MethodPost,
 		"/api/v1/namespaces/"+testNS+"/workloads", body)
 
@@ -207,7 +207,7 @@ func TestWorkloadHTTPCreateComponentNotFound(t *testing.T) {
 	// No component seeded — the service should return a 400.
 	bundle := newWLBundle(t, nil, &allowAllPDP{})
 
-	body, _ := json.Marshal(newWorkloadBody("wl-1", "test-comp"))
+	body, _ := json.Marshal(newWorkloadBody("test-comp"))
 	_, rec := doRequest(t, bundle.handler, http.MethodPost,
 		"/api/v1/namespaces/"+testNS+"/workloads", body)
 
@@ -220,7 +220,7 @@ func TestWorkloadHTTPCreateAlreadyExists(t *testing.T) {
 	}
 	bundle := newWLBundle(t, []client.Object{seedComponent, seedWorkload("wl-1")}, &allowAllPDP{})
 
-	body, _ := json.Marshal(newWorkloadBody("wl-1", "test-comp"))
+	body, _ := json.Marshal(newWorkloadBody("test-comp"))
 	_, rec := doRequest(t, bundle.handler, http.MethodPost,
 		"/api/v1/namespaces/"+testNS+"/workloads", body)
 
@@ -233,7 +233,7 @@ func TestWorkloadHTTPCreateForbidden(t *testing.T) {
 	}
 	bundle := newWLBundle(t, []client.Object{seedComponent}, &denyAllPDP{})
 
-	body, _ := json.Marshal(newWorkloadBody("wl-1", "test-comp"))
+	body, _ := json.Marshal(newWorkloadBody("test-comp"))
 	_, rec := doRequest(t, bundle.handler, http.MethodPost,
 		"/api/v1/namespaces/"+testNS+"/workloads", body)
 
