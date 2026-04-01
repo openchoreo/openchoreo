@@ -326,6 +326,10 @@ func TestTraitHTTPGetSchema(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 
 	bodyBytes := rec.Body.Bytes()
+	// Verify the response body contains the seeded schema content {"type":"object"}.
+	assert.Contains(t, string(bodyBytes), `"object"`,
+		"schema response must contain the seeded type value")
+
 	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)
 }
 

@@ -38,6 +38,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
@@ -68,11 +69,16 @@ func newDPBundle(t *testing.T, objects []client.Object, pdp authzcore.PDP) dpBun
 
 // seedDP2 is a convenience constructor for an openchoreov1alpha1.DeploymentPipeline object.
 // Named seedDP2 to avoid collision with seedDP (DataPlane helper) in environments_http_test.go.
+// Service-assigned labels (namespace and name) are pre-seeded to test that updates preserve them.
 func seedDP2(name string) *openchoreov1alpha1.DeploymentPipeline {
 	return &openchoreov1alpha1.DeploymentPipeline{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: testNS,
+			Labels: map[string]string{
+				labels.LabelKeyNamespaceName: testNS,
+				labels.LabelKeyName:          name,
+			},
 		},
 	}
 }
@@ -215,11 +221,15 @@ func TestDeploymentPipelineHTTPCreateForbidden(t *testing.T) {
 func TestDeploymentPipelineHTTPUpdate(t *testing.T) {
 	bundle := newDPBundle(t, []client.Object{seedDP2("dp-1")}, &allowAllPDP{})
 
-	// Include a label so we can assert the updated value is persisted.
+	// Preserve existing service labels and add a new "tier" label to assert persistence.
 	body, _ := json.Marshal(gen.DeploymentPipeline{
 		Metadata: gen.ObjectMeta{
-			Name:   "dp-1",
-			Labels: &map[string]string{"tier": "updated"},
+			Name: "dp-1",
+			Labels: &map[string]string{
+				labels.LabelKeyNamespaceName: testNS,
+				labels.LabelKeyName:          "dp-1",
+				"tier":                       "updated",
+			},
 		},
 	})
 
@@ -233,11 +243,15 @@ func TestDeploymentPipelineHTTPUpdate(t *testing.T) {
 	require.NoError(t, json.Unmarshal(bodyBytes, &resp))
 	assert.Equal(t, "dp-1", resp.Metadata.Name)
 
-	// Concern 3: verify the label mutation is reflected in the fake K8s store.
+	// Concern 3: verify all three labels are reflected in the fake K8s store.
 	var k8sObj openchoreov1alpha1.DeploymentPipeline
 	err := bundle.fakeClient.Get(context.Background(),
 		types.NamespacedName{Name: "dp-1", Namespace: testNS}, &k8sObj)
 	require.NoError(t, err, "deployment pipeline must still exist in K8s after update")
+	assert.Equal(t, testNS, k8sObj.Labels[labels.LabelKeyNamespaceName],
+		"namespace label must be preserved after update")
+	assert.Equal(t, "dp-1", k8sObj.Labels[labels.LabelKeyName],
+		"name label must be preserved after update")
 	assert.Equal(t, "updated", k8sObj.Labels["tier"],
 		"updated label must be persisted to K8s")
 
