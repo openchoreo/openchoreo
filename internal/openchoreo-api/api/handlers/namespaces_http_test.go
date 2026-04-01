@@ -110,14 +110,17 @@ func TestNamespaceHTTPListFiltersUnlabeled(t *testing.T) {
 	}
 	bundle := newNSBundle(t, []client.Object{seedNS("labeled-ns"), unlabeled}, &allowAllPDP{})
 
-	_, rec := doRequest(t, bundle.handler, http.MethodGet, "/api/v1/namespaces", nil)
+	req, rec := doRequest(t, bundle.handler, http.MethodGet, "/api/v1/namespaces", nil)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
+	bodyBytes := rec.Body.Bytes()
 	var resp gen.NamespaceList
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.NoError(t, json.Unmarshal(bodyBytes, &resp))
 	assert.Len(t, resp.Items, 1, "only labeled namespaces must appear in list")
 	assert.Equal(t, "labeled-ns", resp.Items[0].Metadata.Name)
+
+	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)
 }
 
 func TestNamespaceHTTPListEmpty(t *testing.T) {
