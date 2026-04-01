@@ -39,8 +39,8 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
+	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 )
 
 // projectBundle holds the real HTTP handler wired to a fake K8s client so tests

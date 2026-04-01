@@ -93,11 +93,11 @@ func seedCTWithSchema(name string) *openchoreov1alpha1.ComponentType {
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNS},
 		Spec: openchoreov1alpha1.ComponentTypeSpec{
 			WorkloadType: "deployment",
+			Parameters: &openchoreov1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{Raw: paramsRaw},
+			},
 			Resources: []openchoreov1alpha1.ResourceTemplate{
 				{ID: "deployment", Template: &runtime.RawExtension{Raw: []byte(`{}`)}},
-			},
-			Schema: openchoreov1alpha1.ComponentTypeSchema{
-				Parameters: &runtime.RawExtension{Raw: paramsRaw},
 			},
 		},
 	}
