@@ -67,13 +67,36 @@ func newSRBundle(t *testing.T, objects []client.Object, pdp authzcore.PDP) srBun
 }
 
 // seedSR is a convenience constructor for an openchoreov1alpha1.SecretReference object.
+// spec.data requires minItems:1 per the OpenAPI schema.
 func seedSR(name string) *openchoreov1alpha1.SecretReference {
 	return &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: testNS,
 		},
+		Spec: openchoreov1alpha1.SecretReferenceSpec{
+			Data: []openchoreov1alpha1.SecretDataSource{
+				{
+					SecretKey: "my-key",
+					RemoteRef: openchoreov1alpha1.RemoteReference{Key: "secret/path"},
+				},
+			},
+		},
 	}
+}
+
+// newSRBody returns a JSON body for creating/updating a SecretReference.
+// spec.data requires minItems:1 per the OpenAPI schema.
+func newSRBody(name string) []byte {
+	b, _ := json.Marshal(gen.SecretReference{
+		Metadata: gen.ObjectMeta{Name: name},
+		Spec: &gen.SecretReferenceSpec{
+			Data: []gen.SecretDataSource{
+				{SecretKey: "my-key", RemoteRef: gen.RemoteReference{Key: "secret/path"}},
+			},
+		},
+	})
+	return b
 }
 
 // --- List ---
@@ -161,11 +184,8 @@ func TestSecretReferenceHTTPGetForbidden(t *testing.T) {
 func TestSecretReferenceHTTPCreate(t *testing.T) {
 	bundle := newSRBundle(t, nil, &allowAllPDP{})
 
-	body, _ := json.Marshal(gen.SecretReference{
-		Metadata: gen.ObjectMeta{Name: "new-sr"},
-	})
 	req, rec := doRequest(t, bundle.handler, http.MethodPost,
-		"/api/v1/namespaces/"+testNS+"/secretreferences", body)
+		"/api/v1/namespaces/"+testNS+"/secretreferences", newSRBody("new-sr"))
 
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
@@ -188,11 +208,8 @@ func TestSecretReferenceHTTPCreate(t *testing.T) {
 func TestSecretReferenceHTTPCreateAlreadyExists(t *testing.T) {
 	bundle := newSRBundle(t, []client.Object{seedSR("new-sr")}, &allowAllPDP{})
 
-	body, _ := json.Marshal(gen.SecretReference{
-		Metadata: gen.ObjectMeta{Name: "new-sr"},
-	})
 	_, rec := doRequest(t, bundle.handler, http.MethodPost,
-		"/api/v1/namespaces/"+testNS+"/secretreferences", body)
+		"/api/v1/namespaces/"+testNS+"/secretreferences", newSRBody("new-sr"))
 
 	assert.Equal(t, http.StatusConflict, rec.Code)
 }
@@ -200,11 +217,8 @@ func TestSecretReferenceHTTPCreateAlreadyExists(t *testing.T) {
 func TestSecretReferenceHTTPCreateForbidden(t *testing.T) {
 	bundle := newSRBundle(t, nil, &denyAllPDP{})
 
-	body, _ := json.Marshal(gen.SecretReference{
-		Metadata: gen.ObjectMeta{Name: "new-sr"},
-	})
 	_, rec := doRequest(t, bundle.handler, http.MethodPost,
-		"/api/v1/namespaces/"+testNS+"/secretreferences", body)
+		"/api/v1/namespaces/"+testNS+"/secretreferences", newSRBody("new-sr"))
 
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
@@ -219,6 +233,11 @@ func TestSecretReferenceHTTPUpdate(t *testing.T) {
 		Metadata: gen.ObjectMeta{
 			Name:   "sr-1",
 			Labels: &map[string]string{"tier": "updated"},
+		},
+		Spec: &gen.SecretReferenceSpec{
+			Data: []gen.SecretDataSource{
+				{SecretKey: "my-key", RemoteRef: gen.RemoteReference{Key: "secret/path"}},
+			},
 		},
 	})
 
@@ -247,9 +266,8 @@ func TestSecretReferenceHTTPUpdate(t *testing.T) {
 func TestSecretReferenceHTTPUpdateNotFound(t *testing.T) {
 	bundle := newSRBundle(t, nil, &allowAllPDP{})
 
-	body, _ := json.Marshal(gen.SecretReference{Metadata: gen.ObjectMeta{Name: "nonexistent"}})
 	_, rec := doRequest(t, bundle.handler, http.MethodPut,
-		"/api/v1/namespaces/"+testNS+"/secretreferences/nonexistent", body)
+		"/api/v1/namespaces/"+testNS+"/secretreferences/nonexistent", newSRBody("nonexistent"))
 
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
@@ -257,9 +275,8 @@ func TestSecretReferenceHTTPUpdateNotFound(t *testing.T) {
 func TestSecretReferenceHTTPUpdateForbidden(t *testing.T) {
 	bundle := newSRBundle(t, []client.Object{seedSR("sr-1")}, &denyAllPDP{})
 
-	body, _ := json.Marshal(gen.SecretReference{Metadata: gen.ObjectMeta{Name: "sr-1"}})
 	_, rec := doRequest(t, bundle.handler, http.MethodPut,
-		"/api/v1/namespaces/"+testNS+"/secretreferences/sr-1", body)
+		"/api/v1/namespaces/"+testNS+"/secretreferences/sr-1", newSRBody("sr-1"))
 
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
