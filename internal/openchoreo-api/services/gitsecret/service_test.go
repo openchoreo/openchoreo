@@ -36,6 +36,8 @@ func newTestScheme(t *testing.T) *runtime.Scheme {
 	return s
 }
 
+const testNamespace = "ns1"
+
 func newTestLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
@@ -138,11 +140,11 @@ func TestBuildSecretReference(t *testing.T) {
 	}{
 		{
 			name:       "basic-auth with WorkflowPlane",
-			namespace:  "ns1",
+			namespace:  testNamespace,
 			secretName: "my-secret",
 			secretType: "basic-auth",
 			username:   "user1",
-			wpKind:     "WorkflowPlane",
+			wpKind:     workflowPlaneKindWorkflowPlane,
 			wpName:     "wp-default",
 		},
 		{
@@ -151,23 +153,23 @@ func TestBuildSecretReference(t *testing.T) {
 			secretName: "ssh-secret",
 			secretType: "ssh-auth",
 			sshKeyID:   "key-id-123",
-			wpKind:     "ClusterWorkflowPlane",
+			wpKind:     workflowPlaneKindClusterWorkflowPlane,
 			wpName:     "cwp-shared",
 		},
 		{
 			name:       "basic-auth without username",
-			namespace:  "ns1",
+			namespace:  testNamespace,
 			secretName: "token-only",
 			secretType: "basic-auth",
-			wpKind:     "WorkflowPlane",
+			wpKind:     workflowPlaneKindWorkflowPlane,
 			wpName:     "wp1",
 		},
 		{
 			name:       "ssh-auth without key ID",
-			namespace:  "ns1",
+			namespace:  testNamespace,
 			secretName: "ssh-only",
 			secretType: "ssh-auth",
-			wpKind:     "ClusterWorkflowPlane",
+			wpKind:     workflowPlaneKindClusterWorkflowPlane,
 			wpName:     "cwp1",
 		},
 	}
@@ -281,13 +283,13 @@ func TestBuildGitSecret(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			secret := svc.buildGitSecret("test-secret", "ns1", "workflows-ns1", tt.secretType, tt.username, tt.token, tt.sshKey, tt.sshKeyID)
+			secret := svc.buildGitSecret("test-secret", testNamespace, "workflows-ns1", tt.secretType, tt.username, tt.token, tt.sshKey, tt.sshKeyID)
 
 			if secret.Type != tt.wantType {
 				t.Errorf("Type = %v, want %v", secret.Type, tt.wantType)
 			}
-			if secret.Labels[ownerNamespaceLabel] != "ns1" {
-				t.Errorf("owner namespace label = %q, want %q", secret.Labels[ownerNamespaceLabel], "ns1")
+			if secret.Labels[ownerNamespaceLabel] != testNamespace {
+				t.Errorf("owner namespace label = %q, want %q", secret.Labels[ownerNamespaceLabel], testNamespace)
 			}
 			if len(secret.StringData) != len(tt.wantKeys) {
 				t.Errorf("StringData has %d keys, want %d", len(secret.StringData), len(tt.wantKeys))
@@ -309,11 +311,11 @@ func TestListGitSecrets(t *testing.T) {
 	gitSecretRef := &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "git-secret-1",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				gitSecretTypeLabel:     gitSecretTypeValue,
 				gitSecretAuthTypeLabel: "basic-auth",
-				workflowPlaneKindLabel: "WorkflowPlane",
+				workflowPlaneKindLabel: workflowPlaneKindWorkflowPlane,
 				workflowPlaneNameLabel: "wp-default",
 			},
 		},
@@ -322,7 +324,7 @@ func TestListGitSecrets(t *testing.T) {
 	nonGitSecretRef := &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "other-secret",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				"openchoreo.dev/secret-type": "other",
 			},
@@ -333,7 +335,7 @@ func TestListGitSecrets(t *testing.T) {
 	legacyGitSecretRef := &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "legacy-secret",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				gitSecretTypeLabel: gitSecretTypeValue,
 			},
@@ -350,7 +352,7 @@ func TestListGitSecrets(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	secrets, err := svc.ListGitSecrets(context.Background(), "ns1")
+	secrets, err := svc.ListGitSecrets(context.Background(), testNamespace)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -364,8 +366,8 @@ func TestListGitSecrets(t *testing.T) {
 	for _, s := range secrets {
 		if s.Name == "git-secret-1" {
 			found = true
-			if s.WorkflowPlaneKind != "WorkflowPlane" {
-				t.Errorf("WorkflowPlaneKind = %q, want %q", s.WorkflowPlaneKind, "WorkflowPlane")
+			if s.WorkflowPlaneKind != workflowPlaneKindWorkflowPlane {
+				t.Errorf("WorkflowPlaneKind = %q, want %q", s.WorkflowPlaneKind, workflowPlaneKindWorkflowPlane)
 			}
 			if s.WorkflowPlaneName != "wp-default" {
 				t.Errorf("WorkflowPlaneName = %q, want %q", s.WorkflowPlaneName, "wp-default")
@@ -410,7 +412,7 @@ func TestResolveWorkflowPlane_NamespacedWorkflowPlane(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-default",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -430,7 +432,7 @@ func TestResolveWorkflowPlane_NamespacedWorkflowPlane(t *testing.T) {
 	// But we can verify error paths.
 
 	// Test not found
-	_, err := svc.resolveWorkflowPlane(context.Background(), "ns1", "WorkflowPlane", "nonexistent")
+	_, err := svc.resolveWorkflowPlane(context.Background(), testNamespace, workflowPlaneKindWorkflowPlane, "nonexistent")
 	if !errors.Is(err, ErrWorkflowPlaneNotFound) {
 		t.Errorf("expected ErrWorkflowPlaneNotFound, got %v", err)
 	}
@@ -458,7 +460,7 @@ func TestResolveWorkflowPlane_ClusterWorkflowPlane(t *testing.T) {
 	}
 
 	// Test not found
-	_, err := svc.resolveWorkflowPlane(context.Background(), "ns1", "ClusterWorkflowPlane", "nonexistent")
+	_, err := svc.resolveWorkflowPlane(context.Background(), testNamespace, workflowPlaneKindClusterWorkflowPlane, "nonexistent")
 	if !errors.Is(err, ErrWorkflowPlaneNotFound) {
 		t.Errorf("expected ErrWorkflowPlaneNotFound, got %v", err)
 	}
@@ -469,7 +471,7 @@ func TestResolveWorkflowPlane_NoSecretStore(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-no-store",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -482,7 +484,7 @@ func TestResolveWorkflowPlane_NoSecretStore(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	_, err := svc.resolveNamespacedWorkflowPlane(context.Background(), "ns1", "wp-no-store")
+	_, err := svc.resolveNamespacedWorkflowPlane(context.Background(), testNamespace, "wp-no-store")
 	if !errors.Is(err, ErrSecretStoreNotConfigured) {
 		t.Errorf("expected ErrSecretStoreNotConfigured, got %v", err)
 	}
@@ -515,7 +517,7 @@ func TestResolveWorkflowPlane_ClusterNoSecretStore(t *testing.T) {
 func TestResolveWorkflowPlane_InvalidKind(t *testing.T) {
 	svc := &gitSecretService{logger: newTestLogger()}
 
-	_, err := svc.resolveWorkflowPlane(context.Background(), "ns1", "InvalidKind", "name")
+	_, err := svc.resolveWorkflowPlane(context.Background(), testNamespace, "InvalidKind", "name")
 	if err == nil {
 		t.Fatal("expected error for invalid kind, got nil")
 	}
@@ -536,7 +538,7 @@ func TestDeleteGitSecret_NotFound(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	err := svc.DeleteGitSecret(context.Background(), "ns1", "nonexistent")
+	err := svc.DeleteGitSecret(context.Background(), testNamespace, "nonexistent")
 	if !errors.Is(err, ErrGitSecretNotFound) {
 		t.Errorf("expected ErrGitSecretNotFound, got %v", err)
 	}
@@ -547,7 +549,7 @@ func TestDeleteGitSecret_NotGitCredentials(t *testing.T) {
 	nonGitRef := &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "other-secret",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				"openchoreo.dev/secret-type": "other",
 			},
@@ -560,7 +562,7 @@ func TestDeleteGitSecret_NotGitCredentials(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	err := svc.DeleteGitSecret(context.Background(), "ns1", "other-secret")
+	err := svc.DeleteGitSecret(context.Background(), testNamespace, "other-secret")
 	if !errors.Is(err, ErrGitSecretNotFound) {
 		t.Errorf("expected ErrGitSecretNotFound, got %v", err)
 	}
@@ -571,7 +573,7 @@ func TestDeleteGitSecret_MissingWorkflowPlaneLabels(t *testing.T) {
 	secretRef := &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "legacy-secret",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				gitSecretTypeLabel: gitSecretTypeValue,
 			},
@@ -584,7 +586,7 @@ func TestDeleteGitSecret_MissingWorkflowPlaneLabels(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	err := svc.DeleteGitSecret(context.Background(), "ns1", "legacy-secret")
+	err := svc.DeleteGitSecret(context.Background(), testNamespace, "legacy-secret")
 	if err == nil {
 		t.Fatal("expected error for missing workflow plane labels, got nil")
 	}
@@ -597,7 +599,7 @@ func TestCreateGitSecret_AlreadyExists(t *testing.T) {
 	existing := &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "existing-secret",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 	}
 
@@ -607,11 +609,11 @@ func TestCreateGitSecret_AlreadyExists(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "existing-secret",
 		SecretType:        "basic-auth",
 		Token:             "token",
-		WorkflowPlaneKind: "WorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindWorkflowPlane,
 		WorkflowPlaneName: "wp-default",
 	})
 
@@ -629,11 +631,11 @@ func TestCreateGitSecret_ValidationError(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
 		SecretType:        "basic-auth",
 		Token:             "", // missing required token
-		WorkflowPlaneKind: "WorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindWorkflowPlane,
 		WorkflowPlaneName: "wp-default",
 	})
 
@@ -655,11 +657,11 @@ func TestCreateGitSecret_WorkflowPlaneNotFound(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
 		SecretType:        "basic-auth",
 		Token:             "token",
-		WorkflowPlaneKind: "WorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindWorkflowPlane,
 		WorkflowPlaneName: "nonexistent",
 	})
 
@@ -675,7 +677,7 @@ func TestGetWorkflowNamespace(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"ns1", "workflows-ns1"},
+		{testNamespace, "workflows-ns1"},
 		{"my-namespace", "workflows-my-namespace"},
 	}
 
@@ -692,40 +694,57 @@ func TestGetWorkflowNamespace(t *testing.T) {
 func TestCreatePushSecret(t *testing.T) {
 	svc := &gitSecretService{logger: newTestLogger()}
 
+	type expectedDataMatch struct {
+		secretKey string
+		property  string
+	}
+
+	const wantRemoteKey = "secret/ns1/git/test-secret"
+
 	tests := []struct {
-		name            string
-		secretType      string
-		username        string
-		sshKeyID        string
-		wantDataMatches int
+		name         string
+		secretType   string
+		username     string
+		sshKeyID     string
+		expectedData []expectedDataMatch
 	}{
 		{
-			name:            "basic-auth with username",
-			secretType:      "basic-auth",
-			username:        "user1",
-			wantDataMatches: 2,
+			name:       "basic-auth with username",
+			secretType: "basic-auth",
+			username:   "user1",
+			expectedData: []expectedDataMatch{
+				{secretKey: "password", property: "password"},
+				{secretKey: "username", property: "username"},
+			},
 		},
 		{
-			name:            "basic-auth without username",
-			secretType:      "basic-auth",
-			wantDataMatches: 1,
+			name:       "basic-auth without username",
+			secretType: "basic-auth",
+			expectedData: []expectedDataMatch{
+				{secretKey: "password", property: "password"},
+			},
 		},
 		{
-			name:            "ssh-auth with key ID",
-			secretType:      "ssh-auth",
-			sshKeyID:        "key-id",
-			wantDataMatches: 2,
+			name:       "ssh-auth with key ID",
+			secretType: "ssh-auth",
+			sshKeyID:   "key-id",
+			expectedData: []expectedDataMatch{
+				{secretKey: "ssh-privatekey", property: "ssh-privatekey"},
+				{secretKey: "ssh-key-id", property: "ssh-key-id"},
+			},
 		},
 		{
-			name:            "ssh-auth without key ID",
-			secretType:      "ssh-auth",
-			wantDataMatches: 1,
+			name:       "ssh-auth without key ID",
+			secretType: "ssh-auth",
+			expectedData: []expectedDataMatch{
+				{secretKey: "ssh-privatekey", property: "ssh-privatekey"},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ps := svc.createPushSecret("test-secret", "my-store", "ns1", "workflows-ns1", tt.secretType, tt.username, tt.sshKeyID)
+			ps := svc.createPushSecret("test-secret", "my-store", testNamespace, "workflows-ns1", tt.secretType, tt.username, tt.sshKeyID)
 
 			if ps.GetAPIVersion() != "external-secrets.io/v1alpha1" {
 				t.Errorf("APIVersion = %q, want %q", ps.GetAPIVersion(), "external-secrets.io/v1alpha1")
@@ -739,8 +758,8 @@ func TestCreatePushSecret(t *testing.T) {
 			if ps.GetNamespace() != "workflows-ns1" {
 				t.Errorf("Namespace = %q, want %q", ps.GetNamespace(), "workflows-ns1")
 			}
-			if ps.GetLabels()[ownerNamespaceLabel] != "ns1" {
-				t.Errorf("owner label = %q, want %q", ps.GetLabels()[ownerNamespaceLabel], "ns1")
+			if ps.GetLabels()[ownerNamespaceLabel] != testNamespace {
+				t.Errorf("owner label = %q, want %q", ps.GetLabels()[ownerNamespaceLabel], testNamespace)
 			}
 
 			spec, ok := ps.Object["spec"].(map[string]any)
@@ -763,8 +782,27 @@ func TestCreatePushSecret(t *testing.T) {
 			if !ok {
 				t.Fatal("data is not a slice of maps")
 			}
-			if len(data) != tt.wantDataMatches {
-				t.Errorf("data matches = %d, want %d", len(data), tt.wantDataMatches)
+			if len(data) != len(tt.expectedData) {
+				t.Fatalf("data matches = %d, want %d", len(data), len(tt.expectedData))
+			}
+			for i, want := range tt.expectedData {
+				match, ok := data[i]["match"].(map[string]any)
+				if !ok {
+					t.Fatalf("data[%d].match is not a map", i)
+				}
+				if match["secretKey"] != want.secretKey {
+					t.Errorf("data[%d].match.secretKey = %v, want %q", i, match["secretKey"], want.secretKey)
+				}
+				remoteRef, ok := match["remoteRef"].(map[string]any)
+				if !ok {
+					t.Fatalf("data[%d].match.remoteRef is not a map", i)
+				}
+				if remoteRef["remoteKey"] != wantRemoteKey {
+					t.Errorf("data[%d].match.remoteRef.remoteKey = %v, want %q", i, remoteRef["remoteKey"], wantRemoteKey)
+				}
+				if remoteRef["property"] != want.property {
+					t.Errorf("data[%d].match.remoteRef.property = %v, want %q", i, remoteRef["property"], want.property)
+				}
 			}
 		})
 	}
@@ -825,10 +863,10 @@ func TestDeleteGitSecret_WorkflowPlaneNotFound(t *testing.T) {
 	secretRef := &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-secret",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				gitSecretTypeLabel:     gitSecretTypeValue,
-				workflowPlaneKindLabel: "WorkflowPlane",
+				workflowPlaneKindLabel: workflowPlaneKindWorkflowPlane,
 				workflowPlaneNameLabel: "nonexistent-wp",
 			},
 		},
@@ -840,7 +878,7 @@ func TestDeleteGitSecret_WorkflowPlaneNotFound(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	err := svc.DeleteGitSecret(context.Background(), "ns1", "test-secret")
+	err := svc.DeleteGitSecret(context.Background(), testNamespace, "test-secret")
 	if !errors.Is(err, ErrWorkflowPlaneNotFound) {
 		t.Errorf("expected ErrWorkflowPlaneNotFound, got %v", err)
 	}
@@ -851,7 +889,7 @@ func TestDeleteGitSecret_InvalidWorkflowPlaneKind(t *testing.T) {
 	secretRef := &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-secret",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				gitSecretTypeLabel:     gitSecretTypeValue,
 				workflowPlaneKindLabel: "InvalidKind",
@@ -866,7 +904,7 @@ func TestDeleteGitSecret_InvalidWorkflowPlaneKind(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	err := svc.DeleteGitSecret(context.Background(), "ns1", "test-secret")
+	err := svc.DeleteGitSecret(context.Background(), testNamespace, "test-secret")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -887,10 +925,10 @@ func TestCreateGitSecret_UnsupportedSecretType(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
 		SecretType:        "unsupported",
-		WorkflowPlaneKind: "WorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindWorkflowPlane,
 		WorkflowPlaneName: "wp-default",
 	})
 
@@ -912,7 +950,7 @@ func TestCreateGitSecret_InvalidWorkflowPlaneKind(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
 		SecretType:        "basic-auth",
 		Token:             "token",
@@ -938,12 +976,12 @@ func TestCreateGitSecret_SSHAuthWorkflowPlaneNotFound(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "ssh-secret",
 		SecretType:        "ssh-auth",
 		SSHKey:            "-----BEGIN KEY-----",
 		SSHKeyID:          "key-id",
-		WorkflowPlaneKind: "ClusterWorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindClusterWorkflowPlane,
 		WorkflowPlaneName: "nonexistent",
 	})
 
@@ -957,7 +995,7 @@ func TestCreateGitSecret_SecretStoreNotConfigured(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-no-store",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -970,11 +1008,11 @@ func TestCreateGitSecret_SecretStoreNotConfigured(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
 		SecretType:        "basic-auth",
 		Token:             "token",
-		WorkflowPlaneKind: "WorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindWorkflowPlane,
 		WorkflowPlaneName: "wp-no-store",
 	})
 
@@ -1004,7 +1042,7 @@ func TestListGitSecrets_ClientError(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	_, err := svc.ListGitSecrets(context.Background(), "ns1")
+	_, err := svc.ListGitSecrets(context.Background(), testNamespace)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -1120,9 +1158,9 @@ func newTestServiceWithWPClient(t *testing.T, cpObjects []client.Object, wpClien
 	wpClientMgr := kubernetesClient.NewManager()
 	var cacheKey string
 	switch wpKind {
-	case "WorkflowPlane":
+	case workflowPlaneKindWorkflowPlane:
 		cacheKey = fmt.Sprintf("v2/workflowplane/%s/%s/%s", wpName, wpNamespace, wpName)
-	case "ClusterWorkflowPlane":
+	case workflowPlaneKindClusterWorkflowPlane:
 		cacheKey = fmt.Sprintf("v2/clusterworkflowplane/%s/%s", wpName, wpName)
 	}
 	if _, err := wpClientMgr.GetOrAddClient(cacheKey, func() (client.Client, error) {
@@ -1146,7 +1184,7 @@ func TestResolveNamespacedWorkflowPlane_Success(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-default",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -1156,9 +1194,9 @@ func TestResolveNamespacedWorkflowPlane_Success(t *testing.T) {
 		},
 	}
 	wpFakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, "WorkflowPlane", "wp-default", "ns1")
+	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
 
-	info, err := svc.resolveNamespacedWorkflowPlane(context.Background(), "ns1", "wp-default")
+	info, err := svc.resolveNamespacedWorkflowPlane(context.Background(), testNamespace, "wp-default")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1185,7 +1223,7 @@ func TestResolveClusterWorkflowPlane_Success(t *testing.T) {
 		},
 	}
 	wpFakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := newTestServiceWithWPClient(t, []client.Object{cwp}, wpFakeClient, "ClusterWorkflowPlane", "cwp-shared", "")
+	svc := newTestServiceWithWPClient(t, []client.Object{cwp}, wpFakeClient, workflowPlaneKindClusterWorkflowPlane, "cwp-shared", "")
 
 	info, err := svc.resolveClusterWorkflowPlane(context.Background(), "cwp-shared")
 	if err != nil {
@@ -1206,7 +1244,7 @@ func TestCreateGitSecret_Success_BasicAuth(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-default",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -1228,14 +1266,14 @@ func TestCreateGitSecret_Success_BasicAuth(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, "WorkflowPlane", "wp-default", "ns1")
+	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
 
-	result, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	result, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
 		SecretType:        "basic-auth",
 		Username:          "user1",
 		Token:             "ghp_token123",
-		WorkflowPlaneKind: "WorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindWorkflowPlane,
 		WorkflowPlaneName: "wp-default",
 	})
 	if err != nil {
@@ -1244,11 +1282,11 @@ func TestCreateGitSecret_Success_BasicAuth(t *testing.T) {
 	if result.Name != "new-secret" {
 		t.Errorf("result Name = %q, want %q", result.Name, "new-secret")
 	}
-	if result.Namespace != "ns1" {
-		t.Errorf("result Namespace = %q, want %q", result.Namespace, "ns1")
+	if result.Namespace != testNamespace {
+		t.Errorf("result Namespace = %q, want %q", result.Namespace, testNamespace)
 	}
-	if result.WorkflowPlaneKind != "WorkflowPlane" {
-		t.Errorf("result WorkflowPlaneKind = %q, want %q", result.WorkflowPlaneKind, "WorkflowPlane")
+	if result.WorkflowPlaneKind != workflowPlaneKindWorkflowPlane {
+		t.Errorf("result WorkflowPlaneKind = %q, want %q", result.WorkflowPlaneKind, workflowPlaneKindWorkflowPlane)
 	}
 	if patchCount != 2 {
 		t.Errorf("expected 2 Patch calls (secret + pushsecret), got %d", patchCount)
@@ -1279,14 +1317,14 @@ func TestCreateGitSecret_Success_SSHAuth(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{cwp}, wpFakeClient, "ClusterWorkflowPlane", "cwp-shared", "")
+	svc := newTestServiceWithWPClient(t, []client.Object{cwp}, wpFakeClient, workflowPlaneKindClusterWorkflowPlane, "cwp-shared", "")
 
-	result, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	result, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "ssh-secret",
 		SecretType:        "ssh-auth",
 		SSHKey:            "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----",
 		SSHKeyID:          "key-id-123",
-		WorkflowPlaneKind: "ClusterWorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindClusterWorkflowPlane,
 		WorkflowPlaneName: "cwp-shared",
 	})
 	if err != nil {
@@ -1295,8 +1333,8 @@ func TestCreateGitSecret_Success_SSHAuth(t *testing.T) {
 	if result.Name != "ssh-secret" {
 		t.Errorf("result Name = %q, want %q", result.Name, "ssh-secret")
 	}
-	if result.WorkflowPlaneKind != "ClusterWorkflowPlane" {
-		t.Errorf("result WorkflowPlaneKind = %q, want %q", result.WorkflowPlaneKind, "ClusterWorkflowPlane")
+	if result.WorkflowPlaneKind != workflowPlaneKindClusterWorkflowPlane {
+		t.Errorf("result WorkflowPlaneKind = %q, want %q", result.WorkflowPlaneKind, workflowPlaneKindClusterWorkflowPlane)
 	}
 }
 
@@ -1307,7 +1345,7 @@ func TestCreateGitSecret_WPSecretPatchError(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-default",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -1326,13 +1364,13 @@ func TestCreateGitSecret_WPSecretPatchError(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, "WorkflowPlane", "wp-default", "ns1")
+	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
 
-	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
 		SecretType:        "basic-auth",
 		Token:             "token",
-		WorkflowPlaneKind: "WorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindWorkflowPlane,
 		WorkflowPlaneName: "wp-default",
 	})
 	if err == nil {
@@ -1345,7 +1383,7 @@ func TestCreateGitSecret_PushSecretPatchError(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-default",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -1369,13 +1407,13 @@ func TestCreateGitSecret_PushSecretPatchError(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, "WorkflowPlane", "wp-default", "ns1")
+	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
 
-	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
 		SecretType:        "basic-auth",
 		Token:             "token",
-		WorkflowPlaneKind: "WorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindWorkflowPlane,
 		WorkflowPlaneName: "wp-default",
 	})
 	if err == nil {
@@ -1388,7 +1426,7 @@ func TestCreateGitSecret_SecretRefCreateError(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-default",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -1419,7 +1457,7 @@ func TestCreateGitSecret_SecretRefCreateError(t *testing.T) {
 		Build()
 
 	wpClientMgr := kubernetesClient.NewManager()
-	cacheKey := fmt.Sprintf("v2/workflowplane/%s/%s/%s", "wp-default", "ns1", "wp-default")
+	cacheKey := fmt.Sprintf("v2/workflowplane/%s/%s/%s", "wp-default", testNamespace, "wp-default")
 	if _, err := wpClientMgr.GetOrAddClient(cacheKey, func() (client.Client, error) {
 		return wpFakeClient, nil
 	}); err != nil {
@@ -1433,11 +1471,11 @@ func TestCreateGitSecret_SecretRefCreateError(t *testing.T) {
 		gatewayURL:  "http://gateway:8080",
 	}
 
-	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
 		SecretType:        "basic-auth",
 		Token:             "token",
-		WorkflowPlaneKind: "WorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindWorkflowPlane,
 		WorkflowPlaneName: "wp-default",
 	})
 	if err == nil {
@@ -1452,10 +1490,10 @@ func TestDeleteGitSecret_Success(t *testing.T) {
 	secretRef := &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-secret",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				gitSecretTypeLabel:     gitSecretTypeValue,
-				workflowPlaneKindLabel: "WorkflowPlane",
+				workflowPlaneKindLabel: workflowPlaneKindWorkflowPlane,
 				workflowPlaneNameLabel: "wp-default",
 			},
 		},
@@ -1463,7 +1501,7 @@ func TestDeleteGitSecret_Success(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-default",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -1474,16 +1512,16 @@ func TestDeleteGitSecret_Success(t *testing.T) {
 	}
 
 	wpFakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := newTestServiceWithWPClient(t, []client.Object{secretRef, wp}, wpFakeClient, "WorkflowPlane", "wp-default", "ns1")
+	svc := newTestServiceWithWPClient(t, []client.Object{secretRef, wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
 
-	err := svc.DeleteGitSecret(context.Background(), "ns1", "test-secret")
+	err := svc.DeleteGitSecret(context.Background(), testNamespace, "test-secret")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Verify the SecretReference was deleted
 	deleted := &openchoreov1alpha1.SecretReference{}
-	getErr := svc.k8sClient.Get(context.Background(), client.ObjectKey{Name: "test-secret", Namespace: "ns1"}, deleted)
+	getErr := svc.k8sClient.Get(context.Background(), client.ObjectKey{Name: "test-secret", Namespace: testNamespace}, deleted)
 	if getErr == nil {
 		t.Error("expected SecretReference to be deleted")
 	}
@@ -1494,10 +1532,10 @@ func TestDeleteGitSecret_WPPushSecretDeleteError(t *testing.T) {
 	secretRef := &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-secret",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				gitSecretTypeLabel:     gitSecretTypeValue,
-				workflowPlaneKindLabel: "WorkflowPlane",
+				workflowPlaneKindLabel: workflowPlaneKindWorkflowPlane,
 				workflowPlaneNameLabel: "wp-default",
 			},
 		},
@@ -1505,7 +1543,7 @@ func TestDeleteGitSecret_WPPushSecretDeleteError(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-default",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -1524,9 +1562,9 @@ func TestDeleteGitSecret_WPPushSecretDeleteError(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{secretRef, wp}, wpFakeClient, "WorkflowPlane", "wp-default", "ns1")
+	svc := newTestServiceWithWPClient(t, []client.Object{secretRef, wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
 
-	err := svc.DeleteGitSecret(context.Background(), "ns1", "test-secret")
+	err := svc.DeleteGitSecret(context.Background(), testNamespace, "test-secret")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -1548,7 +1586,7 @@ func TestDeleteGitSecret_GetError(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	err := svc.DeleteGitSecret(context.Background(), "ns1", "test-secret")
+	err := svc.DeleteGitSecret(context.Background(), testNamespace, "test-secret")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -1559,7 +1597,7 @@ func TestResolveWorkflowPlane_NamespacedSecretStoreEmptyName(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-empty-store",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -1575,7 +1613,7 @@ func TestResolveWorkflowPlane_NamespacedSecretStoreEmptyName(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	_, err := svc.resolveNamespacedWorkflowPlane(context.Background(), "ns1", "wp-empty-store")
+	_, err := svc.resolveNamespacedWorkflowPlane(context.Background(), testNamespace, "wp-empty-store")
 	if !errors.Is(err, ErrSecretStoreNotConfigured) {
 		t.Errorf("expected ErrSecretStoreNotConfigured, got %v", err)
 	}
@@ -1586,7 +1624,7 @@ func TestResolveNamespacedWorkflowPlane_ClientError(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-default",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -1605,7 +1643,7 @@ func TestResolveNamespacedWorkflowPlane_ClientError(t *testing.T) {
 		gatewayURL:  "",
 	}
 
-	_, err := svc.resolveNamespacedWorkflowPlane(context.Background(), "ns1", "wp-default")
+	_, err := svc.resolveNamespacedWorkflowPlane(context.Background(), testNamespace, "wp-default")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -1645,10 +1683,10 @@ func TestDeleteGitSecret_WPSecretDeleteError(t *testing.T) {
 	secretRef := &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-secret",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				gitSecretTypeLabel:     gitSecretTypeValue,
-				workflowPlaneKindLabel: "WorkflowPlane",
+				workflowPlaneKindLabel: workflowPlaneKindWorkflowPlane,
 				workflowPlaneNameLabel: "wp-default",
 			},
 		},
@@ -1656,7 +1694,7 @@ func TestDeleteGitSecret_WPSecretDeleteError(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-default",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -1682,9 +1720,9 @@ func TestDeleteGitSecret_WPSecretDeleteError(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{secretRef, wp}, wpFakeClient, "WorkflowPlane", "wp-default", "ns1")
+	svc := newTestServiceWithWPClient(t, []client.Object{secretRef, wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
 
-	err := svc.DeleteGitSecret(context.Background(), "ns1", "test-secret")
+	err := svc.DeleteGitSecret(context.Background(), testNamespace, "test-secret")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -1695,10 +1733,10 @@ func TestDeleteGitSecret_CPSecretRefDeleteError(t *testing.T) {
 	secretRef := &openchoreov1alpha1.SecretReference{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-secret",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 			Labels: map[string]string{
 				gitSecretTypeLabel:     gitSecretTypeValue,
-				workflowPlaneKindLabel: "WorkflowPlane",
+				workflowPlaneKindLabel: workflowPlaneKindWorkflowPlane,
 				workflowPlaneNameLabel: "wp-default",
 			},
 		},
@@ -1706,7 +1744,7 @@ func TestDeleteGitSecret_CPSecretRefDeleteError(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-default",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -1730,7 +1768,7 @@ func TestDeleteGitSecret_CPSecretRefDeleteError(t *testing.T) {
 		Build()
 
 	wpClientMgr := kubernetesClient.NewManager()
-	cacheKey := fmt.Sprintf("v2/workflowplane/%s/%s/%s", "wp-default", "ns1", "wp-default")
+	cacheKey := fmt.Sprintf("v2/workflowplane/%s/%s/%s", "wp-default", testNamespace, "wp-default")
 	if _, err := wpClientMgr.GetOrAddClient(cacheKey, func() (client.Client, error) {
 		return wpFakeClient, nil
 	}); err != nil {
@@ -1744,7 +1782,7 @@ func TestDeleteGitSecret_CPSecretRefDeleteError(t *testing.T) {
 		gatewayURL:  "http://gateway:8080",
 	}
 
-	err := svc.DeleteGitSecret(context.Background(), "ns1", "test-secret")
+	err := svc.DeleteGitSecret(context.Background(), testNamespace, "test-secret")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -1766,7 +1804,7 @@ func TestResolveNamespacedWorkflowPlane_GetNonNotFoundError(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	_, err := svc.resolveNamespacedWorkflowPlane(context.Background(), "ns1", "wp-default")
+	_, err := svc.resolveNamespacedWorkflowPlane(context.Background(), testNamespace, "wp-default")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -1816,11 +1854,11 @@ func TestCreateGitSecret_GetExistingCheckError(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
 		SecretType:        "basic-auth",
 		Token:             "token",
-		WorkflowPlaneKind: "WorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindWorkflowPlane,
 		WorkflowPlaneName: "wp-default",
 	})
 	if err == nil {
@@ -1833,7 +1871,7 @@ func TestCreateGitSecret_EnsureNamespaceError(t *testing.T) {
 	wp := &openchoreov1alpha1.WorkflowPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wp-default",
-			Namespace: "ns1",
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
 			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
@@ -1852,13 +1890,13 @@ func TestCreateGitSecret_EnsureNamespaceError(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, "WorkflowPlane", "wp-default", "ns1")
+	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
 
-	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
+	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
 		SecretType:        "basic-auth",
 		Token:             "token",
-		WorkflowPlaneKind: "WorkflowPlane",
+		WorkflowPlaneKind: workflowPlaneKindWorkflowPlane,
 		WorkflowPlaneName: "wp-default",
 	})
 	if err == nil {

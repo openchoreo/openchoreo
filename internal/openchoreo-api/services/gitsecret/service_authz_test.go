@@ -85,17 +85,24 @@ type mockGitSecretService struct {
 	createResult *GitSecretInfo
 	createErr    error
 	deleteErr    error
+
+	listCalls   int
+	createCalls int
+	deleteCalls int
 }
 
 func (m *mockGitSecretService) ListGitSecrets(_ context.Context, _ string) ([]GitSecretInfo, error) {
+	m.listCalls++
 	return m.listResult, m.listErr
 }
 
 func (m *mockGitSecretService) CreateGitSecret(_ context.Context, _ string, _ *CreateGitSecretParams) (*GitSecretInfo, error) {
+	m.createCalls++
 	return m.createResult, m.createErr
 }
 
 func (m *mockGitSecretService) DeleteGitSecret(_ context.Context, _, _ string) error {
+	m.deleteCalls++
 	return m.deleteErr
 }
 
@@ -130,7 +137,8 @@ func TestAuthzListGitSecrets_DenyAll(t *testing.T) {
 		{Name: "secret-1", Namespace: "ns1"},
 		{Name: "secret-2", Namespace: "ns1"},
 	}
-	svc := newAuthzService(&mockGitSecretService{listResult: items}, &denyAllPDP{})
+	mock := &mockGitSecretService{listResult: items}
+	svc := newAuthzService(mock, &denyAllPDP{})
 
 	result, err := svc.ListGitSecrets(context.Background(), "ns1")
 	if err != nil {
@@ -138,6 +146,9 @@ func TestAuthzListGitSecrets_DenyAll(t *testing.T) {
 	}
 	if len(result) != 0 {
 		t.Errorf("expected 0 secrets, got %d", len(result))
+	}
+	if mock.listCalls != 1 {
+		t.Errorf("expected listCalls=1 (to fetch items for filtering), got %d", mock.listCalls)
 	}
 }
 
@@ -170,11 +181,15 @@ func TestAuthzListGitSecrets_PDPError(t *testing.T) {
 		{Name: "secret-1", Namespace: "ns1"},
 	}
 	pdpErr := errors.New("pdp connection failed")
-	svc := newAuthzService(&mockGitSecretService{listResult: items}, &errorPDP{err: pdpErr})
+	mock := &mockGitSecretService{listResult: items}
+	svc := newAuthzService(mock, &errorPDP{err: pdpErr})
 
 	_, err := svc.ListGitSecrets(context.Background(), "ns1")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, pdpErr) {
+		t.Errorf("expected wrapped pdp error, got %v", err)
 	}
 }
 
@@ -223,7 +238,8 @@ func TestAuthzCreateGitSecret_Allowed(t *testing.T) {
 }
 
 func TestAuthzCreateGitSecret_Denied(t *testing.T) {
-	svc := newAuthzService(&mockGitSecretService{}, &denyAllPDP{})
+	mock := &mockGitSecretService{}
+	svc := newAuthzService(mock, &denyAllPDP{})
 
 	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
 		SecretName: "new-secret",
@@ -233,11 +249,15 @@ func TestAuthzCreateGitSecret_Denied(t *testing.T) {
 	if !errors.Is(err, services.ErrForbidden) {
 		t.Errorf("expected ErrForbidden, got %v", err)
 	}
+	if mock.createCalls != 0 {
+		t.Errorf("expected inner service not to be called, got createCalls=%d", mock.createCalls)
+	}
 }
 
 func TestAuthzCreateGitSecret_PDPError(t *testing.T) {
 	pdpErr := errors.New("pdp unavailable")
-	svc := newAuthzService(&mockGitSecretService{}, &errorPDP{err: pdpErr})
+	mock := &mockGitSecretService{}
+	svc := newAuthzService(mock, &errorPDP{err: pdpErr})
 
 	_, err := svc.CreateGitSecret(context.Background(), "ns1", &CreateGitSecretParams{
 		SecretName: "new-secret",
@@ -246,6 +266,12 @@ func TestAuthzCreateGitSecret_PDPError(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, pdpErr) {
+		t.Errorf("expected wrapped pdp error, got %v", err)
+	}
+	if mock.createCalls != 0 {
+		t.Errorf("expected inner service not to be called, got createCalls=%d", mock.createCalls)
 	}
 }
 
@@ -275,21 +301,32 @@ func TestAuthzDeleteGitSecret_Allowed(t *testing.T) {
 }
 
 func TestAuthzDeleteGitSecret_Denied(t *testing.T) {
-	svc := newAuthzService(&mockGitSecretService{}, &denyAllPDP{})
+	mock := &mockGitSecretService{}
+	svc := newAuthzService(mock, &denyAllPDP{})
 
 	err := svc.DeleteGitSecret(context.Background(), "ns1", "my-secret")
 	if !errors.Is(err, services.ErrForbidden) {
 		t.Errorf("expected ErrForbidden, got %v", err)
 	}
+	if mock.deleteCalls != 0 {
+		t.Errorf("expected inner service not to be called, got deleteCalls=%d", mock.deleteCalls)
+	}
 }
 
 func TestAuthzDeleteGitSecret_PDPError(t *testing.T) {
 	pdpErr := errors.New("pdp timeout")
-	svc := newAuthzService(&mockGitSecretService{}, &errorPDP{err: pdpErr})
+	mock := &mockGitSecretService{}
+	svc := newAuthzService(mock, &errorPDP{err: pdpErr})
 
 	err := svc.DeleteGitSecret(context.Background(), "ns1", "my-secret")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, pdpErr) {
+		t.Errorf("expected wrapped pdp error, got %v", err)
+	}
+	if mock.deleteCalls != 0 {
+		t.Errorf("expected inner service not to be called, got deleteCalls=%d", mock.deleteCalls)
 	}
 }
 
