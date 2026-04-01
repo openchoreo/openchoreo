@@ -206,11 +206,13 @@ func TestNamespaceHTTPCreateForbidden(t *testing.T) {
 func TestNamespaceHTTPUpdate(t *testing.T) {
 	bundle := newNSBundle(t, []client.Object{seedNS("ns-1")}, &allowAllPDP{})
 
-	// Include a label so we can assert the updated value is persisted.
+	// Include a display-name annotation so we can assert the updated value is persisted.
+	// The namespace service only propagates openchoreo.dev/display-name and
+	// openchoreo.dev/description annotations — arbitrary label changes are not applied.
 	body, _ := json.Marshal(gen.Namespace{
 		Metadata: gen.ObjectMeta{
-			Name:   "ns-1",
-			Labels: &map[string]string{"env-tier": "staging"},
+			Name:        "ns-1",
+			Annotations: &map[string]string{"openchoreo.dev/display-name": "Updated NS"},
 		},
 	})
 
@@ -223,13 +225,14 @@ func TestNamespaceHTTPUpdate(t *testing.T) {
 	require.NoError(t, json.Unmarshal(bodyBytes, &resp))
 	assert.Equal(t, "ns-1", resp.Metadata.Name)
 
-	// Concern 3: verify the label mutation is reflected in the fake K8s store.
+	// Concern 3: verify the annotation mutation is reflected in the fake K8s store.
 	// corev1.Namespace is cluster-scoped so no Namespace field in the lookup key.
 	var k8sNS corev1.Namespace
 	err := bundle.fakeClient.Get(context.Background(),
 		types.NamespacedName{Name: "ns-1"}, &k8sNS)
 	require.NoError(t, err, "namespace must still exist in K8s after update")
-	assert.Equal(t, "staging", k8sNS.Labels["env-tier"], "updated label must be persisted to K8s")
+	assert.Equal(t, "Updated NS", k8sNS.Annotations["openchoreo.dev/display-name"],
+		"display-name annotation must be persisted to K8s")
 
 	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)
 }

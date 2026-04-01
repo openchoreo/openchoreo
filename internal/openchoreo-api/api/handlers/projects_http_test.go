@@ -76,7 +76,10 @@ func seedProject(name string) *openchoreov1alpha1.Project {
 			Namespace: testNS,
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
-			DeploymentPipelineRef: "default",
+			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+				Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
+				Name: "default",
+			},
 		},
 	}
 }
@@ -220,14 +223,17 @@ func TestProjectHTTPUpdate(t *testing.T) {
 	bundle := newProjectBundle(t, []client.Object{seedProject("my-proj")}, &allowAllPDP{})
 
 	// Include a label so we can assert the updated value is persisted.
-	dpRef := "default"
+	kind := gen.ProjectSpecDeploymentPipelineRefKindDeploymentPipeline
 	body, _ := json.Marshal(gen.Project{
 		Metadata: gen.ObjectMeta{
 			Name:   "my-proj",
 			Labels: &map[string]string{"tier": "updated"},
 		},
 		Spec: &gen.ProjectSpec{
-			DeploymentPipelineRef: &dpRef,
+			DeploymentPipelineRef: &struct {
+				Kind *gen.ProjectSpecDeploymentPipelineRefKind `json:"kind,omitempty"`
+				Name string                                    `json:"name"`
+			}{Kind: &kind, Name: "default"},
 		},
 	})
 

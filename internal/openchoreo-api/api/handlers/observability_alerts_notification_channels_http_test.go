@@ -70,13 +70,38 @@ func newNCBundle(t *testing.T, objects []client.Object, pdp authzcore.PDP) ncBun
 }
 
 // seedNC is a convenience constructor for an ObservabilityAlertsNotificationChannel object.
+// spec.type and spec.environment are required by the OpenAPI schema.
 func seedNC(name string) *openchoreov1alpha1.ObservabilityAlertsNotificationChannel {
 	return &openchoreov1alpha1.ObservabilityAlertsNotificationChannel{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: testNS,
 		},
+		Spec: openchoreov1alpha1.ObservabilityAlertsNotificationChannelSpec{
+			Type:        openchoreov1alpha1.NotificationChannelTypeWebhook,
+			Environment: "dev",
+			WebhookConfig: &openchoreov1alpha1.WebhookConfig{
+				URL: "https://example.com/hook",
+			},
+		},
 	}
+}
+
+// newNCBody returns a JSON body for creating/updating a notification channel.
+// spec.type and spec.webhookConfig.url are required by the OpenAPI schema.
+func newNCBody(name string) []byte {
+	ncType := gen.Webhook
+	b, _ := json.Marshal(gen.ObservabilityAlertsNotificationChannel{
+		Metadata: gen.ObjectMeta{Name: name},
+		Spec: &gen.ObservabilityAlertsNotificationChannelSpec{
+			Type:        ncType,
+			Environment: "dev",
+			WebhookConfig: &gen.NotificationWebhookConfig{
+				Url: "https://example.com/hook",
+			},
+		},
+	})
+	return b
 }
 
 // --- List ---
@@ -159,10 +184,7 @@ func TestObservabilityAlertsNotificationChannelHTTPGetForbidden(t *testing.T) {
 func TestObservabilityAlertsNotificationChannelHTTPCreate(t *testing.T) {
 	bundle := newNCBundle(t, nil, &allowAllPDP{})
 
-	body, _ := json.Marshal(gen.ObservabilityAlertsNotificationChannel{
-		Metadata: gen.ObjectMeta{Name: "new-nc"},
-	})
-	req, rec := doRequest(t, bundle.handler, http.MethodPost, ncBasePath, body)
+	req, rec := doRequest(t, bundle.handler, http.MethodPost, ncBasePath, newNCBody("new-nc"))
 
 	assert.Equal(t, http.StatusCreated, rec.Code)
 
@@ -185,10 +207,7 @@ func TestObservabilityAlertsNotificationChannelHTTPCreate(t *testing.T) {
 func TestObservabilityAlertsNotificationChannelHTTPCreateAlreadyExists(t *testing.T) {
 	bundle := newNCBundle(t, []client.Object{seedNC("new-nc")}, &allowAllPDP{})
 
-	body, _ := json.Marshal(gen.ObservabilityAlertsNotificationChannel{
-		Metadata: gen.ObjectMeta{Name: "new-nc"},
-	})
-	_, rec := doRequest(t, bundle.handler, http.MethodPost, ncBasePath, body)
+	_, rec := doRequest(t, bundle.handler, http.MethodPost, ncBasePath, newNCBody("new-nc"))
 
 	assert.Equal(t, http.StatusConflict, rec.Code)
 }
@@ -196,10 +215,7 @@ func TestObservabilityAlertsNotificationChannelHTTPCreateAlreadyExists(t *testin
 func TestObservabilityAlertsNotificationChannelHTTPCreateForbidden(t *testing.T) {
 	bundle := newNCBundle(t, nil, &denyAllPDP{})
 
-	body, _ := json.Marshal(gen.ObservabilityAlertsNotificationChannel{
-		Metadata: gen.ObjectMeta{Name: "new-nc"},
-	})
-	_, rec := doRequest(t, bundle.handler, http.MethodPost, ncBasePath, body)
+	_, rec := doRequest(t, bundle.handler, http.MethodPost, ncBasePath, newNCBody("new-nc"))
 
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
@@ -210,10 +226,16 @@ func TestObservabilityAlertsNotificationChannelHTTPUpdate(t *testing.T) {
 	bundle := newNCBundle(t, []client.Object{seedNC("nc-y")}, &allowAllPDP{})
 
 	// Include a label so we can assert the updated value is persisted.
+	ncType := gen.Webhook
 	body, _ := json.Marshal(gen.ObservabilityAlertsNotificationChannel{
 		Metadata: gen.ObjectMeta{
 			Name:   "nc-y",
 			Labels: &map[string]string{"tier": "updated"},
+		},
+		Spec: &gen.ObservabilityAlertsNotificationChannelSpec{
+			Type:          ncType,
+			Environment:   "dev",
+			WebhookConfig: &gen.NotificationWebhookConfig{Url: "https://example.com/hook"},
 		},
 	})
 
@@ -241,21 +263,14 @@ func TestObservabilityAlertsNotificationChannelHTTPUpdate(t *testing.T) {
 func TestObservabilityAlertsNotificationChannelHTTPUpdateNotFound(t *testing.T) {
 	bundle := newNCBundle(t, nil, &allowAllPDP{})
 
-	body, _ := json.Marshal(gen.ObservabilityAlertsNotificationChannel{
-		Metadata: gen.ObjectMeta{Name: "nonexistent"},
-	})
-	_, rec := doRequest(t, bundle.handler, http.MethodPut, ncBasePath+"/nonexistent", body)
+	_, rec := doRequest(t, bundle.handler, http.MethodPut, ncBasePath+"/nonexistent", newNCBody("nonexistent"))
 
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
 func TestObservabilityAlertsNotificationChannelHTTPUpdateForbidden(t *testing.T) {
 	bundle := newNCBundle(t, []client.Object{seedNC("nc-y")}, &denyAllPDP{})
-
-	body, _ := json.Marshal(gen.ObservabilityAlertsNotificationChannel{
-		Metadata: gen.ObjectMeta{Name: "nc-y"},
-	})
-	_, rec := doRequest(t, bundle.handler, http.MethodPut, ncBasePath+"/nc-y", body)
+	_, rec := doRequest(t, bundle.handler, http.MethodPut, ncBasePath+"/nc-y", newNCBody("nc-y"))
 
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
