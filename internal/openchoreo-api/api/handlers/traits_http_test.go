@@ -84,8 +84,8 @@ func seedTraitWithSchema(name string) *openchoreov1alpha1.Trait {
 	return &openchoreov1alpha1.Trait{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNS},
 		Spec: openchoreov1alpha1.TraitSpec{
-			Schema: openchoreov1alpha1.TraitSchema{
-				Parameters: &runtime.RawExtension{Raw: paramsRaw},
+			Parameters: &openchoreov1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{Raw: paramsRaw},
 			},
 		},
 	}

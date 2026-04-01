@@ -35,8 +35,8 @@ import (
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
+	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
 )
 
 // nsBundle holds the real HTTP handler wired to a fake K8s client so tests can
