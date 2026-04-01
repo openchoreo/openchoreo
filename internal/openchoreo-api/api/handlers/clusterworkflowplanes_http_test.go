@@ -75,6 +75,17 @@ func seedCWP(name string) *openchoreov1alpha1.ClusterWorkflowPlane {
 	}
 }
 
+// TestClusterWorkflowPlaneRoutesInSpec verifies that all ClusterWorkflowPlane endpoints
+// are registered in the OpenAPI spec, so assertConformsToSpec does not silently skip
+// schema validation due to a missing route.
+func TestClusterWorkflowPlaneRoutesInSpec(t *testing.T) {
+	requireRouteInSpec(t, http.MethodGet, "/api/v1/clusterworkflowplanes")
+	requireRouteInSpec(t, http.MethodPost, "/api/v1/clusterworkflowplanes")
+	requireRouteInSpec(t, http.MethodGet, "/api/v1/clusterworkflowplanes/cwp-1")
+	requireRouteInSpec(t, http.MethodPut, "/api/v1/clusterworkflowplanes/cwp-1")
+	requireRouteInSpec(t, http.MethodDelete, "/api/v1/clusterworkflowplanes/cwp-1")
+}
+
 // --- List ---
 
 func TestClusterWorkflowPlaneHTTPList(t *testing.T) {

@@ -243,11 +243,22 @@ func TestReleaseBindingHTTPUpdate(t *testing.T) {
 	// Seed both the component (for validation) and the existing release binding.
 	bundle := newRBBundle(t, []client.Object{seedComponentForRB(), seedReleaseBinding("rb-1")}, &allowAllPDP{})
 
-	// Include a label so we can assert the updated value is persisted.
+	// Include spec.owner + spec.environment so we can assert they are preserved,
+	// and add a label to assert label persistence.
 	body, _ := json.Marshal(gen.ReleaseBinding{
 		Metadata: gen.ObjectMeta{
 			Name:   "rb-1",
 			Labels: &map[string]string{"tier": "updated"},
+		},
+		Spec: &gen.ReleaseBindingSpec{
+			Owner: struct {
+				ComponentName string `json:"componentName"`
+				ProjectName   string `json:"projectName"`
+			}{
+				ComponentName: "test-comp",
+				ProjectName:   "test-proj",
+			},
+			Environment: "dev",
 		},
 	})
 
@@ -260,14 +271,23 @@ func TestReleaseBindingHTTPUpdate(t *testing.T) {
 	var resp gen.ReleaseBinding
 	require.NoError(t, json.Unmarshal(bodyBytes, &resp))
 	assert.Equal(t, "rb-1", resp.Metadata.Name)
+	require.NotNil(t, resp.Spec, "response spec must not be nil")
+	assert.Equal(t, "test-comp", resp.Spec.Owner.ComponentName,
+		"owner.componentName must be preserved in response")
+	assert.Equal(t, "dev", resp.Spec.Environment,
+		"environment must be preserved in response")
 
-	// Concern 3: verify the label mutation is reflected in the fake K8s store.
+	// Concern 3: verify label and spec fields are reflected in the fake K8s store.
 	var k8sRB openchoreov1alpha1.ReleaseBinding
 	err := bundle.fakeClient.Get(context.Background(),
 		types.NamespacedName{Name: "rb-1", Namespace: testNS}, &k8sRB)
 	require.NoError(t, err, "release binding must still exist in K8s after update")
 	assert.Equal(t, "updated", k8sRB.Labels["tier"],
 		"updated label must be persisted to K8s")
+	assert.Equal(t, "test-comp", k8sRB.Spec.Owner.ComponentName,
+		"owner.componentName must be persisted to K8s after update")
+	assert.Equal(t, "dev", k8sRB.Spec.Environment,
+		"environment must be persisted to K8s after update")
 
 	// Concern 2: validate against OpenAPI contract.
 	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)

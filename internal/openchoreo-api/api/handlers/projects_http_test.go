@@ -169,8 +169,15 @@ func TestProjectHTTPGetForbidden(t *testing.T) {
 func TestProjectHTTPCreate(t *testing.T) {
 	bundle := newProjectBundle(t, nil, &allowAllPDP{})
 
+	kind := gen.ProjectSpecDeploymentPipelineRefKindDeploymentPipeline
 	body, _ := json.Marshal(gen.Project{
 		Metadata: gen.ObjectMeta{Name: "new-proj"},
+		Spec: &gen.ProjectSpec{
+			DeploymentPipelineRef: &struct {
+				Kind *gen.ProjectSpecDeploymentPipelineRefKind `json:"kind,omitempty"`
+				Name string                                    `json:"name"`
+			}{Kind: &kind, Name: "default"},
+		},
 	})
 	req, rec := doRequest(t, bundle.handler, http.MethodPost,
 		"/api/v1/namespaces/"+testNS+"/projects", body)
@@ -188,6 +195,8 @@ func TestProjectHTTPCreate(t *testing.T) {
 		types.NamespacedName{Name: "new-proj", Namespace: testNS}, &k8sObj)
 	require.NoError(t, err, "project must be persisted to K8s after creation")
 	assert.Equal(t, "new-proj", k8sObj.Name)
+	assert.Equal(t, "default", k8sObj.Spec.DeploymentPipelineRef.Name,
+		"deployment pipeline ref name must be persisted to K8s")
 
 	// Concern 2: validate against OpenAPI contract.
 	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)

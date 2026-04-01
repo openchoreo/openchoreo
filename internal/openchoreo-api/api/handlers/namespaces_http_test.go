@@ -103,6 +103,23 @@ func TestNamespaceHTTPList(t *testing.T) {
 	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)
 }
 
+func TestNamespaceHTTPListFiltersUnlabeled(t *testing.T) {
+	// Only namespaces with openchoreo.dev/control-plane=true should appear.
+	unlabeled := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "unlabeled-ns"},
+	}
+	bundle := newNSBundle(t, []client.Object{seedNS("labeled-ns"), unlabeled}, &allowAllPDP{})
+
+	_, rec := doRequest(t, bundle.handler, http.MethodGet, "/api/v1/namespaces", nil)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp gen.NamespaceList
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Len(t, resp.Items, 1, "only labeled namespaces must appear in list")
+	assert.Equal(t, "labeled-ns", resp.Items[0].Metadata.Name)
+}
+
 func TestNamespaceHTTPListEmpty(t *testing.T) {
 	bundle := newNSBundle(t, nil, &allowAllPDP{})
 
@@ -175,6 +192,8 @@ func TestNamespaceHTTPCreate(t *testing.T) {
 		types.NamespacedName{Name: "new-ns"}, &k8sNS)
 	require.NoError(t, err, "namespace must be persisted to K8s after creation")
 	assert.Equal(t, "new-ns", k8sNS.Name)
+	assert.Equal(t, "true", k8sNS.Labels["openchoreo.dev/control-plane"],
+		"control-plane label must be stamped on namespace creation")
 
 	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)
 }
@@ -233,6 +252,8 @@ func TestNamespaceHTTPUpdate(t *testing.T) {
 	require.NoError(t, err, "namespace must still exist in K8s after update")
 	assert.Equal(t, "Updated NS", k8sNS.Annotations["openchoreo.dev/display-name"],
 		"display-name annotation must be persisted to K8s")
+	assert.Equal(t, "true", k8sNS.Labels["openchoreo.dev/control-plane"],
+		"control-plane label must still be present after update")
 
 	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)
 }

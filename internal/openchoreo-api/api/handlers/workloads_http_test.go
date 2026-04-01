@@ -77,7 +77,7 @@ func seedWorkload(name string) *openchoreov1alpha1.Workload {
 }
 
 // newWorkloadBody returns a gen.Workload body suitable for create/update requests.
-func newWorkloadBody(componentName string) *gen.Workload {
+func newWorkloadBody() *gen.Workload {
 	return &gen.Workload{
 		Metadata: gen.ObjectMeta{Name: "wl-1"},
 		Spec: &gen.WorkloadSpec{
@@ -85,7 +85,7 @@ func newWorkloadBody(componentName string) *gen.Workload {
 				ComponentName string `json:"componentName"`
 				ProjectName   string `json:"projectName"`
 			}{
-				ComponentName: componentName,
+				ComponentName: "test-comp",
 				ProjectName:   "test-proj",
 			},
 		},
@@ -181,7 +181,7 @@ func TestWorkloadHTTPCreate(t *testing.T) {
 	}
 	bundle := newWLBundle(t, []client.Object{seedComponent}, &allowAllPDP{})
 
-	body, _ := json.Marshal(newWorkloadBody("test-comp"))
+	body, _ := json.Marshal(newWorkloadBody())
 	req, rec := doRequest(t, bundle.handler, http.MethodPost,
 		"/api/v1/namespaces/"+testNS+"/workloads", body)
 
@@ -207,7 +207,7 @@ func TestWorkloadHTTPCreateComponentNotFound(t *testing.T) {
 	// No component seeded — the service should return a 400.
 	bundle := newWLBundle(t, nil, &allowAllPDP{})
 
-	body, _ := json.Marshal(newWorkloadBody("test-comp"))
+	body, _ := json.Marshal(newWorkloadBody())
 	_, rec := doRequest(t, bundle.handler, http.MethodPost,
 		"/api/v1/namespaces/"+testNS+"/workloads", body)
 
@@ -220,7 +220,7 @@ func TestWorkloadHTTPCreateAlreadyExists(t *testing.T) {
 	}
 	bundle := newWLBundle(t, []client.Object{seedComponent, seedWorkload("wl-1")}, &allowAllPDP{})
 
-	body, _ := json.Marshal(newWorkloadBody("test-comp"))
+	body, _ := json.Marshal(newWorkloadBody())
 	_, rec := doRequest(t, bundle.handler, http.MethodPost,
 		"/api/v1/namespaces/"+testNS+"/workloads", body)
 
@@ -233,7 +233,7 @@ func TestWorkloadHTTPCreateForbidden(t *testing.T) {
 	}
 	bundle := newWLBundle(t, []client.Object{seedComponent}, &denyAllPDP{})
 
-	body, _ := json.Marshal(newWorkloadBody("test-comp"))
+	body, _ := json.Marshal(newWorkloadBody())
 	_, rec := doRequest(t, bundle.handler, http.MethodPost,
 		"/api/v1/namespaces/"+testNS+"/workloads", body)
 
@@ -245,13 +245,10 @@ func TestWorkloadHTTPCreateForbidden(t *testing.T) {
 func TestWorkloadHTTPUpdate(t *testing.T) {
 	bundle := newWLBundle(t, []client.Object{seedWorkload("wl-1")}, &allowAllPDP{})
 
-	// Include a label so we can assert the updated value is persisted.
-	body, _ := json.Marshal(gen.Workload{
-		Metadata: gen.ObjectMeta{
-			Name:   "wl-1",
-			Labels: &map[string]string{"tier": "updated"},
-		},
-	})
+	// Use newWorkloadBody so spec.owner is included; add a label to assert persistence.
+	wl := newWorkloadBody()
+	wl.Metadata.Labels = &map[string]string{"tier": "updated"}
+	body, _ := json.Marshal(wl)
 
 	req, rec := doRequest(t, bundle.handler, http.MethodPut,
 		"/api/v1/namespaces/"+testNS+"/workloads/wl-1", body)
@@ -263,13 +260,15 @@ func TestWorkloadHTTPUpdate(t *testing.T) {
 	require.NoError(t, json.Unmarshal(bodyBytes, &resp))
 	assert.Equal(t, "wl-1", resp.Metadata.Name)
 
-	// Concern 3: verify the label mutation is reflected in the fake K8s store.
+	// Concern 3: verify the label mutation and spec.owner are reflected in the fake K8s store.
 	var k8sWL openchoreov1alpha1.Workload
 	err := bundle.fakeClient.Get(context.Background(),
 		types.NamespacedName{Name: "wl-1", Namespace: testNS}, &k8sWL)
 	require.NoError(t, err, "workload must still exist in K8s after update")
 	assert.Equal(t, "updated", k8sWL.Labels["tier"],
 		"updated label must be persisted to K8s")
+	assert.Equal(t, "test-comp", k8sWL.Spec.Owner.ComponentName,
+		"owner.componentName must be preserved after update")
 
 	// Concern 2: validate against OpenAPI contract.
 	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)
