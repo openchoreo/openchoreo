@@ -237,6 +237,7 @@ var systemActions = []Action{
 	// ComponentRelease
 	{Name: ActionViewComponentRelease, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionCreateComponentRelease, LowestScope: ScopeComponent, IsInternal: false},
+	{Name: ActionDeleteComponentRelease, LowestScope: ScopeComponent, IsInternal: false},
 
 	// ReleaseBinding
 	{Name: ActionViewReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},

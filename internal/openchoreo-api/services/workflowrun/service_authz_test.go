@@ -157,7 +157,7 @@ func TestCreateWorkflowRun_Authz(t *testing.T) {
 
 		run := newWorkflowRun(testRunName, testProjectName, testComponentName)
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
-			return req.Action == workflowrun.ExportActionCreate &&
+			return req.Action == authz.ActionCreateWorkflowRun &&
 				req.Resource.Type == workflowrun.ExportResourceType &&
 				req.Resource.ID == testRunName &&
 				req.Resource.Hierarchy.Namespace == testNamespace &&
@@ -210,7 +210,7 @@ func TestUpdateWorkflowRun_Authz(t *testing.T) {
 
 		update := newWorkflowRun(testRunName, "", "")
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
-			return req.Action == workflowrun.ExportActionUpdate &&
+			return req.Action == authz.ActionUpdateWorkflowRun &&
 				req.Resource.Type == workflowrun.ExportResourceType
 		})).Return(allowDecision(), nil)
 		mockSvc.EXPECT().UpdateWorkflowRun(mock.Anything, testNamespace, update).Return(update, nil)
@@ -331,7 +331,7 @@ func TestGetWorkflowRun_Authz(t *testing.T) {
 
 		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
-			return req.Action == workflowrun.ExportActionView &&
+			return req.Action == authz.ActionViewWorkflowRun &&
 				req.Resource.Hierarchy.Namespace == testNamespace &&
 				req.Resource.Hierarchy.Project == testProjectName &&
 				req.Resource.Hierarchy.Component == testComponentName
@@ -512,7 +512,7 @@ func TestTriggerWorkflow_Authz(t *testing.T) {
 		mockPDP := authzmocks.NewMockPDP(t)
 
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
-			return req.Action == workflowrun.ExportActionCreate &&
+			return req.Action == authz.ActionCreateWorkflowRun &&
 				req.Resource.Type == workflowrun.ExportResourceType &&
 				req.Resource.ID == "my-comp" &&
 				req.Resource.Hierarchy.Namespace == testNamespace &&
