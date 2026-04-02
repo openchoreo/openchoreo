@@ -14,7 +14,7 @@ import (
 var (
 	ExportActionCreate  = actionCreateWorkflowRun
 	ExportActionUpdate  = actionUpdateWorkflowRun
-	ExportActionDelete  = actionDeleteWorkflowRun
+	ExportActionDelete  = authz.ActionDeleteWorkflowRun
 	ExportActionView    = actionViewWorkflowRun
 	ExportResourceType  = resourceTypeWorkflowRun
 	ExportStatusPending = workflowRunStatusPending

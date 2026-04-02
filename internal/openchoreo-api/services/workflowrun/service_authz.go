@@ -21,7 +21,6 @@ import (
 const (
 	actionCreateWorkflowRun = "workflowrun:create"
 	actionUpdateWorkflowRun = "workflowrun:update"
-	actionDeleteWorkflowRun = "workflowrun:delete"
 	actionViewWorkflowRun   = "workflowrun:view"
 	resourceTypeWorkflowRun = "workflowrun"
 )
@@ -119,7 +118,7 @@ func (s *workflowRunServiceWithAuthz) DeleteWorkflowRun(ctx context.Context, nam
 		return err
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteWorkflowRun,
+		Action:       authz.ActionDeleteWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),

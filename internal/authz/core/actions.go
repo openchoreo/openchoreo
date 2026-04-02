@@ -69,6 +69,7 @@ const (
 	ActionCreateWorkflowRun = "workflowrun:create"
 	ActionViewWorkflowRun   = "workflowrun:view"
 	ActionUpdateWorkflowRun = "workflowrun:update"
+	ActionDeleteWorkflowRun = "workflowrun:delete"
 
 	// Trait actions
 	ActionCreateTrait = "trait:create"
@@ -261,6 +262,7 @@ var systemActions = []Action{
 	{Name: ActionCreateWorkflowRun, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionViewWorkflowRun, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionUpdateWorkflowRun, LowestScope: ScopeComponent, IsInternal: false},
+	{Name: ActionDeleteWorkflowRun, LowestScope: ScopeComponent, IsInternal: false},
 
 	// Trait
 	{Name: ActionViewTrait, LowestScope: ScopeNamespace, IsInternal: false},

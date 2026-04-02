@@ -395,7 +395,7 @@ func TestDeleteWorkflowRun_Authz(t *testing.T) {
 
 		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
-			return req.Action == workflowrun.ExportActionDelete &&
+			return req.Action == authz.ActionDeleteWorkflowRun &&
 				req.Resource.Type == workflowrun.ExportResourceType &&
 				req.Resource.ID == testRunName &&
 				req.Resource.Hierarchy.Namespace == testNamespace &&
