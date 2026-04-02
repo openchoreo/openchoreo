@@ -43,6 +43,9 @@ packages:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentrelease:
     interfaces:
       Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component:
+    interfaces:
+      Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype:
     interfaces:
       Service:

@@ -663,18 +663,26 @@ func (h *MCPHandler) TriggerWorkflowRun(
 	}), nil
 }
 
+// parseComponentTypeFormat splits a "{workloadType}/{name}" component type string.
+func parseComponentTypeFormat(componentType string) (workloadType, name string, err error) {
+	parts := strings.SplitN(componentType, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("invalid componentType format %q: expected {workloadType}/{name}", componentType)
+	}
+	return parts[0], parts[1], nil
+}
+
 // resolveComponentTypeKind resolves the kind of a component type reference by looking up
 // both namespace-scoped ComponentType and cluster-scoped ClusterComponentType.
 // The componentType string is in {workloadType}/{componentTypeName} format.
 // Namespace-scoped ComponentType takes precedence; ClusterComponentType is the fallback.
 func (h *MCPHandler) resolveComponentTypeKind(ctx context.Context, namespaceName, componentType string) (openchoreov1alpha1.ComponentTypeRefKind, error) {
-	parts := strings.SplitN(componentType, "/", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", fmt.Errorf("invalid componentType format %q: expected {workloadType}/{name}", componentType)
+	_, typeName, err := parseComponentTypeFormat(componentType)
+	if err != nil {
+		return "", err
 	}
-	typeName := parts[1]
 
-	_, err := h.services.ComponentTypeService.GetComponentType(ctx, namespaceName, typeName)
+	_, err = h.services.ComponentTypeService.GetComponentType(ctx, namespaceName, typeName)
 	if err == nil {
 		return openchoreov1alpha1.ComponentTypeRefKindComponentType, nil
 	}
