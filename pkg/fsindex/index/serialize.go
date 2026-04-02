@@ -4,6 +4,9 @@
 package index
 
 import (
+	"fmt"
+	"strings"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -89,22 +92,28 @@ func gvkToString(gvk schema.GroupVersionKind) string {
 	return gvk.Group + "/" + gvk.Version + "/" + gvk.Kind
 }
 
-// stringToGVK converts a string back to a GVK
+// stringToGVK converts a string back to a GVK.
+// The expected format is "group/version/kind" (e.g. "openchoreo.dev/v1alpha1/Component")
+// or "/version/kind" for core resources (e.g. "/v1/ConfigMap").
 func stringToGVK(s string) (schema.GroupVersionKind, error) {
-	gv, err := schema.ParseGroupVersion(s[:len(s)-len("/"+kindFromString(s))])
+	// We need at least two slashes to separate group, version, and kind.
+	// Find the last slash to extract kind, then parse group/version from the rest.
+	if strings.Count(s, "/") < 2 {
+		return schema.GroupVersionKind{}, fmt.Errorf("malformed GVK string %q: missing slash separators", s)
+	}
+
+	lastSlash := strings.LastIndex(s, "/")
+	kind := s[lastSlash+1:]
+
+	if kind == "" {
+		return schema.GroupVersionKind{}, fmt.Errorf("malformed GVK string %q: empty kind", s)
+	}
+
+	groupVersion := s[:lastSlash]
+	gv, err := schema.ParseGroupVersion(groupVersion)
 	if err != nil {
 		return schema.GroupVersionKind{}, err
 	}
-	return gv.WithKind(kindFromString(s)), nil
-}
 
-// kindFromString extracts the kind from a GVK string
-func kindFromString(s string) string {
-	// Find last slash
-	for i := len(s) - 1; i >= 0; i-- {
-		if s[i] == '/' {
-			return s[i+1:]
-		}
-	}
-	return s
+	return gv.WithKind(kind), nil
 }

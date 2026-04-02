@@ -12,6 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+const testCommitSHA = "abc123"
+
 // Helper function to create a test resource entry
 func createTestEntry(group, version, kind, namespace, name, filePath string) *ResourceEntry {
 	obj := &unstructured.Unstructured{}
@@ -312,9 +314,9 @@ func TestIndexCommitSHA(t *testing.T) {
 	}
 
 	// Set and get
-	idx.SetCommitSHA("abc123")
-	if idx.GetCommitSHA() != "abc123" {
-		t.Errorf("expected commit SHA 'abc123', got '%s'", idx.GetCommitSHA())
+	idx.SetCommitSHA(testCommitSHA)
+	if idx.GetCommitSHA() != testCommitSHA {
+		t.Errorf("expected commit SHA '%s', got '%s'", testCommitSHA, idx.GetCommitSHA())
 	}
 }
 

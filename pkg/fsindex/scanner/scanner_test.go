@@ -456,3 +456,149 @@ metadata:
 		})
 	}
 }
+
+func TestProcessFiles_ValidationError(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Valid resource
+	validFile := filepath.Join(tmpDir, "valid.yaml")
+	if err := os.WriteFile(validFile, []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valid-config
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Resource with apiVersion and kind but no name — passes parsing, fails validation
+	noNameFile := filepath.Join(tmpDir, "noname.yaml")
+	if err := os.WriteFile(noNameFile, []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: default
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	var errorCount int32
+	opts := ScanOptions{
+		Workers: 2,
+		Filter:  DefaultFilter(),
+		ErrorHandler: func(path string, err error) {
+			atomic.AddInt32(&errorCount, 1)
+		},
+	}
+
+	s := New(opts)
+	idx, err := s.Scan(tmpDir)
+	if err != nil {
+		t.Fatalf("Scan() error: %v", err)
+	}
+
+	stats := idx.Stats()
+	// Only the valid resource should be indexed
+	if stats.TotalResources != 1 {
+		t.Errorf("TotalResources = %d, want 1 (invalid resource should be skipped)", stats.TotalResources)
+	}
+
+	if atomic.LoadInt32(&errorCount) == 0 {
+		t.Error("expected error handler to be called for validation error")
+	}
+}
+
+func TestDiscoverFiles_WalkError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("test requires non-root")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Create a valid file in the root
+	if err := os.WriteFile(filepath.Join(tmpDir, "valid.yaml"), []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: root-config
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a subdirectory with no read permission
+	restrictedDir := filepath.Join(tmpDir, "restricted")
+	if err := os.MkdirAll(restrictedDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(restrictedDir, "secret.yaml"), []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: secret-config
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Remove read permission on the directory
+	if err := os.Chmod(restrictedDir, 0000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(restrictedDir, 0755)
+	})
+
+	var errorCount int32
+	opts := ScanOptions{
+		Workers: 2,
+		Filter:  DefaultFilter(),
+		ErrorHandler: func(path string, err error) {
+			atomic.AddInt32(&errorCount, 1)
+		},
+	}
+
+	s := New(opts)
+	idx, err := s.Scan(tmpDir)
+	if err != nil {
+		t.Fatalf("Scan() error: %v", err)
+	}
+
+	// Should still index the valid file
+	stats := idx.Stats()
+	if stats.TotalResources < 1 {
+		t.Errorf("TotalResources = %d, want at least 1 (valid file should still be indexed)", stats.TotalResources)
+	}
+
+	if atomic.LoadInt32(&errorCount) == 0 {
+		t.Error("expected error handler to be called for restricted directory")
+	}
+}
+
+func TestScannerVerboseWithErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a file that will cause a validation error (has apiVersion+kind but no name)
+	if err := os.WriteFile(filepath.Join(tmpDir, "noname.yaml"), []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: default
+`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := DefaultScanOptions()
+	opts.Verbose = true
+
+	s := New(opts)
+	idx, err := s.Scan(tmpDir)
+
+	// The scan should complete
+	if idx == nil {
+		t.Fatal("index should not be nil")
+	}
+
+	// In verbose mode with errors, the error should be returned
+	// Note: validation errors go through the error handler, not the errors channel,
+	// so verbose mode may not return an error here. The test verifies it doesn't panic.
+	_ = err
+}
