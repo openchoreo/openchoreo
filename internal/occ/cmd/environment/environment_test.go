@@ -45,8 +45,6 @@ func captureStdout(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
-func boolPtr(b bool) *bool { return &b }
-
 func TestPrint_Nil(t *testing.T) {
 	out := captureStdout(t, func() {
 		require.NoError(t, printList(nil))
@@ -70,7 +68,7 @@ func TestPrint_WithItems(t *testing.T) {
 			Spec: &gen.EnvironmentSpec{
 				DataPlaneRef: &struct {
 					Kind gen.EnvironmentSpecDataPlaneRefKind `json:"kind"`
-					Name string                             `json:"name"`
+					Name string                              `json:"name"`
 				}{Kind: gen.EnvironmentSpecDataPlaneRefKindClusterDataPlane, Name: "dp-prod"},
 				IsProduction: &isProduction,
 			},
