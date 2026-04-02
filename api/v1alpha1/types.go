@@ -351,7 +351,7 @@ type ComponentTypeRef struct {
 
 	// Name is the component type reference in format: {workloadType}/{componentTypeName}
 	// +required
-	// +kubebuilder:validation:Pattern=`^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:Pattern=`^(deployment|statefulset|cronjob|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	Name string `json:"name"`
 }
 

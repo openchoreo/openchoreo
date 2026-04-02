@@ -14,14 +14,13 @@ const (
 	WorkloadTypeDeployment  WorkloadType = "deployment"
 	WorkloadTypeStatefulSet WorkloadType = "statefulset"
 	WorkloadTypeCronJob     WorkloadType = "cronjob"
-	WorkloadTypeJob         WorkloadType = "job"
 	WorkloadTypeProxy       WorkloadType = "proxy"
 	WorkloadTypeUnknown     WorkloadType = "unknown"
 )
 
 // extractWorkloadType extracts the workload type from ComponentType field.
 // ComponentType format: "deployment/http-service", "cronjob/scheduled-task", etc.
-// The pattern is validated as: ^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+// The pattern is validated as: ^(deployment|statefulset|cronjob|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 func extractWorkloadType(componentType string) WorkloadType {
 	if componentType == "" {
 		return WorkloadTypeUnknown
@@ -40,8 +39,6 @@ func extractWorkloadType(componentType string) WorkloadType {
 		return WorkloadTypeStatefulSet
 	case "cronjob":
 		return WorkloadTypeCronJob
-	case "job":
-		return WorkloadTypeJob
 	case "proxy":
 		return WorkloadTypeProxy
 	default:

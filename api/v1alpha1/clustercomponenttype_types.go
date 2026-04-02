@@ -10,10 +10,10 @@ import (
 // ClusterComponentTypeSpec defines the desired state of ClusterComponentType.
 // +kubebuilder:validation:XValidation:rule="self.workloadType == 'proxy' || self.resources.exists(r, r.id == self.workloadType)",message="resources must contain a primary resource with id matching workloadType (unless workloadType is 'proxy')"
 type ClusterComponentTypeSpec struct {
-	// WorkloadType must be one of: deployment, statefulset, cronjob, job, proxy
+	// WorkloadType must be one of: deployment, statefulset, cronjob, proxy
 	// This determines the primary workload resource type for this component type
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=deployment;statefulset;cronjob;job;proxy
+	// +kubebuilder:validation:Enum=deployment;statefulset;cronjob;proxy
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.workloadType cannot be changed after creation"
 	WorkloadType string `json:"workloadType"`
 
