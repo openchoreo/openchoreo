@@ -15,58 +15,12 @@ import (
 )
 
 // ValidateTraitCreatesAndPatchesWithSchema validates all creates and patches in a Trait with schema-aware type checking.
-// It checks CEL expressions, forEach loops, and ensures proper variable usage.
-//
-// Parameters:
-//   - trait: The Trait to validate
-//   - parametersSchema: Structural schema for parameters (from Trait.Spec.Parameters schema)
-//   - environmentConfigsSchema: Structural schema for environmentConfigs (from Trait.Spec.EnvironmentConfigs schema)
-//
-// If schemas are nil, DynType will be used for those variables (no static type checking).
-// This provides better error messages by catching type errors at validation time.
 func ValidateTraitCreatesAndPatchesWithSchema(
 	trait *v1alpha1.Trait,
 	parametersSchema *apiextschema.Structural,
 	environmentConfigsSchema *apiextschema.Structural,
 ) field.ErrorList {
-	allErrs := field.ErrorList{}
-
-	// Create schema-aware validator for trait context
-	validator, err := NewCELValidator(TraitResource, SchemaOptions{
-		ParametersSchema:         parametersSchema,
-		EnvironmentConfigsSchema: environmentConfigsSchema,
-	})
-	if err != nil {
-		allErrs = append(allErrs, field.InternalError(
-			field.NewPath("spec"),
-			fmt.Errorf("failed to create CEL validator: %w", err)))
-		return allErrs
-	}
-
-	basePath := field.NewPath("spec")
-
-	// Validate validation rules
-	for i, rule := range trait.Spec.Validations {
-		rulePath := basePath.Child("validations").Index(i)
-		errs := ValidateValidationRule(rule, validator, rulePath)
-		allErrs = append(allErrs, errs...)
-	}
-
-	// Validate creates
-	for i, create := range trait.Spec.Creates {
-		createPath := basePath.Child("creates").Index(i)
-		errs := ValidateTraitCreate(create, validator, createPath)
-		allErrs = append(allErrs, errs...)
-	}
-
-	// Validate patches
-	for i, patch := range trait.Spec.Patches {
-		patchPath := basePath.Child("patches").Index(i)
-		errs := ValidateTraitPatch(patch, validator, patchPath)
-		allErrs = append(allErrs, errs...)
-	}
-
-	return allErrs
+	return ValidateTraitSpec(trait.Spec, parametersSchema, environmentConfigsSchema, field.NewPath("spec"))
 }
 
 // ValidateClusterTraitCreatesAndPatchesWithSchema validates all creates, patches, and validations in a ClusterTrait with schema-aware type checking.
@@ -75,6 +29,29 @@ func ValidateClusterTraitCreatesAndPatchesWithSchema(
 	parametersSchema *apiextschema.Structural,
 	environmentConfigsSchema *apiextschema.Structural,
 ) field.ErrorList {
+	// ClusterTraitSpec has the same fields as TraitSpec but is a distinct type.
+	// Convert by extracting the relevant slices.
+	spec := v1alpha1.TraitSpec{
+		Parameters:         ct.Spec.Parameters,
+		EnvironmentConfigs: ct.Spec.EnvironmentConfigs,
+		Validations:        ct.Spec.Validations,
+		Creates:            ct.Spec.Creates,
+		Patches:            ct.Spec.Patches,
+	}
+	return ValidateTraitSpec(spec, parametersSchema, environmentConfigsSchema, field.NewPath("spec"))
+}
+
+// ValidateTraitSpec validates all creates, patches, and validations in a TraitSpec with schema-aware type checking.
+// basePath is the field path prefix for error reporting (e.g., field.NewPath("spec") for top-level CRDs,
+// or a nested path for embedded trait specs in ComponentRelease).
+//
+// If schemas are nil, DynType will be used for those variables (no static type checking).
+func ValidateTraitSpec(
+	spec v1alpha1.TraitSpec,
+	parametersSchema *apiextschema.Structural,
+	environmentConfigsSchema *apiextschema.Structural,
+	basePath *field.Path,
+) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	// Create schema-aware validator for trait context
@@ -84,31 +61,29 @@ func ValidateClusterTraitCreatesAndPatchesWithSchema(
 	})
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(
-			field.NewPath("spec"),
+			basePath,
 			fmt.Errorf("failed to create CEL validator: %w", err)))
 		return allErrs
 	}
 
-	basePath := field.NewPath("spec")
-
 	// Validate validation rules
-	for i, rule := range ct.Spec.Validations {
+	for i, rule := range spec.Validations {
 		rulePath := basePath.Child("validations").Index(i)
-		errs := ValidateValidationRule(rule, validator, rulePath)
+		errs := validateValidationRule(rule, validator, rulePath)
 		allErrs = append(allErrs, errs...)
 	}
 
 	// Validate creates
-	for i, create := range ct.Spec.Creates {
+	for i, create := range spec.Creates {
 		createPath := basePath.Child("creates").Index(i)
-		errs := ValidateTraitCreate(create, validator, createPath)
+		errs := validateTraitCreate(create, validator, createPath)
 		allErrs = append(allErrs, errs...)
 	}
 
 	// Validate patches
-	for i, patch := range ct.Spec.Patches {
+	for i, patch := range spec.Patches {
 		patchPath := basePath.Child("patches").Index(i)
-		errs := ValidateTraitPatch(patch, validator, patchPath)
+		errs := validateTraitPatch(patch, validator, patchPath)
 		allErrs = append(allErrs, errs...)
 	}
 
@@ -118,7 +93,7 @@ func ValidateClusterTraitCreatesAndPatchesWithSchema(
 // ValidateTraitCreate validates a single trait create operation.
 // It validates includeWhen (must return boolean), forEach (must return iterable),
 // and the template body with schema-aware type checking.
-func ValidateTraitCreate(
+func validateTraitCreate(
 	create v1alpha1.TraitCreate,
 	validator *CELValidator,
 	basePath *field.Path,
@@ -162,7 +137,7 @@ func ValidateTraitCreate(
 			}
 
 			// Analyze forEach to determine loop variable type
-			forEachInfo, err := AnalyzeForEachExpression(
+			forEachInfo, err := analyzeForEachExpression(
 				forEachCEL,
 				create.Var,
 				env,
@@ -180,7 +155,7 @@ func ValidateTraitCreate(
 
 			// Extend environment with the loop variable
 			if forEachInfo != nil {
-				extendedEnv, err := ExtendEnvWithForEach(env, forEachInfo, validator.GetTypeProvider())
+				extendedEnv, err := extendEnvWithForEach(env, forEachInfo, validator.GetTypeProvider())
 				if err != nil {
 					allErrs = append(allErrs, field.InternalError(
 						basePath.Child("forEach"),
@@ -194,7 +169,7 @@ func ValidateTraitCreate(
 
 	// Validate the create template
 	if create.Template != nil {
-		bodyErrs := ValidateTemplateBody(*create.Template, validator, env, basePath.Child("template"))
+		bodyErrs := validateTemplateBody(*create.Template, validator, env, basePath.Child("template"))
 		allErrs = append(allErrs, bodyErrs...)
 	} else {
 		allErrs = append(allErrs, field.Required(
@@ -216,7 +191,7 @@ func extractCELFromTemplate(templateExpr string) (string, bool) {
 }
 
 // ValidateTraitPatch validates a single trait patch operation
-func ValidateTraitPatch(
+func validateTraitPatch(
 	patch v1alpha1.TraitPatch,
 	validator *CELValidator,
 	basePath *field.Path,
@@ -243,7 +218,7 @@ func ValidateTraitPatch(
 			}
 
 			// Analyze forEach to determine loop variable type
-			forEachInfo, err := AnalyzeForEachExpression(
+			forEachInfo, err := analyzeForEachExpression(
 				forEachCEL,
 				patch.Var,
 				env,
@@ -261,7 +236,7 @@ func ValidateTraitPatch(
 
 			// Extend environment with the loop variable
 			if forEachInfo != nil {
-				extendedEnv, err := ExtendEnvWithForEach(env, forEachInfo, validator.GetTypeProvider())
+				extendedEnv, err := extendEnvWithForEach(env, forEachInfo, validator.GetTypeProvider())
 				if err != nil {
 					allErrs = append(allErrs, field.InternalError(
 						basePath.Child("forEach"),
@@ -274,21 +249,27 @@ func ValidateTraitPatch(
 	}
 
 	// Validate target
-	targetErrs := ValidatePatchTarget(patch.Target, validator, env, basePath.Child("target"))
+	targetErrs := validatePatchTarget(patch.Target, validator, env, basePath.Child("target"))
 	allErrs = append(allErrs, targetErrs...)
 
 	// Validate patch operations
 	for i, op := range patch.Operations {
 		opPath := basePath.Child("operations").Index(i)
-		errs := ValidatePatchOperation(op, validator, env, opPath)
+		errs := validatePatchOperation(op, validator, env, opPath)
 		allErrs = append(allErrs, errs...)
 	}
 
 	return allErrs
 }
 
-// ValidatePatchOperation validates a single patch operation
-func ValidatePatchOperation(
+const (
+	patchOpAdd     = "add"
+	patchOpReplace = "replace"
+	patchOpRemove  = "remove"
+)
+
+// validatePatchOperation validates a single patch operation.
+func validatePatchOperation(
 	op v1alpha1.JSONPatchOperation,
 	validator *CELValidator,
 	env *cel.Env,
@@ -297,18 +278,14 @@ func ValidatePatchOperation(
 	allErrs := field.ErrorList{}
 
 	// Validate the operation type
-	validOps := map[string]bool{
-		"add":          true,
-		"replace":      true,
-		"remove":       true,
-		"mergeShallow": false,
-	}
-
-	if !validOps[op.Op] {
+	switch op.Op {
+	case patchOpAdd, patchOpReplace, patchOpRemove:
+		// valid
+	default:
 		allErrs = append(allErrs, field.Invalid(
 			basePath.Child("op"),
 			op.Op,
-			fmt.Sprintf("invalid patch operation '%s' (valid: add, replace, remove, mergeShallow)", op.Op)))
+			"invalid patch operation (valid: add, replace, remove)"))
 	}
 
 	// Validate path is present and looks valid
@@ -320,31 +297,26 @@ func ValidatePatchOperation(
 
 	// Validate value field if present
 	if op.Value != nil {
-		// For add/replace/mergeShallow operations, value is expected
-		if op.Op == "add" || op.Op == "replace" || op.Op == "mergeShallow" {
-			valueErrs := ValidateTemplateBody(*op.Value, validator, env, basePath.Child("value"))
+		if op.Op == patchOpAdd || op.Op == patchOpReplace {
+			valueErrs := validateTemplateBody(*op.Value, validator, env, basePath.Child("value"))
 			allErrs = append(allErrs, valueErrs...)
-		} else if op.Op == "remove" {
-			// Remove operation shouldn't have a value
+		} else if op.Op == patchOpRemove {
 			allErrs = append(allErrs, field.Invalid(
 				basePath.Child("value"),
 				"<value>",
 				fmt.Sprintf("value should not be specified for '%s' operation", op.Op)))
 		}
-	} else {
-		// Value is required for add/replace/mergeShallow operations
-		if op.Op == "add" || op.Op == "replace" || op.Op == "mergeShallow" {
-			allErrs = append(allErrs, field.Required(
-				basePath.Child("value"),
-				fmt.Sprintf("value is required for '%s' operation", op.Op)))
-		}
+	} else if op.Op == patchOpAdd || op.Op == patchOpReplace {
+		allErrs = append(allErrs, field.Required(
+			basePath.Child("value"),
+			fmt.Sprintf("value is required for '%s' operation", op.Op)))
 	}
 
 	return allErrs
 }
 
 // ValidatePatchTarget validates a patch target specification
-func ValidatePatchTarget(
+func validatePatchTarget(
 	target v1alpha1.PatchTarget,
 	validator *CELValidator,
 	env *cel.Env,

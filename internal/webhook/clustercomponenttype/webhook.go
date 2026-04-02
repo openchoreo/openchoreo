@@ -96,27 +96,15 @@ func validateClusterComponentType(cct *openchoreodevv1alpha1.ClusterComponentTyp
 	allErrs := field.ErrorList{}
 
 	// Extract and validate schemas, getting structural schemas for CEL validation
-	basePath := field.NewPath("spec")
-	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
-		cct.Spec.Parameters, cct.Spec.EnvironmentConfigs, basePath,
+	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractAndValidateSchemas(
+		cct.Spec.Parameters, cct.Spec.EnvironmentConfigs, field.NewPath("spec"),
 	)
 	allErrs = append(allErrs, schemaErrs...)
 
-	// Strict field validation: reject unknown fields in openAPIV3Schema
-	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
-		cct.Spec.Parameters, basePath.Child("parameters"),
-	)...)
-	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
-		cct.Spec.EnvironmentConfigs, basePath.Child("environmentConfigs"),
-	)...)
-
 	// Validate CEL expressions with schema-aware type checking
-	celErrs := component.ValidateClusterComponentTypeResourcesWithSchema(
-		cct,
-		parametersSchema,
-		envConfigsSchema,
-	)
-	allErrs = append(allErrs, celErrs...)
+	allErrs = append(allErrs, component.ValidateClusterComponentTypeResourcesWithSchema(
+		cct, parametersSchema, envConfigsSchema,
+	)...)
 
 	// Validate resource IDs and workloadType
 	resourceErrs := validateResourceStructure(cct)

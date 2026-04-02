@@ -82,7 +82,7 @@ func TestValidatePatchTarget_WhereClause_ResourceVariable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := ValidatePatchTarget(tt.target, validator, env, basePath)
+			errs := validatePatchTarget(tt.target, validator, env, basePath)
 
 			if tt.wantError {
 				assert.NotEmpty(t, errs, "expected validation error")
@@ -154,7 +154,7 @@ func TestValidatePatchTarget_WhereClause_WithSchema(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := ValidatePatchTarget(tt.target, validator, env, basePath)
+			errs := validatePatchTarget(tt.target, validator, env, basePath)
 
 			if tt.wantError {
 				assert.NotEmpty(t, errs, "expected validation error")
@@ -240,7 +240,7 @@ func TestValidateTraitPatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := ValidateTraitPatch(tt.patch, validator, basePath)
+			errs := validateTraitPatch(tt.patch, validator, basePath)
 
 			if tt.wantError {
 				assert.NotEmpty(t, errs, "expected validation error")
@@ -324,7 +324,7 @@ func TestValidateValidationRule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := ValidateValidationRule(tt.rule, validator, basePath)
+			errs := validateValidationRule(tt.rule, validator, basePath)
 
 			if tt.wantError {
 				assert.NotEmpty(t, errs, "expected validation error")

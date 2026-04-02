@@ -163,14 +163,8 @@ func ValidateWorkflowSpec(
 
 	// Validate parameters schema
 	if parameters != nil {
-		basePath := field.NewPath("spec")
-		_, _, schemaErrs := schemautil.ExtractStructuralSchemas(parameters, nil, basePath)
+		_, _, schemaErrs := schemautil.ExtractAndValidateSchemas(parameters, nil, field.NewPath("spec"))
 		allErrs = append(allErrs, schemaErrs...)
-
-		// Strict field validation: reject unknown fields like "types" instead of "type"
-		allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
-			parameters, basePath.Child("parameters"),
-		)...)
 	}
 
 	return allErrs

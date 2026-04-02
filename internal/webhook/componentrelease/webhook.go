@@ -85,6 +85,10 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 
 	// Note: Required field validations (owner, componentType, workload, traits.name, traits.instanceName) are enforced by the CRD schema
 
+	// Build trait spec map and validate (kind,name) uniqueness
+	traitMap, traitMapErrs := buildTraitSpecMap(componentrelease.Spec.Traits)
+	allErrs = append(allErrs, traitMapErrs...)
+
 	// Validate unique trait instance names and trait existence (only if ComponentProfile is non-nil)
 	if componentrelease.Spec.ComponentProfile != nil {
 		instanceNames := make(map[string]bool)
@@ -99,7 +103,8 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 			instanceNames[trait.InstanceName] = true
 
 			// Verify the trait spec exists in the traits slice (by kind+name composite key)
-			if _, exists := findTraitSpec(componentrelease.Spec.Traits, trait.Kind, trait.Name); !exists {
+			key := string(trait.Kind) + ":" + trait.Name
+			if _, exists := traitMap[key]; !exists {
 				allErrs = append(allErrs, field.Invalid(
 					traitPath.Child("name"),
 					trait.Name,
@@ -179,51 +184,16 @@ func validateComponentProfileAgainstSchemas(release *openchoreodevv1alpha1.Compo
 
 // validateComponentParameters validates component profile parameters against ComponentType schema
 func validateComponentParameters(release *openchoreodevv1alpha1.ComponentRelease) field.ErrorList {
-	allErrs := field.ErrorList{}
-	basePath := field.NewPath("spec", "componentProfile", "parameters")
-
-	// Extract parameters schema from ComponentType snapshot
-	paramsRaw := release.Spec.ComponentType.Spec.Parameters.GetRaw()
-
-	// If no parameters schema, no validation needed
-	if paramsRaw == nil || len(paramsRaw.Raw) == 0 {
-		return allErrs
+	var rawParams *runtime.RawExtension
+	if release.Spec.ComponentProfile != nil {
+		rawParams = release.Spec.ComponentProfile.Parameters
 	}
-
-	// Build JSON schema
-	jsonSchema, err := schema.SectionToJSONSchema(release.Spec.ComponentType.Spec.Parameters)
-	if err != nil {
-		allErrs = append(allErrs, field.Invalid(
-			basePath,
-			omitValue,
-			fmt.Sprintf("ComponentType snapshot has invalid schema definition: %v", err)))
-		return allErrs
-	}
-
-	// Unmarshal component profile parameters (treat nil/empty as empty object)
-	var componentParams map[string]any
-	if release.Spec.ComponentProfile != nil && release.Spec.ComponentProfile.Parameters != nil && len(release.Spec.ComponentProfile.Parameters.Raw) > 0 {
-		if err := yaml.Unmarshal(release.Spec.ComponentProfile.Parameters.Raw, &componentParams); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				basePath,
-				omitValue,
-				fmt.Sprintf("failed to parse component parameters: %v", err)))
-			return allErrs
-		}
-	} else {
-		// No parameters provided - validate against empty object
-		componentParams = map[string]any{}
-	}
-
-	// Validate parameters against schema
-	if err := schema.ValidateWithJSONSchema(componentParams, jsonSchema); err != nil {
-		allErrs = append(allErrs, field.Invalid(
-			basePath,
-			omitValue,
-			fmt.Sprintf("parameters do not match ComponentType schema: %v", err)))
-	}
-
-	return allErrs
+	return validateParamsAgainstSchema(
+		release.Spec.ComponentType.Spec.Parameters,
+		rawParams,
+		field.NewPath("spec", "componentProfile", "parameters"),
+		"ComponentType",
+	)
 }
 
 // validateTraitInstanceParameters validates trait instance parameters against Trait schemas
@@ -237,202 +207,141 @@ func validateTraitInstanceParameters(release *openchoreodevv1alpha1.ComponentRel
 
 	basePath := field.NewPath("spec", "componentProfile", "traits")
 
+	// Build lookup map for trait specs by (kind:name)
+	traitSpecsByKey := make(map[string]*openchoreodevv1alpha1.TraitSpec, len(release.Spec.Traits))
+	for i := range release.Spec.Traits {
+		key := string(release.Spec.Traits[i].Kind) + ":" + release.Spec.Traits[i].Name
+		traitSpecsByKey[key] = &release.Spec.Traits[i].Spec
+	}
+
 	for i, traitInstance := range release.Spec.ComponentProfile.Traits {
 		traitPath := basePath.Index(i)
 
 		// Get the trait spec from the snapshot using composite (kind, name) key
-		traitSpec, exists := findTraitSpec(release.Spec.Traits, traitInstance.Kind, traitInstance.Name)
+		key := string(traitInstance.Kind) + ":" + traitInstance.Name
+		traitSpec, exists := traitSpecsByKey[key]
 		if !exists {
 			// This is already caught by ValidateCreate, skip
 			continue
 		}
 
-		// Extract parameters schema from the trait snapshot
-		paramsRaw := traitSpec.Parameters.GetRaw()
-
-		// If no parameters schema, no validation needed for this trait
-		if paramsRaw == nil || len(paramsRaw.Raw) == 0 {
-			continue
-		}
-
-		// Build JSON schema
-		jsonSchema, err := schema.SectionToJSONSchema(traitSpec.Parameters)
-		if err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				traitPath.Child("parameters"),
-				omitValue,
-				fmt.Sprintf("Trait %q snapshot has invalid schema definition: %v", traitInstance.Name, err)))
-			continue
-		}
-
-		// Unmarshal trait instance parameters (treat nil/empty as empty object)
-		var traitParams map[string]any
-		if traitInstance.Parameters != nil && len(traitInstance.Parameters.Raw) > 0 {
-			if err := yaml.Unmarshal(traitInstance.Parameters.Raw, &traitParams); err != nil {
-				allErrs = append(allErrs, field.Invalid(
-					traitPath.Child("parameters"),
-					omitValue,
-					fmt.Sprintf("failed to parse trait parameters: %v", err)))
-				continue
-			}
-		} else {
-			// No parameters provided - validate against empty object
-			traitParams = map[string]any{}
-		}
-
-		// Validate parameters against schema
-		if err := schema.ValidateWithJSONSchema(traitParams, jsonSchema); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				traitPath.Child("parameters"),
-				omitValue,
-				fmt.Sprintf("parameters do not match Trait schema: %v", err)))
-		}
+		allErrs = append(allErrs, validateParamsAgainstSchema(
+			traitSpec.Parameters,
+			traitInstance.Parameters,
+			traitPath.Child("parameters"),
+			fmt.Sprintf("Trait %q", traitInstance.Name),
+		)...)
 	}
 
 	return allErrs
 }
 
 // validateEmbeddedResourceTemplates validates that embedded ComponentType and Trait templates have required fields
-// and validates CEL expressions with schema-aware type checking
+// and validates CEL expressions with schema-aware type checking.
 func validateEmbeddedResourceTemplates(release *openchoreodevv1alpha1.ComponentRelease) field.ErrorList {
 	allErrs := field.ErrorList{}
+	ctSpecPath := field.NewPath("spec", "componentType", "spec")
 
 	// Validate ComponentType resource templates and check for workload type match
-	errs := component.ValidateWorkloadResources(
+	allErrs = append(allErrs, component.ValidateWorkloadResources(
 		release.Spec.ComponentType.Spec.WorkloadType,
 		release.Spec.ComponentType.Spec.Resources,
-		field.NewPath("spec", "componentType", "spec", "resources"))
-	allErrs = append(allErrs, errs...)
+		ctSpecPath.Child("resources"))...)
 
 	// Validate CEL expressions in embedded ComponentType resources
-	errs = validateComponentTypeCELExpressions(release)
-	allErrs = append(allErrs, errs...)
+	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
+		release.Spec.ComponentType.Spec.Parameters, release.Spec.ComponentType.Spec.EnvironmentConfigs, ctSpecPath,
+	)
+	allErrs = append(allErrs, schemaErrs...)
+
+	allErrs = append(allErrs, component.ValidateResourcesWithSchema(
+		release.Spec.ComponentType.Spec.Resources,
+		release.Spec.ComponentType.Spec.Validations,
+		parametersSchema, envConfigsSchema,
+		ctSpecPath,
+	)...)
 
 	// Validate Trait creates templates and CEL expressions
 	traitsBasePath := field.NewPath("spec", "traits")
 	for i, rt := range release.Spec.Traits {
-		traitKey := string(rt.Kind) + ":" + rt.Name
-		traitPath := traitsBasePath.Key(traitKey).Child("spec", "creates")
-		for j, create := range rt.Spec.Creates {
-			createPath := traitPath.Index(j)
-			if create.Template != nil && len(create.Template.Raw) > 0 {
-				templatePath := createPath.Child("template")
-				obj, errs := component.ValidateResourceTemplateStructure(*create.Template, templatePath)
-				allErrs = append(allErrs, errs...)
+		traitPath := traitsBasePath.Index(i)
+		traitSpecPath := traitPath.Child("spec")
 
-				if obj != nil && component.IsWorkloadResourceKind(obj.Kind) {
-					allErrs = append(allErrs, field.Forbidden(
-						templatePath.Child("kind"),
-						fmt.Sprintf("traits must not create workload resources (kind %q); the primary workload is defined by the ComponentType", obj.Kind),
-					))
-				}
-			}
-		}
+		// Validate trait create templates (structure + no workload resources)
+		allErrs = append(allErrs, component.ValidateTraitCreateTemplates(
+			rt.Spec.Creates, traitSpecPath.Child("creates"))...)
 
 		// Validate CEL expressions in trait creates and patches
-		traitSpec := release.Spec.Traits[i].Spec
-		errs = validateTraitCELExpressions(&traitSpec, traitsBasePath.Key(traitKey))
-		allErrs = append(allErrs, errs...)
+		traitParamsSchema, traitEnvConfigsSchema, traitSchemaErrs := schemautil.ExtractStructuralSchemas(
+			rt.Spec.Parameters, rt.Spec.EnvironmentConfigs, traitSpecPath,
+		)
+		allErrs = append(allErrs, traitSchemaErrs...)
+
+		allErrs = append(allErrs, component.ValidateTraitSpec(
+			release.Spec.Traits[i].Spec,
+			traitParamsSchema, traitEnvConfigsSchema,
+			traitSpecPath,
+		)...)
 	}
 
 	return allErrs
 }
 
-// validateComponentTypeCELExpressions validates CEL expressions in embedded ComponentType resources
-func validateComponentTypeCELExpressions(release *openchoreodevv1alpha1.ComponentRelease) field.ErrorList {
-	allErrs := field.ErrorList{}
-	basePath := field.NewPath("spec", "componentType")
-
-	// Extract and build structural schemas for CEL validation
-	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
-		release.Spec.ComponentType.Spec.Parameters, release.Spec.ComponentType.Spec.EnvironmentConfigs, basePath,
-	)
-	allErrs = append(allErrs, schemaErrs...)
-
-	// Create a temporary ComponentType for validation
-	tempCT := &openchoreodevv1alpha1.ComponentType{
-		Spec: release.Spec.ComponentType.Spec,
-	}
-
-	// Validate CEL expressions with schema-aware type checking
-	celErrs := component.ValidateComponentTypeResourcesWithSchema(
-		tempCT,
-		parametersSchema,
-		envConfigsSchema,
-	)
-
-	// Adjust error paths to point to the embedded ComponentType
-	for _, err := range celErrs {
-		// Replace "spec.resources" with "spec.componentType.resources"
-		adjustedPath := adjustPathForComponentType(err.Field)
-		allErrs = append(allErrs, field.Invalid(
-			field.NewPath(adjustedPath),
-			err.BadValue,
-			err.Detail))
-	}
-
-	return allErrs
-}
-
-// validateTraitCELExpressions validates CEL expressions in embedded Trait creates and patches
-func validateTraitCELExpressions(traitSpec *openchoreodevv1alpha1.TraitSpec, basePath *field.Path) field.ErrorList {
+// validateParamsAgainstSchema validates raw parameters against a schema section.
+func validateParamsAgainstSchema(
+	schemaSection *openchoreodevv1alpha1.SchemaSection,
+	rawParams *runtime.RawExtension,
+	fieldPath *field.Path,
+	schemaOwner string,
+) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	// Extract and build structural schemas for CEL validation
-	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
-		traitSpec.Parameters, traitSpec.EnvironmentConfigs, basePath,
-	)
-	allErrs = append(allErrs, schemaErrs...)
-
-	// Create a temporary Trait for validation
-	tempTrait := &openchoreodevv1alpha1.Trait{
-		Spec: *traitSpec,
+	if schemaSection == nil {
+		return allErrs
 	}
 
-	// Validate CEL expressions with schema-aware type checking
-	celErrs := component.ValidateTraitCreatesAndPatchesWithSchema(
-		tempTrait,
-		parametersSchema,
-		envConfigsSchema,
-	)
-
-	// Adjust error paths to point to the embedded Trait
-	for _, err := range celErrs {
-		// Replace "spec." with the trait-specific path
-		adjustedPath := adjustPathForTrait(err.Field, basePath)
-		allErrs = append(allErrs, field.Invalid(
-			adjustedPath,
-			err.BadValue,
-			err.Detail))
+	paramsRaw := schemaSection.GetRaw()
+	if paramsRaw == nil || len(paramsRaw.Raw) == 0 {
+		return allErrs
 	}
 
-	return allErrs
-}
+	jsonSchema, err := schema.SectionToJSONSchema(schemaSection)
+	if err != nil {
+		return append(allErrs, field.Invalid(fieldPath, omitValue,
+			fmt.Sprintf("%s snapshot has invalid schema definition: %v", schemaOwner, err)))
+	}
 
-// findTraitSpec searches the traits slice for an entry matching the given kind and name,
-// returning a pointer to its Spec. Returns nil, false if not found.
-func findTraitSpec(traits []openchoreodevv1alpha1.ComponentReleaseTrait, kind openchoreodevv1alpha1.TraitRefKind, name string) (*openchoreodevv1alpha1.TraitSpec, bool) {
-	for i := range traits {
-		if traits[i].Kind == kind && traits[i].Name == name {
-			return &traits[i].Spec, true
+	var params map[string]any
+	if rawParams != nil && len(rawParams.Raw) > 0 {
+		if err := yaml.Unmarshal(rawParams.Raw, &params); err != nil {
+			return append(allErrs, field.Invalid(fieldPath, omitValue,
+				fmt.Sprintf("failed to parse parameters: %v", err)))
 		}
+	} else {
+		params = map[string]any{}
 	}
-	return nil, false
+
+	if err := schema.ValidateWithJSONSchema(params, jsonSchema); err != nil {
+		allErrs = append(allErrs, field.Invalid(fieldPath, omitValue,
+			fmt.Sprintf("parameters do not match %s schema: %v", schemaOwner, err)))
+	}
+
+	return allErrs
 }
 
-// adjustPathForComponentType adjusts a path from "spec.resources..." to "spec.componentType.resources..."
-func adjustPathForComponentType(path string) string {
-	if len(path) >= 5 && path[:5] == "spec." {
-		return "spec.componentType." + path[5:]
-	}
-	return "spec.componentType." + path
-}
+// buildTraitSpecMap builds a map from (kind:name) to *TraitSpec and validates uniqueness.
+func buildTraitSpecMap(traits []openchoreodevv1alpha1.ComponentReleaseTrait) (map[string]*openchoreodevv1alpha1.TraitSpec, field.ErrorList) {
+	allErrs := field.ErrorList{}
+	traitMap := make(map[string]*openchoreodevv1alpha1.TraitSpec, len(traits))
+	traitsPath := field.NewPath("spec", "traits")
 
-// adjustPathForTrait adjusts a path from "spec.creates..." or "spec.patches..." to the trait-specific path
-func adjustPathForTrait(path string, basePath *field.Path) *field.Path {
-	if len(path) >= 5 && path[:5] == "spec." {
-		// Remove "spec." prefix and append to basePath
-		return field.NewPath(basePath.String() + "." + path[5:])
+	for i, rt := range traits {
+		key := string(rt.Kind) + ":" + rt.Name
+		if _, exists := traitMap[key]; exists {
+			allErrs = append(allErrs, field.Duplicate(traitsPath.Index(i), key))
+		}
+		traitMap[key] = &traits[i].Spec
 	}
-	return field.NewPath(basePath.String() + "." + path)
+
+	return traitMap, allErrs
 }

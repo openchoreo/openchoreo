@@ -52,67 +52,26 @@ type SchemaOptions struct {
 	EnvironmentConfigsSchema *apiextschema.Structural
 }
 
-// BuildComponentCELEnv creates a schema-aware CEL environment for component validation.
-// Variables are derived from ComponentContext struct fields:
-//   - parameters, environmentConfigs: Schema-aware types (or empty object if not provided)
-//   - metadata, dataplane, workload, configurations: Types derived via reflection
-//
-// Returns the environment and the DeclTypeProvider (for forEach value type resolution).
-func BuildComponentCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvider, error) {
-	baseEnv, err := createBaseEnv(true)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	numFields := len(componentContextFields) + len(schemaBasedFields)
-	declTypes := make([]*apiservercel.DeclType, 0, numFields+len(functionReturnDeclTypes))
-	varOpts := make([]cel.EnvOption, 0, numFields)
-
-	// Register schema-based fields
-	paramType := schemaToTypeOrEmpty(opts.ParametersSchema, "Parameters")
-	declTypes = append(declTypes, paramType)
-	varOpts = append(varOpts, cel.Variable("parameters", paramType.CelType()))
-
-	environmentConfigsType := schemaToTypeOrEmpty(opts.EnvironmentConfigsSchema, "EnvironmentConfigs")
-	declTypes = append(declTypes, environmentConfigsType)
-	varOpts = append(varOpts, cel.Variable("environmentConfigs", environmentConfigsType.CelType()))
-
-	// Register reflection-based fields
-	for _, f := range componentContextFields {
-		declTypes = append(declTypes, f.DeclType)
-		varOpts = append(varOpts, cel.Variable(f.Name, f.DeclType.CelType()))
-	}
-
-	// Register function return types so the type checker can validate field access
-	declTypes = append(declTypes, functionReturnDeclTypes...)
-
-	provider := apiservercel.NewDeclTypeProvider(declTypes...)
-	providerOpts, err := provider.EnvOptions(baseEnv.CELTypeProvider())
-	if err != nil {
-		return nil, nil, err
-	}
-	varOpts = append(varOpts, providerOpts...)
-
-	env, err := baseEnv.Extend(varOpts...)
-	if err != nil {
-		return nil, nil, err
-	}
-	return env, provider, nil
+// buildComponentCELEnv creates a schema-aware CEL environment for component validation.
+func buildComponentCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvider, error) {
+	return buildCELEnv(componentContextFields, opts)
 }
 
-// BuildTraitCELEnv creates a schema-aware CEL environment for trait validation.
-// Variables are derived from TraitContext struct fields:
-//   - parameters, environmentConfigs: Schema-aware types (or empty object if not provided)
-//   - trait, metadata, dataplane, workload, configurations: Types derived via reflection
-//
-// Returns the environment and the DeclTypeProvider (for forEach value type resolution).
-func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvider, error) {
-	baseEnv, err := createBaseEnv(true)
+// buildTraitCELEnv creates a schema-aware CEL environment for trait validation.
+func buildTraitCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvider, error) {
+	return buildCELEnv(traitContextFields, opts)
+}
+
+// buildCELEnv creates a schema-aware CEL environment with the given context fields and schema options.
+// Schema-based fields (parameters, environmentConfigs) are derived from the provided schemas.
+// Reflection-based fields (metadata, workload, etc.) come from the contextFields slice.
+func buildCELEnv(contextFields []decltype.FieldInfo, opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvider, error) {
+	baseEnv, err := createBaseEnv()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	numFields := len(traitContextFields) + len(schemaBasedFields)
+	numFields := len(contextFields) + len(schemaBasedFields)
 	declTypes := make([]*apiservercel.DeclType, 0, numFields+len(functionReturnDeclTypes))
 	varOpts := make([]cel.EnvOption, 0, numFields)
 
@@ -126,7 +85,7 @@ func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvi
 	varOpts = append(varOpts, cel.Variable("environmentConfigs", environmentConfigsType.CelType()))
 
 	// Register reflection-based fields
-	for _, f := range traitContextFields {
+	for _, f := range contextFields {
 		declTypes = append(declTypes, f.DeclType)
 		varOpts = append(varOpts, cel.Variable(f.Name, f.DeclType.CelType()))
 	}
@@ -149,15 +108,9 @@ func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, *apiservercel.DeclTypeProvi
 }
 
 // createBaseEnv creates the base CEL environment with standard extensions.
-// Uses CELValidationExtensions() which provides typed function return types
-// so the type checker can validate field access on forEach loop variables.
-func createBaseEnv(includeConfigExtensions bool) (*cel.Env, error) {
+func createBaseEnv() (*cel.Env, error) {
 	baseEnvOpts := template.BaseCELExtensions()
-
-	if includeConfigExtensions {
-		baseEnvOpts = append(baseEnvOpts, context.CELValidationExtensions()...)
-	}
-
+	baseEnvOpts = append(baseEnvOpts, context.CELValidationExtensions()...)
 	return cel.NewEnv(baseEnvOpts...)
 }
 

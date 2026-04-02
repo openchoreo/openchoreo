@@ -49,30 +49,17 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	allErrs := field.ErrorList{}
 
 	// Extract and validate schemas, getting structural schemas for CEL validation
-	basePath := field.NewPath("spec")
-	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
-		ct.Spec.Parameters, ct.Spec.EnvironmentConfigs, basePath,
+	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractAndValidateSchemas(
+		ct.Spec.Parameters, ct.Spec.EnvironmentConfigs, field.NewPath("spec"),
 	)
 	allErrs = append(allErrs, schemaErrs...)
 
-	// Strict field validation: reject unknown fields in openAPIV3Schema
-	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
-		ct.Spec.Parameters, basePath.Child("parameters"),
-	)...)
-	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
-		ct.Spec.EnvironmentConfigs, basePath.Child("environmentConfigs"),
-	)...)
+	allErrs = append(allErrs, component.ValidateTraitCreateTemplates(
+		ct.Spec.Creates, field.NewPath("spec", "creates"))...)
 
-	templateErrs := validateClusterTraitCreatesTemplateStructure(ct)
-	allErrs = append(allErrs, templateErrs...)
-
-	// Validate CEL expressions with schema-aware type checking
-	celErrs := component.ValidateClusterTraitCreatesAndPatchesWithSchema(
-		ct,
-		parametersSchema,
-		envConfigsSchema,
-	)
-	allErrs = append(allErrs, celErrs...)
+	allErrs = append(allErrs, component.ValidateClusterTraitCreatesAndPatchesWithSchema(
+		ct, parametersSchema, envConfigsSchema,
+	)...)
 
 	if len(allErrs) > 0 {
 		return nil, allErrs.ToAggregate()
@@ -92,30 +79,17 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	allErrs := field.ErrorList{}
 
 	// Extract and validate schemas, getting structural schemas for CEL validation
-	basePath := field.NewPath("spec")
-	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
-		newClusterTrait.Spec.Parameters, newClusterTrait.Spec.EnvironmentConfigs, basePath,
+	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractAndValidateSchemas(
+		newClusterTrait.Spec.Parameters, newClusterTrait.Spec.EnvironmentConfigs, field.NewPath("spec"),
 	)
 	allErrs = append(allErrs, schemaErrs...)
 
-	// Strict field validation: reject unknown fields in openAPIV3Schema
-	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
-		newClusterTrait.Spec.Parameters, basePath.Child("parameters"),
-	)...)
-	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
-		newClusterTrait.Spec.EnvironmentConfigs, basePath.Child("environmentConfigs"),
-	)...)
+	allErrs = append(allErrs, component.ValidateTraitCreateTemplates(
+		newClusterTrait.Spec.Creates, field.NewPath("spec", "creates"))...)
 
-	templateErrs := validateClusterTraitCreatesTemplateStructure(newClusterTrait)
-	allErrs = append(allErrs, templateErrs...)
-
-	// Validate CEL expressions with schema-aware type checking
-	celErrs := component.ValidateClusterTraitCreatesAndPatchesWithSchema(
-		newClusterTrait,
-		parametersSchema,
-		envConfigsSchema,
-	)
-	allErrs = append(allErrs, celErrs...)
+	allErrs = append(allErrs, component.ValidateClusterTraitCreatesAndPatchesWithSchema(
+		newClusterTrait, parametersSchema, envConfigsSchema,
+	)...)
 
 	if len(allErrs) > 0 {
 		return nil, allErrs.ToAggregate()
@@ -134,32 +108,4 @@ func (v *Validator) ValidateDelete(_ context.Context, obj runtime.Object) (admis
 
 	// No special validation needed for deletion
 	return nil, nil
-}
-
-// validateClusterTraitCreatesTemplateStructure validates that cluster trait creates templates have required K8s resource fields (apiVersion, kind, metadata.name)
-func validateClusterTraitCreatesTemplateStructure(ct *openchoreodevv1alpha1.ClusterTrait) field.ErrorList {
-	allErrs := field.ErrorList{}
-	basePath := field.NewPath("spec", "creates")
-
-	for i, create := range ct.Spec.Creates {
-		createPath := basePath.Index(i)
-		templatePath := createPath.Child("template")
-
-		if create.Template == nil {
-			allErrs = append(allErrs, field.Required(templatePath, "template is required"))
-			continue
-		}
-
-		obj, errs := component.ValidateResourceTemplateStructure(*create.Template, templatePath)
-		allErrs = append(allErrs, errs...)
-
-		if obj != nil && component.IsWorkloadResourceKind(obj.Kind) {
-			allErrs = append(allErrs, field.Forbidden(
-				templatePath.Child("kind"),
-				fmt.Sprintf("traits must not create workload resources (kind %q); the primary workload is defined by the ComponentType", obj.Kind),
-			))
-		}
-	}
-
-	return allErrs
 }

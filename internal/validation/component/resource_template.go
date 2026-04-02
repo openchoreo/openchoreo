@@ -196,6 +196,32 @@ func IsWorkloadResourceKind(kind string) bool {
 	return workloadResourceKinds[strings.ToLower(kind)]
 }
 
+// ValidateTraitCreateTemplates validates that trait create templates have required
+// K8s resource fields (apiVersion, kind, metadata.name) and do not create workload resources.
+func ValidateTraitCreateTemplates(creates []v1alpha1.TraitCreate, basePath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+	for i, create := range creates {
+		createPath := basePath.Index(i)
+		templatePath := createPath.Child("template")
+
+		if create.Template == nil {
+			allErrs = append(allErrs, field.Required(templatePath, "template is required"))
+			continue
+		}
+
+		obj, errs := ValidateResourceTemplateStructure(*create.Template, templatePath)
+		allErrs = append(allErrs, errs...)
+
+		if obj != nil && IsWorkloadResourceKind(obj.Kind) {
+			allErrs = append(allErrs, field.Forbidden(
+				templatePath.Child("kind"),
+				fmt.Sprintf("traits must not create workload resources (kind %q); the primary workload is defined by the ComponentType", obj.Kind),
+			))
+		}
+	}
+	return allErrs
+}
+
 // isAllowedNamespaceValue checks whether the given string is an acceptable
 // metadata.namespace value. It trims outer whitespace and normalizes
 // whitespace inside the ${...} delimiters so that variations like

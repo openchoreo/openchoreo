@@ -49,6 +49,27 @@ func ExtractStructuralSchemas(
 	return parametersSchema, envConfigsSchema, allErrs
 }
 
+// ExtractAndValidateSchemas extracts structural schemas and validates openAPIV3Schema fields.
+// Combines ExtractStructuralSchemas and ValidateOpenAPIV3SchemaFields into a single call.
+func ExtractAndValidateSchemas(
+	parameters *v1alpha1.SchemaSection,
+	environmentConfigs *v1alpha1.SchemaSection,
+	basePath *field.Path,
+) (*apiextschema.Structural, *apiextschema.Structural, field.ErrorList) {
+	parametersSchema, envConfigsSchema, allErrs := ExtractStructuralSchemas(
+		parameters, environmentConfigs, basePath,
+	)
+
+	allErrs = append(allErrs, ValidateOpenAPIV3SchemaFields(
+		parameters, basePath.Child("parameters"),
+	)...)
+	allErrs = append(allErrs, ValidateOpenAPIV3SchemaFields(
+		environmentConfigs, basePath.Child("environmentConfigs"),
+	)...)
+
+	return parametersSchema, envConfigsSchema, allErrs
+}
+
 // ValidateOpenAPIV3SchemaFields performs strict field validation on an openAPIV3Schema.
 // It rejects unknown fields (e.g., "types" instead of "type") by resolving $ref/$defs,
 // stripping vendor extensions (x-*), and then strict-decoding into JSONSchemaProps.

@@ -11,34 +11,34 @@ import (
 	apiservercel "k8s.io/apiserver/pkg/cel"
 )
 
-// ForEachType represents the type of iteration in a forEach expression
-type ForEachType int
+// forEachType represents the type of iteration in a forEach expression
+type forEachType int
 
 const (
-	// ForEachUnknown indicates the forEach expression type cannot be determined
-	ForEachUnknown ForEachType = iota
-	// ForEachList indicates forEach iterates over a list
-	ForEachList
-	// ForEachMap indicates forEach iterates over a map
-	ForEachMap
+	// forEachUnknown indicates the forEach expression type cannot be determined
+	forEachUnknown forEachType = iota
+	// forEachList indicates forEach iterates over a list
+	forEachList
+	// forEachMap indicates forEach iterates over a map
+	forEachMap
 )
 
-// String returns the string representation of ForEachType
-func (t ForEachType) String() string {
+// String returns the string representation of forEachType
+func (t forEachType) String() string {
 	switch t {
-	case ForEachList:
+	case forEachList:
 		return "list"
-	case ForEachMap:
+	case forEachMap:
 		return "map"
 	default:
 		return "unknown"
 	}
 }
 
-// ForEachInfo contains information about a forEach expression and its loop variable
-type ForEachInfo struct {
+// forEachInfo contains information about a forEach expression and its loop variable
+type forEachInfo struct {
 	// Type indicates whether forEach iterates over a list or map
-	Type ForEachType
+	Type forEachType
 
 	// VarName is the name of the loop variable (default: "item")
 	VarName string
@@ -48,27 +48,27 @@ type ForEachInfo struct {
 	// For lists: The element type
 	VarType *cel.Type
 
-	// VarDeclType is the DeclType for the loop variable (only for ForEachMap).
+	// VarDeclType is the DeclType for the loop variable (only for forEachMap).
 	// Used to register a proper object type with key/value fields so that
 	// CEL can validate field access on the loop variable.
 	VarDeclType *apiservercel.DeclType
 
-	// KeyType is the type of map keys (only for ForEachMap)
+	// KeyType is the type of map keys (only for forEachMap)
 	KeyType *cel.Type
 
-	// ValueType is the type of map values (only for ForEachMap)
+	// ValueType is the type of map values (only for forEachMap)
 	ValueType *cel.Type
 
-	// ElementType is the type of list elements (only for ForEachList)
+	// ElementType is the type of list elements (only for forEachList)
 	ElementType *cel.Type
 }
 
-// AnalyzeForEachExpression analyzes a forEach expression to determine iteration type and variable types.
+// analyzeForEachExpression analyzes a forEach expression to determine iteration type and variable types.
 // This allows proper type checking of the loop variable usage within the forEach body.
 //
 // For map iteration, the loop variable will have .key and .value fields.
 // For list iteration, the loop variable type matches the list element type.
-func AnalyzeForEachExpression(forEachExpr string, varName string, env *cel.Env) (*ForEachInfo, error) {
+func analyzeForEachExpression(forEachExpr string, varName string, env *cel.Env) (*forEachInfo, error) {
 	if varName == "" {
 		varName = "item" // Default loop variable name
 	}
@@ -84,21 +84,21 @@ func AnalyzeForEachExpression(forEachExpr string, varName string, env *cel.Env) 
 	if issues != nil && issues.Err() != nil {
 		// The expression might reference dynamic variables, which is OK
 		// We'll return unknown type in that case
-		return &ForEachInfo{
-			Type:    ForEachUnknown,
+		return &forEachInfo{
+			Type:    forEachUnknown,
 			VarName: varName,
 			VarType: cel.DynType,
 		}, nil
 	}
 
 	outputType := checked.OutputType()
-	info := &ForEachInfo{VarName: varName}
+	info := &forEachInfo{VarName: varName}
 
 	// Determine iteration type based on output type
 	switch outputType.Kind() {
 	case types.MapKind:
 		// Map iteration: loop variable has .key and .value fields
-		info.Type = ForEachMap
+		info.Type = forEachMap
 
 		// Extract key and value types from map type parameters
 		params := outputType.Parameters()
@@ -111,14 +111,14 @@ func AnalyzeForEachExpression(forEachExpr string, varName string, env *cel.Env) 
 			info.ValueType = cel.DynType
 		}
 
-		// MapEntry DeclType is created in ExtendEnvWithForEach where we have
+		// MapEntry DeclType is created in extendEnvWithForEach where we have
 		// access to the DeclTypeProvider for resolving the value's actual type.
 		// For now, just record the value type for later resolution.
-		info.VarType = cel.DynType // placeholder; replaced in ExtendEnvWithForEach
+		info.VarType = cel.DynType // placeholder; replaced in extendEnvWithForEach
 
 	case types.ListKind:
 		// List iteration: loop variable type is the element type
-		info.Type = ForEachList
+		info.Type = forEachList
 
 		params := outputType.Parameters()
 		if len(params) > 0 {
@@ -132,23 +132,23 @@ func AnalyzeForEachExpression(forEachExpr string, varName string, env *cel.Env) 
 
 	default:
 		// Unknown or dynamic type - be permissive
-		info.Type = ForEachUnknown
+		info.Type = forEachUnknown
 		info.VarType = cel.DynType
 	}
 
 	return info, nil
 }
 
-// ExtendEnvWithForEach extends a CEL environment with the forEach loop variable.
+// extendEnvWithForEach extends a CEL environment with the forEach loop variable.
 // For map iterations, creates a MapEntry DeclType with properly typed key/value fields
 // so CEL validates field access on the loop variable. The typeProvider is used to
 // resolve the map's value type for deep field validation.
-func ExtendEnvWithForEach(env *cel.Env, info *ForEachInfo, typeProvider *apiservercel.DeclTypeProvider) (*cel.Env, error) {
+func extendEnvWithForEach(env *cel.Env, info *forEachInfo, typeProvider *apiservercel.DeclTypeProvider) (*cel.Env, error) {
 	if info == nil {
 		return env, nil
 	}
 
-	if info.Type == ForEachMap {
+	if info.Type == forEachMap {
 		return extendEnvWithMapForEach(env, info, typeProvider)
 	}
 
@@ -160,7 +160,7 @@ func ExtendEnvWithForEach(env *cel.Env, info *ForEachInfo, typeProvider *apiserv
 // extendEnvWithMapForEach creates a MapEntry DeclType with key (string) and value
 // (resolved from the provider if possible, otherwise dyn) fields, registers it,
 // and declares the loop variable with the proper type.
-func extendEnvWithMapForEach(env *cel.Env, info *ForEachInfo, typeProvider *apiservercel.DeclTypeProvider) (*cel.Env, error) {
+func extendEnvWithMapForEach(env *cel.Env, info *forEachInfo, typeProvider *apiservercel.DeclTypeProvider) (*cel.Env, error) {
 	// Resolve the value's DeclType from the provider if the value type is a known object type
 	valueDeclType := resolveValueDeclType(info.ValueType, typeProvider)
 
