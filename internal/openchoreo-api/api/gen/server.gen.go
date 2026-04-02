@@ -432,6 +432,9 @@ type ServerInterface interface {
 	// Create workflow run
 	// (POST /api/v1/namespaces/{namespaceName}/workflowruns)
 	CreateWorkflowRun(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
+	// Delete workflow run
+	// (DELETE /api/v1/namespaces/{namespaceName}/workflowruns/{runName})
+	DeleteWorkflowRun(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, runName WorkflowRunNameParam)
 	// Get workflow run
 	// (GET /api/v1/namespaces/{namespaceName}/workflowruns/{runName})
 	GetWorkflowRun(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, runName WorkflowRunNameParam)
@@ -5767,6 +5770,46 @@ func (siw *ServerInterfaceWrapper) CreateWorkflowRun(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteWorkflowRun operation middleware
+func (siw *ServerInterfaceWrapper) DeleteWorkflowRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "runName" -------------
+	var runName WorkflowRunNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runName", r.PathValue("runName"), &runName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteWorkflowRun(w, r, namespaceName, runName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetWorkflowRun operation middleware
 func (siw *ServerInterfaceWrapper) GetWorkflowRun(w http.ResponseWriter, r *http.Request) {
 
@@ -6955,6 +6998,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowplanes/{workflowPlaneName}", wrapper.UpdateWorkflowPlane)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns", wrapper.ListWorkflowRuns)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns", wrapper.CreateWorkflowRun)
+	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns/{runName}", wrapper.DeleteWorkflowRun)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns/{runName}", wrapper.GetWorkflowRun)
 	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns/{runName}", wrapper.UpdateWorkflowRun)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflowruns/{runName}/events", wrapper.GetWorkflowRunEvents)
@@ -14915,6 +14959,59 @@ func (response CreateWorkflowRun500JSONResponse) VisitCreateWorkflowRunResponse(
 	return json.NewEncoder(w).Encode(response)
 }
 
+type DeleteWorkflowRunRequestObject struct {
+	NamespaceName NamespaceNameParam   `json:"namespaceName"`
+	RunName       WorkflowRunNameParam `json:"runName"`
+}
+
+type DeleteWorkflowRunResponseObject interface {
+	VisitDeleteWorkflowRunResponse(w http.ResponseWriter) error
+}
+
+type DeleteWorkflowRun204Response struct {
+}
+
+func (response DeleteWorkflowRun204Response) VisitDeleteWorkflowRunResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteWorkflowRun401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteWorkflowRun401JSONResponse) VisitDeleteWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteWorkflowRun403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteWorkflowRun403JSONResponse) VisitDeleteWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteWorkflowRun404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteWorkflowRun404JSONResponse) VisitDeleteWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteWorkflowRun500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteWorkflowRun500JSONResponse) VisitDeleteWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetWorkflowRunRequestObject struct {
 	NamespaceName NamespaceNameParam   `json:"namespaceName"`
 	RunName       WorkflowRunNameParam `json:"runName"`
@@ -16517,6 +16614,9 @@ type StrictServerInterface interface {
 	// Create workflow run
 	// (POST /api/v1/namespaces/{namespaceName}/workflowruns)
 	CreateWorkflowRun(ctx context.Context, request CreateWorkflowRunRequestObject) (CreateWorkflowRunResponseObject, error)
+	// Delete workflow run
+	// (DELETE /api/v1/namespaces/{namespaceName}/workflowruns/{runName})
+	DeleteWorkflowRun(ctx context.Context, request DeleteWorkflowRunRequestObject) (DeleteWorkflowRunResponseObject, error)
 	// Get workflow run
 	// (GET /api/v1/namespaces/{namespaceName}/workflowruns/{runName})
 	GetWorkflowRun(ctx context.Context, request GetWorkflowRunRequestObject) (GetWorkflowRunResponseObject, error)
@@ -20549,6 +20649,33 @@ func (sh *strictHandler) CreateWorkflowRun(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// DeleteWorkflowRun operation middleware
+func (sh *strictHandler) DeleteWorkflowRun(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, runName WorkflowRunNameParam) {
+	var request DeleteWorkflowRunRequestObject
+
+	request.NamespaceName = namespaceName
+	request.RunName = runName
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteWorkflowRun(ctx, request.(DeleteWorkflowRunRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteWorkflowRun")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteWorkflowRunResponseObject); ok {
+		if err := validResponse.VisitDeleteWorkflowRunResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetWorkflowRun operation middleware
 func (sh *strictHandler) GetWorkflowRun(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, runName WorkflowRunNameParam) {
 	var request GetWorkflowRunRequestObject
@@ -21637,39 +21764,39 @@ var swaggerSpec = []string{
 	"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",
-	"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",
-	"dKnU++7ydS1T9cuHL/9fAAAA///jfRsZgK4DAA==",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

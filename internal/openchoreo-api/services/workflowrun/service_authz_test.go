@@ -344,6 +344,73 @@ func TestGetWorkflowRun_Authz(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// DeleteWorkflowRun authz tests
+// ---------------------------------------------------------------------------
+
+func TestDeleteWorkflowRun_Authz(t *testing.T) {
+	run := newWorkflowRun(testRunName, testProjectName, testComponentName)
+
+	t.Run("allowed delegates to internal service", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
+		mockSvc.EXPECT().DeleteWorkflowRun(mock.Anything, testNamespace, testRunName).Return(nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		err := svc.DeleteWorkflowRun(ctxWithSubject(), testNamespace, testRunName)
+		require.NoError(t, err)
+	})
+
+	t.Run("denied returns forbidden without deleting", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil)
+		// mockSvc.DeleteWorkflowRun should NOT be called
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		err := svc.DeleteWorkflowRun(ctxWithSubject(), testNamespace, testRunName)
+		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	t.Run("not found does not check authz", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, "nonexistent").
+			Return(nil, workflowrun.ErrWorkflowRunNotFound)
+		// PDP.Evaluate should NOT be called
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		err := svc.DeleteWorkflowRun(ctxWithSubject(), testNamespace, "nonexistent")
+		require.ErrorIs(t, err, workflowrun.ErrWorkflowRunNotFound)
+	})
+
+	t.Run("checks delete action with hierarchy from fetched labels", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Action == workflowrun.ExportActionDelete &&
+				req.Resource.Type == workflowrun.ExportResourceType &&
+				req.Resource.ID == testRunName &&
+				req.Resource.Hierarchy.Namespace == testNamespace &&
+				req.Resource.Hierarchy.Project == testProjectName &&
+				req.Resource.Hierarchy.Component == testComponentName
+		})).Return(allowDecision(), nil)
+		mockSvc.EXPECT().DeleteWorkflowRun(mock.Anything, testNamespace, testRunName).Return(nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		err := svc.DeleteWorkflowRun(ctxWithSubject(), testNamespace, testRunName)
+		require.NoError(t, err)
+	})
+}
+
+// ---------------------------------------------------------------------------
 // GetWorkflowRunLogs authz tests
 // ---------------------------------------------------------------------------
 

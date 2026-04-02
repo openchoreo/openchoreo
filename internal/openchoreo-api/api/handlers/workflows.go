@@ -366,6 +366,31 @@ func (h *Handler) UpdateWorkflowRun(
 	return gen.UpdateWorkflowRun200JSONResponse(genWfRun), nil
 }
 
+// DeleteWorkflowRun deletes a workflow run by name.
+func (h *Handler) DeleteWorkflowRun(
+	ctx context.Context,
+	request gen.DeleteWorkflowRunRequestObject,
+) (gen.DeleteWorkflowRunResponseObject, error) {
+	h.logger.Info("DeleteWorkflowRun called",
+		"namespace", request.NamespaceName,
+		"runName", request.RunName)
+
+	err := h.services.WorkflowRunService.DeleteWorkflowRun(ctx, request.NamespaceName, request.RunName)
+	if err != nil {
+		if errors.Is(err, svcerrors.ErrForbidden) {
+			return gen.DeleteWorkflowRun403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, workflowrunsvc.ErrWorkflowRunNotFound) {
+			return gen.DeleteWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
+		}
+		h.logger.Error("Failed to delete workflow run", "error", err)
+		return gen.DeleteWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("WorkflowRun deleted successfully", "namespaceName", request.NamespaceName, "runName", request.RunName)
+	return gen.DeleteWorkflowRun204Response{}, nil
+}
+
 // GetWorkflowRunStatus returns the status and per-step details of a specific workflow run
 func (h *Handler) GetWorkflowRunStatus(
 	ctx context.Context,

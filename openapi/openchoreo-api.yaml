@@ -2596,6 +2596,26 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    delete:
+      operationId: deleteWorkflowRun
+      summary: Delete workflow run
+      description: Deletes a workflow run by name.
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkflowRunNameParam'
+      responses:
+        '204':
+          description: Workflow run deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/namespaces/{namespaceName}/workflowruns/{runName}/status:
     get:
       operationId: getWorkflowRunStatus

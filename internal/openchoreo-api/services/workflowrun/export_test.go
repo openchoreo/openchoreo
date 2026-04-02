@@ -12,6 +12,10 @@ import (
 
 // Exported constants for the external test package.
 var (
+	ExportActionCreate  = actionCreateWorkflowRun
+	ExportActionUpdate  = actionUpdateWorkflowRun
+	ExportActionDelete  = actionDeleteWorkflowRun
+	ExportActionView    = actionViewWorkflowRun
 	ExportResourceType  = resourceTypeWorkflowRun
 	ExportStatusPending = workflowRunStatusPending
 )

@@ -597,6 +597,9 @@ type ClientInterface interface {
 
 	CreateWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, body CreateWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteWorkflowRun request
+	DeleteWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetWorkflowRun request
 	GetWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2906,6 +2909,18 @@ func (c *Client) CreateWorkflowRunWithBody(ctx context.Context, namespaceName Na
 
 func (c *Client) CreateWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, body CreateWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateWorkflowRunRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteWorkflowRunRequest(c.Server, namespaceName, runName)
 	if err != nil {
 		return nil, err
 	}
@@ -10318,6 +10333,47 @@ func NewCreateWorkflowRunRequestWithBody(server string, namespaceName NamespaceN
 	return req, nil
 }
 
+// NewDeleteWorkflowRunRequest generates requests for DeleteWorkflowRun
+func NewDeleteWorkflowRunRequest(server string, namespaceName NamespaceNameParam, runName WorkflowRunNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "runName", runtime.ParamLocationPath, runName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflowruns/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetWorkflowRunRequest generates requests for GetWorkflowRun
 func NewGetWorkflowRunRequest(server string, namespaceName NamespaceNameParam, runName WorkflowRunNameParam) (*http.Request, error) {
 	var err error
@@ -12052,6 +12108,9 @@ type ClientWithResponsesInterface interface {
 	CreateWorkflowRunWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkflowRunResp, error)
 
 	CreateWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateWorkflowRunJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkflowRunResp, error)
+
+	// DeleteWorkflowRunWithResponse request
+	DeleteWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*DeleteWorkflowRunResp, error)
 
 	// GetWorkflowRunWithResponse request
 	GetWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*GetWorkflowRunResp, error)
@@ -15722,6 +15781,31 @@ func (r CreateWorkflowRunResp) StatusCode() int {
 	return 0
 }
 
+type DeleteWorkflowRunResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteWorkflowRunResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteWorkflowRunResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetWorkflowRunResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -17952,6 +18036,15 @@ func (c *ClientWithResponses) CreateWorkflowRunWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseCreateWorkflowRunResp(rsp)
+}
+
+// DeleteWorkflowRunWithResponse request returning *DeleteWorkflowRunResp
+func (c *ClientWithResponses) DeleteWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*DeleteWorkflowRunResp, error) {
+	rsp, err := c.DeleteWorkflowRun(ctx, namespaceName, runName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteWorkflowRunResp(rsp)
 }
 
 // GetWorkflowRunWithResponse request returning *GetWorkflowRunResp
@@ -25859,6 +25952,53 @@ func ParseCreateWorkflowRunResp(rsp *http.Response) (*CreateWorkflowRunResp, err
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteWorkflowRunResp parses an HTTP response from a DeleteWorkflowRunWithResponse call
+func ParseDeleteWorkflowRunResp(rsp *http.Response) (*DeleteWorkflowRunResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteWorkflowRunResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

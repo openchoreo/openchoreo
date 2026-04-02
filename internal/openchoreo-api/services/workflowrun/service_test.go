@@ -237,6 +237,29 @@ func TestGetWorkflowRun(t *testing.T) {
 	})
 }
 
+func TestDeleteWorkflowRun(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		run := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		svc := newService(t, run)
+
+		err := svc.DeleteWorkflowRun(ctx, testNamespace, testRunName)
+		require.NoError(t, err)
+
+		// Verify the run is actually gone
+		_, err = svc.GetWorkflowRun(ctx, testNamespace, testRunName)
+		require.ErrorIs(t, err, ErrWorkflowRunNotFound)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		svc := newService(t)
+
+		err := svc.DeleteWorkflowRun(ctx, testNamespace, "nonexistent")
+		require.ErrorIs(t, err, ErrWorkflowRunNotFound)
+	})
+}
+
 func TestMatchesTaskName(t *testing.T) {
 	t.Run("exact match", func(t *testing.T) {
 		assert.True(t, matchesTaskName("checkout-source", "checkout-source"))

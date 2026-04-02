@@ -242,6 +242,25 @@ func (s *workflowRunService) GetWorkflowRun(ctx context.Context, namespaceName, 
 	return wfRun, nil
 }
 
+func (s *workflowRunService) DeleteWorkflowRun(ctx context.Context, namespaceName, runName string) error {
+	s.logger.Debug("Deleting workflow run", "namespace", namespaceName, "run", runName)
+
+	wfRun := &openchoreov1alpha1.WorkflowRun{}
+	wfRun.Name = runName
+	wfRun.Namespace = namespaceName
+
+	if err := s.k8sClient.Delete(ctx, wfRun); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ErrWorkflowRunNotFound
+		}
+		s.logger.Error("Failed to delete workflow run", "error", err)
+		return fmt.Errorf("failed to delete workflow run: %w", err)
+	}
+
+	s.logger.Debug("Workflow run deleted successfully", "namespace", namespaceName, "run", runName)
+	return nil
+}
+
 // GetWorkflowRunLogs retrieves logs from a workflow run.
 func (s *workflowRunService) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, taskName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
 	logger := s.logger.With("namespace", namespaceName, "run", runName, "task", taskName, "sinceSeconds", sinceSeconds)

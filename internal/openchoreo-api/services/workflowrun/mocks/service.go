@@ -86,6 +86,54 @@ func (_c *MockService_CreateWorkflowRun_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
+// DeleteWorkflowRun provides a mock function with given fields: ctx, namespaceName, runName
+func (_m *MockService) DeleteWorkflowRun(ctx context.Context, namespaceName string, runName string) error {
+	ret := _m.Called(ctx, namespaceName, runName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteWorkflowRun")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, runName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockService_DeleteWorkflowRun_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteWorkflowRun'
+type MockService_DeleteWorkflowRun_Call struct {
+	*mock.Call
+}
+
+// DeleteWorkflowRun is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - runName string
+func (_e *MockService_Expecter) DeleteWorkflowRun(ctx interface{}, namespaceName interface{}, runName interface{}) *MockService_DeleteWorkflowRun_Call {
+	return &MockService_DeleteWorkflowRun_Call{Call: _e.mock.On("DeleteWorkflowRun", ctx, namespaceName, runName)}
+}
+
+func (_c *MockService_DeleteWorkflowRun_Call) Run(run func(ctx context.Context, namespaceName string, runName string)) *MockService_DeleteWorkflowRun_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_DeleteWorkflowRun_Call) Return(_a0 error) *MockService_DeleteWorkflowRun_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockService_DeleteWorkflowRun_Call) RunAndReturn(run func(context.Context, string, string) error) *MockService_DeleteWorkflowRun_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetWorkflowRun provides a mock function with given fields: ctx, namespaceName, runName
 func (_m *MockService) GetWorkflowRun(ctx context.Context, namespaceName string, runName string) (*v1alpha1.WorkflowRun, error) {
 	ret := _m.Called(ctx, namespaceName, runName)
