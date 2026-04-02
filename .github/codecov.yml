@@ -21,7 +21,7 @@ ignore:
   - "internal/observer/api/logsadapterclientgen"
   # Test utilities
   - "test"                                                     # Test helpers and utilities
-  - "internal/openchoreo-api/services/testutil/testutil.go"
+  - "internal/openchoreo-api/services/testutil"
   - "internal/controller/testutils"
 
 comment:
