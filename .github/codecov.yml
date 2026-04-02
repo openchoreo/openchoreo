@@ -14,6 +14,7 @@ ignore:
   - "cmd"                                                      # Application entrypoints
   - "tools/helm-gen"                                           # Generated helm files
   - "**/zz_generated.*.go"                                     # Generated deepcopy and register files
+  - "**/mocks"                                                 # Generated mock files (mockery)
   - "api/v1alpha1/groupversion_info.go"                        # Generated CRD group/version boilerplate
   - "internal/openchoreo-api/api/gen"                          # Generated OpenAPI server, client, and models
   - "internal/observer/api/gen"                                # Generated observer, client, and models
