@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -38,7 +39,11 @@ func newListAuthzRoleBindingCmd() *cobra.Command {
 		Command: constants.ListAuthzRoleBinding,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return authzrolebinding.New().List(authzrolebinding.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return authzrolebinding.New(cl).List(authzrolebinding.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
@@ -57,7 +62,11 @@ func newGetAuthzRoleBindingCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 
-			return authzrolebinding.New().Get(authzrolebinding.GetParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return authzrolebinding.New(cl).Get(authzrolebinding.GetParams{
 				Namespace: namespace,
 				Name:      args[0],
 			})
@@ -80,7 +89,11 @@ func newDeleteAuthzRoleBindingCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 
-			return authzrolebinding.New().Delete(authzrolebinding.DeleteParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return authzrolebinding.New(cl).Delete(authzrolebinding.DeleteParams{
 				Namespace: namespace,
 				Name:      args[0],
 			})

@@ -13,17 +13,25 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// Client defines the client methods used by AuthzRoleBinding operations.
+type Client interface {
+	ListNamespaceRoleBindings(ctx context.Context, namespaceName string, params *gen.ListNamespaceRoleBindingsParams) (*gen.AuthzRoleBindingList, error)
+	GetNamespaceRoleBinding(ctx context.Context, namespaceName, name string) (*gen.AuthzRoleBinding, error)
+	DeleteNamespaceRoleBinding(ctx context.Context, namespaceName, name string) error
+}
+
 // AuthzRoleBinding implements authz role binding operations
-type AuthzRoleBinding struct{}
+type AuthzRoleBinding struct {
+	client Client
+}
 
 // New creates a new authz role binding implementation
-func New() *AuthzRoleBinding {
-	return &AuthzRoleBinding{}
+func New(client Client) *AuthzRoleBinding {
+	return &AuthzRoleBinding{client: client}
 }
 
 // List lists all authz role bindings in a namespace
@@ -34,18 +42,13 @@ func (r *AuthzRoleBinding) List(params ListParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.AuthzRoleBinding, string, error) {
 		p := &gen.ListNamespaceRoleBindingsParams{}
 		p.Limit = &limit
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := c.ListNamespaceRoleBindings(ctx, params.Namespace, p)
+		result, err := r.client.ListNamespaceRoleBindings(ctx, params.Namespace, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -69,12 +72,7 @@ func (r *AuthzRoleBinding) Get(params GetParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.GetNamespaceRoleBinding(ctx, params.Namespace, params.Name)
+	result, err := r.client.GetNamespaceRoleBinding(ctx, params.Namespace, params.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get authz role binding: %w", err)
 	}
@@ -96,12 +94,7 @@ func (r *AuthzRoleBinding) Delete(params DeleteParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteNamespaceRoleBinding(ctx, params.Namespace, params.Name); err != nil {
+	if err := r.client.DeleteNamespaceRoleBinding(ctx, params.Namespace, params.Name); err != nil {
 		return fmt.Errorf("failed to delete authz role binding: %w", err)
 	}
 

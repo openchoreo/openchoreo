@@ -94,3 +94,15 @@ packages:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload:
     interfaces:
       Service:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/authzrole:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/authzrolebinding:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/clusterauthzrole:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/clusterauthzrolebinding:
+    interfaces:
+      Client:

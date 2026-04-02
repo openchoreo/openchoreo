@@ -13,26 +13,29 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// Client defines the client methods used by ClusterAuthzRoleBinding operations.
+type Client interface {
+	ListClusterRoleBindings(ctx context.Context, params *gen.ListClusterRoleBindingsParams) (*gen.ClusterAuthzRoleBindingList, error)
+	GetClusterRoleBinding(ctx context.Context, name string) (*gen.ClusterAuthzRoleBinding, error)
+	DeleteClusterRoleBinding(ctx context.Context, name string) error
+}
+
 // ClusterAuthzRoleBinding implements authz cluster role binding operations
-type ClusterAuthzRoleBinding struct{}
+type ClusterAuthzRoleBinding struct {
+	client Client
+}
 
 // New creates a new authz cluster role binding implementation
-func New() *ClusterAuthzRoleBinding {
-	return &ClusterAuthzRoleBinding{}
+func New(client Client) *ClusterAuthzRoleBinding {
+	return &ClusterAuthzRoleBinding{client: client}
 }
 
 // List lists all cluster-scoped role bindings
 func (c *ClusterAuthzRoleBinding) List() error {
 	ctx := context.Background()
-
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ClusterAuthzRoleBinding, string, error) {
 		p := &gen.ListClusterRoleBindingsParams{}
@@ -40,7 +43,7 @@ func (c *ClusterAuthzRoleBinding) List() error {
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := cl.ListClusterRoleBindings(ctx, p)
+		result, err := c.client.ListClusterRoleBindings(ctx, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -60,12 +63,7 @@ func (c *ClusterAuthzRoleBinding) List() error {
 func (c *ClusterAuthzRoleBinding) Get(params GetParams) error {
 	ctx := context.Background()
 
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := cl.GetClusterRoleBinding(ctx, params.Name)
+	result, err := c.client.GetClusterRoleBinding(ctx, params.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get authz cluster role binding: %w", err)
 	}
@@ -83,12 +81,7 @@ func (c *ClusterAuthzRoleBinding) Get(params GetParams) error {
 func (c *ClusterAuthzRoleBinding) Delete(params DeleteParams) error {
 	ctx := context.Background()
 
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := cl.DeleteClusterRoleBinding(ctx, params.Name); err != nil {
+	if err := c.client.DeleteClusterRoleBinding(ctx, params.Name); err != nil {
 		return fmt.Errorf("failed to delete authz cluster role binding: %w", err)
 	}
 
