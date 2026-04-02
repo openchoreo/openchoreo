@@ -54,7 +54,7 @@ jobs:
             ${pull_description}
 
       - name: Comment on failure
-        if: failure()
+        if: failure() || steps.backport.outputs.was_successful == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
