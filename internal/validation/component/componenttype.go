@@ -83,6 +83,24 @@ func validateResourceTemplate(
 	allErrs := field.ErrorList{}
 	env := validator.GetBaseEnv()
 
+	// Validate includeWhen first with the base env (before forEach extends it).
+	// At runtime, includeWhen is evaluated before forEach — the loop variable
+	// is not in scope, so validation must match that behavior.
+	if tmpl.IncludeWhen != "" {
+		includeWhenCEL, ok := extractCELFromTemplate(tmpl.IncludeWhen)
+		if !ok {
+			allErrs = append(allErrs, field.Invalid(
+				basePath.Child("includeWhen"),
+				tmpl.IncludeWhen,
+				"includeWhen must be wrapped in ${...}"))
+		} else if err := validator.ValidateBooleanExpression(includeWhenCEL, env); err != nil {
+			allErrs = append(allErrs, field.Invalid(
+				basePath.Child("includeWhen"),
+				tmpl.IncludeWhen,
+				fmt.Sprintf("includeWhen must return boolean: %v", err)))
+		}
+	}
+
 	// Handle forEach - analyze and extend environment with loop variable
 	if tmpl.ForEach != "" {
 		forEachCEL, ok := extractCELFromTemplate(tmpl.ForEach)
@@ -123,23 +141,7 @@ func validateResourceTemplate(
 		}
 	}
 
-	// Validate includeWhen if present (must return boolean)
-	if tmpl.IncludeWhen != "" {
-		includeWhenCEL, ok := extractCELFromTemplate(tmpl.IncludeWhen)
-		if !ok {
-			allErrs = append(allErrs, field.Invalid(
-				basePath.Child("includeWhen"),
-				tmpl.IncludeWhen,
-				"includeWhen must be wrapped in ${...}"))
-		} else if err := validator.ValidateBooleanExpression(includeWhenCEL, env); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				basePath.Child("includeWhen"),
-				tmpl.IncludeWhen,
-				fmt.Sprintf("parse error: %v", err)))
-		}
-	}
-
-	// Validate the resource template
+	// Validate the resource template (uses extended env if forEach was present)
 	if tmpl.Template != nil {
 		allErrs = append(allErrs, validateTemplateBody(*tmpl.Template, validator, env, basePath.Child("template"))...)
 	} else {

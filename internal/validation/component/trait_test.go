@@ -539,6 +539,386 @@ func TestValidateClusterTraitCreatesAndPatchesWithSchema(t *testing.T) {
 	})
 }
 
+func TestValidateTraitSpec_CustomBasePath(t *testing.T) {
+	t.Run("errors use custom basePath", func(t *testing.T) {
+		customBase := field.NewPath("spec", "traits").Index(0).Child("spec")
+		spec := v1alpha1.TraitSpec{
+			Creates: []v1alpha1.TraitCreate{
+				{Template: nil},
+			},
+		}
+		errs := ValidateTraitSpec(spec, nil, nil, customBase)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs[0].Field, "spec.traits[0].spec.creates")
+	})
+
+	t.Run("empty spec no errors", func(t *testing.T) {
+		errs := ValidateTraitSpec(v1alpha1.TraitSpec{}, nil, nil, field.NewPath("spec"))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("basePath propagates to validations", func(t *testing.T) {
+		customBase := field.NewPath("spec", "traits").Index(0).Child("spec")
+		spec := v1alpha1.TraitSpec{
+			Validations: []v1alpha1.ValidationRule{
+				{Rule: "not-wrapped", Message: "test"},
+			},
+		}
+		errs := ValidateTraitSpec(spec, nil, nil, customBase)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs[0].Field, "spec.traits[0].spec.validations")
+	})
+}
+
+func TestValidateTraitCreate_ErrorPaths(t *testing.T) {
+	validator, err := NewCELValidator(TraitResource, SchemaOptions{})
+	require.NoError(t, err)
+	basePath := field.NewPath("spec", "creates").Index(0)
+
+	t.Run("includeWhen not wrapped", func(t *testing.T) {
+		create := v1alpha1.TraitCreate{
+			IncludeWhen: "true",
+			Template: &runtime.RawExtension{
+				Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test"}}`),
+			},
+		}
+		errs := validateTraitCreate(create, validator, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "includeWhen must be a template expression wrapped with ${...}")
+	})
+
+	t.Run("includeWhen non-boolean", func(t *testing.T) {
+		parametersSchema := &apiextschema.Structural{
+			Generic: apiextschema.Generic{Type: "object"},
+			Properties: map[string]apiextschema.Structural{
+				"name": {Generic: apiextschema.Generic{Type: "string"}},
+			},
+		}
+		v, err := NewCELValidator(TraitResource, SchemaOptions{ParametersSchema: parametersSchema})
+		require.NoError(t, err)
+
+		create := v1alpha1.TraitCreate{
+			IncludeWhen: "${parameters.name}",
+			Template: &runtime.RawExtension{
+				Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test"}}`),
+			},
+		}
+		errs := validateTraitCreate(create, v, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "includeWhen must return boolean")
+	})
+
+	t.Run("forEach not wrapped", func(t *testing.T) {
+		create := v1alpha1.TraitCreate{
+			ForEach: "parameters.items",
+			Template: &runtime.RawExtension{
+				Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test"}}`),
+			},
+		}
+		errs := validateTraitCreate(create, validator, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "forEach must be a template expression wrapped with ${...}")
+	})
+
+	t.Run("nil template", func(t *testing.T) {
+		create := v1alpha1.TraitCreate{Template: nil}
+		errs := validateTraitCreate(create, validator, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "template is required")
+	})
+
+	t.Run("valid create with all fields", func(t *testing.T) {
+		create := v1alpha1.TraitCreate{
+			IncludeWhen: "${true}",
+			Template: &runtime.RawExtension{
+				Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"${metadata.name}"}}`),
+			},
+		}
+		errs := validateTraitCreate(create, validator, basePath)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid forEach list with template using loop var", func(t *testing.T) {
+		create := v1alpha1.TraitCreate{
+			ForEach: `${["a","b","c"]}`,
+			Var:     "item",
+			Template: &runtime.RawExtension{
+				Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"${item}"}}`),
+			},
+		}
+		errs := validateTraitCreate(create, validator, basePath)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid forEach map with template using loop var", func(t *testing.T) {
+		create := v1alpha1.TraitCreate{
+			ForEach: `${{"k1":"v1","k2":"v2"}}`,
+			Var:     "entry",
+			Template: &runtime.RawExtension{
+				Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"${entry.key}"}}`),
+			},
+		}
+		errs := validateTraitCreate(create, validator, basePath)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("forEach with invalid iterable expression", func(t *testing.T) {
+		parametersSchema := &apiextschema.Structural{
+			Generic: apiextschema.Generic{Type: "object"},
+			Properties: map[string]apiextschema.Structural{
+				"count": {Generic: apiextschema.Generic{Type: "integer"}},
+			},
+		}
+		v, err := NewCELValidator(TraitResource, SchemaOptions{ParametersSchema: parametersSchema})
+		require.NoError(t, err)
+
+		create := v1alpha1.TraitCreate{
+			ForEach: "${parameters.count}",
+			Template: &runtime.RawExtension{
+				Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test"}}`),
+			},
+		}
+		errs := validateTraitCreate(create, v, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "forEach expression must return list or map")
+	})
+
+	t.Run("includeWhen must not reference forEach loop variable", func(t *testing.T) {
+		parametersSchema := &apiextschema.Structural{
+			Generic: apiextschema.Generic{Type: "object"},
+			Properties: map[string]apiextschema.Structural{
+				"volumes": {
+					Generic: apiextschema.Generic{Type: "array"},
+					Items: &apiextschema.Structural{
+						Generic: apiextschema.Generic{Type: "object"},
+						Properties: map[string]apiextschema.Structural{
+							"enabled": {Generic: apiextschema.Generic{Type: "boolean"}},
+							"name":    {Generic: apiextschema.Generic{Type: "string"}},
+						},
+					},
+				},
+			},
+		}
+		v, err := NewCELValidator(TraitResource, SchemaOptions{ParametersSchema: parametersSchema})
+		require.NoError(t, err)
+
+		create := v1alpha1.TraitCreate{
+			ForEach:     `${parameters.volumes}`,
+			Var:         "vol",
+			IncludeWhen: `${vol.enabled}`,
+			Template: &runtime.RawExtension{
+				Raw: []byte(`{"apiVersion":"v1","kind":"PersistentVolumeClaim","metadata":{"name":"${vol.name}"}}`),
+			},
+		}
+		errs := validateTraitCreate(create, v, basePath)
+		require.NotEmpty(t, errs)
+		errStr := errs.ToAggregate().Error()
+		assert.Contains(t, errStr, "includeWhen")
+		assert.Contains(t, errStr, "undeclared reference to 'vol'")
+	})
+}
+
+func TestValidatePatchOperation(t *testing.T) {
+	validator, err := NewCELValidator(TraitResource, SchemaOptions{})
+	require.NoError(t, err)
+	env := validator.GetBaseEnv()
+	basePath := field.NewPath("spec", "patches").Index(0).Child("operations").Index(0)
+
+	makeValue := func(s string) *runtime.RawExtension {
+		return &runtime.RawExtension{Raw: []byte(s)}
+	}
+
+	t.Run("valid add with value", func(t *testing.T) {
+		op := v1alpha1.JSONPatchOperation{
+			Op: "add", Path: "/metadata/annotations/key", Value: makeValue(`"test"`),
+		}
+		errs := validatePatchOperation(op, validator, env, basePath)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid replace with value", func(t *testing.T) {
+		op := v1alpha1.JSONPatchOperation{
+			Op: "replace", Path: "/spec/replicas", Value: makeValue(`3`),
+		}
+		errs := validatePatchOperation(op, validator, env, basePath)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid remove without value", func(t *testing.T) {
+		op := v1alpha1.JSONPatchOperation{
+			Op: "remove", Path: "/metadata/annotations/key",
+		}
+		errs := validatePatchOperation(op, validator, env, basePath)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("invalid op", func(t *testing.T) {
+		op := v1alpha1.JSONPatchOperation{
+			Op: "merge", Path: "/spec/replicas", Value: makeValue(`3`),
+		}
+		errs := validatePatchOperation(op, validator, env, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "invalid patch operation")
+	})
+
+	t.Run("empty path", func(t *testing.T) {
+		op := v1alpha1.JSONPatchOperation{
+			Op: "add", Path: "", Value: makeValue(`"test"`),
+		}
+		errs := validatePatchOperation(op, validator, env, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "patch path is required")
+	})
+
+	t.Run("remove with value rejected", func(t *testing.T) {
+		op := v1alpha1.JSONPatchOperation{
+			Op: "remove", Path: "/metadata/annotations/key", Value: makeValue(`"test"`),
+		}
+		errs := validatePatchOperation(op, validator, env, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "value should not be specified")
+	})
+
+	t.Run("add without value rejected", func(t *testing.T) {
+		op := v1alpha1.JSONPatchOperation{
+			Op: "add", Path: "/metadata/annotations/key",
+		}
+		errs := validatePatchOperation(op, validator, env, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "value is required for 'add' operation")
+	})
+
+	t.Run("replace without value rejected", func(t *testing.T) {
+		op := v1alpha1.JSONPatchOperation{
+			Op: "replace", Path: "/spec/replicas",
+		}
+		errs := validatePatchOperation(op, validator, env, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "value is required for 'replace' operation")
+	})
+
+	t.Run("value with CEL expression validated", func(t *testing.T) {
+		op := v1alpha1.JSONPatchOperation{
+			Op: "add", Path: "/metadata/annotations/key", Value: makeValue(`"${metadata.name}"`),
+		}
+		errs := validatePatchOperation(op, validator, env, basePath)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("value with invalid CEL expression", func(t *testing.T) {
+		op := v1alpha1.JSONPatchOperation{
+			Op: "add", Path: "/metadata/annotations/key", Value: makeValue(`"${bad syntax !!!}"`),
+		}
+		errs := validatePatchOperation(op, validator, env, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "invalid CEL expression")
+	})
+}
+
+func TestValidateTraitPatch_ForEachErrors(t *testing.T) {
+	validator, err := NewCELValidator(TraitResource, SchemaOptions{})
+	require.NoError(t, err)
+	basePath := field.NewPath("spec", "patches").Index(0)
+
+	makeValue := func(s string) *runtime.RawExtension {
+		return &runtime.RawExtension{Raw: []byte(s)}
+	}
+
+	t.Run("forEach not wrapped", func(t *testing.T) {
+		patch := v1alpha1.TraitPatch{
+			ForEach: "parameters.items",
+			Target: v1alpha1.PatchTarget{
+				Group: "apps", Version: "v1", Kind: "Deployment",
+			},
+			Operations: []v1alpha1.JSONPatchOperation{
+				{Op: "add", Path: "/metadata/annotations/key", Value: makeValue(`"test"`)},
+			},
+		}
+		errs := validateTraitPatch(patch, validator, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "forEach must be a template expression wrapped with ${...}")
+	})
+
+	t.Run("valid patch without forEach", func(t *testing.T) {
+		patch := v1alpha1.TraitPatch{
+			Target: v1alpha1.PatchTarget{
+				Group: "apps", Version: "v1", Kind: "Deployment",
+			},
+			Operations: []v1alpha1.JSONPatchOperation{
+				{Op: "add", Path: "/metadata/annotations/key", Value: makeValue(`"test"`)},
+			},
+		}
+		errs := validateTraitPatch(patch, validator, basePath)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid forEach list with patch operations", func(t *testing.T) {
+		patch := v1alpha1.TraitPatch{
+			ForEach: `${["port1","port2"]}`,
+			Var:     "portName",
+			Target: v1alpha1.PatchTarget{
+				Group: "apps", Version: "v1", Kind: "Deployment",
+			},
+			Operations: []v1alpha1.JSONPatchOperation{
+				{Op: "add", Path: "/metadata/annotations/port", Value: makeValue(`"${portName}"`)},
+			},
+		}
+		errs := validateTraitPatch(patch, validator, basePath)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("forEach with invalid iterable in patch", func(t *testing.T) {
+		parametersSchema := &apiextschema.Structural{
+			Generic: apiextschema.Generic{Type: "object"},
+			Properties: map[string]apiextschema.Structural{
+				"count": {Generic: apiextschema.Generic{Type: "integer"}},
+			},
+		}
+		v, err := NewCELValidator(TraitResource, SchemaOptions{ParametersSchema: parametersSchema})
+		require.NoError(t, err)
+
+		patch := v1alpha1.TraitPatch{
+			ForEach: "${parameters.count}",
+			Target: v1alpha1.PatchTarget{
+				Group: "apps", Version: "v1", Kind: "Deployment",
+			},
+			Operations: []v1alpha1.JSONPatchOperation{
+				{Op: "add", Path: "/metadata/annotations/key", Value: makeValue(`"test"`)},
+			},
+		}
+		errs := validateTraitPatch(patch, v, basePath)
+		require.NotEmpty(t, errs)
+		assert.Contains(t, errs.ToAggregate().Error(), "forEach expression must return list or map")
+	})
+}
+
+func TestValidatePatchTarget_WhereClauseVariants(t *testing.T) {
+	validator, err := NewCELValidator(TraitResource, SchemaOptions{})
+	require.NoError(t, err)
+	env := validator.GetBaseEnv()
+	basePath := field.NewPath("spec", "patches").Index(0).Child("target")
+
+	t.Run("where with raw CEL no template syntax", func(t *testing.T) {
+		target := v1alpha1.PatchTarget{
+			Group: "apps", Version: "v1", Kind: "Deployment",
+			Where: "resource.metadata.name == 'test'",
+		}
+		errs := validatePatchTarget(target, validator, env, basePath)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("where returning non-boolean", func(t *testing.T) {
+		target := v1alpha1.PatchTarget{
+			Group: "apps", Version: "v1", Kind: "Deployment",
+			Where: "${resource.metadata.name}",
+		}
+		errs := validatePatchTarget(target, validator, env, basePath)
+		// resource is DynType, so field access returns DynType which is accepted as boolean
+		// This is intentional permissiveness
+		assert.Empty(t, errs)
+	})
+}
+
 func TestExtractCELFromTemplate(t *testing.T) {
 	tests := []struct {
 		name    string

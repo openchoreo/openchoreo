@@ -6,6 +6,7 @@ package component
 import (
 	"testing"
 
+	"github.com/google/cel-go/cel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
@@ -300,4 +301,84 @@ func TestCELValidator_WithoutSchema(t *testing.T) {
 	// Other variables should work
 	err = validator.ValidateExpression("metadata.name")
 	assert.NoError(t, err)
+}
+
+func TestNewCELValidator_UnknownResourceType(t *testing.T) {
+	validator, err := NewCELValidator(ResourceType(99), SchemaOptions{})
+	require.Error(t, err)
+	assert.Nil(t, validator)
+	assert.Contains(t, err.Error(), "unknown resource type")
+}
+
+func TestCELValidator_ValidateWithEnv_Errors(t *testing.T) {
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{})
+	require.NoError(t, err)
+	env := validator.GetBaseEnv()
+
+	t.Run("parse error", func(t *testing.T) {
+		err := validator.ValidateWithEnv("!!! invalid syntax", env)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "parse error")
+	})
+
+	t.Run("type check error with undeclared reference", func(t *testing.T) {
+		err := validator.ValidateWithEnv("undeclaredVar.field", env)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "type check error")
+	})
+}
+
+func TestCELValidator_BooleanExpression_DynTypeAccepted(t *testing.T) {
+	// DynType expressions should be accepted since they could be boolean at runtime
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{})
+	require.NoError(t, err)
+
+	// Extend env with a dyn-typed variable
+	env, err := validator.GetBaseEnv().Extend(
+		cel.Variable("dynVar", cel.DynType),
+	)
+	require.NoError(t, err)
+
+	err = validator.ValidateBooleanExpression("dynVar", env)
+	assert.NoError(t, err)
+}
+
+func TestCELValidator_BooleanExpression_ParseError(t *testing.T) {
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{})
+	require.NoError(t, err)
+	env := validator.GetBaseEnv()
+
+	err = validator.ValidateBooleanExpression("!!! bad syntax", env)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse error")
+}
+
+func TestCELValidator_IterableExpression_DynTypeAccepted(t *testing.T) {
+	// DynType expressions should be accepted since they could be iterable at runtime
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{})
+	require.NoError(t, err)
+
+	env, err := validator.GetBaseEnv().Extend(
+		cel.Variable("dynVar", cel.DynType),
+	)
+	require.NoError(t, err)
+
+	err = validator.ValidateIterableExpression("dynVar", env)
+	assert.NoError(t, err)
+}
+
+func TestCELValidator_IterableExpression_ParseError(t *testing.T) {
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{})
+	require.NoError(t, err)
+	env := validator.GetBaseEnv()
+
+	err = validator.ValidateIterableExpression("!!! bad syntax", env)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse error")
+}
+
+func TestCELValidator_GetTypeProvider(t *testing.T) {
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{})
+	require.NoError(t, err)
+	assert.NotNil(t, validator.GetTypeProvider())
 }
