@@ -8,7 +8,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
@@ -680,4 +683,149 @@ func TestFindResourceRelease(t *testing.T) {
 		assert.Nil(t, rc)
 		assert.Equal(t, "", ns)
 	})
+}
+
+func TestComputeHealthFromObject(t *testing.T) {
+	t.Run("healthy Deployment", func(t *testing.T) {
+		replicas := int32(1)
+		dep := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Generation: 1},
+			Spec:       appsv1.DeploymentSpec{Replicas: &replicas},
+			Status: appsv1.DeploymentStatus{
+				ObservedGeneration:  1,
+				Replicas:            1,
+				UpdatedReplicas:     1,
+				ReadyReplicas:       1,
+				AvailableReplicas:   1,
+				UnavailableReplicas: 0,
+				Conditions: []appsv1.DeploymentCondition{
+					{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+				},
+			},
+		}
+		obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(dep)
+		require.NoError(t, err)
+		obj["apiVersion"] = "apps/v1"
+		obj["kind"] = "Deployment"
+
+		health := computeHealthFromObject(obj, "apps", "Deployment")
+		require.NotNil(t, health)
+		assert.Equal(t, "Healthy", health.Status)
+		assert.Empty(t, health.Message)
+	})
+
+	t.Run("health check error returns Unknown with message", func(t *testing.T) {
+		// A Deployment object with invalid structure triggers a conversion error
+		obj := map[string]any{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"status": map[string]any{
+				"replicas": "not-a-number",
+			},
+		}
+
+		health := computeHealthFromObject(obj, "apps", "Deployment")
+		require.NotNil(t, health)
+		assert.Equal(t, "Unknown", health.Status)
+		assert.NotEmpty(t, health.Message)
+	})
+
+	t.Run("unknown resource kind returns Healthy", func(t *testing.T) {
+		obj := map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata":   map[string]any{"name": "my-cm"},
+		}
+
+		health := computeHealthFromObject(obj, "", "ConfigMap")
+		require.NotNil(t, health)
+		assert.Equal(t, "Healthy", health.Status)
+	})
+}
+
+func TestGetStringField(t *testing.T) {
+	t.Run("existing key", func(t *testing.T) {
+		obj := map[string]any{"kind": "Pod"}
+		assert.Equal(t, "Pod", getStringField(obj, "kind"))
+	})
+
+	t.Run("missing key", func(t *testing.T) {
+		obj := map[string]any{"kind": "Pod"}
+		assert.Equal(t, "", getStringField(obj, "apiVersion"))
+	})
+
+	t.Run("non-string value", func(t *testing.T) {
+		obj := map[string]any{"count": 42}
+		assert.Equal(t, "", getStringField(obj, "count"))
+	})
+}
+
+func TestSanitizeObject_EdgeCases(t *testing.T) {
+	t.Run("no metadata key", func(t *testing.T) {
+		obj := map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+		}
+
+		result := sanitizeObject(obj, "ConfigMap")
+		assert.Equal(t, "v1", result["apiVersion"])
+		assert.Equal(t, "ConfigMap", result["kind"])
+	})
+
+	t.Run("non-Secret with data field preserved", func(t *testing.T) {
+		obj := map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata":   map[string]any{"name": "my-cm"},
+			"data":       map[string]any{"key": "value"},
+		}
+
+		result := sanitizeObject(obj, "ConfigMap")
+		assert.Contains(t, result, "data")
+		assert.Equal(t, map[string]any{"key": "value"}, result["data"])
+	})
+}
+
+func TestResolveObservabilityPlaneInfo_EdgeCases(t *testing.T) {
+	t.Run("empty PlaneID falls back to Name", func(t *testing.T) {
+		obsResult := &controller.ObservabilityPlaneResult{
+			ObservabilityPlane: &openchoreov1alpha1.ObservabilityPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "obs-fallback",
+					Namespace: "obs-ns",
+				},
+				Spec: openchoreov1alpha1.ObservabilityPlaneSpec{},
+			},
+		}
+
+		pi := resolveObservabilityPlaneInfo(obsResult)
+		assert.Equal(t, "obs-fallback", pi.planeID)
+	})
+
+	t.Run("cluster-scoped empty PlaneID falls back to Name", func(t *testing.T) {
+		obsResult := &controller.ObservabilityPlaneResult{
+			ClusterObservabilityPlane: &openchoreov1alpha1.ClusterObservabilityPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cops-fallback",
+				},
+				Spec: openchoreov1alpha1.ClusterObservabilityPlaneSpec{},
+			},
+		}
+
+		pi := resolveObservabilityPlaneInfo(obsResult)
+		assert.Equal(t, "cops-fallback", pi.planeID)
+		assert.Equal(t, "_cluster", pi.crNamespace)
+	})
+
+	t.Run("both nil returns empty planeInfo", func(t *testing.T) {
+		obsResult := &controller.ObservabilityPlaneResult{}
+		pi := resolveObservabilityPlaneInfo(obsResult)
+		assert.Equal(t, planeInfo{}, pi)
+	})
+}
+
+func TestResolveDataPlaneInfo_BothNil(t *testing.T) {
+	dpResult := &controller.DataPlaneResult{}
+	pi := resolveDataPlaneInfo(dpResult)
+	assert.Equal(t, planeInfo{}, pi)
 }
