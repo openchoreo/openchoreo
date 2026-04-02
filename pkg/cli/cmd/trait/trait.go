@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -42,8 +43,11 @@ func newGetTraitCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-
-			return trait.New().Get(trait.GetParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return trait.New(cl).Get(trait.GetParams{
 				Namespace: namespace,
 				TraitName: args[0],
 			})
@@ -65,8 +69,11 @@ func newDeleteTraitCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-
-			return trait.New().Delete(trait.DeleteParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return trait.New(cl).Delete(trait.DeleteParams{
 				Namespace: namespace,
 				TraitName: args[0],
 			})
@@ -83,7 +90,11 @@ func newListTraitCmd() *cobra.Command {
 		Command: constants.ListTrait,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return trait.New().List(trait.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return trait.New(cl).List(trait.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},

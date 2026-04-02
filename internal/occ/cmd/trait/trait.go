@@ -13,17 +13,25 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// Client defines the client methods used by Trait operations.
+type Client interface {
+	ListTraits(ctx context.Context, namespaceName string, params *gen.ListTraitsParams) (*gen.TraitList, error)
+	GetTrait(ctx context.Context, namespaceName string, traitName string) (*gen.Trait, error)
+	DeleteTrait(ctx context.Context, namespaceName string, traitName string) error
+}
+
 // Trait implements trait operations
-type Trait struct{}
+type Trait struct {
+	client Client
+}
 
 // New creates a new trait implementation
-func New() *Trait {
-	return &Trait{}
+func New(client Client) *Trait {
+	return &Trait{client: client}
 }
 
 // List lists all traits in a namespace
@@ -34,18 +42,13 @@ func (t *Trait) List(params ListParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Trait, string, error) {
 		p := &gen.ListTraitsParams{}
 		p.Limit = &limit
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := c.ListTraits(ctx, params.Namespace, p)
+		result, err := t.client.ListTraits(ctx, params.Namespace, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -69,12 +72,7 @@ func (t *Trait) Get(params GetParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.GetTrait(ctx, params.Namespace, params.TraitName)
+	result, err := t.client.GetTrait(ctx, params.Namespace, params.TraitName)
 	if err != nil {
 		return err
 	}
@@ -96,12 +94,7 @@ func (t *Trait) Delete(params DeleteParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteTrait(ctx, params.Namespace, params.TraitName); err != nil {
+	if err := t.client.DeleteTrait(ctx, params.Namespace, params.TraitName); err != nil {
 		return err
 	}
 

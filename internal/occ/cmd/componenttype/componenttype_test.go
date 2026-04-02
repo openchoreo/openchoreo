@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package clustercomponenttype
+package componenttype
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustercomponenttype/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/componenttype/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -50,26 +50,26 @@ func TestPrint_Nil(t *testing.T) {
 	out := captureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
-	assert.Contains(t, out, "No cluster component types found")
+	assert.Contains(t, out, "No component types found")
 }
 
 func TestPrint_Empty(t *testing.T) {
 	out := captureStdout(t, func() {
-		require.NoError(t, printList([]gen.ClusterComponentType{}))
+		require.NoError(t, printList([]gen.ComponentType{}))
 	})
-	assert.Contains(t, out, "No cluster component types found")
+	assert.Contains(t, out, "No component types found")
 }
 
 func TestPrint_WithItems(t *testing.T) {
 	now := time.Now()
-	workloadType := gen.ClusterComponentTypeSpecWorkloadTypeDeployment
-	items := []gen.ClusterComponentType{
+	workloadType := gen.ComponentTypeSpecWorkloadTypeDeployment
+	items := []gen.ComponentType{
 		{
 			Metadata: gen.ObjectMeta{
 				Name:              "web-app",
 				CreationTimestamp: &now,
 			},
-			Spec: &gen.ClusterComponentTypeSpec{
+			Spec: &gen.ComponentTypeSpec{
 				WorkloadType: workloadType,
 			},
 		},
@@ -94,7 +94,7 @@ func TestPrint_WithItems(t *testing.T) {
 
 func TestPrint_NilSpec(t *testing.T) {
 	now := time.Now()
-	items := []gen.ClusterComponentType{
+	items := []gen.ComponentType{
 		{
 			Metadata: gen.ObjectMeta{
 				Name:              "no-spec-type",
@@ -111,26 +111,43 @@ func TestPrint_NilSpec(t *testing.T) {
 	assert.Contains(t, out, "no-spec-type")
 }
 
+// --- Validation tests ---
+
+func TestList_ValidationError(t *testing.T) {
+	ct := New(mocks.NewMockClient(t))
+	assert.Error(t, ct.List(ListParams{Namespace: ""}))
+}
+
+func TestGet_ValidationError(t *testing.T) {
+	ct := New(mocks.NewMockClient(t))
+	assert.Error(t, ct.Get(GetParams{Namespace: ""}))
+}
+
+func TestDelete_ValidationError(t *testing.T) {
+	ct := New(mocks.NewMockClient(t))
+	assert.Error(t, ct.Delete(DeleteParams{Namespace: "my-org", ComponentTypeName: ""}))
+}
+
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
-	mc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("server error"))
+	mc.EXPECT().ListComponentTypes(mock.Anything, "my-org", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
-	cct := New(mc)
-	assert.EqualError(t, cct.List(), "server error")
+	ct := New(mc)
+	assert.EqualError(t, ct.List(ListParams{Namespace: "my-org"}), "server error")
 }
 
 func TestList_Success(t *testing.T) {
 	mc := mocks.NewMockClient(t)
-	mc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{
-		Items:      []gen.ClusterComponentType{{Metadata: gen.ObjectMeta{Name: "web-app"}}},
+	mc.EXPECT().ListComponentTypes(mock.Anything, "my-org", mock.Anything).Return(&gen.ComponentTypeList{
+		Items:      []gen.ComponentType{{Metadata: gen.ObjectMeta{Name: "web-app"}}},
 		Pagination: gen.Pagination{},
 	}, nil)
 
-	cct := New(mc)
+	ct := New(mc)
 	out := captureStdout(t, func() {
-		require.NoError(t, cct.List())
+		require.NoError(t, ct.List(ListParams{Namespace: "my-org"}))
 	})
 
 	assert.Contains(t, out, "web-app")
@@ -138,13 +155,13 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	workloadType := gen.ClusterComponentTypeSpecWorkloadTypeDeployment
+	workloadType := gen.ComponentTypeSpecWorkloadTypeDeployment
 	mc := mocks.NewMockClient(t)
-	mc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{
-		Items: []gen.ClusterComponentType{
+	mc.EXPECT().ListComponentTypes(mock.Anything, "my-org", mock.Anything).Return(&gen.ComponentTypeList{
+		Items: []gen.ComponentType{
 			{
 				Metadata: gen.ObjectMeta{Name: "web-app", CreationTimestamp: &now},
-				Spec:     &gen.ClusterComponentTypeSpec{WorkloadType: workloadType},
+				Spec:     &gen.ComponentTypeSpec{WorkloadType: workloadType},
 			},
 			{
 				Metadata: gen.ObjectMeta{Name: "batch-job", CreationTimestamp: &now},
@@ -153,52 +170,49 @@ func TestList_MultipleItems(t *testing.T) {
 		Pagination: gen.Pagination{},
 	}, nil)
 
-	cct := New(mc)
+	ct := New(mc)
 	out := captureStdout(t, func() {
-		require.NoError(t, cct.List())
+		require.NoError(t, ct.List(ListParams{Namespace: "my-org"}))
 	})
 
-	assert.Contains(t, out, "NAME")
-	assert.Contains(t, out, "WORKLOAD TYPE")
-	assert.Contains(t, out, "AGE")
 	assert.Contains(t, out, "web-app")
 	assert.Contains(t, out, "batch-job")
 }
 
 func TestList_Empty(t *testing.T) {
 	mc := mocks.NewMockClient(t)
-	mc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{
-		Items:      []gen.ClusterComponentType{},
+	mc.EXPECT().ListComponentTypes(mock.Anything, "my-org", mock.Anything).Return(&gen.ComponentTypeList{
+		Items:      []gen.ComponentType{},
 		Pagination: gen.Pagination{},
 	}, nil)
 
-	cct := New(mc)
+	ct := New(mc)
 	out := captureStdout(t, func() {
-		require.NoError(t, cct.List())
+		require.NoError(t, ct.List(ListParams{Namespace: "my-org"}))
 	})
 
-	assert.Contains(t, out, "No cluster component types found")
+	assert.Contains(t, out, "No component types found")
 }
 
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
-	mc.EXPECT().GetClusterComponentType(mock.Anything, "missing").Return(nil, fmt.Errorf("not found: missing"))
+	mc.EXPECT().GetComponentType(mock.Anything, "my-org", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
-	cct := New(mc)
-	assert.EqualError(t, cct.Get(GetParams{ClusterComponentTypeName: "missing"}), "not found: missing")
+	ct := New(mc)
+	assert.EqualError(t, ct.Get(GetParams{Namespace: "my-org", ComponentTypeName: "missing"}), "not found: missing")
 }
 
 func TestGet_Success(t *testing.T) {
 	mc := mocks.NewMockClient(t)
-	mc.EXPECT().GetClusterComponentType(mock.Anything, "web-app").Return(&gen.ClusterComponentType{
+	mc.EXPECT().GetComponentType(mock.Anything, "my-org", "web-app").Return(&gen.ComponentType{
 		Metadata: gen.ObjectMeta{Name: "web-app"},
 	}, nil)
 
-	cct := New(mc)
+	ct := New(mc)
 	out := captureStdout(t, func() {
-		require.NoError(t, cct.Get(GetParams{ClusterComponentTypeName: "web-app"}))
+		require.NoError(t, ct.Get(GetParams{Namespace: "my-org", ComponentTypeName: "web-app"}))
 	})
 
 	assert.Contains(t, out, "name: web-app")
@@ -208,20 +222,20 @@ func TestGet_Success(t *testing.T) {
 
 func TestDelete_APIError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
-	mc.EXPECT().DeleteClusterComponentType(mock.Anything, "web-app").Return(fmt.Errorf("forbidden: web-app"))
+	mc.EXPECT().DeleteComponentType(mock.Anything, "my-org", "web-app").Return(fmt.Errorf("forbidden: web-app"))
 
-	cct := New(mc)
-	assert.EqualError(t, cct.Delete(DeleteParams{ClusterComponentTypeName: "web-app"}), "forbidden: web-app")
+	ct := New(mc)
+	assert.EqualError(t, ct.Delete(DeleteParams{Namespace: "my-org", ComponentTypeName: "web-app"}), "forbidden: web-app")
 }
 
 func TestDelete_Success(t *testing.T) {
 	mc := mocks.NewMockClient(t)
-	mc.EXPECT().DeleteClusterComponentType(mock.Anything, "web-app").Return(nil)
+	mc.EXPECT().DeleteComponentType(mock.Anything, "my-org", "web-app").Return(nil)
 
-	cct := New(mc)
+	ct := New(mc)
 	out := captureStdout(t, func() {
-		require.NoError(t, cct.Delete(DeleteParams{ClusterComponentTypeName: "web-app"}))
+		require.NoError(t, ct.Delete(DeleteParams{Namespace: "my-org", ComponentTypeName: "web-app"}))
 	})
 
-	assert.Contains(t, out, "ClusterComponentType 'web-app' deleted")
+	assert.Contains(t, out, "ComponentType 'web-app' deleted")
 }

@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -41,7 +42,11 @@ func newGetClusterComponentTypeCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return clustercomponenttype.New().Get(clustercomponenttype.GetParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return clustercomponenttype.New(cl).Get(clustercomponenttype.GetParams{
 				ClusterComponentTypeName: args[0],
 			})
 		},
@@ -58,7 +63,11 @@ func newDeleteClusterComponentTypeCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return clustercomponenttype.New().Delete(clustercomponenttype.DeleteParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return clustercomponenttype.New(cl).Delete(clustercomponenttype.DeleteParams{
 				ClusterComponentTypeName: args[0],
 			})
 		},
@@ -71,7 +80,11 @@ func newListClusterComponentTypeCmd() *cobra.Command {
 		Command: constants.ListClusterComponentType,
 		Flags:   []flags.Flag{},
 		RunE: func(fg *builder.FlagGetter) error {
-			return clustercomponenttype.New().List()
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return clustercomponenttype.New(cl).List()
 		},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()

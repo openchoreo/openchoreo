@@ -10,3 +10,12 @@ packages:
   github.com/openchoreo/openchoreo/internal/occ/cmd/clustertrait:
     interfaces:
       Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/clustercomponenttype:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/componenttype:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/trait:
+    interfaces:
+      Client:

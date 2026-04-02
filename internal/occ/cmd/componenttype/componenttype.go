@@ -13,17 +13,25 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// Client defines the client methods used by ComponentType operations.
+type Client interface {
+	ListComponentTypes(ctx context.Context, namespaceName string, params *gen.ListComponentTypesParams) (*gen.ComponentTypeList, error)
+	GetComponentType(ctx context.Context, namespaceName string, ctName string) (*gen.ComponentType, error)
+	DeleteComponentType(ctx context.Context, namespaceName string, ctName string) error
+}
+
 // ComponentType implements component type operations
-type ComponentType struct{}
+type ComponentType struct {
+	client Client
+}
 
 // New creates a new component type implementation
-func New() *ComponentType {
-	return &ComponentType{}
+func New(client Client) *ComponentType {
+	return &ComponentType{client: client}
 }
 
 // List lists all component types in a namespace
@@ -34,18 +42,13 @@ func (ct *ComponentType) List(params ListParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ComponentType, string, error) {
 		p := &gen.ListComponentTypesParams{}
 		p.Limit = &limit
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := c.ListComponentTypes(ctx, params.Namespace, p)
+		result, err := ct.client.ListComponentTypes(ctx, params.Namespace, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -69,12 +72,7 @@ func (ct *ComponentType) Get(params GetParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.GetComponentType(ctx, params.Namespace, params.ComponentTypeName)
+	result, err := ct.client.GetComponentType(ctx, params.Namespace, params.ComponentTypeName)
 	if err != nil {
 		return err
 	}
@@ -96,12 +94,7 @@ func (ct *ComponentType) Delete(params DeleteParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteComponentType(ctx, params.Namespace, params.ComponentTypeName); err != nil {
+	if err := ct.client.DeleteComponentType(ctx, params.Namespace, params.ComponentTypeName); err != nil {
 		return err
 	}
 

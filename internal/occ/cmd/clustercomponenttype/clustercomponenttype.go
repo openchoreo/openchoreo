@@ -13,26 +13,29 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// Client defines the client methods used by ClusterComponentType operations.
+type Client interface {
+	ListClusterComponentTypes(ctx context.Context, params *gen.ListClusterComponentTypesParams) (*gen.ClusterComponentTypeList, error)
+	GetClusterComponentType(ctx context.Context, cctName string) (*gen.ClusterComponentType, error)
+	DeleteClusterComponentType(ctx context.Context, cctName string) error
+}
+
 // ClusterComponentType implements cluster component type operations
-type ClusterComponentType struct{}
+type ClusterComponentType struct {
+	client Client
+}
 
 // New creates a new cluster component type implementation
-func New() *ClusterComponentType {
-	return &ClusterComponentType{}
+func New(client Client) *ClusterComponentType {
+	return &ClusterComponentType{client: client}
 }
 
 // List lists all cluster-scoped component types
 func (c *ClusterComponentType) List() error {
 	ctx := context.Background()
-
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ClusterComponentType, string, error) {
 		p := &gen.ListClusterComponentTypesParams{}
@@ -40,7 +43,7 @@ func (c *ClusterComponentType) List() error {
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := cl.ListClusterComponentTypes(ctx, p)
+		result, err := c.client.ListClusterComponentTypes(ctx, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -60,12 +63,7 @@ func (c *ClusterComponentType) List() error {
 func (c *ClusterComponentType) Get(params GetParams) error {
 	ctx := context.Background()
 
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := cl.GetClusterComponentType(ctx, params.ClusterComponentTypeName)
+	result, err := c.client.GetClusterComponentType(ctx, params.ClusterComponentTypeName)
 	if err != nil {
 		return err
 	}
@@ -83,12 +81,7 @@ func (c *ClusterComponentType) Get(params GetParams) error {
 func (c *ClusterComponentType) Delete(params DeleteParams) error {
 	ctx := context.Background()
 
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := cl.DeleteClusterComponentType(ctx, params.ClusterComponentTypeName); err != nil {
+	if err := c.client.DeleteClusterComponentType(ctx, params.ClusterComponentTypeName); err != nil {
 		return err
 	}
 

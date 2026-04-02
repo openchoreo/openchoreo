@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -42,8 +43,11 @@ func newGetComponentTypeCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-
-			return componenttype.New().Get(componenttype.GetParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return componenttype.New(cl).Get(componenttype.GetParams{
 				Namespace:         namespace,
 				ComponentTypeName: args[0],
 			})
@@ -65,8 +69,11 @@ func newDeleteComponentTypeCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-
-			return componenttype.New().Delete(componenttype.DeleteParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return componenttype.New(cl).Delete(componenttype.DeleteParams{
 				Namespace:         namespace,
 				ComponentTypeName: args[0],
 			})
@@ -83,7 +90,11 @@ func newListComponentTypeCmd() *cobra.Command {
 		Command: constants.ListComponentType,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return componenttype.New().List(componenttype.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return componenttype.New(cl).List(componenttype.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
