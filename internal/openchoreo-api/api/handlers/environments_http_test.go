@@ -3,24 +3,6 @@
 
 package handlers
 
-// HTTP-layer integration tests for the environments resource.
-//
-// These tests go beyond the direct-call tests in environments_test.go by
-// exercising all three behavioral concerns raised in code review:
-//
-//  1. HTTP/router layer — requests flow through gen.NewStrictHandler and the
-//     real net/http mux, so route matching, path-parameter extraction, content-
-//     type negotiation, and JSON serialization are all exercised.
-//
-//  2. OpenAPI contract — every success response is validated against the spec
-//     generated from openapi/openchoreo-api.yaml via assertConformsToSpec, so a
-//     schema drift is caught without needing a live server.
-//
-//  3. K8s side effects — create/update/delete operations verify the expected
-//     object state in the fake client after the HTTP call returns, confirming that
-//     the handler actually mutates the store rather than just returning the right
-//     status code.
-
 import (
 	"context"
 	"encoding/json"

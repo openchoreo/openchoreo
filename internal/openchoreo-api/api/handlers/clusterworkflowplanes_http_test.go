@@ -3,20 +3,6 @@
 
 package handlers
 
-// HTTP-layer integration tests for the clusterworkflowplanes resource.
-//
-// These tests exercise three behavioral concerns:
-//
-//  1. HTTP/router layer — requests flow through gen.NewStrictHandler and the
-//     real net/http mux, so route matching, path-parameter extraction, content-
-//     type negotiation, and JSON serialization are all exercised.
-//
-//  2. OpenAPI contract — every success response is validated against the spec
-//     via assertConformsToSpec, so schema drift is caught without a live server.
-//
-//  3. K8s side effects — create/update/delete operations verify the expected
-//     object state in the fake client after the HTTP call returns.
-
 import (
 	"context"
 	"encoding/json"
