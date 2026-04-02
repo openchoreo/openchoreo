@@ -18,11 +18,10 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -84,30 +83,32 @@ func newFakeClient(objects ...client.Object) client.Client {
 		Build()
 }
 
+const testNamespace = "ns-1"
+
 // testReleaseBinding creates a ReleaseBinding fixture with an owner ref UID for matching.
-func testReleaseBinding(namespace, name, projectName, componentName, envName string) *openchoreov1alpha1.ReleaseBinding {
+func testReleaseBinding() *openchoreov1alpha1.ReleaseBinding {
 	return &openchoreov1alpha1.ReleaseBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			UID:       types.UID(name + "-uid"),
+			Name:      "rb-1",
+			Namespace: testNamespace,
+			UID:       "rb-1-uid",
 		},
 		Spec: openchoreov1alpha1.ReleaseBindingSpec{
 			Owner: openchoreov1alpha1.ReleaseBindingOwner{
-				ProjectName:   projectName,
-				ComponentName: componentName,
+				ProjectName:   "proj-1",
+				ComponentName: "comp-1",
 			},
-			Environment: envName,
+			Environment: "dev",
 		},
 	}
 }
 
 // testRenderedRelease creates a RenderedRelease owned by the given ReleaseBinding.
-func testRenderedRelease(namespace, name string, rb *openchoreov1alpha1.ReleaseBinding, targetPlane string, resources []openchoreov1alpha1.ResourceStatus) *openchoreov1alpha1.RenderedRelease {
+func testRenderedRelease(rb *openchoreov1alpha1.ReleaseBinding, targetPlane string, resources []openchoreov1alpha1.ResourceStatus) *openchoreov1alpha1.RenderedRelease {
 	return &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:      "rr-1",
+			Namespace: testNamespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: "core.choreo.dev/v1alpha1",
@@ -132,11 +133,11 @@ func testRenderedRelease(namespace, name string, rb *openchoreov1alpha1.ReleaseB
 	}
 }
 
-func testDataPlane(namespace, name string) *openchoreov1alpha1.DataPlane {
+func testDataPlane(name string) *openchoreov1alpha1.DataPlane {
 	return &openchoreov1alpha1.DataPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: testNamespace,
 		},
 		Spec: openchoreov1alpha1.DataPlaneSpec{
 			PlaneID: name + "-id",
@@ -147,11 +148,11 @@ func testDataPlane(namespace, name string) *openchoreov1alpha1.DataPlane {
 	}
 }
 
-func testEnvironment(namespace, name string) *openchoreov1alpha1.Environment {
+func testEnvironment() *openchoreov1alpha1.Environment {
 	return &openchoreov1alpha1.Environment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:      "dev",
+			Namespace: testNamespace,
 		},
 	}
 }
@@ -210,45 +211,45 @@ func TestResolveReleaseContexts(t *testing.T) {
 		fc := newFakeClient()
 		svc := &k8sResourcesService{k8sClient: fc, logger: testLogger()}
 
-		_, err := svc.resolveReleaseContexts(context.Background(), "ns-1", "nonexistent")
+		_, err := svc.resolveReleaseContexts(context.Background(), testNamespace, "nonexistent")
 		require.ErrorIs(t, err, ErrReleaseBindingNotFound)
 	})
 
 	t.Run("no owned releases returns nil", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		env := testEnvironment("ns-1", "dev")
-		dp := testDataPlane("ns-1", "default")
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
 		fc := newFakeClient(rb, env, dp)
 		svc := &k8sResourcesService{k8sClient: fc, logger: testLogger()}
 
-		contexts, err := svc.resolveReleaseContexts(context.Background(), "ns-1", "rb-1")
+		contexts, err := svc.resolveReleaseContexts(context.Background(), testNamespace, "rb-1")
 		require.NoError(t, err)
 		require.Nil(t, contexts)
 	})
 
 	t.Run("environment not found", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		rr := testRenderedRelease("ns-1", "rr-1", rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rb := testReleaseBinding()
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, rr)
 		svc := &k8sResourcesService{k8sClient: fc, logger: testLogger()}
 
-		_, err := svc.resolveReleaseContexts(context.Background(), "ns-1", "rb-1")
+		_, err := svc.resolveReleaseContexts(context.Background(), testNamespace, "rb-1")
 		require.ErrorIs(t, err, ErrEnvironmentNotFound)
 	})
 
 	t.Run("success with dataplane release", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		env := testEnvironment("ns-1", "dev")
-		dp := testDataPlane("ns-1", "default")
-		rr := testRenderedRelease("ns-1", "rr-1", rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
 		svc := &k8sResourcesService{k8sClient: fc, logger: testLogger()}
 
-		contexts, err := svc.resolveReleaseContexts(context.Background(), "ns-1", "rb-1")
+		contexts, err := svc.resolveReleaseContexts(context.Background(), testNamespace, "rb-1")
 		require.NoError(t, err)
 		require.Len(t, contexts, 1)
 		assert.Equal(t, "rr-1", contexts[0].release.Name)
@@ -262,7 +263,7 @@ func TestResolveReleaseContexts(t *testing.T) {
 
 func TestResolvePlaneInfo(t *testing.T) {
 	t.Run("dataplane target returns dataplane info", func(t *testing.T) {
-		dp := testDataPlane("ns-1", "my-dp")
+		dp := testDataPlane("my-dp")
 		dpResult := &controller.DataPlaneResult{DataPlane: dp}
 
 		release := &openchoreov1alpha1.RenderedRelease{
@@ -277,9 +278,9 @@ func TestResolvePlaneInfo(t *testing.T) {
 	})
 
 	t.Run("observabilityplane target resolves obs plane", func(t *testing.T) {
-		dp := testDataPlane("ns-1", "my-dp")
+		dp := testDataPlane("my-dp")
 		obs := &openchoreov1alpha1.ObservabilityPlane{
-			ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "ns-1"},
+			ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: testNamespace},
 			Spec: openchoreov1alpha1.ObservabilityPlaneSpec{
 				PlaneID:     "obs-id",
 				ObserverURL: "https://observer.test",
@@ -310,7 +311,7 @@ func TestGetResourceTree(t *testing.T) {
 		fc := newFakeClient()
 		svc := NewService(fc, nil, testLogger())
 
-		_, err := svc.GetResourceTree(context.Background(), "ns-1", "rb-1")
+		_, err := svc.GetResourceTree(context.Background(), testNamespace, "rb-1")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "gateway client is not configured")
 	})
@@ -320,29 +321,29 @@ func TestGetResourceTree(t *testing.T) {
 		fc := newFakeClient()
 		svc := NewService(fc, gc, testLogger())
 
-		_, err := svc.GetResourceTree(context.Background(), "ns-1", "nonexistent")
+		_, err := svc.GetResourceTree(context.Background(), testNamespace, "nonexistent")
 		require.ErrorIs(t, err, ErrReleaseBindingNotFound)
 	})
 
 	t.Run("empty tree when no owned releases", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		env := testEnvironment("ns-1", "dev")
-		dp := testDataPlane("ns-1", "default")
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
 		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {})
 		fc := newFakeClient(rb, env, dp)
 		svc := NewService(fc, gc, testLogger())
 
-		result, err := svc.GetResourceTree(context.Background(), "ns-1", "rb-1")
+		result, err := svc.GetResourceTree(context.Background(), testNamespace, "rb-1")
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		assert.Empty(t, result.RenderedReleases)
 	})
 
 	t.Run("success returns resource tree with nodes", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		env := testEnvironment("ns-1", "dev")
-		dp := testDataPlane("ns-1", "default")
-		rr := testRenderedRelease("ns-1", "rr-1", rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
 			{ID: "svc", Group: "", Version: "v1", Kind: "Service", Name: "web-svc", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -356,7 +357,7 @@ func TestGetResourceTree(t *testing.T) {
 		})
 
 		svc := NewService(fc, gc, testLogger())
-		result, err := svc.GetResourceTree(context.Background(), "ns-1", "rb-1")
+		result, err := svc.GetResourceTree(context.Background(), testNamespace, "rb-1")
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		require.Len(t, result.RenderedReleases, 1)
@@ -368,10 +369,10 @@ func TestGetResourceTree(t *testing.T) {
 	})
 
 	t.Run("gateway 500 skips resource gracefully", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		env := testEnvironment("ns-1", "dev")
-		dp := testDataPlane("ns-1", "default")
-		rr := testRenderedRelease("ns-1", "rr-1", rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
 			{ID: "svc", Group: "", Version: "v1", Kind: "Service", Name: "web-svc", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -381,7 +382,7 @@ func TestGetResourceTree(t *testing.T) {
 		})
 
 		svc := NewService(fc, gc, testLogger())
-		result, err := svc.GetResourceTree(context.Background(), "ns-1", "rb-1")
+		result, err := svc.GetResourceTree(context.Background(), testNamespace, "rb-1")
 		require.NoError(t, err)
 		require.Len(t, result.RenderedReleases, 1)
 		assert.Empty(t, result.RenderedReleases[0].Nodes)
@@ -395,31 +396,31 @@ func TestGetResourceEvents(t *testing.T) {
 		fc := newFakeClient()
 		svc := NewService(fc, nil, testLogger())
 
-		_, err := svc.GetResourceEvents(context.Background(), "ns-1", "rb-1", "apps", "v1", "Deployment", "web")
+		_, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1", "apps", "v1", "Deployment", "web")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "gateway client is not configured")
 	})
 
 	t.Run("resource not found returns error", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		env := testEnvironment("ns-1", "dev")
-		dp := testDataPlane("ns-1", "default")
-		rr := testRenderedRelease("ns-1", "rr-1", rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
 		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {})
 		svc := NewService(fc, gc, testLogger())
 
-		_, err := svc.GetResourceEvents(context.Background(), "ns-1", "rb-1", "", "v1", "ConfigMap", "missing")
+		_, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1", "", "v1", "ConfigMap", "missing")
 		require.ErrorIs(t, err, ErrResourceNotFound)
 	})
 
 	t.Run("success returns events", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		env := testEnvironment("ns-1", "dev")
-		dp := testDataPlane("ns-1", "default")
-		rr := testRenderedRelease("ns-1", "rr-1", rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -441,7 +442,7 @@ func TestGetResourceEvents(t *testing.T) {
 		})
 
 		svc := NewService(fc, gc, testLogger())
-		result, err := svc.GetResourceEvents(context.Background(), "ns-1", "rb-1", "apps", "v1", "Deployment", "web")
+		result, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1", "apps", "v1", "Deployment", "web")
 		require.NoError(t, err)
 		require.Len(t, result.Events, 1)
 		assert.Equal(t, "Normal", result.Events[0].Type)
@@ -450,10 +451,10 @@ func TestGetResourceEvents(t *testing.T) {
 	})
 
 	t.Run("events for cluster-scoped resource", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		env := testEnvironment("ns-1", "dev")
-		dp := testDataPlane("ns-1", "default")
-		rr := testRenderedRelease("ns-1", "rr-1", rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
 			{ID: "ns", Group: "", Version: "v1", Kind: "Namespace", Name: "my-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -467,7 +468,7 @@ func TestGetResourceEvents(t *testing.T) {
 		})
 
 		svc := NewService(fc, gc, testLogger())
-		result, err := svc.GetResourceEvents(context.Background(), "ns-1", "rb-1", "", "v1", "Namespace", "my-ns")
+		result, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1", "", "v1", "Namespace", "my-ns")
 		require.NoError(t, err)
 		assert.Empty(t, result.Events)
 		// For cluster-scoped resource (empty namespace), the events path should be cluster-level
@@ -482,32 +483,32 @@ func TestGetResourceLogs(t *testing.T) {
 		fc := newFakeClient()
 		svc := NewService(fc, nil, testLogger())
 
-		_, err := svc.GetResourceLogs(context.Background(), "ns-1", "rb-1", "pod-1", nil)
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "gateway client is not configured")
 	})
 
 	t.Run("no dataplane release with parent resources returns not found", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		env := testEnvironment("ns-1", "dev")
-		dp := testDataPlane("ns-1", "default")
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
 		// Only an observability plane release — no parent for pods
-		rr := testRenderedRelease("ns-1", "rr-1", rb, planeTypeObservabilityPlane, []openchoreov1alpha1.ResourceStatus{
+		rr := testRenderedRelease(rb, planeTypeObservabilityPlane, []openchoreov1alpha1.ResourceStatus{
 			{ID: "cm", Group: "", Version: "v1", Kind: "ConfigMap", Name: "obs-cfg", Namespace: "obs-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
 		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {})
 		svc := NewService(fc, gc, testLogger())
 
-		_, err := svc.GetResourceLogs(context.Background(), "ns-1", "rb-1", "pod-1", nil)
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", nil)
 		require.ErrorIs(t, err, ErrResourceNotFound)
 	})
 
 	t.Run("success returns parsed logs", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		env := testEnvironment("ns-1", "dev")
-		dp := testDataPlane("ns-1", "default")
-		rr := testRenderedRelease("ns-1", "rr-1", rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -518,7 +519,7 @@ func TestGetResourceLogs(t *testing.T) {
 		})
 
 		svc := NewService(fc, gc, testLogger())
-		result, err := svc.GetResourceLogs(context.Background(), "ns-1", "rb-1", "pod-1", nil)
+		result, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", nil)
 		require.NoError(t, err)
 		require.Len(t, result.LogEntries, 2)
 		assert.Equal(t, "Starting server", result.LogEntries[0].Log)
@@ -526,10 +527,10 @@ func TestGetResourceLogs(t *testing.T) {
 	})
 
 	t.Run("permanent gateway error returns not found", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		env := testEnvironment("ns-1", "dev")
-		dp := testDataPlane("ns-1", "default")
-		rr := testRenderedRelease("ns-1", "rr-1", rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -539,15 +540,15 @@ func TestGetResourceLogs(t *testing.T) {
 		})
 
 		svc := NewService(fc, gc, testLogger())
-		_, err := svc.GetResourceLogs(context.Background(), "ns-1", "rb-1", "pod-1", nil)
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", nil)
 		require.ErrorIs(t, err, ErrResourceNotFound)
 	})
 
 	t.Run("with sinceSeconds", func(t *testing.T) {
-		rb := testReleaseBinding("ns-1", "rb-1", "proj-1", "comp-1", "dev")
-		env := testEnvironment("ns-1", "dev")
-		dp := testDataPlane("ns-1", "default")
-		rr := testRenderedRelease("ns-1", "rr-1", rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -561,7 +562,7 @@ func TestGetResourceLogs(t *testing.T) {
 
 		svc := NewService(fc, gc, testLogger())
 		since := int64(300)
-		result, err := svc.GetResourceLogs(context.Background(), "ns-1", "rb-1", "pod-1", &since)
+		result, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", &since)
 		require.NoError(t, err)
 		require.Len(t, result.LogEntries, 1)
 		assert.Contains(t, capturedURL, "sinceSeconds=300")
