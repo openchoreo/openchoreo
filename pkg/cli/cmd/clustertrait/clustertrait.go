@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -41,7 +42,11 @@ func newGetClusterTraitCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return clustertrait.New().Get(clustertrait.GetParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return clustertrait.New(cl).Get(clustertrait.GetParams{
 				ClusterTraitName: args[0],
 			})
 		},
@@ -58,7 +63,11 @@ func newDeleteClusterTraitCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return clustertrait.New().Delete(clustertrait.DeleteParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return clustertrait.New(cl).Delete(clustertrait.DeleteParams{
 				ClusterTraitName: args[0],
 			})
 		},
@@ -71,7 +80,11 @@ func newListClusterTraitCmd() *cobra.Command {
 		Command: constants.ListClusterTrait,
 		Flags:   []flags.Flag{},
 		RunE: func(fg *builder.FlagGetter) error {
-			return clustertrait.New().List()
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return clustertrait.New(cl).List()
 		},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
