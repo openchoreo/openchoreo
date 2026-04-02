@@ -13,17 +13,25 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// Client defines the client methods used by ObservabilityPlane operations.
+type Client interface {
+	ListObservabilityPlanes(ctx context.Context, namespaceName string, params *gen.ListObservabilityPlanesParams) (*gen.ObservabilityPlaneList, error)
+	GetObservabilityPlane(ctx context.Context, namespaceName string, observabilityPlaneName string) (*gen.ObservabilityPlane, error)
+	DeleteObservabilityPlane(ctx context.Context, namespaceName string, observabilityPlaneName string) error
+}
+
 // ObservabilityPlane implements observability plane operations
-type ObservabilityPlane struct{}
+type ObservabilityPlane struct {
+	client Client
+}
 
 // New creates a new observability plane implementation
-func New() *ObservabilityPlane {
-	return &ObservabilityPlane{}
+func New(client Client) *ObservabilityPlane {
+	return &ObservabilityPlane{client: client}
 }
 
 // List lists all observability planes in a namespace
@@ -34,18 +42,13 @@ func (o *ObservabilityPlane) List(params ListParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ObservabilityPlane, string, error) {
 		p := &gen.ListObservabilityPlanesParams{}
 		p.Limit = &limit
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := c.ListObservabilityPlanes(ctx, params.Namespace, p)
+		result, err := o.client.ListObservabilityPlanes(ctx, params.Namespace, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -69,12 +72,7 @@ func (o *ObservabilityPlane) Get(params GetParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.GetObservabilityPlane(ctx, params.Namespace, params.ObservabilityPlaneName)
+	result, err := o.client.GetObservabilityPlane(ctx, params.Namespace, params.ObservabilityPlaneName)
 	if err != nil {
 		return err
 	}
@@ -96,12 +94,7 @@ func (o *ObservabilityPlane) Delete(params DeleteParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteObservabilityPlane(ctx, params.Namespace, params.ObservabilityPlaneName); err != nil {
+	if err := o.client.DeleteObservabilityPlane(ctx, params.Namespace, params.ObservabilityPlaneName); err != nil {
 		return err
 	}
 

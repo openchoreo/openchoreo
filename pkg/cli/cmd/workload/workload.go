@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -51,7 +52,7 @@ func newCreateWorkloadCmd() *cobra.Command {
 		Command: constants.CreateWorkload,
 		Flags:   workloadFlags,
 		RunE: func(fg *builder.FlagGetter) error {
-			return workloadcmd.New().Create(workloadcmd.CreateParams{
+			return workloadcmd.New(nil).Create(workloadcmd.CreateParams{
 				FilePath:      fg.GetString(flags.WorkloadDescriptor),
 				NamespaceName: fg.GetString(flags.Namespace),
 				ProjectName:   fg.GetString(flags.Project),
@@ -72,7 +73,11 @@ func newListWorkloadCmd() *cobra.Command {
 		Flags:   []flags.Flag{flags.Namespace},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(fg *builder.FlagGetter) error {
-			return workloadcmd.New().List(workloadcmd.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return workloadcmd.New(cl).List(workloadcmd.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
@@ -88,8 +93,12 @@ func newGetWorkloadCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return workloadcmd.New().Get(workloadcmd.GetParams{
+			return workloadcmd.New(cl).Get(workloadcmd.GetParams{
 				Namespace:    namespace,
 				WorkloadName: args[0],
 			})
@@ -108,8 +117,12 @@ func newDeleteWorkloadCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return workloadcmd.New().Delete(workloadcmd.DeleteParams{
+			return workloadcmd.New(cl).Delete(workloadcmd.DeleteParams{
 				Namespace:    namespace,
 				WorkloadName: args[0],
 			})

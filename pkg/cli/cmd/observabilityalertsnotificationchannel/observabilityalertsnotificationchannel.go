@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -38,7 +39,11 @@ func newListCmd() *cobra.Command {
 		Flags:   []flags.Flag{flags.Namespace},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(fg *builder.FlagGetter) error {
-			return oanc.New().List(oanc.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return oanc.New(cl).List(oanc.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
@@ -54,8 +59,12 @@ func newGetCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return oanc.New().Get(oanc.GetParams{
+			return oanc.New(cl).Get(oanc.GetParams{
 				Namespace:   namespace,
 				ChannelName: args[0],
 			})
@@ -74,8 +83,12 @@ func newDeleteCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return oanc.New().Delete(oanc.DeleteParams{
+			return oanc.New(cl).Delete(oanc.DeleteParams{
 				Namespace:   namespace,
 				ChannelName: args[0],
 			})

@@ -127,6 +127,27 @@ packages:
   github.com/openchoreo/openchoreo/internal/occ/cmd/environment:
     interfaces:
       Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/namespace:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/project:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityplane:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityalertsnotificationchannel:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/secretreference:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/workflowplane:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/workload:
+    interfaces:
+      Client:
   github.com/openchoreo/openchoreo/internal/observer/service:
     interfaces:
       HealthChecker:

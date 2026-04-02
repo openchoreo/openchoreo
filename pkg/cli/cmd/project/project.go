@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -37,8 +38,11 @@ func newListProjectCmd() *cobra.Command {
 		Command: constants.ListProject,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			projectImpl := project.New()
-			return projectImpl.List(project.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return project.New(cl).List(project.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
@@ -55,9 +59,12 @@ func newGetProjectCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-
-			return project.New().Get(project.GetParams{
+			return project.New(cl).Get(project.GetParams{
 				Namespace:   namespace,
 				ProjectName: args[0],
 			})
@@ -78,9 +85,12 @@ func newDeleteProjectCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-
-			return project.New().Delete(project.DeleteParams{
+			return project.New(cl).Delete(project.DeleteParams{
 				Namespace:   namespace,
 				ProjectName: args[0],
 			})

@@ -13,17 +13,25 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// Client defines the client methods used by WorkflowPlane operations.
+type Client interface {
+	ListWorkflowPlanes(ctx context.Context, namespaceName string, params *gen.ListWorkflowPlanesParams) (*gen.WorkflowPlaneList, error)
+	GetWorkflowPlane(ctx context.Context, namespaceName string, workflowPlaneName string) (*gen.WorkflowPlane, error)
+	DeleteWorkflowPlane(ctx context.Context, namespaceName string, workflowPlaneName string) error
+}
+
 // WorkflowPlane implements workflow plane operations
-type WorkflowPlane struct{}
+type WorkflowPlane struct {
+	client Client
+}
 
 // New creates a new workflow plane implementation
-func New() *WorkflowPlane {
-	return &WorkflowPlane{}
+func New(client Client) *WorkflowPlane {
+	return &WorkflowPlane{client: client}
 }
 
 // List lists all workflow planes in a namespace
@@ -34,18 +42,13 @@ func (b *WorkflowPlane) List(params ListParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.WorkflowPlane, string, error) {
 		p := &gen.ListWorkflowPlanesParams{}
 		p.Limit = &limit
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := c.ListWorkflowPlanes(ctx, params.Namespace, p)
+		result, err := b.client.ListWorkflowPlanes(ctx, params.Namespace, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -69,12 +72,7 @@ func (b *WorkflowPlane) Get(params GetParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.GetWorkflowPlane(ctx, params.Namespace, params.WorkflowPlaneName)
+	result, err := b.client.GetWorkflowPlane(ctx, params.Namespace, params.WorkflowPlaneName)
 	if err != nil {
 		return err
 	}
@@ -96,12 +94,7 @@ func (b *WorkflowPlane) Delete(params DeleteParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteWorkflowPlane(ctx, params.Namespace, params.WorkflowPlaneName); err != nil {
+	if err := b.client.DeleteWorkflowPlane(ctx, params.Namespace, params.WorkflowPlaneName); err != nil {
 		return err
 	}
 

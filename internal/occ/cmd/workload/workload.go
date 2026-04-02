@@ -17,7 +17,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/kinds"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -27,15 +26,24 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
+// Client defines the client methods used by Workload operations.
+type Client interface {
+	ListWorkloads(ctx context.Context, namespaceName string, params *gen.ListWorkloadsParams) (*gen.WorkloadList, error)
+	GetWorkload(ctx context.Context, namespaceName string, workloadName string) (*gen.Workload, error)
+	DeleteWorkload(ctx context.Context, namespaceName string, workloadName string) error
+}
+
 // Workload implements workload operations
 type Workload struct {
 	config constants.CRDConfig
+	client Client
 }
 
 // New creates a new Workload with the default config
-func New() *Workload {
+func New(client Client) *Workload {
 	return &Workload{
 		config: constants.WorkloadV1Config,
+		client: client,
 	}
 }
 
@@ -158,18 +166,13 @@ func (w *Workload) List(params ListParams) error {
 	}
 
 	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Workload, string, error) {
 		p := &gen.ListWorkloadsParams{}
 		p.Limit = &limit
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := c.ListWorkloads(ctx, params.Namespace, p)
+		result, err := w.client.ListWorkloads(ctx, params.Namespace, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -193,12 +196,7 @@ func (w *Workload) Get(params GetParams) error {
 	}
 
 	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.GetWorkload(ctx, params.Namespace, params.WorkloadName)
+	result, err := w.client.GetWorkload(ctx, params.Namespace, params.WorkloadName)
 	if err != nil {
 		return err
 	}
@@ -219,12 +217,7 @@ func (w *Workload) Delete(params DeleteParams) error {
 	}
 
 	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteWorkload(ctx, params.Namespace, params.WorkloadName); err != nil {
+	if err := w.client.DeleteWorkload(ctx, params.Namespace, params.WorkloadName); err != nil {
 		return err
 	}
 

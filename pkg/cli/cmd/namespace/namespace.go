@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -37,7 +38,11 @@ func newListNamespaceCmd() *cobra.Command {
 		Command: constants.ListNamespace,
 		Flags:   []flags.Flag{},
 		RunE: func(fg *builder.FlagGetter) error {
-			return namespace.New().List()
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return namespace.New(cl).List()
 		},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
@@ -52,7 +57,11 @@ func newGetNamespaceCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return namespace.New().Get(args[0])
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return namespace.New(cl).Get(args[0])
 		},
 	}
 
@@ -68,7 +77,11 @@ func newDeleteNamespaceCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return namespace.New().Delete(args[0])
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return namespace.New(cl).Delete(args[0])
 		},
 	}
 

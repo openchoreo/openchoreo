@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -37,7 +38,11 @@ func newListWorkflowPlaneCmd() *cobra.Command {
 		Command: constants.ListWorkflowPlane,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return workflowplane.New().List(workflowplane.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return workflowplane.New(cl).List(workflowplane.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
@@ -54,8 +59,12 @@ func newGetWorkflowPlaneCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return workflowplane.New().Get(workflowplane.GetParams{
+			return workflowplane.New(cl).Get(workflowplane.GetParams{
 				Namespace:         namespace,
 				WorkflowPlaneName: args[0],
 			})
@@ -74,8 +83,12 @@ func newDeleteWorkflowPlaneCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return workflowplane.New().Delete(workflowplane.DeleteParams{
+			return workflowplane.New(cl).Delete(workflowplane.DeleteParams{
 				Namespace:         namespace,
 				WorkflowPlaneName: args[0],
 			})

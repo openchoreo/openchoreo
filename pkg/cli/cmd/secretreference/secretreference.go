@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -37,7 +38,11 @@ func newListSecretReferenceCmd() *cobra.Command {
 		Command: constants.ListSecretReference,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return secretreference.New().List(secretreference.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return secretreference.New(cl).List(secretreference.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
@@ -54,8 +59,12 @@ func newGetSecretReferenceCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return secretreference.New().Get(secretreference.GetParams{
+			return secretreference.New(cl).Get(secretreference.GetParams{
 				Namespace:           namespace,
 				SecretReferenceName: args[0],
 			})
@@ -74,8 +83,12 @@ func newDeleteSecretReferenceCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return secretreference.New().Delete(secretreference.DeleteParams{
+			return secretreference.New(cl).Delete(secretreference.DeleteParams{
 				Namespace:           namespace,
 				SecretReferenceName: args[0],
 			})

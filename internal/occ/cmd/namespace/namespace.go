@@ -13,26 +13,29 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// Client defines the client methods used by Namespace operations.
+type Client interface {
+	ListNamespaces(ctx context.Context, params *gen.ListNamespacesParams) (*gen.NamespaceList, error)
+	GetNamespace(ctx context.Context, namespaceName string) (*gen.Namespace, error)
+	DeleteNamespace(ctx context.Context, namespaceName string) error
+}
+
 // Namespace implements namespace operations
-type Namespace struct{}
+type Namespace struct {
+	client Client
+}
 
 // New creates a new namespace implementation
-func New() *Namespace {
-	return &Namespace{}
+func New(client Client) *Namespace {
+	return &Namespace{client: client}
 }
 
 // List lists all namespaces
 func (n *Namespace) List() error {
 	ctx := context.Background()
-
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Namespace, string, error) {
 		p := &gen.ListNamespacesParams{}
@@ -40,7 +43,7 @@ func (n *Namespace) List() error {
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := c.ListNamespaces(ctx, p)
+		result, err := n.client.ListNamespaces(ctx, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -61,12 +64,7 @@ func (n *Namespace) List() error {
 func (n *Namespace) Get(name string) error {
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.GetNamespace(ctx, name)
+	result, err := n.client.GetNamespace(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -84,12 +82,7 @@ func (n *Namespace) Get(name string) error {
 func (n *Namespace) Delete(name string) error {
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteNamespace(ctx, name); err != nil {
+	if err := n.client.DeleteNamespace(ctx, name); err != nil {
 		return err
 	}
 
