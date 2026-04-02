@@ -16,6 +16,7 @@ upstream repository.
 - [Before Opening a PR](#before-opening-a-pr)
 - [PR Title Convention](#pr-title-convention)
 - [DCO Sign-off](#dco-sign-off)
+- [Backporting](#backporting)
 - [Merge Strategy](#merge-strategy)
 - [FAQs](#faqs)
 
@@ -224,6 +225,19 @@ Or sign off all commits in your branch:
 git rebase --signoff upstream/main
 git push -f origin feature-branch
 ```
+
+## Backporting
+
+To backport a merged pull request to a release branch, add a `backport/<release-branch>` label to the PR. For example,
+adding the label `backport/release-v1.0` will automatically create a new PR that cherry-picks the changes onto the
+`release-v1.0` branch.
+
+Labels can be added before or after the PR is merged:
+
+- **Before merge**: Add the label during review. The backport PR is created automatically when the PR merges.
+- **After merge**: Add the label to the already-merged PR. The backport PR is created immediately.
+
+If the cherry-pick has conflicts, the workflow will comment on the original PR with instructions for manual resolution.
 
 ## Merge Strategy
 

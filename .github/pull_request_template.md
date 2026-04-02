@@ -23,6 +23,7 @@ See: docs/contributors/github_workflow.md#pr-title-convention
 ## Checklist
 - [ ] Tests added or updated (unit, integration, etc.)
 - [ ] Samples updated (if applicable)
+- [ ] Added `backport/<release-branch>` label if this should be backported (e.g., `backport/release-v1.0`)
 
 ## Remarks
 > Add any additional context, known issues, or TODOs related to this PR.
