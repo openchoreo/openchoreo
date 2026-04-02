@@ -35,12 +35,6 @@ func NewWorkloadResource(cfg constants.CRDConfig, namespace string) (*WorkloadRe
 	}, nil
 }
 
-// WithNamespace sets the namespace for the workload resource (usually the namespace name)
-
-func (w *WorkloadResource) SetNamespace(namespace string) {
-	w.ResourceBase.SetNamespace(namespace)
-}
-
 // CreateWorkload creates a Workload CR from a descriptor file or basic parameters.
 func (w *WorkloadResource) CreateWorkload(params api.CreateWorkloadParams) error {
 	// Validate required parameters
@@ -94,58 +88,6 @@ func (w *WorkloadResource) CreateWorkload(params api.CreateWorkloadParams) error
 	}
 
 	return nil
-}
-
-// GetStatus returns the status of a Workload with detailed information.
-func (w *WorkloadResource) GetStatus(workload *openchoreov1alpha1.Workload) string {
-	// For workload, we'll use a simple status based on creation time
-	// TODO: Implement proper status checking when WorkloadStatus has condition fields
-	if workload.GetCreationTimestamp().Time.IsZero() {
-		return StatusPending
-	}
-	return StatusReady
-}
-
-// GetAge returns the age of a Workload.
-func (w *WorkloadResource) GetAge(workload *openchoreov1alpha1.Workload) string {
-	return resources.FormatAge(workload.GetCreationTimestamp().Time)
-}
-
-// PrintTableItems formats workloads into a table
-func (w *WorkloadResource) PrintTableItems(workloads []resources.ResourceWrapper[*openchoreov1alpha1.Workload]) error {
-	if len(workloads) == 0 {
-		// Provide a more descriptive message
-		namespaceName := w.GetNamespace()
-
-		message := "No workloads found"
-
-		if namespaceName != "" {
-			message += " in namespace " + namespaceName
-		}
-
-		fmt.Println(message)
-		return nil
-	}
-
-	rows := make([][]string, 0, len(workloads))
-
-	for _, wrapper := range workloads {
-		workload := wrapper.Resource
-		rows = append(rows, []string{
-			wrapper.LogicalName,
-			w.GetStatus(workload),
-			w.GetAge(workload),
-			workload.GetLabels()[constants.LabelNamespace],
-		})
-	}
-	return resources.PrintTable(HeadersWorkload, rows)
-}
-
-// Print prints workloads using the API client
-func (w *WorkloadResource) Print(format resources.OutputFormat, filter *resources.ResourceFilter) error {
-	// TODO: Implement workload-specific listing using API client when listing endpoints are available
-	// For now, return a helpful message
-	return fmt.Errorf("workload listing not yet implemented - use 'occ get workload' command instead")
 }
 
 // GenerateWorkloadCR generates a Workload CR without writing it (used in file-system mode)
