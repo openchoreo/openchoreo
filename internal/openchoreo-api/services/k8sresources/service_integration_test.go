@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	authzmocks "github.com/openchoreo/openchoreo/internal/authz/core/mocks"
 	"github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
@@ -963,22 +963,7 @@ func TestBuildResourceTreeNodes(t *testing.T) {
 func TestNewServiceWithAuthz(t *testing.T) {
 	fc := newFakeClient()
 	gc := gateway.NewClient("http://localhost")
-	pdp := &mockPDP{}
+	pdp := authzmocks.NewMockPDP(t)
 	svc := NewServiceWithAuthz(fc, gc, pdp, testLogger())
 	require.NotNil(t, svc)
-}
-
-// mockPDP is a minimal PDP for testing the constructor.
-type mockPDP struct{}
-
-func (m *mockPDP) Evaluate(_ context.Context, _ *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
-	return &authzcore.Decision{Decision: true}, nil
-}
-
-func (m *mockPDP) BatchEvaluate(_ context.Context, _ *authzcore.BatchEvaluateRequest) (*authzcore.BatchEvaluateResponse, error) {
-	return &authzcore.BatchEvaluateResponse{}, nil
-}
-
-func (m *mockPDP) GetSubjectProfile(_ context.Context, _ *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
-	return nil, nil
 }
