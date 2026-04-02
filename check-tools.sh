@@ -30,7 +30,7 @@ checkVersion() {
 }
 
 # Format: <Command Display Name> <Min Version> <Max Version> <Version Command Line> <Version Line Number> <Version Extract RegEx>
-checkVersion "Go Language" "1.24.0" "1.25.0" "go version" 1 "[0-9]\.[0-9]+\.[0-9]+"
+checkVersion "Go Language" "1.26.0" "1.27.0" "go version" 1 "[0-9]\.[0-9]+\.[0-9]+"
 checkVersion "GNU Make" "3.8" "4.5" "make -version" 1 "[0-9]\.[0-9]+"
 checkVersion "Kind" "v0.27.0" "v0.27.0" "kind version" 1 "v[0-9]\.[0-9]+\.[0-9]+"
 checkVersion "Docker Client" "23.0.0" "28.0.0" "docker version --format '{{.Client.Version}}'" 1 "[0-9]+\.[0-9]+\.[0-9]+"
