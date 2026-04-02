@@ -5,7 +5,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,36 +15,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	servicemocks "github.com/openchoreo/openchoreo/internal/observer/service/mocks"
 )
-
-// configAlertIncidentService is a fully configurable fake that implements
-// service.AlertIncidentService. Unlike fakeAlertIncidentService in incidents_test.go,
-// this one does not panic on QueryAlerts/QueryIncidents.
-type configAlertIncidentService struct {
-	alertsResp    *gen.AlertsQueryResponse
-	alertsErr     error
-	incidentsResp *gen.IncidentsQueryResponse
-	incidentsErr  error
-	updateResp    *gen.IncidentPutResponse
-	updateErr     error
-}
-
-func (f *configAlertIncidentService) QueryAlerts(_ context.Context, _ gen.AlertsQueryRequest) (*gen.AlertsQueryResponse, error) {
-	return f.alertsResp, f.alertsErr
-}
-
-func (f *configAlertIncidentService) QueryIncidents(_ context.Context, _ gen.IncidentsQueryRequest) (*gen.IncidentsQueryResponse, error) {
-	return f.incidentsResp, f.incidentsErr
-}
-
-func (f *configAlertIncidentService) UpdateIncident(_ context.Context, _ string, _ gen.IncidentPutRequest) (*gen.IncidentPutResponse, error) {
-	return f.updateResp, f.updateErr
-}
 
 // helpers -----------------------------------------------------------------------
 
@@ -80,7 +57,9 @@ func validIncidentsRequestBody(t *testing.T) io.Reader {
 func TestQueryAlerts_Success(t *testing.T) {
 	t.Parallel()
 
-	svc := &configAlertIncidentService{alertsResp: &gen.AlertsQueryResponse{}}
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryAlerts", mock.Anything, mock.Anything).Return(&gen.AlertsQueryResponse{}, nil)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
 		alertIncidentService: svc,
@@ -99,7 +78,7 @@ func TestQueryAlerts_InvalidBody(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{},
+		alertIncidentService: servicemocks.NewMockAlertIncidentService(t),
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", bytes.NewReader([]byte("{bad")))
@@ -115,7 +94,7 @@ func TestQueryAlerts_ValidationError(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{},
+		alertIncidentService: servicemocks.NewMockAlertIncidentService(t),
 	}
 
 	// Missing namespace → validation failure.
@@ -154,9 +133,12 @@ func TestQueryAlerts_ServiceNotInitialized(t *testing.T) {
 func TestQueryAlerts_AuthzForbidden(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryAlerts", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzForbidden)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{alertsErr: observerAuthz.ErrAuthzForbidden},
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
@@ -170,9 +152,12 @@ func TestQueryAlerts_AuthzForbidden(t *testing.T) {
 func TestQueryAlerts_AuthzUnauthorized(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryAlerts", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzUnauthorized)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{alertsErr: observerAuthz.ErrAuthzUnauthorized},
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
@@ -186,9 +171,12 @@ func TestQueryAlerts_AuthzUnauthorized(t *testing.T) {
 func TestQueryAlerts_AuthzServiceUnavailable(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryAlerts", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzServiceUnavailable)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{alertsErr: observerAuthz.ErrAuthzServiceUnavailable},
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
@@ -202,9 +190,12 @@ func TestQueryAlerts_AuthzServiceUnavailable(t *testing.T) {
 func TestQueryAlerts_AuthzTimeout(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryAlerts", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzTimeout)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{alertsErr: observerAuthz.ErrAuthzTimeout},
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
@@ -219,9 +210,13 @@ func TestQueryAlerts_ScopeNotFound(t *testing.T) {
 	t.Parallel()
 
 	err := fmt.Errorf("%w: %w", service.ErrAlertsResolveSearchScope, service.ErrScopeNotFound)
+
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryAlerts", mock.Anything, mock.Anything).Return(nil, err)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{alertsErr: err},
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
@@ -237,9 +232,13 @@ func TestQueryAlerts_ResolveScopeFailed(t *testing.T) {
 	t.Parallel()
 
 	err := fmt.Errorf("%w: infra error", service.ErrAlertsResolveSearchScope)
+
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryAlerts", mock.Anything, mock.Anything).Return(nil, err)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{alertsErr: err},
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
@@ -254,9 +253,12 @@ func TestQueryAlerts_ResolveScopeFailed(t *testing.T) {
 func TestQueryAlerts_GenericError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryAlerts", mock.Anything, mock.Anything).Return(nil, errors.New("boom"))
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{alertsErr: errors.New("boom")},
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
@@ -273,7 +275,9 @@ func TestQueryAlerts_GenericError(t *testing.T) {
 func TestQueryIncidents_Success(t *testing.T) {
 	t.Parallel()
 
-	svc := &configAlertIncidentService{incidentsResp: &gen.IncidentsQueryResponse{}}
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryIncidents", mock.Anything, mock.Anything).Return(&gen.IncidentsQueryResponse{}, nil)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
 		alertIncidentService: svc,
@@ -292,7 +296,7 @@ func TestQueryIncidents_InvalidBody(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{},
+		alertIncidentService: servicemocks.NewMockAlertIncidentService(t),
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", bytes.NewReader([]byte("!!!")))
@@ -308,7 +312,7 @@ func TestQueryIncidents_ValidationError(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{},
+		alertIncidentService: servicemocks.NewMockAlertIncidentService(t),
 	}
 
 	raw := map[string]any{
@@ -345,9 +349,12 @@ func TestQueryIncidents_ServiceNotInitialized(t *testing.T) {
 func TestQueryIncidents_AuthzForbidden(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryIncidents", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzForbidden)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{incidentsErr: observerAuthz.ErrAuthzForbidden},
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
@@ -361,9 +368,12 @@ func TestQueryIncidents_AuthzForbidden(t *testing.T) {
 func TestQueryIncidents_AuthzUnauthorized(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryIncidents", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzUnauthorized)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{incidentsErr: observerAuthz.ErrAuthzUnauthorized},
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
@@ -377,9 +387,12 @@ func TestQueryIncidents_AuthzUnauthorized(t *testing.T) {
 func TestQueryIncidents_GenericError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryIncidents", mock.Anything, mock.Anything).Return(nil, errors.New("db error"))
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{incidentsErr: errors.New("db error")},
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))

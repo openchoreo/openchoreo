@@ -4,7 +4,6 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,27 +12,21 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	servicemocks "github.com/openchoreo/openchoreo/internal/observer/service/mocks"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
-
-// fakeMetricsQuerier implements service.MetricsQuerier for tests.
-type fakeMetricsQuerier struct {
-	resp any
-	err  error
-}
-
-func (f *fakeMetricsQuerier) QueryMetrics(_ context.Context, _ *types.MetricsQueryRequest) (any, error) {
-	return f.resp, f.err
-}
 
 func TestQueryMetrics_Success(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeMetricsQuerier{resp: map[string]any{"data": "ok"}}
+	svc := servicemocks.NewMockMetricsQuerier(t)
+	svc.On("QueryMetrics", mock.Anything, mock.Anything).Return(map[string]any{"data": "ok"}, nil)
+
 	h := &Handler{
 		baseHandler:    baseHandler{logger: noopLogger()},
 		metricsService: svc,
@@ -53,7 +46,7 @@ func TestQueryMetrics_InvalidBody(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:    baseHandler{logger: noopLogger()},
-		metricsService: &fakeMetricsQuerier{},
+		metricsService: servicemocks.NewMockMetricsQuerier(t),
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", strings.NewReader("{bad json"))
@@ -70,7 +63,7 @@ func TestQueryMetrics_ValidationError(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:    baseHandler{logger: noopLogger()},
-		metricsService: &fakeMetricsQuerier{},
+		metricsService: servicemocks.NewMockMetricsQuerier(t),
 	}
 
 	// Missing metric field → validation failure.
@@ -104,9 +97,12 @@ func TestQueryMetrics_ServiceNotInitialized(t *testing.T) {
 func TestQueryMetrics_AuthzForbidden(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockMetricsQuerier(t)
+	svc.On("QueryMetrics", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzForbidden)
+
 	h := &Handler{
 		baseHandler:    baseHandler{logger: noopLogger()},
-		metricsService: &fakeMetricsQuerier{err: observerAuthz.ErrAuthzForbidden},
+		metricsService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
@@ -120,9 +116,12 @@ func TestQueryMetrics_AuthzForbidden(t *testing.T) {
 func TestQueryMetrics_AuthzUnauthorized(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockMetricsQuerier(t)
+	svc.On("QueryMetrics", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzUnauthorized)
+
 	h := &Handler{
 		baseHandler:    baseHandler{logger: noopLogger()},
-		metricsService: &fakeMetricsQuerier{err: observerAuthz.ErrAuthzUnauthorized},
+		metricsService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
@@ -136,9 +135,12 @@ func TestQueryMetrics_AuthzUnauthorized(t *testing.T) {
 func TestQueryMetrics_InvalidRequestError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockMetricsQuerier(t)
+	svc.On("QueryMetrics", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: bad step", service.ErrMetricsInvalidRequest))
+
 	h := &Handler{
 		baseHandler:    baseHandler{logger: noopLogger()},
-		metricsService: &fakeMetricsQuerier{err: fmt.Errorf("%w: bad step", service.ErrMetricsInvalidRequest)},
+		metricsService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
@@ -152,9 +154,12 @@ func TestQueryMetrics_InvalidRequestError(t *testing.T) {
 func TestQueryMetrics_ResolveSearchScopeError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockMetricsQuerier(t)
+	svc.On("QueryMetrics", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: scope failed", service.ErrMetricsResolveSearchScope))
+
 	h := &Handler{
 		baseHandler:    baseHandler{logger: noopLogger()},
-		metricsService: &fakeMetricsQuerier{err: fmt.Errorf("%w: scope failed", service.ErrMetricsResolveSearchScope)},
+		metricsService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
@@ -169,9 +174,12 @@ func TestQueryMetrics_ResolveSearchScopeError(t *testing.T) {
 func TestQueryMetrics_RetrievalError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockMetricsQuerier(t)
+	svc.On("QueryMetrics", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: backend error", service.ErrMetricsRetrieval))
+
 	h := &Handler{
 		baseHandler:    baseHandler{logger: noopLogger()},
-		metricsService: &fakeMetricsQuerier{err: fmt.Errorf("%w: backend error", service.ErrMetricsRetrieval)},
+		metricsService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
@@ -186,9 +194,12 @@ func TestQueryMetrics_RetrievalError(t *testing.T) {
 func TestQueryMetrics_GenericError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockMetricsQuerier(t)
+	svc.On("QueryMetrics", mock.Anything, mock.Anything).Return(nil, errors.New("unexpected"))
+
 	h := &Handler{
 		baseHandler:    baseHandler{logger: noopLogger()},
-		metricsService: &fakeMetricsQuerier{err: errors.New("unexpected")},
+		metricsService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))

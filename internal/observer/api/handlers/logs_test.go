@@ -4,7 +4,6 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,33 +12,25 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	servicemocks "github.com/openchoreo/openchoreo/internal/observer/service/mocks"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
-
-// fakeLogsQuerier implements service.LogsQuerier for tests.
-type fakeLogsQuerier struct {
-	resp *types.LogsQueryResponse
-	err  error
-}
-
-func (f *fakeLogsQuerier) QueryLogs(_ context.Context, _ *types.LogsQueryRequest) (*types.LogsQueryResponse, error) {
-	return f.resp, f.err
-}
 
 func TestQueryLogs_Success(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeLogsQuerier{
-		resp: &types.LogsQueryResponse{
-			Logs:   []types.LogEntry{{Timestamp: "2024-01-01T00:00:00Z", Log: "hello"}},
-			Total:  1,
-			TookMs: 5,
-		},
-	}
+	svc := servicemocks.NewMockLogsQuerier(t)
+	svc.On("QueryLogs", mock.Anything, mock.Anything).Return(&types.LogsQueryResponse{
+		Logs:   []types.LogEntry{{Timestamp: "2024-01-01T00:00:00Z", Log: "hello"}},
+		Total:  1,
+		TookMs: 5,
+	}, nil)
+
 	h := &Handler{
 		baseHandler: baseHandler{logger: noopLogger()},
 		logsService: svc,
@@ -59,7 +50,7 @@ func TestQueryLogs_InvalidBody(t *testing.T) {
 
 	h := &Handler{
 		baseHandler: baseHandler{logger: noopLogger()},
-		logsService: &fakeLogsQuerier{},
+		logsService: servicemocks.NewMockLogsQuerier(t),
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", strings.NewReader("not-json"))
@@ -76,7 +67,7 @@ func TestQueryLogs_ValidationError(t *testing.T) {
 
 	h := &Handler{
 		baseHandler: baseHandler{logger: noopLogger()},
-		logsService: &fakeLogsQuerier{},
+		logsService: servicemocks.NewMockLogsQuerier(t),
 	}
 
 	// Missing searchScope → validation failure.
@@ -110,9 +101,12 @@ func TestQueryLogs_ServiceNotInitialized(t *testing.T) {
 func TestQueryLogs_AuthzForbidden(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockLogsQuerier(t)
+	svc.On("QueryLogs", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzForbidden)
+
 	h := &Handler{
 		baseHandler: baseHandler{logger: noopLogger()},
-		logsService: &fakeLogsQuerier{err: observerAuthz.ErrAuthzForbidden},
+		logsService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))
@@ -126,9 +120,12 @@ func TestQueryLogs_AuthzForbidden(t *testing.T) {
 func TestQueryLogs_AuthzUnauthorized(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockLogsQuerier(t)
+	svc.On("QueryLogs", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzUnauthorized)
+
 	h := &Handler{
 		baseHandler: baseHandler{logger: noopLogger()},
-		logsService: &fakeLogsQuerier{err: observerAuthz.ErrAuthzUnauthorized},
+		logsService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))
@@ -142,9 +139,12 @@ func TestQueryLogs_AuthzUnauthorized(t *testing.T) {
 func TestQueryLogs_ResolveSearchScopeError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockLogsQuerier(t)
+	svc.On("QueryLogs", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: resolver failed", service.ErrLogsResolveSearchScope))
+
 	h := &Handler{
 		baseHandler: baseHandler{logger: noopLogger()},
-		logsService: &fakeLogsQuerier{err: fmt.Errorf("%w: resolver failed", service.ErrLogsResolveSearchScope)},
+		logsService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))
@@ -159,9 +159,12 @@ func TestQueryLogs_ResolveSearchScopeError(t *testing.T) {
 func TestQueryLogs_RetrievalError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockLogsQuerier(t)
+	svc.On("QueryLogs", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: backend error", service.ErrLogsRetrieval))
+
 	h := &Handler{
 		baseHandler: baseHandler{logger: noopLogger()},
-		logsService: &fakeLogsQuerier{err: fmt.Errorf("%w: backend error", service.ErrLogsRetrieval)},
+		logsService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))
@@ -176,9 +179,12 @@ func TestQueryLogs_RetrievalError(t *testing.T) {
 func TestQueryLogs_GenericError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockLogsQuerier(t)
+	svc.On("QueryLogs", mock.Anything, mock.Anything).Return(nil, errors.New("unexpected error"))
+
 	h := &Handler{
 		baseHandler: baseHandler{logger: noopLogger()},
-		logsService: &fakeLogsQuerier{err: errors.New("unexpected error")},
+		logsService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))

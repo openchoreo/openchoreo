@@ -17,10 +17,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
+	servicemocks "github.com/openchoreo/openchoreo/internal/observer/service/mocks"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 )
 
@@ -29,10 +31,12 @@ import (
 func TestUpdateIncident_AuthzForbidden(t *testing.T) {
 	t.Parallel()
 
-	updater := &fakeAlertIncidentService{updateErr: observerAuthz.ErrAuthzForbidden}
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("UpdateIncident", mock.Anything, mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzForbidden)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: updater,
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
@@ -48,10 +52,12 @@ func TestUpdateIncident_AuthzForbidden(t *testing.T) {
 func TestUpdateIncident_AuthzUnauthorized(t *testing.T) {
 	t.Parallel()
 
-	updater := &fakeAlertIncidentService{updateErr: observerAuthz.ErrAuthzUnauthorized}
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("UpdateIncident", mock.Anything, mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzUnauthorized)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: updater,
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
@@ -67,10 +73,12 @@ func TestUpdateIncident_AuthzUnauthorized(t *testing.T) {
 func TestUpdateIncident_AuthzServiceUnavailable(t *testing.T) {
 	t.Parallel()
 
-	updater := &fakeAlertIncidentService{updateErr: observerAuthz.ErrAuthzServiceUnavailable}
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("UpdateIncident", mock.Anything, mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzServiceUnavailable)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: updater,
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
@@ -86,10 +94,12 @@ func TestUpdateIncident_AuthzServiceUnavailable(t *testing.T) {
 func TestUpdateIncident_InvalidStatusTransition(t *testing.T) {
 	t.Parallel()
 
-	updater := &fakeAlertIncidentService{updateErr: incidententry.ErrInvalidStatusTransition}
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("UpdateIncident", mock.Anything, mock.Anything, mock.Anything).Return(nil, incidententry.ErrInvalidStatusTransition)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: updater,
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
@@ -106,10 +116,12 @@ func TestUpdateIncident_InvalidStatusTransition(t *testing.T) {
 func TestUpdateIncident_GenericError(t *testing.T) {
 	t.Parallel()
 
-	updater := &fakeAlertIncidentService{updateErr: fmt.Errorf("db timeout")}
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("UpdateIncident", mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("db timeout"))
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: updater,
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
@@ -147,7 +159,7 @@ func TestUpdateIncident_EmptyIncidentID(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &fakeAlertIncidentService{},
+		alertIncidentService: servicemocks.NewMockAlertIncidentService(t),
 	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/",
@@ -223,7 +235,7 @@ func TestUpdateIncident_InvalidBody(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &fakeAlertIncidentService{},
+		alertIncidentService: servicemocks.NewMockAlertIncidentService(t),
 	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
@@ -242,7 +254,7 @@ func TestUpdateIncident_ValidationError(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &fakeAlertIncidentService{},
+		alertIncidentService: servicemocks.NewMockAlertIncidentService(t),
 	}
 
 	// status "pending" is not a valid value → ValidateIncidentPutRequest returns error.
@@ -262,7 +274,7 @@ func TestUpdateIncident_ValidationError(t *testing.T) {
 func TestUpdateAlertRule_InvalidBody(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/alerts/sources/log/rules/r1",
 		bytes.NewReader([]byte("{bad")))
 	req.SetPathValue("sourceType", "log")
@@ -278,7 +290,7 @@ func TestUpdateAlertRule_InvalidBody(t *testing.T) {
 func TestUpdateAlertRule_ValidationError(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	// Missing metadata.name → validation error.
 	raw, _ := json.Marshal(map[string]any{
 		"metadata":  map[string]any{"name": ""},
@@ -305,7 +317,7 @@ func TestQuerySpansForTrace_InvalidBody(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{},
+		tracesService: servicemocks.NewMockTracesQuerier(t),
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query",
@@ -324,7 +336,7 @@ func TestQuerySpansForTrace_ValidationError(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{},
+		tracesService: servicemocks.NewMockTracesQuerier(t),
 	}
 
 	raw, _ := json.Marshal(map[string]any{
@@ -347,9 +359,12 @@ func TestQuerySpansForTrace_ValidationError(t *testing.T) {
 func TestQueryIncidents_AuthzServiceUnavailable(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockAlertIncidentService(t)
+	svc.On("QueryIncidents", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzServiceUnavailable)
+
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},
-		alertIncidentService: &configAlertIncidentService{incidentsErr: observerAuthz.ErrAuthzServiceUnavailable},
+		alertIncidentService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))

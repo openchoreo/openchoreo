@@ -5,7 +5,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -15,45 +14,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	servicemocks "github.com/openchoreo/openchoreo/internal/observer/service/mocks"
 )
-
-// fakeAlertRuleService implements service.AlertRuleService for tests.
-type fakeAlertRuleService struct {
-	createResp  *gen.AlertingRuleSyncResponse
-	createErr   error
-	getResp     *gen.AlertRuleResponse
-	getErr      error
-	updateResp  *gen.AlertingRuleSyncResponse
-	updateErr   error
-	deleteResp  *gen.AlertingRuleSyncResponse
-	deleteErr   error
-	webhookResp *gen.AlertWebhookResponse
-	webhookErr  error
-}
-
-func (f *fakeAlertRuleService) CreateAlertRule(_ context.Context, _ gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
-	return f.createResp, f.createErr
-}
-
-func (f *fakeAlertRuleService) GetAlertRule(_ context.Context, _, _ string) (*gen.AlertRuleResponse, error) {
-	return f.getResp, f.getErr
-}
-
-func (f *fakeAlertRuleService) UpdateAlertRule(_ context.Context, _ string, _ gen.AlertRuleRequest) (*gen.AlertingRuleSyncResponse, error) {
-	return f.updateResp, f.updateErr
-}
-
-func (f *fakeAlertRuleService) DeleteAlertRule(_ context.Context, _, _ string) (*gen.AlertingRuleSyncResponse, error) {
-	return f.deleteResp, f.deleteErr
-}
-
-func (f *fakeAlertRuleService) HandleAlertWebhook(_ context.Context, _ gen.AlertWebhookRequest) (*gen.AlertWebhookResponse, error) {
-	return f.webhookResp, f.webhookErr
-}
 
 // helpers -----------------------------------------------------------------------
 
@@ -104,7 +71,7 @@ func newInternalHandler(svc service.AlertRuleService) *InternalHandler {
 func TestCreateAlertRule_InvalidSourceType(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/sources/unknown/rules",
 		validAlertRuleBody(t))
 	req.SetPathValue("sourceType", "unknown")
@@ -119,7 +86,7 @@ func TestCreateAlertRule_InvalidSourceType(t *testing.T) {
 func TestCreateAlertRule_InvalidJSON(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/sources/log/rules",
 		strings.NewReader("{not-json"))
 	req.SetPathValue("sourceType", "log")
@@ -134,7 +101,7 @@ func TestCreateAlertRule_InvalidJSON(t *testing.T) {
 func TestCreateAlertRule_ValidationError(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	// Missing metadata.name → validation error.
 	raw := map[string]any{
 		"metadata": map[string]any{
@@ -158,7 +125,7 @@ func TestCreateAlertRule_ValidationError(t *testing.T) {
 func TestCreateAlertRule_SourceTypeMismatch(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	// Path says "metric" but body says "log".
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/sources/metric/rules",
 		validAlertRuleBody(t))
@@ -174,7 +141,9 @@ func TestCreateAlertRule_SourceTypeMismatch(t *testing.T) {
 func TestCreateAlertRule_AlreadyExists(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeAlertRuleService{createErr: service.ErrAlertRuleAlreadyExists}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("CreateAlertRule", mock.Anything, mock.Anything).Return(nil, service.ErrAlertRuleAlreadyExists)
+
 	h := newInternalHandler(svc)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/sources/log/rules",
 		validAlertRuleBody(t))
@@ -190,7 +159,9 @@ func TestCreateAlertRule_AlreadyExists(t *testing.T) {
 func TestCreateAlertRule_ServiceError(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeAlertRuleService{createErr: errors.New("backend failure")}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("CreateAlertRule", mock.Anything, mock.Anything).Return(nil, errors.New("backend failure"))
+
 	h := newInternalHandler(svc)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/sources/log/rules",
 		validAlertRuleBody(t))
@@ -207,7 +178,9 @@ func TestCreateAlertRule_Success(t *testing.T) {
 	t.Parallel()
 
 	action := gen.AlertingRuleSyncResponseAction("created")
-	svc := &fakeAlertRuleService{createResp: &gen.AlertingRuleSyncResponse{Action: &action}}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("CreateAlertRule", mock.Anything, mock.Anything).Return(&gen.AlertingRuleSyncResponse{Action: &action}, nil)
+
 	h := newInternalHandler(svc)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/sources/log/rules",
 		validAlertRuleBody(t))
@@ -225,7 +198,7 @@ func TestCreateAlertRule_Success(t *testing.T) {
 func TestGetAlertRule_InvalidSourceType(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/alerts/sources/bad/rules/r1", nil)
 	req.SetPathValue("sourceType", "bad")
 	req.SetPathValue("ruleName", "r1")
@@ -240,7 +213,7 @@ func TestGetAlertRule_InvalidSourceType(t *testing.T) {
 func TestGetAlertRule_EmptyRuleName(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/alerts/sources/log/rules/", nil)
 	req.SetPathValue("sourceType", "log")
 	req.SetPathValue("ruleName", "")
@@ -255,7 +228,9 @@ func TestGetAlertRule_EmptyRuleName(t *testing.T) {
 func TestGetAlertRule_NotFound(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeAlertRuleService{getErr: service.ErrAlertRuleNotFound}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(nil, service.ErrAlertRuleNotFound)
+
 	h := newInternalHandler(svc)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/alerts/sources/log/rules/r1", nil)
 	req.SetPathValue("sourceType", "log")
@@ -271,7 +246,9 @@ func TestGetAlertRule_NotFound(t *testing.T) {
 func TestGetAlertRule_ServiceError(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeAlertRuleService{getErr: errors.New("db error")}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("db error"))
+
 	h := newInternalHandler(svc)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/alerts/sources/log/rules/r1", nil)
 	req.SetPathValue("sourceType", "log")
@@ -287,7 +264,9 @@ func TestGetAlertRule_ServiceError(t *testing.T) {
 func TestGetAlertRule_Success(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeAlertRuleService{getResp: &gen.AlertRuleResponse{}}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&gen.AlertRuleResponse{}, nil)
+
 	h := newInternalHandler(svc)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/alerts/sources/log/rules/r1", nil)
 	req.SetPathValue("sourceType", "log")
@@ -304,7 +283,7 @@ func TestGetAlertRule_Success(t *testing.T) {
 func TestUpdateAlertRule_InvalidSourceType(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/alerts/sources/bad/rules/r1",
 		validAlertRuleBody(t))
 	req.SetPathValue("sourceType", "bad")
@@ -320,7 +299,7 @@ func TestUpdateAlertRule_InvalidSourceType(t *testing.T) {
 func TestUpdateAlertRule_EmptyRuleName(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/alerts/sources/log/rules/",
 		validAlertRuleBody(t))
 	req.SetPathValue("sourceType", "log")
@@ -336,7 +315,7 @@ func TestUpdateAlertRule_EmptyRuleName(t *testing.T) {
 func TestUpdateAlertRule_SourceTypeMismatch(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	// Path says "metric", body has "log".
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/alerts/sources/metric/rules/r1",
 		validAlertRuleBody(t))
@@ -353,7 +332,9 @@ func TestUpdateAlertRule_SourceTypeMismatch(t *testing.T) {
 func TestUpdateAlertRule_NotFound(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeAlertRuleService{updateErr: service.ErrAlertRuleNotFound}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("UpdateAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(nil, service.ErrAlertRuleNotFound)
+
 	h := newInternalHandler(svc)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/alerts/sources/log/rules/r1",
 		validAlertRuleBody(t))
@@ -370,7 +351,9 @@ func TestUpdateAlertRule_NotFound(t *testing.T) {
 func TestUpdateAlertRule_ServiceError(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeAlertRuleService{updateErr: errors.New("backend error")}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("UpdateAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("backend error"))
+
 	h := newInternalHandler(svc)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/alerts/sources/log/rules/r1",
 		validAlertRuleBody(t))
@@ -388,7 +371,9 @@ func TestUpdateAlertRule_Success(t *testing.T) {
 	t.Parallel()
 
 	action := gen.AlertingRuleSyncResponseAction("updated")
-	svc := &fakeAlertRuleService{updateResp: &gen.AlertingRuleSyncResponse{Action: &action}}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("UpdateAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&gen.AlertingRuleSyncResponse{Action: &action}, nil)
+
 	h := newInternalHandler(svc)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/alerts/sources/log/rules/r1",
 		validAlertRuleBody(t))
@@ -407,7 +392,7 @@ func TestUpdateAlertRule_Success(t *testing.T) {
 func TestDeleteAlertRule_InvalidSourceType(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1alpha1/alerts/sources/bad/rules/r1", nil)
 	req.SetPathValue("sourceType", "bad")
 	req.SetPathValue("ruleName", "r1")
@@ -422,7 +407,7 @@ func TestDeleteAlertRule_InvalidSourceType(t *testing.T) {
 func TestDeleteAlertRule_EmptyRuleName(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1alpha1/alerts/sources/log/rules/", nil)
 	req.SetPathValue("sourceType", "log")
 	req.SetPathValue("ruleName", "")
@@ -437,7 +422,9 @@ func TestDeleteAlertRule_EmptyRuleName(t *testing.T) {
 func TestDeleteAlertRule_NotFound(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeAlertRuleService{deleteErr: service.ErrAlertRuleNotFound}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("DeleteAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(nil, service.ErrAlertRuleNotFound)
+
 	h := newInternalHandler(svc)
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1alpha1/alerts/sources/log/rules/r1", nil)
 	req.SetPathValue("sourceType", "log")
@@ -453,7 +440,9 @@ func TestDeleteAlertRule_NotFound(t *testing.T) {
 func TestDeleteAlertRule_ServiceError(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeAlertRuleService{deleteErr: errors.New("backend error")}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("DeleteAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("backend error"))
+
 	h := newInternalHandler(svc)
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1alpha1/alerts/sources/log/rules/r1", nil)
 	req.SetPathValue("sourceType", "log")
@@ -470,7 +459,9 @@ func TestDeleteAlertRule_Success(t *testing.T) {
 	t.Parallel()
 
 	action := gen.AlertingRuleSyncResponseAction("deleted")
-	svc := &fakeAlertRuleService{deleteResp: &gen.AlertingRuleSyncResponse{Action: &action}}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("DeleteAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&gen.AlertingRuleSyncResponse{Action: &action}, nil)
+
 	h := newInternalHandler(svc)
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1alpha1/alerts/sources/log/rules/r1", nil)
 	req.SetPathValue("sourceType", "log")
@@ -488,7 +479,7 @@ func TestDeleteAlertRule_Success(t *testing.T) {
 func TestHandleAlertWebhook_InvalidJSON(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/webhook",
 		strings.NewReader("{bad"))
 	rr := httptest.NewRecorder()
@@ -502,7 +493,7 @@ func TestHandleAlertWebhook_InvalidJSON(t *testing.T) {
 func TestHandleAlertWebhook_MissingRuleName(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	ns := testNS
 	raw := gen.AlertWebhookRequest{RuleNamespace: &ns}
 	b, _ := json.Marshal(raw)
@@ -518,7 +509,7 @@ func TestHandleAlertWebhook_MissingRuleName(t *testing.T) {
 func TestHandleAlertWebhook_MissingRuleNamespace(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(&fakeAlertRuleService{})
+	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	name := testRuleName
 	raw := gen.AlertWebhookRequest{RuleName: &name}
 	b, _ := json.Marshal(raw)
@@ -534,7 +525,9 @@ func TestHandleAlertWebhook_MissingRuleNamespace(t *testing.T) {
 func TestHandleAlertWebhook_ServiceError(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeAlertRuleService{webhookErr: errors.New("processing failed")}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("HandleAlertWebhook", mock.Anything, mock.Anything).Return(nil, errors.New("processing failed"))
+
 	h := newInternalHandler(svc)
 	name, ns := testRuleName, testNS
 	raw := gen.AlertWebhookRequest{RuleName: &name, RuleNamespace: &ns}
@@ -553,9 +546,9 @@ func TestHandleAlertWebhook_Success(t *testing.T) {
 
 	msg := "processed"
 	status := gen.AlertWebhookResponseStatus("ok")
-	svc := &fakeAlertRuleService{
-		webhookResp: &gen.AlertWebhookResponse{Message: &msg, Status: &status},
-	}
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("HandleAlertWebhook", mock.Anything, mock.Anything).Return(&gen.AlertWebhookResponse{Message: &msg, Status: &status}, nil)
+
 	h := newInternalHandler(svc)
 	name, ns := testRuleName, testNS
 	raw := gen.AlertWebhookRequest{RuleName: &name, RuleNamespace: &ns}

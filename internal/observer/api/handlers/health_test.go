@@ -4,29 +4,27 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	servicemocks "github.com/openchoreo/openchoreo/internal/observer/service/mocks"
 )
-
-// fakeHealthChecker implements service.HealthChecker for tests.
-type fakeHealthChecker struct {
-	err error
-}
-
-func (f *fakeHealthChecker) Check(_ context.Context) error { return f.err }
 
 func TestHealth_Healthy(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockHealthChecker(t)
+	svc.On("Check", mock.Anything).Return(nil)
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		healthService: &fakeHealthChecker{},
+		healthService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
@@ -41,9 +39,12 @@ func TestHealth_Healthy(t *testing.T) {
 func TestHealth_Unhealthy(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockHealthChecker(t)
+	svc.On("Check", mock.Anything).Return(errors.New("backend unavailable"))
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		healthService: &fakeHealthChecker{err: errors.New("backend unavailable")},
+		healthService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)

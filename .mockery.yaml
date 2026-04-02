@@ -106,3 +106,14 @@ packages:
   github.com/openchoreo/openchoreo/internal/occ/cmd/clusterauthzrolebinding:
     interfaces:
       Client:
+  github.com/openchoreo/openchoreo/internal/observer/service:
+    interfaces:
+      HealthChecker:
+      LogsQuerier:
+      MetricsQuerier:
+      TracesQuerier:
+      AlertsQuerier:
+      IncidentsQuerier:
+      IncidentsUpdater:
+      AlertIncidentService:
+      AlertRuleService:

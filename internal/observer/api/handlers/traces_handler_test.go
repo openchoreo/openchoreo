@@ -8,7 +8,6 @@ package handlers
 // by scope_auth_test.go (scope-auth error) or traces_test.go (conversion functions).
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,41 +16,23 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	servicemocks "github.com/openchoreo/openchoreo/internal/observer/service/mocks"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
-
-// fakeTracesQuerier implements service.TracesQuerier for tests.
-type fakeTracesQuerier struct {
-	tracesResp *types.TracesQueryResponse
-	tracesErr  error
-	spansResp  *types.SpansQueryResponse
-	spansErr   error
-	spanInfo   *types.SpanInfo
-	spanErr    error
-}
-
-func (f *fakeTracesQuerier) QueryTraces(_ context.Context, _ *types.TracesQueryRequest) (*types.TracesQueryResponse, error) {
-	return f.tracesResp, f.tracesErr
-}
-
-func (f *fakeTracesQuerier) QuerySpans(_ context.Context, _ string, _ *types.TracesQueryRequest) (*types.SpansQueryResponse, error) {
-	return f.spansResp, f.spansErr
-}
-
-func (f *fakeTracesQuerier) GetSpanDetails(_ context.Context, _, _ string) (*types.SpanInfo, error) {
-	return f.spanInfo, f.spanErr
-}
 
 // QueryTraces tests -------------------------------------------------------------
 
 func TestQueryTraces_Success(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeTracesQuerier{tracesResp: &types.TracesQueryResponse{}}
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QueryTraces", mock.Anything, mock.Anything).Return(&types.TracesQueryResponse{}, nil)
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
 		tracesService: svc,
@@ -70,7 +51,7 @@ func TestQueryTraces_InvalidBody(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{},
+		tracesService: servicemocks.NewMockTracesQuerier(t),
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", strings.NewReader("{bad"))
@@ -87,7 +68,7 @@ func TestQueryTraces_ValidationError(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{},
+		tracesService: servicemocks.NewMockTracesQuerier(t),
 	}
 
 	// Missing namespace → validation failure.
@@ -121,9 +102,12 @@ func TestQueryTraces_ServiceNotInitialized(t *testing.T) {
 func TestQueryTraces_AuthzForbidden(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QueryTraces", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzForbidden)
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{tracesErr: observerAuthz.ErrAuthzForbidden},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
@@ -137,9 +121,12 @@ func TestQueryTraces_AuthzForbidden(t *testing.T) {
 func TestQueryTraces_AuthzUnauthorized(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QueryTraces", mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzUnauthorized)
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{tracesErr: observerAuthz.ErrAuthzUnauthorized},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
@@ -153,9 +140,12 @@ func TestQueryTraces_AuthzUnauthorized(t *testing.T) {
 func TestQueryTraces_ResolveSearchScopeError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QueryTraces", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: scope failed", service.ErrTracesResolveSearchScope))
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{tracesErr: fmt.Errorf("%w: scope failed", service.ErrTracesResolveSearchScope)},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
@@ -170,9 +160,12 @@ func TestQueryTraces_ResolveSearchScopeError(t *testing.T) {
 func TestQueryTraces_RetrievalError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QueryTraces", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: backend error", service.ErrTracesRetrieval))
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{tracesErr: fmt.Errorf("%w: backend error", service.ErrTracesRetrieval)},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
@@ -187,9 +180,12 @@ func TestQueryTraces_RetrievalError(t *testing.T) {
 func TestQueryTraces_InvalidRequestError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QueryTraces", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: bad param", service.ErrTracesInvalidRequest))
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{tracesErr: fmt.Errorf("%w: bad param", service.ErrTracesInvalidRequest)},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
@@ -203,9 +199,12 @@ func TestQueryTraces_InvalidRequestError(t *testing.T) {
 func TestQueryTraces_GenericError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QueryTraces", mock.Anything, mock.Anything).Return(nil, errors.New("unexpected"))
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{tracesErr: errors.New("unexpected")},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
@@ -222,7 +221,9 @@ func TestQueryTraces_GenericError(t *testing.T) {
 func TestQuerySpansForTrace_Success(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeTracesQuerier{spansResp: &types.SpansQueryResponse{}}
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QuerySpans", mock.Anything, mock.Anything, mock.Anything).Return(&types.SpansQueryResponse{}, nil)
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
 		tracesService: svc,
@@ -258,9 +259,12 @@ func TestQuerySpansForTrace_ServiceNotInitialized(t *testing.T) {
 func TestQuerySpansForTrace_AuthzForbidden(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QuerySpans", mock.Anything, mock.Anything, mock.Anything).Return(nil, observerAuthz.ErrAuthzForbidden)
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{spansErr: observerAuthz.ErrAuthzForbidden},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query", validTracesRequestBody(t))
@@ -275,9 +279,12 @@ func TestQuerySpansForTrace_AuthzForbidden(t *testing.T) {
 func TestQuerySpansForTrace_RetrievalError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QuerySpans", mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: backend error", service.ErrTracesRetrieval))
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{spansErr: fmt.Errorf("%w: backend error", service.ErrTracesRetrieval)},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query", validTracesRequestBody(t))
@@ -293,9 +300,12 @@ func TestQuerySpansForTrace_RetrievalError(t *testing.T) {
 func TestQuerySpansForTrace_InvalidRequestError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QuerySpans", mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: bad param", service.ErrTracesInvalidRequest))
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{spansErr: fmt.Errorf("%w: bad param", service.ErrTracesInvalidRequest)},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query", validTracesRequestBody(t))
@@ -310,9 +320,12 @@ func TestQuerySpansForTrace_InvalidRequestError(t *testing.T) {
 func TestQuerySpansForTrace_GenericError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("QuerySpans", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("unknown"))
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{spansErr: errors.New("unknown")},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query", validTracesRequestBody(t))
@@ -330,7 +343,9 @@ func TestQuerySpansForTrace_GenericError(t *testing.T) {
 func TestGetSpanDetailsForTrace_Success(t *testing.T) {
 	t.Parallel()
 
-	svc := &fakeTracesQuerier{spanInfo: &types.SpanInfo{SpanID: "span-1"}}
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("GetSpanDetails", mock.Anything, mock.Anything, mock.Anything).Return(&types.SpanInfo{SpanID: "span-1"}, nil)
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
 		tracesService: svc,
@@ -351,7 +366,7 @@ func TestGetSpanDetailsForTrace_EmptyTraceID(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{},
+		tracesService: servicemocks.NewMockTracesQuerier(t),
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces//spans/span-1", nil)
@@ -370,7 +385,7 @@ func TestGetSpanDetailsForTrace_EmptySpanID(t *testing.T) {
 
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{},
+		tracesService: servicemocks.NewMockTracesQuerier(t),
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/", nil)
@@ -406,9 +421,12 @@ func TestGetSpanDetailsForTrace_ServiceNotInitialized(t *testing.T) {
 func TestGetSpanDetailsForTrace_SpanNotFound(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("GetSpanDetails", mock.Anything, mock.Anything, mock.Anything).Return(nil, service.ErrSpanNotFound)
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{spanErr: service.ErrSpanNotFound},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-99", nil)
@@ -425,9 +443,12 @@ func TestGetSpanDetailsForTrace_SpanNotFound(t *testing.T) {
 func TestGetSpanDetailsForTrace_RetrievalError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("GetSpanDetails", mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: backend", service.ErrTracesRetrieval))
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{spanErr: fmt.Errorf("%w: backend", service.ErrTracesRetrieval)},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
@@ -444,9 +465,12 @@ func TestGetSpanDetailsForTrace_RetrievalError(t *testing.T) {
 func TestGetSpanDetailsForTrace_GenericError(t *testing.T) {
 	t.Parallel()
 
+	svc := servicemocks.NewMockTracesQuerier(t)
+	svc.On("GetSpanDetails", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("unexpected"))
+
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: &fakeTracesQuerier{spanErr: errors.New("unexpected")},
+		tracesService: svc,
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
