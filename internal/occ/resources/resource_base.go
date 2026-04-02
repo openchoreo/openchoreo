@@ -10,7 +10,6 @@ import (
 // ResourceBase provides common fields and functionality for all resources
 type ResourceBase struct {
 	namespace string
-	labels    map[string]string
 	config    constants.CRDConfig
 }
 
