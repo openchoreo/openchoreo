@@ -169,6 +169,9 @@ func (w *Workload) List(params ListParams) error {
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
+		if params.ComponentName != "" {
+			p.Component = &params.ComponentName
+		}
 		result, err := c.ListWorkloads(ctx, params.Namespace, p)
 		if err != nil {
 			return nil, "", err

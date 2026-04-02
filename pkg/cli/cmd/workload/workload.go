@@ -69,11 +69,12 @@ func newCreateWorkloadCmd() *cobra.Command {
 func newListWorkloadCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.ListWorkload,
-		Flags:   []flags.Flag{flags.Namespace},
+		Flags:   []flags.Flag{flags.Namespace, flags.Component},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(fg *builder.FlagGetter) error {
 			return workloadcmd.New().List(workloadcmd.ListParams{
-				Namespace: fg.GetString(flags.Namespace),
+				Namespace:     fg.GetString(flags.Namespace),
+				ComponentName: fg.GetString(flags.Component),
 			})
 		},
 	}).Build()
