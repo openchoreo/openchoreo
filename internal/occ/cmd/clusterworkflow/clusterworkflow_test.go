@@ -5,14 +5,17 @@ package clusterworkflow
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterworkflow/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -98,4 +101,105 @@ func TestPrint_NilTimestamp(t *testing.T) {
 	})
 
 	assert.Contains(t, out, "no-timestamp")
+}
+
+// --- List tests ---
+
+func TestList_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListClusterWorkflows(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("server error"))
+
+	cw := New(mc)
+	assert.EqualError(t, cw.List(), "server error")
+}
+
+func TestList_Success(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListClusterWorkflows(mock.Anything, mock.Anything).Return(&gen.ClusterWorkflowList{
+		Items:      []gen.ClusterWorkflow{{Metadata: gen.ObjectMeta{Name: "build-go"}}},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	cw := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cw.List())
+	})
+	assert.Contains(t, out, "build-go")
+}
+
+func TestList_MultipleItems(t *testing.T) {
+	now := time.Now()
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListClusterWorkflows(mock.Anything, mock.Anything).Return(&gen.ClusterWorkflowList{
+		Items: []gen.ClusterWorkflow{
+			{Metadata: gen.ObjectMeta{Name: "build-go", CreationTimestamp: &now}},
+			{Metadata: gen.ObjectMeta{Name: "build-docker", CreationTimestamp: &now}},
+		},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	cw := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cw.List())
+	})
+	assert.Contains(t, out, "build-go")
+	assert.Contains(t, out, "build-docker")
+}
+
+func TestList_Empty(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListClusterWorkflows(mock.Anything, mock.Anything).Return(&gen.ClusterWorkflowList{
+		Items:      []gen.ClusterWorkflow{},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	cw := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cw.List())
+	})
+	assert.Contains(t, out, "No cluster workflows found")
+}
+
+// --- Get tests ---
+
+func TestGet_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetClusterWorkflow(mock.Anything, "missing").Return(nil, fmt.Errorf("not found: missing"))
+
+	cw := New(mc)
+	assert.EqualError(t, cw.Get(GetParams{ClusterWorkflowName: "missing"}), "not found: missing")
+}
+
+func TestGet_Success(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetClusterWorkflow(mock.Anything, "build-go").Return(&gen.ClusterWorkflow{
+		Metadata: gen.ObjectMeta{Name: "build-go"},
+	}, nil)
+
+	cw := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cw.Get(GetParams{ClusterWorkflowName: "build-go"}))
+	})
+	assert.Contains(t, out, "name: build-go")
+}
+
+// --- Delete tests ---
+
+func TestDelete_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().DeleteClusterWorkflow(mock.Anything, "build-go").Return(fmt.Errorf("forbidden"))
+
+	cw := New(mc)
+	assert.EqualError(t, cw.Delete(DeleteParams{ClusterWorkflowName: "build-go"}), "forbidden")
+}
+
+func TestDelete_Success(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().DeleteClusterWorkflow(mock.Anything, "build-go").Return(nil)
+
+	cw := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cw.Delete(DeleteParams{ClusterWorkflowName: "build-go"}))
+	})
+	assert.Contains(t, out, "ClusterWorkflow 'build-go' deleted")
 }
