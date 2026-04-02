@@ -5,7 +5,6 @@ package clustertrait
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -13,33 +12,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustertrait/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
-
-// mockClient implements Client for testing.
-type mockClient struct {
-	listFn   func(ctx context.Context, params *gen.ListClusterTraitsParams) (*gen.ClusterTraitList, error)
-	getFn    func(ctx context.Context, name string) (*gen.ClusterTrait, error)
-	deleteFn func(ctx context.Context, name string) error
-}
-
-func (m *mockClient) ListClusterTraits(ctx context.Context, params *gen.ListClusterTraitsParams) (*gen.ClusterTraitList, error) {
-	return m.listFn(ctx, params)
-}
-
-func (m *mockClient) GetClusterTrait(ctx context.Context, name string) (*gen.ClusterTrait, error) {
-	return m.getFn(ctx, name)
-}
-
-func (m *mockClient) DeleteClusterTrait(ctx context.Context, name string) error {
-	return m.deleteFn(ctx, name)
-}
-
-func newTestClusterTrait(mc *mockClient) *ClusterTrait {
-	return New(mc)
-}
 
 // captureStdout captures stdout output from a function call.
 func captureStdout(t *testing.T, fn func()) string {
@@ -128,28 +106,21 @@ func TestPrint_NilTimestamp(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := &mockClient{
-		listFn: func(_ context.Context, _ *gen.ListClusterTraitsParams) (*gen.ClusterTraitList, error) {
-			return nil, fmt.Errorf("server error")
-		},
-	}
-	ct := newTestClusterTrait(mc)
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListClusterTraits(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("server error"))
+
+	ct := New(mc)
 	assert.EqualError(t, ct.List(), "server error")
 }
 
 func TestList_Success(t *testing.T) {
-	mc := &mockClient{
-		listFn: func(_ context.Context, _ *gen.ListClusterTraitsParams) (*gen.ClusterTraitList, error) {
-			return &gen.ClusterTraitList{
-				Items: []gen.ClusterTrait{
-					{Metadata: gen.ObjectMeta{Name: "ingress"}},
-				},
-				Pagination: gen.Pagination{},
-			}, nil
-		},
-	}
-	ct := newTestClusterTrait(mc)
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListClusterTraits(mock.Anything, mock.Anything).Return(&gen.ClusterTraitList{
+		Items:      []gen.ClusterTrait{{Metadata: gen.ObjectMeta{Name: "ingress"}}},
+		Pagination: gen.Pagination{},
+	}, nil)
 
+	ct := New(mc)
 	out := captureStdout(t, func() {
 		require.NoError(t, ct.List())
 	})
@@ -159,19 +130,16 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := &mockClient{
-		listFn: func(_ context.Context, _ *gen.ListClusterTraitsParams) (*gen.ClusterTraitList, error) {
-			return &gen.ClusterTraitList{
-				Items: []gen.ClusterTrait{
-					{Metadata: gen.ObjectMeta{Name: "ingress", CreationTimestamp: &now}},
-					{Metadata: gen.ObjectMeta{Name: "observability-alert-rule", CreationTimestamp: &now}},
-				},
-				Pagination: gen.Pagination{},
-			}, nil
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListClusterTraits(mock.Anything, mock.Anything).Return(&gen.ClusterTraitList{
+		Items: []gen.ClusterTrait{
+			{Metadata: gen.ObjectMeta{Name: "ingress", CreationTimestamp: &now}},
+			{Metadata: gen.ObjectMeta{Name: "observability-alert-rule", CreationTimestamp: &now}},
 		},
-	}
-	ct := newTestClusterTrait(mc)
+		Pagination: gen.Pagination{},
+	}, nil)
 
+	ct := New(mc)
 	out := captureStdout(t, func() {
 		require.NoError(t, ct.List())
 	})
@@ -183,16 +151,13 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := &mockClient{
-		listFn: func(_ context.Context, _ *gen.ListClusterTraitsParams) (*gen.ClusterTraitList, error) {
-			return &gen.ClusterTraitList{
-				Items:      []gen.ClusterTrait{},
-				Pagination: gen.Pagination{},
-			}, nil
-		},
-	}
-	ct := newTestClusterTrait(mc)
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListClusterTraits(mock.Anything, mock.Anything).Return(&gen.ClusterTraitList{
+		Items:      []gen.ClusterTrait{},
+		Pagination: gen.Pagination{},
+	}, nil)
 
+	ct := New(mc)
 	out := captureStdout(t, func() {
 		require.NoError(t, ct.List())
 	})
@@ -203,25 +168,20 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := &mockClient{
-		getFn: func(_ context.Context, name string) (*gen.ClusterTrait, error) {
-			return nil, fmt.Errorf("not found: %s", name)
-		},
-	}
-	ct := newTestClusterTrait(mc)
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetClusterTrait(mock.Anything, "missing").Return(nil, fmt.Errorf("not found: missing"))
+
+	ct := New(mc)
 	assert.EqualError(t, ct.Get(GetParams{ClusterTraitName: "missing"}), "not found: missing")
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := &mockClient{
-		getFn: func(_ context.Context, name string) (*gen.ClusterTrait, error) {
-			return &gen.ClusterTrait{
-				Metadata: gen.ObjectMeta{Name: name},
-			}, nil
-		},
-	}
-	ct := newTestClusterTrait(mc)
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetClusterTrait(mock.Anything, "ingress").Return(&gen.ClusterTrait{
+		Metadata: gen.ObjectMeta{Name: "ingress"},
+	}, nil)
 
+	ct := New(mc)
 	out := captureStdout(t, func() {
 		require.NoError(t, ct.Get(GetParams{ClusterTraitName: "ingress"}))
 	})
@@ -232,23 +192,18 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := &mockClient{
-		deleteFn: func(_ context.Context, name string) error {
-			return fmt.Errorf("forbidden: %s", name)
-		},
-	}
-	ct := newTestClusterTrait(mc)
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().DeleteClusterTrait(mock.Anything, "ingress").Return(fmt.Errorf("forbidden: ingress"))
+
+	ct := New(mc)
 	assert.EqualError(t, ct.Delete(DeleteParams{ClusterTraitName: "ingress"}), "forbidden: ingress")
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := &mockClient{
-		deleteFn: func(_ context.Context, _ string) error {
-			return nil
-		},
-	}
-	ct := newTestClusterTrait(mc)
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().DeleteClusterTrait(mock.Anything, "ingress").Return(nil)
 
+	ct := New(mc)
 	out := captureStdout(t, func() {
 		require.NoError(t, ct.Delete(DeleteParams{ClusterTraitName: "ingress"}))
 	})

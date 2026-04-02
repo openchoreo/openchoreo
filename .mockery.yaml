@@ -7,3 +7,6 @@ packages:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz:
     interfaces:
       Service:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/clustertrait:
+    interfaces:
+      Client:
