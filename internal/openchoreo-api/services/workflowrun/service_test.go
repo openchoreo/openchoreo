@@ -5,11 +5,13 @@ package workflowrun
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -246,5 +248,388 @@ func TestMatchesTaskName(t *testing.T) {
 
 	t.Run("no match", func(t *testing.T) {
 		assert.False(t, matchesTaskName("other-task", "checkout-source"))
+	})
+}
+
+func TestComputeWorkflowRunStatus(t *testing.T) {
+	t.Run("no conditions returns pending", func(t *testing.T) {
+		assert.Equal(t, workflowRunStatusPending, computeWorkflowRunStatus(nil))
+	})
+
+	t.Run("empty conditions returns pending", func(t *testing.T) {
+		assert.Equal(t, workflowRunStatusPending, computeWorkflowRunStatus([]metav1.Condition{}))
+	})
+
+	t.Run("workflow failed", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowFailed", Status: metav1.ConditionTrue},
+		}
+		assert.Equal(t, workflowRunStatusFailed, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("workflow succeeded", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowSucceeded", Status: metav1.ConditionTrue},
+		}
+		assert.Equal(t, workflowRunStatusSucceeded, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("workflow running", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowRunning", Status: metav1.ConditionTrue},
+		}
+		assert.Equal(t, workflowRunStatusRunning, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("failed takes precedence over succeeded", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowSucceeded", Status: metav1.ConditionTrue},
+			{Type: "WorkflowFailed", Status: metav1.ConditionTrue},
+		}
+		assert.Equal(t, workflowRunStatusFailed, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("succeeded takes precedence over running", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowRunning", Status: metav1.ConditionTrue},
+			{Type: "WorkflowSucceeded", Status: metav1.ConditionTrue},
+		}
+		assert.Equal(t, workflowRunStatusSucceeded, computeWorkflowRunStatus(conditions))
+	})
+
+	t.Run("condition false returns pending", func(t *testing.T) {
+		conditions := []metav1.Condition{
+			{Type: "WorkflowRunning", Status: metav1.ConditionFalse},
+		}
+		assert.Equal(t, workflowRunStatusPending, computeWorkflowRunStatus(conditions))
+	})
+}
+
+func TestGenerateWorkflowRunName(t *testing.T) {
+	t.Run("generates valid name", func(t *testing.T) {
+		name, err := generateWorkflowRunName("my-component")
+		require.NoError(t, err)
+		assert.Contains(t, name, "my-component-run-")
+		assert.Len(t, name, len("my-component-run-")+8) // 8 hex chars
+	})
+
+	t.Run("generates unique names", func(t *testing.T) {
+		name1, err := generateWorkflowRunName("comp")
+		require.NoError(t, err)
+		name2, err := generateWorkflowRunName("comp")
+		require.NoError(t, err)
+		assert.NotEqual(t, name1, name2)
+	})
+
+	t.Run("truncates long base name to fit 63 char limit", func(t *testing.T) {
+		longName := "this-is-a-very-long-component-name-that-exceeds-kubernetes-limits"
+		name, err := generateWorkflowRunName(longName)
+		require.NoError(t, err)
+		assert.LessOrEqual(t, len(name), 63)
+		assert.Contains(t, name, "-run-")
+	})
+}
+
+func TestGetNestedStringInParams(t *testing.T) {
+	makeRaw := func(data map[string]any) *runtime.RawExtension {
+		b, _ := json.Marshal(data)
+		return &runtime.RawExtension{Raw: b}
+	}
+
+	t.Run("simple key", func(t *testing.T) {
+		raw := makeRaw(map[string]any{"url": "https://github.com/example"})
+		val, err := getNestedStringInParams(raw, "url")
+		require.NoError(t, err)
+		assert.Equal(t, "https://github.com/example", val)
+	})
+
+	t.Run("nested key", func(t *testing.T) {
+		raw := makeRaw(map[string]any{
+			"repo": map[string]any{
+				"url": "https://github.com/example",
+			},
+		})
+		val, err := getNestedStringInParams(raw, "repo.url")
+		require.NoError(t, err)
+		assert.Equal(t, "https://github.com/example", val)
+	})
+
+	t.Run("strips parameters prefix", func(t *testing.T) {
+		raw := makeRaw(map[string]any{"url": "https://github.com/example"})
+		val, err := getNestedStringInParams(raw, "parameters.url")
+		require.NoError(t, err)
+		assert.Equal(t, "https://github.com/example", val)
+	})
+
+	t.Run("nil raw extension", func(t *testing.T) {
+		_, err := getNestedStringInParams(nil, "url")
+		require.Error(t, err)
+	})
+
+	t.Run("key not found", func(t *testing.T) {
+		raw := makeRaw(map[string]any{"url": "https://github.com/example"})
+		_, err := getNestedStringInParams(raw, "missing")
+		require.Error(t, err)
+	})
+
+	t.Run("value is not a string", func(t *testing.T) {
+		raw := makeRaw(map[string]any{"count": 42})
+		_, err := getNestedStringInParams(raw, "count")
+		require.Error(t, err)
+	})
+
+	t.Run("intermediate is not an object", func(t *testing.T) {
+		raw := makeRaw(map[string]any{"repo": "not-an-object"})
+		_, err := getNestedStringInParams(raw, "repo.url")
+		require.Error(t, err)
+	})
+}
+
+func TestSetNestedStringInParams(t *testing.T) {
+	makeRaw := func(data map[string]any) *runtime.RawExtension {
+		b, _ := json.Marshal(data)
+		return &runtime.RawExtension{Raw: b}
+	}
+
+	t.Run("simple key", func(t *testing.T) {
+		raw := makeRaw(map[string]any{"commit": "old"})
+		result, err := setNestedStringInParams(raw, "commit", "abc1234")
+		require.NoError(t, err)
+
+		val, err := getNestedStringInParams(result, "commit")
+		require.NoError(t, err)
+		assert.Equal(t, "abc1234", val)
+	})
+
+	t.Run("nested key", func(t *testing.T) {
+		raw := makeRaw(map[string]any{
+			"repo": map[string]any{
+				"commit": "old",
+			},
+		})
+		result, err := setNestedStringInParams(raw, "repo.commit", "abc1234")
+		require.NoError(t, err)
+
+		val, err := getNestedStringInParams(result, "repo.commit")
+		require.NoError(t, err)
+		assert.Equal(t, "abc1234", val)
+	})
+
+	t.Run("strips parameters prefix", func(t *testing.T) {
+		raw := makeRaw(map[string]any{"commit": "old"})
+		result, err := setNestedStringInParams(raw, "parameters.commit", "abc1234")
+		require.NoError(t, err)
+
+		val, err := getNestedStringInParams(result, "commit")
+		require.NoError(t, err)
+		assert.Equal(t, "abc1234", val)
+	})
+
+	t.Run("creates intermediate objects", func(t *testing.T) {
+		raw := makeRaw(map[string]any{})
+		result, err := setNestedStringInParams(raw, "repo.commit", "abc1234")
+		require.NoError(t, err)
+
+		val, err := getNestedStringInParams(result, "repo.commit")
+		require.NoError(t, err)
+		assert.Equal(t, "abc1234", val)
+	})
+
+	t.Run("nil raw extension", func(t *testing.T) {
+		_, err := setNestedStringInParams(nil, "commit", "abc1234")
+		require.Error(t, err)
+	})
+
+	t.Run("intermediate is not an object", func(t *testing.T) {
+		raw := makeRaw(map[string]any{"repo": "not-an-object"})
+		_, err := setNestedStringInParams(raw, "repo.commit", "abc1234")
+		require.Error(t, err)
+	})
+}
+
+func TestTriggerWorkflow(t *testing.T) {
+	ctx := context.Background()
+
+	// buildWorkflowSchema returns an OpenAPIV3-style schema with x-openchoreo-component-parameter-repository extensions.
+	buildWorkflowSchema := func() *runtime.RawExtension {
+		schema := map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"repoUrl": map[string]any{
+					"type": "string",
+					"x-openchoreo-component-parameter-repository-url": true,
+				},
+				"commit": map[string]any{
+					"type": "string",
+					"x-openchoreo-component-parameter-repository-commit": true,
+				},
+			},
+		}
+		b, _ := json.Marshal(schema)
+		return &runtime.RawExtension{Raw: b}
+	}
+
+	buildComponentWithWorkflow := func(namespace, project, name, workflowName string, kind openchoreov1alpha1.WorkflowRefKind) *openchoreov1alpha1.Component {
+		params, _ := json.Marshal(map[string]any{
+			"repoUrl": "https://github.com/example/repo",
+			"commit":  "",
+		})
+		comp := testutil.NewComponent(namespace, project, name)
+		comp.Spec.Workflow = &openchoreov1alpha1.ComponentWorkflowConfig{
+			Kind: kind,
+			Name: workflowName,
+			Parameters: &runtime.RawExtension{
+				Raw: params,
+			},
+		}
+		return comp
+	}
+
+	t.Run("component not found", func(t *testing.T) {
+		svc := newService(t)
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "nonexistent", "abc1234")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get component")
+	})
+
+	t.Run("component without workflow config", func(t *testing.T) {
+		comp := testutil.NewComponent(testNamespace, "proj", "my-comp")
+		svc := newService(t, comp)
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "abc1234")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not have a workflow configured")
+	})
+
+	t.Run("invalid commit SHA", func(t *testing.T) {
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		wf.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+			OpenAPIV3Schema: buildWorkflowSchema(),
+		}
+		comp := buildComponentWithWorkflow(testNamespace, "proj", "my-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
+		svc := newService(t, wf, comp)
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "not-a-sha!")
+		require.ErrorIs(t, err, ErrInvalidCommitSHA)
+	})
+
+	t.Run("project name mismatch", func(t *testing.T) {
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		comp := buildComponentWithWorkflow(testNamespace, "real-project", "my-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
+		svc := newService(t, wf, comp)
+		_, err := svc.TriggerWorkflow(ctx, testNamespace, "wrong-project", "my-comp", "abc1234")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not match component owner project")
+	})
+
+	t.Run("success with workflow ref", func(t *testing.T) {
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		wf.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+			OpenAPIV3Schema: buildWorkflowSchema(),
+		}
+		comp := buildComponentWithWorkflow(testNamespace, "proj", "my-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
+		svc := newService(t, wf, comp)
+
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "abc1234f")
+		require.NoError(t, err)
+		assert.Equal(t, "my-comp", result.ComponentName)
+		assert.Equal(t, "proj", result.ProjectName)
+		assert.Equal(t, testNamespace, result.NamespaceName)
+		assert.Equal(t, "abc1234f", result.Commit)
+		assert.Equal(t, workflowRunStatusPending, result.Status)
+		assert.Contains(t, result.Name, "my-comp-run-")
+	})
+
+	t.Run("success with cluster workflow ref", func(t *testing.T) {
+		cwf := testutil.NewClusterWorkflow(testWorkflowName)
+		cwf.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+			OpenAPIV3Schema: buildWorkflowSchema(),
+		}
+		comp := buildComponentWithWorkflow(testNamespace, "proj", "my-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindClusterWorkflow)
+		svc := newService(t, cwf, comp)
+
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "abc1234f")
+		require.NoError(t, err)
+		assert.Equal(t, "my-comp", result.ComponentName)
+		assert.Contains(t, result.Name, "my-comp-run-")
+	})
+
+	t.Run("success with empty commit", func(t *testing.T) {
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		wf.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+			OpenAPIV3Schema: buildWorkflowSchema(),
+		}
+		comp := buildComponentWithWorkflow(testNamespace, "proj", "my-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
+		svc := newService(t, wf, comp)
+
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "")
+		require.NoError(t, err)
+		assert.Empty(t, result.Commit)
+	})
+
+	t.Run("success with empty project name derives from component owner", func(t *testing.T) {
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		wf.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+			OpenAPIV3Schema: buildWorkflowSchema(),
+		}
+		comp := buildComponentWithWorkflow(testNamespace, "owned-proj", "my-comp", testWorkflowName, openchoreov1alpha1.WorkflowRefKindWorkflow)
+		svc := newService(t, wf, comp)
+
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "", "my-comp", "abc1234f")
+		require.NoError(t, err)
+		assert.Equal(t, "owned-proj", result.ProjectName)
+	})
+}
+
+func TestGetWorkflowRunStatus(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("not found", func(t *testing.T) {
+		svc := newService(t)
+		_, err := svc.GetWorkflowRunStatus(ctx, testNamespace, "nonexistent", "")
+		require.ErrorIs(t, err, ErrWorkflowRunNotFound)
+	})
+
+	t.Run("pending status with no conditions", func(t *testing.T) {
+		run := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		svc := newService(t, run)
+
+		result, err := svc.GetWorkflowRunStatus(ctx, testNamespace, testRunName, "")
+		require.NoError(t, err)
+		assert.Equal(t, workflowRunStatusPending, result.Status)
+		assert.Empty(t, result.Steps)
+		assert.False(t, result.HasLiveObservability)
+	})
+}
+
+func TestGetWorkflowRunLogs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("not found", func(t *testing.T) {
+		svc := newService(t)
+		_, err := svc.GetWorkflowRunLogs(ctx, testNamespace, "nonexistent", "", "", nil)
+		require.ErrorIs(t, err, ErrWorkflowRunNotFound)
+	})
+
+	t.Run("missing run reference", func(t *testing.T) {
+		run := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		svc := newService(t, run)
+		_, err := svc.GetWorkflowRunLogs(ctx, testNamespace, testRunName, "", "", nil)
+		require.ErrorIs(t, err, ErrWorkflowRunReferenceNotFound)
+	})
+}
+
+func TestGetWorkflowRunEvents(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("not found", func(t *testing.T) {
+		svc := newService(t)
+		_, err := svc.GetWorkflowRunEvents(ctx, testNamespace, "nonexistent", "", "")
+		require.ErrorIs(t, err, ErrWorkflowRunNotFound)
+	})
+
+	t.Run("missing run reference", func(t *testing.T) {
+		run := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		svc := newService(t, run)
+		_, err := svc.GetWorkflowRunEvents(ctx, testNamespace, testRunName, "", "")
+		require.ErrorIs(t, err, ErrWorkflowRunReferenceNotFound)
 	})
 }

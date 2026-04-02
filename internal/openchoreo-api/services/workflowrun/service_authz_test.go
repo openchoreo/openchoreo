@@ -1,394 +1,548 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package workflowrun
+package workflowrun_test
 
 import (
-	"errors"
+	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
+	authzmocks "github.com/openchoreo/openchoreo/internal/authz/core/mocks"
 	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun/mocks"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
+	wfrmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun/mocks"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
-// newWR is a helper to create a WorkflowRun with optional project/component labels.
-func newWR(name string) *openchoreov1alpha1.WorkflowRun {
-	return &openchoreov1alpha1.WorkflowRun{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "ns-1",
-			Labels: map[string]string{
-				ocLabels.LabelKeyProjectName:   "my-proj",
-				ocLabels.LabelKeyComponentName: "my-comp",
-			},
-		},
-	}
+const (
+	testNamespace     = "test-ns"
+	testWorkflowName  = "test-workflow"
+	testRunName       = "test-run"
+	testProjectName   = "proj-a"
+	testComponentName = "comp-a"
+)
+
+func ctxWithSubject() context.Context {
+	return auth.SetSubjectContext(context.Background(), &auth.SubjectContext{
+		ID:                "user-1",
+		Type:              "user",
+		EntitlementClaim:  "groups",
+		EntitlementValues: []string{"org-admins"},
+	})
 }
 
-// --- constructHierarchyForAuthzCheck ---
+// allowDecision returns a PDP allow decision.
+func allowDecision() *authz.Decision {
+	return &authz.Decision{Decision: true, Context: &authz.DecisionContext{Reason: "allowed"}}
+}
+
+// denyDecision returns a PDP deny decision.
+func denyDecision() *authz.Decision {
+	return &authz.Decision{Decision: false, Context: &authz.DecisionContext{Reason: "denied"}}
+}
+
+// newAuthzService creates a workflowRunServiceWithAuthz with mock Service and mock PDP.
+func newAuthzService(t *testing.T, mockSvc *wfrmocks.MockService, mockPDP *authzmocks.MockPDP) workflowrun.Service {
+	t.Helper()
+	return workflowrun.NewTestServiceWithAuthz(mockSvc, mockPDP, testutil.TestLogger())
+}
+
+// newWorkflowRun creates a test WorkflowRun with optional project/component labels.
+func newWorkflowRun(name, project, component string) *openchoreov1alpha1.WorkflowRun {
+	run := testutil.NewWorkflowRun(testNamespace, testWorkflowName, name)
+	if project != "" || component != "" {
+		run.Labels = map[string]string{
+			ocLabels.LabelKeyProjectName:   project,
+			ocLabels.LabelKeyComponentName: component,
+		}
+	}
+	return run
+}
+
+// ---------------------------------------------------------------------------
+// constructHierarchyForAuthzCheck tests
+// ---------------------------------------------------------------------------
 
 func TestConstructHierarchyForAuthzCheck(t *testing.T) {
 	t.Run("with project and component labels", func(t *testing.T) {
 		labels := map[string]string{
-			ocLabels.LabelKeyProjectName:   "my-proj",
+			ocLabels.LabelKeyProjectName:   "my-project",
 			ocLabels.LabelKeyComponentName: "my-comp",
 		}
-		h := constructHierarchyForAuthzCheck("ns-1", labels)
-		require.Equal(t, authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "my-proj", Component: "my-comp"}, h)
+		h := workflowrun.ExportConstructHierarchy("ns-1", labels)
+		assert.Equal(t, "ns-1", h.Namespace)
+		assert.Equal(t, "my-project", h.Project)
+		assert.Equal(t, "my-comp", h.Component)
 	})
 
-	t.Run("without labels — namespace fallback", func(t *testing.T) {
-		h := constructHierarchyForAuthzCheck("ns-1", map[string]string{})
-		require.Equal(t, authzcore.ResourceHierarchy{Namespace: "ns-1"}, h)
+	t.Run("with only project label falls back to namespace", func(t *testing.T) {
+		labels := map[string]string{
+			ocLabels.LabelKeyProjectName: "my-project",
+		}
+		h := workflowrun.ExportConstructHierarchy("ns-1", labels)
+		assert.Equal(t, "ns-1", h.Namespace)
+		assert.Empty(t, h.Project)
+		assert.Empty(t, h.Component)
 	})
 
-	t.Run("only project label — namespace fallback", func(t *testing.T) {
-		h := constructHierarchyForAuthzCheck("ns-1", map[string]string{
-			ocLabels.LabelKeyProjectName: "my-proj",
-		})
-		require.Equal(t, authzcore.ResourceHierarchy{Namespace: "ns-1"}, h)
+	t.Run("with only component label falls back to namespace", func(t *testing.T) {
+		labels := map[string]string{
+			ocLabels.LabelKeyComponentName: "my-comp",
+		}
+		h := workflowrun.ExportConstructHierarchy("ns-1", labels)
+		assert.Equal(t, "ns-1", h.Namespace)
+		assert.Empty(t, h.Project)
+		assert.Empty(t, h.Component)
+	})
+
+	t.Run("empty labels falls back to namespace", func(t *testing.T) {
+		h := workflowrun.ExportConstructHierarchy("ns-1", map[string]string{})
+		assert.Equal(t, "ns-1", h.Namespace)
+		assert.Empty(t, h.Project)
+		assert.Empty(t, h.Component)
+	})
+
+	t.Run("nil labels falls back to namespace", func(t *testing.T) {
+		h := workflowrun.ExportConstructHierarchy("ns-1", nil)
+		assert.Equal(t, "ns-1", h.Namespace)
+		assert.Empty(t, h.Project)
+		assert.Empty(t, h.Component)
 	})
 }
 
-// --- CreateWorkflowRun ---
+// ---------------------------------------------------------------------------
+// CreateWorkflowRun authz tests
+// ---------------------------------------------------------------------------
 
-func TestCreateWorkflowRun_AuthzCheck(t *testing.T) {
-	wr := newWR("run-1")
+func TestCreateWorkflowRun_Authz(t *testing.T) {
+	t.Run("allowed delegates to internal service", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
 
-	t.Run("allowed", func(t *testing.T) {
-		pdp := testutil.AllowPDP()
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("CreateWorkflowRun", mock.Anything, "ns-1", wr).Return(wr, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		result, err := svc.CreateWorkflowRun(testutil.AuthzContext(), "ns-1", wr)
+		run := newWorkflowRun(testRunName, testProjectName, testComponentName)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
+		mockSvc.EXPECT().CreateWorkflowRun(mock.Anything, testNamespace, run).Return(run, nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		result, err := svc.CreateWorkflowRun(ctxWithSubject(), testNamespace, run)
 		require.NoError(t, err)
-		require.Equal(t, wr, result)
-		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "workflowrun:create", "workflowrun", "run-1",
-			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "my-proj", Component: "my-comp"})
+		assert.Equal(t, testRunName, result.Name)
 	})
 
-	t.Run("denied", func(t *testing.T) {
-		pdp := testutil.DenyPDP()
-		mockSvc := mocks.NewMockService(t)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		_, err := svc.CreateWorkflowRun(testutil.AuthzContext(), "ns-1", wr)
-		require.ErrorIs(t, err, services.ErrForbidden)
-	})
-}
+	t.Run("denied returns forbidden without delegating", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
 
-// --- UpdateWorkflowRun ---
+		run := newWorkflowRun(testRunName, testProjectName, testComponentName)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil)
+		// mockSvc.CreateWorkflowRun should NOT be called
 
-func TestUpdateWorkflowRun_AuthzCheck(t *testing.T) {
-	wr := newWR("run-1")
-
-	t.Run("allowed", func(t *testing.T) {
-		pdp := testutil.AllowPDP()
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("UpdateWorkflowRun", mock.Anything, "ns-1", wr).Return(wr, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		result, err := svc.UpdateWorkflowRun(testutil.AuthzContext(), "ns-1", wr)
-		require.NoError(t, err)
-		require.Equal(t, wr, result)
-		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "workflowrun:update", "workflowrun", "run-1",
-			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "my-proj", Component: "my-comp"})
-	})
-
-	t.Run("denied", func(t *testing.T) {
-		pdp := testutil.DenyPDP()
-		mockSvc := mocks.NewMockService(t)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		_, err := svc.UpdateWorkflowRun(testutil.AuthzContext(), "ns-1", wr)
-		require.ErrorIs(t, err, services.ErrForbidden)
-	})
-}
-
-// --- GetWorkflowRun ---
-
-func TestGetWorkflowRun_AuthzCheck(t *testing.T) {
-	wr := newWR("run-1")
-
-	t.Run("allowed", func(t *testing.T) {
-		pdp := testutil.AllowPDP()
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("GetWorkflowRun", mock.Anything, "ns-1", "run-1").Return(wr, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		result, err := svc.GetWorkflowRun(testutil.AuthzContext(), "ns-1", "run-1")
-		require.NoError(t, err)
-		require.Equal(t, wr, result)
-		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "workflowrun:view", "workflowrun", "run-1",
-			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "my-proj", Component: "my-comp"})
-	})
-
-	t.Run("denied", func(t *testing.T) {
-		pdp := testutil.DenyPDP()
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("GetWorkflowRun", mock.Anything, "ns-1", "run-1").Return(wr, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		_, err := svc.GetWorkflowRun(testutil.AuthzContext(), "ns-1", "run-1")
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.CreateWorkflowRun(ctxWithSubject(), testNamespace, run)
 		require.ErrorIs(t, err, services.ErrForbidden)
 	})
 
-	t.Run("fetch error", func(t *testing.T) {
-		pdp := testutil.AllowPDP()
-		fetchErr := errors.New("not found")
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("GetWorkflowRun", mock.Anything, "ns-1", "run-1").Return(nil, fetchErr)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		_, err := svc.GetWorkflowRun(testutil.AuthzContext(), "ns-1", "run-1")
-		require.ErrorIs(t, err, fetchErr)
-		require.Empty(t, pdp.Captured)
+	t.Run("checks correct action and hierarchy from labels", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		run := newWorkflowRun(testRunName, testProjectName, testComponentName)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Action == workflowrun.ExportActionCreate &&
+				req.Resource.Type == workflowrun.ExportResourceType &&
+				req.Resource.ID == testRunName &&
+				req.Resource.Hierarchy.Namespace == testNamespace &&
+				req.Resource.Hierarchy.Project == testProjectName &&
+				req.Resource.Hierarchy.Component == testComponentName
+		})).Return(allowDecision(), nil)
+		mockSvc.EXPECT().CreateWorkflowRun(mock.Anything, testNamespace, run).Return(run, nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.CreateWorkflowRun(ctxWithSubject(), testNamespace, run)
+		require.NoError(t, err)
 	})
 }
 
-// --- GetWorkflowRunLogs ---
+// ---------------------------------------------------------------------------
+// UpdateWorkflowRun authz tests
+// ---------------------------------------------------------------------------
 
-func TestGetWorkflowRunLogs_AuthzCheck(t *testing.T) {
-	wr := newWR("run-1")
+func TestUpdateWorkflowRun_Authz(t *testing.T) {
+	t.Run("allowed delegates to internal service", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
 
-	t.Run("allowed", func(t *testing.T) {
-		pdp := testutil.AllowPDP()
-		entries := []models.WorkflowRunLogEntry{{}}
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("GetWorkflowRun", mock.Anything, "ns-1", "run-1").Return(wr, nil)
-		mockSvc.On("GetWorkflowRunLogs", mock.Anything, "ns-1", "run-1", "task-1", "http://gw", (*int64)(nil)).Return(entries, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		result, err := svc.GetWorkflowRunLogs(testutil.AuthzContext(), "ns-1", "run-1", "task-1", "http://gw", nil)
+		update := newWorkflowRun(testRunName, "", "")
+		update.Labels = map[string]string{"env": "prod"}
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
+		mockSvc.EXPECT().UpdateWorkflowRun(mock.Anything, testNamespace, update).Return(update, nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		result, err := svc.UpdateWorkflowRun(ctxWithSubject(), testNamespace, update)
 		require.NoError(t, err)
-		require.Equal(t, entries, result)
-		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "workflowrun:view", "workflowrun", "run-1",
-			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "my-proj", Component: "my-comp"})
+		assert.Equal(t, "prod", result.Labels["env"])
 	})
 
-	t.Run("denied", func(t *testing.T) {
-		pdp := testutil.DenyPDP()
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("GetWorkflowRun", mock.Anything, "ns-1", "run-1").Return(wr, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		_, err := svc.GetWorkflowRunLogs(testutil.AuthzContext(), "ns-1", "run-1", "task-1", "http://gw", nil)
+	t.Run("denied returns forbidden without delegating", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		update := newWorkflowRun(testRunName, "", "")
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.UpdateWorkflowRun(ctxWithSubject(), testNamespace, update)
 		require.ErrorIs(t, err, services.ErrForbidden)
 	})
 
-	t.Run("fetch error", func(t *testing.T) {
-		pdp := testutil.AllowPDP()
-		fetchErr := errors.New("not found")
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("GetWorkflowRun", mock.Anything, "ns-1", "run-1").Return(nil, fetchErr)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		_, err := svc.GetWorkflowRunLogs(testutil.AuthzContext(), "ns-1", "run-1", "task-1", "http://gw", nil)
-		require.ErrorIs(t, err, fetchErr)
-		require.Empty(t, pdp.Captured)
-	})
-}
+	t.Run("checks correct action", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
 
-// --- GetWorkflowRunEvents ---
+		update := newWorkflowRun(testRunName, "", "")
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Action == workflowrun.ExportActionUpdate &&
+				req.Resource.Type == workflowrun.ExportResourceType
+		})).Return(allowDecision(), nil)
+		mockSvc.EXPECT().UpdateWorkflowRun(mock.Anything, testNamespace, update).Return(update, nil)
 
-func TestGetWorkflowRunEvents_AuthzCheck(t *testing.T) {
-	wr := newWR("run-1")
-
-	t.Run("allowed", func(t *testing.T) {
-		pdp := testutil.AllowPDP()
-		events := []models.WorkflowRunEventEntry{{}}
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("GetWorkflowRun", mock.Anything, "ns-1", "run-1").Return(wr, nil)
-		mockSvc.On("GetWorkflowRunEvents", mock.Anything, "ns-1", "run-1", "task-1", "http://gw").Return(events, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		result, err := svc.GetWorkflowRunEvents(testutil.AuthzContext(), "ns-1", "run-1", "task-1", "http://gw")
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.UpdateWorkflowRun(ctxWithSubject(), testNamespace, update)
 		require.NoError(t, err)
-		require.Equal(t, events, result)
-		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "workflowrun:view", "workflowrun", "run-1",
-			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "my-proj", Component: "my-comp"})
-	})
-
-	t.Run("denied", func(t *testing.T) {
-		pdp := testutil.DenyPDP()
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("GetWorkflowRun", mock.Anything, "ns-1", "run-1").Return(wr, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		_, err := svc.GetWorkflowRunEvents(testutil.AuthzContext(), "ns-1", "run-1", "task-1", "http://gw")
-		require.ErrorIs(t, err, services.ErrForbidden)
-	})
-
-	t.Run("fetch error", func(t *testing.T) {
-		pdp := testutil.AllowPDP()
-		fetchErr := errors.New("not found")
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("GetWorkflowRun", mock.Anything, "ns-1", "run-1").Return(nil, fetchErr)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		_, err := svc.GetWorkflowRunEvents(testutil.AuthzContext(), "ns-1", "run-1", "task-1", "http://gw")
-		require.ErrorIs(t, err, fetchErr)
-		require.Empty(t, pdp.Captured)
 	})
 }
 
-// --- GetWorkflowRunStatus ---
+// ---------------------------------------------------------------------------
+// ListWorkflowRuns authz tests
+// ---------------------------------------------------------------------------
 
-func TestGetWorkflowRunStatus_AuthzCheck(t *testing.T) {
-	wr := newWR("run-1")
-
-	t.Run("allowed", func(t *testing.T) {
-		pdp := testutil.AllowPDP()
-		status := &models.WorkflowRunStatusResponse{}
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("GetWorkflowRun", mock.Anything, "ns-1", "run-1").Return(wr, nil)
-		mockSvc.On("GetWorkflowRunStatus", mock.Anything, "ns-1", "run-1", "http://gw").Return(status, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		result, err := svc.GetWorkflowRunStatus(testutil.AuthzContext(), "ns-1", "run-1", "http://gw")
-		require.NoError(t, err)
-		require.Equal(t, status, result)
-		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "workflowrun:view", "workflowrun", "run-1",
-			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "my-proj", Component: "my-comp"})
-	})
-
-	t.Run("denied", func(t *testing.T) {
-		pdp := testutil.DenyPDP()
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("GetWorkflowRun", mock.Anything, "ns-1", "run-1").Return(wr, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		_, err := svc.GetWorkflowRunStatus(testutil.AuthzContext(), "ns-1", "run-1", "http://gw")
-		require.ErrorIs(t, err, services.ErrForbidden)
-	})
-
-	t.Run("fetch error", func(t *testing.T) {
-		pdp := testutil.AllowPDP()
-		fetchErr := errors.New("not found")
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("GetWorkflowRun", mock.Anything, "ns-1", "run-1").Return(nil, fetchErr)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		_, err := svc.GetWorkflowRunStatus(testutil.AuthzContext(), "ns-1", "run-1", "http://gw")
-		require.ErrorIs(t, err, fetchErr)
-		require.Empty(t, pdp.Captured)
-	})
-}
-
-// --- TriggerWorkflow ---
-
-func TestTriggerWorkflow_AuthzCheck(t *testing.T) {
-	t.Run("allowed", func(t *testing.T) {
-		pdp := testutil.AllowPDP()
-		resp := &models.WorkflowRunTriggerResponse{}
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("TriggerWorkflow", mock.Anything, "ns-1", "my-proj", "my-comp", "abc123").Return(resp, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		result, err := svc.TriggerWorkflow(testutil.AuthzContext(), "ns-1", "my-proj", "my-comp", "abc123")
-		require.NoError(t, err)
-		require.Equal(t, resp, result)
-		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "workflowrun:create", "workflowrun", "my-comp",
-			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "my-proj", Component: "my-comp"})
-	})
-
-	t.Run("denied", func(t *testing.T) {
-		pdp := testutil.DenyPDP()
-		mockSvc := mocks.NewMockService(t)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		_, err := svc.TriggerWorkflow(testutil.AuthzContext(), "ns-1", "my-proj", "my-comp", "abc123")
-		require.ErrorIs(t, err, services.ErrForbidden)
-	})
-}
-
-// --- ListWorkflowRuns ---
-
-func TestListWorkflowRuns_AuthzCheck(t *testing.T) {
-	wr1 := newWR("run-1")
-	wr2 := newWR("run-2")
+func TestListWorkflowRuns_Authz(t *testing.T) {
+	r1 := newWorkflowRun("run-1", testProjectName, testComponentName)
+	r2 := newWorkflowRun("run-2", "proj-b", "comp-b")
 
 	t.Run("all allowed", func(t *testing.T) {
-		pdp := testutil.AllowPDP()
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("ListWorkflowRuns", mock.Anything, "ns-1", "my-proj", "my-comp", "wf-1", mock.Anything).Return(&services.ListResult[openchoreov1alpha1.WorkflowRun]{
-			Items: []openchoreov1alpha1.WorkflowRun{*wr1, *wr2},
-		}, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		result, err := svc.ListWorkflowRuns(testutil.AuthzContext(), "ns-1", "my-proj", "my-comp", "wf-1", services.ListOptions{})
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().ListWorkflowRuns(mock.Anything, testNamespace, "", "", "", mock.Anything).
+			Return(&services.ListResult[openchoreov1alpha1.WorkflowRun]{Items: []openchoreov1alpha1.WorkflowRun{*r1, *r2}}, nil)
+		// FilteredList calls Check per item (uses Evaluate, not BatchEvaluate)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil).Times(2)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		result, err := svc.ListWorkflowRuns(ctxWithSubject(), testNamespace, "", "", "", services.ListOptions{})
 		require.NoError(t, err)
-		require.Len(t, result.Items, 2)
-		require.Len(t, pdp.Captured, 2)
+		assert.Len(t, result.Items, 2)
 	})
 
-	t.Run("all denied — empty result", func(t *testing.T) {
-		pdp := testutil.DenyPDP()
-		mockSvc := mocks.NewMockService(t)
-		mockSvc.On("ListWorkflowRuns", mock.Anything, "ns-1", "my-proj", "my-comp", "wf-1", mock.Anything).Return(&services.ListResult[openchoreov1alpha1.WorkflowRun]{
-			Items: []openchoreov1alpha1.WorkflowRun{*wr1, *wr2},
-		}, nil)
-		svc := &workflowRunServiceWithAuthz{
-			internal: mockSvc,
-			authz:    testutil.NewTestAuthzChecker(pdp),
-		}
-		result, err := svc.ListWorkflowRuns(testutil.AuthzContext(), "ns-1", "my-proj", "my-comp", "wf-1", services.ListOptions{})
+	t.Run("all denied returns empty", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().ListWorkflowRuns(mock.Anything, testNamespace, "", "", "", mock.Anything).
+			Return(&services.ListResult[openchoreov1alpha1.WorkflowRun]{Items: []openchoreov1alpha1.WorkflowRun{*r1, *r2}}, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil).Times(2)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		result, err := svc.ListWorkflowRuns(ctxWithSubject(), testNamespace, "", "", "", services.ListOptions{})
 		require.NoError(t, err)
-		require.Empty(t, result.Items)
+		assert.Empty(t, result.Items)
+	})
+
+	t.Run("partial authorization filters results", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().ListWorkflowRuns(mock.Anything, testNamespace, "", "", "", mock.Anything).
+			Return(&services.ListResult[openchoreov1alpha1.WorkflowRun]{Items: []openchoreov1alpha1.WorkflowRun{*r1, *r2}}, nil)
+		// Allow only items in proj-a
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).
+			RunAndReturn(func(_ context.Context, req *authz.EvaluateRequest) (*authz.Decision, error) {
+				allowed := req.Resource.Hierarchy.Project == testProjectName
+				return &authz.Decision{Decision: allowed, Context: &authz.DecisionContext{Reason: "filtered"}}, nil
+			}).Times(2)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		result, err := svc.ListWorkflowRuns(ctxWithSubject(), testNamespace, "", "", "", services.ListOptions{})
+		require.NoError(t, err)
+		assert.Len(t, result.Items, 1)
+		assert.Equal(t, "run-1", result.Items[0].Name)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// GetWorkflowRun authz tests
+// ---------------------------------------------------------------------------
+
+func TestGetWorkflowRun_Authz(t *testing.T) {
+	run := newWorkflowRun(testRunName, testProjectName, testComponentName)
+
+	t.Run("allowed delegates to internal service", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		// Authz wrapper calls GetWorkflowRun to fetch the resource, then checks authz
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		result, err := svc.GetWorkflowRun(ctxWithSubject(), testNamespace, testRunName)
+		require.NoError(t, err)
+		assert.Equal(t, testRunName, result.Name)
+	})
+
+	t.Run("denied returns forbidden", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.GetWorkflowRun(ctxWithSubject(), testNamespace, testRunName)
+		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	t.Run("not found does not check authz", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, "nonexistent").
+			Return(nil, workflowrun.ErrWorkflowRunNotFound)
+		// PDP.Evaluate should NOT be called
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.GetWorkflowRun(ctxWithSubject(), testNamespace, "nonexistent")
+		require.ErrorIs(t, err, workflowrun.ErrWorkflowRunNotFound)
+	})
+
+	t.Run("checks view action with hierarchy from fetched labels", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Action == workflowrun.ExportActionView &&
+				req.Resource.Hierarchy.Namespace == testNamespace &&
+				req.Resource.Hierarchy.Project == testProjectName &&
+				req.Resource.Hierarchy.Component == testComponentName
+		})).Return(allowDecision(), nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.GetWorkflowRun(ctxWithSubject(), testNamespace, testRunName)
+		require.NoError(t, err)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// GetWorkflowRunLogs authz tests
+// ---------------------------------------------------------------------------
+
+func TestGetWorkflowRunLogs_Authz(t *testing.T) {
+	run := newWorkflowRun(testRunName, testProjectName, testComponentName)
+
+	t.Run("denied before fetching logs", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		// Authz wrapper fetches the run first via GetWorkflowRun, then checks authz
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil)
+		// mockSvc.GetWorkflowRunLogs should NOT be called
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.GetWorkflowRunLogs(ctxWithSubject(), testNamespace, testRunName, "", "", nil)
+		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	t.Run("not found does not check authz", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, "nonexistent").
+			Return(nil, workflowrun.ErrWorkflowRunNotFound)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.GetWorkflowRunLogs(ctxWithSubject(), testNamespace, "nonexistent", "", "", nil)
+		require.ErrorIs(t, err, workflowrun.ErrWorkflowRunNotFound)
+	})
+
+	t.Run("allowed delegates to internal service", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		logEntries := []models.WorkflowRunLogEntry{{Timestamp: "2026-01-01T00:00:00Z", Log: "test log"}}
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
+		mockSvc.EXPECT().GetWorkflowRunLogs(mock.Anything, testNamespace, testRunName, "task-1", "gw-url", (*int64)(nil)).
+			Return(logEntries, nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		result, err := svc.GetWorkflowRunLogs(ctxWithSubject(), testNamespace, testRunName, "task-1", "gw-url", nil)
+		require.NoError(t, err)
+		assert.Len(t, result, 1)
+		assert.Equal(t, "test log", result[0].Log)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// GetWorkflowRunEvents authz tests
+// ---------------------------------------------------------------------------
+
+func TestGetWorkflowRunEvents_Authz(t *testing.T) {
+	run := newWorkflowRun(testRunName, testProjectName, testComponentName)
+
+	t.Run("denied before fetching events", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.GetWorkflowRunEvents(ctxWithSubject(), testNamespace, testRunName, "", "")
+		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	t.Run("not found does not check authz", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, "nonexistent").
+			Return(nil, workflowrun.ErrWorkflowRunNotFound)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.GetWorkflowRunEvents(ctxWithSubject(), testNamespace, "nonexistent", "", "")
+		require.ErrorIs(t, err, workflowrun.ErrWorkflowRunNotFound)
+	})
+
+	t.Run("allowed delegates to internal service", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		events := []models.WorkflowRunEventEntry{{Timestamp: "2026-01-01T00:00:00Z", Type: "Normal", Reason: "Started", Message: "pod started"}}
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
+		mockSvc.EXPECT().GetWorkflowRunEvents(mock.Anything, testNamespace, testRunName, "task-1", "gw-url").
+			Return(events, nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		result, err := svc.GetWorkflowRunEvents(ctxWithSubject(), testNamespace, testRunName, "task-1", "gw-url")
+		require.NoError(t, err)
+		assert.Len(t, result, 1)
+		assert.Equal(t, "Started", result[0].Reason)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// GetWorkflowRunStatus authz tests
+// ---------------------------------------------------------------------------
+
+func TestGetWorkflowRunStatus_Authz(t *testing.T) {
+	run := newWorkflowRun(testRunName, testProjectName, testComponentName)
+
+	t.Run("denied before fetching status", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.GetWorkflowRunStatus(ctxWithSubject(), testNamespace, testRunName, "")
+		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	t.Run("not found does not check authz", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, "nonexistent").
+			Return(nil, workflowrun.ErrWorkflowRunNotFound)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.GetWorkflowRunStatus(ctxWithSubject(), testNamespace, "nonexistent", "")
+		require.ErrorIs(t, err, workflowrun.ErrWorkflowRunNotFound)
+	})
+
+	t.Run("allowed delegates to internal service", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		statusResp := &models.WorkflowRunStatusResponse{Status: workflowrun.ExportStatusPending}
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
+		mockSvc.EXPECT().GetWorkflowRunStatus(mock.Anything, testNamespace, testRunName, "").Return(statusResp, nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		result, err := svc.GetWorkflowRunStatus(ctxWithSubject(), testNamespace, testRunName, "")
+		require.NoError(t, err)
+		assert.Equal(t, workflowrun.ExportStatusPending, result.Status)
+	})
+}
+
+// ---------------------------------------------------------------------------
+// TriggerWorkflow authz tests
+// ---------------------------------------------------------------------------
+
+func TestTriggerWorkflow_Authz(t *testing.T) {
+	t.Run("denied returns forbidden without delegating", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil)
+		// mockSvc.TriggerWorkflow should NOT be called
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f")
+		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	t.Run("checks correct action and component-level hierarchy", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Action == workflowrun.ExportActionCreate &&
+				req.Resource.Type == workflowrun.ExportResourceType &&
+				req.Resource.ID == "my-comp" &&
+				req.Resource.Hierarchy.Namespace == testNamespace &&
+				req.Resource.Hierarchy.Project == "proj" &&
+				req.Resource.Hierarchy.Component == "my-comp"
+		})).Return(denyDecision(), nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, _ = svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f")
+	})
+
+	t.Run("allowed delegates to internal service", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		triggerResp := &models.WorkflowRunTriggerResponse{
+			Name:          "my-comp-run-abc12345",
+			ComponentName: "my-comp",
+			ProjectName:   "proj",
+			NamespaceName: testNamespace,
+			Status:        workflowrun.ExportStatusPending,
+		}
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
+		mockSvc.EXPECT().TriggerWorkflow(mock.Anything, testNamespace, "proj", "my-comp", "abc1234f").
+			Return(triggerResp, nil)
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		result, err := svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f")
+		require.NoError(t, err)
+		assert.Equal(t, "my-comp", result.ComponentName)
+		assert.Equal(t, workflowrun.ExportStatusPending, result.Status)
 	})
 }
