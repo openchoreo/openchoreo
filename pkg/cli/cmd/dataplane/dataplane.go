@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -37,7 +38,11 @@ func newListDataPlaneCmd() *cobra.Command {
 		Command: constants.ListDataPlane,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return dataplane.New().List(dataplane.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return dataplane.New(cl).List(dataplane.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
@@ -54,8 +59,12 @@ func newGetDataPlaneCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return dataplane.New().Get(dataplane.GetParams{
+			return dataplane.New(cl).Get(dataplane.GetParams{
 				Namespace:     namespace,
 				DataPlaneName: args[0],
 			})
@@ -74,8 +83,12 @@ func newDeleteDataPlaneCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return dataplane.New().Delete(dataplane.DeleteParams{
+			return dataplane.New(cl).Delete(dataplane.DeleteParams{
 				Namespace:     namespace,
 				DataPlaneName: args[0],
 			})

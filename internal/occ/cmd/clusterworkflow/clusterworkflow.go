@@ -15,26 +15,29 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// Client defines the client methods used by ClusterWorkflow operations.
+type Client interface {
+	ListClusterWorkflows(ctx context.Context, params *gen.ListClusterWorkflowsParams) (*gen.ClusterWorkflowList, error)
+	GetClusterWorkflow(ctx context.Context, clusterWorkflowName string) (*gen.ClusterWorkflow, error)
+	DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName string) error
+}
+
 // ClusterWorkflow implements cluster workflow operations
-type ClusterWorkflow struct{}
+type ClusterWorkflow struct {
+	client Client
+}
 
 // New creates a new cluster workflow implementation
-func New() *ClusterWorkflow {
-	return &ClusterWorkflow{}
+func New(client Client) *ClusterWorkflow {
+	return &ClusterWorkflow{client: client}
 }
 
 // List lists all cluster-scoped workflows
 func (c *ClusterWorkflow) List() error {
 	ctx := context.Background()
-
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ClusterWorkflow, string, error) {
 		p := &gen.ListClusterWorkflowsParams{}
@@ -42,7 +45,7 @@ func (c *ClusterWorkflow) List() error {
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := cl.ListClusterWorkflows(ctx, p)
+		result, err := c.client.ListClusterWorkflows(ctx, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -62,12 +65,7 @@ func (c *ClusterWorkflow) List() error {
 func (c *ClusterWorkflow) Get(params GetParams) error {
 	ctx := context.Background()
 
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := cl.GetClusterWorkflow(ctx, params.ClusterWorkflowName)
+	result, err := c.client.GetClusterWorkflow(ctx, params.ClusterWorkflowName)
 	if err != nil {
 		return err
 	}
@@ -85,12 +83,7 @@ func (c *ClusterWorkflow) Get(params GetParams) error {
 func (c *ClusterWorkflow) Delete(params DeleteParams) error {
 	ctx := context.Background()
 
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := cl.DeleteClusterWorkflow(ctx, params.ClusterWorkflowName); err != nil {
+	if err := c.client.DeleteClusterWorkflow(ctx, params.ClusterWorkflowName); err != nil {
 		return err
 	}
 

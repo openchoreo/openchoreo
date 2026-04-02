@@ -13,26 +13,29 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// Client defines the client methods used by ClusterWorkflowPlane operations.
+type Client interface {
+	ListClusterWorkflowPlanes(ctx context.Context, params *gen.ListClusterWorkflowPlanesParams) (*gen.ClusterWorkflowPlaneList, error)
+	GetClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) (*gen.ClusterWorkflowPlane, error)
+	DeleteClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) error
+}
+
 // ClusterWorkflowPlane implements cluster workflow plane operations
-type ClusterWorkflowPlane struct{}
+type ClusterWorkflowPlane struct {
+	client Client
+}
 
 // New creates a new cluster workflow plane implementation
-func New() *ClusterWorkflowPlane {
-	return &ClusterWorkflowPlane{}
+func New(client Client) *ClusterWorkflowPlane {
+	return &ClusterWorkflowPlane{client: client}
 }
 
 // List lists all cluster-scoped workflow planes
 func (c *ClusterWorkflowPlane) List() error {
 	ctx := context.Background()
-
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ClusterWorkflowPlane, string, error) {
 		p := &gen.ListClusterWorkflowPlanesParams{}
@@ -40,7 +43,7 @@ func (c *ClusterWorkflowPlane) List() error {
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := cl.ListClusterWorkflowPlanes(ctx, p)
+		result, err := c.client.ListClusterWorkflowPlanes(ctx, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -60,12 +63,7 @@ func (c *ClusterWorkflowPlane) List() error {
 func (c *ClusterWorkflowPlane) Get(params GetParams) error {
 	ctx := context.Background()
 
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := cl.GetClusterWorkflowPlane(ctx, params.ClusterWorkflowPlaneName)
+	result, err := c.client.GetClusterWorkflowPlane(ctx, params.ClusterWorkflowPlaneName)
 	if err != nil {
 		return err
 	}
@@ -83,12 +81,7 @@ func (c *ClusterWorkflowPlane) Get(params GetParams) error {
 func (c *ClusterWorkflowPlane) Delete(params DeleteParams) error {
 	ctx := context.Background()
 
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := cl.DeleteClusterWorkflowPlane(ctx, params.ClusterWorkflowPlaneName); err != nil {
+	if err := c.client.DeleteClusterWorkflowPlane(ctx, params.ClusterWorkflowPlaneName); err != nil {
 		return err
 	}
 

@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -43,7 +44,11 @@ func newGetClusterWorkflowCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return clusterworkflow.New().Get(clusterworkflow.GetParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return clusterworkflow.New(cl).Get(clusterworkflow.GetParams{
 				ClusterWorkflowName: args[0],
 			})
 		},
@@ -60,7 +65,11 @@ func newDeleteClusterWorkflowCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return clusterworkflow.New().Delete(clusterworkflow.DeleteParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return clusterworkflow.New(cl).Delete(clusterworkflow.DeleteParams{
 				ClusterWorkflowName: args[0],
 			})
 		},
@@ -77,9 +86,13 @@ func newStartClusterWorkflowCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 			set, _ := cmd.Flags().GetStringArray(flags.Set.Name)
-			return clusterworkflow.New().StartRun(clusterworkflow.StartRunParams{
+			return clusterworkflow.New(cl).StartRun(clusterworkflow.StartRunParams{
 				Namespace:    namespace,
 				WorkflowName: args[0],
 				Set:          set,
@@ -101,11 +114,15 @@ func newLogsClusterWorkflowCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 			follow, _ := cmd.Flags().GetBool(flags.Follow.Name)
 			since, _ := cmd.Flags().GetString(flags.Since.Name)
 			run, _ := cmd.Flags().GetString(flags.WorkflowRun.Name)
-			return clusterworkflow.New().Logs(clusterworkflow.LogsParams{
+			return clusterworkflow.New(cl).Logs(clusterworkflow.LogsParams{
 				Namespace:    namespace,
 				WorkflowName: args[0],
 				RunName:      run,
@@ -125,7 +142,11 @@ func newListClusterWorkflowCmd() *cobra.Command {
 		Command: constants.ListClusterWorkflow,
 		Flags:   []flags.Flag{},
 		RunE: func(fg *builder.FlagGetter) error {
-			return clusterworkflow.New().List()
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return clusterworkflow.New(cl).List()
 		},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()

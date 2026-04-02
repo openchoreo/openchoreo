@@ -13,17 +13,25 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// Client defines the client methods used by Environment operations.
+type Client interface {
+	ListEnvironments(ctx context.Context, namespaceName string, params *gen.ListEnvironmentsParams) (*gen.EnvironmentList, error)
+	GetEnvironment(ctx context.Context, namespaceName string, environmentName string) (*gen.Environment, error)
+	DeleteEnvironment(ctx context.Context, namespaceName string, environmentName string) error
+}
+
 // Environment implements environment operations
-type Environment struct{}
+type Environment struct {
+	client Client
+}
 
 // New creates a new environment implementation
-func New() *Environment {
-	return &Environment{}
+func New(client Client) *Environment {
+	return &Environment{client: client}
 }
 
 // List lists all environments in a namespace
@@ -34,18 +42,13 @@ func (e *Environment) List(params ListParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Environment, string, error) {
 		p := &gen.ListEnvironmentsParams{}
 		p.Limit = &limit
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := c.ListEnvironments(ctx, params.Namespace, p)
+		result, err := e.client.ListEnvironments(ctx, params.Namespace, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -70,12 +73,7 @@ func (e *Environment) Get(params GetParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.GetEnvironment(ctx, params.Namespace, params.EnvironmentName)
+	result, err := e.client.GetEnvironment(ctx, params.Namespace, params.EnvironmentName)
 	if err != nil {
 		return err
 	}
@@ -97,12 +95,7 @@ func (e *Environment) Delete(params DeleteParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteEnvironment(ctx, params.Namespace, params.EnvironmentName); err != nil {
+	if err := e.client.DeleteEnvironment(ctx, params.Namespace, params.EnvironmentName); err != nil {
 		return err
 	}
 

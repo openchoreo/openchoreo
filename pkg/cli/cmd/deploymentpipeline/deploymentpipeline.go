@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -38,7 +39,11 @@ func newListDeploymentPipelineCmd() *cobra.Command {
 		Flags:   []flags.Flag{flags.Namespace},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(fg *builder.FlagGetter) error {
-			return deploymentpipeline.New().List(deploymentpipeline.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return deploymentpipeline.New(cl).List(deploymentpipeline.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
@@ -54,8 +59,12 @@ func newGetDeploymentPipelineCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return deploymentpipeline.New().Get(deploymentpipeline.GetParams{
+			return deploymentpipeline.New(cl).Get(deploymentpipeline.GetParams{
 				Namespace:              namespace,
 				DeploymentPipelineName: args[0],
 			})
@@ -74,8 +83,12 @@ func newDeleteDeploymentPipelineCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return deploymentpipeline.New().Delete(deploymentpipeline.DeleteParams{
+			return deploymentpipeline.New(cl).Delete(deploymentpipeline.DeleteParams{
 				Namespace:              namespace,
 				DeploymentPipelineName: args[0],
 			})

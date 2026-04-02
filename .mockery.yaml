@@ -106,6 +106,27 @@ packages:
   github.com/openchoreo/openchoreo/internal/occ/cmd/clusterauthzrolebinding:
     interfaces:
       Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/clusterdataplane:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/clusterobservabilityplane:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/clusterworkflow:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/clusterworkflowplane:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/dataplane:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/deploymentpipeline:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/environment:
+    interfaces:
+      Client:
   github.com/openchoreo/openchoreo/internal/observer/service:
     interfaces:
       HealthChecker:

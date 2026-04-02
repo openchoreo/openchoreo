@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -37,7 +38,11 @@ func newListEnvironmentCmd() *cobra.Command {
 		Command: constants.ListEnvironment,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return environment.New().List(environment.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return environment.New(cl).List(environment.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
@@ -54,8 +59,12 @@ func newGetEnvironmentCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return environment.New().Get(environment.GetParams{
+			return environment.New(cl).Get(environment.GetParams{
 				Namespace:       namespace,
 				EnvironmentName: args[0],
 			})
@@ -74,8 +83,12 @@ func newDeleteEnvironmentCmd() *cobra.Command {
 		Args:    cliargs.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return environment.New().Delete(environment.DeleteParams{
+			return environment.New(cl).Delete(environment.DeleteParams{
 				Namespace:       namespace,
 				EnvironmentName: args[0],
 			})

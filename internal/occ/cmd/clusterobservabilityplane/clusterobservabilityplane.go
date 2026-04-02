@@ -13,26 +13,29 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// Client defines the client methods used by ClusterObservabilityPlane operations.
+type Client interface {
+	ListClusterObservabilityPlanes(ctx context.Context, params *gen.ListClusterObservabilityPlanesParams) (*gen.ClusterObservabilityPlaneList, error)
+	GetClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) (*gen.ClusterObservabilityPlane, error)
+	DeleteClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) error
+}
+
 // ClusterObservabilityPlane implements cluster observability plane operations
-type ClusterObservabilityPlane struct{}
+type ClusterObservabilityPlane struct {
+	client Client
+}
 
 // New creates a new cluster observability plane implementation
-func New() *ClusterObservabilityPlane {
-	return &ClusterObservabilityPlane{}
+func New(client Client) *ClusterObservabilityPlane {
+	return &ClusterObservabilityPlane{client: client}
 }
 
 // List lists all cluster-scoped observability planes
 func (c *ClusterObservabilityPlane) List() error {
 	ctx := context.Background()
-
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ClusterObservabilityPlane, string, error) {
 		p := &gen.ListClusterObservabilityPlanesParams{}
@@ -40,7 +43,7 @@ func (c *ClusterObservabilityPlane) List() error {
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := cl.ListClusterObservabilityPlanes(ctx, p)
+		result, err := c.client.ListClusterObservabilityPlanes(ctx, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -60,12 +63,7 @@ func (c *ClusterObservabilityPlane) List() error {
 func (c *ClusterObservabilityPlane) Get(params GetParams) error {
 	ctx := context.Background()
 
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := cl.GetClusterObservabilityPlane(ctx, params.ClusterObservabilityPlaneName)
+	result, err := c.client.GetClusterObservabilityPlane(ctx, params.ClusterObservabilityPlaneName)
 	if err != nil {
 		return err
 	}
@@ -83,12 +81,7 @@ func (c *ClusterObservabilityPlane) Get(params GetParams) error {
 func (c *ClusterObservabilityPlane) Delete(params DeleteParams) error {
 	ctx := context.Background()
 
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := cl.DeleteClusterObservabilityPlane(ctx, params.ClusterObservabilityPlaneName); err != nil {
+	if err := c.client.DeleteClusterObservabilityPlane(ctx, params.ClusterObservabilityPlaneName); err != nil {
 		return err
 	}
 
