@@ -168,6 +168,17 @@ func TestComponentTypeGetResources(t *testing.T) {
 			name:    "empty resources",
 			wantNil: true,
 		},
+		{
+			name: "resource with forEach and var",
+			resources: []v1alpha1.ResourceTemplate{
+				{
+					ID:      "pvc",
+					ForEach: "${parameters.volumes}",
+					Var:     "volume",
+				},
+			},
+			wantLen: 1,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -185,6 +196,12 @@ func TestComponentTypeGetResources(t *testing.T) {
 			}
 			require.Len(t, result, tt.wantLen)
 			first := result[0].(map[string]any)
+			if tt.name == "resource with forEach and var" {
+				assert.Equal(t, "pvc", first["id"])
+				assert.Equal(t, "${parameters.volumes}", first["forEach"])
+				assert.Equal(t, "volume", first["var"])
+				return
+			}
 			assert.Equal(t, "deployment", first["id"])
 			assert.Equal(t, "dataplane", first["targetPlane"])
 			assert.Contains(t, first, "template")
