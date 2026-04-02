@@ -19,3 +19,9 @@ packages:
   github.com/openchoreo/openchoreo/internal/occ/cmd/trait:
     interfaces:
       Client:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/gitsecret:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/authz/core:
+    interfaces:
+      PDP:
