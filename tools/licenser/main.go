@@ -37,6 +37,7 @@ const licenseID = "Apache-2.0"
 var (
 	reCopyright = regexp.MustCompile(`^// Copyright (\d{4}) (.+)$`)
 	reSPDX      = regexp.MustCompile(`^// SPDX-License-Identifier: (Apache-2\.0)$`)
+	reAnySPDX   = regexp.MustCompile(`^// SPDX-License-Identifier: .+$`)
 )
 
 func shortHeader(year, holder string) string {
@@ -90,11 +91,49 @@ func hasValidHeader(path, holder string) (bool, error) {
 	return m1[2] == holder && m2[1] == licenseID, nil
 }
 
+// stripExistingHeader removes an existing copyright/SPDX header from the
+// beginning of src so that a correct header can be prepended without duplication.
+func stripExistingHeader(src []byte) []byte {
+	lines := strings.Split(string(src), "\n")
+
+	// Skip leading blank lines
+	i := 0
+	for i < len(lines) && strings.TrimSpace(lines[i]) == "" {
+		i++
+	}
+
+	// Check for a copyright or SPDX line at the top
+	hasCopyright := i < len(lines) && reCopyright.MatchString(lines[i])
+	hasSPDXOnly := !hasCopyright && i < len(lines) && reAnySPDX.MatchString(lines[i])
+
+	if hasCopyright {
+		// Check if followed by SPDX line (full header pair)
+		if i+1 < len(lines) && reAnySPDX.MatchString(lines[i+1]) {
+			i += 2
+		} else {
+			// Copyright-only header (missing SPDX)
+			i++
+		}
+	} else if hasSPDXOnly {
+		// SPDX-only header (missing copyright)
+		i++
+	} else {
+		return src
+	}
+
+	// Strip the blank line that follows the header
+	if i < len(lines) && strings.TrimSpace(lines[i]) == "" {
+		i++
+	}
+	return []byte(strings.Join(lines[i:], "\n"))
+}
+
 func prependHeader(path, header string) error {
 	src, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
+	src = stripExistingHeader(src)
 	return os.WriteFile(path, append([]byte(header+"\n\n"), src...), 0o644)
 }
 
@@ -143,9 +182,8 @@ USAGE
   go run ./tools/licenser/main.go [flags] <directories or files>
 
 FLAGS
-  -check-only           Only report non-compliant files; do not modify them (default: false)
-  -c, --copyright <str> Copyright holder 
-  -l, --license   <str> License identifier to write: "apache" (default)
+  -check-only    Only report non-compliant files; do not modify them (default: false)
+  -c <holder>    Copyright holder (e.g. "The OpenChoreo Authors")
 
 EXAMPLES
   # Check license compliance in all Go files under the current directory
@@ -157,7 +195,7 @@ EXAMPLES
 LEARN MORE
   SPDX License Identifiers: https://spdx.org/licenses/
 
-Note: This tool works with any source file type (e.g., .go, .js, .ts, .py, etc.)
+Note: Currently only .go files are processed.
 `
 
 func main() {
