@@ -63,7 +63,7 @@ jobs:
           fi
 
       - name: Create backport pull request
-        uses: korthout/backport-action@4aaf0e03a94ff0a619c9a511b61aeb42adea5b02 # v4.2.0
+        uses: korthout/backport-action@3c06f323a58619da1e8522229ebc8d5de2633e46 # v4.3.0
         with:
           target_branches: ${{ env.BACKPORT_TARGET }}
           # Disable label-based detection; we use comment-based triggering only.
