@@ -4,12 +4,6 @@ dir: "{{.InterfaceDir}}/mocks"
 outpkg: mocks
 structname: "{{.InterfaceName}}"
 packages:
-  github.com/openchoreo/openchoreo/internal/authz/core:
-    interfaces:
-      PDP:
-  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun:
-    interfaces:
-      Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz:
     interfaces:
       Service:
