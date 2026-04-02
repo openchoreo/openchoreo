@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionCreateDeploymentPipeline = "deploymentpipeline:create"
-	actionUpdateDeploymentPipeline = "deploymentpipeline:update"
-	actionViewDeploymentPipeline   = "deploymentpipeline:view"
-	actionDeleteDeploymentPipeline = "deploymentpipeline:delete"
-
 	resourceTypeDeploymentPipeline = "deploymentPipeline"
 )
 
@@ -42,7 +37,7 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 func (s *deploymentPipelineServiceWithAuthz) CreateDeploymentPipeline(ctx context.Context, namespaceName string, dp *openchoreov1alpha1.DeploymentPipeline) (*openchoreov1alpha1.DeploymentPipeline, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateDeploymentPipeline,
+		Action:       authz.ActionCreateDeploymentPipeline,
 		ResourceType: resourceTypeDeploymentPipeline,
 		ResourceID:   dp.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -54,7 +49,7 @@ func (s *deploymentPipelineServiceWithAuthz) CreateDeploymentPipeline(ctx contex
 
 func (s *deploymentPipelineServiceWithAuthz) UpdateDeploymentPipeline(ctx context.Context, namespaceName string, dp *openchoreov1alpha1.DeploymentPipeline) (*openchoreov1alpha1.DeploymentPipeline, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateDeploymentPipeline,
+		Action:       authz.ActionUpdateDeploymentPipeline,
 		ResourceType: resourceTypeDeploymentPipeline,
 		ResourceID:   dp.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -71,7 +66,7 @@ func (s *deploymentPipelineServiceWithAuthz) ListDeploymentPipelines(ctx context
 		},
 		func(dp openchoreov1alpha1.DeploymentPipeline) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewDeploymentPipeline,
+				Action:       authz.ActionViewDeploymentPipeline,
 				ResourceType: resourceTypeDeploymentPipeline,
 				ResourceID:   dp.Name,
 				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -82,7 +77,7 @@ func (s *deploymentPipelineServiceWithAuthz) ListDeploymentPipelines(ctx context
 
 func (s *deploymentPipelineServiceWithAuthz) GetDeploymentPipeline(ctx context.Context, namespaceName, deploymentPipelineName string) (*openchoreov1alpha1.DeploymentPipeline, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewDeploymentPipeline,
+		Action:       authz.ActionViewDeploymentPipeline,
 		ResourceType: resourceTypeDeploymentPipeline,
 		ResourceID:   deploymentPipelineName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -94,7 +89,7 @@ func (s *deploymentPipelineServiceWithAuthz) GetDeploymentPipeline(ctx context.C
 
 func (s *deploymentPipelineServiceWithAuthz) DeleteDeploymentPipeline(ctx context.Context, namespaceName, deploymentPipelineName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteDeploymentPipeline,
+		Action:       authz.ActionDeleteDeploymentPipeline,
 		ResourceType: resourceTypeDeploymentPipeline,
 		ResourceID:   deploymentPipelineName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},

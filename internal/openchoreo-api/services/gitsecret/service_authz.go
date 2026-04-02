@@ -16,10 +16,6 @@ import (
 )
 
 const (
-	actionCreateSecretReference = "secretreference:create"
-	actionViewSecretReference   = "secretreference:view"
-	actionDeleteSecretReference = "secretreference:delete"
-
 	resourceTypeSecretReference = "secretReference"
 )
 
@@ -46,7 +42,7 @@ func (s *gitSecretServiceWithAuthz) ListGitSecrets(ctx context.Context, namespac
 	authorized := make([]GitSecretInfo, 0, len(items))
 	for _, item := range items {
 		if err := s.authz.Check(ctx, services.CheckRequest{
-			Action:       actionViewSecretReference,
+			Action:       authz.ActionViewSecretReference,
 			ResourceType: resourceTypeSecretReference,
 			ResourceID:   item.Name,
 			Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -65,7 +61,7 @@ func (s *gitSecretServiceWithAuthz) ListGitSecrets(ctx context.Context, namespac
 // CreateGitSecret creates a git secret after checking authorization.
 func (s *gitSecretServiceWithAuthz) CreateGitSecret(ctx context.Context, namespaceName string, req *CreateGitSecretParams) (*GitSecretInfo, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateSecretReference,
+		Action:       authz.ActionCreateSecretReference,
 		ResourceType: resourceTypeSecretReference,
 		ResourceID:   req.SecretName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -78,7 +74,7 @@ func (s *gitSecretServiceWithAuthz) CreateGitSecret(ctx context.Context, namespa
 // DeleteGitSecret deletes a git secret after checking authorization.
 func (s *gitSecretServiceWithAuthz) DeleteGitSecret(ctx context.Context, namespaceName, secretName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteSecretReference,
+		Action:       authz.ActionDeleteSecretReference,
 		ResourceType: resourceTypeSecretReference,
 		ResourceID:   secretName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},

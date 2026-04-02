@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionCreateProject = "project:create"
-	actionUpdateProject = "project:update"
-	actionViewProject   = "project:view"
-	actionDeleteProject = "project:delete"
-
 	resourceTypeProject = "project"
 )
 
@@ -42,7 +37,7 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 func (s *projectServiceWithAuthz) CreateProject(ctx context.Context, namespaceName string, project *openchoreov1alpha1.Project) (*openchoreov1alpha1.Project, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateProject,
+		Action:       authz.ActionCreateProject,
 		ResourceType: resourceTypeProject,
 		ResourceID:   project.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName, Project: project.Name},
@@ -54,7 +49,7 @@ func (s *projectServiceWithAuthz) CreateProject(ctx context.Context, namespaceNa
 
 func (s *projectServiceWithAuthz) UpdateProject(ctx context.Context, namespaceName string, project *openchoreov1alpha1.Project) (*openchoreov1alpha1.Project, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateProject,
+		Action:       authz.ActionUpdateProject,
 		ResourceType: resourceTypeProject,
 		ResourceID:   project.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName, Project: project.Name},
@@ -71,7 +66,7 @@ func (s *projectServiceWithAuthz) ListProjects(ctx context.Context, namespaceNam
 		},
 		func(p openchoreov1alpha1.Project) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewProject,
+				Action:       authz.ActionViewProject,
 				ResourceType: resourceTypeProject,
 				ResourceID:   p.Name,
 				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName, Project: p.Name},
@@ -82,7 +77,7 @@ func (s *projectServiceWithAuthz) ListProjects(ctx context.Context, namespaceNam
 
 func (s *projectServiceWithAuthz) GetProject(ctx context.Context, namespaceName, projectName string) (*openchoreov1alpha1.Project, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewProject,
+		Action:       authz.ActionViewProject,
 		ResourceType: resourceTypeProject,
 		ResourceID:   projectName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName},
@@ -94,7 +89,7 @@ func (s *projectServiceWithAuthz) GetProject(ctx context.Context, namespaceName,
 
 func (s *projectServiceWithAuthz) DeleteProject(ctx context.Context, namespaceName, projectName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteProject,
+		Action:       authz.ActionDeleteProject,
 		ResourceType: resourceTypeProject,
 		ResourceID:   projectName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName},

@@ -16,12 +16,6 @@ import (
 )
 
 const (
-	actionCreateComponent          = "component:create"
-	actionUpdateComponent          = "component:update"
-	actionViewComponent            = "component:view"
-	actionDeleteComponent          = "component:delete"
-	actionGenerateReleaseComponent = "componentrelease:create"
-
 	resourceTypeComponent        = "component"
 	resourceTypeComponentRelease = "componentrelease"
 )
@@ -45,7 +39,7 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 func (s *componentServiceWithAuthz) CreateComponent(ctx context.Context, namespaceName string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateComponent,
+		Action:       authz.ActionCreateComponent,
 		ResourceType: resourceTypeComponent,
 		ResourceID:   component.Name,
 		Hierarchy: authz.ResourceHierarchy{
@@ -61,7 +55,7 @@ func (s *componentServiceWithAuthz) CreateComponent(ctx context.Context, namespa
 
 func (s *componentServiceWithAuthz) UpdateComponent(ctx context.Context, namespaceName string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateComponent,
+		Action:       authz.ActionUpdateComponent,
 		ResourceType: resourceTypeComponent,
 		ResourceID:   component.Name,
 		Hierarchy: authz.ResourceHierarchy{
@@ -82,7 +76,7 @@ func (s *componentServiceWithAuthz) ListComponents(ctx context.Context, namespac
 		},
 		func(c openchoreov1alpha1.Component) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewComponent,
+				Action:       authz.ActionViewComponent,
 				ResourceType: resourceTypeComponent,
 				ResourceID:   c.Name,
 				Hierarchy: authz.ResourceHierarchy{
@@ -102,7 +96,7 @@ func (s *componentServiceWithAuthz) GetComponent(ctx context.Context, namespaceN
 		return nil, err
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewComponent,
+		Action:       authz.ActionViewComponent,
 		ResourceType: resourceTypeComponent,
 		ResourceID:   componentName,
 		Hierarchy: authz.ResourceHierarchy{
@@ -123,7 +117,7 @@ func (s *componentServiceWithAuthz) DeleteComponent(ctx context.Context, namespa
 		return err
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteComponent,
+		Action:       authz.ActionDeleteComponent,
 		ResourceType: resourceTypeComponent,
 		ResourceID:   componentName,
 		Hierarchy: authz.ResourceHierarchy{
@@ -144,7 +138,7 @@ func (s *componentServiceWithAuthz) GenerateRelease(ctx context.Context, namespa
 		return nil, err
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionGenerateReleaseComponent,
+		Action:       authz.ActionCreateComponentRelease,
 		ResourceType: resourceTypeComponentRelease,
 		ResourceID:   componentName,
 		Hierarchy: authz.ResourceHierarchy{
@@ -165,7 +159,7 @@ func (s *componentServiceWithAuthz) GetComponentSchema(ctx context.Context, name
 		return nil, err
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewComponent,
+		Action:       authz.ActionViewComponent,
 		ResourceType: resourceTypeComponent,
 		ResourceID:   componentName,
 		Hierarchy: authz.ResourceHierarchy{
@@ -186,7 +180,7 @@ func (s *componentServiceWithAuthz) GetComponentReleaseSchema(ctx context.Contex
 		return nil, err
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewComponent,
+		Action:       authz.ActionViewComponent,
 		ResourceType: resourceTypeComponent,
 		ResourceID:   componentName,
 		Hierarchy: authz.ResourceHierarchy{

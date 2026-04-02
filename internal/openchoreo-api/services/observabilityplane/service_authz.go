@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionViewObservabilityPlane   = "observabilityplane:view"
-	actionCreateObservabilityPlane = "observabilityplane:create"
-	actionUpdateObservabilityPlane = "observabilityplane:update"
-	actionDeleteObservabilityPlane = "observabilityplane:delete"
-
 	resourceTypeObservabilityPlane = "observabilityplane"
 )
 
@@ -47,7 +42,7 @@ func (s *observabilityPlaneServiceWithAuthz) ListObservabilityPlanes(ctx context
 		},
 		func(op openchoreov1alpha1.ObservabilityPlane) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewObservabilityPlane,
+				Action:       authz.ActionViewObservabilityPlane,
 				ResourceType: resourceTypeObservabilityPlane,
 				ResourceID:   op.Name,
 				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -58,7 +53,7 @@ func (s *observabilityPlaneServiceWithAuthz) ListObservabilityPlanes(ctx context
 
 func (s *observabilityPlaneServiceWithAuthz) GetObservabilityPlane(ctx context.Context, namespaceName, observabilityPlaneName string) (*openchoreov1alpha1.ObservabilityPlane, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewObservabilityPlane,
+		Action:       authz.ActionViewObservabilityPlane,
 		ResourceType: resourceTypeObservabilityPlane,
 		ResourceID:   observabilityPlaneName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -74,7 +69,7 @@ func (s *observabilityPlaneServiceWithAuthz) CreateObservabilityPlane(ctx contex
 		return nil, ErrObservabilityPlaneNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateObservabilityPlane,
+		Action:       authz.ActionCreateObservabilityPlane,
 		ResourceType: resourceTypeObservabilityPlane,
 		ResourceID:   op.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -90,7 +85,7 @@ func (s *observabilityPlaneServiceWithAuthz) UpdateObservabilityPlane(ctx contex
 		return nil, ErrObservabilityPlaneNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateObservabilityPlane,
+		Action:       authz.ActionUpdateObservabilityPlane,
 		ResourceType: resourceTypeObservabilityPlane,
 		ResourceID:   op.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -103,7 +98,7 @@ func (s *observabilityPlaneServiceWithAuthz) UpdateObservabilityPlane(ctx contex
 // DeleteObservabilityPlane checks delete authorization before delegating to the internal service.
 func (s *observabilityPlaneServiceWithAuthz) DeleteObservabilityPlane(ctx context.Context, namespaceName, observabilityPlaneName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteObservabilityPlane,
+		Action:       authz.ActionDeleteObservabilityPlane,
 		ResourceType: resourceTypeObservabilityPlane,
 		ResourceID:   observabilityPlaneName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},

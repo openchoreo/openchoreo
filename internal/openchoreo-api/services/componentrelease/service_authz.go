@@ -15,9 +15,6 @@ import (
 )
 
 const (
-	actionViewComponentRelease   = "componentrelease:view"
-	actionCreateComponentRelease = "componentrelease:create"
-	actionDeleteComponentRelease = "componentrelease:delete"
 	resourceTypeComponentRelease = "componentrelease"
 )
 
@@ -47,7 +44,7 @@ func (s *componentReleaseServiceWithAuthz) ListComponentReleases(ctx context.Con
 		},
 		func(cr openchoreov1alpha1.ComponentRelease) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewComponentRelease,
+				Action:       authz.ActionViewComponentRelease,
 				ResourceType: resourceTypeComponentRelease,
 				ResourceID:   cr.Name,
 				Hierarchy: authz.ResourceHierarchy{
@@ -68,7 +65,7 @@ func (s *componentReleaseServiceWithAuthz) GetComponentRelease(ctx context.Conte
 	}
 
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewComponentRelease,
+		Action:       authz.ActionViewComponentRelease,
 		ResourceType: resourceTypeComponentRelease,
 		ResourceID:   componentReleaseName,
 		Hierarchy: authz.ResourceHierarchy{
@@ -87,7 +84,7 @@ func (s *componentReleaseServiceWithAuthz) CreateComponentRelease(ctx context.Co
 		return nil, ErrComponentReleaseNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateComponentRelease,
+		Action:       authz.ActionCreateComponentRelease,
 		ResourceType: resourceTypeComponentRelease,
 		ResourceID:   cr.Name,
 		Hierarchy: authz.ResourceHierarchy{
@@ -109,7 +106,7 @@ func (s *componentReleaseServiceWithAuthz) DeleteComponentRelease(ctx context.Co
 	}
 
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteComponentRelease,
+		Action:       authz.ActionDeleteComponentRelease,
 		ResourceType: resourceTypeComponentRelease,
 		ResourceID:   componentReleaseName,
 		Hierarchy: authz.ResourceHierarchy{

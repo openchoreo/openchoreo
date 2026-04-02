@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionCreateReleaseBinding = "releasebinding:create"
-	actionUpdateReleaseBinding = "releasebinding:update"
-	actionViewReleaseBinding   = "releasebinding:view"
-	actionDeleteReleaseBinding = "releasebinding:delete"
-
 	resourceTypeReleaseBinding = "releasebinding"
 )
 
@@ -44,7 +39,7 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 func (s *releaseBindingServiceWithAuthz) CreateReleaseBinding(ctx context.Context, namespaceName string, rb *openchoreov1alpha1.ReleaseBinding) (*openchoreov1alpha1.ReleaseBinding, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateReleaseBinding,
+		Action:       authz.ActionCreateReleaseBinding,
 		ResourceType: resourceTypeReleaseBinding,
 		ResourceID:   rb.Name,
 		Hierarchy: authz.ResourceHierarchy{
@@ -66,7 +61,7 @@ func (s *releaseBindingServiceWithAuthz) UpdateReleaseBinding(ctx context.Contex
 	}
 
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateReleaseBinding,
+		Action:       authz.ActionUpdateReleaseBinding,
 		ResourceType: resourceTypeReleaseBinding,
 		ResourceID:   rb.Name,
 		Hierarchy: authz.ResourceHierarchy{
@@ -87,7 +82,7 @@ func (s *releaseBindingServiceWithAuthz) ListReleaseBindings(ctx context.Context
 		},
 		func(rb openchoreov1alpha1.ReleaseBinding) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewReleaseBinding,
+				Action:       authz.ActionViewReleaseBinding,
 				ResourceType: resourceTypeReleaseBinding,
 				ResourceID:   rb.Name,
 				Hierarchy: authz.ResourceHierarchy{
@@ -108,7 +103,7 @@ func (s *releaseBindingServiceWithAuthz) GetReleaseBinding(ctx context.Context, 
 	}
 
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewReleaseBinding,
+		Action:       authz.ActionViewReleaseBinding,
 		ResourceType: resourceTypeReleaseBinding,
 		ResourceID:   releaseBindingName,
 		Hierarchy: authz.ResourceHierarchy{
@@ -130,7 +125,7 @@ func (s *releaseBindingServiceWithAuthz) DeleteReleaseBinding(ctx context.Contex
 	}
 
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteReleaseBinding,
+		Action:       authz.ActionDeleteReleaseBinding,
 		ResourceType: resourceTypeReleaseBinding,
 		ResourceID:   releaseBindingName,
 		Hierarchy: authz.ResourceHierarchy{

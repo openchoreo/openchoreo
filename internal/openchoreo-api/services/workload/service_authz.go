@@ -16,11 +16,6 @@ import (
 )
 
 const (
-	actionCreateWorkload = "workload:create"
-	actionUpdateWorkload = "workload:update"
-	actionViewWorkload   = "workload:view"
-	actionDeleteWorkload = "workload:delete"
-
 	resourceTypeWorkload = "workload"
 )
 
@@ -45,7 +40,7 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 func (s *workloadServiceWithAuthz) CreateWorkload(ctx context.Context, namespaceName string, w *openchoreov1alpha1.Workload) (*openchoreov1alpha1.Workload, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateWorkload,
+		Action:       authz.ActionCreateWorkload,
 		ResourceType: resourceTypeWorkload,
 		ResourceID:   w.Name,
 		Hierarchy: authz.ResourceHierarchy{
@@ -67,7 +62,7 @@ func (s *workloadServiceWithAuthz) UpdateWorkload(ctx context.Context, namespace
 	}
 
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateWorkload,
+		Action:       authz.ActionUpdateWorkload,
 		ResourceType: resourceTypeWorkload,
 		ResourceID:   w.Name,
 		Hierarchy: authz.ResourceHierarchy{
@@ -88,7 +83,7 @@ func (s *workloadServiceWithAuthz) ListWorkloads(ctx context.Context, namespaceN
 		},
 		func(w openchoreov1alpha1.Workload) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewWorkload,
+				Action:       authz.ActionViewWorkload,
 				ResourceType: resourceTypeWorkload,
 				ResourceID:   w.Name,
 				Hierarchy: authz.ResourceHierarchy{
@@ -109,7 +104,7 @@ func (s *workloadServiceWithAuthz) GetWorkload(ctx context.Context, namespaceNam
 	}
 
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewWorkload,
+		Action:       authz.ActionViewWorkload,
 		ResourceType: resourceTypeWorkload,
 		ResourceID:   workloadName,
 		Hierarchy: authz.ResourceHierarchy{
@@ -131,7 +126,7 @@ func (s *workloadServiceWithAuthz) DeleteWorkload(ctx context.Context, namespace
 	}
 
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteWorkload,
+		Action:       authz.ActionDeleteWorkload,
 		ResourceType: resourceTypeWorkload,
 		ResourceID:   workloadName,
 		Hierarchy: authz.ResourceHierarchy{

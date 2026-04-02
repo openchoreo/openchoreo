@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionViewEnvironment   = "environment:view"
-	actionCreateEnvironment = "environment:create"
-	actionUpdateEnvironment = "environment:update"
-	actionDeleteEnvironment = "environment:delete"
-
 	resourceTypeEnvironment = "environment"
 )
 
@@ -47,7 +42,7 @@ func (s *environmentServiceWithAuthz) ListEnvironments(ctx context.Context, name
 		},
 		func(env openchoreov1alpha1.Environment) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewEnvironment,
+				Action:       authz.ActionViewEnvironment,
 				ResourceType: resourceTypeEnvironment,
 				ResourceID:   env.Name,
 				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -58,7 +53,7 @@ func (s *environmentServiceWithAuthz) ListEnvironments(ctx context.Context, name
 
 func (s *environmentServiceWithAuthz) GetEnvironment(ctx context.Context, namespaceName, envName string) (*openchoreov1alpha1.Environment, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewEnvironment,
+		Action:       authz.ActionViewEnvironment,
 		ResourceType: resourceTypeEnvironment,
 		ResourceID:   envName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -70,7 +65,7 @@ func (s *environmentServiceWithAuthz) GetEnvironment(ctx context.Context, namesp
 
 func (s *environmentServiceWithAuthz) CreateEnvironment(ctx context.Context, namespaceName string, env *openchoreov1alpha1.Environment) (*openchoreov1alpha1.Environment, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateEnvironment,
+		Action:       authz.ActionCreateEnvironment,
 		ResourceType: resourceTypeEnvironment,
 		ResourceID:   env.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -86,7 +81,7 @@ func (s *environmentServiceWithAuthz) UpdateEnvironment(ctx context.Context, nam
 		return nil, ErrEnvironmentNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateEnvironment,
+		Action:       authz.ActionUpdateEnvironment,
 		ResourceType: resourceTypeEnvironment,
 		ResourceID:   env.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -99,7 +94,7 @@ func (s *environmentServiceWithAuthz) UpdateEnvironment(ctx context.Context, nam
 // DeleteEnvironment checks authorization and delegates to the internal service.
 func (s *environmentServiceWithAuthz) DeleteEnvironment(ctx context.Context, namespaceName, envName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteEnvironment,
+		Action:       authz.ActionDeleteEnvironment,
 		ResourceType: resourceTypeEnvironment,
 		ResourceID:   envName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},

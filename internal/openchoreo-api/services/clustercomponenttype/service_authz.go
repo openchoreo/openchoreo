@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionCreateClusterComponentType = "clustercomponenttype:create"
-	actionUpdateClusterComponentType = "clustercomponenttype:update"
-	actionDeleteClusterComponentType = "clustercomponenttype:delete"
-	actionViewClusterComponentType   = "clustercomponenttype:view"
-
 	resourceTypeClusterComponentType = "clusterComponentType"
 )
 
@@ -42,7 +37,7 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 func (s *clusterComponentTypeServiceWithAuthz) CreateClusterComponentType(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateClusterComponentType,
+		Action:       authz.ActionCreateClusterComponentType,
 		ResourceType: resourceTypeClusterComponentType,
 		ResourceID:   cct.Name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -54,7 +49,7 @@ func (s *clusterComponentTypeServiceWithAuthz) CreateClusterComponentType(ctx co
 
 func (s *clusterComponentTypeServiceWithAuthz) UpdateClusterComponentType(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateClusterComponentType,
+		Action:       authz.ActionUpdateClusterComponentType,
 		ResourceType: resourceTypeClusterComponentType,
 		ResourceID:   cct.Name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -71,7 +66,7 @@ func (s *clusterComponentTypeServiceWithAuthz) ListClusterComponentTypes(ctx con
 		},
 		func(cct openchoreov1alpha1.ClusterComponentType) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewClusterComponentType,
+				Action:       authz.ActionViewClusterComponentType,
 				ResourceType: resourceTypeClusterComponentType,
 				ResourceID:   cct.Name,
 				Hierarchy:    authz.ResourceHierarchy{},
@@ -83,7 +78,7 @@ func (s *clusterComponentTypeServiceWithAuthz) ListClusterComponentTypes(ctx con
 // DeleteClusterComponentType checks delete authorization before delegating to the internal service.
 func (s *clusterComponentTypeServiceWithAuthz) DeleteClusterComponentType(ctx context.Context, cctName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteClusterComponentType,
+		Action:       authz.ActionDeleteClusterComponentType,
 		ResourceType: resourceTypeClusterComponentType,
 		ResourceID:   cctName,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -95,7 +90,7 @@ func (s *clusterComponentTypeServiceWithAuthz) DeleteClusterComponentType(ctx co
 
 func (s *clusterComponentTypeServiceWithAuthz) GetClusterComponentType(ctx context.Context, cctName string) (*openchoreov1alpha1.ClusterComponentType, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterComponentType,
+		Action:       authz.ActionViewClusterComponentType,
 		ResourceType: resourceTypeClusterComponentType,
 		ResourceID:   cctName,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -107,7 +102,7 @@ func (s *clusterComponentTypeServiceWithAuthz) GetClusterComponentType(ctx conte
 
 func (s *clusterComponentTypeServiceWithAuthz) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (map[string]any, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterComponentType,
+		Action:       authz.ActionViewClusterComponentType,
 		ResourceType: resourceTypeClusterComponentType,
 		ResourceID:   cctName,
 		Hierarchy:    authz.ResourceHierarchy{},

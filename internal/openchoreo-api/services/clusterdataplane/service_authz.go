@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionViewClusterDataPlane   = "clusterdataplane:view"
-	actionCreateClusterDataPlane = "clusterdataplane:create"
-	actionUpdateClusterDataPlane = "clusterdataplane:update"
-	actionDeleteClusterDataPlane = "clusterdataplane:delete"
-
 	resourceTypeClusterDataPlane = "clusterDataPlane"
 )
 
@@ -47,7 +42,7 @@ func (s *clusterDataPlaneServiceWithAuthz) ListClusterDataPlanes(ctx context.Con
 		},
 		func(cdp openchoreov1alpha1.ClusterDataPlane) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewClusterDataPlane,
+				Action:       authz.ActionViewClusterDataPlane,
 				ResourceType: resourceTypeClusterDataPlane,
 				ResourceID:   cdp.Name,
 				Hierarchy:    authz.ResourceHierarchy{},
@@ -58,7 +53,7 @@ func (s *clusterDataPlaneServiceWithAuthz) ListClusterDataPlanes(ctx context.Con
 
 func (s *clusterDataPlaneServiceWithAuthz) GetClusterDataPlane(ctx context.Context, name string) (*openchoreov1alpha1.ClusterDataPlane, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterDataPlane,
+		Action:       authz.ActionViewClusterDataPlane,
 		ResourceType: resourceTypeClusterDataPlane,
 		ResourceID:   name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -73,7 +68,7 @@ func (s *clusterDataPlaneServiceWithAuthz) CreateClusterDataPlane(ctx context.Co
 		return nil, ErrClusterDataPlaneNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateClusterDataPlane,
+		Action:       authz.ActionCreateClusterDataPlane,
 		ResourceType: resourceTypeClusterDataPlane,
 		ResourceID:   cdp.Name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -88,7 +83,7 @@ func (s *clusterDataPlaneServiceWithAuthz) UpdateClusterDataPlane(ctx context.Co
 		return nil, ErrClusterDataPlaneNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateClusterDataPlane,
+		Action:       authz.ActionUpdateClusterDataPlane,
 		ResourceType: resourceTypeClusterDataPlane,
 		ResourceID:   cdp.Name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -100,7 +95,7 @@ func (s *clusterDataPlaneServiceWithAuthz) UpdateClusterDataPlane(ctx context.Co
 
 func (s *clusterDataPlaneServiceWithAuthz) DeleteClusterDataPlane(ctx context.Context, name string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteClusterDataPlane,
+		Action:       authz.ActionDeleteClusterDataPlane,
 		ResourceType: resourceTypeClusterDataPlane,
 		ResourceID:   name,
 		Hierarchy:    authz.ResourceHierarchy{},

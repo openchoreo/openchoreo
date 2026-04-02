@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionViewClusterWorkflowPlane   = "clusterworkflowplane:view"
-	actionCreateClusterWorkflowPlane = "clusterworkflowplane:create"
-	actionUpdateClusterWorkflowPlane = "clusterworkflowplane:update"
-	actionDeleteClusterWorkflowPlane = "clusterworkflowplane:delete"
-
 	resourceTypeClusterWorkflowPlane = "clusterWorkflowPlane"
 )
 
@@ -47,7 +42,7 @@ func (s *clusterWorkflowPlaneServiceWithAuthz) ListClusterWorkflowPlanes(ctx con
 		},
 		func(cwp openchoreov1alpha1.ClusterWorkflowPlane) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewClusterWorkflowPlane,
+				Action:       authz.ActionViewClusterWorkflowPlane,
 				ResourceType: resourceTypeClusterWorkflowPlane,
 				ResourceID:   cwp.Name,
 				Hierarchy:    authz.ResourceHierarchy{},
@@ -58,7 +53,7 @@ func (s *clusterWorkflowPlaneServiceWithAuthz) ListClusterWorkflowPlanes(ctx con
 
 func (s *clusterWorkflowPlaneServiceWithAuthz) GetClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) (*openchoreov1alpha1.ClusterWorkflowPlane, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterWorkflowPlane,
+		Action:       authz.ActionViewClusterWorkflowPlane,
 		ResourceType: resourceTypeClusterWorkflowPlane,
 		ResourceID:   clusterWorkflowPlaneName,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -74,7 +69,7 @@ func (s *clusterWorkflowPlaneServiceWithAuthz) CreateClusterWorkflowPlane(ctx co
 		return nil, ErrClusterWorkflowPlaneNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateClusterWorkflowPlane,
+		Action:       authz.ActionCreateClusterWorkflowPlane,
 		ResourceType: resourceTypeClusterWorkflowPlane,
 		ResourceID:   cwp.Name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -90,7 +85,7 @@ func (s *clusterWorkflowPlaneServiceWithAuthz) UpdateClusterWorkflowPlane(ctx co
 		return nil, ErrClusterWorkflowPlaneNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateClusterWorkflowPlane,
+		Action:       authz.ActionUpdateClusterWorkflowPlane,
 		ResourceType: resourceTypeClusterWorkflowPlane,
 		ResourceID:   cwp.Name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -103,7 +98,7 @@ func (s *clusterWorkflowPlaneServiceWithAuthz) UpdateClusterWorkflowPlane(ctx co
 // DeleteClusterWorkflowPlane checks delete authorization before delegating to the internal service.
 func (s *clusterWorkflowPlaneServiceWithAuthz) DeleteClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteClusterWorkflowPlane,
+		Action:       authz.ActionDeleteClusterWorkflowPlane,
 		ResourceType: resourceTypeClusterWorkflowPlane,
 		ResourceID:   clusterWorkflowPlaneName,
 		Hierarchy:    authz.ResourceHierarchy{},

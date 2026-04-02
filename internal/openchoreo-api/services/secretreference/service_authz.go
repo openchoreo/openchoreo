@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionCreateSecretReference = "secretreference:create"
-	actionUpdateSecretReference = "secretreference:update"
-	actionViewSecretReference   = "secretreference:view"
-	actionDeleteSecretReference = "secretreference:delete"
-
 	resourceTypeSecretReference = "secretReference"
 )
 
@@ -42,7 +37,7 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 func (s *secretReferenceServiceWithAuthz) CreateSecretReference(ctx context.Context, namespaceName string, sr *openchoreov1alpha1.SecretReference) (*openchoreov1alpha1.SecretReference, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateSecretReference,
+		Action:       authz.ActionCreateSecretReference,
 		ResourceType: resourceTypeSecretReference,
 		ResourceID:   sr.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -54,7 +49,7 @@ func (s *secretReferenceServiceWithAuthz) CreateSecretReference(ctx context.Cont
 
 func (s *secretReferenceServiceWithAuthz) UpdateSecretReference(ctx context.Context, namespaceName string, sr *openchoreov1alpha1.SecretReference) (*openchoreov1alpha1.SecretReference, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateSecretReference,
+		Action:       authz.ActionUpdateSecretReference,
 		ResourceType: resourceTypeSecretReference,
 		ResourceID:   sr.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -71,7 +66,7 @@ func (s *secretReferenceServiceWithAuthz) ListSecretReferences(ctx context.Conte
 		},
 		func(sr openchoreov1alpha1.SecretReference) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewSecretReference,
+				Action:       authz.ActionViewSecretReference,
 				ResourceType: resourceTypeSecretReference,
 				ResourceID:   sr.Name,
 				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -82,7 +77,7 @@ func (s *secretReferenceServiceWithAuthz) ListSecretReferences(ctx context.Conte
 
 func (s *secretReferenceServiceWithAuthz) GetSecretReference(ctx context.Context, namespaceName, secretReferenceName string) (*openchoreov1alpha1.SecretReference, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewSecretReference,
+		Action:       authz.ActionViewSecretReference,
 		ResourceType: resourceTypeSecretReference,
 		ResourceID:   secretReferenceName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -94,7 +89,7 @@ func (s *secretReferenceServiceWithAuthz) GetSecretReference(ctx context.Context
 
 func (s *secretReferenceServiceWithAuthz) DeleteSecretReference(ctx context.Context, namespaceName, secretReferenceName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteSecretReference,
+		Action:       authz.ActionDeleteSecretReference,
 		ResourceType: resourceTypeSecretReference,
 		ResourceID:   secretReferenceName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},

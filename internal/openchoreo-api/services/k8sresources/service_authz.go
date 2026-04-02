@@ -18,7 +18,6 @@ import (
 )
 
 const (
-	actionViewReleaseBinding   = "releasebinding:view"
 	resourceTypeReleaseBinding = "releasebinding"
 )
 
@@ -72,7 +71,7 @@ func (s *k8sResourcesServiceWithAuthz) checkReleaseBindingAuthz(ctx context.Cont
 	}
 
 	return s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewReleaseBinding,
+		Action:       authz.ActionViewReleaseBinding,
 		ResourceType: resourceTypeReleaseBinding,
 		ResourceID:   releaseBindingName,
 		Hierarchy: authz.ResourceHierarchy{

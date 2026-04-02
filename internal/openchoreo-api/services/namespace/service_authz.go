@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionCreateNamespace = "namespace:create"
-	actionUpdateNamespace = "namespace:update"
-	actionViewNamespace   = "namespace:view"
-	actionDeleteNamespace = "namespace:delete"
-
 	resourceTypeNamespace = "namespace"
 )
 
@@ -41,7 +36,7 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 func (s *namespaceServiceWithAuthz) CreateNamespace(ctx context.Context, ns *corev1.Namespace) (*corev1.Namespace, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateNamespace,
+		Action:       authz.ActionCreateNamespace,
 		ResourceType: resourceTypeNamespace,
 		ResourceID:   ns.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: ns.Name},
@@ -53,7 +48,7 @@ func (s *namespaceServiceWithAuthz) CreateNamespace(ctx context.Context, ns *cor
 
 func (s *namespaceServiceWithAuthz) UpdateNamespace(ctx context.Context, ns *corev1.Namespace) (*corev1.Namespace, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateNamespace,
+		Action:       authz.ActionUpdateNamespace,
 		ResourceType: resourceTypeNamespace,
 		ResourceID:   ns.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: ns.Name},
@@ -70,7 +65,7 @@ func (s *namespaceServiceWithAuthz) ListNamespaces(ctx context.Context, opts ser
 		},
 		func(ns corev1.Namespace) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewNamespace,
+				Action:       authz.ActionViewNamespace,
 				ResourceType: resourceTypeNamespace,
 				ResourceID:   ns.Name,
 				Hierarchy:    authz.ResourceHierarchy{Namespace: ns.Name},
@@ -81,7 +76,7 @@ func (s *namespaceServiceWithAuthz) ListNamespaces(ctx context.Context, opts ser
 
 func (s *namespaceServiceWithAuthz) GetNamespace(ctx context.Context, namespaceName string) (*corev1.Namespace, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewNamespace,
+		Action:       authz.ActionViewNamespace,
 		ResourceType: resourceTypeNamespace,
 		ResourceID:   namespaceName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -93,7 +88,7 @@ func (s *namespaceServiceWithAuthz) GetNamespace(ctx context.Context, namespaceN
 
 func (s *namespaceServiceWithAuthz) DeleteNamespace(ctx context.Context, namespaceName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteNamespace,
+		Action:       authz.ActionDeleteNamespace,
 		ResourceType: resourceTypeNamespace,
 		ResourceID:   namespaceName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},

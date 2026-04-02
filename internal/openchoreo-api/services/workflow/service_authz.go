@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionViewWorkflow   = "workflow:view"
-	actionCreateWorkflow = "workflow:create"
-	actionUpdateWorkflow = "workflow:update"
-	actionDeleteWorkflow = "workflow:delete"
-
 	resourceTypeWorkflow = "workflow"
 )
 
@@ -47,7 +42,7 @@ func (s *workflowServiceWithAuthz) ListWorkflows(ctx context.Context, namespaceN
 		},
 		func(wf openchoreov1alpha1.Workflow) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewWorkflow,
+				Action:       authz.ActionViewWorkflow,
 				ResourceType: resourceTypeWorkflow,
 				ResourceID:   wf.Name,
 				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -58,7 +53,7 @@ func (s *workflowServiceWithAuthz) ListWorkflows(ctx context.Context, namespaceN
 
 func (s *workflowServiceWithAuthz) GetWorkflow(ctx context.Context, namespaceName, workflowName string) (*openchoreov1alpha1.Workflow, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewWorkflow,
+		Action:       authz.ActionViewWorkflow,
 		ResourceType: resourceTypeWorkflow,
 		ResourceID:   workflowName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -70,7 +65,7 @@ func (s *workflowServiceWithAuthz) GetWorkflow(ctx context.Context, namespaceNam
 
 func (s *workflowServiceWithAuthz) GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (map[string]any, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewWorkflow,
+		Action:       authz.ActionViewWorkflow,
 		ResourceType: resourceTypeWorkflow,
 		ResourceID:   workflowName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -82,7 +77,7 @@ func (s *workflowServiceWithAuthz) GetWorkflowSchema(ctx context.Context, namesp
 
 func (s *workflowServiceWithAuthz) CreateWorkflow(ctx context.Context, namespaceName string, wf *openchoreov1alpha1.Workflow) (*openchoreov1alpha1.Workflow, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateWorkflow,
+		Action:       authz.ActionCreateWorkflow,
 		ResourceType: resourceTypeWorkflow,
 		ResourceID:   wf.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -97,7 +92,7 @@ func (s *workflowServiceWithAuthz) UpdateWorkflow(ctx context.Context, namespace
 		return nil, ErrWorkflowNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateWorkflow,
+		Action:       authz.ActionUpdateWorkflow,
 		ResourceType: resourceTypeWorkflow,
 		ResourceID:   wf.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -109,7 +104,7 @@ func (s *workflowServiceWithAuthz) UpdateWorkflow(ctx context.Context, namespace
 
 func (s *workflowServiceWithAuthz) DeleteWorkflow(ctx context.Context, namespaceName, workflowName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteWorkflow,
+		Action:       authz.ActionDeleteWorkflow,
 		ResourceType: resourceTypeWorkflow,
 		ResourceID:   workflowName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},

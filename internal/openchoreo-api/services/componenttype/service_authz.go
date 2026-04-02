@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionCreateComponentType = "componenttype:create"
-	actionUpdateComponentType = "componenttype:update"
-	actionViewComponentType   = "componenttype:view"
-	actionDeleteComponentType = "componenttype:delete"
-
 	resourceTypeComponentType = "componenttype"
 )
 
@@ -42,7 +37,7 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 func (s *componentTypeServiceWithAuthz) CreateComponentType(ctx context.Context, namespaceName string, ct *openchoreov1alpha1.ComponentType) (*openchoreov1alpha1.ComponentType, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateComponentType,
+		Action:       authz.ActionCreateComponentType,
 		ResourceType: resourceTypeComponentType,
 		ResourceID:   ct.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -54,7 +49,7 @@ func (s *componentTypeServiceWithAuthz) CreateComponentType(ctx context.Context,
 
 func (s *componentTypeServiceWithAuthz) UpdateComponentType(ctx context.Context, namespaceName string, ct *openchoreov1alpha1.ComponentType) (*openchoreov1alpha1.ComponentType, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateComponentType,
+		Action:       authz.ActionUpdateComponentType,
 		ResourceType: resourceTypeComponentType,
 		ResourceID:   ct.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -71,7 +66,7 @@ func (s *componentTypeServiceWithAuthz) ListComponentTypes(ctx context.Context, 
 		},
 		func(ct openchoreov1alpha1.ComponentType) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewComponentType,
+				Action:       authz.ActionViewComponentType,
 				ResourceType: resourceTypeComponentType,
 				ResourceID:   ct.Name,
 				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -82,7 +77,7 @@ func (s *componentTypeServiceWithAuthz) ListComponentTypes(ctx context.Context, 
 
 func (s *componentTypeServiceWithAuthz) GetComponentType(ctx context.Context, namespaceName, ctName string) (*openchoreov1alpha1.ComponentType, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewComponentType,
+		Action:       authz.ActionViewComponentType,
 		ResourceType: resourceTypeComponentType,
 		ResourceID:   ctName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -94,7 +89,7 @@ func (s *componentTypeServiceWithAuthz) GetComponentType(ctx context.Context, na
 
 func (s *componentTypeServiceWithAuthz) DeleteComponentType(ctx context.Context, namespaceName, ctName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteComponentType,
+		Action:       authz.ActionDeleteComponentType,
 		ResourceType: resourceTypeComponentType,
 		ResourceID:   ctName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -106,7 +101,7 @@ func (s *componentTypeServiceWithAuthz) DeleteComponentType(ctx context.Context,
 
 func (s *componentTypeServiceWithAuthz) GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (map[string]any, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewComponentType,
+		Action:       authz.ActionViewComponentType,
 		ResourceType: resourceTypeComponentType,
 		ResourceID:   ctName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},

@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionCreateClusterTrait = "clustertrait:create"
-	actionUpdateClusterTrait = "clustertrait:update"
-	actionDeleteClusterTrait = "clustertrait:delete"
-	actionViewClusterTrait   = "clustertrait:view"
-
 	resourceTypeClusterTrait = "clusterTrait"
 )
 
@@ -42,7 +37,7 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 func (s *clusterTraitServiceWithAuthz) CreateClusterTrait(ctx context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateClusterTrait,
+		Action:       authz.ActionCreateClusterTrait,
 		ResourceType: resourceTypeClusterTrait,
 		ResourceID:   ct.Name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -54,7 +49,7 @@ func (s *clusterTraitServiceWithAuthz) CreateClusterTrait(ctx context.Context, c
 
 func (s *clusterTraitServiceWithAuthz) UpdateClusterTrait(ctx context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateClusterTrait,
+		Action:       authz.ActionUpdateClusterTrait,
 		ResourceType: resourceTypeClusterTrait,
 		ResourceID:   ct.Name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -71,7 +66,7 @@ func (s *clusterTraitServiceWithAuthz) ListClusterTraits(ctx context.Context, op
 		},
 		func(ct openchoreov1alpha1.ClusterTrait) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewClusterTrait,
+				Action:       authz.ActionViewClusterTrait,
 				ResourceType: resourceTypeClusterTrait,
 				ResourceID:   ct.Name,
 				Hierarchy:    authz.ResourceHierarchy{},
@@ -83,7 +78,7 @@ func (s *clusterTraitServiceWithAuthz) ListClusterTraits(ctx context.Context, op
 // DeleteClusterTrait checks delete authorization before delegating to the internal service.
 func (s *clusterTraitServiceWithAuthz) DeleteClusterTrait(ctx context.Context, clusterTraitName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteClusterTrait,
+		Action:       authz.ActionDeleteClusterTrait,
 		ResourceType: resourceTypeClusterTrait,
 		ResourceID:   clusterTraitName,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -95,7 +90,7 @@ func (s *clusterTraitServiceWithAuthz) DeleteClusterTrait(ctx context.Context, c
 
 func (s *clusterTraitServiceWithAuthz) GetClusterTrait(ctx context.Context, clusterTraitName string) (*openchoreov1alpha1.ClusterTrait, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterTrait,
+		Action:       authz.ActionViewClusterTrait,
 		ResourceType: resourceTypeClusterTrait,
 		ResourceID:   clusterTraitName,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -107,7 +102,7 @@ func (s *clusterTraitServiceWithAuthz) GetClusterTrait(ctx context.Context, clus
 
 func (s *clusterTraitServiceWithAuthz) GetClusterTraitSchema(ctx context.Context, clusterTraitName string) (map[string]any, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterTrait,
+		Action:       authz.ActionViewClusterTrait,
 		ResourceType: resourceTypeClusterTrait,
 		ResourceID:   clusterTraitName,
 		Hierarchy:    authz.ResourceHierarchy{},

@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionCreateTrait = "trait:create"
-	actionUpdateTrait = "trait:update"
-	actionViewTrait   = "trait:view"
-	actionDeleteTrait = "trait:delete"
-
 	resourceTypeTrait = "trait"
 )
 
@@ -42,7 +37,7 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 func (s *traitServiceWithAuthz) CreateTrait(ctx context.Context, namespaceName string, t *openchoreov1alpha1.Trait) (*openchoreov1alpha1.Trait, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateTrait,
+		Action:       authz.ActionCreateTrait,
 		ResourceType: resourceTypeTrait,
 		ResourceID:   t.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -54,7 +49,7 @@ func (s *traitServiceWithAuthz) CreateTrait(ctx context.Context, namespaceName s
 
 func (s *traitServiceWithAuthz) UpdateTrait(ctx context.Context, namespaceName string, t *openchoreov1alpha1.Trait) (*openchoreov1alpha1.Trait, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateTrait,
+		Action:       authz.ActionUpdateTrait,
 		ResourceType: resourceTypeTrait,
 		ResourceID:   t.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -71,7 +66,7 @@ func (s *traitServiceWithAuthz) ListTraits(ctx context.Context, namespaceName st
 		},
 		func(t openchoreov1alpha1.Trait) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewTrait,
+				Action:       authz.ActionViewTrait,
 				ResourceType: resourceTypeTrait,
 				ResourceID:   t.Name,
 				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -82,7 +77,7 @@ func (s *traitServiceWithAuthz) ListTraits(ctx context.Context, namespaceName st
 
 func (s *traitServiceWithAuthz) GetTrait(ctx context.Context, namespaceName, traitName string) (*openchoreov1alpha1.Trait, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewTrait,
+		Action:       authz.ActionViewTrait,
 		ResourceType: resourceTypeTrait,
 		ResourceID:   traitName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -94,7 +89,7 @@ func (s *traitServiceWithAuthz) GetTrait(ctx context.Context, namespaceName, tra
 
 func (s *traitServiceWithAuthz) DeleteTrait(ctx context.Context, namespaceName, traitName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteTrait,
+		Action:       authz.ActionDeleteTrait,
 		ResourceType: resourceTypeTrait,
 		ResourceID:   traitName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -106,7 +101,7 @@ func (s *traitServiceWithAuthz) DeleteTrait(ctx context.Context, namespaceName, 
 
 func (s *traitServiceWithAuthz) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (map[string]any, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewTrait,
+		Action:       authz.ActionViewTrait,
 		ResourceType: resourceTypeTrait,
 		ResourceID:   traitName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},

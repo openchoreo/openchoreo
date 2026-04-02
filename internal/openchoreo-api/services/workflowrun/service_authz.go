@@ -19,10 +19,6 @@ import (
 )
 
 const (
-	actionCreateWorkflowRun = "workflowrun:create"
-	actionUpdateWorkflowRun = "workflowrun:update"
-	actionViewWorkflowRun   = "workflowrun:view"
-
 	resourceTypeWorkflowRun = "workflowrun"
 )
 
@@ -59,7 +55,7 @@ func constructHierarchyForAuthzCheck(namespaceName string, labels map[string]str
 
 func (s *workflowRunServiceWithAuthz) CreateWorkflowRun(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateWorkflowRun,
+		Action:       authz.ActionCreateWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   wfRun.Name,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wfRun.Labels),
@@ -71,7 +67,7 @@ func (s *workflowRunServiceWithAuthz) CreateWorkflowRun(ctx context.Context, nam
 
 func (s *workflowRunServiceWithAuthz) UpdateWorkflowRun(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateWorkflowRun,
+		Action:       authz.ActionUpdateWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   wfRun.Name,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wfRun.Labels),
@@ -88,7 +84,7 @@ func (s *workflowRunServiceWithAuthz) ListWorkflowRuns(ctx context.Context, name
 		},
 		func(wr openchoreov1alpha1.WorkflowRun) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewWorkflowRun,
+				Action:       authz.ActionViewWorkflowRun,
 				ResourceType: resourceTypeWorkflowRun,
 				ResourceID:   wr.Name,
 				Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
@@ -103,7 +99,7 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRun(ctx context.Context, namesp
 		return nil, err
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewWorkflowRun,
+		Action:       authz.ActionViewWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
@@ -119,7 +115,7 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRunLogs(ctx context.Context, na
 		return nil, err
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewWorkflowRun,
+		Action:       authz.ActionViewWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
@@ -135,7 +131,7 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRunEvents(ctx context.Context, 
 		return nil, err
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewWorkflowRun,
+		Action:       authz.ActionViewWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
@@ -151,7 +147,7 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRunStatus(ctx context.Context, 
 		return nil, err
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewWorkflowRun,
+		Action:       authz.ActionViewWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
@@ -163,7 +159,7 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRunStatus(ctx context.Context, 
 
 func (s *workflowRunServiceWithAuthz) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateWorkflowRun,
+		Action:       authz.ActionCreateWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   componentName,
 		Hierarchy: authz.ResourceHierarchy{

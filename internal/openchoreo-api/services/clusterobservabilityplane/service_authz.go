@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionViewClusterObservabilityPlane   = "clusterobservabilityplane:view"
-	actionCreateClusterObservabilityPlane = "clusterobservabilityplane:create"
-	actionUpdateClusterObservabilityPlane = "clusterobservabilityplane:update"
-	actionDeleteClusterObservabilityPlane = "clusterobservabilityplane:delete"
-
 	resourceTypeClusterObservabilityPlane = "clusterobservabilityplane"
 )
 
@@ -47,7 +42,7 @@ func (s *clusterObservabilityPlaneServiceWithAuthz) ListClusterObservabilityPlan
 		},
 		func(cop openchoreov1alpha1.ClusterObservabilityPlane) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewClusterObservabilityPlane,
+				Action:       authz.ActionViewClusterObservabilityPlane,
 				ResourceType: resourceTypeClusterObservabilityPlane,
 				ResourceID:   cop.Name,
 				Hierarchy:    authz.ResourceHierarchy{},
@@ -58,7 +53,7 @@ func (s *clusterObservabilityPlaneServiceWithAuthz) ListClusterObservabilityPlan
 
 func (s *clusterObservabilityPlaneServiceWithAuthz) GetClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) (*openchoreov1alpha1.ClusterObservabilityPlane, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterObservabilityPlane,
+		Action:       authz.ActionViewClusterObservabilityPlane,
 		ResourceType: resourceTypeClusterObservabilityPlane,
 		ResourceID:   clusterObservabilityPlaneName,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -74,7 +69,7 @@ func (s *clusterObservabilityPlaneServiceWithAuthz) CreateClusterObservabilityPl
 		return nil, ErrClusterObservabilityPlaneNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateClusterObservabilityPlane,
+		Action:       authz.ActionCreateClusterObservabilityPlane,
 		ResourceType: resourceTypeClusterObservabilityPlane,
 		ResourceID:   cop.Name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -90,7 +85,7 @@ func (s *clusterObservabilityPlaneServiceWithAuthz) UpdateClusterObservabilityPl
 		return nil, ErrClusterObservabilityPlaneNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateClusterObservabilityPlane,
+		Action:       authz.ActionUpdateClusterObservabilityPlane,
 		ResourceType: resourceTypeClusterObservabilityPlane,
 		ResourceID:   cop.Name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -103,7 +98,7 @@ func (s *clusterObservabilityPlaneServiceWithAuthz) UpdateClusterObservabilityPl
 // DeleteClusterObservabilityPlane checks delete authorization before delegating to the internal service.
 func (s *clusterObservabilityPlaneServiceWithAuthz) DeleteClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteClusterObservabilityPlane,
+		Action:       authz.ActionDeleteClusterObservabilityPlane,
 		ResourceType: resourceTypeClusterObservabilityPlane,
 		ResourceID:   clusterObservabilityPlaneName,
 		Hierarchy:    authz.ResourceHierarchy{},

@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionCreateObservabilityAlertsNotificationChannel = "observabilityalertsnotificationchannel:create"
-	actionUpdateObservabilityAlertsNotificationChannel = "observabilityalertsnotificationchannel:update"
-	actionViewObservabilityAlertsNotificationChannel   = "observabilityalertsnotificationchannel:view"
-	actionDeleteObservabilityAlertsNotificationChannel = "observabilityalertsnotificationchannel:delete"
-
 	resourceTypeObservabilityAlertsNotificationChannel = "observabilityAlertsNotificationChannel"
 )
 
@@ -42,7 +37,7 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 func (s *observabilityAlertsNotificationChannelServiceWithAuthz) CreateObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName string, nc *openchoreov1alpha1.ObservabilityAlertsNotificationChannel) (*openchoreov1alpha1.ObservabilityAlertsNotificationChannel, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateObservabilityAlertsNotificationChannel,
+		Action:       authz.ActionCreateObservabilityAlertsNotificationChannel,
 		ResourceType: resourceTypeObservabilityAlertsNotificationChannel,
 		ResourceID:   nc.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -54,7 +49,7 @@ func (s *observabilityAlertsNotificationChannelServiceWithAuthz) CreateObservabi
 
 func (s *observabilityAlertsNotificationChannelServiceWithAuthz) UpdateObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName string, nc *openchoreov1alpha1.ObservabilityAlertsNotificationChannel) (*openchoreov1alpha1.ObservabilityAlertsNotificationChannel, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateObservabilityAlertsNotificationChannel,
+		Action:       authz.ActionUpdateObservabilityAlertsNotificationChannel,
 		ResourceType: resourceTypeObservabilityAlertsNotificationChannel,
 		ResourceID:   nc.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -71,7 +66,7 @@ func (s *observabilityAlertsNotificationChannelServiceWithAuthz) ListObservabili
 		},
 		func(nc openchoreov1alpha1.ObservabilityAlertsNotificationChannel) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewObservabilityAlertsNotificationChannel,
+				Action:       authz.ActionViewObservabilityAlertsNotificationChannel,
 				ResourceType: resourceTypeObservabilityAlertsNotificationChannel,
 				ResourceID:   nc.Name,
 				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -82,7 +77,7 @@ func (s *observabilityAlertsNotificationChannelServiceWithAuthz) ListObservabili
 
 func (s *observabilityAlertsNotificationChannelServiceWithAuthz) GetObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName, channelName string) (*openchoreov1alpha1.ObservabilityAlertsNotificationChannel, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewObservabilityAlertsNotificationChannel,
+		Action:       authz.ActionViewObservabilityAlertsNotificationChannel,
 		ResourceType: resourceTypeObservabilityAlertsNotificationChannel,
 		ResourceID:   channelName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -94,7 +89,7 @@ func (s *observabilityAlertsNotificationChannelServiceWithAuthz) GetObservabilit
 
 func (s *observabilityAlertsNotificationChannelServiceWithAuthz) DeleteObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName, channelName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteObservabilityAlertsNotificationChannel,
+		Action:       authz.ActionDeleteObservabilityAlertsNotificationChannel,
 		ResourceType: resourceTypeObservabilityAlertsNotificationChannel,
 		ResourceID:   channelName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},

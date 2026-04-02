@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionViewDataPlane   = "dataplane:view"
-	actionCreateDataPlane = "dataplane:create"
-	actionUpdateDataPlane = "dataplane:update"
-	actionDeleteDataPlane = "dataplane:delete"
-
 	resourceTypeDataPlane = "dataPlane"
 )
 
@@ -47,7 +42,7 @@ func (s *dataPlaneServiceWithAuthz) ListDataPlanes(ctx context.Context, namespac
 		},
 		func(dp openchoreov1alpha1.DataPlane) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewDataPlane,
+				Action:       authz.ActionViewDataPlane,
 				ResourceType: resourceTypeDataPlane,
 				ResourceID:   dp.Name,
 				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -58,7 +53,7 @@ func (s *dataPlaneServiceWithAuthz) ListDataPlanes(ctx context.Context, namespac
 
 func (s *dataPlaneServiceWithAuthz) GetDataPlane(ctx context.Context, namespaceName, dpName string) (*openchoreov1alpha1.DataPlane, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewDataPlane,
+		Action:       authz.ActionViewDataPlane,
 		ResourceType: resourceTypeDataPlane,
 		ResourceID:   dpName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -73,7 +68,7 @@ func (s *dataPlaneServiceWithAuthz) CreateDataPlane(ctx context.Context, namespa
 		return nil, ErrDataPlaneNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateDataPlane,
+		Action:       authz.ActionCreateDataPlane,
 		ResourceType: resourceTypeDataPlane,
 		ResourceID:   dp.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -88,7 +83,7 @@ func (s *dataPlaneServiceWithAuthz) UpdateDataPlane(ctx context.Context, namespa
 		return nil, ErrDataPlaneNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateDataPlane,
+		Action:       authz.ActionUpdateDataPlane,
 		ResourceType: resourceTypeDataPlane,
 		ResourceID:   dp.Name,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
@@ -100,7 +95,7 @@ func (s *dataPlaneServiceWithAuthz) UpdateDataPlane(ctx context.Context, namespa
 
 func (s *dataPlaneServiceWithAuthz) DeleteDataPlane(ctx context.Context, namespaceName, dpName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteDataPlane,
+		Action:       authz.ActionDeleteDataPlane,
 		ResourceType: resourceTypeDataPlane,
 		ResourceID:   dpName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},

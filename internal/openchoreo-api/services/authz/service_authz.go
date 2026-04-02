@@ -13,26 +13,6 @@ import (
 )
 
 const (
-	actionCreateClusterAuthzRole = "clusterauthzrole:create"
-	actionViewClusterAuthzRole   = "clusterauthzrole:view"
-	actionUpdateClusterAuthzRole = "clusterauthzrole:update"
-	actionDeleteClusterAuthzRole = "clusterauthzrole:delete"
-
-	actionCreateAuthzRole = "authzrole:create"
-	actionViewAuthzRole   = "authzrole:view"
-	actionUpdateAuthzRole = "authzrole:update"
-	actionDeleteAuthzRole = "authzrole:delete"
-
-	actionCreateClusterAuthzRoleBinding = "clusterauthzrolebinding:create"
-	actionViewClusterAuthzRoleBinding   = "clusterauthzrolebinding:view"
-	actionUpdateClusterAuthzRoleBinding = "clusterauthzrolebinding:update"
-	actionDeleteClusterAuthzRoleBinding = "clusterauthzrolebinding:delete"
-
-	actionCreateAuthzRoleBinding = "authzrolebinding:create"
-	actionViewAuthzRoleBinding   = "authzrolebinding:view"
-	actionUpdateAuthzRoleBinding = "authzrolebinding:update"
-	actionDeleteAuthzRoleBinding = "authzrolebinding:delete"
-
 	resourceTypeClusterAuthzRole        = "clusterAuthzRole"
 	resourceTypeAuthzRole               = "authzRole"
 	resourceTypeClusterAuthzRoleBinding = "clusterAuthzRoleBinding"
@@ -59,7 +39,7 @@ func NewServiceWithAuthz(pap authzcore.PAP, pdp authzcore.PDP, logger *slog.Logg
 
 func (s *authzServiceWithAuthz) CreateClusterRole(ctx context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateClusterAuthzRole,
+		Action:       authzcore.ActionCreateClusterAuthzRole,
 		ResourceType: resourceTypeClusterAuthzRole,
 		ResourceID:   role.Name,
 	}); err != nil {
@@ -70,7 +50,7 @@ func (s *authzServiceWithAuthz) CreateClusterRole(ctx context.Context, role *ope
 
 func (s *authzServiceWithAuthz) GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.ClusterAuthzRole, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterAuthzRole,
+		Action:       authzcore.ActionViewClusterAuthzRole,
 		ResourceType: resourceTypeClusterAuthzRole,
 		ResourceID:   name,
 	}); err != nil {
@@ -81,7 +61,7 @@ func (s *authzServiceWithAuthz) GetClusterRole(ctx context.Context, name string)
 
 func (s *authzServiceWithAuthz) ListClusterRoles(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterAuthzRole], error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterAuthzRole,
+		Action:       authzcore.ActionViewClusterAuthzRole,
 		ResourceType: resourceTypeClusterAuthzRole,
 	}); err != nil {
 		return nil, err
@@ -91,7 +71,7 @@ func (s *authzServiceWithAuthz) ListClusterRoles(ctx context.Context, opts servi
 
 func (s *authzServiceWithAuthz) UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateClusterAuthzRole,
+		Action:       authzcore.ActionUpdateClusterAuthzRole,
 		ResourceType: resourceTypeClusterAuthzRole,
 		ResourceID:   role.Name,
 	}); err != nil {
@@ -102,7 +82,7 @@ func (s *authzServiceWithAuthz) UpdateClusterRole(ctx context.Context, role *ope
 
 func (s *authzServiceWithAuthz) DeleteClusterRole(ctx context.Context, name string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteClusterAuthzRole,
+		Action:       authzcore.ActionDeleteClusterAuthzRole,
 		ResourceType: resourceTypeClusterAuthzRole,
 		ResourceID:   name,
 	}); err != nil {
@@ -115,7 +95,7 @@ func (s *authzServiceWithAuthz) DeleteClusterRole(ctx context.Context, name stri
 
 func (s *authzServiceWithAuthz) CreateNamespaceRole(ctx context.Context, namespace string, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateAuthzRole,
+		Action:       authzcore.ActionCreateAuthzRole,
 		ResourceType: resourceTypeAuthzRole,
 		ResourceID:   role.Name,
 		Hierarchy:    authzcore.ResourceHierarchy{Namespace: namespace},
@@ -127,7 +107,7 @@ func (s *authzServiceWithAuthz) CreateNamespaceRole(ctx context.Context, namespa
 
 func (s *authzServiceWithAuthz) GetNamespaceRole(ctx context.Context, namespace, name string) (*openchoreov1alpha1.AuthzRole, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewAuthzRole,
+		Action:       authzcore.ActionViewAuthzRole,
 		ResourceType: resourceTypeAuthzRole,
 		ResourceID:   name,
 		Hierarchy:    authzcore.ResourceHierarchy{Namespace: namespace},
@@ -139,7 +119,7 @@ func (s *authzServiceWithAuthz) GetNamespaceRole(ctx context.Context, namespace,
 
 func (s *authzServiceWithAuthz) ListNamespaceRoles(ctx context.Context, namespace string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzRole], error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewAuthzRole,
+		Action:       authzcore.ActionViewAuthzRole,
 		ResourceType: resourceTypeAuthzRole,
 		Hierarchy:    authzcore.ResourceHierarchy{Namespace: namespace},
 	}); err != nil {
@@ -150,7 +130,7 @@ func (s *authzServiceWithAuthz) ListNamespaceRoles(ctx context.Context, namespac
 
 func (s *authzServiceWithAuthz) UpdateNamespaceRole(ctx context.Context, namespace string, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateAuthzRole,
+		Action:       authzcore.ActionUpdateAuthzRole,
 		ResourceType: resourceTypeAuthzRole,
 		ResourceID:   role.Name,
 		Hierarchy:    authzcore.ResourceHierarchy{Namespace: namespace},
@@ -162,7 +142,7 @@ func (s *authzServiceWithAuthz) UpdateNamespaceRole(ctx context.Context, namespa
 
 func (s *authzServiceWithAuthz) DeleteNamespaceRole(ctx context.Context, namespace, name string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteAuthzRole,
+		Action:       authzcore.ActionDeleteAuthzRole,
 		ResourceType: resourceTypeAuthzRole,
 		ResourceID:   name,
 		Hierarchy:    authzcore.ResourceHierarchy{Namespace: namespace},
@@ -176,7 +156,7 @@ func (s *authzServiceWithAuthz) DeleteNamespaceRole(ctx context.Context, namespa
 
 func (s *authzServiceWithAuthz) CreateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateClusterAuthzRoleBinding,
+		Action:       authzcore.ActionCreateClusterAuthzRoleBinding,
 		ResourceType: resourceTypeClusterAuthzRoleBinding,
 		ResourceID:   binding.Name,
 	}); err != nil {
@@ -187,7 +167,7 @@ func (s *authzServiceWithAuthz) CreateClusterRoleBinding(ctx context.Context, bi
 
 func (s *authzServiceWithAuthz) GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterAuthzRoleBinding,
+		Action:       authzcore.ActionViewClusterAuthzRoleBinding,
 		ResourceType: resourceTypeClusterAuthzRoleBinding,
 		ResourceID:   name,
 	}); err != nil {
@@ -198,7 +178,7 @@ func (s *authzServiceWithAuthz) GetClusterRoleBinding(ctx context.Context, name 
 
 func (s *authzServiceWithAuthz) ListClusterRoleBindings(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterAuthzRoleBinding], error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterAuthzRoleBinding,
+		Action:       authzcore.ActionViewClusterAuthzRoleBinding,
 		ResourceType: resourceTypeClusterAuthzRoleBinding,
 	}); err != nil {
 		return nil, err
@@ -208,7 +188,7 @@ func (s *authzServiceWithAuthz) ListClusterRoleBindings(ctx context.Context, opt
 
 func (s *authzServiceWithAuthz) UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateClusterAuthzRoleBinding,
+		Action:       authzcore.ActionUpdateClusterAuthzRoleBinding,
 		ResourceType: resourceTypeClusterAuthzRoleBinding,
 		ResourceID:   binding.Name,
 	}); err != nil {
@@ -219,7 +199,7 @@ func (s *authzServiceWithAuthz) UpdateClusterRoleBinding(ctx context.Context, bi
 
 func (s *authzServiceWithAuthz) DeleteClusterRoleBinding(ctx context.Context, name string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteClusterAuthzRoleBinding,
+		Action:       authzcore.ActionDeleteClusterAuthzRoleBinding,
 		ResourceType: resourceTypeClusterAuthzRoleBinding,
 		ResourceID:   name,
 	}); err != nil {
@@ -232,7 +212,7 @@ func (s *authzServiceWithAuthz) DeleteClusterRoleBinding(ctx context.Context, na
 
 func (s *authzServiceWithAuthz) CreateNamespaceRoleBinding(ctx context.Context, namespace string, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateAuthzRoleBinding,
+		Action:       authzcore.ActionCreateAuthzRoleBinding,
 		ResourceType: resourceTypeAuthzRoleBinding,
 		ResourceID:   binding.Name,
 		Hierarchy:    authzcore.ResourceHierarchy{Namespace: namespace},
@@ -244,7 +224,7 @@ func (s *authzServiceWithAuthz) CreateNamespaceRoleBinding(ctx context.Context, 
 
 func (s *authzServiceWithAuthz) GetNamespaceRoleBinding(ctx context.Context, namespace, name string) (*openchoreov1alpha1.AuthzRoleBinding, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewAuthzRoleBinding,
+		Action:       authzcore.ActionViewAuthzRoleBinding,
 		ResourceType: resourceTypeAuthzRoleBinding,
 		ResourceID:   name,
 		Hierarchy:    authzcore.ResourceHierarchy{Namespace: namespace},
@@ -256,7 +236,7 @@ func (s *authzServiceWithAuthz) GetNamespaceRoleBinding(ctx context.Context, nam
 
 func (s *authzServiceWithAuthz) ListNamespaceRoleBindings(ctx context.Context, namespace string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzRoleBinding], error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewAuthzRoleBinding,
+		Action:       authzcore.ActionViewAuthzRoleBinding,
 		ResourceType: resourceTypeAuthzRoleBinding,
 		Hierarchy:    authzcore.ResourceHierarchy{Namespace: namespace},
 	}); err != nil {
@@ -267,7 +247,7 @@ func (s *authzServiceWithAuthz) ListNamespaceRoleBindings(ctx context.Context, n
 
 func (s *authzServiceWithAuthz) UpdateNamespaceRoleBinding(ctx context.Context, namespace string, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateAuthzRoleBinding,
+		Action:       authzcore.ActionUpdateAuthzRoleBinding,
 		ResourceType: resourceTypeAuthzRoleBinding,
 		ResourceID:   binding.Name,
 		Hierarchy:    authzcore.ResourceHierarchy{Namespace: namespace},
@@ -279,7 +259,7 @@ func (s *authzServiceWithAuthz) UpdateNamespaceRoleBinding(ctx context.Context, 
 
 func (s *authzServiceWithAuthz) DeleteNamespaceRoleBinding(ctx context.Context, namespace, name string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteAuthzRoleBinding,
+		Action:       authzcore.ActionDeleteAuthzRoleBinding,
 		ResourceType: resourceTypeAuthzRoleBinding,
 		ResourceID:   name,
 		Hierarchy:    authzcore.ResourceHierarchy{Namespace: namespace},

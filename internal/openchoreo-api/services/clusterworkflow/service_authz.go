@@ -15,11 +15,6 @@ import (
 )
 
 const (
-	actionCreateClusterWorkflow = "clusterworkflow:create"
-	actionUpdateClusterWorkflow = "clusterworkflow:update"
-	actionDeleteClusterWorkflow = "clusterworkflow:delete"
-	actionViewClusterWorkflow   = "clusterworkflow:view"
-
 	resourceTypeClusterWorkflow = "clusterWorkflow"
 )
 
@@ -45,7 +40,7 @@ func (s *clusterWorkflowServiceWithAuthz) CreateClusterWorkflow(ctx context.Cont
 		return nil, ErrClusterWorkflowNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionCreateClusterWorkflow,
+		Action:       authz.ActionCreateClusterWorkflow,
 		ResourceType: resourceTypeClusterWorkflow,
 		ResourceID:   cwf.Name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -60,7 +55,7 @@ func (s *clusterWorkflowServiceWithAuthz) UpdateClusterWorkflow(ctx context.Cont
 		return nil, ErrClusterWorkflowNil
 	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionUpdateClusterWorkflow,
+		Action:       authz.ActionUpdateClusterWorkflow,
 		ResourceType: resourceTypeClusterWorkflow,
 		ResourceID:   cwf.Name,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -77,7 +72,7 @@ func (s *clusterWorkflowServiceWithAuthz) ListClusterWorkflows(ctx context.Conte
 		},
 		func(cwf openchoreov1alpha1.ClusterWorkflow) services.CheckRequest {
 			return services.CheckRequest{
-				Action:       actionViewClusterWorkflow,
+				Action:       authz.ActionViewClusterWorkflow,
 				ResourceType: resourceTypeClusterWorkflow,
 				ResourceID:   cwf.Name,
 				Hierarchy:    authz.ResourceHierarchy{},
@@ -88,7 +83,7 @@ func (s *clusterWorkflowServiceWithAuthz) ListClusterWorkflows(ctx context.Conte
 
 func (s *clusterWorkflowServiceWithAuthz) GetClusterWorkflow(ctx context.Context, clusterWorkflowName string) (*openchoreov1alpha1.ClusterWorkflow, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterWorkflow,
+		Action:       authz.ActionViewClusterWorkflow,
 		ResourceType: resourceTypeClusterWorkflow,
 		ResourceID:   clusterWorkflowName,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -101,7 +96,7 @@ func (s *clusterWorkflowServiceWithAuthz) GetClusterWorkflow(ctx context.Context
 // DeleteClusterWorkflow checks delete authorization before delegating to the internal service.
 func (s *clusterWorkflowServiceWithAuthz) DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionDeleteClusterWorkflow,
+		Action:       authz.ActionDeleteClusterWorkflow,
 		ResourceType: resourceTypeClusterWorkflow,
 		ResourceID:   clusterWorkflowName,
 		Hierarchy:    authz.ResourceHierarchy{},
@@ -113,7 +108,7 @@ func (s *clusterWorkflowServiceWithAuthz) DeleteClusterWorkflow(ctx context.Cont
 
 func (s *clusterWorkflowServiceWithAuthz) GetClusterWorkflowSchema(ctx context.Context, clusterWorkflowName string) (map[string]any, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       actionViewClusterWorkflow,
+		Action:       authz.ActionViewClusterWorkflow,
 		ResourceType: resourceTypeClusterWorkflow,
 		ResourceID:   clusterWorkflowName,
 		Hierarchy:    authz.ResourceHierarchy{},
