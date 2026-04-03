@@ -1043,10 +1043,10 @@ var _ = Describe("WorkflowRun Controller Integration", func() {
 	})
 
 	// ---------------------------------------------------------------------------
-	// Workflow resolution transient failure sets condition
+	// Namespace-scoped Workflow resolution followed by workflow-plane-not-found
 	// ---------------------------------------------------------------------------
 
-	Context("Workflow resolution with namespace-scoped Workflow kind", func() {
+	Context("Workflow resolution with namespace-scoped Workflow kind and workflow-plane-not-found", func() {
 		const (
 			resourceName = "int-test-ns-workflow"
 			workflowName = "int-ns-wf"
