@@ -164,12 +164,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		setWorkflowPlaneResolutionFailedCondition(workflowRun, err)
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-	if workflowPlaneResult == nil {
-		logger.Info("No workflow plane found for workflow",
-			"workflowrun", workflowRun.Name)
-		setWorkflowPlaneNotFoundCondition(workflowRun)
-		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
-	}
 
 	wpClient, err := r.getWorkflowPlaneClient(workflowPlaneResult)
 	if err != nil {

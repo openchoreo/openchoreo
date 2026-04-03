@@ -70,10 +70,6 @@ func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.
 		}
 		return ctrl.Result{Requeue: true}, err
 	}
-	if workflowPlaneResult == nil {
-		logger.Info("No workflow plane found, removing finalizer without cleanup")
-		return r.removeFinalizer(ctx, cwRun)
-	}
 
 	wpClient, err := r.getWorkflowPlaneClient(workflowPlaneResult)
 	if err != nil {
