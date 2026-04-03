@@ -285,3 +285,73 @@ func TestFetchAll_Success(t *testing.T) {
 	assert.Len(t, items, 2)
 	assert.Equal(t, "run-1", items[0].Metadata.Name)
 }
+
+func TestFetchAll_Pagination(t *testing.T) {
+	cursor := "next-page-token"
+	mc := mocks.NewMockClient(t)
+	// First page returns a cursor
+	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListWorkflowRunsParams) bool {
+		return p.Cursor == nil
+	})).Return(&gen.WorkflowRunList{
+		Items:      []gen.WorkflowRun{{Metadata: gen.ObjectMeta{Name: "run-1"}}},
+		Pagination: gen.Pagination{NextCursor: &cursor},
+	}, nil).Once()
+	// Second page returns no cursor
+	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListWorkflowRunsParams) bool {
+		return p.Cursor != nil && *p.Cursor == cursor
+	})).Return(&gen.WorkflowRunList{
+		Items:      []gen.WorkflowRun{{Metadata: gen.ObjectMeta{Name: "run-2"}}},
+		Pagination: gen.Pagination{},
+	}, nil).Once()
+
+	wr := New(mc)
+	items, err := wr.FetchAll("ns", "")
+	require.NoError(t, err)
+	assert.Len(t, items, 2)
+}
+
+func TestFetchAll_WithWorkflowFilter(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListWorkflowRunsParams) bool {
+		return p.Workflow != nil && *p.Workflow == "my-wf"
+	})).Return(&gen.WorkflowRunList{
+		Items:      []gen.WorkflowRun{{Metadata: gen.ObjectMeta{Name: "run-1"}}},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	wr := New(mc)
+	items, err := wr.FetchAll("ns", "my-wf")
+	require.NoError(t, err)
+	assert.Len(t, items, 1)
+}
+
+// --- List: validation ---
+
+func TestList_ValidationError(t *testing.T) {
+	wr := New(nil)
+	err := wr.List(ListParams{})
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
+}
+
+// --- Get: validation ---
+
+func TestGet_ValidationError(t *testing.T) {
+	wr := New(nil)
+	err := wr.Get(GetParams{WorkflowRunName: "run-1"})
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
+}
+
+// --- PrintList: nil conditions ---
+
+func TestPrintList_NilSpec(t *testing.T) {
+	items := []gen.WorkflowRun{
+		{Metadata: gen.ObjectMeta{Name: "run-no-spec"}},
+	}
+	out := captureStdout(t, func() {
+		require.NoError(t, PrintList(items))
+	})
+	assert.Contains(t, out, "run-no-spec")
+	assert.Contains(t, out, "Pending")
+}

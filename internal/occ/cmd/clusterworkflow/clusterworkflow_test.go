@@ -237,3 +237,122 @@ func TestLogs_ValidationError(t *testing.T) {
 		assert.EqualError(t, err, "cluster workflow name is required")
 	})
 }
+
+// --- Logs: RunName provided — bypasses ResolveLatestRun ---
+
+func TestLogs_WithRunName_LiveLogs(t *testing.T) {
+	now := time.Now()
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil)
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
+		[]gen.WorkflowRunLogEntry{{Timestamp: &now, Log: "deploy step"}}, nil)
+
+	cw := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cw.Logs(LogsParams{Namespace: "ns", WorkflowName: "my-cwf", RunName: "run-1"}))
+	})
+	assert.Contains(t, out, "deploy step")
+}
+
+func TestLogs_WithRunName_StatusError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(nil, fmt.Errorf("unavailable"))
+
+	cw := New(mc)
+	err := cw.Logs(LogsParams{Namespace: "ns", WorkflowName: "my-cwf", RunName: "run-1"})
+	assert.ErrorContains(t, err, "failed to get workflow run status")
+}
+
+// --- StartRun ---
+
+func TestStartRun_Success(t *testing.T) {
+	ns := "ns"
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().CreateWorkflowRun(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRun{
+		Metadata: gen.ObjectMeta{Name: "run-1", Namespace: &ns},
+		Spec:     &gen.WorkflowRunSpec{Workflow: gen.WorkflowRunConfig{Name: "my-cwf"}},
+	}, nil)
+
+	cw := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cw.StartRun(StartRunParams{Namespace: "ns", WorkflowName: "my-cwf"}))
+	})
+	assert.Contains(t, out, "Successfully started workflow run: run-1")
+}
+
+func TestStartRun_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().CreateWorkflowRun(mock.Anything, "ns", mock.Anything).Return(nil, fmt.Errorf("forbidden"))
+
+	cw := New(mc)
+	err := cw.StartRun(StartRunParams{Namespace: "ns", WorkflowName: "my-cwf"})
+	assert.EqualError(t, err, "forbidden")
+}
+
+// --- Logs: RunName NOT provided — resolves latest run ---
+
+func TestLogs_WithoutRunName_ResolvesLatest(t *testing.T) {
+	now := time.Now()
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRunList{
+		Items:      []gen.WorkflowRun{{Metadata: gen.ObjectMeta{Name: "latest-run", CreationTimestamp: &now}}},
+		Pagination: gen.Pagination{},
+	}, nil)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "latest-run").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil)
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "latest-run", mock.Anything).Return(
+		[]gen.WorkflowRunLogEntry{{Timestamp: &now, Log: "resolved log"}}, nil)
+
+	cw := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cw.Logs(LogsParams{Namespace: "ns", WorkflowName: "my-cwf"}))
+	})
+	assert.Contains(t, out, "resolved log")
+}
+
+func TestLogs_WithoutRunName_NoRuns(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRunList{
+		Items:      []gen.WorkflowRun{},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	cw := New(mc)
+	err := cw.Logs(LogsParams{Namespace: "ns", WorkflowName: "my-cwf"})
+	assert.ErrorContains(t, err, "no workflow runs found")
+}
+
+// --- List: pagination cursor branch ---
+
+func TestList_Pagination(t *testing.T) {
+	cursor := "page2"
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListClusterWorkflows(mock.Anything, mock.MatchedBy(func(p *gen.ListClusterWorkflowsParams) bool {
+		return p.Cursor == nil
+	})).Return(&gen.ClusterWorkflowList{
+		Items:      []gen.ClusterWorkflow{{Metadata: gen.ObjectMeta{Name: "wf-1"}}},
+		Pagination: gen.Pagination{NextCursor: &cursor},
+	}, nil).Once()
+	mc.EXPECT().ListClusterWorkflows(mock.Anything, mock.MatchedBy(func(p *gen.ListClusterWorkflowsParams) bool {
+		return p.Cursor != nil && *p.Cursor == cursor
+	})).Return(&gen.ClusterWorkflowList{
+		Items:      []gen.ClusterWorkflow{{Metadata: gen.ObjectMeta{Name: "wf-2"}}},
+		Pagination: gen.Pagination{},
+	}, nil).Once()
+
+	cw := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cw.List())
+	})
+	assert.Contains(t, out, "wf-1")
+	assert.Contains(t, out, "wf-2")
+}
+
+// --- Params getters ---
+
+func TestLogsParams_Getters(t *testing.T) {
+	p := LogsParams{Namespace: "my-ns", WorkflowName: "my-wf"}
+	assert.Equal(t, "my-ns", p.GetNamespace())
+	assert.Equal(t, "my-wf", p.GetWorkflowName())
+}

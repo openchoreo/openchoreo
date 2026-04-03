@@ -4,12 +4,16 @@
 package workflowrun
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -72,6 +76,368 @@ func TestFilterNewEntries(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLogs_ValidationError(t *testing.T) {
+	wr := New(nil) // client is never called when validation fails
+
+	t.Run("missing namespace", func(t *testing.T) {
+		err := wr.Logs(LogsParams{WorkflowRunName: "run-1"})
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "Missing required parameter: --namespace")
+	})
+}
+
+func TestLogs_InvalidSince(t *testing.T) {
+	wr := New(nil) // client is never called before --since validation
+
+	t.Run("invalid duration", func(t *testing.T) {
+		err := wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1", Since: "notaduration"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid --since value")
+	})
+
+	t.Run("negative duration", func(t *testing.T) {
+		err := wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1", Since: "-5m"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid --since value")
+	})
+
+	t.Run("zero duration", func(t *testing.T) {
+		err := wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1", Since: "0s"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "duration must be positive")
+	})
+}
+
+// --- Logs: GetWorkflowRunStatus error ---
+
+func TestLogs_StatusError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(nil, fmt.Errorf("status unavailable"))
+
+	wr := New(mc)
+	err := wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1"})
+	assert.ErrorContains(t, err, "failed to get workflow run status")
+	assert.ErrorContains(t, err, "status unavailable")
+}
+
+// --- Logs: live path ---
+
+func TestLogs_LiveLogs_Success(t *testing.T) {
+	now := time.Now()
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil)
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
+		[]gen.WorkflowRunLogEntry{
+			{Timestamp: &now, Log: "step started"},
+			{Log: "no timestamp line"},
+		}, nil)
+
+	wr := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}))
+	})
+	assert.Contains(t, out, "step started")
+	assert.Contains(t, out, "no timestamp line")
+}
+
+func TestLogs_LiveLogs_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil)
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
+		nil, fmt.Errorf("log fetch failed"))
+
+	wr := New(mc)
+	err := wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1"})
+	assert.ErrorContains(t, err, "failed to get live logs")
+	assert.ErrorContains(t, err, "log fetch failed")
+}
+
+func TestLogs_LiveLogs_WithSince(t *testing.T) {
+	now := time.Now()
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil)
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.MatchedBy(func(p *gen.GetWorkflowRunLogsParams) bool {
+		return p != nil && p.SinceSeconds != nil && *p.SinceSeconds == 300 // 5m
+	})).Return([]gen.WorkflowRunLogEntry{{Timestamp: &now, Log: "recent"}}, nil)
+
+	wr := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1", Since: "5m"}))
+	})
+	assert.Contains(t, out, "recent")
+}
+
+// --- resolveObserverURL ---
+
+func TestResolveObserverURL_ViaWorkflowPlane(t *testing.T) {
+	url := "http://observer.example.com"
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "my-wf").Return(&gen.Workflow{
+		Spec: &gen.WorkflowSpec{
+			WorkflowPlaneRef: &gen.WorkflowPlaneRef{Kind: gen.WorkflowPlaneRefKindWorkflowPlane, Name: "my-wp"},
+		},
+	}, nil)
+	obsRef := &gen.ObservabilityPlaneRef{Kind: gen.ObservabilityPlaneRefKindObservabilityPlane, Name: "my-obs"}
+	mc.EXPECT().GetWorkflowPlane(mock.Anything, "ns", "my-wp").Return(
+		&gen.WorkflowPlane{Spec: &gen.WorkflowPlaneSpec{ObservabilityPlaneRef: obsRef}}, nil)
+	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "my-obs").Return(
+		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{ObserverURL: &url}}, nil)
+
+	got, err := resolveObserverURL(nil, mc, "ns", "my-wf")
+	require.NoError(t, err)
+	assert.Equal(t, url, got)
+}
+
+func TestResolveObserverURL_FallbackToDefault(t *testing.T) {
+	url := "http://default-observer.example.com"
+	mc := mocks.NewMockClient(t)
+	// Workflow not found — falls through to default plane lookup
+	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "missing-wf").Return(nil, fmt.Errorf("not found"))
+	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "default").Return(
+		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{ObserverURL: &url}}, nil)
+
+	got, err := resolveObserverURL(nil, mc, "ns", "missing-wf")
+	require.NoError(t, err)
+	assert.Equal(t, url, got)
+}
+
+// --- followLiveLogs: context cancellation ---
+
+func TestFollowLiveLogs_ContextCancelled(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
+		[]gen.WorkflowRunLogEntry{}, nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately so the poll loop exits right away
+
+	wr := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, wr.followLiveLogs(ctx, mc, LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}, 0))
+	})
+	assert.Contains(t, out, "Stopping log streaming...")
+}
+
+func TestFollowLiveLogs_InitialFetchError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
+		nil, fmt.Errorf("initial fetch failed"))
+
+	ctx := context.Background()
+	wr := New(mc)
+	err := wr.followLiveLogs(ctx, mc, LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}, 0)
+	assert.ErrorContains(t, err, "failed to get live logs")
+}
+
+func TestFollowLiveLogs_RunCompleted(t *testing.T) {
+	// Initial fetch returns empty, then on first poll status shows no live observability
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
+		[]gen.WorkflowRunLogEntry{}, nil).Once()
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
+
+	wr := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, wr.followLiveLogs(context.Background(), mc, LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}, 0))
+	})
+	assert.Contains(t, out, "Workflow run completed. Live logs are no longer available.")
+}
+
+func TestFollowLiveLogs_PollStatusError_ThenCancel(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
+		[]gen.WorkflowRunLogEntry{}, nil).Once()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	// Status call returns error and context is already cancelled
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").RunAndReturn(
+		func(c context.Context, ns, run string) (*gen.WorkflowRunStatusResponse, error) {
+			cancel()
+			return nil, fmt.Errorf("status error")
+		})
+
+	wr := New(mc)
+	require.NoError(t, wr.followLiveLogs(ctx, mc, LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}, 0))
+}
+
+// --- resolveObserverURLFromObsRef ---
+
+func TestResolveObserverURLFromObsRef_NamespacedObsPlane(t *testing.T) {
+	url := "http://observer.example.com"
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "my-obs").Return(
+		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{ObserverURL: &url}}, nil)
+
+	obsRef := &gen.ObservabilityPlaneRef{Kind: gen.ObservabilityPlaneRefKindObservabilityPlane, Name: "my-obs"}
+	got, err := resolveObserverURLFromObsRef(nil, mc, "ns", obsRef, nil)
+	require.NoError(t, err)
+	assert.Equal(t, url, got)
+}
+
+func TestResolveObserverURLFromObsRef_ClusterObsPlaneViaObsRef(t *testing.T) {
+	url := "http://cluster-observer.example.com"
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "my-cluster-obs").Return(
+		&gen.ClusterObservabilityPlane{Spec: &gen.ClusterObservabilityPlaneSpec{ObserverURL: &url}}, nil)
+
+	obsRef := &gen.ObservabilityPlaneRef{Kind: gen.ObservabilityPlaneRefKindClusterObservabilityPlane, Name: "my-cluster-obs"}
+	got, err := resolveObserverURLFromObsRef(nil, mc, "ns", obsRef, nil)
+	require.NoError(t, err)
+	assert.Equal(t, url, got)
+}
+
+func TestResolveObserverURLFromObsRef_ClusterObsPlaneViaClusterRef(t *testing.T) {
+	url := "http://cluster-observer.example.com"
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "my-cluster-obs").Return(
+		&gen.ClusterObservabilityPlane{Spec: &gen.ClusterObservabilityPlaneSpec{ObserverURL: &url}}, nil)
+
+	clusterRef := &gen.ClusterObservabilityPlaneRef{Name: "my-cluster-obs"}
+	got, err := resolveObserverURLFromObsRef(nil, mc, "ns", nil, clusterRef)
+	require.NoError(t, err)
+	assert.Equal(t, url, got)
+}
+
+func TestResolveObserverURLFromObsRef_FallbackToDefaultObsPlane(t *testing.T) {
+	url := "http://default-observer.example.com"
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "default").Return(
+		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{ObserverURL: &url}}, nil)
+
+	got, err := resolveObserverURLFromObsRef(nil, mc, "ns", nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, url, got)
+}
+
+func TestResolveObserverURLFromObsRef_FallbackToDefaultClusterObsPlane(t *testing.T) {
+	url := "http://default-cluster-observer.example.com"
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "default").Return(nil, fmt.Errorf("not found"))
+	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "default").Return(
+		&gen.ClusterObservabilityPlane{Spec: &gen.ClusterObservabilityPlaneSpec{ObserverURL: &url}}, nil)
+
+	got, err := resolveObserverURLFromObsRef(nil, mc, "ns", nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, url, got)
+}
+
+func TestResolveObserverURLFromObsRef_NoObserverConfigured(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "default").Return(nil, fmt.Errorf("not found"))
+	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "default").Return(nil, fmt.Errorf("not found"))
+
+	_, err := resolveObserverURLFromObsRef(nil, mc, "ns", nil, nil)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "no observer URL configured")
+}
+
+func TestResolveObserverURLFromObsRef_NamespacedObsPlaneError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "bad-obs").Return(nil, fmt.Errorf("forbidden"))
+
+	obsRef := &gen.ObservabilityPlaneRef{Kind: gen.ObservabilityPlaneRefKindObservabilityPlane, Name: "bad-obs"}
+	_, err := resolveObserverURLFromObsRef(nil, mc, "ns", obsRef, nil)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "failed to get observability plane")
+}
+
+// --- resolveWorkflowPlaneObsRef ---
+
+func TestResolveWorkflowPlaneObsRef_WorkflowPlane(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "my-wf").Return(&gen.Workflow{
+		Spec: &gen.WorkflowSpec{
+			WorkflowPlaneRef: &gen.WorkflowPlaneRef{Kind: gen.WorkflowPlaneRefKindWorkflowPlane, Name: "my-wp"},
+		},
+	}, nil)
+	obsRef := &gen.ObservabilityPlaneRef{Kind: gen.ObservabilityPlaneRefKindObservabilityPlane, Name: "my-obs"}
+	mc.EXPECT().GetWorkflowPlane(mock.Anything, "ns", "my-wp").Return(&gen.WorkflowPlane{
+		Spec: &gen.WorkflowPlaneSpec{ObservabilityPlaneRef: obsRef},
+	}, nil)
+
+	gotObs, gotCluster := resolveWorkflowPlaneObsRef(nil, mc, "ns", "my-wf")
+	require.NotNil(t, gotObs)
+	assert.Equal(t, "my-obs", gotObs.Name)
+	assert.Nil(t, gotCluster)
+}
+
+func TestResolveWorkflowPlaneObsRef_ClusterWorkflowPlane(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "my-wf").Return(&gen.Workflow{
+		Spec: &gen.WorkflowSpec{
+			WorkflowPlaneRef: &gen.WorkflowPlaneRef{Kind: gen.WorkflowPlaneRefKindClusterWorkflowPlane, Name: "my-cwp"},
+		},
+	}, nil)
+	clusterRef := &gen.ClusterObservabilityPlaneRef{Name: "my-cluster-obs"}
+	mc.EXPECT().GetClusterWorkflowPlane(mock.Anything, "my-cwp").Return(&gen.ClusterWorkflowPlane{
+		Spec: &gen.ClusterWorkflowPlaneSpec{ObservabilityPlaneRef: clusterRef},
+	}, nil)
+
+	gotObs, gotCluster := resolveWorkflowPlaneObsRef(nil, mc, "ns", "my-wf")
+	assert.Nil(t, gotObs)
+	require.NotNil(t, gotCluster)
+	assert.Equal(t, "my-cluster-obs", gotCluster.Name)
+}
+
+func TestResolveWorkflowPlaneObsRef_WorkflowNotFound(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "missing-wf").Return(nil, fmt.Errorf("not found"))
+
+	gotObs, gotCluster := resolveWorkflowPlaneObsRef(nil, mc, "ns", "missing-wf")
+	assert.Nil(t, gotObs)
+	assert.Nil(t, gotCluster)
+}
+
+func TestFollowLiveLogs_PollNewLogs(t *testing.T) {
+	now := time.Now()
+	later := now.Add(time.Second)
+	mc := mocks.NewMockClient(t)
+
+	// Initial fetch: one entry
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
+		[]gen.WorkflowRunLogEntry{{Timestamp: &now, Log: "first"}}, nil).Once()
+
+	// Poll: status still live, new log returned, context cancelled inside RunAndReturn
+	ctx, cancel := context.WithCancel(context.Background())
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil).Once()
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).RunAndReturn(
+		func(_ context.Context, _, _ string, _ *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error) {
+			cancel()
+			return []gen.WorkflowRunLogEntry{{Timestamp: &later, Log: "second"}}, nil
+		}).Once()
+
+	wr := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, wr.followLiveLogs(ctx, mc, LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}, 0))
+	})
+	assert.Contains(t, out, "first")
+	assert.Contains(t, out, "second")
+	assert.Contains(t, out, "Stopping log streaming...")
+}
+
+func TestFollowLiveLogs_PollFetchError_ThenCancel(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
+		[]gen.WorkflowRunLogEntry{}, nil).Once()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil).Once()
+	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).RunAndReturn(
+		func(c context.Context, _, _ string, _ *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error) {
+			cancel()
+			return nil, fmt.Errorf("transient error")
+		}).Once()
+
+	wr := New(mc)
+	require.NoError(t, wr.followLiveLogs(ctx, mc, LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}, 0))
 }
 
 func TestParseSinceToSeconds(t *testing.T) {
