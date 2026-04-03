@@ -4,9 +4,14 @@
 package handlers
 
 import (
+	"context"
+	"io"
 	"log/slog"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -14,6 +19,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
@@ -337,4 +343,204 @@ func TestListComponentsHandler(t *testing.T) {
 			t.Fatalf("expected 0 items (authz denied), got %d", len(typed.Items))
 		}
 	})
+}
+
+type mockComponentService struct {
+	createFn      func(ctx context.Context, namespace string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error)
+	updateFn      func(ctx context.Context, namespace string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error)
+	generateRelFn func(ctx context.Context, namespace, componentName string, req *componentsvc.GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error)
+	getSchemaFn   func(ctx context.Context, namespace, componentName string) (*extv1.JSONSchemaProps, error)
+}
+
+var _ componentsvc.Service = (*mockComponentService)(nil)
+
+func (m *mockComponentService) CreateComponent(ctx context.Context, namespaceName string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
+	if m.createFn == nil {
+		panic("CreateComponent not configured")
+	}
+	return m.createFn(ctx, namespaceName, component)
+}
+func (m *mockComponentService) UpdateComponent(ctx context.Context, namespaceName string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
+	if m.updateFn == nil {
+		panic("UpdateComponent not configured")
+	}
+	return m.updateFn(ctx, namespaceName, component)
+}
+func (m *mockComponentService) ListComponents(context.Context, string, string, svcpkg.ListOptions) (*svcpkg.ListResult[openchoreov1alpha1.Component], error) {
+	panic("not used")
+}
+func (m *mockComponentService) GetComponent(context.Context, string, string) (*openchoreov1alpha1.Component, error) {
+	panic("not used")
+}
+func (m *mockComponentService) DeleteComponent(context.Context, string, string) error {
+	panic("not used")
+}
+func (m *mockComponentService) GenerateRelease(ctx context.Context, namespaceName, componentName string, req *componentsvc.GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error) {
+	if m.generateRelFn == nil {
+		panic("GenerateRelease not configured")
+	}
+	return m.generateRelFn(ctx, namespaceName, componentName, req)
+}
+func (m *mockComponentService) GetComponentSchema(ctx context.Context, namespaceName, componentName string) (*extv1.JSONSchemaProps, error) {
+	if m.getSchemaFn == nil {
+		panic("GetComponentSchema not configured")
+	}
+	return m.getSchemaFn(ctx, namespaceName, componentName)
+}
+func (m *mockComponentService) GetComponentReleaseSchema(context.Context, string, string, string) (*extv1.JSONSchemaProps, error) {
+	panic("not used")
+}
+
+func TestCreateComponentHandler_NamespaceMismatchReturns400(t *testing.T) {
+	ctx := testContext()
+	svc := &mockComponentService{
+		createFn: func(context.Context, string, *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
+			t.Fatal("service should not be called when namespace mismatches")
+			return nil, nil
+		},
+	}
+	h := &Handler{
+		services: &handlerservices.Services{ComponentService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+
+	body := gen.Component{
+		Metadata: gen.ObjectMeta{
+			Name:      "comp-a",
+			Namespace: ptr.To("other-ns"),
+		},
+	}
+	resp, err := h.CreateComponent(ctx, gen.CreateComponentRequestObject{
+		NamespaceName: "test-ns",
+		Body:          &body,
+	})
+	require.NoError(t, err)
+	assert.IsType(t, gen.CreateComponent400JSONResponse{}, resp)
+}
+
+func TestUpdateComponentHandler_UsesPathNameAndValidatesNamespace(t *testing.T) {
+	ctx := testContext()
+	svc := &mockComponentService{
+		updateFn: func(_ context.Context, namespace string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
+			assert.Equal(t, "test-ns", namespace)
+			assert.Equal(t, "comp-from-path", component.Name, "path must override body name")
+			return component, nil
+		},
+	}
+	h := &Handler{
+		services: &handlerservices.Services{ComponentService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+
+	body := gen.Component{
+		Metadata: gen.ObjectMeta{
+			Name: "comp-from-body",
+		},
+	}
+	resp, err := h.UpdateComponent(ctx, gen.UpdateComponentRequestObject{
+		NamespaceName: "test-ns",
+		ComponentName: "comp-from-path",
+		Body:          &body,
+	})
+	require.NoError(t, err)
+	typed, ok := resp.(gen.UpdateComponent200JSONResponse)
+	require.True(t, ok, "expected 200 response, got %T", resp)
+	assert.Equal(t, "comp-from-path", typed.Metadata.Name)
+}
+
+func TestGenerateReleaseHandler_MapsValidationErrorTo400AndForwardsReleaseName(t *testing.T) {
+	ctx := testContext()
+	svc := &mockComponentService{
+		generateRelFn: func(_ context.Context, namespace, componentName string, req *componentsvc.GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error) {
+			assert.Equal(t, "test-ns", namespace)
+			assert.Equal(t, "comp-a", componentName)
+			require.NotNil(t, req)
+			assert.Equal(t, "r-1", req.ReleaseName)
+			return nil, componentsvc.ErrValidation
+		},
+	}
+	h := &Handler{
+		services: &handlerservices.Services{ComponentService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+
+	rn := "r-1"
+	resp, err := h.GenerateRelease(ctx, gen.GenerateReleaseRequestObject{
+		NamespaceName: "test-ns",
+		ComponentName: "comp-a",
+		Body:          &gen.GenerateReleaseRequest{ReleaseName: &rn},
+	})
+	require.NoError(t, err)
+	typed, ok := resp.(gen.GenerateRelease400JSONResponse)
+	require.True(t, ok, "expected 400 response, got %T", resp)
+	assert.Contains(t, typed.Error, "validation")
+}
+
+func TestGetComponentSchemaHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.GetComponentSchema403JSONResponse{}},
+		{"component not found -> 404", componentsvc.ErrComponentNotFound, gen.GetComponentSchema404JSONResponse{}},
+		{"component type not found -> 404", componentsvc.ErrComponentTypeNotFound, gen.GetComponentSchema404JSONResponse{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &mockComponentService{
+				getSchemaFn: func(context.Context, string, string) (*extv1.JSONSchemaProps, error) {
+					return nil, tt.svcErr
+				},
+			}
+			h := &Handler{
+				services: &handlerservices.Services{ComponentService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.GetComponentSchema(ctx, gen.GetComponentSchemaRequestObject{
+				NamespaceName: "test-ns",
+				ComponentName: "comp-a",
+			})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestUpdateComponentHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateComponent403JSONResponse{}},
+		{"not found -> 404", componentsvc.ErrComponentNotFound, gen.UpdateComponent404JSONResponse{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &mockComponentService{
+				updateFn: func(context.Context, string, *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
+					return nil, tt.svcErr
+				},
+			}
+			h := &Handler{
+				services: &handlerservices.Services{ComponentService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			body := gen.Component{Metadata: gen.ObjectMeta{Name: "comp-a"}}
+			resp, err := h.UpdateComponent(ctx, gen.UpdateComponentRequestObject{
+				NamespaceName: "test-ns",
+				ComponentName: "comp-a",
+				Body:          &body,
+			})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
 }

@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,6 +19,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	clustertraitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait"
 	clusterworkflowsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterworkflow"
@@ -138,17 +141,10 @@ func TestListClusterComponentTypesHandler(t *testing.T) {
 		h := newHandlerWithClusterComponentTypeService(svc)
 
 		resp, err := h.ListClusterComponentTypes(ctx, gen.ListClusterComponentTypesRequestObject{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
+		require.NoError(t, err)
 		typed, ok := resp.(gen.ListClusterComponentTypes200JSONResponse)
-		if !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
-		if len(typed.Items) != 1 {
-			t.Fatalf("expected 1 item, got %d", len(typed.Items))
-		}
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Len(t, typed.Items, 1)
 	})
 
 	t.Run("filters unauthorized items", func(t *testing.T) {
@@ -156,17 +152,10 @@ func TestListClusterComponentTypesHandler(t *testing.T) {
 		h := newHandlerWithClusterComponentTypeService(svc)
 
 		resp, err := h.ListClusterComponentTypes(ctx, gen.ListClusterComponentTypesRequestObject{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
+		require.NoError(t, err)
 		typed, ok := resp.(gen.ListClusterComponentTypes200JSONResponse)
-		if !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
-		if len(typed.Items) != 0 {
-			t.Fatalf("expected 0 items, got %d", len(typed.Items))
-		}
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Empty(t, typed.Items)
 	})
 }
 
@@ -192,17 +181,10 @@ func TestGetClusterComponentTypeSchemaHandler(t *testing.T) {
 		h := newHandlerWithClusterComponentTypeService(svc)
 
 		resp, err := h.GetClusterComponentTypeSchema(ctx, gen.GetClusterComponentTypeSchemaRequestObject{CctName: "go-service"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
+		require.NoError(t, err)
 		typed, ok := resp.(gen.GetClusterComponentTypeSchema200JSONResponse)
-		if !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
-		if len(typed) == 0 {
-			t.Fatalf("expected non-empty schema response")
-		}
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.NotEmpty(t, typed)
 	})
 
 	t.Run("returns 404 when not found", func(t *testing.T) {
@@ -210,12 +192,8 @@ func TestGetClusterComponentTypeSchemaHandler(t *testing.T) {
 		h := newHandlerWithClusterComponentTypeService(svc)
 
 		resp, err := h.GetClusterComponentTypeSchema(ctx, gen.GetClusterComponentTypeSchemaRequestObject{CctName: "missing"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.GetClusterComponentTypeSchema404JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterComponentTypeSchema404JSONResponse{}, resp)
 	})
 
 	t.Run("returns 403 when forbidden", func(t *testing.T) {
@@ -223,12 +201,8 @@ func TestGetClusterComponentTypeSchemaHandler(t *testing.T) {
 		h := newHandlerWithClusterComponentTypeService(svc)
 
 		resp, err := h.GetClusterComponentTypeSchema(ctx, gen.GetClusterComponentTypeSchemaRequestObject{CctName: "go-service"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.GetClusterComponentTypeSchema403JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterComponentTypeSchema403JSONResponse{}, resp)
 	})
 }
 
@@ -244,17 +218,10 @@ func TestListClusterTraitsHandler(t *testing.T) {
 		h := newHandlerWithClusterTraitService(svc)
 
 		resp, err := h.ListClusterTraits(ctx, gen.ListClusterTraitsRequestObject{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
+		require.NoError(t, err)
 		typed, ok := resp.(gen.ListClusterTraits200JSONResponse)
-		if !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
-		if len(typed.Items) != 1 {
-			t.Fatalf("expected 1 item, got %d", len(typed.Items))
-		}
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Len(t, typed.Items, 1)
 	})
 
 	t.Run("filters unauthorized items", func(t *testing.T) {
@@ -262,17 +229,10 @@ func TestListClusterTraitsHandler(t *testing.T) {
 		h := newHandlerWithClusterTraitService(svc)
 
 		resp, err := h.ListClusterTraits(ctx, gen.ListClusterTraitsRequestObject{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
+		require.NoError(t, err)
 		typed, ok := resp.(gen.ListClusterTraits200JSONResponse)
-		if !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
-		if len(typed.Items) != 0 {
-			t.Fatalf("expected 0 items, got %d", len(typed.Items))
-		}
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Empty(t, typed.Items)
 	})
 }
 
@@ -296,17 +256,10 @@ func TestGetClusterTraitSchemaHandler(t *testing.T) {
 		h := newHandlerWithClusterTraitService(svc)
 
 		resp, err := h.GetClusterTraitSchema(ctx, gen.GetClusterTraitSchemaRequestObject{ClusterTraitName: "autoscaler"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
+		require.NoError(t, err)
 		typed, ok := resp.(gen.GetClusterTraitSchema200JSONResponse)
-		if !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
-		if len(typed) == 0 {
-			t.Fatalf("expected non-empty schema response")
-		}
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.NotEmpty(t, typed)
 	})
 
 	t.Run("returns 404 when not found", func(t *testing.T) {
@@ -314,12 +267,8 @@ func TestGetClusterTraitSchemaHandler(t *testing.T) {
 		h := newHandlerWithClusterTraitService(svc)
 
 		resp, err := h.GetClusterTraitSchema(ctx, gen.GetClusterTraitSchemaRequestObject{ClusterTraitName: "missing"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.GetClusterTraitSchema404JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterTraitSchema404JSONResponse{}, resp)
 	})
 
 	t.Run("returns 403 when forbidden", func(t *testing.T) {
@@ -327,12 +276,8 @@ func TestGetClusterTraitSchemaHandler(t *testing.T) {
 		h := newHandlerWithClusterTraitService(svc)
 
 		resp, err := h.GetClusterTraitSchema(ctx, gen.GetClusterTraitSchemaRequestObject{ClusterTraitName: "autoscaler"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.GetClusterTraitSchema403JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterTraitSchema403JSONResponse{}, resp)
 	})
 }
 
@@ -368,17 +313,10 @@ func TestListClusterWorkflowsHandler(t *testing.T) {
 		h := newHandlerWithClusterWorkflowService(svc)
 
 		resp, err := h.ListClusterWorkflows(ctx, gen.ListClusterWorkflowsRequestObject{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
+		require.NoError(t, err)
 		typed, ok := resp.(gen.ListClusterWorkflows200JSONResponse)
-		if !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
-		if len(typed.Items) != 1 {
-			t.Fatalf("expected 1 item, got %d", len(typed.Items))
-		}
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Len(t, typed.Items, 1)
 	})
 
 	t.Run("filters unauthorized items", func(t *testing.T) {
@@ -386,17 +324,10 @@ func TestListClusterWorkflowsHandler(t *testing.T) {
 		h := newHandlerWithClusterWorkflowService(svc)
 
 		resp, err := h.ListClusterWorkflows(ctx, gen.ListClusterWorkflowsRequestObject{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
+		require.NoError(t, err)
 		typed, ok := resp.(gen.ListClusterWorkflows200JSONResponse)
-		if !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
-		if len(typed.Items) != 0 {
-			t.Fatalf("expected 0 items, got %d", len(typed.Items))
-		}
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Empty(t, typed.Items)
 	})
 }
 
@@ -414,12 +345,8 @@ func TestGetClusterWorkflowHandler(t *testing.T) {
 		h := newHandlerWithClusterWorkflowService(svc)
 
 		resp, err := h.GetClusterWorkflow(ctx, gen.GetClusterWorkflowRequestObject{ClusterWorkflowName: "build-go"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.GetClusterWorkflow200JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterWorkflow200JSONResponse{}, resp)
 	})
 
 	t.Run("returns 404 when not found", func(t *testing.T) {
@@ -427,12 +354,8 @@ func TestGetClusterWorkflowHandler(t *testing.T) {
 		h := newHandlerWithClusterWorkflowService(svc)
 
 		resp, err := h.GetClusterWorkflow(ctx, gen.GetClusterWorkflowRequestObject{ClusterWorkflowName: "missing"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.GetClusterWorkflow404JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterWorkflow404JSONResponse{}, resp)
 	})
 
 	t.Run("returns 403 when forbidden", func(t *testing.T) {
@@ -440,12 +363,8 @@ func TestGetClusterWorkflowHandler(t *testing.T) {
 		h := newHandlerWithClusterWorkflowService(svc)
 
 		resp, err := h.GetClusterWorkflow(ctx, gen.GetClusterWorkflowRequestObject{ClusterWorkflowName: "build-go"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.GetClusterWorkflow403JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterWorkflow403JSONResponse{}, resp)
 	})
 }
 
@@ -468,12 +387,8 @@ func TestCreateClusterWorkflowHandler(t *testing.T) {
 		_ = json.Unmarshal(bodyBytes, &body)
 
 		resp, err := h.CreateClusterWorkflow(ctx, gen.CreateClusterWorkflowRequestObject{Body: &body})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.CreateClusterWorkflow201JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.CreateClusterWorkflow201JSONResponse{}, resp)
 	})
 
 	t.Run("returns 400 when body is nil", func(t *testing.T) {
@@ -481,12 +396,8 @@ func TestCreateClusterWorkflowHandler(t *testing.T) {
 		h := newHandlerWithClusterWorkflowService(svc)
 
 		resp, err := h.CreateClusterWorkflow(ctx, gen.CreateClusterWorkflowRequestObject{Body: nil})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.CreateClusterWorkflow400JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.CreateClusterWorkflow400JSONResponse{}, resp)
 	})
 
 	t.Run("returns 403 when forbidden", func(t *testing.T) {
@@ -505,12 +416,8 @@ func TestCreateClusterWorkflowHandler(t *testing.T) {
 		_ = json.Unmarshal(bodyBytes, &body)
 
 		resp, err := h.CreateClusterWorkflow(ctx, gen.CreateClusterWorkflowRequestObject{Body: &body})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.CreateClusterWorkflow403JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.CreateClusterWorkflow403JSONResponse{}, resp)
 	})
 }
 
@@ -528,12 +435,8 @@ func TestDeleteClusterWorkflowHandler(t *testing.T) {
 		h := newHandlerWithClusterWorkflowService(svc)
 
 		resp, err := h.DeleteClusterWorkflow(ctx, gen.DeleteClusterWorkflowRequestObject{ClusterWorkflowName: "build-go"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.DeleteClusterWorkflow204Response); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterWorkflow204Response{}, resp)
 	})
 
 	t.Run("returns 404 when not found", func(t *testing.T) {
@@ -541,12 +444,8 @@ func TestDeleteClusterWorkflowHandler(t *testing.T) {
 		h := newHandlerWithClusterWorkflowService(svc)
 
 		resp, err := h.DeleteClusterWorkflow(ctx, gen.DeleteClusterWorkflowRequestObject{ClusterWorkflowName: "missing"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.DeleteClusterWorkflow404JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterWorkflow404JSONResponse{}, resp)
 	})
 
 	t.Run("returns 403 when forbidden", func(t *testing.T) {
@@ -554,12 +453,8 @@ func TestDeleteClusterWorkflowHandler(t *testing.T) {
 		h := newHandlerWithClusterWorkflowService(svc)
 
 		resp, err := h.DeleteClusterWorkflow(ctx, gen.DeleteClusterWorkflowRequestObject{ClusterWorkflowName: "build-go"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.DeleteClusterWorkflow403JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterWorkflow403JSONResponse{}, resp)
 	})
 }
 
@@ -584,17 +479,10 @@ func TestGetClusterWorkflowSchemaHandler(t *testing.T) {
 		h := newHandlerWithClusterWorkflowService(svc)
 
 		resp, err := h.GetClusterWorkflowSchema(ctx, gen.GetClusterWorkflowSchemaRequestObject{ClusterWorkflowName: "build-go"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
+		require.NoError(t, err)
 		typed, ok := resp.(gen.GetClusterWorkflowSchema200JSONResponse)
-		if !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
-		if len(typed) == 0 {
-			t.Fatalf("expected non-empty schema response")
-		}
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.NotEmpty(t, typed)
 	})
 
 	t.Run("returns 404 when not found", func(t *testing.T) {
@@ -602,12 +490,8 @@ func TestGetClusterWorkflowSchemaHandler(t *testing.T) {
 		h := newHandlerWithClusterWorkflowService(svc)
 
 		resp, err := h.GetClusterWorkflowSchema(ctx, gen.GetClusterWorkflowSchemaRequestObject{ClusterWorkflowName: "missing"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.GetClusterWorkflowSchema404JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterWorkflowSchema404JSONResponse{}, resp)
 	})
 
 	t.Run("returns 403 when forbidden", func(t *testing.T) {
@@ -615,11 +499,243 @@ func TestGetClusterWorkflowSchemaHandler(t *testing.T) {
 		h := newHandlerWithClusterWorkflowService(svc)
 
 		resp, err := h.GetClusterWorkflowSchema(ctx, gen.GetClusterWorkflowSchemaRequestObject{ClusterWorkflowName: "build-go"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if _, ok := resp.(gen.GetClusterWorkflowSchema403JSONResponse); !ok {
-			t.Fatalf("unexpected response type: %T", resp)
-		}
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterWorkflowSchema403JSONResponse{}, resp)
 	})
+}
+
+type mockClusterComponentTypeService struct {
+	updateFn func(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error)
+	createFn func(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error)
+}
+
+var _ clustercomponenttypesvc.Service = (*mockClusterComponentTypeService)(nil)
+
+func (m *mockClusterComponentTypeService) CreateClusterComponentType(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
+	if m.createFn == nil {
+		panic("CreateClusterComponentType not configured")
+	}
+	return m.createFn(ctx, cct)
+}
+func (m *mockClusterComponentTypeService) UpdateClusterComponentType(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
+	if m.updateFn == nil {
+		panic("UpdateClusterComponentType not configured")
+	}
+	return m.updateFn(ctx, cct)
+}
+func (m *mockClusterComponentTypeService) ListClusterComponentTypes(context.Context, svcpkg.ListOptions) (*svcpkg.ListResult[openchoreov1alpha1.ClusterComponentType], error) {
+	panic("not used")
+}
+func (m *mockClusterComponentTypeService) GetClusterComponentType(context.Context, string) (*openchoreov1alpha1.ClusterComponentType, error) {
+	panic("not used")
+}
+func (m *mockClusterComponentTypeService) DeleteClusterComponentType(context.Context, string) error {
+	panic("not used")
+}
+func (m *mockClusterComponentTypeService) GetClusterComponentTypeSchema(context.Context, string) (map[string]any, error) {
+	panic("not used")
+}
+
+type mockClusterTraitService struct {
+	updateFn func(ctx context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error)
+	createFn func(ctx context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error)
+}
+
+var _ clustertraitsvc.Service = (*mockClusterTraitService)(nil)
+
+func (m *mockClusterTraitService) CreateClusterTrait(ctx context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
+	if m.createFn == nil {
+		panic("CreateClusterTrait not configured")
+	}
+	return m.createFn(ctx, ct)
+}
+func (m *mockClusterTraitService) UpdateClusterTrait(ctx context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
+	if m.updateFn == nil {
+		panic("UpdateClusterTrait not configured")
+	}
+	return m.updateFn(ctx, ct)
+}
+func (m *mockClusterTraitService) ListClusterTraits(context.Context, svcpkg.ListOptions) (*svcpkg.ListResult[openchoreov1alpha1.ClusterTrait], error) {
+	panic("not used")
+}
+func (m *mockClusterTraitService) GetClusterTrait(context.Context, string) (*openchoreov1alpha1.ClusterTrait, error) {
+	panic("not used")
+}
+func (m *mockClusterTraitService) DeleteClusterTrait(context.Context, string) error {
+	panic("not used")
+}
+func (m *mockClusterTraitService) GetClusterTraitSchema(context.Context, string) (map[string]any, error) {
+	panic("not used")
+}
+
+func TestUpdateClusterComponentTypeHandler_UsesPathName(t *testing.T) {
+	ctx := testContext()
+	svc := &mockClusterComponentTypeService{
+		updateFn: func(_ context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
+			assert.Equal(t, "from-path", cct.Name)
+			return cct, nil
+		},
+	}
+	h := &Handler{
+		services: &handlerservices.Services{ClusterComponentTypeService: svc},
+		logger:   slog.Default(),
+	}
+
+	body := gen.ClusterComponentType{Metadata: gen.ObjectMeta{Name: "from-body"}}
+	resp, err := h.UpdateClusterComponentType(ctx, gen.UpdateClusterComponentTypeRequestObject{
+		CctName: "from-path",
+		Body:    &body,
+	})
+	require.NoError(t, err)
+	typed, ok := resp.(gen.UpdateClusterComponentType200JSONResponse)
+	require.True(t, ok, "expected 200 response, got %T", resp)
+	assert.Equal(t, "from-path", typed.Metadata.Name)
+}
+
+func TestCreateClusterComponentTypeHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.CreateClusterComponentType403JSONResponse{}},
+		{"already exists -> 409", clustercomponenttypesvc.ErrClusterComponentTypeAlreadyExists, gen.CreateClusterComponentType409JSONResponse{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &mockClusterComponentTypeService{
+				createFn: func(context.Context, *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
+					return nil, tt.svcErr
+				},
+			}
+			h := &Handler{
+				services: &handlerservices.Services{ClusterComponentTypeService: svc},
+				logger:   slog.Default(),
+			}
+			body := gen.ClusterComponentType{Metadata: gen.ObjectMeta{Name: "cct"}}
+			resp, err := h.CreateClusterComponentType(ctx, gen.CreateClusterComponentTypeRequestObject{Body: &body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestUpdateClusterTraitHandler_UsesPathName(t *testing.T) {
+	ctx := testContext()
+	svc := &mockClusterTraitService{
+		updateFn: func(_ context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
+			assert.Equal(t, "from-path", ct.Name)
+			return ct, nil
+		},
+	}
+	h := &Handler{
+		services: &handlerservices.Services{ClusterTraitService: svc},
+		logger:   slog.Default(),
+	}
+
+	body := gen.ClusterTrait{Metadata: gen.ObjectMeta{Name: "from-body"}}
+	resp, err := h.UpdateClusterTrait(ctx, gen.UpdateClusterTraitRequestObject{
+		ClusterTraitName: "from-path",
+		Body:             &body,
+	})
+	require.NoError(t, err)
+	typed, ok := resp.(gen.UpdateClusterTrait200JSONResponse)
+	require.True(t, ok, "expected 200 response, got %T", resp)
+	assert.Equal(t, "from-path", typed.Metadata.Name)
+}
+
+func TestCreateClusterTraitHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.CreateClusterTrait403JSONResponse{}},
+		{"already exists -> 409", clustertraitsvc.ErrClusterTraitAlreadyExists, gen.CreateClusterTrait409JSONResponse{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &mockClusterTraitService{
+				createFn: func(context.Context, *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
+					return nil, tt.svcErr
+				},
+			}
+			h := &Handler{
+				services: &handlerservices.Services{ClusterTraitService: svc},
+				logger:   slog.Default(),
+			}
+			body := gen.ClusterTrait{Metadata: gen.ObjectMeta{Name: "ct"}}
+			resp, err := h.CreateClusterTrait(ctx, gen.CreateClusterTraitRequestObject{Body: &body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestUpdateClusterComponentTypeHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateClusterComponentType403JSONResponse{}},
+		{"not found -> 404", clustercomponenttypesvc.ErrClusterComponentTypeNotFound, gen.UpdateClusterComponentType404JSONResponse{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &mockClusterComponentTypeService{
+				updateFn: func(context.Context, *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
+					return nil, tt.svcErr
+				},
+			}
+			h := &Handler{
+				services: &handlerservices.Services{ClusterComponentTypeService: svc},
+				logger:   slog.Default(),
+			}
+			body := gen.ClusterComponentType{Metadata: gen.ObjectMeta{Name: "cct"}}
+			resp, err := h.UpdateClusterComponentType(ctx, gen.UpdateClusterComponentTypeRequestObject{CctName: "cct", Body: &body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestUpdateClusterTraitHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateClusterTrait403JSONResponse{}},
+		{"not found -> 404", clustertraitsvc.ErrClusterTraitNotFound, gen.UpdateClusterTrait404JSONResponse{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &mockClusterTraitService{
+				updateFn: func(context.Context, *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
+					return nil, tt.svcErr
+				},
+			}
+			h := &Handler{
+				services: &handlerservices.Services{ClusterTraitService: svc},
+				logger:   slog.Default(),
+			}
+			body := gen.ClusterTrait{Metadata: gen.ObjectMeta{Name: "ct"}}
+			resp, err := h.UpdateClusterTrait(ctx, gen.UpdateClusterTraitRequestObject{ClusterTraitName: "ct", Body: &body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
 }
