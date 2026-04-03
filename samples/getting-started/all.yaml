@@ -807,6 +807,8 @@ spec:
         restartPolicy:
           type: string
           default: OnFailure
+        timeZone:
+          type: string
 
   environmentConfigs:
     openAPIV3Schema:
@@ -855,6 +857,8 @@ spec:
           labels: ${metadata.labels}
         spec:
           schedule: ${environmentConfigs.schedule}
+          timeZone: |
+            ${has(parameters.timeZone) ? parameters.timeZone : oc_omit()}
           successfulJobsHistoryLimit: ${parameters.successfulJobsHistoryLimit}
           failedJobsHistoryLimit: ${parameters.failedJobsHistoryLimit}
           concurrencyPolicy: ${parameters.concurrencyPolicy}
