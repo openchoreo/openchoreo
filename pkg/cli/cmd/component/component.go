@@ -13,6 +13,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -45,8 +46,11 @@ func newListComponentCmd() *cobra.Command {
 		Flags:   []flags.Flag{flags.Namespace, flags.Project},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(fg *builder.FlagGetter) error {
-			compImpl := component.New()
-			return compImpl.List(component.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return component.New(cl).List(component.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 				Project:   fg.GetString(flags.Project),
 			})
@@ -65,8 +69,11 @@ func newGetComponentCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 
-			compImpl := component.New()
-			return compImpl.Get(component.GetParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return component.New(cl).Get(component.GetParams{
 				Namespace:     namespace,
 				ComponentName: args[0],
 			})
@@ -89,8 +96,11 @@ func newDeleteComponentCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 
-			compImpl := component.New()
-			return compImpl.Delete(component.DeleteParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return component.New(cl).Delete(component.DeleteParams{
 				Namespace:     namespace,
 				ComponentName: args[0],
 			})
@@ -121,8 +131,11 @@ func newScaffoldComponentCmd() *cobra.Command {
 			skipComments, _ := cmd.Flags().GetBool(flags.SkipComments.Name)
 			skipOptional, _ := cmd.Flags().GetBool(flags.SkipOptional.Name)
 
-			compImpl := component.New()
-			return compImpl.Scaffold(component.ScaffoldParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return component.New(cl).Scaffold(component.ScaffoldParams{
 				ComponentName:        args[0],
 				ComponentType:        componentType,
 				ClusterComponentType: clusterComponentType,
@@ -204,9 +217,12 @@ func newDeployComponentCmd() *cobra.Command {
 				OutputFormat:  outputFormat,
 			}
 
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
 			// Execute deploy
-			compImpl := component.New()
-			return compImpl.Deploy(params)
+			return component.New(cl).Deploy(params)
 		},
 	}
 
@@ -269,8 +285,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 			}
 
 			// Execute logs
-			compImpl := component.New()
-			return compImpl.Logs(params)
+			return component.New(nil).Logs(params)
 		},
 	}
 
@@ -315,7 +330,11 @@ func newStartComponentWorkflowCmd() *cobra.Command {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 			project, _ := cmd.Flags().GetString(flags.Project.Name)
 			set, _ := cmd.Flags().GetStringArray(flags.Set.Name)
-			return component.New().StartWorkflow(component.StartWorkflowParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return component.New(cl).StartWorkflow(component.StartWorkflowParams{
 				Namespace:     namespace,
 				ComponentName: args[0],
 				Project:       project,
@@ -364,7 +383,11 @@ func newListComponentWorkflowRunCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return component.New().ListWorkflowRuns(component.ListWorkflowRunsParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return component.New(cl).ListWorkflowRuns(component.ListWorkflowRunsParams{
 				Namespace:     namespace,
 				ComponentName: args[0],
 			})
@@ -389,7 +412,7 @@ func newLogsComponentWorkflowRunCmd() *cobra.Command {
 			follow, _ := cmd.Flags().GetBool(flags.Follow.Name)
 			since, _ := cmd.Flags().GetString(flags.Since.Name)
 			run, _ := cmd.Flags().GetString(flags.WorkflowRun.Name)
-			return component.New().WorkflowRunLogs(component.WorkflowRunLogsParams{
+			return component.New(nil).WorkflowRunLogs(component.WorkflowRunLogsParams{
 				Namespace:     namespace,
 				ComponentName: args[0],
 				RunName:       run,

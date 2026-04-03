@@ -151,6 +151,21 @@ packages:
   github.com/openchoreo/openchoreo/internal/occ/cmd/workload:
     interfaces:
       Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/component:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/componentrelease:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/workflow:
+    interfaces:
+      Client:
+  github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun:
+    interfaces:
+      Client:
   github.com/openchoreo/openchoreo/internal/observer/service:
     interfaces:
       HealthChecker:
