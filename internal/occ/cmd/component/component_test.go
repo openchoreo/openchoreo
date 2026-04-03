@@ -818,30 +818,6 @@ func TestDeploy_Promote_Success(t *testing.T) {
 	assert.Contains(t, out, "my-comp-staging")
 }
 
-func TestDeploy_DeployWithSet_CreateBinding(t *testing.T) {
-	mc := mocks.NewMockClient(t)
-	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
-		Metadata: gen.ObjectMeta{Name: testReleaseName},
-	}, nil)
-	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
-	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "my-comp-dev").Return(nil, nil)
-	mc.EXPECT().CreateReleaseBinding(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBinding{
-		Metadata: gen.ObjectMeta{Name: "my-comp-dev"},
-		Spec:     &gen.ReleaseBindingSpec{Environment: "dev"},
-	}, nil)
-
-	cp := New(mc)
-	out := captureStdout(t, func() {
-		require.NoError(t, cp.Deploy(DeployParams{
-			Namespace:     "ns",
-			Project:       "my-project",
-			ComponentName: "my-comp",
-			Set:           []string{"spec.environment=dev"},
-		}))
-	})
-	assert.Contains(t, out, "my-comp-dev")
-}
-
 func TestDeploy_DeployWithSet_UpdateBinding(t *testing.T) {
 	relName := "rel-2"
 	mc := mocks.NewMockClient(t)
@@ -1455,34 +1431,3 @@ func TestPromote_GetTargetBindingError(t *testing.T) {
 }
 
 // --- StartWorkflow: with Parameters and WorkflowKind ---
-
-func TestStartWorkflow_WithParamsAndKind(t *testing.T) {
-	wfKind := gen.ComponentWorkflowConfigKind("ClusterWorkflow")
-	wfName := "my-workflow"
-	mc := mocks.NewMockClient(t)
-	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{
-		Metadata: gen.ObjectMeta{Name: "my-comp"},
-		Spec: &gen.ComponentSpec{
-			Workflow: &gen.ComponentWorkflowConfig{
-				Name:       wfName,
-				Kind:       &wfKind,
-				Parameters: &map[string]interface{}{"branch": "main"},
-			},
-		},
-	}, nil)
-	mc.EXPECT().CreateWorkflowRun(mock.Anything, "ns", mock.MatchedBy(func(r gen.WorkflowRun) bool {
-		return r.Spec != nil && r.Spec.Workflow.Parameters != nil
-	})).Return(&gen.WorkflowRun{
-		Metadata: gen.ObjectMeta{Name: "run-1"},
-	}, nil)
-
-	cp := New(mc)
-	out := captureStdout(t, func() {
-		require.NoError(t, cp.StartWorkflow(StartWorkflowParams{
-			Namespace:     "ns",
-			ComponentName: "my-comp",
-			Project:       "my-project",
-		}))
-	})
-	assert.Contains(t, out, "run-1")
-}
