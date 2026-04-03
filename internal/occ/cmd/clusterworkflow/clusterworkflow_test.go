@@ -203,3 +203,37 @@ func TestDelete_Success(t *testing.T) {
 	})
 	assert.Contains(t, out, "ClusterWorkflow 'build-go' deleted")
 }
+
+// --- Validation tests ---
+
+func TestStartRun_ValidationError(t *testing.T) {
+	cw := New(nil) // client is never called when validation fails
+
+	t.Run("missing namespace", func(t *testing.T) {
+		err := cw.StartRun(StartRunParams{})
+		require.Error(t, err)
+		assert.EqualError(t, err, "namespace is required")
+	})
+
+	t.Run("missing cluster workflow name", func(t *testing.T) {
+		err := cw.StartRun(StartRunParams{Namespace: "ns"})
+		require.Error(t, err)
+		assert.EqualError(t, err, "cluster workflow name is required")
+	})
+}
+
+func TestLogs_ValidationError(t *testing.T) {
+	cw := New(nil) // client is never called when validation fails
+
+	t.Run("missing namespace", func(t *testing.T) {
+		err := cw.Logs(LogsParams{})
+		require.Error(t, err)
+		assert.EqualError(t, err, "namespace is required")
+	})
+
+	t.Run("missing cluster workflow name", func(t *testing.T) {
+		err := cw.Logs(LogsParams{Namespace: "ns"})
+		require.Error(t, err)
+		assert.EqualError(t, err, "cluster workflow name is required")
+	})
+}

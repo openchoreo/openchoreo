@@ -292,3 +292,37 @@ func TestStartRun_Success(t *testing.T) {
 	assert.Contains(t, out, "Successfully started workflow run: run-1")
 	assert.Contains(t, out, "Workflow: my-wf")
 }
+
+// --- Validation tests ---
+
+func TestGet_ValidationError(t *testing.T) {
+	wf := New(nil) // client is never called when validation fails
+
+	t.Run("missing namespace", func(t *testing.T) {
+		err := wf.Get(GetParams{})
+		require.Error(t, err)
+		assert.EqualError(t, err, "namespace is required")
+	})
+
+	t.Run("missing workflow name", func(t *testing.T) {
+		err := wf.Get(GetParams{Namespace: "ns"})
+		require.Error(t, err)
+		assert.EqualError(t, err, "workflow name is required")
+	})
+}
+
+func TestStartRun_ValidationError(t *testing.T) {
+	wf := New(nil) // client is never called when validation fails
+
+	t.Run("missing namespace", func(t *testing.T) {
+		err := wf.StartRun(StartRunParams{})
+		require.Error(t, err)
+		assert.EqualError(t, err, "namespace is required")
+	})
+
+	t.Run("missing workflow name", func(t *testing.T) {
+		err := wf.StartRun(StartRunParams{Namespace: "ns"})
+		require.Error(t, err)
+		assert.EqualError(t, err, "workflow name is required")
+	})
+}

@@ -78,6 +78,13 @@ func TestPrintList_WithItems(t *testing.T) {
 
 // --- List tests ---
 
+func TestList_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	op := New(mc)
+	err := op.List(ListParams{Namespace: ""})
+	assert.Error(t, err)
+}
+
 func TestList_APIError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	mc.EXPECT().ListObservabilityPlanes(mock.Anything, "org-a", mock.Anything).Return(nil, fmt.Errorf("server error"))
@@ -135,6 +142,13 @@ func TestList_Empty(t *testing.T) {
 
 // --- Get tests ---
 
+func TestGet_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	op := New(mc)
+	err := op.Get(GetParams{Namespace: "", ObservabilityPlaneName: "obs-plane-1"})
+	assert.Error(t, err)
+}
+
 func TestGet_APIError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "org-a", "missing").Return(nil, fmt.Errorf("not found: missing"))
@@ -157,6 +171,13 @@ func TestGet_Success(t *testing.T) {
 }
 
 // --- Delete tests ---
+
+func TestDelete_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	op := New(mc)
+	err := op.Delete(DeleteParams{Namespace: "", ObservabilityPlaneName: "obs-plane-1"})
+	assert.Error(t, err)
+}
 
 func TestDelete_APIError(t *testing.T) {
 	mc := mocks.NewMockClient(t)

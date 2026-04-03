@@ -78,6 +78,13 @@ func TestPrintList_WithItems(t *testing.T) {
 
 // --- List tests ---
 
+func TestList_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	o := New(mc)
+	err := o.List(ListParams{Namespace: ""})
+	assert.Error(t, err)
+}
+
 func TestList_APIError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	mc.EXPECT().ListObservabilityAlertsNotificationChannels(mock.Anything, "org-a", mock.Anything).Return(nil, fmt.Errorf("server error"))
@@ -135,6 +142,13 @@ func TestList_Empty(t *testing.T) {
 
 // --- Get tests ---
 
+func TestGet_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	o := New(mc)
+	err := o.Get(GetParams{Namespace: "", ChannelName: "channel-1"})
+	assert.Error(t, err)
+}
+
 func TestGet_APIError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	mc.EXPECT().GetObservabilityAlertsNotificationChannel(mock.Anything, "org-a", "missing").Return(nil, fmt.Errorf("not found: missing"))
@@ -157,6 +171,13 @@ func TestGet_Success(t *testing.T) {
 }
 
 // --- Delete tests ---
+
+func TestDelete_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	o := New(mc)
+	err := o.Delete(DeleteParams{Namespace: "", ChannelName: "channel-1"})
+	assert.Error(t, err)
+}
 
 func TestDelete_APIError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
