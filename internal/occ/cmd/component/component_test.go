@@ -778,7 +778,7 @@ func TestDeploy_DeployToLowestEnv_UpdateExistingBinding(t *testing.T) {
 }
 
 func TestDeploy_Promote_Success(t *testing.T) {
-	relName := "rel-1"
+	relName := testReleaseName
 	mc := mocks.NewMockClient(t)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
@@ -1145,8 +1145,6 @@ func TestWorkflowRunLogs_ValidationError(t *testing.T) {
 }
 
 // --- component/logs.go: observer URL resolution ---
-
-func ptr(s string) *string { return &s }
 
 func makeEnvWithDataPlaneRef(kind gen.EnvironmentSpecDataPlaneRefKind, name string) *gen.Environment {
 	return &gen.Environment{

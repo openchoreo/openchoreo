@@ -188,7 +188,7 @@ func TestResolveObserverURL_ViaWorkflowPlane(t *testing.T) {
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "my-obs").Return(
 		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{ObserverURL: &url}}, nil)
 
-	got, err := resolveObserverURL(nil, mc, "ns", "my-wf")
+	got, err := resolveObserverURL(context.TODO(), mc, "ns", "my-wf")
 	require.NoError(t, err)
 	assert.Equal(t, url, got)
 }
@@ -201,7 +201,7 @@ func TestResolveObserverURL_FallbackToDefault(t *testing.T) {
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "default").Return(
 		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{ObserverURL: &url}}, nil)
 
-	got, err := resolveObserverURL(nil, mc, "ns", "missing-wf")
+	got, err := resolveObserverURL(context.TODO(), mc, "ns", "missing-wf")
 	require.NoError(t, err)
 	assert.Equal(t, url, got)
 }
@@ -275,7 +275,7 @@ func TestResolveObserverURLFromObsRef_NamespacedObsPlane(t *testing.T) {
 		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{ObserverURL: &url}}, nil)
 
 	obsRef := &gen.ObservabilityPlaneRef{Kind: gen.ObservabilityPlaneRefKindObservabilityPlane, Name: "my-obs"}
-	got, err := resolveObserverURLFromObsRef(nil, mc, "ns", obsRef, nil)
+	got, err := resolveObserverURLFromObsRef(context.TODO(), mc, "ns", obsRef, nil)
 	require.NoError(t, err)
 	assert.Equal(t, url, got)
 }
@@ -287,7 +287,7 @@ func TestResolveObserverURLFromObsRef_ClusterObsPlaneViaObsRef(t *testing.T) {
 		&gen.ClusterObservabilityPlane{Spec: &gen.ClusterObservabilityPlaneSpec{ObserverURL: &url}}, nil)
 
 	obsRef := &gen.ObservabilityPlaneRef{Kind: gen.ObservabilityPlaneRefKindClusterObservabilityPlane, Name: "my-cluster-obs"}
-	got, err := resolveObserverURLFromObsRef(nil, mc, "ns", obsRef, nil)
+	got, err := resolveObserverURLFromObsRef(context.TODO(), mc, "ns", obsRef, nil)
 	require.NoError(t, err)
 	assert.Equal(t, url, got)
 }
@@ -299,7 +299,7 @@ func TestResolveObserverURLFromObsRef_ClusterObsPlaneViaClusterRef(t *testing.T)
 		&gen.ClusterObservabilityPlane{Spec: &gen.ClusterObservabilityPlaneSpec{ObserverURL: &url}}, nil)
 
 	clusterRef := &gen.ClusterObservabilityPlaneRef{Name: "my-cluster-obs"}
-	got, err := resolveObserverURLFromObsRef(nil, mc, "ns", nil, clusterRef)
+	got, err := resolveObserverURLFromObsRef(context.TODO(), mc, "ns", nil, clusterRef)
 	require.NoError(t, err)
 	assert.Equal(t, url, got)
 }
@@ -310,7 +310,7 @@ func TestResolveObserverURLFromObsRef_FallbackToDefaultObsPlane(t *testing.T) {
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "default").Return(
 		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{ObserverURL: &url}}, nil)
 
-	got, err := resolveObserverURLFromObsRef(nil, mc, "ns", nil, nil)
+	got, err := resolveObserverURLFromObsRef(context.TODO(), mc, "ns", nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, url, got)
 }
@@ -322,7 +322,7 @@ func TestResolveObserverURLFromObsRef_FallbackToDefaultClusterObsPlane(t *testin
 	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "default").Return(
 		&gen.ClusterObservabilityPlane{Spec: &gen.ClusterObservabilityPlaneSpec{ObserverURL: &url}}, nil)
 
-	got, err := resolveObserverURLFromObsRef(nil, mc, "ns", nil, nil)
+	got, err := resolveObserverURLFromObsRef(context.TODO(), mc, "ns", nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, url, got)
 }
@@ -332,7 +332,7 @@ func TestResolveObserverURLFromObsRef_NoObserverConfigured(t *testing.T) {
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "default").Return(nil, fmt.Errorf("not found"))
 	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "default").Return(nil, fmt.Errorf("not found"))
 
-	_, err := resolveObserverURLFromObsRef(nil, mc, "ns", nil, nil)
+	_, err := resolveObserverURLFromObsRef(context.TODO(), mc, "ns", nil, nil)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "no observer URL configured")
 }
@@ -342,7 +342,7 @@ func TestResolveObserverURLFromObsRef_NamespacedObsPlaneError(t *testing.T) {
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "bad-obs").Return(nil, fmt.Errorf("forbidden"))
 
 	obsRef := &gen.ObservabilityPlaneRef{Kind: gen.ObservabilityPlaneRefKindObservabilityPlane, Name: "bad-obs"}
-	_, err := resolveObserverURLFromObsRef(nil, mc, "ns", obsRef, nil)
+	_, err := resolveObserverURLFromObsRef(context.TODO(), mc, "ns", obsRef, nil)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "failed to get observability plane")
 }
@@ -361,7 +361,7 @@ func TestResolveWorkflowPlaneObsRef_WorkflowPlane(t *testing.T) {
 		Spec: &gen.WorkflowPlaneSpec{ObservabilityPlaneRef: obsRef},
 	}, nil)
 
-	gotObs, gotCluster := resolveWorkflowPlaneObsRef(nil, mc, "ns", "my-wf")
+	gotObs, gotCluster := resolveWorkflowPlaneObsRef(context.TODO(), mc, "ns", "my-wf")
 	require.NotNil(t, gotObs)
 	assert.Equal(t, "my-obs", gotObs.Name)
 	assert.Nil(t, gotCluster)
@@ -379,7 +379,7 @@ func TestResolveWorkflowPlaneObsRef_ClusterWorkflowPlane(t *testing.T) {
 		Spec: &gen.ClusterWorkflowPlaneSpec{ObservabilityPlaneRef: clusterRef},
 	}, nil)
 
-	gotObs, gotCluster := resolveWorkflowPlaneObsRef(nil, mc, "ns", "my-wf")
+	gotObs, gotCluster := resolveWorkflowPlaneObsRef(context.TODO(), mc, "ns", "my-wf")
 	assert.Nil(t, gotObs)
 	require.NotNil(t, gotCluster)
 	assert.Equal(t, "my-cluster-obs", gotCluster.Name)
@@ -389,7 +389,7 @@ func TestResolveWorkflowPlaneObsRef_WorkflowNotFound(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "missing-wf").Return(nil, fmt.Errorf("not found"))
 
-	gotObs, gotCluster := resolveWorkflowPlaneObsRef(nil, mc, "ns", "missing-wf")
+	gotObs, gotCluster := resolveWorkflowPlaneObsRef(context.TODO(), mc, "ns", "missing-wf")
 	assert.Nil(t, gotObs)
 	assert.Nil(t, gotCluster)
 }
