@@ -4,11 +4,15 @@
 package output
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/index"
 )
@@ -36,6 +40,70 @@ func makeEntry(kind, namespace, name, filePath string, extra map[string]any) *in
 	}
 	u := &unstructured.Unstructured{Object: obj}
 	return &index.ResourceEntry{Resource: u, FilePath: filePath}
+}
+
+func TestWriteWorkload(t *testing.T) {
+	t.Run("writes workload to disk", func(t *testing.T) {
+		dir := t.TempDir()
+		idx := buildIndex(t)
+		w := NewWorkloadWriter(idx)
+
+		wl := &openchoreov1alpha1.Workload{}
+		wl.SetName("my-workload")
+		wl.SetNamespace("ns")
+		wl.SetGroupVersionKind(openchoreov1alpha1.GroupVersion.WithKind("Workload"))
+		wl.Spec.Owner.ProjectName = "proj"
+		wl.Spec.Owner.ComponentName = "comp"
+		wl.Spec.Container.Image = "nginx:latest"
+
+		outputPath := filepath.Join(dir, "workload.yaml")
+		path, err := w.WriteWorkload(WorkloadWriteParams{
+			Namespace:     "ns",
+			RepoPath:      dir,
+			ProjectName:   "proj",
+			ComponentName: "comp",
+			OutputPath:    outputPath,
+			WorkloadCR:    wl,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, outputPath, path)
+		assert.FileExists(t, outputPath)
+
+		data, err := os.ReadFile(outputPath)
+		require.NoError(t, err)
+		assert.Contains(t, string(data), "nginx:latest")
+	})
+
+	t.Run("dry run does not write file", func(t *testing.T) {
+		dir := t.TempDir()
+		idx := buildIndex(t)
+		w := NewWorkloadWriter(idx)
+
+		wl := &openchoreov1alpha1.Workload{}
+		wl.SetName("my-workload")
+		wl.SetNamespace("ns")
+		wl.SetGroupVersionKind(openchoreov1alpha1.GroupVersion.WithKind("Workload"))
+		wl.Spec.Owner.ProjectName = "proj"
+		wl.Spec.Owner.ComponentName = "comp"
+		wl.Spec.Container.Image = "nginx:latest"
+
+		outputPath := filepath.Join(dir, "workload.yaml")
+		path, err := w.WriteWorkload(WorkloadWriteParams{
+			Namespace:     "ns",
+			RepoPath:      dir,
+			ProjectName:   "proj",
+			ComponentName: "comp",
+			OutputPath:    outputPath,
+			WorkloadCR:    wl,
+			DryRun:        true,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, outputPath, path)
+
+		// File should not exist in dry-run mode
+		_, err = os.Stat(outputPath)
+		assert.True(t, os.IsNotExist(err))
+	})
 }
 
 func TestWorkloadWriterResolveOutputPath(t *testing.T) {

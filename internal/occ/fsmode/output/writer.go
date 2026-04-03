@@ -461,7 +461,11 @@ func (w *Writer) WriteBulkBindings(
 		projectName := getNestedString(binding.Object, "spec", "owner", "projectName")
 		componentName := getNestedString(binding.Object, "spec", "owner", "componentName")
 
-		outputPath := w.resolveBindingOutputPath(binding, projectName, componentName, opts)
+		outputPath, err := w.resolveBindingOutputPath(binding, projectName, componentName, opts)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("failed to resolve output path for %s: %w", binding.GetName(), err))
+			continue
+		}
 
 		// Marshal to YAML
 		data, err := yaml.Marshal(binding.Object)
@@ -493,13 +497,17 @@ func (w *Writer) resolveBindingOutputPath(
 	binding *unstructured.Unstructured,
 	projectName, componentName string,
 	opts BulkBindingWriteOptions,
-) string {
+) (string, error) {
 	bindingName := binding.GetName()
 
-	// Priority 0: If an existing file path is known (update-in-place), return it directly
+	// Priority 0: If an existing file path is known (update-in-place), validate and return it
 	if opts.ExistingPaths != nil {
 		if existingPath, ok := opts.ExistingPaths[bindingName]; ok && existingPath != "" {
-			return existingPath
+			cleanedPath, err := w.validatePathWithinBase(existingPath)
+			if err != nil {
+				return "", fmt.Errorf("existing path for %q is invalid: %w", bindingName, err)
+			}
+			return cleanedPath, nil
 		}
 	}
 
@@ -510,7 +518,7 @@ func (w *Writer) resolveBindingOutputPath(
 		if !filepath.IsAbs(outputDir) {
 			outputDir = filepath.Join(w.baseDir, outputDir)
 		}
-		return filepath.Join(outputDir, bindingName+".yaml")
+		return filepath.Join(outputDir, bindingName+".yaml"), nil
 	}
 
 	// Priority 2: Check config file for component-specific or project-specific path
@@ -520,7 +528,7 @@ func (w *Writer) resolveBindingOutputPath(
 			if !filepath.IsAbs(configDir) {
 				configDir = filepath.Join(w.baseDir, configDir)
 			}
-			return filepath.Join(configDir, bindingName+".yaml")
+			return filepath.Join(configDir, bindingName+".yaml"), nil
 		}
 	}
 
@@ -530,7 +538,7 @@ func (w *Writer) resolveBindingOutputPath(
 			if !filepath.IsAbs(resolvedDir) {
 				resolvedDir = filepath.Join(w.baseDir, resolvedDir)
 			}
-			return filepath.Join(resolvedDir, bindingName+".yaml")
+			return filepath.Join(resolvedDir, bindingName+".yaml"), nil
 		}
 	}
 
@@ -542,5 +550,21 @@ func (w *Writer) resolveBindingOutputPath(
 		"components", componentName,
 		"release-bindings",
 		bindingName+".yaml",
-	)
+	), nil
+}
+
+// validatePathWithinBase ensures the given path, after cleaning and resolving,
+// falls within the writer's base directory. This prevents path traversal attacks
+// via ".." components in user-supplied paths.
+func (w *Writer) validatePathWithinBase(path string) (string, error) {
+	cleaned := filepath.Clean(path)
+	if !filepath.IsAbs(cleaned) {
+		cleaned = filepath.Join(w.baseDir, cleaned)
+	}
+
+	baseDir := filepath.Clean(w.baseDir)
+	if !strings.HasPrefix(cleaned, baseDir+string(filepath.Separator)) && cleaned != baseDir {
+		return "", fmt.Errorf("path %q escapes base directory %q", path, baseDir)
+	}
+	return cleaned, nil
 }
