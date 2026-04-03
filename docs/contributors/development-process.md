@@ -67,13 +67,13 @@ Type/Feature represents feature requests opened by the community. These requests
 
 ### Improvement triage process
 * Initiate a discussion within the issue to decide the validity of the requirement
-* If the improvement request is valid then assign the relevant milestone, area and priority.
+* If the improvement request is valid then assign the relevant milestone, area and priority
 * Add the improvement to the [OpenChoreo Release Management](https://github.com/orgs/openchoreo/projects/5) project board
 
 ### Bug Triage Process
 * Initiate a discussion within the issue to decide the validity of the bug
-* If the bug is valid then assign the relevant milestone, area and priority.
-* 
+* If the bug is valid then assign the relevant milestone, area and priority
+* If bug needs to be back-ported then multiple milestones should be added
 * Add the bug to the [OpenChoreo Release Management](https://github.com/orgs/openchoreo/projects/5) project board
 
 
