@@ -360,6 +360,124 @@ func (_c *MockClient_GetClusterComponentTypeSchema_Call) RunAndReturn(run func(c
 	return _c
 }
 
+// GetClusterDataPlane provides a mock function with given fields: ctx, cdpName
+func (_m *MockClient) GetClusterDataPlane(ctx context.Context, cdpName string) (*gen.ClusterDataPlane, error) {
+	ret := _m.Called(ctx, cdpName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterDataPlane")
+	}
+
+	var r0 *gen.ClusterDataPlane
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*gen.ClusterDataPlane, error)); ok {
+		return rf(ctx, cdpName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *gen.ClusterDataPlane); ok {
+		r0 = rf(ctx, cdpName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterDataPlane)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cdpName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClient_GetClusterDataPlane_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterDataPlane'
+type MockClient_GetClusterDataPlane_Call struct {
+	*mock.Call
+}
+
+// GetClusterDataPlane is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cdpName string
+func (_e *MockClient_Expecter) GetClusterDataPlane(ctx interface{}, cdpName interface{}) *MockClient_GetClusterDataPlane_Call {
+	return &MockClient_GetClusterDataPlane_Call{Call: _e.mock.On("GetClusterDataPlane", ctx, cdpName)}
+}
+
+func (_c *MockClient_GetClusterDataPlane_Call) Run(run func(ctx context.Context, cdpName string)) *MockClient_GetClusterDataPlane_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockClient_GetClusterDataPlane_Call) Return(_a0 *gen.ClusterDataPlane, _a1 error) *MockClient_GetClusterDataPlane_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClient_GetClusterDataPlane_Call) RunAndReturn(run func(context.Context, string) (*gen.ClusterDataPlane, error)) *MockClient_GetClusterDataPlane_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetClusterObservabilityPlane provides a mock function with given fields: ctx, clusterObservabilityPlaneName
+func (_m *MockClient) GetClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) (*gen.ClusterObservabilityPlane, error) {
+	ret := _m.Called(ctx, clusterObservabilityPlaneName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterObservabilityPlane")
+	}
+
+	var r0 *gen.ClusterObservabilityPlane
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*gen.ClusterObservabilityPlane, error)); ok {
+		return rf(ctx, clusterObservabilityPlaneName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *gen.ClusterObservabilityPlane); ok {
+		r0 = rf(ctx, clusterObservabilityPlaneName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterObservabilityPlane)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, clusterObservabilityPlaneName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClient_GetClusterObservabilityPlane_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterObservabilityPlane'
+type MockClient_GetClusterObservabilityPlane_Call struct {
+	*mock.Call
+}
+
+// GetClusterObservabilityPlane is a helper method to define mock.On call
+//   - ctx context.Context
+//   - clusterObservabilityPlaneName string
+func (_e *MockClient_Expecter) GetClusterObservabilityPlane(ctx interface{}, clusterObservabilityPlaneName interface{}) *MockClient_GetClusterObservabilityPlane_Call {
+	return &MockClient_GetClusterObservabilityPlane_Call{Call: _e.mock.On("GetClusterObservabilityPlane", ctx, clusterObservabilityPlaneName)}
+}
+
+func (_c *MockClient_GetClusterObservabilityPlane_Call) Run(run func(ctx context.Context, clusterObservabilityPlaneName string)) *MockClient_GetClusterObservabilityPlane_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockClient_GetClusterObservabilityPlane_Call) Return(_a0 *gen.ClusterObservabilityPlane, _a1 error) *MockClient_GetClusterObservabilityPlane_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClient_GetClusterObservabilityPlane_Call) RunAndReturn(run func(context.Context, string) (*gen.ClusterObservabilityPlane, error)) *MockClient_GetClusterObservabilityPlane_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetClusterTraitSchema provides a mock function with given fields: ctx, clusterTraitName
 func (_m *MockClient) GetClusterTraitSchema(ctx context.Context, clusterTraitName string) (*json.RawMessage, error) {
 	ret := _m.Called(ctx, clusterTraitName)
@@ -415,6 +533,65 @@ func (_c *MockClient_GetClusterTraitSchema_Call) Return(_a0 *json.RawMessage, _a
 }
 
 func (_c *MockClient_GetClusterTraitSchema_Call) RunAndReturn(run func(context.Context, string) (*json.RawMessage, error)) *MockClient_GetClusterTraitSchema_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetClusterWorkflowPlane provides a mock function with given fields: ctx, clusterWorkflowPlaneName
+func (_m *MockClient) GetClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) (*gen.ClusterWorkflowPlane, error) {
+	ret := _m.Called(ctx, clusterWorkflowPlaneName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterWorkflowPlane")
+	}
+
+	var r0 *gen.ClusterWorkflowPlane
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*gen.ClusterWorkflowPlane, error)); ok {
+		return rf(ctx, clusterWorkflowPlaneName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *gen.ClusterWorkflowPlane); ok {
+		r0 = rf(ctx, clusterWorkflowPlaneName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterWorkflowPlane)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, clusterWorkflowPlaneName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClient_GetClusterWorkflowPlane_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterWorkflowPlane'
+type MockClient_GetClusterWorkflowPlane_Call struct {
+	*mock.Call
+}
+
+// GetClusterWorkflowPlane is a helper method to define mock.On call
+//   - ctx context.Context
+//   - clusterWorkflowPlaneName string
+func (_e *MockClient_Expecter) GetClusterWorkflowPlane(ctx interface{}, clusterWorkflowPlaneName interface{}) *MockClient_GetClusterWorkflowPlane_Call {
+	return &MockClient_GetClusterWorkflowPlane_Call{Call: _e.mock.On("GetClusterWorkflowPlane", ctx, clusterWorkflowPlaneName)}
+}
+
+func (_c *MockClient_GetClusterWorkflowPlane_Call) Run(run func(ctx context.Context, clusterWorkflowPlaneName string)) *MockClient_GetClusterWorkflowPlane_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockClient_GetClusterWorkflowPlane_Call) Return(_a0 *gen.ClusterWorkflowPlane, _a1 error) *MockClient_GetClusterWorkflowPlane_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClient_GetClusterWorkflowPlane_Call) RunAndReturn(run func(context.Context, string) (*gen.ClusterWorkflowPlane, error)) *MockClient_GetClusterWorkflowPlane_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -594,6 +771,186 @@ func (_c *MockClient_GetComponentTypeSchema_Call) Return(_a0 *json.RawMessage, _
 }
 
 func (_c *MockClient_GetComponentTypeSchema_Call) RunAndReturn(run func(context.Context, string, string) (*json.RawMessage, error)) *MockClient_GetComponentTypeSchema_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetDataPlane provides a mock function with given fields: ctx, namespaceName, dpName
+func (_m *MockClient) GetDataPlane(ctx context.Context, namespaceName string, dpName string) (*gen.DataPlane, error) {
+	ret := _m.Called(ctx, namespaceName, dpName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDataPlane")
+	}
+
+	var r0 *gen.DataPlane
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.DataPlane, error)); ok {
+		return rf(ctx, namespaceName, dpName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.DataPlane); ok {
+		r0 = rf(ctx, namespaceName, dpName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.DataPlane)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, dpName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClient_GetDataPlane_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDataPlane'
+type MockClient_GetDataPlane_Call struct {
+	*mock.Call
+}
+
+// GetDataPlane is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - dpName string
+func (_e *MockClient_Expecter) GetDataPlane(ctx interface{}, namespaceName interface{}, dpName interface{}) *MockClient_GetDataPlane_Call {
+	return &MockClient_GetDataPlane_Call{Call: _e.mock.On("GetDataPlane", ctx, namespaceName, dpName)}
+}
+
+func (_c *MockClient_GetDataPlane_Call) Run(run func(ctx context.Context, namespaceName string, dpName string)) *MockClient_GetDataPlane_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockClient_GetDataPlane_Call) Return(_a0 *gen.DataPlane, _a1 error) *MockClient_GetDataPlane_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClient_GetDataPlane_Call) RunAndReturn(run func(context.Context, string, string) (*gen.DataPlane, error)) *MockClient_GetDataPlane_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetEnvironment provides a mock function with given fields: ctx, namespaceName, envName
+func (_m *MockClient) GetEnvironment(ctx context.Context, namespaceName string, envName string) (*gen.Environment, error) {
+	ret := _m.Called(ctx, namespaceName, envName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEnvironment")
+	}
+
+	var r0 *gen.Environment
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.Environment, error)); ok {
+		return rf(ctx, namespaceName, envName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.Environment); ok {
+		r0 = rf(ctx, namespaceName, envName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.Environment)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, envName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClient_GetEnvironment_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEnvironment'
+type MockClient_GetEnvironment_Call struct {
+	*mock.Call
+}
+
+// GetEnvironment is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - envName string
+func (_e *MockClient_Expecter) GetEnvironment(ctx interface{}, namespaceName interface{}, envName interface{}) *MockClient_GetEnvironment_Call {
+	return &MockClient_GetEnvironment_Call{Call: _e.mock.On("GetEnvironment", ctx, namespaceName, envName)}
+}
+
+func (_c *MockClient_GetEnvironment_Call) Run(run func(ctx context.Context, namespaceName string, envName string)) *MockClient_GetEnvironment_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockClient_GetEnvironment_Call) Return(_a0 *gen.Environment, _a1 error) *MockClient_GetEnvironment_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClient_GetEnvironment_Call) RunAndReturn(run func(context.Context, string, string) (*gen.Environment, error)) *MockClient_GetEnvironment_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetObservabilityPlane provides a mock function with given fields: ctx, namespaceName, observabilityPlaneName
+func (_m *MockClient) GetObservabilityPlane(ctx context.Context, namespaceName string, observabilityPlaneName string) (*gen.ObservabilityPlane, error) {
+	ret := _m.Called(ctx, namespaceName, observabilityPlaneName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetObservabilityPlane")
+	}
+
+	var r0 *gen.ObservabilityPlane
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.ObservabilityPlane, error)); ok {
+		return rf(ctx, namespaceName, observabilityPlaneName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.ObservabilityPlane); ok {
+		r0 = rf(ctx, namespaceName, observabilityPlaneName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ObservabilityPlane)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, observabilityPlaneName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClient_GetObservabilityPlane_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetObservabilityPlane'
+type MockClient_GetObservabilityPlane_Call struct {
+	*mock.Call
+}
+
+// GetObservabilityPlane is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - observabilityPlaneName string
+func (_e *MockClient_Expecter) GetObservabilityPlane(ctx interface{}, namespaceName interface{}, observabilityPlaneName interface{}) *MockClient_GetObservabilityPlane_Call {
+	return &MockClient_GetObservabilityPlane_Call{Call: _e.mock.On("GetObservabilityPlane", ctx, namespaceName, observabilityPlaneName)}
+}
+
+func (_c *MockClient_GetObservabilityPlane_Call) Run(run func(ctx context.Context, namespaceName string, observabilityPlaneName string)) *MockClient_GetObservabilityPlane_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockClient_GetObservabilityPlane_Call) Return(_a0 *gen.ObservabilityPlane, _a1 error) *MockClient_GetObservabilityPlane_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClient_GetObservabilityPlane_Call) RunAndReturn(run func(context.Context, string, string) (*gen.ObservabilityPlane, error)) *MockClient_GetObservabilityPlane_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -838,6 +1195,66 @@ func (_c *MockClient_GetWorkflow_Call) RunAndReturn(run func(context.Context, st
 	return _c
 }
 
+// GetWorkflowPlane provides a mock function with given fields: ctx, namespaceName, workflowPlaneName
+func (_m *MockClient) GetWorkflowPlane(ctx context.Context, namespaceName string, workflowPlaneName string) (*gen.WorkflowPlane, error) {
+	ret := _m.Called(ctx, namespaceName, workflowPlaneName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetWorkflowPlane")
+	}
+
+	var r0 *gen.WorkflowPlane
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.WorkflowPlane, error)); ok {
+		return rf(ctx, namespaceName, workflowPlaneName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.WorkflowPlane); ok {
+		r0 = rf(ctx, namespaceName, workflowPlaneName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.WorkflowPlane)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, workflowPlaneName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClient_GetWorkflowPlane_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWorkflowPlane'
+type MockClient_GetWorkflowPlane_Call struct {
+	*mock.Call
+}
+
+// GetWorkflowPlane is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - workflowPlaneName string
+func (_e *MockClient_Expecter) GetWorkflowPlane(ctx interface{}, namespaceName interface{}, workflowPlaneName interface{}) *MockClient_GetWorkflowPlane_Call {
+	return &MockClient_GetWorkflowPlane_Call{Call: _e.mock.On("GetWorkflowPlane", ctx, namespaceName, workflowPlaneName)}
+}
+
+func (_c *MockClient_GetWorkflowPlane_Call) Run(run func(ctx context.Context, namespaceName string, workflowPlaneName string)) *MockClient_GetWorkflowPlane_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockClient_GetWorkflowPlane_Call) Return(_a0 *gen.WorkflowPlane, _a1 error) *MockClient_GetWorkflowPlane_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClient_GetWorkflowPlane_Call) RunAndReturn(run func(context.Context, string, string) (*gen.WorkflowPlane, error)) *MockClient_GetWorkflowPlane_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetWorkflowRun provides a mock function with given fields: ctx, namespaceName, workflowRunName
 func (_m *MockClient) GetWorkflowRun(ctx context.Context, namespaceName string, workflowRunName string) (*gen.WorkflowRun, error) {
 	ret := _m.Called(ctx, namespaceName, workflowRunName)
@@ -894,6 +1311,127 @@ func (_c *MockClient_GetWorkflowRun_Call) Return(_a0 *gen.WorkflowRun, _a1 error
 }
 
 func (_c *MockClient_GetWorkflowRun_Call) RunAndReturn(run func(context.Context, string, string) (*gen.WorkflowRun, error)) *MockClient_GetWorkflowRun_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetWorkflowRunLogs provides a mock function with given fields: ctx, namespaceName, runName, params
+func (_m *MockClient) GetWorkflowRunLogs(ctx context.Context, namespaceName string, runName string, params *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error) {
+	ret := _m.Called(ctx, namespaceName, runName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetWorkflowRunLogs")
+	}
+
+	var r0 []gen.WorkflowRunLogEntry
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error)); ok {
+		return rf(ctx, namespaceName, runName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *gen.GetWorkflowRunLogsParams) []gen.WorkflowRunLogEntry); ok {
+		r0 = rf(ctx, namespaceName, runName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]gen.WorkflowRunLogEntry)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *gen.GetWorkflowRunLogsParams) error); ok {
+		r1 = rf(ctx, namespaceName, runName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClient_GetWorkflowRunLogs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWorkflowRunLogs'
+type MockClient_GetWorkflowRunLogs_Call struct {
+	*mock.Call
+}
+
+// GetWorkflowRunLogs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - runName string
+//   - params *gen.GetWorkflowRunLogsParams
+func (_e *MockClient_Expecter) GetWorkflowRunLogs(ctx interface{}, namespaceName interface{}, runName interface{}, params interface{}) *MockClient_GetWorkflowRunLogs_Call {
+	return &MockClient_GetWorkflowRunLogs_Call{Call: _e.mock.On("GetWorkflowRunLogs", ctx, namespaceName, runName, params)}
+}
+
+func (_c *MockClient_GetWorkflowRunLogs_Call) Run(run func(ctx context.Context, namespaceName string, runName string, params *gen.GetWorkflowRunLogsParams)) *MockClient_GetWorkflowRunLogs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(*gen.GetWorkflowRunLogsParams))
+	})
+	return _c
+}
+
+func (_c *MockClient_GetWorkflowRunLogs_Call) Return(_a0 []gen.WorkflowRunLogEntry, _a1 error) *MockClient_GetWorkflowRunLogs_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClient_GetWorkflowRunLogs_Call) RunAndReturn(run func(context.Context, string, string, *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error)) *MockClient_GetWorkflowRunLogs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetWorkflowRunStatus provides a mock function with given fields: ctx, namespaceName, runName
+func (_m *MockClient) GetWorkflowRunStatus(ctx context.Context, namespaceName string, runName string) (*gen.WorkflowRunStatusResponse, error) {
+	ret := _m.Called(ctx, namespaceName, runName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetWorkflowRunStatus")
+	}
+
+	var r0 *gen.WorkflowRunStatusResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.WorkflowRunStatusResponse, error)); ok {
+		return rf(ctx, namespaceName, runName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.WorkflowRunStatusResponse); ok {
+		r0 = rf(ctx, namespaceName, runName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.WorkflowRunStatusResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, runName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClient_GetWorkflowRunStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWorkflowRunStatus'
+type MockClient_GetWorkflowRunStatus_Call struct {
+	*mock.Call
+}
+
+// GetWorkflowRunStatus is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - runName string
+func (_e *MockClient_Expecter) GetWorkflowRunStatus(ctx interface{}, namespaceName interface{}, runName interface{}) *MockClient_GetWorkflowRunStatus_Call {
+	return &MockClient_GetWorkflowRunStatus_Call{Call: _e.mock.On("GetWorkflowRunStatus", ctx, namespaceName, runName)}
+}
+
+func (_c *MockClient_GetWorkflowRunStatus_Call) Run(run func(ctx context.Context, namespaceName string, runName string)) *MockClient_GetWorkflowRunStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockClient_GetWorkflowRunStatus_Call) Return(_a0 *gen.WorkflowRunStatusResponse, _a1 error) *MockClient_GetWorkflowRunStatus_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClient_GetWorkflowRunStatus_Call) RunAndReturn(run func(context.Context, string, string) (*gen.WorkflowRunStatusResponse, error)) *MockClient_GetWorkflowRunStatus_Call {
 	_c.Call.Return(run)
 	return _c
 }

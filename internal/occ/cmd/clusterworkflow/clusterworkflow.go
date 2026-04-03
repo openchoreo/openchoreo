@@ -15,7 +15,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -24,6 +23,20 @@ type Client interface {
 	ListClusterWorkflows(ctx context.Context, params *gen.ListClusterWorkflowsParams) (*gen.ClusterWorkflowList, error)
 	GetClusterWorkflow(ctx context.Context, clusterWorkflowName string) (*gen.ClusterWorkflow, error)
 	DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName string) error
+
+	// StartRun + Logs (satisfies workflow.Client)
+	ListWorkflows(ctx context.Context, namespaceName string, params *gen.ListWorkflowsParams) (*gen.WorkflowList, error)
+	GetWorkflow(ctx context.Context, namespaceName, workflowName string) (*gen.Workflow, error)
+	DeleteWorkflow(ctx context.Context, namespaceName, workflowName string) error
+	CreateWorkflowRun(ctx context.Context, namespaceName string, req gen.WorkflowRun) (*gen.WorkflowRun, error)
+	ListWorkflowRuns(ctx context.Context, namespaceName string, params *gen.ListWorkflowRunsParams) (*gen.WorkflowRunList, error)
+	GetWorkflowRun(ctx context.Context, namespaceName, workflowRunName string) (*gen.WorkflowRun, error)
+	GetWorkflowRunStatus(ctx context.Context, namespaceName, runName string) (*gen.WorkflowRunStatusResponse, error)
+	GetWorkflowRunLogs(ctx context.Context, namespaceName, runName string, params *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error)
+	GetWorkflowPlane(ctx context.Context, namespaceName, workflowPlaneName string) (*gen.WorkflowPlane, error)
+	GetClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) (*gen.ClusterWorkflowPlane, error)
+	GetObservabilityPlane(ctx context.Context, namespaceName, observabilityPlaneName string) (*gen.ObservabilityPlane, error)
+	GetClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) (*gen.ClusterObservabilityPlane, error)
 }
 
 // ClusterWorkflow implements cluster workflow operations
@@ -101,11 +114,7 @@ func (c *ClusterWorkflow) StartRun(params StartRunParams) error {
 		return fmt.Errorf("cluster workflow name is required")
 	}
 
-	cl, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-	return workflow.New(cl).StartRun(workflow.StartRunParams{
+	return workflow.New(c.client).StartRun(workflow.StartRunParams{
 		Namespace:    params.Namespace,
 		WorkflowName: params.WorkflowName,
 		WorkflowKind: "ClusterWorkflow",
@@ -125,13 +134,13 @@ func (c *ClusterWorkflow) Logs(params LogsParams) error {
 	runName := params.RunName
 	if runName == "" {
 		var err error
-		runName, err = workflow.ResolveLatestRun(params.Namespace, params.WorkflowName, nil)
+		runName, err = workflow.New(c.client).ResolveLatestRun(params.Namespace, params.WorkflowName, nil)
 		if err != nil {
 			return err
 		}
 	}
 
-	return workflowrun.New(nil).Logs(workflowrun.LogsParams{
+	return workflowrun.New(c.client).Logs(workflowrun.LogsParams{
 		Namespace:       params.Namespace,
 		WorkflowRunName: runName,
 		Follow:          params.Follow,

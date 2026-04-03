@@ -10,7 +10,6 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
@@ -30,13 +29,13 @@ func (w *Workflow) Logs(params LogsParams) error {
 	runName := params.RunName
 	if runName == "" {
 		var err error
-		runName, err = ResolveLatestRun(params.Namespace, params.WorkflowName, workflowrun.ExcludeComponentRuns)
+		runName, err = w.ResolveLatestRun(params.Namespace, params.WorkflowName, workflowrun.ExcludeComponentRuns)
 		if err != nil {
 			return err
 		}
 	}
 
-	return workflowrun.New(nil).Logs(workflowrun.LogsParams{
+	return workflowrun.New(w.client).Logs(workflowrun.LogsParams{
 		Namespace:       params.Namespace,
 		WorkflowRunName: runName,
 		Follow:          params.Follow,
@@ -50,13 +49,8 @@ type RunFilter func([]gen.WorkflowRun) []gen.WorkflowRun
 // ResolveLatestRun finds the most recent workflow run for the given workflow.
 // An optional filter can narrow the results (e.g. exclude or include component runs).
 // Pass nil for no filtering.
-func ResolveLatestRun(namespace, workflowName string, filter RunFilter) (string, error) {
+func (w *Workflow) ResolveLatestRun(namespace, workflowName string, filter RunFilter) (string, error) {
 	ctx := context.Background()
-
-	c, err := client.NewClient()
-	if err != nil {
-		return "", fmt.Errorf("failed to create API client: %w", err)
-	}
 
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.WorkflowRun, string, error) {
 		p := &gen.ListWorkflowRunsParams{
@@ -66,7 +60,7 @@ func ResolveLatestRun(namespace, workflowName string, filter RunFilter) (string,
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := c.ListWorkflowRuns(ctx, namespace, p)
+		result, err := w.client.ListWorkflowRuns(ctx, namespace, p)
 		if err != nil {
 			return nil, "", err
 		}

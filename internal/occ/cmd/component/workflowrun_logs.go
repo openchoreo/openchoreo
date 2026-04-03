@@ -9,7 +9,6 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -26,13 +25,13 @@ func (cp *Component) WorkflowRunLogs(params WorkflowRunLogsParams) error {
 
 	runName := params.RunName
 	if runName == "" {
-		workflowName, err := resolveComponentWorkflowName(params.Namespace, params.ComponentName)
+		workflowName, err := cp.resolveComponentWorkflowName(params.Namespace, params.ComponentName)
 		if err != nil {
 			return err
 		}
 
 		componentName := params.ComponentName
-		runName, err = workflow.ResolveLatestRun(params.Namespace, workflowName, func(items []gen.WorkflowRun) []gen.WorkflowRun {
+		runName, err = workflow.New(cp.client).ResolveLatestRun(params.Namespace, workflowName, func(items []gen.WorkflowRun) []gen.WorkflowRun {
 			return workflowrun.FilterByComponent(items, componentName)
 		})
 		if err != nil {
@@ -40,7 +39,7 @@ func (cp *Component) WorkflowRunLogs(params WorkflowRunLogsParams) error {
 		}
 	}
 
-	return workflowrun.New(nil).Logs(workflowrun.LogsParams{
+	return workflowrun.New(cp.client).Logs(workflowrun.LogsParams{
 		Namespace:       params.Namespace,
 		WorkflowRunName: runName,
 		Follow:          params.Follow,
@@ -49,15 +48,10 @@ func (cp *Component) WorkflowRunLogs(params WorkflowRunLogsParams) error {
 }
 
 // resolveComponentWorkflowName gets the workflow name configured on a component.
-func resolveComponentWorkflowName(namespace, componentName string) (string, error) {
+func (cp *Component) resolveComponentWorkflowName(namespace, componentName string) (string, error) {
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return "", fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	comp, err := c.GetComponent(ctx, namespace, componentName)
+	comp, err := cp.client.GetComponent(ctx, namespace, componentName)
 	if err != nil {
 		return "", err
 	}

@@ -38,9 +38,20 @@ type Client interface {
 	DeleteWorkflow(ctx context.Context, namespaceName, workflowName string) error
 	CreateWorkflowRun(ctx context.Context, namespaceName string, req gen.WorkflowRun) (*gen.WorkflowRun, error)
 
-	// ListWorkflowRuns (satisfies workflowrun.Client)
+	// ListWorkflowRuns + Logs (satisfies workflowrun.Client)
 	ListWorkflowRuns(ctx context.Context, namespaceName string, params *gen.ListWorkflowRunsParams) (*gen.WorkflowRunList, error)
 	GetWorkflowRun(ctx context.Context, namespaceName, workflowRunName string) (*gen.WorkflowRun, error)
+	GetWorkflowRunStatus(ctx context.Context, namespaceName, runName string) (*gen.WorkflowRunStatusResponse, error)
+	GetWorkflowRunLogs(ctx context.Context, namespaceName, runName string, params *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error)
+	GetWorkflowPlane(ctx context.Context, namespaceName, workflowPlaneName string) (*gen.WorkflowPlane, error)
+	GetClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) (*gen.ClusterWorkflowPlane, error)
+	GetObservabilityPlane(ctx context.Context, namespaceName, observabilityPlaneName string) (*gen.ObservabilityPlane, error)
+	GetClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) (*gen.ClusterObservabilityPlane, error)
+
+	// Logs: environment → data plane → observability plane resolution
+	GetEnvironment(ctx context.Context, namespaceName, envName string) (*gen.Environment, error)
+	GetDataPlane(ctx context.Context, namespaceName, dpName string) (*gen.DataPlane, error)
+	GetClusterDataPlane(ctx context.Context, cdpName string) (*gen.ClusterDataPlane, error)
 
 	// Deploy
 	GenerateRelease(ctx context.Context, namespaceName, componentName string, req gen.GenerateReleaseRequest) (*gen.ComponentRelease, error)
