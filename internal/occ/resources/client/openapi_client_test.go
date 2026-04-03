@@ -4,7 +4,13 @@
 package client
 
 import (
+	"encoding/json"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 func TestApiError(t *testing.T) {
@@ -63,4 +69,63 @@ func TestApiError(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSchemaResponseToRaw(t *testing.T) {
+	tests := []struct {
+		name    string
+		schema  *gen.SchemaResponse
+		wantErr bool
+	}{
+		{
+			name: "valid schema with properties",
+			schema: &gen.SchemaResponse{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"port": map[string]interface{}{"type": "integer"},
+				},
+			},
+		},
+		{
+			name:   "empty schema",
+			schema: &gen.SchemaResponse{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			raw, err := schemaResponseToRaw(tt.schema)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, raw)
+
+			// Verify the raw message can be unmarshalled back
+			var result map[string]interface{}
+			assert.NoError(t, json.Unmarshal(*raw, &result))
+		})
+	}
+}
+
+func TestSchemaResponseToRaw_RoundTrip(t *testing.T) {
+	original := &gen.SchemaResponse{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"replicas": map[string]interface{}{"type": "integer"},
+		},
+	}
+
+	raw, err := schemaResponseToRaw(original)
+	require.NoError(t, err)
+	require.NotNil(t, raw)
+
+	// Verify the JSON contains expected fields
+	var parsed map[string]interface{}
+	require.NoError(t, json.Unmarshal(*raw, &parsed))
+	assert.Equal(t, "object", parsed["type"])
+	props, ok := parsed["properties"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Contains(t, props, "replicas")
 }
