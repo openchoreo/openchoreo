@@ -82,7 +82,7 @@ func TestList_ValidationError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	op := New(mc)
 	err := op.List(ListParams{Namespace: ""})
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "--namespace")
 }
 
 func TestList_APIError(t *testing.T) {
@@ -146,7 +146,7 @@ func TestGet_ValidationError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	op := New(mc)
 	err := op.Get(GetParams{Namespace: "", ObservabilityPlaneName: "obs-plane-1"})
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "--namespace")
 }
 
 func TestGet_APIError(t *testing.T) {
@@ -176,7 +176,7 @@ func TestDelete_ValidationError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	op := New(mc)
 	err := op.Delete(DeleteParams{Namespace: "", ObservabilityPlaneName: "obs-plane-1"})
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "--namespace")
 }
 
 func TestDelete_APIError(t *testing.T) {

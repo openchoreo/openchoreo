@@ -82,7 +82,7 @@ func TestList_ValidationError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	sr := New(mc)
 	err := sr.List(ListParams{Namespace: ""})
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "--namespace")
 }
 
 func TestList_APIError(t *testing.T) {
@@ -146,7 +146,7 @@ func TestGet_ValidationError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	sr := New(mc)
 	err := sr.Get(GetParams{Namespace: "", SecretReferenceName: "secret-1"})
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "--namespace")
 }
 
 func TestGet_APIError(t *testing.T) {
@@ -176,7 +176,7 @@ func TestDelete_ValidationError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	sr := New(mc)
 	err := sr.Delete(DeleteParams{Namespace: "", SecretReferenceName: "secret-1"})
-	assert.Error(t, err)
+	assert.ErrorContains(t, err, "--namespace")
 }
 
 func TestDelete_APIError(t *testing.T) {
