@@ -4,12 +4,19 @@
 package workflow
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/labels"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -117,4 +124,171 @@ func TestApplySetOverrides(t *testing.T) {
 		assert.Equal(t, "custom-run", got.Metadata.Name)
 		assert.Equal(t, "ci-wf", got.Spec.Workflow.Name, "workflow name should be enforced")
 	})
+}
+
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+
+	origStdout := os.Stdout
+	os.Stdout = w
+	defer func() {
+		os.Stdout = origStdout
+		w.Close()
+		r.Close()
+	}()
+
+	fn()
+
+	os.Stdout = origStdout
+	w.Close()
+
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, r)
+	require.NoError(t, err)
+
+	return buf.String()
+}
+
+// --- List tests ---
+
+func TestList_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListWorkflows(mock.Anything, "ns", mock.Anything).Return(nil, fmt.Errorf("server error"))
+
+	wf := New(mc)
+	assert.EqualError(t, wf.List(ListParams{Namespace: "ns"}), "server error")
+}
+
+func TestList_Success(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListWorkflows(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowList{
+		Items:      []gen.Workflow{{Metadata: gen.ObjectMeta{Name: "my-workflow"}}},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	wf := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, wf.List(ListParams{Namespace: "ns"}))
+	})
+
+	assert.Contains(t, out, "my-workflow")
+}
+
+func TestList_MultipleItems(t *testing.T) {
+	now := time.Now()
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListWorkflows(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowList{
+		Items: []gen.Workflow{
+			{Metadata: gen.ObjectMeta{Name: "wf-build", CreationTimestamp: &now}},
+			{Metadata: gen.ObjectMeta{Name: "wf-deploy", CreationTimestamp: &now}},
+		},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	wf := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, wf.List(ListParams{Namespace: "ns"}))
+	})
+
+	assert.Contains(t, out, "wf-build")
+	assert.Contains(t, out, "wf-deploy")
+}
+
+func TestList_Empty(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListWorkflows(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowList{
+		Items:      []gen.Workflow{},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	wf := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, wf.List(ListParams{Namespace: "ns"}))
+	})
+
+	assert.Contains(t, out, "No workflows found")
+}
+
+// --- Get tests ---
+
+func TestGet_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "missing").Return(nil, fmt.Errorf("not found: missing"))
+
+	wf := New(mc)
+	assert.EqualError(t, wf.Get(GetParams{Namespace: "ns", WorkflowName: "missing"}), "not found: missing")
+}
+
+func TestGet_Success(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "my-workflow").Return(&gen.Workflow{
+		Metadata: gen.ObjectMeta{Name: "my-workflow"},
+	}, nil)
+
+	wf := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, wf.Get(GetParams{Namespace: "ns", WorkflowName: "my-workflow"}))
+	})
+
+	assert.Contains(t, out, "name: my-workflow")
+}
+
+// --- Delete tests ---
+
+func TestDelete_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().DeleteWorkflow(mock.Anything, "ns", "my-workflow").Return(fmt.Errorf("forbidden: my-workflow"))
+
+	wf := New(mc)
+	assert.EqualError(t, wf.Delete(DeleteParams{Namespace: "ns", WorkflowName: "my-workflow"}), "forbidden: my-workflow")
+}
+
+func TestDelete_Success(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().DeleteWorkflow(mock.Anything, "ns", "my-workflow").Return(nil)
+
+	wf := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, wf.Delete(DeleteParams{Namespace: "ns", WorkflowName: "my-workflow"}))
+	})
+
+	assert.Contains(t, out, "Workflow 'my-workflow' deleted")
+}
+
+// --- StartRun tests ---
+
+func TestStartRun_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().CreateWorkflowRun(mock.Anything, "ns", mock.Anything).Return(nil, fmt.Errorf("server error"))
+
+	wf := New(mc)
+	assert.EqualError(t, wf.StartRun(StartRunParams{
+		Namespace:    "ns",
+		WorkflowName: "my-wf",
+		RunName:      "run-1",
+	}), "server error")
+}
+
+func TestStartRun_Success(t *testing.T) {
+	ns := "ns"
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().CreateWorkflowRun(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRun{
+		Metadata: gen.ObjectMeta{Name: "run-1", Namespace: &ns},
+		Spec:     &gen.WorkflowRunSpec{Workflow: gen.WorkflowRunConfig{Name: "my-wf"}},
+	}, nil)
+
+	wf := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, wf.StartRun(StartRunParams{
+			Namespace:    "ns",
+			WorkflowName: "my-wf",
+			RunName:      "run-1",
+		}))
+	})
+
+	assert.Contains(t, out, "Successfully started workflow run: run-1")
+	assert.Contains(t, out, "Workflow: my-wf")
 }

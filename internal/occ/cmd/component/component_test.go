@@ -4,12 +4,19 @@
 package component
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/component/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -405,4 +412,447 @@ func TestUnmarshalSchema(t *testing.T) {
 			}
 		})
 	}
+}
+
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+
+	origStdout := os.Stdout
+	os.Stdout = w
+	defer func() {
+		os.Stdout = origStdout
+		w.Close()
+		r.Close()
+	}()
+
+	fn()
+
+	os.Stdout = origStdout
+	w.Close()
+
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, r)
+	require.NoError(t, err)
+
+	return buf.String()
+}
+
+// --- List tests ---
+
+func TestList_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListComponents(mock.Anything, "ns", "", mock.Anything).Return(nil, fmt.Errorf("server error"))
+
+	cp := New(mc)
+	assert.EqualError(t, cp.List(ListParams{Namespace: "ns"}), "server error")
+}
+
+func TestList_Success(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListComponents(mock.Anything, "ns", "", mock.Anything).Return(&gen.ComponentList{
+		Items:      []gen.Component{{Metadata: gen.ObjectMeta{Name: "my-comp"}}},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	cp := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cp.List(ListParams{Namespace: "ns"}))
+	})
+
+	assert.Contains(t, out, "my-comp")
+}
+
+func TestList_MultipleItems(t *testing.T) {
+	now := time.Now()
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListComponents(mock.Anything, "ns", "", mock.Anything).Return(&gen.ComponentList{
+		Items: []gen.Component{
+			{Metadata: gen.ObjectMeta{Name: "comp-a", CreationTimestamp: &now}},
+			{Metadata: gen.ObjectMeta{Name: "comp-b", CreationTimestamp: &now}},
+		},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	cp := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cp.List(ListParams{Namespace: "ns"}))
+	})
+
+	assert.Contains(t, out, "comp-a")
+	assert.Contains(t, out, "comp-b")
+}
+
+func TestList_Empty(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListComponents(mock.Anything, "ns", "", mock.Anything).Return(&gen.ComponentList{
+		Items:      []gen.Component{},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	cp := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cp.List(ListParams{Namespace: "ns"}))
+	})
+
+	assert.Contains(t, out, "No components found")
+}
+
+// --- Get tests ---
+
+func TestGet_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetComponent(mock.Anything, "ns", "missing").Return(nil, fmt.Errorf("not found: missing"))
+
+	cp := New(mc)
+	assert.EqualError(t, cp.Get(GetParams{Namespace: "ns", ComponentName: "missing"}), "not found: missing")
+}
+
+func TestGet_Success(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{
+		Metadata: gen.ObjectMeta{Name: "my-comp"},
+	}, nil)
+
+	cp := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cp.Get(GetParams{Namespace: "ns", ComponentName: "my-comp"}))
+	})
+
+	assert.Contains(t, out, "name: my-comp")
+}
+
+// --- Delete tests ---
+
+func TestDelete_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().DeleteComponent(mock.Anything, "ns", "my-comp").Return(fmt.Errorf("forbidden: my-comp"))
+
+	cp := New(mc)
+	assert.EqualError(t, cp.Delete(DeleteParams{Namespace: "ns", ComponentName: "my-comp"}), "forbidden: my-comp")
+}
+
+func TestDelete_Success(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().DeleteComponent(mock.Anything, "ns", "my-comp").Return(nil)
+
+	cp := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cp.Delete(DeleteParams{Namespace: "ns", ComponentName: "my-comp"}))
+	})
+
+	assert.Contains(t, out, "Component 'my-comp' deleted")
+}
+
+// --- StartWorkflow tests ---
+
+func TestStartWorkflow_MissingNamespace(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	cp := New(mc)
+	err := cp.StartWorkflow(StartWorkflowParams{ComponentName: "my-comp"})
+	assert.EqualError(t, err, "namespace is required")
+}
+
+func TestStartWorkflow_MissingComponentName(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	cp := New(mc)
+	err := cp.StartWorkflow(StartWorkflowParams{Namespace: "ns"})
+	assert.EqualError(t, err, "component name is required")
+}
+
+func TestStartWorkflow_GetComponentError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(nil, fmt.Errorf("not found"))
+
+	cp := New(mc)
+	err := cp.StartWorkflow(StartWorkflowParams{Namespace: "ns", ComponentName: "my-comp"})
+	assert.EqualError(t, err, "not found")
+}
+
+func TestStartWorkflow_NoWorkflowConfigured(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{
+		Metadata: gen.ObjectMeta{Name: "my-comp"},
+		Spec:     &gen.ComponentSpec{},
+	}, nil)
+
+	cp := New(mc)
+	err := cp.StartWorkflow(StartWorkflowParams{Namespace: "ns", ComponentName: "my-comp"})
+	assert.EqualError(t, err, `component "my-comp" has no workflow configured`)
+}
+
+func TestStartWorkflow_Success(t *testing.T) {
+	wfName := "my-workflow"
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{
+		Metadata: gen.ObjectMeta{Name: "my-comp"},
+		Spec: &gen.ComponentSpec{
+			Workflow: &gen.ComponentWorkflowConfig{Name: wfName},
+		},
+	}, nil)
+	mc.EXPECT().CreateWorkflowRun(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRun{
+		Metadata: gen.ObjectMeta{Name: "run-1"},
+	}, nil)
+
+	cp := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cp.StartWorkflow(StartWorkflowParams{
+			Namespace:     "ns",
+			ComponentName: "my-comp",
+			Project:       "my-project",
+		}))
+	})
+	assert.Contains(t, out, "run-1")
+}
+
+// --- ListWorkflowRuns tests ---
+
+func TestListWorkflowRuns_MissingNamespace(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	cp := New(mc)
+	err := cp.ListWorkflowRuns(ListWorkflowRunsParams{ComponentName: "my-comp"})
+	assert.EqualError(t, err, "namespace is required")
+}
+
+func TestListWorkflowRuns_MissingComponentName(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	cp := New(mc)
+	err := cp.ListWorkflowRuns(ListWorkflowRunsParams{Namespace: "ns"})
+	assert.EqualError(t, err, "component name is required")
+}
+
+func TestListWorkflowRuns_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(nil, fmt.Errorf("server error"))
+
+	cp := New(mc)
+	err := cp.ListWorkflowRuns(ListWorkflowRunsParams{Namespace: "ns", ComponentName: "my-comp"})
+	assert.EqualError(t, err, "server error")
+}
+
+func TestListWorkflowRuns_FiltersByComponent(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRunList{
+		Items: []gen.WorkflowRun{
+			{
+				Metadata: gen.ObjectMeta{
+					Name:   "run-match",
+					Labels: &map[string]string{"openchoreo.dev/component": "my-comp"},
+				},
+			},
+			{
+				Metadata: gen.ObjectMeta{
+					Name:   "run-other",
+					Labels: &map[string]string{"openchoreo.dev/component": "other-comp"},
+				},
+			},
+		},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	cp := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cp.ListWorkflowRuns(ListWorkflowRunsParams{Namespace: "ns", ComponentName: "my-comp"}))
+	})
+	assert.Contains(t, out, "run-match")
+	assert.NotContains(t, out, "run-other")
+}
+
+func TestListWorkflowRuns_Empty(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRunList{
+		Items:      []gen.WorkflowRun{},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	cp := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cp.ListWorkflowRuns(ListWorkflowRunsParams{Namespace: "ns", ComponentName: "my-comp"}))
+	})
+	assert.Contains(t, out, "No workflow runs found")
+}
+
+// --- Deploy tests ---
+
+const testReleaseName = "rel-1"
+
+func makeLinearPipeline() *gen.DeploymentPipeline {
+	paths := []gen.PromotionPath{
+		{
+			SourceEnvironmentRef: struct {
+				Kind *gen.PromotionPathSourceEnvironmentRefKind `json:"kind,omitempty"`
+				Name string                                     `json:"name"`
+			}{Name: "dev"},
+			TargetEnvironmentRefs: []gen.TargetEnvironmentRef{{Name: "staging"}},
+		},
+		{
+			SourceEnvironmentRef: struct {
+				Kind *gen.PromotionPathSourceEnvironmentRefKind `json:"kind,omitempty"`
+				Name string                                     `json:"name"`
+			}{Name: "staging"},
+			TargetEnvironmentRefs: []gen.TargetEnvironmentRef{{Name: "prod"}},
+		},
+	}
+	return &gen.DeploymentPipeline{
+		Metadata: gen.ObjectMeta{Name: "my-pipeline"},
+		Spec:     &gen.DeploymentPipelineSpec{PromotionPaths: &paths},
+	}
+}
+
+func makeReleaseName(name string) *string { return &name }
+
+func TestDeploy_GenerateReleaseError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(nil, fmt.Errorf("generate failed"))
+
+	cp := New(mc)
+	err := cp.Deploy(DeployParams{
+		Namespace:     "ns",
+		Project:       "my-project",
+		ComponentName: "my-comp",
+	})
+	assert.EqualError(t, err, "generate failed")
+}
+
+func TestDeploy_DeployToLowestEnv_CreateBinding(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
+		Metadata: gen.ObjectMeta{Name: testReleaseName},
+	}, nil)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "my-comp-dev").Return(nil, nil)
+	mc.EXPECT().CreateReleaseBinding(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: "my-comp-dev"},
+		Spec: &gen.ReleaseBindingSpec{
+			Environment: "dev",
+			ReleaseName: makeReleaseName(testReleaseName),
+		},
+	}, nil)
+
+	cp := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cp.Deploy(DeployParams{
+			Namespace:     "ns",
+			Project:       "my-project",
+			ComponentName: "my-comp",
+		}))
+	})
+	assert.Contains(t, out, "dev")
+	assert.Contains(t, out, "my-comp-dev")
+}
+
+func TestDeploy_DeployToLowestEnv_UpdateExistingBinding(t *testing.T) {
+	relName := "rel-2"
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
+		Metadata: gen.ObjectMeta{Name: relName},
+	}, nil)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "my-comp-dev").Return(&gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: "my-comp-dev"},
+		Spec: &gen.ReleaseBindingSpec{
+			Environment: "dev",
+			ReleaseName: makeReleaseName(testReleaseName),
+		},
+	}, nil)
+	mc.EXPECT().UpdateReleaseBinding(mock.Anything, "ns", "my-comp-dev", mock.Anything).Return(&gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: "my-comp-dev"},
+		Spec: &gen.ReleaseBindingSpec{
+			Environment: "dev",
+			ReleaseName: makeReleaseName(relName),
+		},
+	}, nil)
+
+	cp := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cp.Deploy(DeployParams{
+			Namespace:     "ns",
+			Project:       "my-project",
+			ComponentName: "my-comp",
+		}))
+	})
+	assert.Contains(t, out, "my-comp-dev")
+}
+
+func TestDeploy_Promote_Success(t *testing.T) {
+	relName := "rel-1"
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
+	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
+		Items: []gen.ReleaseBinding{
+			{
+				Metadata: gen.ObjectMeta{Name: "my-comp-dev"},
+				Spec: &gen.ReleaseBindingSpec{
+					Environment: "dev",
+					Owner: struct {
+						ComponentName string `json:"componentName"`
+						ProjectName   string `json:"projectName"`
+					}{ComponentName: "my-comp"},
+					ReleaseName: makeReleaseName(relName),
+				},
+			},
+		},
+	}, nil)
+	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "my-comp-staging").Return(nil, nil)
+	mc.EXPECT().CreateReleaseBinding(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: "my-comp-staging"},
+		Spec: &gen.ReleaseBindingSpec{
+			Environment: "staging",
+			ReleaseName: makeReleaseName(relName),
+		},
+	}, nil)
+
+	cp := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cp.Deploy(DeployParams{
+			Namespace:     "ns",
+			Project:       "my-project",
+			ComponentName: "my-comp",
+			To:            "staging",
+		}))
+	})
+	assert.Contains(t, out, "staging")
+	assert.Contains(t, out, "my-comp-staging")
+}
+
+// --- Scaffold tests ---
+
+func TestScaffold_APIError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetComponentTypeSchema(mock.Anything, "ns", "web-app").Return(nil, fmt.Errorf("schema not found"))
+
+	cp := New(mc)
+	err := cp.Scaffold(ScaffoldParams{
+		ComponentName: "my-comp",
+		Namespace:     "ns",
+		ProjectName:   "my-project",
+		ComponentType: "deployment/web-app",
+	})
+	assert.EqualError(t, err, "schema not found")
+}
+
+func TestScaffold_MissingComponentName(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	cp := New(mc)
+	err := cp.Scaffold(ScaffoldParams{
+		Namespace:     "ns",
+		ProjectName:   "my-project",
+		ComponentType: "deployment/web-app",
+	})
+	assert.EqualError(t, err, "component name is required")
+}
+
+func TestScaffold_MutuallyExclusiveFlags(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	cp := New(mc)
+	err := cp.Scaffold(ScaffoldParams{
+		ComponentName:        "my-comp",
+		Namespace:            "ns",
+		ProjectName:          "my-project",
+		ComponentType:        "deployment/web-app",
+		ClusterComponentType: "deployment/cluster-web-app",
+	})
+	assert.EqualError(t, err, "--componenttype and --clustercomponenttype are mutually exclusive")
 }
