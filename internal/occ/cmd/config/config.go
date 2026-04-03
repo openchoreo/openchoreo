@@ -249,64 +249,6 @@ func (c *Config) UseContext(params UseContextParams) error {
 	return nil
 }
 
-// DescribeContext prints the details of a named context.
-func (c *Config) DescribeContext(params DescribeContextParams) error {
-	cfg, err := LoadStoredConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	for _, ctx := range cfg.Contexts {
-		if ctx.Name == params.Name {
-			return printContextDetails(cfg, &ctx)
-		}
-	}
-
-	return fmt.Errorf("context %q not found", params.Name)
-}
-
-// printContextDetails prints the details of a context in a property/value table.
-func printContextDetails(cfg *StoredConfig, ctx *Context) error {
-	headers := []string{"PROPERTY", "VALUE"}
-	rows := [][]string{
-		{"Name", formatValueOrPlaceholder(ctx.Name)},
-		{"Control Plane", formatValueOrPlaceholder(ctx.ControlPlane)},
-		{"Credentials", formatValueOrPlaceholder(ctx.Credentials)},
-		{"Namespace", formatValueOrPlaceholder(ctx.Namespace)},
-		{"Project", formatValueOrPlaceholder(ctx.Project)},
-		{"Component", formatValueOrPlaceholder(ctx.Component)},
-	}
-
-	if err := printTable(headers, rows); err != nil {
-		return err
-	}
-
-	// Print control plane info if available
-	if ctx.ControlPlane != "" {
-		for _, cp := range cfg.ControlPlanes {
-			if cp.Name == ctx.ControlPlane {
-				fmt.Println("\nControl Plane:")
-				cpHeaders := []string{"PROPERTY", "VALUE"}
-				tokenDisplay := "-"
-				for _, cred := range cfg.Credentials {
-					if cred.Name == ctx.Credentials && cred.Token != "" {
-						tokenDisplay = maskToken(cred.Token)
-						break
-					}
-				}
-				cpRows := [][]string{
-					{"Name", cp.Name},
-					{"URL", cp.URL},
-					{"Token", tokenDisplay},
-				}
-				return printTable(cpHeaders, cpRows)
-			}
-		}
-	}
-
-	return nil
-}
-
 // ApplyContextDefaults loads the stored config and sets default flag values
 // from the current context, if not already provided.
 func ApplyContextDefaults(cmd *cobra.Command) error {
