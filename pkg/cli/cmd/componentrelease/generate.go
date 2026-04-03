@@ -15,6 +15,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -116,7 +117,7 @@ func newGenerateCmd() *cobra.Command {
 				params.ReleaseName = fg.GetString(flags.Name)
 			}
 
-			return componentrelease.New().Generate(params)
+			return componentrelease.New(nil).Generate(params)
 		},
 	}).Build()
 
@@ -148,7 +149,11 @@ func newListCmd() *cobra.Command {
 				Project:   fg.GetString(flags.Project),
 				Component: fg.GetString(flags.Component),
 			}
-			return componentrelease.New().List(params)
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return componentrelease.New(cl).List(params)
 		},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
@@ -164,7 +169,11 @@ func newGetCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return componentrelease.New().Get(componentrelease.GetParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return componentrelease.New(cl).Get(componentrelease.GetParams{
 				Namespace:            namespace,
 				ComponentReleaseName: args[0],
 			})
@@ -184,7 +193,11 @@ func newDeleteCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return componentrelease.New().Delete(componentrelease.DeleteParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return componentrelease.New(cl).Delete(componentrelease.DeleteParams{
 				Namespace:            namespace,
 				ComponentReleaseName: args[0],
 			})

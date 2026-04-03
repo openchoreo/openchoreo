@@ -15,6 +15,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -106,7 +107,7 @@ func newGenerateCmd() *cobra.Command {
 				params.ComponentRelease = fg.GetString(flags.ComponentRelease)
 			}
 
-			return releasebinding.New().Generate(params)
+			return releasebinding.New(nil).Generate(params)
 		},
 	}).Build()
 
@@ -138,7 +139,11 @@ func newListCmd() *cobra.Command {
 				Project:   fg.GetString(flags.Project),
 				Component: fg.GetString(flags.Component),
 			}
-			return releasebinding.New().List(params)
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return releasebinding.New(cl).List(params)
 		},
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 	}).Build()
@@ -154,7 +159,11 @@ func newGetCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return releasebinding.New().Get(releasebinding.GetParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return releasebinding.New(cl).Get(releasebinding.GetParams{
 				Namespace:          namespace,
 				ReleaseBindingName: args[0],
 			})
@@ -174,7 +183,11 @@ func newDeleteCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return releasebinding.New().Delete(releasebinding.DeleteParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return releasebinding.New(cl).Delete(releasebinding.DeleteParams{
 				Namespace:          namespace,
 				ReleaseBindingName: args[0],
 			})

@@ -20,7 +20,6 @@ import (
 	occonfig "github.com/openchoreo/openchoreo/internal/occ/fsmode/config"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
-	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
@@ -29,12 +28,21 @@ import (
 
 const releaseConfigFileName = "release-config.yaml"
 
+// Client defines the client methods used by ComponentRelease operations.
+type Client interface {
+	ListComponentReleases(ctx context.Context, namespaceName string, params *gen.ListComponentReleasesParams) (*gen.ComponentReleaseList, error)
+	GetComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) (*gen.ComponentRelease, error)
+	DeleteComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) error
+}
+
 // ComponentRelease implements component release operations
-type ComponentRelease struct{}
+type ComponentRelease struct {
+	client Client
+}
 
 // New creates a new ComponentRelease
-func New() *ComponentRelease {
-	return &ComponentRelease{}
+func New(client Client) *ComponentRelease {
+	return &ComponentRelease{client: client}
 }
 
 // List lists all component releases for a component
@@ -45,11 +53,6 @@ func (cr *ComponentRelease) List(params ListParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ComponentRelease, string, error) {
 		p := &gen.ListComponentReleasesParams{}
 		if params.Component != "" {
@@ -59,18 +62,15 @@ func (cr *ComponentRelease) List(params ListParams) error {
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		resp, err := c.GetClient().ListComponentReleasesWithResponse(ctx, params.Namespace, p)
+		result, err := cr.client.ListComponentReleases(ctx, params.Namespace, p)
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to list component releases: %w", err)
-		}
-		if resp.JSON200 == nil {
-			return nil, "", fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+			return nil, "", err
 		}
 		next := ""
-		if resp.JSON200.Pagination.NextCursor != nil {
-			next = *resp.JSON200.Pagination.NextCursor
+		if result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
 		}
-		return resp.JSON200.Items, next, nil
+		return result.Items, next, nil
 	})
 	if err != nil {
 		return err
@@ -187,12 +187,7 @@ func (cr *ComponentRelease) Delete(params DeleteParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteComponentRelease(ctx, params.Namespace, params.ComponentReleaseName); err != nil {
+	if err := cr.client.DeleteComponentRelease(ctx, params.Namespace, params.ComponentReleaseName); err != nil {
 		return err
 	}
 
@@ -207,12 +202,8 @@ func (cr *ComponentRelease) Get(params GetParams) error {
 	}
 
 	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
-	result, err := c.GetComponentRelease(ctx, params.Namespace, params.ComponentReleaseName)
+	result, err := cr.client.GetComponentRelease(ctx, params.Namespace, params.ComponentReleaseName)
 	if err != nil {
 		return err
 	}

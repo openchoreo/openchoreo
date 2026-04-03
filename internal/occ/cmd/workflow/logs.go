@@ -36,7 +36,7 @@ func (w *Workflow) Logs(params LogsParams) error {
 		}
 	}
 
-	return workflowrun.New().Logs(workflowrun.LogsParams{
+	return workflowrun.New(nil).Logs(workflowrun.LogsParams{
 		Namespace:       params.Namespace,
 		WorkflowRunName: runName,
 		Follow:          params.Follow,

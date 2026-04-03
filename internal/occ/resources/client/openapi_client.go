@@ -442,10 +442,9 @@ func (c *Client) GenerateRelease(ctx context.Context, namespaceName, componentNa
 }
 
 // ListReleaseBindings retrieves all release bindings for a component
-func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName, projectName, componentName string) (*gen.ReleaseBindingList, error) {
-	params := &gen.ListReleaseBindingsParams{}
-	if componentName != "" {
-		params.Component = &componentName
+func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListReleaseBindingsParams) (*gen.ReleaseBindingList, error) {
+	if params == nil {
+		params = &gen.ListReleaseBindingsParams{}
 	}
 	resp, err := c.client.ListReleaseBindingsWithResponse(ctx, namespaceName, params)
 	if err != nil {
@@ -458,10 +457,9 @@ func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName, project
 }
 
 // ListComponentReleases retrieves all component releases for a component
-func (c *Client) ListComponentReleases(ctx context.Context, namespaceName, projectName, componentName string) (*gen.ComponentReleaseList, error) {
-	params := &gen.ListComponentReleasesParams{}
-	if componentName != "" {
-		params.Component = &componentName
+func (c *Client) ListComponentReleases(ctx context.Context, namespaceName string, params *gen.ListComponentReleasesParams) (*gen.ComponentReleaseList, error) {
+	if params == nil {
+		params = &gen.ListComponentReleasesParams{}
 	}
 	resp, err := c.client.ListComponentReleasesWithResponse(ctx, namespaceName, params)
 	if err != nil {

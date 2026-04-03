@@ -40,7 +40,7 @@ func (cp *Component) WorkflowRunLogs(params WorkflowRunLogsParams) error {
 		}
 	}
 
-	return workflowrun.New().Logs(workflowrun.LogsParams{
+	return workflowrun.New(nil).Logs(workflowrun.LogsParams{
 		Namespace:       params.Namespace,
 		WorkflowRunName: runName,
 		Follow:          params.Follow,

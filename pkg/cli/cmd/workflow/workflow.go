@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -39,7 +40,11 @@ func newListWorkflowCmd() *cobra.Command {
 		Command: constants.ListWorkflow,
 		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
-			return workflow.New().List(workflow.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return workflow.New(cl).List(workflow.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 			})
 		},
@@ -57,7 +62,11 @@ func newGetWorkflowCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return workflow.New().Get(workflow.GetParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return workflow.New(cl).Get(workflow.GetParams{
 				Namespace:    namespace,
 				WorkflowName: args[0],
 			})
@@ -79,7 +88,11 @@ func newDeleteWorkflowCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return workflow.New().Delete(workflow.DeleteParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return workflow.New(cl).Delete(workflow.DeleteParams{
 				Namespace:    namespace,
 				WorkflowName: args[0],
 			})
@@ -102,7 +115,11 @@ func newStartWorkflowCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 			set, _ := cmd.Flags().GetStringArray(flags.Set.Name)
-			return workflow.New().StartRun(workflow.StartRunParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return workflow.New(cl).StartRun(workflow.StartRunParams{
 				Namespace:    namespace,
 				WorkflowName: args[0],
 				Set:          set,
@@ -128,7 +145,7 @@ func newLogsWorkflowCmd() *cobra.Command {
 			follow, _ := cmd.Flags().GetBool(flags.Follow.Name)
 			since, _ := cmd.Flags().GetString(flags.Since.Name)
 			run, _ := cmd.Flags().GetString(flags.WorkflowRun.Name)
-			return workflow.New().Logs(workflow.LogsParams{
+			return workflow.New(nil).Logs(workflow.LogsParams{
 				Namespace:    namespace,
 				WorkflowName: args[0],
 				RunName:      run,

@@ -11,6 +11,7 @@ import (
 	cliargs "github.com/openchoreo/openchoreo/pkg/cli/common/args"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	apiclient "github.com/openchoreo/openchoreo/pkg/cli/common/client"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
@@ -40,7 +41,11 @@ func newListWorkflowRunCmd() *cobra.Command {
 			flags.Workflow,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
-			return workflowrun.New().List(workflowrun.ListParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return workflowrun.New(cl).List(workflowrun.ListParams{
 				Namespace: fg.GetString(flags.Namespace),
 				Workflow:  fg.GetString(flags.Workflow),
 			})
@@ -59,7 +64,11 @@ func newGetWorkflowRunCmd() *cobra.Command {
 		PreRunE: auth.RequireLogin(login.NewAuthImpl()),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
-			return workflowrun.New().Get(workflowrun.GetParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return workflowrun.New(cl).Get(workflowrun.GetParams{
 				Namespace:       namespace,
 				WorkflowRunName: args[0],
 			})
@@ -81,7 +90,11 @@ func newLogsWorkflowRunCmd() *cobra.Command {
 			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
 			follow, _ := cmd.Flags().GetBool(flags.Follow.Name)
 			since, _ := cmd.Flags().GetString(flags.Since.Name)
-			return workflowrun.New().Logs(workflowrun.LogsParams{
+			cl, err := apiclient.New()
+			if err != nil {
+				return err
+			}
+			return workflowrun.New(cl).Logs(workflowrun.LogsParams{
 				Namespace:       namespace,
 				WorkflowRunName: args[0],
 				Follow:          follow,
