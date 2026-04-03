@@ -18,9 +18,10 @@ import (
 
 // RouteConfig represents the configuration for a backend route
 type RouteConfig struct {
-	Name     string
-	Endpoint string
-	Auth     AuthConfig
+	Name               string
+	Endpoint           string
+	Auth               AuthConfig
+	InsecureSkipVerify bool // Skip TLS certificate verification (development/internal services only)
 }
 
 // AuthConfig represents authentication configuration for a route
@@ -178,17 +179,10 @@ func createK8sRoute(config *rest.Config) (*Route, error) {
 
 // createRoute creates a route from configuration
 func createRoute(cfg RouteConfig) *Route {
-	// Create HTTP transport
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: false, //nolint:gosec // Can be configured per route if needed
+			InsecureSkipVerify: cfg.InsecureSkipVerify, //nolint:gosec // Controlled by explicit config flag
 		},
-	}
-
-	// For HTTPS endpoints with self-signed certs, we might need to skip verification
-	// This should be configurable per route in the future
-	if cfg.Auth.Type == "none" {
-		transport.TLSClientConfig.InsecureSkipVerify = true //nolint:gosec // Intentional for internal services
 	}
 
 	return &Route{

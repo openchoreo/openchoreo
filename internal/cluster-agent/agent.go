@@ -22,11 +22,21 @@ import (
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
 
+// Connection abstracts a WebSocket connection for testability.
+// *websocket.Conn satisfies this interface.
+type Connection interface {
+	ReadMessage() (messageType int, p []byte, err error)
+	WriteMessage(messageType int, data []byte) error
+	WriteControl(messageType int, data []byte, deadline time.Time) error
+	SetPingHandler(h func(appData string) error)
+	Close() error
+}
+
 type Agent struct {
 	config     *Config
 	clientCert tls.Certificate
 	serverCA   *x509.CertPool
-	conn       *websocket.Conn
+	conn       Connection
 	k8sClient  client.Client
 	router     *Router
 	mu         sync.Mutex
