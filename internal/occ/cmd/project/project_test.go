@@ -82,7 +82,7 @@ func TestList_ValidationError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	p := New(mc)
 	err := p.List(ListParams{Namespace: ""})
-	assert.ErrorContains(t, err, "--namespace")
+	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestList_APIError(t *testing.T) {
@@ -146,7 +146,7 @@ func TestGet_ValidationError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	p := New(mc)
 	err := p.Get(GetParams{Namespace: "", ProjectName: "proj-a"})
-	assert.ErrorContains(t, err, "--namespace")
+	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestGet_APIError(t *testing.T) {
@@ -176,7 +176,7 @@ func TestDelete_ValidationError(t *testing.T) {
 	mc := mocks.NewMockClient(t)
 	p := New(mc)
 	err := p.Delete(DeleteParams{Namespace: "", ProjectName: "proj-a"})
-	assert.ErrorContains(t, err, "--namespace")
+	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestDelete_APIError(t *testing.T) {
