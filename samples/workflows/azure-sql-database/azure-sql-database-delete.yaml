@@ -110,7 +110,6 @@ spec:
             terraform plan \
               -destroy \
               -var="resource_group_name=${RESOURCE_GROUP_NAME}" \
-              -var="location=${AZURE_LOCATION}" \
               -var="server_name=${SERVER_NAME}" \
               -var="db_name=${DB_NAME}" \
               -var="admin_username=${ADMIN_USERNAME}" \
@@ -140,8 +139,6 @@ spec:
                 key: subscriptionId
           - name: RESOURCE_GROUP_NAME
             value: "{{workflow.parameters.resource-group-name}}"
-          - name: AZURE_LOCATION
-            value: "{{workflow.parameters.azure-location}}"
           - name: SERVER_NAME
             value: "{{workflow.parameters.server-name}}"
           - name: DB_NAME
@@ -177,7 +174,6 @@ spec:
             terraform destroy \
               -auto-approve \
               -var="resource_group_name=${RESOURCE_GROUP_NAME}" \
-              -var="location=${AZURE_LOCATION}" \
               -var="server_name=${SERVER_NAME}" \
               -var="db_name=${DB_NAME}" \
               -var="admin_username=${ADMIN_USERNAME}" \
@@ -190,8 +186,9 @@ spec:
             echo "================================================="
             echo "Server:         ${SERVER_NAME}"
             echo "Resource Group: ${RESOURCE_GROUP_NAME}"
-            echo "The SQL Server, database, firewall rules, and"
-            echo "resource group have been removed from Azure."
+            echo "The SQL Server, database, and firewall rules have"
+            echo "been removed from Azure. The resource group was"
+            echo "not deleted as it is assumed to be pre-existing."
             echo "================================================="
         env:
           - name: ARM_CLIENT_ID
@@ -216,8 +213,6 @@ spec:
                 key: subscriptionId
           - name: RESOURCE_GROUP_NAME
             value: "{{workflow.parameters.resource-group-name}}"
-          - name: AZURE_LOCATION
-            value: "{{workflow.parameters.azure-location}}"
           - name: SERVER_NAME
             value: "{{workflow.parameters.server-name}}"
           - name: DB_NAME
@@ -298,7 +293,7 @@ spec:
               description: "Azure region where the resources were created"
             credentialsSecret:
               type: string
-              description: "Name of the Kubernetes Secret containing 'clientId', 'clientSecret', 'tenantId', 'subscriptionId', and 'adminPassword' keys"
+              description: "Name of the Kubernetes Secret containing Azure AD App Registration credentials ('clientId', 'clientSecret', 'tenantId', 'subscriptionId') and 'adminPassword'"
         tfState:
           type: object
           default: {}

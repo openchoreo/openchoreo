@@ -36,7 +36,7 @@ WorkflowRun
 
 | Resource | Details |
 |----------|---------|
-| `azurerm_resource_group` | Resource group for all SQL resources |
+| `azurerm_resource_group` | **Pre-existing** — looked up by name, not created by this workflow |
 | `azurerm_mssql_server` | Azure SQL Server (version 12.0) |
 | `azurerm_mssql_database` | SQL Database with Basic SKU (5 DTUs) |
 | `azurerm_mssql_firewall_rule` | Allows all IP addresses inbound (0.0.0.0 – 255.255.255.255) |
@@ -47,22 +47,27 @@ The server firewall is **open to all IPs** so you can connect directly from your
 
 ## Prerequisites
 
-### 1. Azure Service Principal
+### 1. Azure AD App Registration
 
-Create a Service Principal with Contributor access on your subscription:
+Register an application in Microsoft Entra ID (Azure AD) and create a client secret:
 
-```bash
-az ad sp create-for-rbac --name "openchoreo-workflow" --role Contributor \
-  --scopes /subscriptions/<your-subscription-id>
-```
+1. Go to **Azure Portal → Microsoft Entra ID → App registrations → New registration**.
+2. Give it a name (e.g. `openchoreo-workflow`) and register.
+3. Note the **Application (client) ID** and **Directory (tenant) ID** from the Overview page.
+4. Go to **Certificates & secrets → New client secret**, add a secret, and copy the **Value** (this is your client secret — it is only shown once).
 
-The output provides `appId` (client ID), `password` (client secret), and `tenant`.
-
-The Service Principal also needs the **Storage Blob Data Contributor** role on the subscription (or on the specific resource group) so Terraform can store state in Azure Blob Storage:
+Assign the required roles to the app's service principal:
 
 ```bash
+# Contributor — lets Terraform create/manage Azure resources
 az role assignment create \
-  --assignee <appId> \
+  --assignee <application-client-id> \
+  --role "Contributor" \
+  --scope /subscriptions/<your-subscription-id>
+
+# Storage Blob Data Contributor — lets Terraform store state in Azure Blob Storage
+az role assignment create \
+  --assignee <application-client-id> \
   --role "Storage Blob Data Contributor" \
   --scope /subscriptions/<your-subscription-id>
 ```
@@ -72,9 +77,9 @@ az role assignment create \
 Create the secret in the workflow execution namespace — `workflows-<namespace>` where `<namespace>` is the namespace your `WorkflowRun` is applied in (e.g. `workflows-default`).
 
 The secret holds five values:
-- `clientId` — Azure Service Principal app/client ID
-- `clientSecret` — Azure Service Principal password/secret
-- `tenantId` — Azure AD tenant ID
+- `clientId` — Application (client) ID from the App Registration
+- `clientSecret` — Client secret value from the App Registration
+- `tenantId` — Directory (tenant) ID from the App Registration
 - `subscriptionId` — Azure subscription ID
 - `adminPassword` — administrator password for the SQL Server
 
@@ -99,7 +104,7 @@ kubectl create secret generic azure-sql-credentials \
 | `git.repoUrl` | No | `https://github.com/openchoreo/openchoreo.git` | Git repository URL (HTTPS) that contains the Terraform files. Override to use your own repo. |
 | `git.branch` | No | `main` | Branch or tag to check out |
 | `git.tfPath` | No | `samples/workflows/azure-sql-database/terraform` | Relative path inside the cloned repo to the directory containing the Terraform files |
-| `azure.location` | No | `eastus` | Azure region for the resources |
+| `azure.location` | No | `eastus` | Azure region for the Terraform state storage account (SQL Server location is inherited from the resource group) |
 | `azure.credentialsSecret` | Yes | — | Name of the Kubernetes Secret (see Prerequisites) |
 | `tfState.resourceGroup` | Yes | — | Azure Resource Group for the Terraform state storage account. Created automatically on first run. |
 | `tfState.storageAccount` | Yes | — | Azure Storage Account name for Terraform state (must be globally unique, 3-24 lowercase letters/numbers). Created automatically on first run. |

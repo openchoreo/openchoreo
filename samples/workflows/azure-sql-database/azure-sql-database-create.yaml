@@ -183,7 +183,6 @@ spec:
             echo "Running terraform plan ..."
             terraform plan \
               -var="resource_group_name=${RESOURCE_GROUP_NAME}" \
-              -var="location=${AZURE_LOCATION}" \
               -var="server_name=${SERVER_NAME}" \
               -var="db_name=${DB_NAME}" \
               -var="admin_username=${ADMIN_USERNAME}" \
@@ -213,8 +212,6 @@ spec:
                 key: subscriptionId
           - name: RESOURCE_GROUP_NAME
             value: "{{workflow.parameters.resource-group-name}}"
-          - name: AZURE_LOCATION
-            value: "{{workflow.parameters.azure-location}}"
           - name: SERVER_NAME
             value: "{{workflow.parameters.server-name}}"
           - name: DB_NAME
@@ -250,7 +247,6 @@ spec:
             terraform apply \
               -auto-approve \
               -var="resource_group_name=${RESOURCE_GROUP_NAME}" \
-              -var="location=${AZURE_LOCATION}" \
               -var="server_name=${SERVER_NAME}" \
               -var="db_name=${DB_NAME}" \
               -var="admin_username=${ADMIN_USERNAME}" \
@@ -284,8 +280,6 @@ spec:
                 key: subscriptionId
           - name: RESOURCE_GROUP_NAME
             value: "{{workflow.parameters.resource-group-name}}"
-          - name: AZURE_LOCATION
-            value: "{{workflow.parameters.azure-location}}"
           - name: SERVER_NAME
             value: "{{workflow.parameters.server-name}}"
           - name: DB_NAME
@@ -414,7 +408,7 @@ spec:
               description: "Azure region where the resources will be created"
             credentialsSecret:
               type: string
-              description: "Name of the Kubernetes Secret containing 'clientId', 'clientSecret', 'tenantId', 'subscriptionId', and 'adminPassword' keys"
+              description: "Name of the Kubernetes Secret containing Azure AD App Registration credentials ('clientId', 'clientSecret', 'tenantId', 'subscriptionId') and 'adminPassword'"
         tfState:
           type: object
           default: {}

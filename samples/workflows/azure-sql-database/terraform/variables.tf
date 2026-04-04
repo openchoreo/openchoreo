@@ -3,12 +3,6 @@ variable "resource_group_name" {
   type        = string
 }
 
-variable "location" {
-  description = "Azure region where resources will be created"
-  type        = string
-  default     = "eastus"
-}
-
 variable "server_name" {
   description = "Unique name for the Azure SQL Server (must be globally unique)"
   type        = string

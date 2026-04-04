@@ -21,22 +21,19 @@ provider "azurerm" {
 }
 
 # ── Resource Group ──────────────────────────────────────────────────────────────
+# Read an existing resource group — the workflow assumes the user already has one
+# and may not have permission to create new resource groups.
 
-resource "azurerm_resource_group" "this" {
-  name     = var.resource_group_name
-  location = var.location
-
-  tags = {
-    ManagedBy = "openchoreo-workflow"
-  }
+data "azurerm_resource_group" "this" {
+  name = var.resource_group_name
 }
 
 # ── SQL Server ──────────────────────────────────────────────────────────────────
 
 resource "azurerm_mssql_server" "this" {
   name                         = var.server_name
-  resource_group_name          = azurerm_resource_group.this.name
-  location                     = azurerm_resource_group.this.location
+  resource_group_name          = data.azurerm_resource_group.this.name
+  location                     = data.azurerm_resource_group.this.location
   version                      = "12.0"
   administrator_login          = var.admin_username
   administrator_login_password = var.admin_password
