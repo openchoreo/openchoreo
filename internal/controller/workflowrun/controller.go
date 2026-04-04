@@ -210,7 +210,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			WorkflowRunName: workflowRun.Name,
 			Labels:          workflowRun.Labels,
 			WorkflowPlane: workflowpipeline.WorkflowPlaneData{
-				SecretStore: workflowPlaneResult.GetSecretStoreName(),
+				PlaneID:            workflowPlaneResult.GetPlaneID(),
+				SecretStore:        workflowPlaneResult.GetSecretStoreName(),
+				ObservabilityPlane: workflowPlaneResult.GetObservabilityPlaneName(),
 			},
 		},
 	}

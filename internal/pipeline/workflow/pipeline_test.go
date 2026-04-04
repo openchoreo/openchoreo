@@ -1387,6 +1387,59 @@ func TestPipeline_Render_WorkflowPlaneVariables(t *testing.T) {
 		}
 	})
 
+	t.Run("workflowplane.planeID and observabilityPlane rendered correctly", func(t *testing.T) {
+		input := &RenderInput{
+			WorkflowRun: &v1alpha1.WorkflowRun{
+				Spec: v1alpha1.WorkflowRunSpec{
+					Workflow: v1alpha1.WorkflowRunConfig{
+						Name: "test-workflow",
+					},
+				},
+			},
+			Workflow: &v1alpha1.Workflow{
+				Spec: v1alpha1.WorkflowSpec{
+					RunTemplate: mustRawExtension(t, map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "ConfigMap",
+						"metadata": map[string]interface{}{
+							"name": "expanded-wp-test",
+						},
+						"data": map[string]interface{}{
+							"planeID":            "${workflowplane.planeID}",
+							"secretStore":        "${workflowplane.secretStore}",
+							"observabilityPlane": "${workflowplane.observabilityPlane}",
+						},
+					}),
+				},
+			},
+			Context: WorkflowContext{
+				NamespaceName:   "test-namespace",
+				WorkflowRunName: "test-run",
+				WorkflowPlane: WorkflowPlaneData{
+					PlaneID:            "prod-plane-01",
+					SecretStore:        "prod-secrets",
+					ObservabilityPlane: "central-observability",
+				},
+			},
+		}
+
+		output, err := NewPipeline().Render(input)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		data := output.Resource["data"].(map[string]interface{})
+		if data["planeID"] != "prod-plane-01" {
+			t.Errorf("expected planeID 'prod-plane-01', got %v", data["planeID"])
+		}
+		if data["secretStore"] != "prod-secrets" {
+			t.Errorf("expected secretStore 'prod-secrets', got %v", data["secretStore"])
+		}
+		if data["observabilityPlane"] != "central-observability" {
+			t.Errorf("expected observabilityPlane 'central-observability', got %v", data["observabilityPlane"])
+		}
+	})
+
 	t.Run("workflowplane.secretStore defaults to empty string when not set", func(t *testing.T) {
 		input := &RenderInput{
 			WorkflowRun: &v1alpha1.WorkflowRun{
@@ -1406,6 +1459,7 @@ func TestPipeline_Render_WorkflowPlaneVariables(t *testing.T) {
 						},
 						"data": map[string]interface{}{
 							"secretStoreName": "${workflowplane.secretStore}",
+							"planeID":         "${workflowplane.planeID}",
 						},
 					}),
 				},
@@ -1425,6 +1479,9 @@ func TestPipeline_Render_WorkflowPlaneVariables(t *testing.T) {
 		data := output.Resource["data"].(map[string]interface{})
 		if data["secretStoreName"] != "" {
 			t.Errorf("expected secretStoreName to be empty, got %v", data["secretStoreName"])
+		}
+		if data["planeID"] != "" {
+			t.Errorf("expected planeID to be empty, got %v", data["planeID"])
 		}
 	})
 }
