@@ -78,7 +78,15 @@ type WorkflowContext struct {
 
 // WorkflowPlaneData contains workflow plane configuration exposed to CEL templates.
 type WorkflowPlaneData struct {
+	// PlaneID is the identifier for the workflow plane.
+	// Exposed as ${workflowplane.planeID}.
+	PlaneID string
+
 	// SecretStore is the name of the ESO ClusterSecretStore configured on the workflow plane.
 	// Exposed as ${workflowplane.secretStore}.
 	SecretStore string
+
+	// ObservabilityPlane is the name of the ObservabilityPlane configured on the workflow plane.
+	// Exposed as ${workflowplane.observabilityPlane}.
+	ObservabilityPlane string
 }

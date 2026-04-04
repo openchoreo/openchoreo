@@ -230,7 +230,9 @@ func (p *Pipeline) BuildCELContext(input *RenderInput) (map[string]any, error) {
 	}
 
 	workflowplane := map[string]any{
-		"secretStore": input.Context.WorkflowPlane.SecretStore,
+		"planeID":            input.Context.WorkflowPlane.PlaneID,
+		"secretStore":        input.Context.WorkflowPlane.SecretStore,
+		"observabilityPlane": input.Context.WorkflowPlane.ObservabilityPlane,
 	}
 
 	celContext := map[string]any{
