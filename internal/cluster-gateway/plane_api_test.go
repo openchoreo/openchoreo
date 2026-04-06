@@ -336,3 +336,77 @@ func TestHandlePlaneNotification_FetchCAFailure(t *testing.T) {
 	// Should return 503 when CA fetch fails (transient error for retry)
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
+
+func TestHandlePlaneNotification_NilCAData(t *testing.T) {
+	// DataPlane exists but has no CA configured (empty ClusterAgent)
+	dp := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp1", Namespace: "ns"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID:      "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{},
+		},
+	}
+
+	mux, _ := newTestPlaneAPI(t, dp)
+
+	notification := PlaneNotification{
+		PlaneType: "dataplane",
+		PlaneID:   "prod",
+		Event:     "created",
+		Namespace: "ns",
+		Name:      "dp1",
+	}
+	body, _ := json.Marshal(notification)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/planes/notify", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	// CR exists but has no CA → fetchCRClientCA returns error
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestHandleReconnect_NoConnections(t *testing.T) {
+	mux, _ := newTestPlaneAPI(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/planes/dataplane/prod/reconnect", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp PlaneReconnectResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.True(t, resp.Success)
+	assert.Equal(t, 0, resp.DisconnectedAgents)
+}
+
+func TestHandleGetPlaneStatus_NotFound(t *testing.T) {
+	mux, _ := newTestPlaneAPI(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/planes/dataplane/nonexistent/status", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var status PlaneConnectionStatus
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &status))
+	assert.False(t, status.Connected)
+	assert.Equal(t, 0, status.ConnectedAgents)
+}
+
+func TestHandleGetAllPlaneStatus_Empty(t *testing.T) {
+	mux, _ := newTestPlaneAPI(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/planes/status", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp AllPlaneStatusResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, 0, resp.Total)
+}

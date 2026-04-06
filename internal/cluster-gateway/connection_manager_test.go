@@ -20,6 +20,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
 
 // newTestWSConn creates a real WebSocket connection for testing.
@@ -569,4 +571,239 @@ func TestConnectionManager_RevalidateCR(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse")
 	})
+}
+
+func TestAgentConnection_Close(t *testing.T) {
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+
+	ac := &AgentConnection{
+		Conn: conn,
+	}
+
+	err := ac.Close()
+	assert.NoError(t, err)
+}
+
+func TestConnectionManager_CleanupOrphanedCRKeys(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	conn1, cleanup1 := newTestWSConn(t)
+	defer cleanup1()
+	conn2, cleanup2 := newTestWSConn(t)
+	defer cleanup2()
+
+	// Register two connections: conn1 for dp1+dp2, conn2 for dp2 only
+	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1", "ns/dp2"}, nil)
+	id2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp2"}, nil)
+
+	// Do a GetForCR to create per-CR round-robin keys
+	_, _ = cm.GetForCR("dataplane/prod", "ns/dp1")
+	_, _ = cm.GetForCR("dataplane/prod", "ns/dp2")
+
+	// Unregister conn2 — ns/dp2 still has conn1, but ns/dp1 round-robin key should persist
+	cm.Unregister("dataplane/prod", id2)
+
+	// ns/dp1 should still work (conn1 is authorized)
+	got, err := cm.GetForCR("dataplane/prod", "ns/dp1")
+	require.NoError(t, err)
+	assert.NotNil(t, got)
+}
+
+func TestConnectionManager_Unregister_PartialCleanup(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	conn1, cleanup1 := newTestWSConn(t)
+	defer cleanup1()
+	conn2, cleanup2 := newTestWSConn(t)
+	defer cleanup2()
+
+	// conn1 authorized for dp1 only, conn2 authorized for dp1 + dp2
+	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn2, []string{"ns/dp1", "ns/dp2"}, nil)
+
+	// Access dp1 via GetForCR to create round-robin key
+	_, _ = cm.GetForCR("dataplane/prod", "ns/dp1")
+
+	// Unregister conn1 — dp1 still has conn2, round-robin key should persist
+	cm.Unregister("dataplane/prod", id1)
+
+	// dp1 should still be accessible via conn2
+	got, err := cm.GetForCR("dataplane/prod", "ns/dp1")
+	require.NoError(t, err)
+	assert.NotNil(t, got)
+
+	// dp2 should still be accessible
+	got, err = cm.GetForCR("dataplane/prod", "ns/dp2")
+	require.NoError(t, err)
+	assert.NotNil(t, got)
+
+	assert.Equal(t, 1, cm.Count())
+}
+
+func TestConnectionManager_GetPlaneStatus_MultipleConnections(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	conn1, cleanup1 := newTestWSConn(t)
+	defer cleanup1()
+	conn2, cleanup2 := newTestWSConn(t)
+	defer cleanup2()
+
+	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
+
+	// Small delay so conn2 has a later LastSeen
+	time.Sleep(10 * time.Millisecond)
+	connID2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil)
+
+	// Update conn2 LastSeen to be newer
+	time.Sleep(10 * time.Millisecond)
+	cm.UpdateConnectionLastSeen("dataplane/prod", connID2)
+
+	status := cm.GetPlaneStatus("dataplane", "prod")
+	assert.True(t, status.Connected)
+	assert.Equal(t, 2, status.ConnectedAgents)
+	assert.False(t, status.LastSeen.IsZero())
+}
+
+func TestConnectionManager_GetAllPlaneStatuses_MultipleConnsPerPlane(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	conn1, cleanup1 := newTestWSConn(t)
+	defer cleanup1()
+	conn2, cleanup2 := newTestWSConn(t)
+	defer cleanup2()
+
+	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
+
+	time.Sleep(10 * time.Millisecond)
+	connID2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp2"}, nil)
+	time.Sleep(10 * time.Millisecond)
+	cm.UpdateConnectionLastSeen("dataplane/prod", connID2)
+
+	statuses := cm.GetAllPlaneStatuses()
+	require.Len(t, statuses, 1)
+	assert.Equal(t, 2, statuses[0].ConnectedAgents)
+	assert.False(t, statuses[0].LastSeen.IsZero())
+}
+
+func TestConnectionManager_SendHTTPTunnelRequest_Error(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	err := cm.SendHTTPTunnelRequest("dataplane/nonexistent", &messaging.HTTPTunnelRequest{
+		Target: "k8s",
+		Method: "GET",
+		Path:   "/api/v1/pods",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no agents found")
+}
+
+func TestConnectionManager_Unregister_CleansUpOrphanedCRKeys(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	conn1, cleanup1 := newTestWSConn(t)
+	defer cleanup1()
+	conn2, cleanup2 := newTestWSConn(t)
+	defer cleanup2()
+
+	// conn1 has unique CR "ns/dp-unique", conn2 has shared CR "ns/dp-shared"
+	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp-unique", "ns/dp-shared"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn2, []string{"ns/dp-shared"}, nil)
+
+	// Access both CRs to create round-robin keys
+	_, _ = cm.GetForCR("dataplane/prod", "ns/dp-unique")
+	_, _ = cm.GetForCR("dataplane/prod", "ns/dp-shared")
+
+	// Unregister conn1 → "ns/dp-unique" becomes orphaned, "ns/dp-shared" still has conn2
+	cm.Unregister("dataplane/prod", id1)
+
+	// dp-unique should no longer have authorized connections
+	_, err := cm.GetForCR("dataplane/prod", "ns/dp-unique")
+	assert.Error(t, err)
+
+	// dp-shared should still work
+	got, err := cm.GetForCR("dataplane/prod", "ns/dp-shared")
+	require.NoError(t, err)
+	assert.NotNil(t, got)
+}
+
+func TestConnectionManager_GetForCR_RoundRobin(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	conn1, cleanup1 := newTestWSConn(t)
+	defer cleanup1()
+	conn2, cleanup2 := newTestWSConn(t)
+	defer cleanup2()
+
+	// Both connections authorized for the same CR
+	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
+	id2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil)
+
+	got1, err := cm.GetForCR("dataplane/prod", "ns/dp1")
+	require.NoError(t, err)
+	got2, err := cm.GetForCR("dataplane/prod", "ns/dp1")
+	require.NoError(t, err)
+
+	assert.NotEqual(t, got1.ID, got2.ID)
+	ids := []string{got1.ID, got2.ID}
+	assert.Contains(t, ids, id1)
+	assert.Contains(t, ids, id2)
+}
+
+func TestConnectionManager_Unregister_LastConnection_CleansRRKeys(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+
+	connID, _ := cm.Register("dataplane", "prod", conn, []string{"ns/dp1", "ns/dp2"}, nil)
+
+	// Access CRs to create per-CR round-robin keys
+	_, _ = cm.GetForCR("dataplane/prod", "ns/dp1")
+	_, _ = cm.GetForCR("dataplane/prod", "ns/dp2")
+
+	// Unregister the LAST connection → cleanupPerCRRoundRobinKeys should be called
+	cm.Unregister("dataplane/prod", connID)
+
+	assert.Equal(t, 0, cm.Count())
+
+	// Plane is completely gone
+	_, err := cm.Get("dataplane/prod")
+	assert.Error(t, err)
+}
+
+func TestConnectionManager_DisconnectAllForPlane_CleansRRKeys(t *testing.T) {
+	cm := NewConnectionManager(testLogger())
+
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+
+	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+
+	// Create per-CR round-robin key
+	_, _ = cm.GetForCR("dataplane/prod", "ns/dp1")
+
+	// DisconnectAll also calls cleanupPerCRRoundRobinKeys
+	disconnected := cm.DisconnectAllForPlane("dataplane", "prod")
+	assert.Equal(t, 1, disconnected)
+	assert.Equal(t, 0, cm.Count())
+}
+
+func TestConnectionManager_RevalidateCR_UnchangedStatus(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	caPEM := encodeCertToPEM(t, caCert)
+
+	cm := NewConnectionManager(testLogger())
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+
+	// Register with CR already valid
+	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, clientCert)
+
+	// Revalidate with same CA — should be unchanged (still valid)
+	updated, removed, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", caPEM)
+	require.NoError(t, err)
+	assert.Equal(t, 0, updated)
+	assert.Equal(t, 0, removed)
 }

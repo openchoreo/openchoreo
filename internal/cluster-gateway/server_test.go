@@ -4,6 +4,12 @@
 package clustergateway
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,8 +19,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
 
@@ -366,4 +374,329 @@ func TestGetConnectionManager(t *testing.T) {
 	cm := s.GetConnectionManager()
 	assert.NotNil(t, cm)
 	assert.Equal(t, s.connMgr, cm)
+}
+
+// --- verifyClientCertificatePerCR tests ---
+
+func TestVerifyClientCertificatePerCR_ValidCert(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	caPEM := encodeCertToPEM(t, caCert)
+
+	scheme := testScheme()
+	dp := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp1", Namespace: "ns"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: string(caPEM)},
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
+	s := &Server{k8sClient: fakeClient, logger: testLogger()}
+
+	validCRs, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
+	require.NoError(t, err)
+	assert.Contains(t, validCRs, "ns/dp1")
+}
+
+func TestVerifyClientCertificatePerCR_MultipleCRs(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	caPEM := encodeCertToPEM(t, caCert)
+
+	otherCA, _ := generateTestCA(t)
+	otherPEM := encodeCertToPEM(t, otherCA)
+
+	scheme := testScheme()
+	dp1 := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp1", Namespace: "ns-a"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "shared",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: string(caPEM)},
+			},
+		},
+	}
+	dp2 := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp2", Namespace: "ns-b"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "shared",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: string(otherPEM)}, // Different CA
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp1, dp2).Build()
+	s := &Server{k8sClient: fakeClient, logger: testLogger()}
+
+	validCRs, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "shared")
+	require.NoError(t, err)
+	assert.Contains(t, validCRs, "ns-a/dp1")
+	assert.NotContains(t, validCRs, "ns-b/dp2")
+}
+
+func TestVerifyClientCertificatePerCR_NoCRsFound(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	s := &Server{k8sClient: fakeClient, logger: testLogger()}
+
+	_, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "nonexistent")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no dataplane CRs found")
+}
+
+func TestVerifyClientCertificatePerCR_CertInvalidForAll(t *testing.T) {
+	// Client cert signed by one CA, but CR has a different CA
+	clientCA, clientCAKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, clientCA, clientCAKey)
+
+	differentCA, _ := generateTestCA(t)
+	differentPEM := encodeCertToPEM(t, differentCA)
+
+	scheme := testScheme()
+	dp := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp1", Namespace: "ns"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: string(differentPEM)},
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
+	s := &Server{k8sClient: fakeClient, logger: testLogger()}
+
+	_, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "certificate not valid for any CR")
+}
+
+func TestVerifyClientCertificatePerCR_NilCAData(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+
+	scheme := testScheme()
+	// DataPlane exists but has inline empty/nil CA value (nil CA data in the map)
+	// Use inline Value so extractPlaneClientCAs includes it, but with content
+	// that won't parse as a valid cert pool
+	dp := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp1", Namespace: "ns"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: "not-a-valid-pem"},
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
+	s := &Server{k8sClient: fakeClient, logger: testLogger()}
+
+	_, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "certificate not valid for any CR")
+}
+
+func TestVerifyClientCertificatePerCR_WithIntermediates(t *testing.T) {
+	// Create root CA
+	rootCA, rootKey := generateTestCA(t)
+
+	// Create intermediate CA signed by root
+	intermediateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	intermediateTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(10),
+		Subject:               pkix.Name{CommonName: "Intermediate CA"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+	}
+	intermediateDER, err := x509.CreateCertificate(rand.Reader, intermediateTemplate, rootCA, &intermediateKey.PublicKey, rootKey)
+	require.NoError(t, err)
+	intermediateCert, err := x509.ParseCertificate(intermediateDER)
+	require.NoError(t, err)
+
+	// Create client cert signed by intermediate
+	clientCert := generateTestClientCert(t, intermediateCert, intermediateKey)
+
+	// The CR's CA is the root CA
+	rootPEM := encodeCertToPEM(t, rootCA)
+
+	scheme := testScheme()
+	dp := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp1", Namespace: "ns"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: string(rootPEM)},
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
+	s := &Server{k8sClient: fakeClient, logger: testLogger()}
+
+	// Pass intermediate cert chain
+	validCRs, err := s.verifyClientCertificatePerCR(clientCert, []*x509.Certificate{intermediateCert}, "dataplane", "prod")
+	require.NoError(t, err)
+	assert.Contains(t, validCRs, "ns/dp1")
+}
+
+// --- handleHTTPProxy expanded tests ---
+
+func TestHandleHTTPProxy_StreamingRedirect(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	s := New(&Config{}, fakeClient, testLogger())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/pods?watch=true", nil)
+	w := httptest.NewRecorder()
+	s.handleHTTPProxy(w, req)
+
+	assert.Equal(t, http.StatusNotImplemented, w.Code)
+	assert.Contains(t, w.Body.String(), "Streaming operations")
+}
+
+func TestHandleHTTPProxy_CRAuthorizationFailed(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	s := New(&Config{}, fakeClient, testLogger())
+
+	// Register agent but only for ns/dp1
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+
+	// Request for a different CR
+	req := httptest.NewRequest(http.MethodGet, "/api/proxy/dataplane/prod/ns/dp-other/k8s/api/v1/pods", nil)
+	w := httptest.NewRecorder()
+	s.handleHTTPProxy(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Contains(t, w.Body.String(), "Forbidden")
+}
+
+func TestHandleHTTPProxy_ClusterScopedCRNamespace(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	s := New(&Config{}, fakeClient, testLogger())
+
+	// Register agent for cluster-scoped CR only (key format: "/crName")
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"/global-dp"}, nil)
+
+	// Request with _cluster namespace but a different CR name → should get 403 (not found)
+	// This verifies _cluster is mapped to empty namespace forming key "/wrong-dp"
+	req := httptest.NewRequest(http.MethodGet, "/api/proxy/dataplane/prod/_cluster/wrong-dp/k8s/api/v1/pods", nil)
+	w := httptest.NewRecorder()
+	s.handleHTTPProxy(w, req)
+
+	// Agent is only authorized for "/global-dp", not "/wrong-dp" → 403
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Contains(t, w.Body.String(), "Forbidden")
+}
+
+func TestHandleHTTPProxy_Success(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	s := New(&Config{}, fakeClient, testLogger())
+
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+
+	// Run proxy request in goroutine (it blocks waiting for tunnel response)
+	req := httptest.NewRequest(http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/pods", nil)
+	w := httptest.NewRecorder()
+
+	done := make(chan struct{})
+	go func() {
+		s.handleHTTPProxy(w, req)
+		close(done)
+	}()
+
+	// Wait for the pending request to be registered, then deliver response
+	time.Sleep(50 * time.Millisecond)
+
+	s.requestsMu.Lock()
+	var requestID string
+	for id := range s.pendingHTTPRequests {
+		requestID = id
+		break
+	}
+	s.requestsMu.Unlock()
+
+	require.NotEmpty(t, requestID)
+
+	s.handleHTTPTunnelResponse("dataplane/prod", &messaging.HTTPTunnelResponse{
+		RequestID:  requestID,
+		StatusCode: 200,
+		Headers:    map[string][]string{"Content-Type": {"application/json"}},
+		Body:       []byte(`{"items":[]}`),
+	})
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("handleHTTPProxy did not return")
+	}
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, `{"items":[]}`, w.Body.String())
+	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+}
+
+func TestSendHTTPTunnelRequestForCR_Timeout(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	s := New(&Config{}, fakeClient, testLogger())
+
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+
+	req := &messaging.HTTPTunnelRequest{
+		Target: "k8s",
+		Method: "GET",
+		Path:   "/api/v1/pods",
+	}
+
+	_, err := s.SendHTTPTunnelRequestForCR("dataplane/prod", "ns/dp1", req, 50*time.Millisecond)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "timeout")
+
+	// Pending request should be cleaned up
+	s.requestsMu.Lock()
+	assert.Empty(t, s.pendingHTTPRequests)
+	s.requestsMu.Unlock()
+}
+
+func TestHandleHTTPProxy_NoAgentsRegistered(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	s := New(&Config{}, fakeClient, testLogger())
+
+	// No agents registered → should get 502
+	req := httptest.NewRequest(http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/pods", nil)
+	w := httptest.NewRecorder()
+	s.handleHTTPProxy(w, req)
+
+	assert.Equal(t, http.StatusBadGateway, w.Code)
 }
