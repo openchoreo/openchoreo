@@ -25,8 +25,8 @@ var traitlog = logf.Log.WithName("trait-resource")
 
 // SetupTraitWebhookWithManager registers the webhook for Trait in the manager.
 func SetupTraitWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.Trait{}).
-		WithValidator(&Validator{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.Trait{}).
+		WithCustomValidator(&Validator{}).
 		Complete()
 }
 

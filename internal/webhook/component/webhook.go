@@ -24,9 +24,9 @@ var componentlog = logf.Log.WithName("component-resource")
 
 // SetupComponentWebhookWithManager registers the webhook for Component in the manager.
 func SetupComponentWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.Component{}).
-		WithValidator(&Validator{Client: mgr.GetClient()}).
-		WithDefaulter(&Defaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.Component{}).
+		WithCustomValidator(&Validator{Client: mgr.GetClient()}).
+		WithCustomDefaulter(&Defaulter{}).
 		Complete()
 }
 

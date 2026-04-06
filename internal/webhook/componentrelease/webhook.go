@@ -30,9 +30,9 @@ var omitValue = field.OmitValueType{}
 
 // SetupComponentReleaseWebhookWithManager registers the webhook for ComponentRelease in the manager.
 func SetupComponentReleaseWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.ComponentRelease{}).
-		WithValidator(&Validator{}).
-		WithDefaulter(&Defaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.ComponentRelease{}).
+		WithCustomValidator(&Validator{}).
+		WithCustomDefaulter(&Defaulter{}).
 		Complete()
 }
 

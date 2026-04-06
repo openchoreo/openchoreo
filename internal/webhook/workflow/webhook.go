@@ -26,9 +26,9 @@ var workflowlog = logf.Log.WithName("workflow-resource")
 
 // SetupWorkflowWebhookWithManager registers the webhook for Workflow in the manager.
 func SetupWorkflowWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.Workflow{}).
-		WithValidator(&Validator{}).
-		WithDefaulter(&Defaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.Workflow{}).
+		WithCustomValidator(&Validator{}).
+		WithCustomDefaulter(&Defaulter{}).
 		Complete()
 }
 

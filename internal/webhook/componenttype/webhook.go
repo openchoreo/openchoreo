@@ -25,8 +25,8 @@ var componenttypelog = logf.Log.WithName("componenttype-resource")
 
 // SetupComponentTypeWebhookWithManager registers the webhook for ComponentType in the manager.
 func SetupComponentTypeWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.ComponentType{}).
-		WithValidator(&Validator{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.ComponentType{}).
+		WithCustomValidator(&Validator{}).
 		Complete()
 }
 

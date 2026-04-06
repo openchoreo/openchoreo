@@ -363,6 +363,11 @@ func (pc *ProxyClient) DeleteAllOf(ctx context.Context, obj client.Object, opts 
 	return fmt.Errorf("DeleteAllOf not implemented for ProxyClient")
 }
 
+// Apply applies the given apply configuration to the Kubernetes cluster
+func (pc *ProxyClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+	return fmt.Errorf("Apply not implemented for ProxyClient")
+}
+
 // Status returns a StatusWriter for updating object status
 func (pc *ProxyClient) Status() client.StatusWriter {
 	return &proxyStatusWriter{client: pc}
@@ -511,6 +516,11 @@ func (psw *proxyStatusWriter) Patch(ctx context.Context, obj client.Object, patc
 	return nil
 }
 
+// Apply applies the given apply configuration to the status subresource
+func (psw *proxyStatusWriter) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.SubResourceApplyOption) error {
+	return fmt.Errorf("Apply not supported for status subresource")
+}
+
 // proxySubResourceClient implements client.SubResourceClient
 type proxySubResourceClient struct {
 	client      *ProxyClient
@@ -535,6 +545,11 @@ func (psr *proxySubResourceClient) Update(ctx context.Context, obj client.Object
 // Patch patches a subresource
 func (psr *proxySubResourceClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
 	return fmt.Errorf("SubResource.Patch not implemented for ProxyClient")
+}
+
+// Apply applies the given apply configuration to a subresource
+func (psr *proxySubResourceClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.SubResourceApplyOption) error {
+	return fmt.Errorf("SubResource.Apply not implemented for ProxyClient")
 }
 
 // buildGetPath builds the Kubernetes API path for a GET request

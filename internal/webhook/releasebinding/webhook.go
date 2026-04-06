@@ -40,9 +40,8 @@ func SetupReleaseBindingWebhookWithManager(mgr ctrl.Manager) error {
 	)
 
 	// Register validating webhook
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&openchoreodevv1alpha1.ReleaseBinding{}).
-		WithValidator(&Validator{Client: mgr.GetClient()}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.ReleaseBinding{}).
+		WithCustomValidator(&Validator{Client: mgr.GetClient()}).
 		Complete()
 }
 
