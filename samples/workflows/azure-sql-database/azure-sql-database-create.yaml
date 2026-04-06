@@ -1,6 +1,6 @@
 # ============================================================
 # ClusterWorkflowTemplate — Argo Workflows execution template
-# Deploy this to the Build Plane cluster
+# Deploy this to the Workflow Plane cluster
 # ============================================================
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
@@ -408,6 +408,7 @@ spec:
               description: "Azure region where the resources will be created"
             credentialsSecret:
               type: string
+              default: "azure-sql-credentials"
               description: "Name of the Kubernetes Secret containing Azure AD App Registration credentials ('clientId', 'clientSecret', 'tenantId', 'subscriptionId') and 'adminPassword'"
         tfState:
           type: object
@@ -415,9 +416,11 @@ spec:
           properties:
             resourceGroup:
               type: string
+              default: "openchoreo-tfstate-rg"
               description: "Azure Resource Group for the Terraform state storage account. Created automatically on first run if it does not exist."
             storageAccount:
               type: string
+              default: "ocstfstate"
               description: "Azure Storage Account name for Terraform state (must be globally unique, 3-24 lowercase letters/numbers). Created automatically on first run if it does not exist."
         server:
           type: object
@@ -425,9 +428,11 @@ spec:
           properties:
             name:
               type: string
+              default: "my-app-sqlserver"
               description: "Globally unique name for the Azure SQL Server (e.g. my-app-sqlserver)"
             resourceGroupName:
               type: string
+              default: "my-app-rg"
               description: "Azure Resource Group for the SQL Server and database"
         db:
           type: object
@@ -435,9 +440,11 @@ spec:
           properties:
             name:
               type: string
+              default: "myappdb"
               description: "Name of the SQL Database to create on the server"
             adminUsername:
               type: string
+              default: "sqladmin"
               description: "Administrator login for the SQL Server"
             sku:
               type: string
@@ -504,7 +511,7 @@ spec:
         credentialsSecret: "azure-sql-credentials"
       tfState:
         resourceGroup: "openchoreo-tfstate-rg"
-        storageAccount: "ocaboreoqltfstate"
+        storageAccount: "ocstfstate"
       server:
         name: "my-app-sqlserver"
         resourceGroupName: "my-app-rg"

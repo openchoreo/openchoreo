@@ -293,6 +293,7 @@ spec:
               description: "Azure region where the resources were created"
             credentialsSecret:
               type: string
+              default: "azure-sql-credentials"
               description: "Name of the Kubernetes Secret containing Azure AD App Registration credentials ('clientId', 'clientSecret', 'tenantId', 'subscriptionId') and 'adminPassword'"
         tfState:
           type: object
@@ -300,9 +301,11 @@ spec:
           properties:
             resourceGroup:
               type: string
+              default: "openchoreo-tfstate-rg"
               description: "Azure Resource Group for the Terraform state storage account (must match the value used when creating the instance)"
             storageAccount:
               type: string
+              default: "ocstfstate"
               description: "Azure Storage Account name for Terraform state (must match the value used when creating the instance)"
         server:
           type: object
@@ -310,9 +313,11 @@ spec:
           properties:
             name:
               type: string
+              default: "my-app-sqlserver"
               description: "Name of the Azure SQL Server to delete — must exactly match the name used when creating the instance"
             resourceGroupName:
               type: string
+              default: "my-app-rg"
               description: "Azure Resource Group containing the SQL Server"
         db:
           type: object
@@ -320,9 +325,11 @@ spec:
           properties:
             name:
               type: string
+              default: "myappdb"
               description: "Database name used when creating the instance"
             adminUsername:
               type: string
+              default: "sqladmin"
               description: "Administrator login used when creating the instance"
             sku:
               type: string
@@ -389,7 +396,7 @@ spec:
         credentialsSecret: "azure-sql-credentials"
       tfState:
         resourceGroup: "openchoreo-tfstate-rg"
-        storageAccount: "ocaboreoqltfstate"
+        storageAccount: "ocstfstate"
       server:
         name: "my-app-sqlserver"
         resourceGroupName: "my-app-rg"

@@ -105,13 +105,13 @@ kubectl create secret generic azure-sql-credentials \
 | `git.branch` | No | `main` | Branch or tag to check out |
 | `git.tfPath` | No | `samples/workflows/azure-sql-database/terraform` | Relative path inside the cloned repo to the directory containing the Terraform files |
 | `azure.location` | No | `eastus` | Azure region for the Terraform state storage account (SQL Server location is inherited from the resource group) |
-| `azure.credentialsSecret` | Yes | — | Name of the Kubernetes Secret (see Prerequisites) |
-| `tfState.resourceGroup` | Yes | — | Azure Resource Group for the Terraform state storage account. Created automatically on first run. |
-| `tfState.storageAccount` | Yes | — | Azure Storage Account name for Terraform state (must be globally unique, 3-24 lowercase letters/numbers). Created automatically on first run. |
-| `server.name` | Yes | — | Globally unique name for the Azure SQL Server (e.g. `my-app-sqlserver`). Also used as the Terraform state key prefix. |
-| `server.resourceGroupName` | Yes | — | Azure Resource Group for the SQL Server and database |
-| `db.name` | Yes | — | Name of the SQL Database to create |
-| `db.adminUsername` | Yes | — | Administrator login for the SQL Server |
+| `azure.credentialsSecret` | Yes | `azure-sql-credentials` | Name of the Kubernetes Secret (see Prerequisites) |
+| `tfState.resourceGroup` | Yes | `openchoreo-tfstate-rg` | Azure Resource Group for the Terraform state storage account. Created automatically on first run. |
+| `tfState.storageAccount` | Yes | `ocstfstate` | Azure Storage Account name for Terraform state (must be globally unique, 3-24 lowercase letters/numbers). Created automatically on first run. |
+| `server.name` | Yes | `my-app-sqlserver` | Globally unique name for the Azure SQL Server (e.g. `my-app-sqlserver`). Also used as the Terraform state key prefix. |
+| `server.resourceGroupName` | Yes | `my-app-rg` | Azure Resource Group for the SQL Server and database |
+| `db.name` | Yes | `myappdb` | Name of the SQL Database to create |
+| `db.adminUsername` | Yes | `sqladmin` | Administrator login for the SQL Server |
 | `db.sku` | No | `Basic` | SKU name for the database (`Basic`, `S0`, `GP_S_Gen5_1`, etc.) |
 
 ---
@@ -143,7 +143,7 @@ spec:
         credentialsSecret: "azure-sql-credentials"
       tfState:
         resourceGroup: "openchoreo-tfstate-rg"
-        storageAccount: "myuniquestorageacct"
+        storageAccount: "ocstfstate"
       server:
         name: "my-app-sqlserver"
         resourceGroupName: "my-app-rg"
