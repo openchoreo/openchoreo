@@ -4,6 +4,8 @@
 package renderedrelease
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -1185,4 +1187,312 @@ func TestNewRenderedReleaseCleanupFailedCondition(t *testing.T) {
 	if cond.ObservedGeneration != 7 {
 		t.Errorf("expected generation 7, got %d", cond.ObservedGeneration)
 	}
+}
+
+// ─────────────────────────────────────────────────────────────
+// buildResourceStatus
+// ─────────────────────────────────────────────────────────────
+
+// buildResourcesDesired returns a minimal desired ConfigMap unstructured object with a tracking resource ID label.
+func buildResourcesDesired(resourceID, name string) *unstructured.Unstructured {
+	obj := &unstructured.Unstructured{}
+	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"})
+	obj.SetName(name)
+	obj.SetNamespace("default")
+	obj.SetLabels(map[string]string{
+		labels.LabelKeyRenderedReleaseResourceID: resourceID,
+	})
+	return obj
+}
+
+// buildResourcesLive returns a live ConfigMap with the same identity labels plus an optional status field.
+func buildResourcesLive(resourceID, name string, statusField map[string]interface{}) *unstructured.Unstructured {
+	obj := buildResourcesDesired(resourceID, name)
+	if statusField != nil {
+		obj.Object["status"] = statusField
+	}
+	return obj
+}
+
+func TestBuildResourceStatus(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	emptyRelease := &openchoreov1alpha1.RenderedRelease{}
+
+	t.Run("empty desired and live resources returns empty", func(t *testing.T) {
+		result := r.buildResourceStatus(ctx, emptyRelease, nil, nil)
+		if len(result) != 0 {
+			t.Errorf("expected empty slice, got %d items", len(result))
+		}
+	})
+
+	t.Run("desired resource without matching live resource gets Unknown health and nil status", func(t *testing.T) {
+		desired := buildResourcesDesired("res-1", "my-cm")
+		result := r.buildResourceStatus(ctx, emptyRelease, []*unstructured.Unstructured{desired}, nil)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		rs := result[0]
+		if rs.ID != "res-1" {
+			t.Errorf("expected ID res-1, got %s", rs.ID)
+		}
+		if rs.HealthStatus != openchoreov1alpha1.HealthStatusUnknown {
+			t.Errorf("expected HealthStatusUnknown, got %s", rs.HealthStatus)
+		}
+		if rs.Status != nil {
+			t.Errorf("expected nil Status, got %v", rs.Status)
+		}
+		if rs.LastObservedTime != nil {
+			t.Errorf("expected nil LastObservedTime, got %v", rs.LastObservedTime)
+		}
+	})
+
+	t.Run("desired resource with matching live resource extracts Healthy status and sets timestamp", func(t *testing.T) {
+		desired := buildResourcesDesired("res-1", "my-cm")
+		// ConfigMap uses getUnknownResourceHealth → always Healthy
+		live := buildResourcesLive("res-1", "my-cm", map[string]interface{}{"phase": "Active"})
+		result := r.buildResourceStatus(ctx, emptyRelease, []*unstructured.Unstructured{desired}, []*unstructured.Unstructured{live})
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		rs := result[0]
+		if rs.HealthStatus != openchoreov1alpha1.HealthStatusHealthy {
+			t.Errorf("expected HealthStatusHealthy, got %s", rs.HealthStatus)
+		}
+		if rs.Status == nil {
+			t.Error("expected non-nil Status")
+		}
+		if rs.LastObservedTime == nil {
+			t.Error("expected non-nil LastObservedTime")
+		}
+	})
+}
+
+func TestBuildResourceStatusStatusMarshaling(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	emptyRelease := &openchoreov1alpha1.RenderedRelease{}
+
+	statusData := map[string]interface{}{"replicas": float64(3), "readyReplicas": float64(3)}
+	desired := buildResourcesDesired("res-1", "my-cm")
+	live := buildResourcesLive("res-1", "my-cm", statusData)
+	result := r.buildResourceStatus(ctx, emptyRelease, []*unstructured.Unstructured{desired}, []*unstructured.Unstructured{live})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result))
+	}
+	rs := result[0]
+	if rs.Status == nil {
+		t.Fatal("expected non-nil Status")
+	}
+	var got map[string]interface{}
+	if err := json.Unmarshal(rs.Status.Raw, &got); err != nil {
+		t.Fatalf("failed to unmarshal status: %v", err)
+	}
+	if got["replicas"] != float64(3) {
+		t.Errorf("expected replicas=3, got %v", got["replicas"])
+	}
+	if got["readyReplicas"] != float64(3) {
+		t.Errorf("expected readyReplicas=3, got %v", got["readyReplicas"])
+	}
+}
+
+func TestBuildResourceStatusTimestamps(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	emptyRelease := &openchoreov1alpha1.RenderedRelease{}
+	fixedTime := metav1.NewTime(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC))
+
+	t.Run("timestamp preserved when status and health are unchanged", func(t *testing.T) {
+		statusData := map[string]interface{}{"phase": "Active"}
+		statusBytes, _ := json.Marshal(statusData)
+		old := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.ResourceStatus{
+					{
+						ID:               "res-1",
+						HealthStatus:     openchoreov1alpha1.HealthStatusHealthy, // matches ConfigMap's getUnknownResourceHealth
+						Status:           &runtime.RawExtension{Raw: statusBytes},
+						LastObservedTime: &fixedTime,
+					},
+				},
+			},
+		}
+		result := r.buildResourceStatus(ctx, old,
+			[]*unstructured.Unstructured{buildResourcesDesired("res-1", "my-cm")},
+			[]*unstructured.Unstructured{buildResourcesLive("res-1", "my-cm", statusData)},
+		)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		if result[0].LastObservedTime == nil {
+			t.Fatal("expected non-nil LastObservedTime")
+		}
+		if !result[0].LastObservedTime.Equal(&fixedTime) {
+			t.Errorf("expected timestamp to be preserved: got %v, want %v", result[0].LastObservedTime, fixedTime)
+		}
+	})
+
+	t.Run("timestamp updated when health changes", func(t *testing.T) {
+		// Old has Progressing; new live ConfigMap will produce Healthy → health changed
+		old := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.ResourceStatus{
+					{
+						ID:               "res-1",
+						HealthStatus:     openchoreov1alpha1.HealthStatusProgressing,
+						LastObservedTime: &fixedTime,
+					},
+				},
+			},
+		}
+		result := r.buildResourceStatus(ctx, old,
+			[]*unstructured.Unstructured{buildResourcesDesired("res-1", "my-cm")},
+			[]*unstructured.Unstructured{buildResourcesLive("res-1", "my-cm", nil)},
+		)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		if result[0].LastObservedTime == nil {
+			t.Fatal("expected non-nil LastObservedTime")
+		}
+		if result[0].LastObservedTime.Equal(&fixedTime) {
+			t.Error("expected timestamp to be updated, but it was preserved from old")
+		}
+	})
+
+	t.Run("timestamp updated for new resource not in old status", func(t *testing.T) {
+		result := r.buildResourceStatus(ctx, emptyRelease,
+			[]*unstructured.Unstructured{buildResourcesDesired("res-new", "new-cm")},
+			[]*unstructured.Unstructured{buildResourcesLive("res-new", "new-cm", nil)},
+		)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		if result[0].LastObservedTime == nil {
+			t.Error("expected non-nil LastObservedTime for new resource")
+		}
+	})
+}
+
+func TestBuildResourceStatusMixedResources(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	emptyRelease := &openchoreov1alpha1.RenderedRelease{}
+
+	// res-2 has no live resource; res-1 and res-3 do
+	result := r.buildResourceStatus(ctx, emptyRelease,
+		[]*unstructured.Unstructured{
+			buildResourcesDesired("res-1", "cm-1"),
+			buildResourcesDesired("res-2", "cm-2"),
+			buildResourcesDesired("res-3", "cm-3"),
+		},
+		[]*unstructured.Unstructured{
+			buildResourcesLive("res-1", "cm-1", nil),
+			buildResourcesLive("res-3", "cm-3", nil),
+		},
+	)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 results, got %d", len(result))
+	}
+
+	byID := make(map[string]openchoreov1alpha1.ResourceStatus)
+	for _, rs := range result {
+		byID[rs.ID] = rs
+	}
+
+	if byID["res-1"].HealthStatus != openchoreov1alpha1.HealthStatusHealthy {
+		t.Errorf("res-1: expected Healthy, got %s", byID["res-1"].HealthStatus)
+	}
+	if byID["res-3"].HealthStatus != openchoreov1alpha1.HealthStatusHealthy {
+		t.Errorf("res-3: expected Healthy, got %s", byID["res-3"].HealthStatus)
+	}
+	if byID["res-2"].HealthStatus != openchoreov1alpha1.HealthStatusUnknown {
+		t.Errorf("res-2: expected Unknown, got %s", byID["res-2"].HealthStatus)
+	}
+	if byID["res-2"].LastObservedTime != nil {
+		t.Error("res-2: expected nil LastObservedTime when no live resource")
+	}
+}
+
+// ─────────────────────────────────────────────────────────────
+// extractDeploymentConditions
+// ─────────────────────────────────────────────────────────────
+
+func TestExtractDeploymentConditions(t *testing.T) {
+	makeCondition := func(condType appsv1.DeploymentConditionType, status corev1.ConditionStatus, reason string) appsv1.DeploymentCondition {
+		return appsv1.DeploymentCondition{Type: condType, Status: status, Reason: reason}
+	}
+
+	t.Run("empty conditions returns nil for all", func(t *testing.T) {
+		avail, prog, replicaFail := extractDeploymentConditions(nil)
+		if avail != nil || prog != nil || replicaFail != nil {
+			t.Error("expected all nil for empty conditions")
+		}
+	})
+
+	t.Run("all three condition types present returns correct pointers", func(t *testing.T) {
+		conditions := []appsv1.DeploymentCondition{
+			makeCondition(appsv1.DeploymentAvailable, corev1.ConditionTrue, "MinimumReplicasAvailable"),
+			makeCondition(appsv1.DeploymentProgressing, corev1.ConditionTrue, "NewReplicaSetAvailable"),
+			makeCondition(appsv1.DeploymentReplicaFailure, corev1.ConditionFalse, ""),
+		}
+		avail, prog, replicaFail := extractDeploymentConditions(conditions)
+		if avail == nil {
+			t.Fatal("expected non-nil Available")
+		}
+		if avail.Reason != "MinimumReplicasAvailable" {
+			t.Errorf("wrong Available reason: %s", avail.Reason)
+		}
+		if prog == nil {
+			t.Fatal("expected non-nil Progressing")
+		}
+		if prog.Reason != "NewReplicaSetAvailable" {
+			t.Errorf("wrong Progressing reason: %s", prog.Reason)
+		}
+		if replicaFail == nil {
+			t.Error("expected non-nil ReplicaFailure")
+		}
+	})
+
+	t.Run("only Available condition present", func(t *testing.T) {
+		conditions := []appsv1.DeploymentCondition{
+			makeCondition(appsv1.DeploymentAvailable, corev1.ConditionTrue, "MinimumReplicasAvailable"),
+		}
+		avail, prog, replicaFail := extractDeploymentConditions(conditions)
+		if avail == nil {
+			t.Error("expected non-nil Available")
+		}
+		if prog != nil {
+			t.Error("expected nil Progressing")
+		}
+		if replicaFail != nil {
+			t.Error("expected nil ReplicaFailure")
+		}
+	})
+
+	t.Run("only Progressing condition present", func(t *testing.T) {
+		conditions := []appsv1.DeploymentCondition{
+			makeCondition(appsv1.DeploymentProgressing, corev1.ConditionTrue, "ReplicaSetUpdated"),
+		}
+		avail, prog, replicaFail := extractDeploymentConditions(conditions)
+		if avail != nil {
+			t.Error("expected nil Available")
+		}
+		if prog == nil {
+			t.Error("expected non-nil Progressing")
+		}
+		if replicaFail != nil {
+			t.Error("expected nil ReplicaFailure")
+		}
+	})
+
+	t.Run("unknown condition types are ignored", func(t *testing.T) {
+		conditions := []appsv1.DeploymentCondition{
+			{Type: "SomeUnknownCondition", Status: corev1.ConditionTrue},
+		}
+		avail, prog, replicaFail := extractDeploymentConditions(conditions)
+		if avail != nil || prog != nil || replicaFail != nil {
+			t.Error("expected all nil for unknown condition types")
+		}
+	})
 }
