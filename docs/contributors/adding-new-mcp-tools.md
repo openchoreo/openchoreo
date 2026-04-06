@@ -1,316 +1,153 @@
 # Adding New MCP Tools
 
-> **DEPRECATED:** This document describes the legacy MCP server (`pkg/mcp/legacytools/`). The toolset code has been moved from `pkg/mcp/tools/` to `pkg/mcp/legacytools/`. A new MCP server implementation is being developed.
+This guide explains how to add new tools to the OpenChoreo MCP server implementation in `pkg/mcp/tools/`.
 
-This guide explains how to add new tools to the OpenChoreo MCP server.
+## How the MCP server is structured
 
-## Adding a New Tool
+- **Tool definitions + registration**: `pkg/mcp/tools/`
+  - Toolset handler interfaces and `Toolsets` struct: `pkg/mcp/tools/types.go`
+  - Tool registration lists and `Toolsets.Register(...)`: `pkg/mcp/tools/register.go`
+  - Schema/result helpers: `pkg/mcp/tools/helpers.go`
+  - Tool implementations are grouped by domain in files like `namespace.go`, `project.go`, `component.go`, `deployment.go`, `build.go`, `pe.go`
+- **Tool implementations (handlers)**: `internal/openchoreo-api/mcphandlers/`
+  - A single handler type implements one or more toolset handler interfaces (e.g. `NamespaceToolsetHandler`, `ComponentToolsetHandler`, `PEToolsetHandler`).
+- **Wiring enabled toolsets**: `cmd/openchoreo-api/main.go` (`buildMCPToolsets`)
+- **Toolset configuration/validation**: `internal/openchoreo-api/config/mcp.go`
 
-### Option A: Add to Existing Toolset
+## Adding a new tool to an existing toolset
 
-Follow these steps to add a tool to an existing toolset (e.g., ComponentToolset):
+### 1. Add a method to the toolset handler interface
 
-#### 1. Update the Toolset Handler Interface
+In `pkg/mcp/tools/types.go`, add a method to the relevant handler interface.
 
-In `pkg/mcp/tools.go`, add your method to the appropriate handler interface:
+- **Signature**: handler methods return `(any, error)`
+- **Pagination**: list tools should accept a `ListOpts` argument
+
+Example (add to `ComponentToolsetHandler`):
 
 ```go
 type ComponentToolsetHandler interface {
-    CreateComponent(ctx context.Context, namespaceName, projectName string, req *models.CreateComponentRequest) (string, error)
-    YourNewMethod(ctx context.Context, param1 string, param2 int) (string, error)  // Add here
+    // ... existing methods ...
+    YourNewMethod(ctx context.Context, namespaceName string, someID string) (any, error)
 }
 ```
 
-**Conventions:**
-- Methods should return `(string, error)` - the string contains JSON-serialized response
-- Keep method names descriptive and follow Go naming conventions
-- First parameter should be `ctx context.Context`
+### 2. Implement the handler method in `mcphandlers`
 
-#### 2. Register the Tool
+Add the method to the MCP handler implementation in `internal/openchoreo-api/mcphandlers/` (pick the file that matches the domain, or create a new one).
 
-In the `Register` method of `pkg/mcp/tools.go`, create a new registration function:
+- **Return value**: return a Go value/struct/map/slice; the tool layer will JSON-encode it.
+- **List results**: when returning arrays, wrap them as an object (record) using `wrapList(...)` so structured MCP responses are valid, and include `next_cursor` when paginating.
+
+### 3. Register the tool in `pkg/mcp/tools/`
+
+Add a `Register...` function to the correct tool file (e.g. `component.go`, `pe.go`, etc). Follow the existing pattern:
+
+- Define `Name`, `Description`, and `InputSchema`
+- Use `createSchema(...)`, `stringProperty(...)`, `intProperty(...)`, and `addPaginationProperties(...)`
+- In the handler callback, call the handler method and return via `handleToolResult(result, err)`
+
+Example:
 
 ```go
 func (t *Toolsets) RegisterYourNewTool(s *mcp.Server) {
     mcp.AddTool(s, &mcp.Tool{
-        Name:        "your_tool_name",
-        Description: "Clear description of what the tool does",
+        Name:        "your_new_tool",
+        Description: "What this tool does.",
         InputSchema: createSchema(map[string]any{
-            "param1": stringProperty("Description of param1"),
-            "param2": numberProperty("Description of param2"),
-        }, []string{"param1"}), // List required fields
+            "namespace_name": defaultStringProperty(),
+            "some_id":        stringProperty("Identifier of the thing to operate on"),
+        }, []string{"namespace_name", "some_id"}),
     }, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-        Param1 string `json:"param1"`
-        Param2 int    `json:"param2"`
-    }) (*mcp.CallToolResult, map[string]string, error) {
-        result, err := t.ComponentToolset.YourNewMethod(ctx, args.Param1, args.Param2)
+        NamespaceName string `json:"namespace_name"`
+        SomeID        string `json:"some_id"`
+    }) (*mcp.CallToolResult, any, error) {
+        result, err := t.ComponentToolset.YourNewMethod(ctx, args.NamespaceName, args.SomeID)
         return handleToolResult(result, err)
     })
 }
 ```
 
-Then add it to the appropriate toolset registration list (e.g., `componentToolRegistrations`):
+### 4. Add the registration function to the toolset registration list
+
+In `pkg/mcp/tools/register.go`, add your `Register...` function to the appropriate registration list so it becomes part of `Toolsets.Register(...)`.
+
+Example (component toolset):
 
 ```go
 func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
     return []RegisterFunc{
-        t.RegisterListComponents,
-        t.RegisterGetComponent,
-        t.RegisterYourNewTool,  // Add here
+        // ... existing registrations ...
+        t.RegisterYourNewTool,
     }
 }
 ```
 
-**Key Points:**
-- Tool name should be lowercase with underscores (snake_case)
-- Always check if the handler is nil before adding tools
-- The args struct must have JSON tags matching the schema property names
-- Always marshal the result as JSON
-- Use `handleToolResult` helper function for consistent error handling
+## Creating a new toolset (new domain)
 
-#### 3. Implement the Handler
+If your tool doesn’t fit an existing toolset, create a new one.
 
-In `internal/openchoreo-api/mcphandlers/`, implement your handler method in the appropriate file:
+### 1. Add a new `ToolsetType` constant
 
-```go
-func (h *MCPHandler) YourNewMethod(param1 string, param2 int) (string, error) {
-    ctx := context.Background()
-    
-    // Call your service layer
-    res, err := h.Services.YourService.DoSomething(ctx, param1, param2)
-    if err != nil {
-        return "", err
-    }
-    
-    // Marshal to JSON string
-    data, err := json.Marshal(res)
-    if err != nil {
-        return "", err
-    }
-    
-    return string(data), nil
-}
-```
-
-### Option B: Create a New Toolset
-
-If you're adding a new category of tools, create a new toolset:
-
-#### 1. Define the Toolset Type
-
-In `pkg/mcp/tools.go`, add a new constant:
+In `pkg/mcp/tools/types.go`:
 
 ```go
 const (
-    ToolsetNamespace      ToolsetType = "namespace"
-    ToolsetProject        ToolsetType = "project"
-    ToolsetComponent      ToolsetType = "component"
-    ToolsetBuild          ToolsetType = "build"
-    ToolsetDeployment     ToolsetType = "deployment"
-    ToolsetInfrastructure ToolsetType = "infrastructure"
-    ToolsetYourNew        ToolsetType = "yournew"  // Add your toolset
+    // ... existing ...
+    ToolsetYourNew ToolsetType = "yournew"
 )
 ```
 
-#### 2. Create Handler Interface
+### 2. Add a handler interface and wire it into `Toolsets`
 
-Define a new handler interface:
+In `pkg/mcp/tools/types.go`:
 
 ```go
 type YourNewToolsetHandler interface {
-    Method1(ctx context.Context, param string) (string, error)
-    Method2(ctx context.Context, id int) (string, error)
+    Method1(ctx context.Context, namespaceName string) (any, error)
 }
-```
 
-#### 3. Add to Toolsets Struct
-
-```go
 type Toolsets struct {
-    NamespaceToolset      NamespaceToolsetHandler
-    ProjectToolset        ProjectToolsetHandler
-    ComponentToolset      ComponentToolsetHandler
-    BuildToolset          BuildToolsetHandler
-    DeploymentToolset     DeploymentToolsetHandler
-    InfrastructureToolset InfrastructureToolsetHandler
-    YourNewToolset        YourNewToolsetHandler  // Add your toolset
+    // ... existing ...
+    YourNewToolset YourNewToolsetHandler
 }
 ```
 
-#### 4. Register Tools
+### 3. Add a registration list and invoke it from `Toolsets.Register`
 
-Create registration functions and add them to a new toolset registration list:
+In `pkg/mcp/tools/register.go`, add:
 
 ```go
-func (t *Toolsets) RegisterMethod1(s *mcp.Server) {
-    mcp.AddTool(s, &mcp.Tool{
-        Name:        "method1",
-        Description: "Description",
-        InputSchema: createSchema(map[string]any{
-            "param": stringProperty("Parameter description"),
-        }, []string{"param"}),
-    }, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-        Param string `json:"param"`
-    }) (*mcp.CallToolResult, map[string]string, error) {
-        result, err := t.YourNewToolset.Method1(ctx, args.Param)
-        return handleToolResult(result, err)
-    })
-}
-
-// Add more registration functions...
-
-// Create a registration list function
 func (t *Toolsets) yourNewToolRegistrations() []RegisterFunc {
     return []RegisterFunc{
         t.RegisterMethod1,
-        // Add more tools...
     }
 }
 ```
 
-Then in the `Register` method, add your toolset registration:
+And extend `Register(...)`:
 
 ```go
-func (t *Toolsets) Register(s *mcp.Server) {
-    // ... existing toolsets ...
-    
-    if t.YourNewToolset != nil {
-        for _, registerFunc := range t.yourNewToolRegistrations() {
-            registerFunc(s)
-        }
+if t.YourNewToolset != nil {
+    for _, registerFunc := range t.yourNewToolRegistrations() {
+        registerFunc(s)
     }
 }
 ```
 
-#### 5. Create Handler File
+### 4. Wire the toolset into the API server
 
-Create a new file in `internal/openchoreo-api/mcphandlers/` (e.g., `yournew.go`):
+- **Enable in toolset switch**: update `cmd/openchoreo-api/main.go` (`buildMCPToolsets`) to set `toolsets.YourNewToolset = handler` when enabled.
+- **Allow in config validation**: update `internal/openchoreo-api/config/mcp.go` (`validToolsets`) to include the new toolset string.
 
-```go
-package mcphandlers
+## Conventions and gotchas
 
-import (
-    "context"
-    "encoding/json"
-)
-
-func (h *MCPHandler) Method1(ctx context.Context, param string) (string, error) {
-    // Implementation
-    res, err := h.Services.YourService.Method1(ctx, param)
-    if err != nil {
-        return "", err
-    }
-    
-    data, err := json.Marshal(res)
-    if err != nil {
-        return "", err
-    }
-    
-    return string(data), nil
-}
-```
-
-#### 6. Update Toolset Initialization
-
-Add your new toolset to the initialization logic in `internal/openchoreo-api/handlers/handlers.go`:
-
-```go
-func getMCPServerToolsets(h *Handler) *mcp.Toolsets {
-    // ... existing code ...
-    
-    for toolsetType := range toolsetsMap {
-        switch toolsetType {
-        case mcp.ToolsetNamespace:
-            toolsets.NamespaceToolset = &mcphandlers.MCPHandler{Services: h.services}
-        case mcp.ToolsetProject:
-            toolsets.ProjectToolset = &mcphandlers.MCPHandler{Services: h.services}
-        case mcp.ToolsetComponent:
-            toolsets.ComponentToolset = &mcphandlers.MCPHandler{Services: h.services}
-        case mcp.ToolsetBuild:
-            toolsets.BuildToolset = &mcphandlers.MCPHandler{Services: h.services}
-        case mcp.ToolsetDeployment:
-            toolsets.DeploymentToolset = &mcphandlers.MCPHandler{Services: h.services}
-        case mcp.ToolsetInfrastructure:
-            toolsets.InfrastructureToolset = &mcphandlers.MCPHandler{Services: h.services}
-        case mcp.ToolsetYourNew:  // Add your new toolset
-            toolsets.YourNewToolset = &mcphandlers.MCPHandler{Services: h.services}
-        default:
-            h.logger.Warn("Unknown toolset type", slog.String("toolset", string(toolsetType)))
-        }
-    }
-    return toolsets
-}
-```
-
-Now users can enable your toolset by setting:
-```bash
-export MCP_TOOLSETS="namespace,project,yournew"
-```
-
-## Schema Helper Functions
-
-Available helper functions for defining input schemas:
-
-### `stringProperty(description string)`
-Creates a string property:
-```go
-"name": stringProperty("User's name")
-```
-
-### `numberProperty(description string)`
-Creates a number property:
-```go
-"age": numberProperty("User's age")
-```
-
-### `booleanProperty(description string)`
-Creates a boolean property:
-```go
-"enabled": booleanProperty("Whether the feature is enabled")
-```
-
-### `arrayProperty(description string, itemType string)`
-Creates an array property:
-```go
-"tags": arrayProperty("List of tags", "string")
-```
-
-### `enumProperty(description string, values []string)`
-Creates an enum property with fixed allowed values:
-```go
-"format": enumProperty("Output format", []string{"json", "table", "yaml"})
-```
-
-### `createSchema(properties map[string]any, required []string)`
-Creates the complete input schema:
-```go
-InputSchema: createSchema(map[string]any{
-    "name": stringProperty("Required name parameter"),
-    "age":  numberProperty("Optional age parameter"),
-}, []string{"name"}) // Only "name" is required
-```
-
-**Note:** Some helper functions may be marked as unused by linters if they're not currently used in the codebase. This is expected for functions provided for future extensibility.
-
-## Data Type Conventions
-
-### Return Types
-All handler methods **must** return `(string, error)`:
-- The string should contain JSON-serialized data
-- Use `json.Marshal()` to serialize responses
-- Return empty string and error on failure
-
-### Input Parameters
-- Keep parameters simple (string, int, bool, etc.)
-- Complex inputs should use structs with JSON tags
-- JSON tags must match schema property names exactly
-
-### Schema Types
-- `string` - text values
-- `number` / `integer` - numeric values
-- `boolean` - true/false values
-- `object` - nested structures
-- `array` - lists of values
-
-### Enums
-Use `enumProperty()` for parameters with a fixed set of allowed values.
+- **Tool names**: use `snake_case` (e.g., `list_environments`, `create_component_release`).
+- **Inputs**:
+  - JSON tags in the args struct must match the schema property names exactly.
+  - Use `defaultStringProperty()` for common identifiers (like `namespace_name`) unless you need a specific description.
+  - For list tools, include pagination fields via `addPaginationProperties(...)` and accept `limit` and `cursor` in args.
+- **Outputs**:
+  - Tool handlers return `(any, error)`.
+  - The registration layer uses `handleToolResult(...)` to JSON-marshal and return `mcp.CallToolResult`.
+  - When returning arrays from list operations, ensure the handler wraps them as an object (record) and includes `next_cursor` when present (see `internal/openchoreo-api/mcphandlers/helpers.go`).
