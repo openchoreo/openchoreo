@@ -255,10 +255,6 @@ metadata:
   annotations:
     openchoreo.dev/description: "Destroy an Azure SQL Database provisioned by azure-sql-database-create"
 spec:
-  # Template Variable Reference (processed by controller):
-  # ${metadata.workflowRunName}  - WorkflowRun CR name
-  # ${metadata.namespaceName}    - Namespace name
-  # ${parameters.*}              - Values from the schema below
 
   ttlAfterCompletion: "1d"
 
