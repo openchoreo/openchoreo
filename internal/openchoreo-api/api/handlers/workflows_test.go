@@ -214,7 +214,12 @@ func TestUpdateWorkflowRunHandler_ClearsStatusAndUsesPathName(t *testing.T) {
 		Config: &config.Config{ClusterGateway: config.ClusterGatewayConfig{URL: "https://gateway.example"}},
 	}
 
-	body := gen.WorkflowRun{Metadata: gen.ObjectMeta{Name: "run-from-body"}}
+	body := gen.WorkflowRun{
+		Metadata: gen.ObjectMeta{Name: "run-from-body"},
+		Status: &gen.WorkflowRunStatus{
+			RunReference: &gen.ResourceReference{ApiVersion: "v1", Kind: "Pod", Name: "pod-1"},
+		},
+	}
 	resp, err := h.UpdateWorkflowRun(ctx, gen.UpdateWorkflowRunRequestObject{
 		NamespaceName: "test-ns",
 		RunName:       "run-from-path",

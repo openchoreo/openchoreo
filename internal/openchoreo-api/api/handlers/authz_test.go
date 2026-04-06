@@ -295,6 +295,23 @@ func TestEvaluatesHandler(t *testing.T) {
 		assert.False(t, typed[1].Decision)
 		assert.Nil(t, typed[1].Context, "empty reason must omit context")
 	})
+
+	t.Run("generic error returns 500", func(t *testing.T) {
+		body := []gen.EvaluateRequest{{
+			Action:         "view",
+			Resource:       gen.Resource{Type: "project"},
+			SubjectContext: gen.SubjectContext{Type: gen.SubjectContextType("user")},
+		}}
+		h := newHandlerWithAuthzService(t, &mockAuthzService{
+			evaluateFn: func(context.Context, []authzcore.EvaluateRequest) ([]authzcore.Decision, error) {
+				return nil, errors.New("unexpected failure")
+			},
+		}, &config.Config{})
+
+		resp, err := h.Evaluates(ctx, gen.EvaluatesRequestObject{Body: &body})
+		require.NoError(t, err)
+		assert.IsType(t, gen.Evaluates500JSONResponse{}, resp)
+	})
 }
 
 func TestGetSubjectProfileHandler(t *testing.T) {
@@ -337,6 +354,19 @@ func TestGetSubjectProfileHandler(t *testing.T) {
 		resp, err := h.GetSubjectProfile(ctx, gen.GetSubjectProfileRequestObject{})
 		require.NoError(t, err)
 		assert.IsType(t, gen.GetSubjectProfile403JSONResponse{}, resp)
+	})
+
+	t.Run("generic error returns 500", func(t *testing.T) {
+		ctx := testContext()
+		h := newHandlerWithAuthzService(t, &mockAuthzService{
+			getSubjectProfileFn: func(context.Context, *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
+				return nil, errors.New("internal failure")
+			},
+		}, cfg)
+
+		resp, err := h.GetSubjectProfile(ctx, gen.GetSubjectProfileRequestObject{})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetSubjectProfile500JSONResponse{}, resp)
 	})
 
 	t.Run("success converts profile", func(t *testing.T) {
@@ -422,9 +452,7 @@ func TestListSubjectTypesHandler(t *testing.T) {
 		},
 	}
 
-	h := newHandlerWithAuthzService(t, &mockAuthzService{
-		listActionsFn: func(context.Context) ([]authzcore.Action, error) { return nil, nil },
-	}, cfg)
+	h := newHandlerWithAuthzService(t, &mockAuthzService{}, cfg)
 
 	resp, err := h.ListSubjectTypes(testContext(), gen.ListSubjectTypesRequestObject{})
 	require.NoError(t, err)

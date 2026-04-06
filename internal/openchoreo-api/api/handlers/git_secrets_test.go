@@ -69,6 +69,8 @@ func TestListGitSecretsHandler_OnlySetsWorkflowPlanePointersWhenPresent(t *testi
 
 	require.NotNil(t, typed.Items[0].WorkflowPlaneKind)
 	require.NotNil(t, typed.Items[0].WorkflowPlaneName)
+	assert.Equal(t, "WorkflowPlane", *typed.Items[0].WorkflowPlaneKind)
+	assert.Equal(t, "wp1", *typed.Items[0].WorkflowPlaneName)
 	assert.Nil(t, typed.Items[1].WorkflowPlaneKind)
 	assert.Nil(t, typed.Items[1].WorkflowPlaneName)
 }
@@ -214,8 +216,11 @@ func TestCreateGitSecretHandler_NilBodyReturns400(t *testing.T) {
 
 func TestDeleteGitSecretHandler_SuccessReturns204(t *testing.T) {
 	ctx := testContext()
+	var gotNamespace, gotSecret string
 	svc := &mockGitSecretService{
-		deleteFn: func(context.Context, string, string) error {
+		deleteFn: func(_ context.Context, namespace, secretName string) error {
+			gotNamespace = namespace
+			gotSecret = secretName
 			return nil
 		},
 	}
@@ -227,4 +232,6 @@ func TestDeleteGitSecretHandler_SuccessReturns204(t *testing.T) {
 	resp, err := h.DeleteGitSecret(ctx, gen.DeleteGitSecretRequestObject{NamespaceName: "ns1", GitSecretName: "s1"})
 	require.NoError(t, err)
 	assert.IsType(t, gen.DeleteGitSecret204Response{}, resp)
+	assert.Equal(t, "ns1", gotNamespace)
+	assert.Equal(t, "s1", gotSecret)
 }

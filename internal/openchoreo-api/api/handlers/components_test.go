@@ -420,32 +420,60 @@ func TestCreateComponentHandler_NamespaceMismatchReturns400(t *testing.T) {
 
 func TestUpdateComponentHandler_UsesPathNameAndValidatesNamespace(t *testing.T) {
 	ctx := testContext()
-	svc := &mockComponentService{
-		updateFn: func(_ context.Context, namespace string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
-			assert.Equal(t, "test-ns", namespace)
-			assert.Equal(t, "comp-from-path", component.Name, "path must override body name")
-			return component, nil
-		},
-	}
-	h := &Handler{
-		services: &handlerservices.Services{ComponentService: svc},
-		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
 
-	body := gen.Component{
-		Metadata: gen.ObjectMeta{
-			Name: "comp-from-body",
-		},
-	}
-	resp, err := h.UpdateComponent(ctx, gen.UpdateComponentRequestObject{
-		NamespaceName: "test-ns",
-		ComponentName: "comp-from-path",
-		Body:          &body,
+	t.Run("uses path name", func(t *testing.T) {
+		svc := &mockComponentService{
+			updateFn: func(_ context.Context, namespace string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
+				assert.Equal(t, "test-ns", namespace)
+				assert.Equal(t, "comp-from-path", component.Name, "path must override body name")
+				return component, nil
+			},
+		}
+		h := &Handler{
+			services: &handlerservices.Services{ComponentService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+
+		body := gen.Component{
+			Metadata: gen.ObjectMeta{Name: "comp-from-body"},
+		}
+		resp, err := h.UpdateComponent(ctx, gen.UpdateComponentRequestObject{
+			NamespaceName: "test-ns",
+			ComponentName: "comp-from-path",
+			Body:          &body,
+		})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.UpdateComponent200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Equal(t, "comp-from-path", typed.Metadata.Name)
 	})
-	require.NoError(t, err)
-	typed, ok := resp.(gen.UpdateComponent200JSONResponse)
-	require.True(t, ok, "expected 200 response, got %T", resp)
-	assert.Equal(t, "comp-from-path", typed.Metadata.Name)
+
+	t.Run("namespace mismatch returns 400", func(t *testing.T) {
+		svc := &mockComponentService{
+			updateFn: func(context.Context, string, *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
+				t.Fatal("UpdateComponent should not be called for namespace mismatch")
+				return nil, nil
+			},
+		}
+		h := &Handler{
+			services: &handlerservices.Services{ComponentService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+
+		body := gen.Component{
+			Metadata: gen.ObjectMeta{
+				Name:      "comp-from-body",
+				Namespace: ptr.To("other-ns"),
+			},
+		}
+		resp, err := h.UpdateComponent(ctx, gen.UpdateComponentRequestObject{
+			NamespaceName: "test-ns",
+			ComponentName: "comp-from-path",
+			Body:          &body,
+		})
+		require.NoError(t, err)
+		assert.IsType(t, gen.UpdateComponent400JSONResponse{}, resp)
+	})
 }
 
 func TestGenerateReleaseHandler_MapsValidationErrorTo400AndForwardsReleaseName(t *testing.T) {

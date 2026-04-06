@@ -688,6 +688,7 @@ func TestUpdateClusterComponentTypeHandler_MapsErrors(t *testing.T) {
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateClusterComponentType403JSONResponse{}},
 		{"not found -> 404", clustercomponenttypesvc.ErrClusterComponentTypeNotFound, gen.UpdateClusterComponentType404JSONResponse{}},
+		{"validation error -> 400", &svcpkg.ValidationError{Msg: "invalid spec"}, gen.UpdateClusterComponentType400JSONResponse{}},
 	}
 
 	for _, tt := range tests {
@@ -719,6 +720,7 @@ func TestUpdateClusterTraitHandler_MapsErrors(t *testing.T) {
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateClusterTrait403JSONResponse{}},
 		{"not found -> 404", clustertraitsvc.ErrClusterTraitNotFound, gen.UpdateClusterTrait404JSONResponse{}},
+		{"validation error -> 400", &svcpkg.ValidationError{Msg: "invalid spec"}, gen.UpdateClusterTrait400JSONResponse{}},
 	}
 
 	for _, tt := range tests {

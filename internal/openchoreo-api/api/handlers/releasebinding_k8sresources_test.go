@@ -237,11 +237,17 @@ func TestGetReleaseBindingK8sResourceEventsHandler_SuccessReturnsEvents(t *testi
 
 func TestGetReleaseBindingK8sResourceLogsHandler_SuccessReturnsLogs(t *testing.T) {
 	ctx := testContext()
+	since := int64(60)
 
 	h := &Handler{
 		services: &handlerservices.Services{
 			K8sResourcesService: &mockK8sResourcesService{
-				logsFn: func(context.Context, string, string, string, *int64) (*models.ResourcePodLogsResponse, error) {
+				logsFn: func(_ context.Context, namespace, rb, pod string, sinceSeconds *int64) (*models.ResourcePodLogsResponse, error) {
+					assert.Equal(t, "test-ns", namespace)
+					assert.Equal(t, "rb-1", rb)
+					assert.Equal(t, "pod-1", pod)
+					require.NotNil(t, sinceSeconds)
+					assert.EqualValues(t, 60, *sinceSeconds)
 					return &models.ResourcePodLogsResponse{LogEntries: []models.PodLogEntry{
 						{Timestamp: "2026-01-02T03:04:05Z", Log: "hello"},
 					}}, nil
@@ -254,7 +260,7 @@ func TestGetReleaseBindingK8sResourceLogsHandler_SuccessReturnsLogs(t *testing.T
 	resp, err := h.GetReleaseBindingK8sResourceLogs(ctx, gen.GetReleaseBindingK8sResourceLogsRequestObject{
 		NamespaceName:      "test-ns",
 		ReleaseBindingName: "rb-1",
-		Params:             gen.GetReleaseBindingK8sResourceLogsParams{PodName: "pod-1"},
+		Params:             gen.GetReleaseBindingK8sResourceLogsParams{PodName: "pod-1", SinceSeconds: &since},
 	})
 	require.NoError(t, err)
 
