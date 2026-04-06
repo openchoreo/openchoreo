@@ -5,6 +5,7 @@ package adaptor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -57,7 +58,49 @@ func (a *DefaultTracesAdaptor) GetTraces(ctx context.Context, params observabili
 		osParams.ComponentUIDs = []string{params.ComponentID}
 	}
 
-	// Build and execute query
+	// When listing traces (no specific traceID), use aggregation query so that
+	// the limit controls the number of distinct traces, not individual spans.
+	if params.TraceID == "" {
+		return a.getTracesWithAggregation(ctx, osParams)
+	}
+
+	return a.getTracesWithSpanQuery(ctx, osParams)
+}
+
+// getTracesWithAggregation uses a terms aggregation on traceId to return the
+// requested number of distinct traces.
+func (a *DefaultTracesAdaptor) getTracesWithAggregation(ctx context.Context, osParams opensearch.TracesRequestParams) (*observability.TracesQueryResult, error) {
+	query := a.queryBuilder.BuildTracesAggregationQuery(osParams)
+	response, err := a.osClient.Search(ctx, []string{"otel-traces-*"}, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute traces aggregation search: %w", err)
+	}
+
+	aggResult, err := parseTracesAggregation(response.Aggregations)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse traces aggregation: %w", err)
+	}
+
+	traces := make([]observability.Trace, 0, len(aggResult.Traces.Buckets))
+	for _, bucket := range aggResult.Traces.Buckets {
+		trace := buildTraceFromBucket(bucket)
+		traces = append(traces, trace)
+	}
+
+	totalCount := aggResult.TraceCount.Value
+	if totalCount > config.MaxLimit {
+		totalCount = config.MaxLimit
+	}
+
+	return &observability.TracesQueryResult{
+		Traces:     traces,
+		TotalCount: totalCount,
+		Took:       response.Took,
+	}, nil
+}
+
+// getTracesWithSpanQuery uses the span-level query (for fetching spans of a specific trace).
+func (a *DefaultTracesAdaptor) getTracesWithSpanQuery(ctx context.Context, osParams opensearch.TracesRequestParams) (*observability.TracesQueryResult, error) {
 	query := a.queryBuilder.BuildTracesQuery(osParams)
 	response, err := a.osClient.Search(ctx, []string{"otel-traces-*"}, query)
 	if err != nil {
@@ -93,6 +136,83 @@ func (a *DefaultTracesAdaptor) GetTraces(ctx context.Context, params observabili
 		TotalCount: min(response.Hits.Total.Value, config.MaxLimit),
 		Took:       response.Took,
 	}, nil
+}
+
+// parseTracesAggregation parses the raw aggregation JSON from the OpenSearch response.
+func parseTracesAggregation(raw json.RawMessage) (*opensearch.TracesAggregationResult, error) {
+	if len(raw) == 0 {
+		return &opensearch.TracesAggregationResult{}, nil
+	}
+	var result opensearch.TracesAggregationResult
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal aggregation result: %w", err)
+	}
+	return &result, nil
+}
+
+// buildTraceFromBucket converts an aggregation bucket into an observability.Trace.
+func buildTraceFromBucket(bucket opensearch.TraceBucket) observability.Trace {
+	trace := observability.Trace{
+		TraceID:   bucket.Key,
+		SpanCount: bucket.DocCount,
+	}
+
+	// Extract startTime from the earliest span (top_hits sorted by startTime asc)
+	if len(bucket.EarliestSpan.Hits.Hits) > 0 {
+		src := bucket.EarliestSpan.Hits.Hits[0].Source
+		if src != nil {
+			if ts, ok := src["startTime"].(string); ok {
+				if parsed, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+					trace.StartTime = parsed
+				}
+			}
+		}
+	}
+
+	// Extract root span info from the root_span filter aggregation (parentSpanId == "")
+	// Falls back to the earliest span if no root span is found
+	if len(bucket.RootSpan.Hit.Hits.Hits) > 0 {
+		src := bucket.RootSpan.Hit.Hits.Hits[0].Source
+		if src != nil {
+			if spanID, ok := src["spanId"].(string); ok {
+				trace.RootSpanID = spanID
+			}
+			if name, ok := src["name"].(string); ok {
+				trace.RootSpanName = name
+				trace.TraceName = name
+			}
+		}
+	} else if len(bucket.EarliestSpan.Hits.Hits) > 0 {
+		src := bucket.EarliestSpan.Hits.Hits[0].Source
+		if src != nil {
+			if spanID, ok := src["spanId"].(string); ok {
+				trace.RootSpanID = spanID
+			}
+			if name, ok := src["name"].(string); ok {
+				trace.RootSpanName = name
+				trace.TraceName = name
+			}
+		}
+	}
+
+	// Extract endTime from the latest span (top_hits sorted by endTime desc)
+	if len(bucket.LatestSpan.Hits.Hits) > 0 {
+		src := bucket.LatestSpan.Hits.Hits[0].Source
+		if src != nil {
+			if ts, ok := src["endTime"].(string); ok {
+				if parsed, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+					trace.EndTime = parsed
+				}
+			}
+		}
+	}
+
+	// Calculate duration
+	if !trace.StartTime.IsZero() && !trace.EndTime.IsZero() {
+		trace.DurationNs = trace.EndTime.Sub(trace.StartTime).Nanoseconds()
+	}
+
+	return trace
 }
 
 // GetSpanDetails retrieves details for a specific span

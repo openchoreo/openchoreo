@@ -21,8 +21,41 @@ type SearchResponse struct {
 		} `json:"total"`
 		Hits []Hit `json:"hits"`
 	} `json:"hits"`
-	Took     int  `json:"took"`
-	TimedOut bool `json:"timed_out"`
+	Aggregations json.RawMessage `json:"aggregations,omitempty"`
+	Took         int             `json:"took"`
+	TimedOut     bool            `json:"timed_out"`
+}
+
+// TracesAggregationResult represents the parsed aggregation response for traces queries
+type TracesAggregationResult struct {
+	TraceCount struct {
+		Value int `json:"value"`
+	} `json:"trace_count"`
+	Traces struct {
+		Buckets []TraceBucket `json:"buckets"`
+	} `json:"traces"`
+}
+
+// TraceBucket represents a single trace bucket from the terms aggregation
+type TraceBucket struct {
+	Key          string             `json:"key"`
+	DocCount     int                `json:"doc_count"`
+	EarliestSpan AggTopHitsValue    `json:"earliest_span"`
+	RootSpan     AggFilteredTopHits `json:"root_span"`
+	LatestSpan   AggTopHitsValue    `json:"latest_span"`
+}
+
+// AggTopHitsValue represents a top_hits aggregation result
+type AggTopHitsValue struct {
+	Hits struct {
+		Hits []Hit `json:"hits"`
+	} `json:"hits"`
+}
+
+// AggFilteredTopHits represents a filter aggregation with a nested top_hits sub-aggregation
+type AggFilteredTopHits struct {
+	DocCount int             `json:"doc_count"`
+	Hit      AggTopHitsValue `json:"hit"`
 }
 
 // Hit represents a single search result hit

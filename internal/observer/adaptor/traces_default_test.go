@@ -4,6 +4,7 @@
 package adaptor
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -224,4 +225,361 @@ func TestConvertToObservabilityTrace_ComplexHierarchy(t *testing.T) {
 
 	// Verify all spans are in the trace
 	assert.Len(t, trace.Spans, 4)
+}
+
+func TestParseTracesAggregation(t *testing.T) {
+	t.Run("Valid aggregation response", func(t *testing.T) {
+		raw := json.RawMessage(`{
+			"trace_count": { "value": 42 },
+			"traces": {
+				"buckets": [
+					{
+						"key": "trace-aaa",
+						"doc_count": 5,
+						"earliest_span": {
+							"hits": {
+								"hits": [
+									{
+										"_id": "hit1",
+										"_source": { "spanId": "span-root", "name": "GET /api", "parentSpanId": "", "startTime": "2024-01-01T00:00:00.123456789Z" }
+									}
+								]
+							}
+						},
+						"root_span": {
+							"doc_count": 1,
+							"hit": {
+								"hits": {
+									"hits": [
+										{
+											"_id": "hit1-root",
+											"_source": { "spanId": "span-root", "name": "GET /api" }
+										}
+									]
+								}
+							}
+						},
+						"latest_span": {
+							"hits": {
+								"hits": [
+									{
+										"_id": "hit1-end",
+										"_source": { "endTime": "2024-01-01T00:00:01.987654321Z" }
+									}
+								]
+							}
+						},
+						"min_start_time": { "value": 1704067200123 }
+					},
+					{
+						"key": "trace-bbb",
+						"doc_count": 3,
+						"earliest_span": {
+							"hits": {
+								"hits": [
+									{
+										"_id": "hit2",
+										"_source": { "spanId": "span-root-2", "name": "POST /submit", "parentSpanId": "", "startTime": "2024-01-01T00:00:02.111222333Z" }
+									}
+								]
+							}
+						},
+						"root_span": {
+							"doc_count": 1,
+							"hit": {
+								"hits": {
+									"hits": [
+										{
+											"_id": "hit2-root",
+											"_source": { "spanId": "span-root-2", "name": "POST /submit" }
+										}
+									]
+								}
+							}
+						},
+						"latest_span": {
+							"hits": {
+								"hits": [
+									{
+										"_id": "hit2-end",
+										"_source": { "endTime": "2024-01-01T00:00:03.444555666Z" }
+									}
+								]
+							}
+						},
+						"min_start_time": { "value": 1704067202111 }
+					}
+				]
+			}
+		}`)
+
+		result, err := parseTracesAggregation(raw)
+		require.NoError(t, err)
+
+		assert.Equal(t, 42, result.TraceCount.Value)
+		assert.Len(t, result.Traces.Buckets, 2)
+
+		bucket := result.Traces.Buckets[0]
+		assert.Equal(t, "trace-aaa", bucket.Key)
+		assert.Equal(t, 5, bucket.DocCount)
+
+		require.Len(t, bucket.EarliestSpan.Hits.Hits, 1)
+		earliestSource := bucket.EarliestSpan.Hits.Hits[0].Source
+		assert.Equal(t, "span-root", earliestSource["spanId"])
+		assert.Equal(t, "GET /api", earliestSource["name"])
+		assert.Equal(t, "2024-01-01T00:00:00.123456789Z", earliestSource["startTime"])
+
+		require.Len(t, bucket.LatestSpan.Hits.Hits, 1)
+		latestSource := bucket.LatestSpan.Hits.Hits[0].Source
+		assert.Equal(t, "2024-01-01T00:00:01.987654321Z", latestSource["endTime"])
+	})
+
+	t.Run("Empty aggregation", func(t *testing.T) {
+		result, err := parseTracesAggregation(nil)
+		require.NoError(t, err)
+		assert.Equal(t, 0, result.TraceCount.Value)
+		assert.Empty(t, result.Traces.Buckets)
+	})
+}
+
+func TestParseTracesAggregation_InvalidJSON(t *testing.T) {
+	raw := json.RawMessage(`{invalid json}`)
+	_, err := parseTracesAggregation(raw)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to unmarshal aggregation result")
+}
+
+func TestBuildTraceFromBucket_EmptyBucket(t *testing.T) {
+	bucket := opensearch.TraceBucket{
+		Key:      "trace-empty",
+		DocCount: 0,
+	}
+
+	trace := buildTraceFromBucket(bucket)
+
+	assert.Equal(t, "trace-empty", trace.TraceID)
+	assert.Equal(t, 0, trace.SpanCount)
+	assert.Empty(t, trace.RootSpanID)
+	assert.Empty(t, trace.RootSpanName)
+	assert.True(t, trace.StartTime.IsZero())
+	assert.True(t, trace.EndTime.IsZero())
+	assert.Equal(t, int64(0), trace.DurationNs)
+}
+
+func TestBuildTraceFromBucket_NilSource(t *testing.T) {
+	bucket := opensearch.TraceBucket{
+		Key:      "trace-nil",
+		DocCount: 1,
+		EarliestSpan: opensearch.AggTopHitsValue{
+			Hits: struct {
+				Hits []opensearch.Hit `json:"hits"`
+			}{
+				Hits: []opensearch.Hit{
+					{ID: "hit1", Source: nil},
+				},
+			},
+		},
+		LatestSpan: opensearch.AggTopHitsValue{
+			Hits: struct {
+				Hits []opensearch.Hit `json:"hits"`
+			}{
+				Hits: []opensearch.Hit{
+					{ID: "hit2", Source: nil},
+				},
+			},
+		},
+	}
+
+	trace := buildTraceFromBucket(bucket)
+
+	assert.Equal(t, "trace-nil", trace.TraceID)
+	assert.Equal(t, 1, trace.SpanCount)
+	assert.Empty(t, trace.RootSpanID)
+	assert.True(t, trace.StartTime.IsZero())
+	assert.True(t, trace.EndTime.IsZero())
+	assert.Equal(t, int64(0), trace.DurationNs)
+}
+
+func TestBuildTraceFromBucket_InvalidTimestamps(t *testing.T) {
+	makeTopHits := func(source map[string]interface{}) opensearch.AggTopHitsValue {
+		return opensearch.AggTopHitsValue{
+			Hits: struct {
+				Hits []opensearch.Hit `json:"hits"`
+			}{
+				Hits: []opensearch.Hit{
+					{ID: "hit1", Source: source},
+				},
+			},
+		}
+	}
+
+	bucket := opensearch.TraceBucket{
+		Key:      "trace-bad-ts",
+		DocCount: 1,
+		EarliestSpan: makeTopHits(map[string]interface{}{
+			"spanId":    "span-1",
+			"name":      "test",
+			"startTime": "not-a-timestamp",
+		}),
+		LatestSpan: makeTopHits(map[string]interface{}{
+			"endTime": "also-not-a-timestamp",
+		}),
+	}
+
+	trace := buildTraceFromBucket(bucket)
+
+	assert.Equal(t, "trace-bad-ts", trace.TraceID)
+	assert.Equal(t, "span-1", trace.RootSpanID)
+	assert.Equal(t, "test", trace.RootSpanName)
+	assert.True(t, trace.StartTime.IsZero())
+	assert.True(t, trace.EndTime.IsZero())
+	assert.Equal(t, int64(0), trace.DurationNs)
+}
+
+func TestBuildTraceFromBucket_OnlyStartTime(t *testing.T) {
+	makeTopHits := func(source map[string]interface{}) opensearch.AggTopHitsValue {
+		return opensearch.AggTopHitsValue{
+			Hits: struct {
+				Hits []opensearch.Hit `json:"hits"`
+			}{
+				Hits: []opensearch.Hit{
+					{ID: "hit1", Source: source},
+				},
+			},
+		}
+	}
+
+	bucket := opensearch.TraceBucket{
+		Key:      "trace-partial",
+		DocCount: 1,
+		EarliestSpan: makeTopHits(map[string]interface{}{
+			"spanId":    "span-1",
+			"name":      "test",
+			"startTime": "2024-01-01T10:00:00Z",
+		}),
+	}
+
+	trace := buildTraceFromBucket(bucket)
+
+	assert.Equal(t, "trace-partial", trace.TraceID)
+	assert.False(t, trace.StartTime.IsZero())
+	assert.True(t, trace.EndTime.IsZero())
+	assert.Equal(t, int64(0), trace.DurationNs)
+}
+
+func TestBuildTraceFromBucket(t *testing.T) {
+	makeTopHits := func(source map[string]interface{}) opensearch.AggTopHitsValue {
+		return opensearch.AggTopHitsValue{
+			Hits: struct {
+				Hits []opensearch.Hit `json:"hits"`
+			}{
+				Hits: []opensearch.Hit{
+					{ID: "hit1", Source: source},
+				},
+			},
+		}
+	}
+
+	makeFilteredTopHits := func(source map[string]interface{}) opensearch.AggFilteredTopHits {
+		return opensearch.AggFilteredTopHits{
+			DocCount: 1,
+			Hit: opensearch.AggTopHitsValue{
+				Hits: struct {
+					Hits []opensearch.Hit `json:"hits"`
+				}{
+					Hits: []opensearch.Hit{
+						{ID: "root-hit", Source: source},
+					},
+				},
+			},
+		}
+	}
+
+	bucket := opensearch.TraceBucket{
+		Key:      "trace-123",
+		DocCount: 7,
+		EarliestSpan: makeTopHits(map[string]interface{}{
+			"spanId":       "root-span-id",
+			"name":         "GET /users",
+			"parentSpanId": "",
+			"startTime":    "2024-01-01T10:00:00.123456789Z",
+		}),
+		RootSpan: makeFilteredTopHits(map[string]interface{}{
+			"spanId": "root-span-id",
+			"name":   "GET /users",
+		}),
+		LatestSpan: makeTopHits(map[string]interface{}{
+			"endTime": "2024-01-01T10:00:02.623456789Z",
+		}),
+	}
+
+	trace := buildTraceFromBucket(bucket)
+
+	assert.Equal(t, "trace-123", trace.TraceID)
+	assert.Equal(t, 7, trace.SpanCount)
+	assert.Equal(t, "root-span-id", trace.RootSpanID)
+	assert.Equal(t, "GET /users", trace.RootSpanName)
+	assert.Equal(t, "GET /users", trace.TraceName)
+	assert.Equal(t, int64(2500000000), trace.DurationNs)
+	assert.Equal(t, "2024-01-01T10:00:00.123456789Z", trace.StartTime.Format(time.RFC3339Nano))
+	assert.Equal(t, "2024-01-01T10:00:02.623456789Z", trace.EndTime.Format(time.RFC3339Nano))
+}
+
+func TestBuildTraceFromBucket_RootSpanDiffersFromEarliestSpan(t *testing.T) {
+	makeTopHits := func(source map[string]interface{}) opensearch.AggTopHitsValue {
+		return opensearch.AggTopHitsValue{
+			Hits: struct {
+				Hits []opensearch.Hit `json:"hits"`
+			}{
+				Hits: []opensearch.Hit{
+					{ID: "hit1", Source: source},
+				},
+			},
+		}
+	}
+
+	makeFilteredTopHits := func(source map[string]interface{}) opensearch.AggFilteredTopHits {
+		return opensearch.AggFilteredTopHits{
+			DocCount: 1,
+			Hit: opensearch.AggTopHitsValue{
+				Hits: struct {
+					Hits []opensearch.Hit `json:"hits"`
+				}{
+					Hits: []opensearch.Hit{
+						{ID: "root-hit", Source: source},
+					},
+				},
+			},
+		}
+	}
+
+	bucket := opensearch.TraceBucket{
+		Key:      "trace-456",
+		DocCount: 5,
+		EarliestSpan: makeTopHits(map[string]interface{}{
+			"spanId":       "child-span-id",
+			"name":         "DB query",
+			"parentSpanId": "root-span-id",
+			"startTime":    "2024-01-01T10:00:00.000000000Z",
+		}),
+		RootSpan: makeFilteredTopHits(map[string]interface{}{
+			"spanId": "root-span-id",
+			"name":   "GET /users",
+		}),
+		LatestSpan: makeTopHits(map[string]interface{}{
+			"endTime": "2024-01-01T10:00:02.000000000Z",
+		}),
+	}
+
+	trace := buildTraceFromBucket(bucket)
+
+	assert.Equal(t, "trace-456", trace.TraceID)
+	assert.Equal(t, 5, trace.SpanCount)
+	// Root span info should come from root_span, not earliest_span
+	assert.Equal(t, "root-span-id", trace.RootSpanID)
+	assert.Equal(t, "GET /users", trace.RootSpanName)
+	assert.Equal(t, "GET /users", trace.TraceName)
+	// Start time should still come from earliest span
+	assert.Equal(t, "2024-01-01T10:00:00Z", trace.StartTime.Format(time.RFC3339Nano))
+	assert.Equal(t, int64(2000000000), trace.DurationNs)
 }
