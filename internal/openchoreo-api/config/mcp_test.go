@@ -54,7 +54,7 @@ func TestNewMCPConfig_ValidateToolsets(t *testing.T) {
 				Toolsets: []string{"invalid"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid toolsets: namespace, project, component, deployment, build, pe`},
+				{Field: "mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid toolsets: build, component, deployment, namespace, pe, project`},
 			},
 		},
 		{
@@ -64,7 +64,7 @@ func TestNewMCPConfig_ValidateToolsets(t *testing.T) {
 				Toolsets: []string{"namespace", "unknown", "component"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "mcp.toolsets[1]", Message: `unknown toolset "unknown"; valid toolsets: namespace, project, component, deployment, build, pe`},
+				{Field: "mcp.toolsets[1]", Message: `unknown toolset "unknown"; valid toolsets: build, component, deployment, namespace, pe, project`},
 			},
 		},
 	}
