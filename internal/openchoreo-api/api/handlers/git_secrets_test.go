@@ -11,51 +11,23 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	gitsecretsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/gitsecret"
+	gitsecretmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/gitsecret/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 )
 
-type mockGitSecretService struct {
-	listFn   func(ctx context.Context, namespace string) ([]gitsecretsvc.GitSecretInfo, error)
-	createFn func(ctx context.Context, namespace string, req *gitsecretsvc.CreateGitSecretParams) (*gitsecretsvc.GitSecretInfo, error)
-	deleteFn func(ctx context.Context, namespace, name string) error
-}
-
-var _ gitsecretsvc.Service = (*mockGitSecretService)(nil)
-
-func (m *mockGitSecretService) ListGitSecrets(ctx context.Context, namespaceName string) ([]gitsecretsvc.GitSecretInfo, error) {
-	if m.listFn == nil {
-		panic("ListGitSecrets not configured")
-	}
-	return m.listFn(ctx, namespaceName)
-}
-func (m *mockGitSecretService) CreateGitSecret(ctx context.Context, namespaceName string, req *gitsecretsvc.CreateGitSecretParams) (*gitsecretsvc.GitSecretInfo, error) {
-	if m.createFn == nil {
-		panic("CreateGitSecret not configured")
-	}
-	return m.createFn(ctx, namespaceName, req)
-}
-func (m *mockGitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, secretName string) error {
-	if m.deleteFn == nil {
-		panic("DeleteGitSecret not configured")
-	}
-	return m.deleteFn(ctx, namespaceName, secretName)
-}
-
 func TestListGitSecretsHandler_OnlySetsWorkflowPlanePointersWhenPresent(t *testing.T) {
 	ctx := testContext()
-	svc := &mockGitSecretService{
-		listFn: func(context.Context, string) ([]gitsecretsvc.GitSecretInfo, error) {
-			return []gitsecretsvc.GitSecretInfo{
-				{Name: "s1", Namespace: "ns1", WorkflowPlaneKind: "WorkflowPlane", WorkflowPlaneName: "wp1"},
-				{Name: "s2", Namespace: "ns1"},
-			}, nil
-		},
-	}
+	svc := gitsecretmocks.NewMockService(t)
+	svc.EXPECT().ListGitSecrets(mock.Anything, "ns1").Return([]gitsecretsvc.GitSecretInfo{
+		{Name: "s1", Namespace: "ns1", WorkflowPlaneKind: "WorkflowPlane", WorkflowPlaneName: "wp1"},
+		{Name: "s2", Namespace: "ns1"},
+	}, nil)
 	h := &Handler{
 		services: &handlerservices.Services{GitSecretService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -78,9 +50,9 @@ func TestListGitSecretsHandler_OnlySetsWorkflowPlanePointersWhenPresent(t *testi
 func TestCreateGitSecretHandler_ForwardsOptionalFields(t *testing.T) {
 	ctx := testContext()
 	var captured *gitsecretsvc.CreateGitSecretParams
-	svc := &mockGitSecretService{
-		createFn: func(_ context.Context, namespace string, req *gitsecretsvc.CreateGitSecretParams) (*gitsecretsvc.GitSecretInfo, error) {
-			assert.Equal(t, "test-ns", namespace)
+	svc := gitsecretmocks.NewMockService(t)
+	svc.EXPECT().CreateGitSecret(mock.Anything, "test-ns", mock.Anything).
+		RunAndReturn(func(_ context.Context, namespace string, req *gitsecretsvc.CreateGitSecretParams) (*gitsecretsvc.GitSecretInfo, error) {
 			captured = req
 			return &gitsecretsvc.GitSecretInfo{
 				Name:              req.SecretName,
@@ -88,8 +60,7 @@ func TestCreateGitSecretHandler_ForwardsOptionalFields(t *testing.T) {
 				WorkflowPlaneKind: req.WorkflowPlaneKind,
 				WorkflowPlaneName: req.WorkflowPlaneName,
 			}, nil
-		},
-	}
+		})
 	h := &Handler{
 		services: &handlerservices.Services{GitSecretService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -181,11 +152,8 @@ func TestMapDeleteGitSecretError(t *testing.T) {
 
 func TestListGitSecretsHandler_ServiceErrorReturns500(t *testing.T) {
 	ctx := testContext()
-	svc := &mockGitSecretService{
-		listFn: func(context.Context, string) ([]gitsecretsvc.GitSecretInfo, error) {
-			return nil, errors.New("storage unavailable")
-		},
-	}
+	svc := gitsecretmocks.NewMockService(t)
+	svc.EXPECT().ListGitSecrets(mock.Anything, "ns1").Return(nil, errors.New("storage unavailable"))
 	h := &Handler{
 		services: &handlerservices.Services{GitSecretService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -198,12 +166,7 @@ func TestListGitSecretsHandler_ServiceErrorReturns500(t *testing.T) {
 
 func TestCreateGitSecretHandler_NilBodyReturns400(t *testing.T) {
 	ctx := testContext()
-	svc := &mockGitSecretService{
-		createFn: func(context.Context, string, *gitsecretsvc.CreateGitSecretParams) (*gitsecretsvc.GitSecretInfo, error) {
-			t.Fatal("CreateGitSecret should not be called for nil body")
-			return nil, nil
-		},
-	}
+	svc := gitsecretmocks.NewMockService(t)
 	h := &Handler{
 		services: &handlerservices.Services{GitSecretService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -216,14 +179,8 @@ func TestCreateGitSecretHandler_NilBodyReturns400(t *testing.T) {
 
 func TestDeleteGitSecretHandler_SuccessReturns204(t *testing.T) {
 	ctx := testContext()
-	var gotNamespace, gotSecret string
-	svc := &mockGitSecretService{
-		deleteFn: func(_ context.Context, namespace, secretName string) error {
-			gotNamespace = namespace
-			gotSecret = secretName
-			return nil
-		},
-	}
+	svc := gitsecretmocks.NewMockService(t)
+	svc.EXPECT().DeleteGitSecret(mock.Anything, "ns1", "s1").Return(nil)
 	h := &Handler{
 		services: &handlerservices.Services{GitSecretService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -232,6 +189,4 @@ func TestDeleteGitSecretHandler_SuccessReturns204(t *testing.T) {
 	resp, err := h.DeleteGitSecret(ctx, gen.DeleteGitSecretRequestObject{NamespaceName: "ns1", GitSecretName: "s1"})
 	require.NoError(t, err)
 	assert.IsType(t, gen.DeleteGitSecret204Response{}, resp)
-	assert.Equal(t, "ns1", gotNamespace)
-	assert.Equal(t, "s1", gotSecret)
 }

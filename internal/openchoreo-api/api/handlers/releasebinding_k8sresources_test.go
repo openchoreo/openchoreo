@@ -4,12 +4,12 @@
 package handlers
 
 import (
-	"context"
 	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -18,34 +18,8 @@ import (
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	k8sresourcessvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/k8sresources"
+	k8sresourcesmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/k8sresources/mocks"
 )
-
-type mockK8sResourcesService struct {
-	treeFn   func(ctx context.Context, namespace, rb string) (*k8sresourcessvc.K8sResourceTreeResult, error)
-	eventsFn func(ctx context.Context, namespace, rb, group, version, kind, name string) (*models.ResourceEventsResponse, error)
-	logsFn   func(ctx context.Context, namespace, rb, pod string, sinceSeconds *int64) (*models.ResourcePodLogsResponse, error)
-}
-
-var _ k8sresourcessvc.Service = (*mockK8sResourcesService)(nil)
-
-func (m *mockK8sResourcesService) GetResourceTree(ctx context.Context, namespaceName, releaseBindingName string) (*k8sresourcessvc.K8sResourceTreeResult, error) {
-	if m.treeFn == nil {
-		panic("GetResourceTree not configured")
-	}
-	return m.treeFn(ctx, namespaceName, releaseBindingName)
-}
-func (m *mockK8sResourcesService) GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName, group, version, kind, name string) (*models.ResourceEventsResponse, error) {
-	if m.eventsFn == nil {
-		panic("GetResourceEvents not configured")
-	}
-	return m.eventsFn(ctx, namespaceName, releaseBindingName, group, version, kind, name)
-}
-func (m *mockK8sResourcesService) GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName, podName string, sinceSeconds *int64) (*models.ResourcePodLogsResponse, error) {
-	if m.logsFn == nil {
-		panic("GetResourceLogs not configured")
-	}
-	return m.logsFn(ctx, namespaceName, releaseBindingName, podName, sinceSeconds)
-}
 
 func TestGetReleaseBindingK8sResourceTreeHandler_MapsNotFoundAndForbidden(t *testing.T) {
 	ctx := testContext()
@@ -63,15 +37,11 @@ func TestGetReleaseBindingK8sResourceTreeHandler_MapsNotFoundAndForbidden(t *tes
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			svc := k8sresourcesmocks.NewMockService(t)
+			svc.EXPECT().GetResourceTree(mock.Anything, mock.Anything, mock.Anything).Return(nil, tt.svcErr)
 			h := &Handler{
-				services: &handlerservices.Services{
-					K8sResourcesService: &mockK8sResourcesService{
-						treeFn: func(context.Context, string, string) (*k8sresourcessvc.K8sResourceTreeResult, error) {
-							return nil, tt.svcErr
-						},
-					},
-				},
-				logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+				services: &handlerservices.Services{K8sResourcesService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 			}
 
 			resp, err := h.GetReleaseBindingK8sResourceTree(ctx, gen.GetReleaseBindingK8sResourceTreeRequestObject{
@@ -90,32 +60,26 @@ func TestGetReleaseBindingK8sResourceTreeHandler_ConvertsReleasesAndOptionalRend
 	rendered := &openchoreov1alpha1.RenderedRelease{}
 	rendered.Name = "rr-1"
 
-	h := &Handler{
-		services: &handlerservices.Services{
-			K8sResourcesService: &mockK8sResourcesService{
-				treeFn: func(context.Context, string, string) (*k8sresourcessvc.K8sResourceTreeResult, error) {
-					return &k8sresourcessvc.K8sResourceTreeResult{
-						RenderedReleases: []k8sresourcessvc.ReleaseResourceTree{
-							{
-								Name:        "rel-a",
-								TargetPlane: "dataplane",
-								Nodes: []models.ResourceNode{
-									{Kind: "Deployment", Name: "dep-a"},
-								},
-								Release: rendered,
-							},
-							{
-								Name:        "rel-b",
-								TargetPlane: "observabilityplane",
-								Nodes:       nil,
-								Release:     nil,
-							},
-						},
-					}, nil
-				},
+	svc := k8sresourcesmocks.NewMockService(t)
+	svc.EXPECT().GetResourceTree(mock.Anything, mock.Anything, mock.Anything).Return(&k8sresourcessvc.K8sResourceTreeResult{
+		RenderedReleases: []k8sresourcessvc.ReleaseResourceTree{
+			{
+				Name:        "rel-a",
+				TargetPlane: "dataplane",
+				Nodes:       []models.ResourceNode{{Kind: "Deployment", Name: "dep-a"}},
+				Release:     rendered,
+			},
+			{
+				Name:        "rel-b",
+				TargetPlane: "observabilityplane",
+				Nodes:       nil,
+				Release:     nil,
 			},
 		},
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}, nil)
+	h := &Handler{
+		services: &handlerservices.Services{K8sResourcesService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	resp, err := h.GetReleaseBindingK8sResourceTree(ctx, gen.GetReleaseBindingK8sResourceTreeRequestObject{
@@ -139,19 +103,12 @@ func TestGetReleaseBindingK8sResourceTreeHandler_ConvertsReleasesAndOptionalRend
 func TestGetReleaseBindingK8sResourceEventsHandler_DefaultsGroupToEmptyString(t *testing.T) {
 	ctx := testContext()
 
+	svc := k8sresourcesmocks.NewMockService(t)
+	svc.EXPECT().GetResourceEvents(mock.Anything, "test-ns", "rb-1", "", "v1", "Pod", "p1").
+		Return(&models.ResourceEventsResponse{Events: nil}, nil)
 	h := &Handler{
-		services: &handlerservices.Services{
-			K8sResourcesService: &mockK8sResourcesService{
-				eventsFn: func(_ context.Context, namespace, rb, group, version, kind, name string) (*models.ResourceEventsResponse, error) {
-					assert.Equal(t, "", group)
-					assert.Equal(t, "v1", version)
-					assert.Equal(t, "Pod", kind)
-					assert.Equal(t, "p1", name)
-					return &models.ResourceEventsResponse{Events: nil}, nil
-				},
-			},
-		},
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		services: &handlerservices.Services{K8sResourcesService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	resp, err := h.GetReleaseBindingK8sResourceEvents(ctx, gen.GetReleaseBindingK8sResourceEventsRequestObject{
@@ -184,15 +141,11 @@ func TestGetReleaseBindingK8sResourceEventsHandler_MapsErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			svc := k8sresourcesmocks.NewMockService(t)
+			svc.EXPECT().GetResourceEvents(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, tt.svcErr)
 			h := &Handler{
-				services: &handlerservices.Services{
-					K8sResourcesService: &mockK8sResourcesService{
-						eventsFn: func(context.Context, string, string, string, string, string, string) (*models.ResourceEventsResponse, error) {
-							return nil, tt.svcErr
-						},
-					},
-				},
-				logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+				services: &handlerservices.Services{K8sResourcesService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 			}
 			resp, err := h.GetReleaseBindingK8sResourceEvents(ctx, gen.GetReleaseBindingK8sResourceEventsRequestObject{
 				NamespaceName:      "test-ns",
@@ -208,17 +161,14 @@ func TestGetReleaseBindingK8sResourceEventsHandler_MapsErrors(t *testing.T) {
 func TestGetReleaseBindingK8sResourceEventsHandler_SuccessReturnsEvents(t *testing.T) {
 	ctx := testContext()
 
+	svc := k8sresourcesmocks.NewMockService(t)
+	svc.EXPECT().GetResourceEvents(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(&models.ResourceEventsResponse{Events: []models.ResourceEvent{
+			{Type: "Normal", Reason: "Started", Message: "container started"},
+		}}, nil)
 	h := &Handler{
-		services: &handlerservices.Services{
-			K8sResourcesService: &mockK8sResourcesService{
-				eventsFn: func(context.Context, string, string, string, string, string, string) (*models.ResourceEventsResponse, error) {
-					return &models.ResourceEventsResponse{Events: []models.ResourceEvent{
-						{Type: "Normal", Reason: "Started", Message: "container started"},
-					}}, nil
-				},
-			},
-		},
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		services: &handlerservices.Services{K8sResourcesService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	resp, err := h.GetReleaseBindingK8sResourceEvents(ctx, gen.GetReleaseBindingK8sResourceEventsRequestObject{
@@ -239,22 +189,14 @@ func TestGetReleaseBindingK8sResourceLogsHandler_SuccessReturnsLogs(t *testing.T
 	ctx := testContext()
 	since := int64(60)
 
+	svc := k8sresourcesmocks.NewMockService(t)
+	svc.EXPECT().GetResourceLogs(mock.Anything, "test-ns", "rb-1", "pod-1", &since).
+		Return(&models.ResourcePodLogsResponse{LogEntries: []models.PodLogEntry{
+			{Timestamp: "2026-01-02T03:04:05Z", Log: "hello"},
+		}}, nil)
 	h := &Handler{
-		services: &handlerservices.Services{
-			K8sResourcesService: &mockK8sResourcesService{
-				logsFn: func(_ context.Context, namespace, rb, pod string, sinceSeconds *int64) (*models.ResourcePodLogsResponse, error) {
-					assert.Equal(t, "test-ns", namespace)
-					assert.Equal(t, "rb-1", rb)
-					assert.Equal(t, "pod-1", pod)
-					require.NotNil(t, sinceSeconds)
-					assert.EqualValues(t, 60, *sinceSeconds)
-					return &models.ResourcePodLogsResponse{LogEntries: []models.PodLogEntry{
-						{Timestamp: "2026-01-02T03:04:05Z", Log: "hello"},
-					}}, nil
-				},
-			},
-		},
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		services: &handlerservices.Services{K8sResourcesService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	resp, err := h.GetReleaseBindingK8sResourceLogs(ctx, gen.GetReleaseBindingK8sResourceLogsRequestObject{
@@ -287,15 +229,11 @@ func TestGetReleaseBindingK8sResourceLogsHandler_MapsErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			svc := k8sresourcesmocks.NewMockService(t)
+			svc.EXPECT().GetResourceLogs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, tt.svcErr)
 			h := &Handler{
-				services: &handlerservices.Services{
-					K8sResourcesService: &mockK8sResourcesService{
-						logsFn: func(context.Context, string, string, string, *int64) (*models.ResourcePodLogsResponse, error) {
-							return nil, tt.svcErr
-						},
-					},
-				},
-				logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+				services: &handlerservices.Services{K8sResourcesService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 			}
 			resp, err := h.GetReleaseBindingK8sResourceLogs(ctx, gen.GetReleaseBindingK8sResourceLogsRequestObject{
 				NamespaceName:      "test-ns",

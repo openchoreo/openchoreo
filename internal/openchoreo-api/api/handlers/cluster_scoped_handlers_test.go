@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,7 +22,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
+	cctsvcmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype/mocks"
 	clustertraitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait"
+	clustertraitmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait/mocks"
 	clusterworkflowsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterworkflow"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
@@ -504,78 +507,13 @@ func TestGetClusterWorkflowSchemaHandler(t *testing.T) {
 	})
 }
 
-type mockClusterComponentTypeService struct {
-	updateFn func(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error)
-	createFn func(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error)
-}
-
-var _ clustercomponenttypesvc.Service = (*mockClusterComponentTypeService)(nil)
-
-func (m *mockClusterComponentTypeService) CreateClusterComponentType(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
-	if m.createFn == nil {
-		panic("CreateClusterComponentType not configured")
-	}
-	return m.createFn(ctx, cct)
-}
-func (m *mockClusterComponentTypeService) UpdateClusterComponentType(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
-	if m.updateFn == nil {
-		panic("UpdateClusterComponentType not configured")
-	}
-	return m.updateFn(ctx, cct)
-}
-func (m *mockClusterComponentTypeService) ListClusterComponentTypes(context.Context, svcpkg.ListOptions) (*svcpkg.ListResult[openchoreov1alpha1.ClusterComponentType], error) {
-	panic("not used")
-}
-func (m *mockClusterComponentTypeService) GetClusterComponentType(context.Context, string) (*openchoreov1alpha1.ClusterComponentType, error) {
-	panic("not used")
-}
-func (m *mockClusterComponentTypeService) DeleteClusterComponentType(context.Context, string) error {
-	panic("not used")
-}
-func (m *mockClusterComponentTypeService) GetClusterComponentTypeSchema(context.Context, string) (map[string]any, error) {
-	panic("not used")
-}
-
-type mockClusterTraitService struct {
-	updateFn func(ctx context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error)
-	createFn func(ctx context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error)
-}
-
-var _ clustertraitsvc.Service = (*mockClusterTraitService)(nil)
-
-func (m *mockClusterTraitService) CreateClusterTrait(ctx context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
-	if m.createFn == nil {
-		panic("CreateClusterTrait not configured")
-	}
-	return m.createFn(ctx, ct)
-}
-func (m *mockClusterTraitService) UpdateClusterTrait(ctx context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
-	if m.updateFn == nil {
-		panic("UpdateClusterTrait not configured")
-	}
-	return m.updateFn(ctx, ct)
-}
-func (m *mockClusterTraitService) ListClusterTraits(context.Context, svcpkg.ListOptions) (*svcpkg.ListResult[openchoreov1alpha1.ClusterTrait], error) {
-	panic("not used")
-}
-func (m *mockClusterTraitService) GetClusterTrait(context.Context, string) (*openchoreov1alpha1.ClusterTrait, error) {
-	panic("not used")
-}
-func (m *mockClusterTraitService) DeleteClusterTrait(context.Context, string) error {
-	panic("not used")
-}
-func (m *mockClusterTraitService) GetClusterTraitSchema(context.Context, string) (map[string]any, error) {
-	panic("not used")
-}
-
 func TestUpdateClusterComponentTypeHandler_UsesPathName(t *testing.T) {
 	ctx := testContext()
-	svc := &mockClusterComponentTypeService{
-		updateFn: func(_ context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
-			assert.Equal(t, "from-path", cct.Name)
-			return cct, nil
-		},
-	}
+	svc := cctsvcmocks.NewMockService(t)
+	svc.EXPECT().UpdateClusterComponentType(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
+		assert.Equal(t, "from-path", cct.Name)
+		return cct, nil
+	})
 	h := &Handler{
 		services: &handlerservices.Services{ClusterComponentTypeService: svc},
 		logger:   slog.Default(),
@@ -606,11 +544,8 @@ func TestCreateClusterComponentTypeHandler_MapsErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockClusterComponentTypeService{
-				createFn: func(context.Context, *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
-					return nil, tt.svcErr
-				},
-			}
+			svc := cctsvcmocks.NewMockService(t)
+			svc.EXPECT().CreateClusterComponentType(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
 			h := &Handler{
 				services: &handlerservices.Services{ClusterComponentTypeService: svc},
 				logger:   slog.Default(),
@@ -625,12 +560,11 @@ func TestCreateClusterComponentTypeHandler_MapsErrors(t *testing.T) {
 
 func TestUpdateClusterTraitHandler_UsesPathName(t *testing.T) {
 	ctx := testContext()
-	svc := &mockClusterTraitService{
-		updateFn: func(_ context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
-			assert.Equal(t, "from-path", ct.Name)
-			return ct, nil
-		},
-	}
+	svc := clustertraitmocks.NewMockService(t)
+	svc.EXPECT().UpdateClusterTrait(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, ct *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
+		assert.Equal(t, "from-path", ct.Name)
+		return ct, nil
+	})
 	h := &Handler{
 		services: &handlerservices.Services{ClusterTraitService: svc},
 		logger:   slog.Default(),
@@ -661,11 +595,8 @@ func TestCreateClusterTraitHandler_MapsErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockClusterTraitService{
-				createFn: func(context.Context, *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
-					return nil, tt.svcErr
-				},
-			}
+			svc := clustertraitmocks.NewMockService(t)
+			svc.EXPECT().CreateClusterTrait(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
 			h := &Handler{
 				services: &handlerservices.Services{ClusterTraitService: svc},
 				logger:   slog.Default(),
@@ -693,11 +624,8 @@ func TestUpdateClusterComponentTypeHandler_MapsErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockClusterComponentTypeService{
-				updateFn: func(context.Context, *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
-					return nil, tt.svcErr
-				},
-			}
+			svc := cctsvcmocks.NewMockService(t)
+			svc.EXPECT().UpdateClusterComponentType(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
 			h := &Handler{
 				services: &handlerservices.Services{ClusterComponentTypeService: svc},
 				logger:   slog.Default(),
@@ -725,11 +653,8 @@ func TestUpdateClusterTraitHandler_MapsErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockClusterTraitService{
-				updateFn: func(context.Context, *openchoreov1alpha1.ClusterTrait) (*openchoreov1alpha1.ClusterTrait, error) {
-					return nil, tt.svcErr
-				},
-			}
+			svc := clustertraitmocks.NewMockService(t)
+			svc.EXPECT().UpdateClusterTrait(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
 			h := &Handler{
 				services: &handlerservices.Services{ClusterTraitService: svc},
 				logger:   slog.Default(),

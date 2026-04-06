@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,6 +21,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
+	componentsvcmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
 )
@@ -345,60 +346,9 @@ func TestListComponentsHandler(t *testing.T) {
 	})
 }
 
-type mockComponentService struct {
-	createFn      func(ctx context.Context, namespace string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error)
-	updateFn      func(ctx context.Context, namespace string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error)
-	generateRelFn func(ctx context.Context, namespace, componentName string, req *componentsvc.GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error)
-	getSchemaFn   func(ctx context.Context, namespace, componentName string) (*extv1.JSONSchemaProps, error)
-}
-
-var _ componentsvc.Service = (*mockComponentService)(nil)
-
-func (m *mockComponentService) CreateComponent(ctx context.Context, namespaceName string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
-	if m.createFn == nil {
-		panic("CreateComponent not configured")
-	}
-	return m.createFn(ctx, namespaceName, component)
-}
-func (m *mockComponentService) UpdateComponent(ctx context.Context, namespaceName string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
-	if m.updateFn == nil {
-		panic("UpdateComponent not configured")
-	}
-	return m.updateFn(ctx, namespaceName, component)
-}
-func (m *mockComponentService) ListComponents(context.Context, string, string, svcpkg.ListOptions) (*svcpkg.ListResult[openchoreov1alpha1.Component], error) {
-	panic("not used")
-}
-func (m *mockComponentService) GetComponent(context.Context, string, string) (*openchoreov1alpha1.Component, error) {
-	panic("not used")
-}
-func (m *mockComponentService) DeleteComponent(context.Context, string, string) error {
-	panic("not used")
-}
-func (m *mockComponentService) GenerateRelease(ctx context.Context, namespaceName, componentName string, req *componentsvc.GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error) {
-	if m.generateRelFn == nil {
-		panic("GenerateRelease not configured")
-	}
-	return m.generateRelFn(ctx, namespaceName, componentName, req)
-}
-func (m *mockComponentService) GetComponentSchema(ctx context.Context, namespaceName, componentName string) (*extv1.JSONSchemaProps, error) {
-	if m.getSchemaFn == nil {
-		panic("GetComponentSchema not configured")
-	}
-	return m.getSchemaFn(ctx, namespaceName, componentName)
-}
-func (m *mockComponentService) GetComponentReleaseSchema(context.Context, string, string, string) (*extv1.JSONSchemaProps, error) {
-	panic("not used")
-}
-
 func TestCreateComponentHandler_NamespaceMismatchReturns400(t *testing.T) {
 	ctx := testContext()
-	svc := &mockComponentService{
-		createFn: func(context.Context, string, *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
-			t.Fatal("service should not be called when namespace mismatches")
-			return nil, nil
-		},
-	}
+	svc := componentsvcmocks.NewMockService(t)
 	h := &Handler{
 		services: &handlerservices.Services{ComponentService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -422,13 +372,12 @@ func TestUpdateComponentHandler_UsesPathNameAndValidatesNamespace(t *testing.T) 
 	ctx := testContext()
 
 	t.Run("uses path name", func(t *testing.T) {
-		svc := &mockComponentService{
-			updateFn: func(_ context.Context, namespace string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
-				assert.Equal(t, "test-ns", namespace)
-				assert.Equal(t, "comp-from-path", component.Name, "path must override body name")
-				return component, nil
-			},
-		}
+		svc := componentsvcmocks.NewMockService(t)
+		svc.EXPECT().UpdateComponent(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, namespace string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
+			assert.Equal(t, "test-ns", namespace)
+			assert.Equal(t, "comp-from-path", component.Name, "path must override body name")
+			return component, nil
+		})
 		h := &Handler{
 			services: &handlerservices.Services{ComponentService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -449,12 +398,7 @@ func TestUpdateComponentHandler_UsesPathNameAndValidatesNamespace(t *testing.T) 
 	})
 
 	t.Run("namespace mismatch returns 400", func(t *testing.T) {
-		svc := &mockComponentService{
-			updateFn: func(context.Context, string, *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
-				t.Fatal("UpdateComponent should not be called for namespace mismatch")
-				return nil, nil
-			},
-		}
+		svc := componentsvcmocks.NewMockService(t)
 		h := &Handler{
 			services: &handlerservices.Services{ComponentService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -478,15 +422,14 @@ func TestUpdateComponentHandler_UsesPathNameAndValidatesNamespace(t *testing.T) 
 
 func TestGenerateReleaseHandler_MapsValidationErrorTo400AndForwardsReleaseName(t *testing.T) {
 	ctx := testContext()
-	svc := &mockComponentService{
-		generateRelFn: func(_ context.Context, namespace, componentName string, req *componentsvc.GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error) {
-			assert.Equal(t, "test-ns", namespace)
-			assert.Equal(t, "comp-a", componentName)
-			require.NotNil(t, req)
-			assert.Equal(t, "r-1", req.ReleaseName)
-			return nil, componentsvc.ErrValidation
-		},
-	}
+	svc := componentsvcmocks.NewMockService(t)
+	svc.EXPECT().GenerateRelease(mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, namespace, componentName string, req *componentsvc.GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error) {
+		assert.Equal(t, "test-ns", namespace)
+		assert.Equal(t, "comp-a", componentName)
+		require.NotNil(t, req)
+		assert.Equal(t, "r-1", req.ReleaseName)
+		return nil, componentsvc.ErrValidation
+	})
 	h := &Handler{
 		services: &handlerservices.Services{ComponentService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -519,11 +462,8 @@ func TestGetComponentSchemaHandler_MapsErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockComponentService{
-				getSchemaFn: func(context.Context, string, string) (*extv1.JSONSchemaProps, error) {
-					return nil, tt.svcErr
-				},
-			}
+			svc := componentsvcmocks.NewMockService(t)
+			svc.EXPECT().GetComponentSchema(mock.Anything, mock.Anything, mock.Anything).Return(nil, tt.svcErr)
 			h := &Handler{
 				services: &handlerservices.Services{ComponentService: svc},
 				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -552,11 +492,8 @@ func TestUpdateComponentHandler_MapsErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockComponentService{
-				updateFn: func(context.Context, string, *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
-					return nil, tt.svcErr
-				},
-			}
+			svc := componentsvcmocks.NewMockService(t)
+			svc.EXPECT().UpdateComponent(mock.Anything, mock.Anything, mock.Anything).Return(nil, tt.svcErr)
 			h := &Handler{
 				services: &handlerservices.Services{ComponentService: svc},
 				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,8 +24,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
-	workflowsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflow"
+	workflowmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflow/mocks"
 	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
+	workflowrunmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun/mocks"
 )
 
 func newWorkflowRunService(t *testing.T, objects []client.Object, pdp authzcore.PDP) workflowrunsvc.Service {
@@ -92,96 +94,17 @@ func TestDeleteWorkflowRunHandler(t *testing.T) {
 	})
 }
 
-type mockWorkflowService struct {
-	updateFn func(ctx context.Context, namespace string, wf *openchoreov1alpha1.Workflow) (*openchoreov1alpha1.Workflow, error)
-}
-
-var _ workflowsvc.Service = (*mockWorkflowService)(nil)
-
-func (m *mockWorkflowService) ListWorkflows(context.Context, string, svcpkg.ListOptions) (*svcpkg.ListResult[openchoreov1alpha1.Workflow], error) {
-	panic("not used")
-}
-func (m *mockWorkflowService) GetWorkflow(context.Context, string, string) (*openchoreov1alpha1.Workflow, error) {
-	panic("not used")
-}
-func (m *mockWorkflowService) GetWorkflowSchema(context.Context, string, string) (map[string]any, error) {
-	panic("not used")
-}
-func (m *mockWorkflowService) CreateWorkflow(context.Context, string, *openchoreov1alpha1.Workflow) (*openchoreov1alpha1.Workflow, error) {
-	panic("not used")
-}
-func (m *mockWorkflowService) UpdateWorkflow(ctx context.Context, namespaceName string, wf *openchoreov1alpha1.Workflow) (*openchoreov1alpha1.Workflow, error) {
-	if m.updateFn == nil {
-		panic("UpdateWorkflow not configured")
-	}
-	return m.updateFn(ctx, namespaceName, wf)
-}
-func (m *mockWorkflowService) DeleteWorkflow(context.Context, string, string) error {
-	panic("not used")
-}
-
-type mockWorkflowRunService struct {
-	updateFn func(ctx context.Context, namespace string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error)
-	listFn   func(ctx context.Context, namespaceName, projectName, componentName, workflowName string, opts svcpkg.ListOptions) (*svcpkg.ListResult[openchoreov1alpha1.WorkflowRun], error)
-	logsFn   func(ctx context.Context, namespace, runName, taskName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error)
-	eventsFn func(ctx context.Context, namespace, runName, taskName, gatewayURL string) ([]models.WorkflowRunEventEntry, error)
-}
-
-var _ workflowrunsvc.Service = (*mockWorkflowRunService)(nil)
-
-func (m *mockWorkflowRunService) CreateWorkflowRun(context.Context, string, *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
-	panic("not used")
-}
-func (m *mockWorkflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
-	if m.updateFn == nil {
-		panic("UpdateWorkflowRun not configured")
-	}
-	return m.updateFn(ctx, namespaceName, wfRun)
-}
-func (m *mockWorkflowRunService) ListWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName, workflowName string, opts svcpkg.ListOptions) (*svcpkg.ListResult[openchoreov1alpha1.WorkflowRun], error) {
-	if m.listFn == nil {
-		panic("ListWorkflowRuns not configured")
-	}
-	return m.listFn(ctx, namespaceName, projectName, componentName, workflowName, opts)
-}
-func (m *mockWorkflowRunService) GetWorkflowRun(context.Context, string, string) (*openchoreov1alpha1.WorkflowRun, error) {
-	panic("not used")
-}
-func (m *mockWorkflowRunService) GetWorkflowRunStatus(context.Context, string, string, string) (*models.WorkflowRunStatusResponse, error) {
-	panic("not used")
-}
-func (m *mockWorkflowRunService) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, taskName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
-	if m.logsFn == nil {
-		panic("GetWorkflowRunLogs not configured")
-	}
-	return m.logsFn(ctx, namespaceName, runName, taskName, gatewayURL, sinceSeconds)
-}
-func (m *mockWorkflowRunService) GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, taskName, gatewayURL string) ([]models.WorkflowRunEventEntry, error) {
-	if m.eventsFn == nil {
-		panic("GetWorkflowRunEvents not configured")
-	}
-	return m.eventsFn(ctx, namespaceName, runName, taskName, gatewayURL)
-}
-func (m *mockWorkflowRunService) DeleteWorkflowRun(context.Context, string, string) error {
-	panic("not used")
-}
-func (m *mockWorkflowRunService) TriggerWorkflow(context.Context, string, string, string, string) (*models.WorkflowRunTriggerResponse, error) {
-	panic("not used")
-}
-
 func TestUpdateWorkflowHandler_UsesPathName(t *testing.T) {
 	ctx := testContext()
+	svc := workflowmocks.NewMockService(t)
+	svc.EXPECT().UpdateWorkflow(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, namespace string, wf *openchoreov1alpha1.Workflow) (*openchoreov1alpha1.Workflow, error) {
+		assert.Equal(t, "test-ns", namespace)
+		assert.Equal(t, "wf-from-path", wf.Name, "path must override body name")
+		return wf, nil
+	})
 	h := &Handler{
-		services: &handlerservices.Services{
-			WorkflowService: &mockWorkflowService{
-				updateFn: func(_ context.Context, namespace string, wf *openchoreov1alpha1.Workflow) (*openchoreov1alpha1.Workflow, error) {
-					assert.Equal(t, "test-ns", namespace)
-					assert.Equal(t, "wf-from-path", wf.Name, "path must override body name")
-					return wf, nil
-				},
-			},
-		},
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		services: &handlerservices.Services{WorkflowService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	body := gen.Workflow{Metadata: gen.ObjectMeta{Name: "wf-from-body"}}
@@ -198,20 +121,17 @@ func TestUpdateWorkflowHandler_UsesPathName(t *testing.T) {
 
 func TestUpdateWorkflowRunHandler_ClearsStatusAndUsesPathName(t *testing.T) {
 	ctx := testContext()
-
+	svc := workflowrunmocks.NewMockService(t)
+	svc.EXPECT().UpdateWorkflowRun(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, namespace string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
+		assert.Equal(t, "test-ns", namespace)
+		assert.Equal(t, "run-from-path", wfRun.Name, "path must override body name")
+		assert.Empty(t, wfRun.Status, "handler must clear status to avoid user-set status updates")
+		return wfRun, nil
+	})
 	h := &Handler{
-		services: &handlerservices.Services{
-			WorkflowRunService: &mockWorkflowRunService{
-				updateFn: func(_ context.Context, namespace string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
-					assert.Equal(t, "test-ns", namespace)
-					assert.Equal(t, "run-from-path", wfRun.Name, "path must override body name")
-					assert.Empty(t, wfRun.Status, "handler must clear status to avoid user-set status updates")
-					return wfRun, nil
-				},
-			},
-		},
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Config: &config.Config{ClusterGateway: config.ClusterGatewayConfig{URL: "https://gateway.example"}},
+		services: &handlerservices.Services{WorkflowRunService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Config:   &config.Config{ClusterGateway: config.ClusterGatewayConfig{URL: "https://gateway.example"}},
 	}
 
 	body := gen.WorkflowRun{
@@ -233,27 +153,25 @@ func TestUpdateWorkflowRunHandler_ClearsStatusAndUsesPathName(t *testing.T) {
 
 func TestGetWorkflowRunLogsHandler_ParsesRFC3339AndRFC3339Nano(t *testing.T) {
 	ctx := testContext()
+	svc := workflowrunmocks.NewMockService(t)
+	svc.EXPECT().GetWorkflowRunLogs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, namespace, runName, taskName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
+		require.Equal(t, "test-ns", namespace)
+		require.Equal(t, "run-1", runName)
+		require.Equal(t, "task-a", taskName)
+		require.Equal(t, "https://gw", gatewayURL)
+		require.NotNil(t, sinceSeconds)
+		assert.Equal(t, int64(12), *sinceSeconds)
+		return []models.WorkflowRunLogEntry{
+			{Log: "a", Timestamp: "2026-01-02T03:04:05Z"},
+			{Log: "b", Timestamp: "2026-01-02T03:04:05.123456789Z"},
+			{Log: "c", Timestamp: "not-a-time"},
+			{Log: "d", Timestamp: ""},
+		}, nil
+	})
 	h := &Handler{
-		services: &handlerservices.Services{
-			WorkflowRunService: &mockWorkflowRunService{
-				logsFn: func(_ context.Context, namespace, runName, taskName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
-					require.Equal(t, "test-ns", namespace)
-					require.Equal(t, "run-1", runName)
-					require.Equal(t, "task-a", taskName)
-					require.Equal(t, "https://gw", gatewayURL)
-					require.NotNil(t, sinceSeconds)
-					assert.Equal(t, int64(12), *sinceSeconds)
-					return []models.WorkflowRunLogEntry{
-						{Log: "a", Timestamp: "2026-01-02T03:04:05Z"},
-						{Log: "b", Timestamp: "2026-01-02T03:04:05.123456789Z"},
-						{Log: "c", Timestamp: "not-a-time"},
-						{Log: "d", Timestamp: ""},
-					}, nil
-				},
-			},
-		},
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Config: &config.Config{ClusterGateway: config.ClusterGatewayConfig{URL: "https://gw"}},
+		services: &handlerservices.Services{WorkflowRunService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Config:   &config.Config{ClusterGateway: config.ClusterGatewayConfig{URL: "https://gw"}},
 	}
 
 	task := "task-a"
@@ -282,19 +200,17 @@ func TestGetWorkflowRunLogsHandler_ParsesRFC3339AndRFC3339Nano(t *testing.T) {
 
 func TestGetWorkflowRunEventsHandler_InvalidTimestampDoesNotPanic(t *testing.T) {
 	ctx := testContext()
+	svc := workflowrunmocks.NewMockService(t)
+	svc.EXPECT().GetWorkflowRunEvents(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, namespace, runName, taskName, gatewayURL string) ([]models.WorkflowRunEventEntry, error) {
+		return []models.WorkflowRunEventEntry{
+			{Timestamp: "not-a-time", Type: "Warning", Reason: "X", Message: "bad ts"},
+			{Timestamp: "2026-01-02T03:04:05Z", Type: "Normal", Reason: "Y", Message: "good ts"},
+		}, nil
+	})
 	h := &Handler{
-		services: &handlerservices.Services{
-			WorkflowRunService: &mockWorkflowRunService{
-				eventsFn: func(_ context.Context, namespace, runName, taskName, gatewayURL string) ([]models.WorkflowRunEventEntry, error) {
-					return []models.WorkflowRunEventEntry{
-						{Timestamp: "not-a-time", Type: "Warning", Reason: "X", Message: "bad ts"},
-						{Timestamp: "2026-01-02T03:04:05Z", Type: "Normal", Reason: "Y", Message: "good ts"},
-					}, nil
-				},
-			},
-		},
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Config: &config.Config{ClusterGateway: config.ClusterGatewayConfig{URL: "https://gw"}},
+		services: &handlerservices.Services{WorkflowRunService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Config:   &config.Config{ClusterGateway: config.ClusterGatewayConfig{URL: "https://gw"}},
 	}
 
 	resp, err := h.GetWorkflowRunEvents(ctx, gen.GetWorkflowRunEventsRequestObject{
@@ -313,20 +229,18 @@ func TestGetWorkflowRunEventsHandler_InvalidTimestampDoesNotPanic(t *testing.T) 
 
 func TestListWorkflowRunsHandler_ForwardsWorkflowFilter(t *testing.T) {
 	ctx := testContext()
+	svc := workflowrunmocks.NewMockService(t)
+	svc.EXPECT().ListWorkflowRuns(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, namespace, project, component, workflow string, _ svcpkg.ListOptions) (*svcpkg.ListResult[openchoreov1alpha1.WorkflowRun], error) {
+		assert.Equal(t, "test-ns", namespace)
+		assert.Equal(t, "", project)
+		assert.Equal(t, "", component)
+		assert.Equal(t, "wf-a", workflow)
+		return &svcpkg.ListResult[openchoreov1alpha1.WorkflowRun]{Items: nil}, nil
+	})
 	h := &Handler{
-		services: &handlerservices.Services{
-			WorkflowRunService: &mockWorkflowRunService{
-				listFn: func(_ context.Context, namespace, project, component, workflow string, _ svcpkg.ListOptions) (*svcpkg.ListResult[openchoreov1alpha1.WorkflowRun], error) {
-					assert.Equal(t, "test-ns", namespace)
-					assert.Equal(t, "", project)
-					assert.Equal(t, "", component)
-					assert.Equal(t, "wf-a", workflow)
-					return &svcpkg.ListResult[openchoreov1alpha1.WorkflowRun]{Items: nil}, nil
-				},
-			},
-		},
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Config: &config.Config{ClusterGateway: config.ClusterGatewayConfig{URL: "https://gw"}},
+		services: &handlerservices.Services{WorkflowRunService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Config:   &config.Config{ClusterGateway: config.ClusterGatewayConfig{URL: "https://gw"}},
 	}
 
 	wf := "wf-a"
