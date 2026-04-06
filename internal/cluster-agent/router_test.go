@@ -423,3 +423,53 @@ func TestGetAvailableTargets_Empty(t *testing.T) {
 
 	assert.Empty(t, targets)
 }
+
+func TestRoute_ReadBodyError(t *testing.T) {
+	route := newMockRoute("k8s", "https://kubernetes.svc", func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(&errReader{}),
+		}, nil
+	})
+
+	router := newTestRouter(t, map[string]*Route{"k8s": route})
+
+	req := &messaging.HTTPTunnelRequest{
+		RequestID: "req-body-err",
+		Target:    "k8s",
+		Method:    "GET",
+		Path:      "/api/v1/pods",
+	}
+
+	resp := router.Route(req)
+
+	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
+	require.NotNil(t, resp.Error)
+	assert.Contains(t, resp.Error.Message, "failed to read response")
+}
+
+func TestRoute_InvalidMethod(t *testing.T) {
+	route := newMockRoute("k8s", "https://kubernetes.svc", nil)
+
+	router := newTestRouter(t, map[string]*Route{"k8s": route})
+
+	req := &messaging.HTTPTunnelRequest{
+		RequestID: "req-bad-method",
+		Target:    "k8s",
+		Method:    "INVALID METHOD WITH SPACES", // Invalid for http.NewRequest
+		Path:      "/api/v1/pods",
+	}
+
+	resp := router.Route(req)
+
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	require.NotNil(t, resp.Error)
+	assert.Contains(t, resp.Error.Message, "failed to create request")
+}
+
+// errReader is an io.Reader that always returns an error.
+type errReader struct{}
+
+func (e *errReader) Read(_ []byte) (int, error) {
+	return 0, fmt.Errorf("simulated read error")
+}
