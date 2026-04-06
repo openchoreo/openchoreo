@@ -8,14 +8,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // forceDelete removes the DataPlaneCleanupFinalizer from a RenderedRelease and deletes it.
@@ -304,6 +308,309 @@ var _ = Describe("RenderedRelease Controller", func() {
 			Expect(fetched.Status.Resources).To(HaveLen(1))
 			Expect(fetched.Status.Resources[0].ID).To(Equal("res-1"))
 			Expect(fetched.Status.Resources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
+		})
+	})
+})
+
+// ─────────────────────────────────────────────────────────────
+// ensureNamespaces
+// ─────────────────────────────────────────────────────────────
+
+var _ = Describe("ensureNamespaces", func() {
+	makeNS := func(name string) *corev1.Namespace {
+		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name}}
+	}
+
+	deleteNS := func(name string) {
+		ns := &corev1.Namespace{}
+		ns.Name = name
+		_ = k8sClient.Delete(ctx, ns)
+	}
+
+	Context("with an empty namespace list", func() {
+		It("should be a no-op", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			Expect(r.ensureNamespaces(ctx, k8sClient, nil)).To(Succeed())
+		})
+	})
+
+	Context("when namespace does not exist", func() {
+		const nsName = "test-ensure-ns-new"
+
+		AfterEach(func() { deleteNS(nsName) })
+
+		It("should create the namespace", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			Expect(r.ensureNamespaces(ctx, k8sClient, []*corev1.Namespace{makeNS(nsName)})).To(Succeed())
+
+			existing := &corev1.Namespace{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: nsName}, existing)).To(Succeed())
+		})
+	})
+
+	Context("when namespace already exists", func() {
+		const nsName = "test-ensure-ns-exists"
+
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, makeNS(nsName))).To(Succeed())
+		})
+		AfterEach(func() { deleteNS(nsName) })
+
+		It("should not return an error", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			Expect(r.ensureNamespaces(ctx, k8sClient, []*corev1.Namespace{makeNS(nsName)})).To(Succeed())
+		})
+	})
+
+	Context("when multiple namespaces are provided", func() {
+		nsNames := []string{"test-multi-ns-a", "test-multi-ns-b", "test-multi-ns-c"}
+
+		AfterEach(func() {
+			for _, name := range nsNames {
+				deleteNS(name)
+			}
+		})
+
+		It("should create all namespaces", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			nsList := make([]*corev1.Namespace, len(nsNames))
+			for i, name := range nsNames {
+				nsList[i] = makeNS(name)
+			}
+			Expect(r.ensureNamespaces(ctx, k8sClient, nsList)).To(Succeed())
+
+			for _, name := range nsNames {
+				existing := &corev1.Namespace{}
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: name}, existing)).To(Succeed())
+			}
+		})
+	})
+})
+
+// ─────────────────────────────────────────────────────────────
+// applyResources and deleteResources
+// ─────────────────────────────────────────────────────────────
+
+var _ = Describe("applyResources and deleteResources", func() {
+	const testNS = "default"
+	configMapGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+
+	makeTrackedCM := func(name, resourceID, releaseUID string) *unstructured.Unstructured {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(configMapGVK)
+		obj.SetName(name)
+		obj.SetNamespace(testNS)
+		obj.SetLabels(map[string]string{
+			labels.LabelKeyManagedBy:                 ControllerName,
+			labels.LabelKeyRenderedReleaseResourceID: resourceID,
+			labels.LabelKeyRenderedReleaseUID:        releaseUID,
+			labels.LabelKeyRenderedReleaseName:       "test-release",
+			labels.LabelKeyRenderedReleaseNamespace:  testNS,
+		})
+		return obj
+	}
+
+	deleteCM := func(name string) {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(configMapGVK)
+		obj.SetName(name)
+		obj.SetNamespace(testNS)
+		_ = k8sClient.Delete(ctx, obj)
+	}
+
+	Context("with an empty resource list", func() {
+		It("applyResources should be a no-op", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			Expect(r.applyResources(ctx, k8sClient, nil)).To(Succeed())
+		})
+
+		It("deleteResources should be a no-op", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			Expect(r.deleteResources(ctx, k8sClient, nil)).To(Succeed())
+		})
+	})
+
+	Context("when applying a ConfigMap resource", func() {
+		const cmName = "test-apply-cm"
+		const resourceID = "apply-res-1"
+		const releaseUID = "apply-uid-1"
+
+		AfterEach(func() { deleteCM(cmName) })
+
+		It("should apply the resource with tracking labels", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			obj := makeTrackedCM(cmName, resourceID, releaseUID)
+			Expect(r.applyResources(ctx, k8sClient, []*unstructured.Unstructured{obj})).To(Succeed())
+
+			existing := &unstructured.Unstructured{}
+			existing.SetGroupVersionKind(configMapGVK)
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cmName, Namespace: testNS}, existing)).To(Succeed())
+			Expect(existing.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]).To(Equal(resourceID))
+		})
+
+		It("should be idempotent when applied twice", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			obj := makeTrackedCM(cmName, resourceID, releaseUID)
+			Expect(r.applyResources(ctx, k8sClient, []*unstructured.Unstructured{obj})).To(Succeed())
+			obj2 := makeTrackedCM(cmName, resourceID, releaseUID)
+			Expect(r.applyResources(ctx, k8sClient, []*unstructured.Unstructured{obj2})).To(Succeed())
+		})
+	})
+
+	Context("when deleting a previously applied resource", func() {
+		const cmName = "test-delete-cm"
+		const resourceID = "delete-res-1"
+		const releaseUID = "delete-uid-1"
+
+		BeforeEach(func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			obj := makeTrackedCM(cmName, resourceID, releaseUID)
+			Expect(r.applyResources(ctx, k8sClient, []*unstructured.Unstructured{obj})).To(Succeed())
+		})
+
+		AfterEach(func() { deleteCM(cmName) })
+
+		It("should delete the resource", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			obj := makeTrackedCM(cmName, resourceID, releaseUID)
+			Expect(r.deleteResources(ctx, k8sClient, []*unstructured.Unstructured{obj})).To(Succeed())
+
+			existing := &unstructured.Unstructured{}
+			existing.SetGroupVersionKind(configMapGVK)
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: cmName, Namespace: testNS}, existing)
+			Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		})
+	})
+})
+
+// ─────────────────────────────────────────────────────────────
+// listLiveResourcesByGVKs
+// ─────────────────────────────────────────────────────────────
+
+var _ = Describe("listLiveResourcesByGVKs", func() {
+	const testNS = "default"
+	configMapGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+
+	makeTrackedCM := func(name, releaseUID string) *unstructured.Unstructured {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(configMapGVK)
+		obj.SetName(name)
+		obj.SetNamespace(testNS)
+		obj.SetLabels(map[string]string{
+			labels.LabelKeyManagedBy:          ControllerName,
+			labels.LabelKeyRenderedReleaseUID: releaseUID,
+		})
+		return obj
+	}
+
+	deleteCM := func(name string) {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(configMapGVK)
+		obj.SetName(name)
+		obj.SetNamespace(testNS)
+		_ = k8sClient.Delete(ctx, obj)
+	}
+
+	makeRelease := func(uid string) *openchoreov1alpha1.RenderedRelease {
+		r := &openchoreov1alpha1.RenderedRelease{}
+		r.UID = types.UID(uid)
+		return r
+	}
+
+	Context("when no resources match the label selector", func() {
+		It("should return an empty list", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			release := makeRelease("nonexistent-uid-99999")
+			result, err := r.listLiveResourcesByGVKs(ctx, k8sClient, release, []schema.GroupVersionKind{configMapGVK})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+	})
+
+	Context("when resources with matching labels exist", func() {
+		const releaseUID = "list-live-uid-match"
+		const cmName = "test-list-cm-match"
+
+		BeforeEach(func() {
+			obj := makeTrackedCM(cmName, releaseUID)
+			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
+		})
+		AfterEach(func() { deleteCM(cmName) })
+
+		It("should find the matching resources", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			release := makeRelease(releaseUID)
+			result, err := r.listLiveResourcesByGVKs(ctx, k8sClient, release, []schema.GroupVersionKind{configMapGVK})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].GetName()).To(Equal(cmName))
+		})
+	})
+
+	Context("when resources without matching labels exist", func() {
+		const cmName = "test-list-cm-nomatch"
+
+		BeforeEach(func() {
+			obj := &unstructured.Unstructured{}
+			obj.SetGroupVersionKind(configMapGVK)
+			obj.SetName(cmName)
+			obj.SetNamespace(testNS)
+			// No tracking labels
+			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
+		})
+		AfterEach(func() { deleteCM(cmName) })
+
+		It("should exclude resources without matching labels", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			release := makeRelease("uid-for-nomatch-test")
+			result, err := r.listLiveResourcesByGVKs(ctx, k8sClient, release, []schema.GroupVersionKind{configMapGVK})
+			Expect(err).NotTo(HaveOccurred())
+			for _, res := range result {
+				Expect(res.GetName()).NotTo(Equal(cmName))
+			}
+		})
+	})
+
+	Context("when an unknown GVK is queried", func() {
+		It("should continue without returning an error", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			unknownGVK := schema.GroupVersionKind{Group: "unknown.example.com", Version: "v1", Kind: "NonExistentResource"}
+			release := makeRelease("some-uid-unknown-gvk")
+			result, err := r.listLiveResourcesByGVKs(ctx, k8sClient, release, []schema.GroupVersionKind{unknownGVK})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+	})
+
+	Context("when list fails for non-NoMatch reasons", func() {
+		It("should return an error", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			cancelledCtx, cancel := context.WithCancel(ctx)
+			cancel()
+			release := makeRelease("uid-list-failure")
+			_, err := r.listLiveResourcesByGVKs(cancelledCtx, k8sClient, release, []schema.GroupVersionKind{configMapGVK})
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("when multiple GVKs are queried", func() {
+		const releaseUID = "list-live-uid-multi"
+		const cmName = "test-list-cm-multi"
+
+		BeforeEach(func() {
+			obj := makeTrackedCM(cmName, releaseUID)
+			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
+		})
+		AfterEach(func() { deleteCM(cmName) })
+
+		It("should collect resources from each GVK", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			release := makeRelease(releaseUID)
+			serviceGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}
+			result, err := r.listLiveResourcesByGVKs(ctx, k8sClient, release, []schema.GroupVersionKind{configMapGVK, serviceGVK})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].GetName()).To(Equal(cmName))
 		})
 	})
 })

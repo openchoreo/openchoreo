@@ -11,6 +11,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -518,8 +519,6 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 
 // listLiveResourcesByGVKs queries specific resource types with label selector
 func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient client.Client, release *openchoreov1alpha1.RenderedRelease, gvks []schema.GroupVersionKind) ([]*unstructured.Unstructured, error) {
-	logger := log.FromContext(ctx)
-
 	var allLiveResources []*unstructured.Unstructured
 
 	// Query each GVK with our label selector
@@ -548,8 +547,11 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient cl
 		if err := planeClient.List(ctx, list, &client.ListOptions{
 			LabelSelector: selector,
 		}); err != nil {
-			logger.Error(err, "Failed to list resources", "gvk", gvk.String())
-			continue // Continue with other GVKs instead of failing
+			if apimeta.IsNoMatchError(err) {
+				// GVK is not registered in this cluster — silently skip
+				continue
+			}
+			return nil, fmt.Errorf("failed to list resources for %s: %w", gvk.String(), err)
 		}
 
 		// Add all items to result
