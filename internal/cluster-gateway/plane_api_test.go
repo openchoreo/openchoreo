@@ -46,7 +46,8 @@ func TestHandlePlaneNotification_Deleted(t *testing.T) {
 	// Register a connection so there's something to disconnect
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	require.NoError(t, err)
 
 	notification := PlaneNotification{
 		PlaneType: "dataplane",
@@ -217,7 +218,8 @@ func TestHandleReconnect(t *testing.T) {
 
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/planes/dataplane/prod/reconnect", nil)
 	w := httptest.NewRecorder()
@@ -236,7 +238,8 @@ func TestHandleGetPlaneStatus(t *testing.T) {
 
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/planes/dataplane/prod/status", nil)
 	w := httptest.NewRecorder()
@@ -257,7 +260,8 @@ func TestHandleGetPlaneStatus_CRSpecific(t *testing.T) {
 
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/planes/dataplane/prod/status?namespace=ns&name=dp1", nil)
 	w := httptest.NewRecorder()
@@ -277,7 +281,8 @@ func TestHandleGetPlaneStatus_ClusterScoped(t *testing.T) {
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
 	// Cluster-scoped CR key format: "/name"
-	_, _ = cm.Register("dataplane", "prod", conn, []string{"/global-dp"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn, []string{"/global-dp"}, nil)
+	require.NoError(t, err)
 
 	// Cluster-scoped: name only, no namespace
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/planes/dataplane/prod/status?name=global-dp", nil)
@@ -300,8 +305,10 @@ func TestHandleGetAllPlaneStatus(t *testing.T) {
 	conn2, cleanup2 := newTestWSConn(t)
 	defer cleanup2()
 
-	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
-	_, _ = cm.Register("workflowplane", "ci", conn2, []string{"ns/wp1"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
+	require.NoError(t, err)
+	_, err = cm.Register("workflowplane", "ci", conn2, []string{"ns/wp1"}, nil)
+	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/planes/status", nil)
 	w := httptest.NewRecorder()
@@ -409,4 +416,48 @@ func TestHandleGetAllPlaneStatus_Empty(t *testing.T) {
 	var resp AllPlaneStatusResponse
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, 0, resp.Total)
+}
+
+func TestHandlePlaneNotification_RevalidationError(t *testing.T) {
+	// DataPlane with invalid inline CA → revalidation will fail to parse PEM
+	caSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: "ns"},
+		Data:       map[string][]byte{"ca.crt": []byte("valid-data")},
+	}
+	dp := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp1", Namespace: "ns"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{Name: "ca", Key: "ca.crt"},
+				},
+			},
+		},
+	}
+
+	mux, cm := newTestPlaneAPI(t, caSecret, dp)
+
+	// Register a connection so RevalidateCR is actually called (with no client cert → will fail)
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	require.NoError(t, err)
+
+	notification := PlaneNotification{
+		PlaneType: "dataplane",
+		PlaneID:   "prod",
+		Event:     "updated",
+		Namespace: "ns",
+		Name:      "dp1",
+	}
+	body, _ := json.Marshal(notification)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/planes/notify", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	// RevalidateCR will fail because "valid-data" is not valid PEM
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }

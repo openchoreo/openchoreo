@@ -807,3 +807,22 @@ func TestConnectionManager_RevalidateCR_UnchangedStatus(t *testing.T) {
 	assert.Equal(t, 0, updated)
 	assert.Equal(t, 0, removed)
 }
+
+func TestAgentConnection_SendHTTPTunnelRequest_Success(t *testing.T) {
+	conn, cleanup := newTestWSConn(t)
+	defer cleanup()
+
+	ac := &AgentConnection{
+		Conn: conn,
+	}
+
+	req := &messaging.HTTPTunnelRequest{
+		RequestID: "req-1",
+		Target:    "k8s",
+		Method:    "GET",
+		Path:      "/api/v1/pods",
+	}
+
+	err := ac.SendHTTPTunnelRequest(req)
+	assert.NoError(t, err)
+}
