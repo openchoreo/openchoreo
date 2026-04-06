@@ -6,6 +6,7 @@ package workflowrun
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -403,21 +404,24 @@ func TestFollowLiveLogs_PollNewLogs(t *testing.T) {
 	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
 		[]gen.WorkflowRunLogEntry{{Timestamp: &now, Log: "first"}}, nil).Once()
 
-	// Poll: status still live, new log returned, context cancelled inside RunAndReturn
+	// Poll: status still live, both entries returned (simulating overlap), context cancelled inside RunAndReturn
 	ctx, cancel := context.WithCancel(context.Background())
 	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
 		&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil).Once()
 	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).RunAndReturn(
 		func(_ context.Context, _, _ string, _ *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error) {
 			cancel()
-			return []gen.WorkflowRunLogEntry{{Timestamp: &later, Log: "second"}}, nil
+			return []gen.WorkflowRunLogEntry{
+				{Timestamp: &now, Log: "first"},
+				{Timestamp: &later, Log: "second"},
+			}, nil
 		}).Once()
 
 	wr := New(mc)
 	out := captureStdout(t, func() {
 		require.NoError(t, wr.followLiveLogs(ctx, mc, LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}, 0))
 	})
-	assert.Contains(t, out, "first")
+	assert.Equal(t, 1, strings.Count(out, "first"), "duplicate suppression: 'first' should appear exactly once")
 	assert.Contains(t, out, "second")
 	assert.Contains(t, out, "Stopping log streaming...")
 }
