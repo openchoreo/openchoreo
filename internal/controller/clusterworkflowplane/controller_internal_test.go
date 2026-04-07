@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	gw "github.com/openchoreo/openchoreo/internal/clients/gateway"
@@ -239,4 +240,28 @@ func TestInvalidateCache(t *testing.T) {
 	}
 	// Should not panic; covers the RemoveClient call.
 	r.invalidateCache(context.Background(), cwp)
+}
+
+// ---------- finalize ----------
+
+func TestFinalize_NoFinalizer(t *testing.T) {
+	r := &Reconciler{}
+	cwp := &openchoreov1alpha1.ClusterWorkflowPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "cwp-no-finalizer"},
+		Spec:       openchoreov1alpha1.ClusterWorkflowPlaneSpec{PlaneID: "plane-noop"},
+	}
+	if controllerutil.ContainsFinalizer(cwp, ClusterWorkflowPlaneCleanupFinalizer) {
+		t.Fatal("precondition: cwp must not have the cleanup finalizer")
+	}
+
+	result, err := r.finalize(context.Background(), cwp.DeepCopy(), cwp)
+	if err != nil {
+		t.Errorf("expected nil error, got: %v", err)
+	}
+	if result.Requeue || result.RequeueAfter != 0 {
+		t.Errorf("expected empty result, got: %+v", result)
+	}
+	if controllerutil.ContainsFinalizer(cwp, ClusterWorkflowPlaneCleanupFinalizer) {
+		t.Error("finalize must not add the cleanup finalizer on the early-return path")
+	}
 }

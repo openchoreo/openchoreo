@@ -377,21 +377,6 @@ var _ = Describe("ClusterWorkflowPlane Controller", func() {
 		})
 	})
 
-	Context("Finalizer edge cases", func() {
-		const cwpName = "cwp-no-finalizer-finalize"
-		nn := types.NamespacedName{Name: cwpName}
-
-		AfterEach(func() { forceDeleteCWP(ctx, cwpName) })
-
-		It("finalize does nothing when the finalizer is not present", func() {
-			cwp := newClusterWorkflowPlane(cwpName)
-			Expect(k8sClient.Create(ctx, cwp)).To(Succeed())
-			fresh := &openchoreov1alpha1.ClusterWorkflowPlane{}
-			Expect(k8sClient.Get(ctx, nn, fresh)).To(Succeed())
-			Expect(controllerutil.ContainsFinalizer(fresh, clusterworkflowplane.ClusterWorkflowPlaneCleanupFinalizer)).To(BeFalse())
-		})
-	})
-
 	Context("Reconcile second pass with no gateway (Created condition already set)", func() {
 		const cwpName = "cwp-second-pass-no-gw"
 		nn := types.NamespacedName{Name: cwpName}
