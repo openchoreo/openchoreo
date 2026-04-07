@@ -176,3 +176,177 @@ func TestDelete_Success(t *testing.T) {
 	})
 	assert.Contains(t, out, "Workload 'workload-1' deleted")
 }
+
+// --- Validation error tests ---
+
+func TestList_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	w := New(mc)
+	err := w.List(ListParams{Namespace: ""})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+func TestGet_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	w := New(mc)
+	err := w.Get(GetParams{Namespace: "", WorkloadName: "wl-1"})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+func TestDelete_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	w := New(mc)
+	err := w.Delete(DeleteParams{Namespace: "", WorkloadName: "wl-1"})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+func TestDelete_ValidationError_MissingName(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	w := New(mc)
+	err := w.Delete(DeleteParams{Namespace: "ns", WorkloadName: ""})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+func TestCreate_ValidationError_MissingFields(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	w := New(mc)
+	err := w.Create(CreateParams{
+		NamespaceName: "ns",
+		ProjectName:   "proj",
+		ComponentName: "comp",
+		// ImageURL missing
+	})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+func TestCreate_UnsupportedMode(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	w := New(mc)
+	err := w.Create(CreateParams{
+		NamespaceName: "ns",
+		ProjectName:   "proj",
+		ComponentName: "comp",
+		ImageURL:      "img:latest",
+		Mode:          "invalid-mode",
+	})
+	assert.ErrorContains(t, err, "unsupported mode")
+}
+
+// --- Constructor test ---
+
+func TestNew(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	w := New(mc)
+	assert.NotNil(t, w)
+	assert.Equal(t, mc, w.client)
+}
+
+// --- printWorkloadList edge cases ---
+
+func TestPrintWorkloadList_NilTimestamp(t *testing.T) {
+	items := []gen.Workload{
+		{Metadata: gen.ObjectMeta{Name: "wl-no-ts", CreationTimestamp: nil}},
+	}
+	out := captureStdout(t, func() {
+		require.NoError(t, printWorkloadList(items))
+	})
+	assert.Contains(t, out, "wl-no-ts")
+	assert.Contains(t, out, "NAME")
+	assert.Contains(t, out, "AGE")
+}
+
+// --- Pagination ---
+
+func TestList_Pagination(t *testing.T) {
+	next := "cursor-2"
+	mc := mocks.NewMockClient(t)
+
+	// First page — no cursor
+	mc.EXPECT().ListWorkloads(mock.Anything, "org-a", mock.MatchedBy(func(p *gen.ListWorkloadsParams) bool {
+		return p.Cursor == nil
+	})).Return(&gen.WorkloadList{
+		Items:      []gen.Workload{{Metadata: gen.ObjectMeta{Name: "wl-page1"}}},
+		Pagination: gen.Pagination{NextCursor: &next},
+	}, nil).Once()
+
+	// Second page — with cursor
+	mc.EXPECT().ListWorkloads(mock.Anything, "org-a", mock.MatchedBy(func(p *gen.ListWorkloadsParams) bool {
+		return p.Cursor != nil && *p.Cursor == "cursor-2"
+	})).Return(&gen.WorkloadList{
+		Items:      []gen.Workload{{Metadata: gen.ObjectMeta{Name: "wl-page2"}}},
+		Pagination: gen.Pagination{},
+	}, nil).Once()
+
+	w := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, w.List(ListParams{Namespace: "org-a"}))
+	})
+	assert.Contains(t, out, "wl-page1")
+	assert.Contains(t, out, "wl-page2")
+}
+
+func TestList_NilTimestamp(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListWorkloads(mock.Anything, "org-a", mock.Anything).Return(&gen.WorkloadList{
+		Items: []gen.Workload{
+			{Metadata: gen.ObjectMeta{Name: "wl-no-ts", CreationTimestamp: nil}},
+		},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	w := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, w.List(ListParams{Namespace: "org-a"}))
+	})
+	assert.Contains(t, out, "wl-no-ts")
+}
+
+// --- Get with spec ---
+
+func TestGet_SuccessWithSpec(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetWorkload(mock.Anything, "org-a", "wl-1").Return(&gen.Workload{
+		Metadata: gen.ObjectMeta{Name: "wl-1"},
+		Spec: &gen.WorkloadSpec{
+			Container: &gen.WorkloadContainer{Image: "registry/my-svc:v1"},
+			Owner: &struct {
+				ComponentName string `json:"componentName"`
+				ProjectName   string `json:"projectName"`
+			}{ComponentName: "comp-a", ProjectName: "proj-1"},
+		},
+	}, nil)
+
+	w := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, w.Get(GetParams{Namespace: "org-a", WorkloadName: "wl-1"}))
+	})
+	assert.Contains(t, out, "name: wl-1")
+	assert.Contains(t, out, "componentName: comp-a")
+	assert.Contains(t, out, "projectName: proj-1")
+}
+
+// --- toAPIParams ---
+
+func TestToAPIParams(t *testing.T) {
+	p := CreateParams{
+		FilePath:      "/path/to/descriptor.yaml",
+		NamespaceName: "ns",
+		ProjectName:   "proj",
+		ComponentName: "comp",
+		ImageURL:      "img:latest",
+		OutputPath:    "/out",
+		DryRun:        true,
+		Mode:          "file-system",
+		RootDir:       "/repo",
+	}
+	ap := toAPIParams(p)
+	assert.Equal(t, p.FilePath, ap.FilePath)
+	assert.Equal(t, p.NamespaceName, ap.NamespaceName)
+	assert.Equal(t, p.ProjectName, ap.ProjectName)
+	assert.Equal(t, p.ComponentName, ap.ComponentName)
+	assert.Equal(t, p.ImageURL, ap.ImageURL)
+	assert.Equal(t, p.OutputPath, ap.OutputPath)
+	assert.Equal(t, p.DryRun, ap.DryRun)
+	assert.Equal(t, p.Mode, ap.Mode)
+	assert.Equal(t, p.RootDir, ap.RootDir)
+}
