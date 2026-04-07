@@ -23,6 +23,7 @@ ignore:
   - "test"                                                     # Test helpers and utilities
   - "internal/openchoreo-api/services/testutil"
   - "internal/controller/testutils"
+  - "internal/occ/cmd/testhelpers"                             # CLI test helpers
 
 comment:
   hide_project_coverage: false
