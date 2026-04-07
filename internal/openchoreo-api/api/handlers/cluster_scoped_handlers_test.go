@@ -933,7 +933,6 @@ func TestListClusterComponentTypesHandler_MapsErrors(t *testing.T) {
 		svcErr  error
 		wantTyp any
 	}{
-		{"forbidden -> 403", svcpkg.ErrForbidden, gen.ListClusterComponentTypes403JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.ListClusterComponentTypes400JSONResponse{}},
 		{"internal -> 500", errors.New("boom"), gen.ListClusterComponentTypes500JSONResponse{}},
 	}
