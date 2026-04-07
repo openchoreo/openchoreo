@@ -14,7 +14,7 @@ feature requirements, improvements and bugs. Features will be represented with t
 - [OpenChoreo Development](https://github.com/orgs/openchoreo/projects/7) - Development teams track 
 tasks that will deliver new product features, bug fixes, improvements to the product. Only type/task issues will be added to this board.
 
-# Issue Triage Process
+# Issue Triaging
 
 This document outlines the issue triage process for contributors. The goal in issue triaging is to go through newly logged issues and incorporate them into the development process appropriately. Issue triaging will help to keep the open issue count and backlog healthy.
 
@@ -73,7 +73,8 @@ Type/Feature represents feature requests opened by the community. These requests
 ### Bug Triage Process
 * Initiate a discussion within the issue to decide the validity of the bug
 * If the bug is valid then assign the relevant milestone, area and priority
-* If bug needs to be back-ported then multiple milestones should be added
+* If backporting is needed, add a label in the format `backport/release-v1.x` release-v1.x is the release branch which fix needs to be backported. In the case of multiple backports please add multiple labels representing each branch
+  * This triggers the backport process, which is explained in [GitHub Workflow](https://github.com/openchoreo/openchoreo/blob/main/docs/contributors/github_workflow.md#backporting)
 * Add the bug to the [OpenChoreo Release Management](https://github.com/orgs/openchoreo/projects/5) project board
 
 
