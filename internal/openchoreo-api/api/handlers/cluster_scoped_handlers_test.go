@@ -681,7 +681,7 @@ func TestListClusterWorkflowsHandler_MapsErrors(t *testing.T) {
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.ListClusterWorkflows403JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.ListClusterWorkflows400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.ListClusterWorkflows500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.ListClusterWorkflows500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -701,7 +701,7 @@ func TestListClusterWorkflowsHandler_MapsErrors(t *testing.T) {
 func TestGetClusterWorkflowHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	svc := clusterworkflowmocks.NewMockService(t)
-	svc.EXPECT().GetClusterWorkflow(mock.Anything, "name").Return(nil, errors.New("boom"))
+	svc.EXPECT().GetClusterWorkflow(mock.Anything, "name").Return(nil, errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{ClusterWorkflowService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -721,7 +721,7 @@ func TestCreateClusterWorkflowHandler_MapsErrors(t *testing.T) {
 		wantTyp any
 	}{
 		{"already exists -> 409", clusterworkflowsvc.ErrClusterWorkflowAlreadyExists, gen.CreateClusterWorkflow409JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.CreateClusterWorkflow500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.CreateClusterWorkflow500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -782,7 +782,7 @@ func TestUpdateClusterWorkflowHandler(t *testing.T) {
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateClusterWorkflow403JSONResponse{}},
 		{"not found -> 404", clusterworkflowsvc.ErrClusterWorkflowNotFound, gen.UpdateClusterWorkflow404JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.UpdateClusterWorkflow500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.UpdateClusterWorkflow500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -805,7 +805,7 @@ func TestUpdateClusterWorkflowHandler(t *testing.T) {
 func TestDeleteClusterWorkflowHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	svc := clusterworkflowmocks.NewMockService(t)
-	svc.EXPECT().DeleteClusterWorkflow(mock.Anything, "cwf").Return(errors.New("boom"))
+	svc.EXPECT().DeleteClusterWorkflow(mock.Anything, "cwf").Return(errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{ClusterWorkflowService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -818,7 +818,7 @@ func TestDeleteClusterWorkflowHandler_InternalError(t *testing.T) {
 func TestGetClusterWorkflowSchemaHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	svc := clusterworkflowmocks.NewMockService(t)
-	svc.EXPECT().GetClusterWorkflowSchema(mock.Anything, "cwf").Return(nil, errors.New("boom"))
+	svc.EXPECT().GetClusterWorkflowSchema(mock.Anything, "cwf").Return(nil, errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{ClusterWorkflowService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -868,7 +868,7 @@ func TestGetClusterComponentTypeHandler(t *testing.T) {
 
 	t.Run("internal error returns 500", func(t *testing.T) {
 		svc := cctsvcmocks.NewMockService(t)
-		svc.EXPECT().GetClusterComponentType(mock.Anything, "go-service").Return(nil, errors.New("boom"))
+		svc.EXPECT().GetClusterComponentType(mock.Anything, "go-service").Return(nil, errors.New("internal server error"))
 		h := &Handler{
 			services: &handlerservices.Services{ClusterComponentTypeService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -915,7 +915,7 @@ func TestDeleteClusterComponentTypeHandler(t *testing.T) {
 
 	t.Run("internal error returns 500", func(t *testing.T) {
 		svc := cctsvcmocks.NewMockService(t)
-		svc.EXPECT().DeleteClusterComponentType(mock.Anything, "go-service").Return(errors.New("boom"))
+		svc.EXPECT().DeleteClusterComponentType(mock.Anything, "go-service").Return(errors.New("internal server error"))
 		h := &Handler{
 			services: &handlerservices.Services{ClusterComponentTypeService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -934,7 +934,7 @@ func TestListClusterComponentTypesHandler_MapsErrors(t *testing.T) {
 		wantTyp any
 	}{
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.ListClusterComponentTypes400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.ListClusterComponentTypes500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.ListClusterComponentTypes500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -997,7 +997,7 @@ func TestCreateClusterComponentTypeHandler_Success(t *testing.T) {
 func TestCreateClusterComponentTypeHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	svc := cctsvcmocks.NewMockService(t)
-	svc.EXPECT().CreateClusterComponentType(mock.Anything, mock.Anything).Return(nil, errors.New("boom"))
+	svc.EXPECT().CreateClusterComponentType(mock.Anything, mock.Anything).Return(nil, errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{ClusterComponentTypeService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1022,7 +1022,7 @@ func TestUpdateClusterComponentTypeHandler_NilBody(t *testing.T) {
 func TestUpdateClusterComponentTypeHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	svc := cctsvcmocks.NewMockService(t)
-	svc.EXPECT().UpdateClusterComponentType(mock.Anything, mock.Anything).Return(nil, errors.New("boom"))
+	svc.EXPECT().UpdateClusterComponentType(mock.Anything, mock.Anything).Return(nil, errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{ClusterComponentTypeService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),

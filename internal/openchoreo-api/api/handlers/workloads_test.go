@@ -337,7 +337,7 @@ func TestDeleteWorkloadHandler(t *testing.T) {
 
 	t.Run("internal error returns 500", func(t *testing.T) {
 		svc := workloadmocks.NewMockService(t)
-		svc.EXPECT().DeleteWorkload(mock.Anything, ns, "wl-1").Return(errors.New("boom"))
+		svc.EXPECT().DeleteWorkload(mock.Anything, ns, "wl-1").Return(errors.New("internal server error"))
 		h := &Handler{
 			services: &handlerservices.Services{WorkloadService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -355,7 +355,7 @@ func TestListWorkloadsHandler_ErrorMapping(t *testing.T) {
 	const ns = "test-ns"
 	t.Run("internal error returns 500", func(t *testing.T) {
 		svc := workloadmocks.NewMockService(t)
-		svc.EXPECT().ListWorkloads(mock.Anything, ns, "", mock.Anything).Return(nil, errors.New("boom"))
+		svc.EXPECT().ListWorkloads(mock.Anything, ns, "", mock.Anything).Return(nil, errors.New("internal server error"))
 		h := &Handler{
 			services: &handlerservices.Services{WorkloadService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -385,7 +385,7 @@ func TestListWorkloadsHandler_ErrorMapping(t *testing.T) {
 func TestGetWorkloadHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	svc := workloadmocks.NewMockService(t)
-	svc.EXPECT().GetWorkload(mock.Anything, "test-ns", "wl-1").Return(nil, errors.New("boom"))
+	svc.EXPECT().GetWorkload(mock.Anything, "test-ns", "wl-1").Return(nil, errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{WorkloadService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -407,7 +407,7 @@ func TestCreateWorkloadHandler_MapsErrors(t *testing.T) {
 	}{
 		{"component not found -> 400", workloadsvc.ErrComponentNotFound, gen.CreateWorkload400JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.CreateWorkload400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.CreateWorkload500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.CreateWorkload500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -435,7 +435,7 @@ func TestUpdateWorkloadHandler_MapsErrors(t *testing.T) {
 		wantTyp any
 	}{
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.UpdateWorkload400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.UpdateWorkload500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkload500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

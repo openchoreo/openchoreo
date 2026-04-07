@@ -334,7 +334,7 @@ func TestListWorkflowsHandler(t *testing.T) {
 
 	t.Run("internal error from service returns 500", func(t *testing.T) {
 		svc := workflowmocks.NewMockService(t)
-		svc.EXPECT().ListWorkflows(mock.Anything, ns, mock.Anything).Return(nil, errors.New("boom"))
+		svc.EXPECT().ListWorkflows(mock.Anything, ns, mock.Anything).Return(nil, errors.New("internal server error"))
 		h := &Handler{
 			services: &handlerservices.Services{WorkflowService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -379,7 +379,7 @@ func TestGetWorkflowHandler(t *testing.T) {
 
 	t.Run("internal error returns 500", func(t *testing.T) {
 		svc := workflowmocks.NewMockService(t)
-		svc.EXPECT().GetWorkflow(mock.Anything, ns, "wf-1").Return(nil, errors.New("boom"))
+		svc.EXPECT().GetWorkflow(mock.Anything, ns, "wf-1").Return(nil, errors.New("internal server error"))
 		h := &Handler{
 			services: &handlerservices.Services{WorkflowService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -446,7 +446,7 @@ func TestCreateWorkflowHandler(t *testing.T) {
 
 	t.Run("internal error returns 500", func(t *testing.T) {
 		svc := workflowmocks.NewMockService(t)
-		svc.EXPECT().CreateWorkflow(mock.Anything, ns, mock.Anything).Return(nil, errors.New("boom"))
+		svc.EXPECT().CreateWorkflow(mock.Anything, ns, mock.Anything).Return(nil, errors.New("internal server error"))
 		h := &Handler{
 			services: &handlerservices.Services{WorkflowService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -480,7 +480,7 @@ func TestUpdateWorkflowHandler_MapsErrors(t *testing.T) {
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateWorkflow403JSONResponse{}},
 		{"not found -> 404", workflowsvc.ErrWorkflowNotFound, gen.UpdateWorkflow404JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "invalid"}, gen.UpdateWorkflow400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.UpdateWorkflow500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkflow500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -529,7 +529,7 @@ func TestDeleteWorkflowHandler(t *testing.T) {
 
 	t.Run("internal error returns 500", func(t *testing.T) {
 		svc := workflowmocks.NewMockService(t)
-		svc.EXPECT().DeleteWorkflow(mock.Anything, ns, "wf-1").Return(errors.New("boom"))
+		svc.EXPECT().DeleteWorkflow(mock.Anything, ns, "wf-1").Return(errors.New("internal server error"))
 		h := &Handler{
 			services: &handlerservices.Services{WorkflowService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -574,7 +574,7 @@ func TestGetWorkflowSchemaHandler(t *testing.T) {
 
 	t.Run("internal error returns 500", func(t *testing.T) {
 		svc := workflowmocks.NewMockService(t)
-		svc.EXPECT().GetWorkflowSchema(mock.Anything, ns, "wf-1").Return(nil, errors.New("boom"))
+		svc.EXPECT().GetWorkflowSchema(mock.Anything, ns, "wf-1").Return(nil, errors.New("internal server error"))
 		h := &Handler{
 			services: &handlerservices.Services{WorkflowService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -598,7 +598,7 @@ func TestListWorkflowRunsHandler_MapsErrors(t *testing.T) {
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.ListWorkflowRuns403JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.ListWorkflowRuns400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.ListWorkflowRuns500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.ListWorkflowRuns500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -654,7 +654,7 @@ func TestCreateWorkflowRunHandler(t *testing.T) {
 		{"workflow not found -> 404", workflowrunsvc.ErrWorkflowNotFound, gen.CreateWorkflowRun404JSONResponse{}},
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.CreateWorkflowRun403JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.CreateWorkflowRun400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.CreateWorkflowRun500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.CreateWorkflowRun500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -705,7 +705,7 @@ func TestGetWorkflowRunHandler(t *testing.T) {
 
 	t.Run("internal error returns 500", func(t *testing.T) {
 		svc := workflowrunmocks.NewMockService(t)
-		svc.EXPECT().GetWorkflowRun(mock.Anything, ns, "run-1").Return(nil, errors.New("boom"))
+		svc.EXPECT().GetWorkflowRun(mock.Anything, ns, "run-1").Return(nil, errors.New("internal server error"))
 		h := &Handler{
 			services: &handlerservices.Services{WorkflowRunService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -741,7 +741,7 @@ func TestUpdateWorkflowRunHandler_MapsErrors(t *testing.T) {
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateWorkflowRun403JSONResponse{}},
 		{"not found -> 404", workflowrunsvc.ErrWorkflowRunNotFound, gen.UpdateWorkflowRun404JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.UpdateWorkflowRun400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.UpdateWorkflowRun500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkflowRun500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -763,7 +763,7 @@ func TestUpdateWorkflowRunHandler_MapsErrors(t *testing.T) {
 func TestDeleteWorkflowRunHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	svc := workflowrunmocks.NewMockService(t)
-	svc.EXPECT().DeleteWorkflowRun(mock.Anything, "test-ns", "run-1").Return(errors.New("boom"))
+	svc.EXPECT().DeleteWorkflowRun(mock.Anything, "test-ns", "run-1").Return(errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{WorkflowRunService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -816,7 +816,7 @@ func TestGetWorkflowRunStatusHandler(t *testing.T) {
 	}{
 		{"not found -> 404", workflowrunsvc.ErrWorkflowRunNotFound, gen.GetWorkflowRunStatus404JSONResponse{}},
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.GetWorkflowRunStatus403JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.GetWorkflowRunStatus500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.GetWorkflowRunStatus500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -848,7 +848,7 @@ func TestGetWorkflowRunLogsHandler_MapsErrors(t *testing.T) {
 		{"not found -> 404", workflowrunsvc.ErrWorkflowRunNotFound, gen.GetWorkflowRunLogs404JSONResponse{}},
 		{"reference not found -> 404", workflowrunsvc.ErrWorkflowRunReferenceNotFound, gen.GetWorkflowRunLogs404JSONResponse{}},
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.GetWorkflowRunLogs403JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.GetWorkflowRunLogs500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.GetWorkflowRunLogs500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -880,7 +880,7 @@ func TestGetWorkflowRunEventsHandler_MapsErrors(t *testing.T) {
 		{"not found -> 404", workflowrunsvc.ErrWorkflowRunNotFound, gen.GetWorkflowRunEvents404JSONResponse{}},
 		{"reference not found -> 404", workflowrunsvc.ErrWorkflowRunReferenceNotFound, gen.GetWorkflowRunEvents404JSONResponse{}},
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.GetWorkflowRunEvents403JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.GetWorkflowRunEvents500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.GetWorkflowRunEvents500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

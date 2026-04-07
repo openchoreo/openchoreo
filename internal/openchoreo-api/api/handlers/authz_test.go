@@ -66,7 +66,7 @@ func TestListActionsHandler(t *testing.T) {
 
 	t.Run("generic error returns 500", func(t *testing.T) {
 		svc := authzmocks.NewMockService(t)
-		svc.EXPECT().ListActions(mock.Anything).Return(nil, errors.New("boom"))
+		svc.EXPECT().ListActions(mock.Anything).Return(nil, errors.New("internal server error"))
 		h := newHandlerWithAuthzService(t, svc, &config.Config{})
 
 		resp, err := h.ListActions(ctx, gen.ListActionsRequestObject{})

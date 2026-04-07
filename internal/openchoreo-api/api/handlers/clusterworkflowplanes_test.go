@@ -273,7 +273,7 @@ func TestDeleteClusterWorkflowPlaneHandler(t *testing.T) {
 
 	t.Run("internal error returns 500", func(t *testing.T) {
 		svc := cwpmocks.NewMockService(t)
-		svc.EXPECT().DeleteClusterWorkflowPlane(mock.Anything, "cwp-1").Return(errors.New("boom"))
+		svc.EXPECT().DeleteClusterWorkflowPlane(mock.Anything, "cwp-1").Return(errors.New("internal server error"))
 		h := &Handler{
 			services: &handlerservices.Services{ClusterWorkflowPlaneService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -289,7 +289,7 @@ func TestDeleteClusterWorkflowPlaneHandler(t *testing.T) {
 func TestListClusterWorkflowPlanesHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	svc := cwpmocks.NewMockService(t)
-	svc.EXPECT().ListClusterWorkflowPlanes(mock.Anything, mock.Anything).Return(nil, errors.New("boom"))
+	svc.EXPECT().ListClusterWorkflowPlanes(mock.Anything, mock.Anything).Return(nil, errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{ClusterWorkflowPlaneService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -302,7 +302,7 @@ func TestListClusterWorkflowPlanesHandler_InternalError(t *testing.T) {
 func TestGetClusterWorkflowPlaneHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	svc := cwpmocks.NewMockService(t)
-	svc.EXPECT().GetClusterWorkflowPlane(mock.Anything, "cwp-1").Return(nil, errors.New("boom"))
+	svc.EXPECT().GetClusterWorkflowPlane(mock.Anything, "cwp-1").Return(nil, errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{ClusterWorkflowPlaneService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -322,7 +322,7 @@ func TestCreateClusterWorkflowPlaneHandler_MapsErrors(t *testing.T) {
 		wantTyp any
 	}{
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.CreateClusterWorkflowPlane400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.CreateClusterWorkflowPlane500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.CreateClusterWorkflowPlane500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -349,7 +349,7 @@ func TestUpdateClusterWorkflowPlaneHandler_MapsErrors(t *testing.T) {
 		wantTyp any
 	}{
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.UpdateClusterWorkflowPlane400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.UpdateClusterWorkflowPlane500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.UpdateClusterWorkflowPlane500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

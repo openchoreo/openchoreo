@@ -492,7 +492,7 @@ func TestUpdateComponentHandler_MapsErrors(t *testing.T) {
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateComponent403JSONResponse{}},
 		{"not found -> 404", componentsvc.ErrComponentNotFound, gen.UpdateComponent404JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.UpdateComponent400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.UpdateComponent500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.UpdateComponent500JSONResponse{}},
 	}
 
 	for _, tt := range tests {
@@ -535,7 +535,7 @@ func TestUpdateComponentHandler_NilBody(t *testing.T) {
 func TestListComponentsHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	svc := componentsvcmocks.NewMockService(t)
-	svc.EXPECT().ListComponents(mock.Anything, "test-ns", "", mock.Anything).Return(nil, errors.New("boom"))
+	svc.EXPECT().ListComponents(mock.Anything, "test-ns", "", mock.Anything).Return(nil, errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{ComponentService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -585,7 +585,7 @@ func TestCreateComponentHandler(t *testing.T) {
 		{"project not found -> 400", projectsvc.ErrProjectNotFound, gen.CreateComponent400JSONResponse{}},
 		{"already exists -> 409", componentsvc.ErrComponentAlreadyExists, gen.CreateComponent409JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.CreateComponent400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.CreateComponent500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.CreateComponent500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -631,7 +631,7 @@ func TestGetComponentHandler(t *testing.T) {
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.GetComponent403JSONResponse{}},
 		{"not found -> 404", componentsvc.ErrComponentNotFound, gen.GetComponent404JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.GetComponent500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.GetComponent500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -673,7 +673,7 @@ func TestDeleteComponentHandler(t *testing.T) {
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.DeleteComponent403JSONResponse{}},
 		{"not found -> 404", componentsvc.ErrComponentNotFound, gen.DeleteComponent404JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.DeleteComponent500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.DeleteComponent500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -713,7 +713,7 @@ func TestGetComponentSchemaHandler_Success(t *testing.T) {
 func TestGetComponentSchemaHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	svc := componentsvcmocks.NewMockService(t)
-	svc.EXPECT().GetComponentSchema(mock.Anything, "test-ns", "comp-a").Return(nil, errors.New("boom"))
+	svc.EXPECT().GetComponentSchema(mock.Anything, "test-ns", "comp-a").Return(nil, errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{ComponentService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -764,7 +764,7 @@ func TestGenerateReleaseHandler(t *testing.T) {
 		{"workload not found -> 404", componentsvc.ErrWorkloadNotFound, gen.GenerateRelease404JSONResponse{}},
 		{"component type not found -> 404", componentsvc.ErrComponentTypeNotFound, gen.GenerateRelease404JSONResponse{}},
 		{"trait not found -> 404", componentsvc.ErrTraitNotFound, gen.GenerateRelease404JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.GenerateRelease500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.GenerateRelease500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -323,7 +323,7 @@ func TestDeleteWorkflowPlaneHandler(t *testing.T) {
 
 	t.Run("internal error returns 500", func(t *testing.T) {
 		svc := workflowplanemocks.NewMockService(t)
-		svc.EXPECT().DeleteWorkflowPlane(mock.Anything, ns, "wp-1").Return(errors.New("boom"))
+		svc.EXPECT().DeleteWorkflowPlane(mock.Anything, ns, "wp-1").Return(errors.New("internal server error"))
 		h := &Handler{
 			services: &handlerservices.Services{WorkflowPlaneService: svc},
 			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -340,7 +340,7 @@ func TestListWorkflowPlanesHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	const ns = "test-ns"
 	svc := workflowplanemocks.NewMockService(t)
-	svc.EXPECT().ListWorkflowPlanes(mock.Anything, ns, mock.Anything).Return(nil, errors.New("boom"))
+	svc.EXPECT().ListWorkflowPlanes(mock.Anything, ns, mock.Anything).Return(nil, errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{WorkflowPlaneService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -353,7 +353,7 @@ func TestListWorkflowPlanesHandler_InternalError(t *testing.T) {
 func TestGetWorkflowPlaneHandler_InternalError(t *testing.T) {
 	ctx := testContext()
 	svc := workflowplanemocks.NewMockService(t)
-	svc.EXPECT().GetWorkflowPlane(mock.Anything, "test-ns", "wp-1").Return(nil, errors.New("boom"))
+	svc.EXPECT().GetWorkflowPlane(mock.Anything, "test-ns", "wp-1").Return(nil, errors.New("internal server error"))
 	h := &Handler{
 		services: &handlerservices.Services{WorkflowPlaneService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -374,7 +374,7 @@ func TestCreateWorkflowPlaneHandler_MapsErrors(t *testing.T) {
 		wantTyp any
 	}{
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.CreateWorkflowPlane400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.CreateWorkflowPlane500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.CreateWorkflowPlane500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -402,7 +402,7 @@ func TestUpdateWorkflowPlaneHandler_MapsErrors(t *testing.T) {
 		wantTyp any
 	}{
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.UpdateWorkflowPlane400JSONResponse{}},
-		{"internal -> 500", errors.New("boom"), gen.UpdateWorkflowPlane500JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkflowPlane500JSONResponse{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
