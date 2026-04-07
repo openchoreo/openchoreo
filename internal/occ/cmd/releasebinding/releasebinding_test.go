@@ -159,3 +159,221 @@ func TestDelete_Success(t *testing.T) {
 
 	assert.Contains(t, out, "ReleaseBinding 'binding-1' deleted")
 }
+
+// --- Validation error tests ---
+
+func TestList_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	rb := New(mc)
+	err := rb.List(ListParams{Namespace: ""})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+func TestGet_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	rb := New(mc)
+	err := rb.Get(GetParams{Namespace: "", ReleaseBindingName: "binding-1"})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+func TestDelete_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	rb := New(mc)
+	err := rb.Delete(DeleteParams{Namespace: "", ReleaseBindingName: "binding-1"})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+func TestDelete_ValidationError_MissingName(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	rb := New(mc)
+	err := rb.Delete(DeleteParams{Namespace: "ns", ReleaseBindingName: ""})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+// --- Constructor test ---
+
+func TestNew(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	rb := New(mc)
+	assert.NotNil(t, rb)
+	assert.Equal(t, mc, rb.client)
+}
+
+// --- printReleaseBindings pure function tests ---
+
+func TestPrintReleaseBindings_Nil(t *testing.T) {
+	out := captureStdout(t, func() {
+		require.NoError(t, printReleaseBindings(nil))
+	})
+	assert.Contains(t, out, "No release bindings found")
+}
+
+func TestPrintReleaseBindings_NilTimestamp(t *testing.T) {
+	items := []gen.ReleaseBinding{
+		{Metadata: gen.ObjectMeta{Name: "binding-no-ts"}, Spec: &gen.ReleaseBindingSpec{Environment: "dev"}},
+	}
+	out := captureStdout(t, func() {
+		require.NoError(t, printReleaseBindings(items))
+	})
+	assert.Contains(t, out, "binding-no-ts")
+	assert.Contains(t, out, "dev")
+}
+
+func TestPrintReleaseBindings_NilSpec(t *testing.T) {
+	items := []gen.ReleaseBinding{
+		{Metadata: gen.ObjectMeta{Name: "binding-nil-spec"}, Spec: nil},
+	}
+	out := captureStdout(t, func() {
+		require.NoError(t, printReleaseBindings(items))
+	})
+	assert.Contains(t, out, "binding-nil-spec")
+}
+
+func TestPrintReleaseBindings_NilStatus(t *testing.T) {
+	items := []gen.ReleaseBinding{
+		{
+			Metadata: gen.ObjectMeta{Name: "binding-nil-status"},
+			Spec:     &gen.ReleaseBindingSpec{Environment: "dev"},
+			Status:   nil,
+		},
+	}
+	out := captureStdout(t, func() {
+		require.NoError(t, printReleaseBindings(items))
+	})
+	assert.Contains(t, out, "binding-nil-status")
+	assert.Contains(t, out, "dev")
+}
+
+func TestPrintReleaseBindings_StatusWithoutReadyCondition(t *testing.T) {
+	conds := []gen.Condition{
+		{Type: "Progressing", Reason: "InProgress", LastTransitionTime: time.Now(), Status: "True"},
+	}
+	items := []gen.ReleaseBinding{
+		{
+			Metadata: gen.ObjectMeta{Name: "binding-no-ready"},
+			Spec:     &gen.ReleaseBindingSpec{Environment: "dev"},
+			Status:   &gen.ReleaseBindingStatus{Conditions: &conds},
+		},
+	}
+	out := captureStdout(t, func() {
+		require.NoError(t, printReleaseBindings(items))
+	})
+	assert.Contains(t, out, "binding-no-ready")
+	// Status column should be empty since no Ready condition exists
+	assert.NotContains(t, out, "InProgress")
+}
+
+func TestPrintReleaseBindings_WithReadyCondition(t *testing.T) {
+	relName := "rel-1"
+	now := time.Now()
+	conds := []gen.Condition{
+		{Type: "Ready", Reason: "Available", LastTransitionTime: now, Status: "True"},
+	}
+	items := []gen.ReleaseBinding{
+		{
+			Metadata: gen.ObjectMeta{Name: "binding-ready", CreationTimestamp: &now},
+			Spec:     &gen.ReleaseBindingSpec{Environment: "dev", ReleaseName: &relName},
+			Status:   &gen.ReleaseBindingStatus{Conditions: &conds},
+		},
+	}
+	out := captureStdout(t, func() {
+		require.NoError(t, printReleaseBindings(items))
+	})
+	assert.Contains(t, out, "binding-ready")
+	assert.Contains(t, out, "dev")
+	assert.Contains(t, out, "rel-1")
+	assert.Contains(t, out, "Available")
+}
+
+func TestPrintReleaseBindings_NilReleaseName(t *testing.T) {
+	items := []gen.ReleaseBinding{
+		{
+			Metadata: gen.ObjectMeta{Name: "binding-nil-rel"},
+			Spec:     &gen.ReleaseBindingSpec{Environment: "staging", ReleaseName: nil},
+		},
+	}
+	out := captureStdout(t, func() {
+		require.NoError(t, printReleaseBindings(items))
+	})
+	assert.Contains(t, out, "binding-nil-rel")
+	assert.Contains(t, out, "staging")
+}
+
+func TestPrintReleaseBindings_EmptyConditions(t *testing.T) {
+	conds := []gen.Condition{}
+	items := []gen.ReleaseBinding{
+		{
+			Metadata: gen.ObjectMeta{Name: "binding-empty-conds"},
+			Spec:     &gen.ReleaseBindingSpec{Environment: "dev"},
+			Status:   &gen.ReleaseBindingStatus{Conditions: &conds},
+		},
+	}
+	out := captureStdout(t, func() {
+		require.NoError(t, printReleaseBindings(items))
+	})
+	assert.Contains(t, out, "binding-empty-conds")
+}
+
+// --- List with component filter ---
+
+func TestList_WithComponentFilter(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListReleaseBindingsParams) bool {
+		return p.Component != nil && *p.Component == "my-comp"
+	})).Return(&gen.ReleaseBindingList{
+		Items:      []gen.ReleaseBinding{{Metadata: gen.ObjectMeta{Name: "binding-1"}}},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	rb := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, rb.List(ListParams{Namespace: "ns", Component: "my-comp"}))
+	})
+	assert.Contains(t, out, "binding-1")
+}
+
+// --- Pagination ---
+
+func TestList_Pagination(t *testing.T) {
+	next := "cursor-2"
+	mc := mocks.NewMockClient(t)
+
+	// First page — no cursor
+	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListReleaseBindingsParams) bool {
+		return p.Cursor == nil
+	})).Return(&gen.ReleaseBindingList{
+		Items:      []gen.ReleaseBinding{{Metadata: gen.ObjectMeta{Name: "binding-page1"}}},
+		Pagination: gen.Pagination{NextCursor: &next},
+	}, nil).Once()
+
+	// Second page — with cursor
+	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListReleaseBindingsParams) bool {
+		return p.Cursor != nil && *p.Cursor == "cursor-2"
+	})).Return(&gen.ReleaseBindingList{
+		Items:      []gen.ReleaseBinding{{Metadata: gen.ObjectMeta{Name: "binding-page2"}}},
+		Pagination: gen.Pagination{},
+	}, nil).Once()
+
+	rb := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, rb.List(ListParams{Namespace: "ns"}))
+	})
+	assert.Contains(t, out, "binding-page1")
+	assert.Contains(t, out, "binding-page2")
+}
+
+func TestList_NilTimestamp(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
+		Items: []gen.ReleaseBinding{
+			{Metadata: gen.ObjectMeta{Name: "binding-no-ts", CreationTimestamp: nil}},
+		},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	rb := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, rb.List(ListParams{Namespace: "ns"}))
+	})
+	assert.Contains(t, out, "binding-no-ts")
+}

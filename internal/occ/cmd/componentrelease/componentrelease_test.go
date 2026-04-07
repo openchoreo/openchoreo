@@ -154,3 +154,179 @@ func TestDelete_Success(t *testing.T) {
 
 	assert.Contains(t, out, "ComponentRelease 'rel-1' deleted")
 }
+
+// --- Validation error tests ---
+
+func TestList_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	cr := New(mc)
+	err := cr.List(ListParams{Namespace: ""})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+func TestGet_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	cr := New(mc)
+	err := cr.Get(GetParams{Namespace: "", ComponentReleaseName: "rel-1"})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+func TestDelete_ValidationError(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	cr := New(mc)
+	err := cr.Delete(DeleteParams{Namespace: "", ComponentReleaseName: "rel-1"})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+func TestDelete_ValidationError_MissingName(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	cr := New(mc)
+	err := cr.Delete(DeleteParams{Namespace: "ns", ComponentReleaseName: ""})
+	assert.ErrorContains(t, err, "Missing required parameter")
+}
+
+// --- Constructor test ---
+
+func TestNew(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	cr := New(mc)
+	assert.NotNil(t, cr)
+	assert.Equal(t, mc, cr.client)
+}
+
+// --- printComponentReleases pure function tests ---
+
+func TestPrintComponentReleases_Nil(t *testing.T) {
+	out := captureStdout(t, func() {
+		require.NoError(t, printComponentReleases(nil))
+	})
+	assert.Contains(t, out, "No component releases found")
+}
+
+func TestPrintComponentReleases_NilTimestamp(t *testing.T) {
+	items := []gen.ComponentRelease{
+		{Metadata: gen.ObjectMeta{Name: "rel-no-ts", CreationTimestamp: nil}},
+	}
+	out := captureStdout(t, func() {
+		require.NoError(t, printComponentReleases(items))
+	})
+	assert.Contains(t, out, "rel-no-ts")
+}
+
+func TestPrintComponentReleases_NilSpec(t *testing.T) {
+	items := []gen.ComponentRelease{
+		{Metadata: gen.ObjectMeta{Name: "rel-nil-spec"}, Spec: nil},
+	}
+	out := captureStdout(t, func() {
+		require.NoError(t, printComponentReleases(items))
+	})
+	assert.Contains(t, out, "rel-nil-spec")
+}
+
+func TestPrintComponentReleases_WithSpec(t *testing.T) {
+	now := time.Now()
+	items := []gen.ComponentRelease{
+		{
+			Metadata: gen.ObjectMeta{Name: "rel-with-spec", CreationTimestamp: &now},
+			Spec: &gen.ComponentReleaseSpec{
+				Owner: struct {
+					ComponentName string `json:"componentName"`
+					ProjectName   string `json:"projectName"`
+				}{ComponentName: "comp-a", ProjectName: "proj-1"},
+			},
+		},
+	}
+	out := captureStdout(t, func() {
+		require.NoError(t, printComponentReleases(items))
+	})
+	assert.Contains(t, out, "rel-with-spec")
+	assert.Contains(t, out, "comp-a")
+	assert.Contains(t, out, "NAME")
+	assert.Contains(t, out, "COMPONENT")
+	assert.Contains(t, out, "AGE")
+}
+
+// --- List with component filter ---
+
+func TestList_WithComponentFilter(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListComponentReleases(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListComponentReleasesParams) bool {
+		return p.Component != nil && *p.Component == "my-comp"
+	})).Return(&gen.ComponentReleaseList{
+		Items:      []gen.ComponentRelease{{Metadata: gen.ObjectMeta{Name: "rel-1"}}},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	cr := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cr.List(ListParams{Namespace: "ns", Component: "my-comp"}))
+	})
+	assert.Contains(t, out, "rel-1")
+}
+
+// --- Pagination ---
+
+func TestList_Pagination(t *testing.T) {
+	next := "cursor-2"
+	mc := mocks.NewMockClient(t)
+
+	// First page — no cursor
+	mc.EXPECT().ListComponentReleases(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListComponentReleasesParams) bool {
+		return p.Cursor == nil
+	})).Return(&gen.ComponentReleaseList{
+		Items:      []gen.ComponentRelease{{Metadata: gen.ObjectMeta{Name: "rel-page1"}}},
+		Pagination: gen.Pagination{NextCursor: &next},
+	}, nil).Once()
+
+	// Second page — with cursor
+	mc.EXPECT().ListComponentReleases(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListComponentReleasesParams) bool {
+		return p.Cursor != nil && *p.Cursor == "cursor-2"
+	})).Return(&gen.ComponentReleaseList{
+		Items:      []gen.ComponentRelease{{Metadata: gen.ObjectMeta{Name: "rel-page2"}}},
+		Pagination: gen.Pagination{},
+	}, nil).Once()
+
+	cr := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cr.List(ListParams{Namespace: "ns"}))
+	})
+	assert.Contains(t, out, "rel-page1")
+	assert.Contains(t, out, "rel-page2")
+}
+
+func TestList_NilTimestamp(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().ListComponentReleases(mock.Anything, "ns", mock.Anything).Return(&gen.ComponentReleaseList{
+		Items: []gen.ComponentRelease{
+			{Metadata: gen.ObjectMeta{Name: "rel-no-ts", CreationTimestamp: nil}},
+		},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	cr := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cr.List(ListParams{Namespace: "ns"}))
+	})
+	assert.Contains(t, out, "rel-no-ts")
+}
+
+func TestGet_SuccessWithSpec(t *testing.T) {
+	mc := mocks.NewMockClient(t)
+	mc.EXPECT().GetComponentRelease(mock.Anything, "ns", "rel-1").Return(&gen.ComponentRelease{
+		Metadata: gen.ObjectMeta{Name: "rel-1"},
+		Spec: &gen.ComponentReleaseSpec{
+			Owner: struct {
+				ComponentName string `json:"componentName"`
+				ProjectName   string `json:"projectName"`
+			}{ComponentName: "comp-a", ProjectName: "proj-1"},
+		},
+	}, nil)
+
+	cr := New(mc)
+	out := captureStdout(t, func() {
+		require.NoError(t, cr.Get(GetParams{Namespace: "ns", ComponentReleaseName: "rel-1"}))
+	})
+	assert.Contains(t, out, "name: rel-1")
+	assert.Contains(t, out, "componentName: comp-a")
+	assert.Contains(t, out, "projectName: proj-1")
+}
