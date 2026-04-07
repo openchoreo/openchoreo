@@ -491,7 +491,7 @@ func TestUpdateComponentHandler_MapsErrors(t *testing.T) {
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateComponent403JSONResponse{}},
 		{"not found -> 404", componentsvc.ErrComponentNotFound, gen.UpdateComponent404JSONResponse{}},
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.UpdateComponent400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.UpdateComponent400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.UpdateComponent500JSONResponse{}},
 	}
 
@@ -584,7 +584,7 @@ func TestCreateComponentHandler(t *testing.T) {
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.CreateComponent403JSONResponse{}},
 		{"project not found -> 400", projectsvc.ErrProjectNotFound, gen.CreateComponent400JSONResponse{}},
 		{"already exists -> 409", componentsvc.ErrComponentAlreadyExists, gen.CreateComponent409JSONResponse{}},
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.CreateComponent400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.CreateComponent400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.CreateComponent500JSONResponse{}},
 	}
 	for _, tt := range tests {

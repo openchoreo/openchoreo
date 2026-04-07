@@ -321,7 +321,7 @@ func TestCreateClusterWorkflowPlaneHandler_MapsErrors(t *testing.T) {
 		svcErr  error
 		wantTyp any
 	}{
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.CreateClusterWorkflowPlane400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.CreateClusterWorkflowPlane400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.CreateClusterWorkflowPlane500JSONResponse{}},
 	}
 	for _, tt := range tests {
@@ -348,7 +348,7 @@ func TestUpdateClusterWorkflowPlaneHandler_MapsErrors(t *testing.T) {
 		svcErr  error
 		wantTyp any
 	}{
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.UpdateClusterWorkflowPlane400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.UpdateClusterWorkflowPlane400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.UpdateClusterWorkflowPlane500JSONResponse{}},
 	}
 	for _, tt := range tests {

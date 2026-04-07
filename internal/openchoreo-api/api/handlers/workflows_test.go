@@ -479,7 +479,7 @@ func TestUpdateWorkflowHandler_MapsErrors(t *testing.T) {
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateWorkflow403JSONResponse{}},
 		{"not found -> 404", workflowsvc.ErrWorkflowNotFound, gen.UpdateWorkflow404JSONResponse{}},
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "invalid"}, gen.UpdateWorkflow400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "invalid request"}, gen.UpdateWorkflow400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkflow500JSONResponse{}},
 	}
 	for _, tt := range tests {
@@ -597,7 +597,7 @@ func TestListWorkflowRunsHandler_MapsErrors(t *testing.T) {
 		wantTyp any
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.ListWorkflowRuns403JSONResponse{}},
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.ListWorkflowRuns400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.ListWorkflowRuns400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.ListWorkflowRuns500JSONResponse{}},
 	}
 	for _, tt := range tests {
@@ -653,7 +653,7 @@ func TestCreateWorkflowRunHandler(t *testing.T) {
 	}{
 		{"workflow not found -> 404", workflowrunsvc.ErrWorkflowNotFound, gen.CreateWorkflowRun404JSONResponse{}},
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.CreateWorkflowRun403JSONResponse{}},
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.CreateWorkflowRun400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.CreateWorkflowRun400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.CreateWorkflowRun500JSONResponse{}},
 	}
 	for _, tt := range tests {
@@ -740,7 +740,7 @@ func TestUpdateWorkflowRunHandler_MapsErrors(t *testing.T) {
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateWorkflowRun403JSONResponse{}},
 		{"not found -> 404", workflowrunsvc.ErrWorkflowRunNotFound, gen.UpdateWorkflowRun404JSONResponse{}},
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.UpdateWorkflowRun400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.UpdateWorkflowRun400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkflowRun500JSONResponse{}},
 	}
 	for _, tt := range tests {

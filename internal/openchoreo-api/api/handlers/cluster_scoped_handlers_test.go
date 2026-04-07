@@ -680,7 +680,7 @@ func TestListClusterWorkflowsHandler_MapsErrors(t *testing.T) {
 		wantTyp any
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.ListClusterWorkflows403JSONResponse{}},
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.ListClusterWorkflows400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.ListClusterWorkflows400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.ListClusterWorkflows500JSONResponse{}},
 	}
 	for _, tt := range tests {
@@ -933,7 +933,7 @@ func TestListClusterComponentTypesHandler_MapsErrors(t *testing.T) {
 		svcErr  error
 		wantTyp any
 	}{
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.ListClusterComponentTypes400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.ListClusterComponentTypes400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.ListClusterComponentTypes500JSONResponse{}},
 	}
 	for _, tt := range tests {
@@ -954,7 +954,7 @@ func TestListClusterComponentTypesHandler_MapsErrors(t *testing.T) {
 func TestCreateClusterComponentTypeHandler_ValidationError(t *testing.T) {
 	ctx := testContext()
 	svc := cctsvcmocks.NewMockService(t)
-	svc.EXPECT().CreateClusterComponentType(mock.Anything, mock.Anything).Return(nil, &svcpkg.ValidationError{Msg: "bad"})
+	svc.EXPECT().CreateClusterComponentType(mock.Anything, mock.Anything).Return(nil, &svcpkg.ValidationError{Msg: "bad request"})
 	h := &Handler{
 		services: &handlerservices.Services{ClusterComponentTypeService: svc},
 		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),

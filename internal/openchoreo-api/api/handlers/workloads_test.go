@@ -406,7 +406,7 @@ func TestCreateWorkloadHandler_MapsErrors(t *testing.T) {
 		wantTyp any
 	}{
 		{"component not found -> 400", workloadsvc.ErrComponentNotFound, gen.CreateWorkload400JSONResponse{}},
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.CreateWorkload400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.CreateWorkload400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.CreateWorkload500JSONResponse{}},
 	}
 	for _, tt := range tests {
@@ -434,7 +434,7 @@ func TestUpdateWorkloadHandler_MapsErrors(t *testing.T) {
 		svcErr  error
 		wantTyp any
 	}{
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.UpdateWorkload400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.UpdateWorkload400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkload500JSONResponse{}},
 	}
 	for _, tt := range tests {

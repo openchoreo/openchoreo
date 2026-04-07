@@ -373,7 +373,7 @@ func TestCreateWorkflowPlaneHandler_MapsErrors(t *testing.T) {
 		svcErr  error
 		wantTyp any
 	}{
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.CreateWorkflowPlane400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.CreateWorkflowPlane400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.CreateWorkflowPlane500JSONResponse{}},
 	}
 	for _, tt := range tests {
@@ -401,7 +401,7 @@ func TestUpdateWorkflowPlaneHandler_MapsErrors(t *testing.T) {
 		svcErr  error
 		wantTyp any
 	}{
-		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.UpdateWorkflowPlane400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.UpdateWorkflowPlane400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkflowPlane500JSONResponse{}},
 	}
 	for _, tt := range tests {
