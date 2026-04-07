@@ -6,6 +6,8 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"testing"
 
@@ -26,6 +28,7 @@ import (
 	clustertraitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait"
 	clustertraitmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait/mocks"
 	clusterworkflowsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterworkflow"
+	clusterworkflowmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterworkflow/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
@@ -665,4 +668,368 @@ func TestUpdateClusterTraitHandler_MapsErrors(t *testing.T) {
 			assert.IsType(t, tt.wantTyp, resp)
 		})
 	}
+}
+
+// --- Additional ClusterWorkflow handler coverage ---
+
+func TestListClusterWorkflowsHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.ListClusterWorkflows403JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.ListClusterWorkflows400JSONResponse{}},
+		{"internal -> 500", errors.New("boom"), gen.ListClusterWorkflows500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := clusterworkflowmocks.NewMockService(t)
+			svc.EXPECT().ListClusterWorkflows(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{ClusterWorkflowService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.ListClusterWorkflows(ctx, gen.ListClusterWorkflowsRequestObject{})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestGetClusterWorkflowHandler_InternalError(t *testing.T) {
+	ctx := testContext()
+	svc := clusterworkflowmocks.NewMockService(t)
+	svc.EXPECT().GetClusterWorkflow(mock.Anything, "name").Return(nil, errors.New("boom"))
+	h := &Handler{
+		services: &handlerservices.Services{ClusterWorkflowService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.GetClusterWorkflow(ctx, gen.GetClusterWorkflowRequestObject{ClusterWorkflowName: "name"})
+	require.NoError(t, err)
+	assert.IsType(t, gen.GetClusterWorkflow500JSONResponse{}, resp)
+}
+
+func TestCreateClusterWorkflowHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	body := &gen.ClusterWorkflow{Metadata: gen.ObjectMeta{Name: "cwf"}}
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"already exists -> 409", clusterworkflowsvc.ErrClusterWorkflowAlreadyExists, gen.CreateClusterWorkflow409JSONResponse{}},
+		{"internal -> 500", errors.New("boom"), gen.CreateClusterWorkflow500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := clusterworkflowmocks.NewMockService(t)
+			svc.EXPECT().CreateClusterWorkflow(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{ClusterWorkflowService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.CreateClusterWorkflow(ctx, gen.CreateClusterWorkflowRequestObject{Body: body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestUpdateClusterWorkflowHandler(t *testing.T) {
+	ctx := testContext()
+	body := &gen.ClusterWorkflow{Metadata: gen.ObjectMeta{Name: "cwf"}}
+
+	t.Run("uses path name", func(t *testing.T) {
+		svc := clusterworkflowmocks.NewMockService(t)
+		svc.EXPECT().UpdateClusterWorkflow(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, cwf *openchoreov1alpha1.ClusterWorkflow) (*openchoreov1alpha1.ClusterWorkflow, error) {
+			assert.Equal(t, "from-path", cwf.Name)
+			return cwf, nil
+		})
+		h := &Handler{
+			services: &handlerservices.Services{ClusterWorkflowService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.UpdateClusterWorkflow(ctx, gen.UpdateClusterWorkflowRequestObject{
+			ClusterWorkflowName: "from-path",
+			Body:                &gen.ClusterWorkflow{Metadata: gen.ObjectMeta{Name: "from-body"}},
+		})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.UpdateClusterWorkflow200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Equal(t, "from-path", typed.Metadata.Name)
+	})
+
+	t.Run("nil body returns 400", func(t *testing.T) {
+		h := &Handler{
+			services: &handlerservices.Services{ClusterWorkflowService: clusterworkflowmocks.NewMockService(t)},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.UpdateClusterWorkflow(ctx, gen.UpdateClusterWorkflowRequestObject{
+			ClusterWorkflowName: "cwf",
+			Body:                nil,
+		})
+		require.NoError(t, err)
+		assert.IsType(t, gen.UpdateClusterWorkflow400JSONResponse{}, resp)
+	})
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateClusterWorkflow403JSONResponse{}},
+		{"not found -> 404", clusterworkflowsvc.ErrClusterWorkflowNotFound, gen.UpdateClusterWorkflow404JSONResponse{}},
+		{"internal -> 500", errors.New("boom"), gen.UpdateClusterWorkflow500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := clusterworkflowmocks.NewMockService(t)
+			svc.EXPECT().UpdateClusterWorkflow(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{ClusterWorkflowService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.UpdateClusterWorkflow(ctx, gen.UpdateClusterWorkflowRequestObject{
+				ClusterWorkflowName: "cwf",
+				Body:                body,
+			})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestDeleteClusterWorkflowHandler_InternalError(t *testing.T) {
+	ctx := testContext()
+	svc := clusterworkflowmocks.NewMockService(t)
+	svc.EXPECT().DeleteClusterWorkflow(mock.Anything, "cwf").Return(errors.New("boom"))
+	h := &Handler{
+		services: &handlerservices.Services{ClusterWorkflowService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.DeleteClusterWorkflow(ctx, gen.DeleteClusterWorkflowRequestObject{ClusterWorkflowName: "cwf"})
+	require.NoError(t, err)
+	assert.IsType(t, gen.DeleteClusterWorkflow500JSONResponse{}, resp)
+}
+
+func TestGetClusterWorkflowSchemaHandler_InternalError(t *testing.T) {
+	ctx := testContext()
+	svc := clusterworkflowmocks.NewMockService(t)
+	svc.EXPECT().GetClusterWorkflowSchema(mock.Anything, "cwf").Return(nil, errors.New("boom"))
+	h := &Handler{
+		services: &handlerservices.Services{ClusterWorkflowService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.GetClusterWorkflowSchema(ctx, gen.GetClusterWorkflowSchemaRequestObject{ClusterWorkflowName: "cwf"})
+	require.NoError(t, err)
+	assert.IsType(t, gen.GetClusterWorkflowSchema500JSONResponse{}, resp)
+}
+
+// --- Additional ClusterComponentType handler coverage ---
+
+func TestGetClusterComponentTypeHandler(t *testing.T) {
+	ctx := testContext()
+	cct := &openchoreov1alpha1.ClusterComponentType{
+		ObjectMeta: metav1.ObjectMeta{Name: "go-service"},
+		Spec: openchoreov1alpha1.ClusterComponentTypeSpec{
+			WorkloadType: "deployment",
+			Resources:    []openchoreov1alpha1.ResourceTemplate{{ID: "deployment"}},
+		},
+	}
+
+	t.Run("success", func(t *testing.T) {
+		svc := newClusterComponentTypeService(t, []client.Object{cct}, &allowAllPDP{})
+		h := newHandlerWithClusterComponentTypeService(svc)
+		resp, err := h.GetClusterComponentType(ctx, gen.GetClusterComponentTypeRequestObject{CctName: "go-service"})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.GetClusterComponentType200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Equal(t, "go-service", typed.Metadata.Name)
+	})
+
+	t.Run("not found returns 404", func(t *testing.T) {
+		svc := newClusterComponentTypeService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterComponentTypeService(svc)
+		resp, err := h.GetClusterComponentType(ctx, gen.GetClusterComponentTypeRequestObject{CctName: "missing"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterComponentType404JSONResponse{}, resp)
+	})
+
+	t.Run("forbidden returns 403", func(t *testing.T) {
+		svc := newClusterComponentTypeService(t, []client.Object{cct}, &denyAllPDP{})
+		h := newHandlerWithClusterComponentTypeService(svc)
+		resp, err := h.GetClusterComponentType(ctx, gen.GetClusterComponentTypeRequestObject{CctName: "go-service"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterComponentType403JSONResponse{}, resp)
+	})
+
+	t.Run("internal error returns 500", func(t *testing.T) {
+		svc := cctsvcmocks.NewMockService(t)
+		svc.EXPECT().GetClusterComponentType(mock.Anything, "go-service").Return(nil, errors.New("boom"))
+		h := &Handler{
+			services: &handlerservices.Services{ClusterComponentTypeService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.GetClusterComponentType(ctx, gen.GetClusterComponentTypeRequestObject{CctName: "go-service"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterComponentType500JSONResponse{}, resp)
+	})
+}
+
+func TestDeleteClusterComponentTypeHandler(t *testing.T) {
+	ctx := testContext()
+	cct := &openchoreov1alpha1.ClusterComponentType{
+		ObjectMeta: metav1.ObjectMeta{Name: "go-service"},
+		Spec: openchoreov1alpha1.ClusterComponentTypeSpec{
+			WorkloadType: "deployment",
+			Resources:    []openchoreov1alpha1.ResourceTemplate{{ID: "deployment"}},
+		},
+	}
+
+	t.Run("success", func(t *testing.T) {
+		svc := newClusterComponentTypeService(t, []client.Object{cct}, &allowAllPDP{})
+		h := newHandlerWithClusterComponentTypeService(svc)
+		resp, err := h.DeleteClusterComponentType(ctx, gen.DeleteClusterComponentTypeRequestObject{CctName: "go-service"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterComponentType204Response{}, resp)
+	})
+
+	t.Run("not found returns 404", func(t *testing.T) {
+		svc := newClusterComponentTypeService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterComponentTypeService(svc)
+		resp, err := h.DeleteClusterComponentType(ctx, gen.DeleteClusterComponentTypeRequestObject{CctName: "missing"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterComponentType404JSONResponse{}, resp)
+	})
+
+	t.Run("forbidden returns 403", func(t *testing.T) {
+		svc := newClusterComponentTypeService(t, []client.Object{cct}, &denyAllPDP{})
+		h := newHandlerWithClusterComponentTypeService(svc)
+		resp, err := h.DeleteClusterComponentType(ctx, gen.DeleteClusterComponentTypeRequestObject{CctName: "go-service"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterComponentType403JSONResponse{}, resp)
+	})
+
+	t.Run("internal error returns 500", func(t *testing.T) {
+		svc := cctsvcmocks.NewMockService(t)
+		svc.EXPECT().DeleteClusterComponentType(mock.Anything, "go-service").Return(errors.New("boom"))
+		h := &Handler{
+			services: &handlerservices.Services{ClusterComponentTypeService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.DeleteClusterComponentType(ctx, gen.DeleteClusterComponentTypeRequestObject{CctName: "go-service"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterComponentType500JSONResponse{}, resp)
+	})
+}
+
+func TestListClusterComponentTypesHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.ListClusterComponentTypes403JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad"}, gen.ListClusterComponentTypes400JSONResponse{}},
+		{"internal -> 500", errors.New("boom"), gen.ListClusterComponentTypes500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := cctsvcmocks.NewMockService(t)
+			svc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{ClusterComponentTypeService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.ListClusterComponentTypes(ctx, gen.ListClusterComponentTypesRequestObject{})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestCreateClusterComponentTypeHandler_ValidationError(t *testing.T) {
+	ctx := testContext()
+	svc := cctsvcmocks.NewMockService(t)
+	svc.EXPECT().CreateClusterComponentType(mock.Anything, mock.Anything).Return(nil, &svcpkg.ValidationError{Msg: "bad"})
+	h := &Handler{
+		services: &handlerservices.Services{ClusterComponentTypeService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	body := gen.ClusterComponentType{Metadata: gen.ObjectMeta{Name: "cct"}}
+	resp, err := h.CreateClusterComponentType(ctx, gen.CreateClusterComponentTypeRequestObject{Body: &body})
+	require.NoError(t, err)
+	assert.IsType(t, gen.CreateClusterComponentType400JSONResponse{}, resp)
+}
+
+func TestCreateClusterComponentTypeHandler_NilBody(t *testing.T) {
+	ctx := testContext()
+	h := &Handler{
+		services: &handlerservices.Services{ClusterComponentTypeService: cctsvcmocks.NewMockService(t)},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.CreateClusterComponentType(ctx, gen.CreateClusterComponentTypeRequestObject{Body: nil})
+	require.NoError(t, err)
+	assert.IsType(t, gen.CreateClusterComponentType400JSONResponse{}, resp)
+}
+
+func TestCreateClusterComponentTypeHandler_Success(t *testing.T) {
+	ctx := testContext()
+	svc := cctsvcmocks.NewMockService(t)
+	svc.EXPECT().CreateClusterComponentType(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
+		return cct, nil
+	})
+	h := &Handler{
+		services: &handlerservices.Services{ClusterComponentTypeService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	body := gen.ClusterComponentType{Metadata: gen.ObjectMeta{Name: "cct"}}
+	resp, err := h.CreateClusterComponentType(ctx, gen.CreateClusterComponentTypeRequestObject{Body: &body})
+	require.NoError(t, err)
+	typed, ok := resp.(gen.CreateClusterComponentType201JSONResponse)
+	require.True(t, ok, "expected 201 response, got %T", resp)
+	assert.Equal(t, "cct", typed.Metadata.Name)
+}
+
+func TestCreateClusterComponentTypeHandler_InternalError(t *testing.T) {
+	ctx := testContext()
+	svc := cctsvcmocks.NewMockService(t)
+	svc.EXPECT().CreateClusterComponentType(mock.Anything, mock.Anything).Return(nil, errors.New("boom"))
+	h := &Handler{
+		services: &handlerservices.Services{ClusterComponentTypeService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	body := gen.ClusterComponentType{Metadata: gen.ObjectMeta{Name: "cct"}}
+	resp, err := h.CreateClusterComponentType(ctx, gen.CreateClusterComponentTypeRequestObject{Body: &body})
+	require.NoError(t, err)
+	assert.IsType(t, gen.CreateClusterComponentType500JSONResponse{}, resp)
+}
+
+func TestUpdateClusterComponentTypeHandler_NilBody(t *testing.T) {
+	ctx := testContext()
+	h := &Handler{
+		services: &handlerservices.Services{ClusterComponentTypeService: cctsvcmocks.NewMockService(t)},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.UpdateClusterComponentType(ctx, gen.UpdateClusterComponentTypeRequestObject{CctName: "cct", Body: nil})
+	require.NoError(t, err)
+	assert.IsType(t, gen.UpdateClusterComponentType400JSONResponse{}, resp)
+}
+
+func TestUpdateClusterComponentTypeHandler_InternalError(t *testing.T) {
+	ctx := testContext()
+	svc := cctsvcmocks.NewMockService(t)
+	svc.EXPECT().UpdateClusterComponentType(mock.Anything, mock.Anything).Return(nil, errors.New("boom"))
+	h := &Handler{
+		services: &handlerservices.Services{ClusterComponentTypeService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	body := gen.ClusterComponentType{Metadata: gen.ObjectMeta{Name: "cct"}}
+	resp, err := h.UpdateClusterComponentType(ctx, gen.UpdateClusterComponentTypeRequestObject{CctName: "cct", Body: &body})
+	require.NoError(t, err)
+	assert.IsType(t, gen.UpdateClusterComponentType500JSONResponse{}, resp)
 }
