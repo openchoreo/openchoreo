@@ -40,7 +40,7 @@ func apiError(statusCode int, body []byte) error {
 
 // Client wraps the generated OpenAPI client with token refresh functionality
 type Client struct {
-	client *gen.ClientWithResponses
+	client gen.ClientWithResponsesInterface
 	token  string
 }
 
@@ -90,7 +90,7 @@ func NewClient() (*Client, error) {
 
 // GetClient returns the underlying generated OpenAPI client.
 func (c *Client) GetClient() *gen.ClientWithResponses {
-	return c.client
+	return c.client.(*gen.ClientWithResponses)
 }
 
 // ListNamespaces retrieves all namespaces

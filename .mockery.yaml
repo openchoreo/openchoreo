@@ -166,6 +166,12 @@ packages:
   github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun:
     interfaces:
       Client:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen:
+    interfaces:
+      ClientWithResponsesInterface:
+        config:
+          dir: "internal/occ/resources/client/mocks"
+          outpkg: mocks
   github.com/openchoreo/openchoreo/internal/observer/service:
     interfaces:
       HealthChecker:
