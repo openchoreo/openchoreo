@@ -73,8 +73,8 @@ Type/Feature represents feature requests opened by the community. These requests
 ### Bug Triage Process
 * Initiate a discussion within the issue to decide the validity of the bug
 * If the bug is valid then assign the relevant milestone, area and priority
-* If backporting is needed, add a label in the format `backport/release-v1.x` release-v1.x is the release branch which fix needs to be backported. In the case of multiple backports please add multiple labels representing each branch
-  * This triggers the backport process, which is explained in [GitHub Workflow](https://github.com/openchoreo/openchoreo/blob/main/docs/contributors/github_workflow.md#backporting)
+* If backporting is needed, add a label in the format `backport/release-vX.Y` where release-vX.Y is the release branch which fix needs to be backported and X,Y represent the major and minor versions. In the case of multiple backports please add multiple labels representing each branch
+  * This triggers the backport process, which is explained in [GitHub Workflow](github_workflow.md#backporting)
 * Add the bug to the [OpenChoreo Release Management](https://github.com/orgs/openchoreo/projects/5) project board
 
 
