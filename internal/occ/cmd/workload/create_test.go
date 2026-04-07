@@ -202,16 +202,20 @@ func TestCreate_FileSystem_ExistingWorkload_ImageUpdate_DryRun(t *testing.T) {
 			ProjectName:   "myproj",
 			ComponentName: "my-svc",
 			ImageURL:      "registry/my-svc:v2",
+			DryRun:        true,
 		})
 		require.NoError(t, err)
 	})
-	// Should update the existing workload file with the new image
-	assert.Contains(t, out, "Workload written to:")
+	// Dry-run should print YAML to stdout, not write to disk
+	assert.Contains(t, out, "kind: Workload")
+	assert.Contains(t, out, "registry/my-svc:v2")
+	assert.NotContains(t, out, "Workload written to:")
 
-	// Verify the existing workload file was updated with new image
+	// Verify the existing workload file was NOT modified (still has v1)
 	data, err := os.ReadFile(filepath.Join(repoDir, "projects", "myproj", "components", "my-svc", "workload.yaml"))
 	require.NoError(t, err)
-	assert.Contains(t, string(data), "registry/my-svc:v2")
+	assert.Contains(t, string(data), "registry/my-svc:v1")
+	assert.NotContains(t, string(data), "registry/my-svc:v2")
 }
 
 func TestCreate_FileSystem_ExistingWorkload_ImageUpdate_Write(t *testing.T) {

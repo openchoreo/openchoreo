@@ -263,7 +263,7 @@ func TestList_Pagination(t *testing.T) {
 
 	// First page — no cursor
 	mc.EXPECT().ListWorkloads(mock.Anything, "org-a", mock.MatchedBy(func(p *gen.ListWorkloadsParams) bool {
-		return p.Cursor == nil
+		return p != nil && p.Cursor == nil
 	})).Return(&gen.WorkloadList{
 		Items:      []gen.Workload{{Metadata: gen.ObjectMeta{Name: "wl-page1"}}},
 		Pagination: gen.Pagination{NextCursor: &next},
@@ -271,7 +271,7 @@ func TestList_Pagination(t *testing.T) {
 
 	// Second page — with cursor
 	mc.EXPECT().ListWorkloads(mock.Anything, "org-a", mock.MatchedBy(func(p *gen.ListWorkloadsParams) bool {
-		return p.Cursor != nil && *p.Cursor == "cursor-2"
+		return p != nil && p.Cursor != nil && *p.Cursor == "cursor-2"
 	})).Return(&gen.WorkloadList{
 		Items:      []gen.Workload{{Metadata: gen.ObjectMeta{Name: "wl-page2"}}},
 		Pagination: gen.Pagination{},
