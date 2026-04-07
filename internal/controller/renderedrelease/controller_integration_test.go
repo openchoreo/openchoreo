@@ -5,6 +5,7 @@ package renderedrelease
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,11 +16,20 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
+)
+
+const (
+	testNs       = "default"
+	testTimeout  = 10 * time.Second
+	testInterval = 250 * time.Millisecond
 )
 
 // forceDelete removes the DataPlaneCleanupFinalizer from a RenderedRelease and deletes it.
@@ -36,12 +46,30 @@ func forceDelete(ctx context.Context, nn types.NamespacedName) {
 	_ = k8sClient.Delete(ctx, r)
 }
 
+// forceDeleteClusterDataPlane removes a ClusterDataPlane by name.
+func forceDeleteClusterDataPlane(ctx context.Context, name string) {
+	cdp := &openchoreov1alpha1.ClusterDataPlane{}
+	if err := k8sClient.Get(ctx, types.NamespacedName{Name: name}, cdp); err != nil {
+		return
+	}
+	_ = k8sClient.Delete(ctx, cdp)
+}
+
+// forceDeleteEnvironment removes an Environment by namespace/name.
+func forceDeleteEnvironment(ctx context.Context, nn types.NamespacedName) {
+	env := &openchoreov1alpha1.Environment{}
+	if err := k8sClient.Get(ctx, nn, env); err != nil {
+		return
+	}
+	_ = k8sClient.Delete(ctx, env)
+}
+
 // makeMinimalRelease returns a RenderedRelease with the minimum required spec fields.
 func makeMinimalRelease(name, envName string) *openchoreov1alpha1.RenderedRelease {
 	return &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: "default",
+			Namespace: testNs,
 		},
 		Spec: openchoreov1alpha1.RenderedReleaseSpec{
 			Owner: openchoreov1alpha1.RenderedReleaseOwner{
@@ -51,6 +79,93 @@ func makeMinimalRelease(name, envName string) *openchoreov1alpha1.RenderedReleas
 			EnvironmentName: envName,
 		},
 	}
+}
+
+// makeClusterDataPlane returns a ClusterDataPlane with the required fields.
+func makeClusterDataPlane(name, planeID string) *openchoreov1alpha1.ClusterDataPlane {
+	return &openchoreov1alpha1.ClusterDataPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: openchoreov1alpha1.ClusterDataPlaneSpec{
+			PlaneID: planeID,
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: "test-ca-cert"},
+			},
+		},
+	}
+}
+
+// makeEnvironment returns an Environment referencing a ClusterDataPlane.
+func makeEnvironment(name, namespace, cdpName string) *openchoreov1alpha1.Environment {
+	return &openchoreov1alpha1.Environment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: openchoreov1alpha1.EnvironmentSpec{
+			DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
+				Kind: openchoreov1alpha1.DataPlaneRefKindClusterDataPlane,
+				Name: cdpName,
+			},
+		},
+	}
+}
+
+// testReconcilerWithDPClient creates a Reconciler with a pre-seeded KubeMultiClientManager
+// so that getDPClient resolves successfully without a real data-plane cluster.
+func testReconcilerWithDPClient(dpClient client.Client, planeID, cdpName string) *Reconciler {
+	mgr := kubernetesClient.NewManager()
+	key := "v2/clusterdataplane/" + planeID + "/" + cdpName
+	//nolint:errcheck // test helper; panics are acceptable
+	mgr.GetOrAddClient(key, func() (client.Client, error) {
+		return dpClient, nil
+	})
+	return &Reconciler{
+		Client:       k8sClient,
+		Scheme:       k8sClient.Scheme(),
+		K8sClientMgr: mgr,
+		GatewayURL:   "https://gateway.test:443",
+	}
+}
+
+// makeLabeledUnstructured creates an unstructured resource with the tracking labels
+// that listLiveResourcesByGVKs uses to find managed resources.
+func makeLabeledUnstructured(apiVersion, kind, namespace, name, resourceID string, release *openchoreov1alpha1.RenderedRelease) *unstructured.Unstructured {
+	obj := &unstructured.Unstructured{}
+	obj.SetAPIVersion(apiVersion)
+	obj.SetKind(kind)
+	obj.SetNamespace(namespace)
+	obj.SetName(name)
+	obj.SetLabels(map[string]string{
+		labels.LabelKeyManagedBy:                 ControllerName,
+		labels.LabelKeyRenderedReleaseResourceID: resourceID,
+		labels.LabelKeyRenderedReleaseUID:        string(release.UID),
+		labels.LabelKeyRenderedReleaseName:       release.Name,
+		labels.LabelKeyRenderedReleaseNamespace:  release.Namespace,
+	})
+	return obj
+}
+
+// reconcileRequest builds a reconcile.Request for the given name in the default test namespace.
+func reconcileRequest(name string) reconcile.Request {
+	return reconcile.Request{NamespacedName: types.NamespacedName{Namespace: testNs, Name: name}}
+}
+
+// mustReconcile calls Reconcile and asserts no error is returned.
+func mustReconcile(r *Reconciler, req reconcile.Request) reconcile.Result {
+	GinkgoHelper()
+	result, err := r.Reconcile(ctx, req)
+	Expect(err).NotTo(HaveOccurred())
+	return result
+}
+
+// fetchRelease re-reads a RenderedRelease from the API server.
+func fetchRelease(name string) *openchoreov1alpha1.RenderedRelease {
+	GinkgoHelper()
+	release := &openchoreov1alpha1.RenderedRelease{}
+	Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: testNs, Name: name}, release)).To(Succeed())
+	return release
 }
 
 var _ = Describe("RenderedRelease Controller", func() {
@@ -308,6 +423,238 @@ var _ = Describe("RenderedRelease Controller", func() {
 			Expect(fetched.Status.Resources).To(HaveLen(1))
 			Expect(fetched.Status.Resources[0].ID).To(Equal("res-1"))
 			Expect(fetched.Status.Resources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Finalization: successful cleanup with no live resources
+	// ─────────────────────────────────────────────────────────────
+
+	Context("Finalization with no live resources in data plane", func() {
+		const (
+			releaseName = "release-finalize-clean"
+			envName     = "env-finalize-clean"
+			cdpName     = "cdp-finalize-clean"
+			planeID     = "plane-finalize-clean"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+		})
+
+		It("sets Finalizing condition then removes finalizer when no resources exist", func() {
+			By("Creating prerequisite ClusterDataPlane and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, testNs, cdpName))).To(Succeed())
+
+			By("Creating an empty fake data-plane client (no live resources)")
+			dpClient := fake.NewClientBuilder().Build()
+			r := testReconcilerWithDPClient(dpClient, planeID, cdpName)
+
+			By("Creating a RenderedRelease with the finalizer pre-set")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Finalizers = []string{DataPlaneCleanupFinalizer}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			By("Deleting the release (sets DeletionTimestamp; finalizer blocks removal)")
+			Expect(k8sClient.Delete(ctx, release)).To(Succeed())
+
+			By("Verifying the object is marked for deletion but still present")
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.RenderedRelease{}
+				if err := k8sClient.Get(ctx, nn, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("First finalize reconcile: sets the Finalizing=True condition and returns early")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Verifying the Finalizing condition is True")
+			updated := fetchRelease(releaseName)
+			cond := apimeta.FindStatusCondition(updated.Status.Conditions, string(ConditionFinalizing))
+			Expect(cond).NotTo(BeNil(), "Finalizing condition must be present")
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(string(ReasonCleanupInProgress)))
+			Expect(updated.Finalizers).To(ContainElement(DataPlaneCleanupFinalizer),
+				"finalizer must still be present after first finalize reconcile")
+
+			By("Second finalize reconcile: no live resources → removes finalizer")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Verifying the RenderedRelease is deleted after finalizer removal")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
+				return apierrors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue(),
+				"RenderedRelease should be fully deleted after finalizer removal")
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Finalization: successful cleanup with live resources
+	// ─────────────────────────────────────────────────────────────
+
+	Context("Finalization with live resources in data plane", func() {
+		const (
+			releaseName = "release-finalize-live"
+			envName     = "env-finalize-live"
+			cdpName     = "cdp-finalize-live"
+			planeID     = "plane-finalize-live"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+		})
+
+		It("deletes live resources, requeues, then removes finalizer on next reconcile", func() {
+			By("Creating prerequisite ClusterDataPlane and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, testNs, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease with the finalizer pre-set")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Finalizers = []string{DataPlaneCleanupFinalizer}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			By("Re-fetching the release to get UID for tracking labels")
+			fetched := fetchRelease(releaseName)
+
+			By("Creating a fake data-plane client with a live ConfigMap that has tracking labels")
+			liveConfigMap := makeLabeledUnstructured("v1", "ConfigMap", "dp-ns", "my-config", "res-cm-1", fetched)
+			dpClient := fake.NewClientBuilder().
+				WithObjects(liveConfigMap).
+				Build()
+			r := testReconcilerWithDPClient(dpClient, planeID, cdpName)
+
+			By("Deleting the release (sets DeletionTimestamp; finalizer blocks removal)")
+			Expect(k8sClient.Delete(ctx, release)).To(Succeed())
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.RenderedRelease{}
+				if err := k8sClient.Get(ctx, nn, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("First finalize reconcile: sets the Finalizing condition")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Second finalize reconcile: finds live resources, deletes them, requeues")
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(Equal(5*time.Second),
+				"should requeue after 5s when live resources existed")
+
+			By("Verifying the finalizer is still present (waiting for resources to disappear)")
+			updated := fetchRelease(releaseName)
+			Expect(updated.Finalizers).To(ContainElement(DataPlaneCleanupFinalizer))
+
+			By("Third finalize reconcile: no more live resources → removes finalizer")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Verifying the RenderedRelease is fully deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
+				return apierrors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Finalization: CleanupFailed condition on DP client error
+	// ─────────────────────────────────────────────────────────────
+
+	Context("Finalization sets CleanupFailed condition when DP client cannot be obtained", func() {
+		const (
+			releaseName = "release-finalize-dpfail"
+			envName     = "env-finalize-dpfail"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+		})
+
+		It("sets CleanupFailed condition and returns error when environment is missing", func() {
+			By("Creating a RenderedRelease with the finalizer and Finalizing condition pre-set")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Finalizers = []string{DataPlaneCleanupFinalizer}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			By("Deleting the release")
+			Expect(k8sClient.Delete(ctx, release)).To(Succeed())
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.RenderedRelease{}
+				if err := k8sClient.Get(ctx, nn, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("First reconcile: sets Finalizing condition")
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Second reconcile: environment does not exist → error + CleanupFailed condition")
+			_, err := r.Reconcile(ctx, reconcileRequest(releaseName))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(envName))
+
+			By("Verifying the CleanupFailed condition is set")
+			updated := fetchRelease(releaseName)
+			cond := apimeta.FindStatusCondition(updated.Status.Conditions, string(ConditionFinalizing))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Reason).To(Equal(string(ReasonCleanupFailed)))
+
+			By("Verifying the finalizer is still present (cleanup did not complete)")
+			Expect(updated.Finalizers).To(ContainElement(DataPlaneCleanupFinalizer))
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Finalization: does not add finalizer on deleted resource
+	// ─────────────────────────────────────────────────────────────
+
+	Context("Finalizer management edge cases", func() {
+		const releaseName = "release-finalizer-mgmt"
+		req := reconcileRequest(releaseName)
+
+		AfterEach(func() { forceDelete(ctx, types.NamespacedName{Name: releaseName, Namespace: testNs}) })
+
+		It("does not add the finalizer more than once on repeated reconciles", func() {
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+
+			By("Creating a RenderedRelease without a finalizer")
+			Expect(k8sClient.Create(ctx,
+				makeMinimalRelease(releaseName, "env-mgmt"),
+			)).To(Succeed())
+
+			By("First reconcile adds the finalizer")
+			mustReconcile(r, req)
+
+			By("Second reconcile: finalizer already present, proceeds past ensureFinalizer")
+			// The reconcile will error because the environment doesn't exist,
+			// but the point is that ensureFinalizer is a no-op this time.
+			_, _ = r.Reconcile(ctx, req)
+
+			By("Verifying the finalizer appears exactly once")
+			release := fetchRelease(releaseName)
+			count := 0
+			for _, f := range release.Finalizers {
+				if f == DataPlaneCleanupFinalizer {
+					count++
+				}
+			}
+			Expect(count).To(Equal(1), "finalizer should appear exactly once")
 		})
 	})
 })
