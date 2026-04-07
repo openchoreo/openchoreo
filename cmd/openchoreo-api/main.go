@@ -155,10 +155,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create plane client provider for services that need to talk to remote planes.
+	planeClientProvider := kubernetesClient.NewPlaneClientProvider(planeK8sClientMgr, gatewayURL)
+
 	// Create the internal (unauthz) workflow run service used by the webhook processor.
 	// Webhook requests are authenticated via HMAC signature validation instead of user-level auth.
 	baseWfRunSvc := workflowrunsvc.NewService(
-		k8sClient, planeK8sClientMgr, gwClient, logger.With("service", "workflowrun"),
+		k8sClient, planeClientProvider, gwClient, logger.With("service", "workflowrun"),
 	)
 
 	// Create the webhook processor that finds affected components and triggers workflow runs.
@@ -166,7 +169,7 @@ func main() {
 
 	// Initialize all handler services
 	services := handlerservices.NewServices(
-		k8sClient, runtime.pap, runtime.pdp, planeK8sClientMgr, gatewayURL, logger, gwClient, webhookProcessor,
+		k8sClient, runtime.pap, runtime.pdp, planeClientProvider, logger, gwClient, webhookProcessor,
 	)
 
 	// Initialize OpenAPI handlers

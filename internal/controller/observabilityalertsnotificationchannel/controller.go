@@ -32,9 +32,8 @@ const (
 // Reconciler reconciles a ObservabilityAlertsNotificationChannel object
 type Reconciler struct {
 	client.Client
-	K8sClientMgr *kubernetesClient.KubeMultiClientManager
-	Scheme       *runtime.Scheme
-	GatewayURL   string
+	PlaneClientProvider kubernetesClient.ObservabilityPlaneClientProvider
+	Scheme              *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=observabilityalertsnotificationchannels,verbs=get;list;watch;create;update;patch;delete
@@ -149,7 +148,7 @@ func (r *Reconciler) getObservabilityPlaneClient(ctx context.Context, channel *o
 		return nil, fmt.Errorf("failed to resolve observability plane for dataplane %s: %w", dataPlaneResult.GetName(), err)
 	}
 
-	opClient, err := obsResult.GetK8sClient(r.K8sClientMgr, r.GatewayURL)
+	opClient, err := obsResult.GetK8sClient(r.PlaneClientProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create observability plane client for %s: %w", obsResult.GetName(), err)
 	}
@@ -506,10 +505,6 @@ func (r *Reconciler) ensureDefaultChannel(ctx context.Context, channel *openchor
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if r.K8sClientMgr == nil {
-		r.K8sClientMgr = kubernetesClient.NewManager()
-	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}).
 		Named("observabilityalertsnotificationchannel").

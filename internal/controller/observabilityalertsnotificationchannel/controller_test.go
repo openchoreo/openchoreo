@@ -17,8 +17,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stretchr/testify/mock"
+
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	k8sMocks "github.com/openchoreo/openchoreo/internal/clients/kubernetes/mocks"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -36,10 +38,9 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 	Context("When reconciling a non-existent resource", func() {
 		It("should not return an error", func() {
 			reconciler := &Reconciler{
-				Client:       k8sClient,
-				Scheme:       k8sClient.Scheme(),
-				K8sClientMgr: kubernetesClient.NewManager(),
-				GatewayURL:   "http://localhost:8080",
+				Client:              k8sClient,
+				Scheme:              k8sClient.Scheme(),
+				PlaneClientProvider: &k8sMocks.MockObservabilityPlaneClientProvider{},
 			}
 
 			result, err := reconciler.Reconcile(testCtx, reconcile.Request{
@@ -96,10 +97,9 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 
 		It("should return an error when no Environment exists", func() {
 			reconciler := &Reconciler{
-				Client:       k8sClient,
-				Scheme:       k8sClient.Scheme(),
-				K8sClientMgr: kubernetesClient.NewManager(),
-				GatewayURL:   "http://localhost:8080",
+				Client:              k8sClient,
+				Scheme:              k8sClient.Scheme(),
+				PlaneClientProvider: &k8sMocks.MockObservabilityPlaneClientProvider{},
 			}
 
 			_, err := reconciler.Reconcile(testCtx, reconcile.Request{
@@ -261,20 +261,15 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 		})
 
 		It("should successfully create ConfigMap and Secret", func() {
-			// Create a test client manager that returns our test client
-			// Pre-populate it with the test client using GetOrAddClient
-			clientMgr := kubernetesClient.NewManager()
-			key := "v2/observabilityplane/default/test-observability-plane"
-			_, err := clientMgr.GetOrAddClient(key, func() (client.Client, error) {
-				return opClient, nil
-			})
-			Expect(err).NotTo(HaveOccurred())
+			// Create a mock provider that returns the test client for any observability plane
+			localMockProvider := &k8sMocks.MockObservabilityPlaneClientProvider{}
+			localMockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
+			localMockProvider.EXPECT().ClusterObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
 
 			reconciler := &Reconciler{
-				Client:       k8sClient,
-				Scheme:       k8sClient.Scheme(),
-				K8sClientMgr: clientMgr,
-				GatewayURL:   "http://localhost:8080",
+				Client:              k8sClient,
+				Scheme:              k8sClient.Scheme(),
+				PlaneClientProvider: localMockProvider,
 			}
 
 			result, err := reconciler.Reconcile(testCtx, reconcile.Request{
@@ -321,18 +316,14 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 		})
 
 		It("should mark the first channel in an environment as default", func() {
-			clientMgr := kubernetesClient.NewManager()
-			key := "v2/observabilityplane/default/test-observability-plane"
-			_, err := clientMgr.GetOrAddClient(key, func() (client.Client, error) {
-				return opClient, nil
-			})
-			Expect(err).NotTo(HaveOccurred())
+			localMockProvider := &k8sMocks.MockObservabilityPlaneClientProvider{}
+			localMockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
+			localMockProvider.EXPECT().ClusterObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
 
 			reconciler := &Reconciler{
-				Client:       k8sClient,
-				Scheme:       k8sClient.Scheme(),
-				K8sClientMgr: clientMgr,
-				GatewayURL:   "http://localhost:8080",
+				Client:              k8sClient,
+				Scheme:              k8sClient.Scheme(),
+				PlaneClientProvider: localMockProvider,
 			}
 
 			result, err := reconciler.Reconcile(testCtx, reconcile.Request{
@@ -499,19 +490,14 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 		})
 
 		It("should create Secret with resolved SMTP auth credentials and ConfigMap with TLS config", func() {
-			// Create a test client manager that returns our test client
-			clientMgr := kubernetesClient.NewManager()
-			key := "v2/observabilityplane/default/test-observability-plane-auth"
-			_, err := clientMgr.GetOrAddClient(key, func() (client.Client, error) {
-				return opClient, nil
-			})
-			Expect(err).NotTo(HaveOccurred())
+			localMockProvider := &k8sMocks.MockObservabilityPlaneClientProvider{}
+			localMockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
+			localMockProvider.EXPECT().ClusterObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
 
 			reconciler := &Reconciler{
-				Client:       k8sClient,
-				Scheme:       k8sClient.Scheme(),
-				K8sClientMgr: clientMgr,
-				GatewayURL:   "http://localhost:8080",
+				Client:              k8sClient,
+				Scheme:              k8sClient.Scheme(),
+				PlaneClientProvider: localMockProvider,
 			}
 
 			result, err2 := reconciler.Reconcile(testCtx, reconcile.Request{
@@ -526,7 +512,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 
 			// Verify ConfigMap has TLS config
 			configMap := &corev1.ConfigMap{}
-			err = k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, configMap)
+			err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, configMap)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap.Data["smtp.tls.insecureSkipVerify"]).To(Equal("true"))
 
@@ -636,7 +622,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			environment        *openchoreodevv1alpha1.Environment
 			observabilityPlane *openchoreodevv1alpha1.ObservabilityPlane
 			opClient           client.Client
-			clientMgr          *kubernetesClient.KubeMultiClientManager
+			mockProvider       *k8sMocks.MockObservabilityPlaneClientProvider
 		)
 
 		BeforeEach(func() {
@@ -690,13 +676,10 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			// Use the same client for testing (in real scenarios, this would be a proxy client)
 			opClient = k8sClient
 
-			// Create a test client manager
-			clientMgr = kubernetesClient.NewManager()
-			key := "v2/observabilityplane/default/test-observability-plane-finalizer"
-			_, err := clientMgr.GetOrAddClient(key, func() (client.Client, error) {
-				return opClient, nil
-			})
-			Expect(err).NotTo(HaveOccurred())
+			// Create a mock provider that returns the test client for any observability plane
+			mockProvider = &k8sMocks.MockObservabilityPlaneClientProvider{}
+			mockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
+			mockProvider.EXPECT().ClusterObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
 		})
 
 		AfterEach(func() {
@@ -762,10 +745,9 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 
 			// Reconcile
 			reconciler := &Reconciler{
-				Client:       k8sClient,
-				Scheme:       k8sClient.Scheme(),
-				K8sClientMgr: clientMgr,
-				GatewayURL:   "http://localhost:8080",
+				Client:              k8sClient,
+				Scheme:              k8sClient.Scheme(),
+				PlaneClientProvider: mockProvider,
 			}
 
 			result, err := reconciler.Reconcile(testCtx, reconcile.Request{
@@ -817,10 +799,9 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(k8sClient.Create(testCtx, channel)).To(Succeed())
 
 			reconciler := &Reconciler{
-				Client:       k8sClient,
-				Scheme:       k8sClient.Scheme(),
-				K8sClientMgr: clientMgr,
-				GatewayURL:   "http://localhost:8080",
+				Client:              k8sClient,
+				Scheme:              k8sClient.Scheme(),
+				PlaneClientProvider: mockProvider,
 			}
 
 			// Reconcile to create ConfigMap and Secret and add finalizer
@@ -946,10 +927,9 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 
 			// Reconcile to trigger finalization
 			reconciler := &Reconciler{
-				Client:       k8sClient,
-				Scheme:       k8sClient.Scheme(),
-				K8sClientMgr: clientMgr,
-				GatewayURL:   "http://localhost:8080",
+				Client:              k8sClient,
+				Scheme:              k8sClient.Scheme(),
+				PlaneClientProvider: mockProvider,
 			}
 
 			result, err := reconciler.Reconcile(testCtx, reconcile.Request{
@@ -1016,10 +996,9 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 
 			// Reconcile - should handle gracefully whether resource is already deleted or has deletion timestamp
 			reconciler := &Reconciler{
-				Client:       k8sClient,
-				Scheme:       k8sClient.Scheme(),
-				K8sClientMgr: clientMgr,
-				GatewayURL:   "http://localhost:8080",
+				Client:              k8sClient,
+				Scheme:              k8sClient.Scheme(),
+				PlaneClientProvider: mockProvider,
 			}
 
 			result, err := reconciler.Reconcile(testCtx, reconcile.Request{

@@ -173,6 +173,12 @@ packages:
         config:
           dir: "internal/occ/resources/client/mocks"
           outpkg: mocks
+  github.com/openchoreo/openchoreo/internal/clients/kubernetes:
+    interfaces:
+      DataPlaneClientProvider:
+      ObservabilityPlaneClientProvider:
+      WorkflowPlaneClientProvider:
+      PlaneClientProvider:
   github.com/openchoreo/openchoreo/internal/observer/service:
     interfaces:
       HealthChecker:

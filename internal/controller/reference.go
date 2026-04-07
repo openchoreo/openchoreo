@@ -82,15 +82,15 @@ func (r *DataPlaneResult) ToDataPlane() *openchoreov1alpha1.DataPlane {
 
 // GetK8sClient returns a Kubernetes client for this data plane result.
 // It dispatches to the correct client constructor based on whether this is a DataPlane or ClusterDataPlane.
-func (r *DataPlaneResult) GetK8sClient(
-	clientMgr *kubernetesClient.KubeMultiClientManager,
-	gatewayURL string,
-) (client.Client, error) {
+func (r *DataPlaneResult) GetK8sClient(provider kubernetesClient.DataPlaneClientProvider) (client.Client, error) {
+	if provider == nil {
+		return nil, fmt.Errorf("no DataPlaneClientProvider configured")
+	}
 	if r.DataPlane != nil {
-		return kubernetesClient.GetK8sClientFromDataPlane(clientMgr, r.DataPlane, gatewayURL)
+		return provider.DataPlaneClient(r.DataPlane)
 	}
 	if r.ClusterDataPlane != nil {
-		return kubernetesClient.GetK8sClientFromClusterDataPlane(clientMgr, r.ClusterDataPlane, gatewayURL)
+		return provider.ClusterDataPlaneClient(r.ClusterDataPlane)
 	}
 	return nil, fmt.Errorf("no data plane set in result")
 }
@@ -228,15 +228,15 @@ func (r *ObservabilityPlaneResult) GetPlaneID() string {
 
 // GetK8sClient returns a Kubernetes client for this observability plane result.
 // It dispatches to the correct client constructor based on whether this is an ObservabilityPlane or ClusterObservabilityPlane.
-func (r *ObservabilityPlaneResult) GetK8sClient(
-	clientMgr *kubernetesClient.KubeMultiClientManager,
-	gatewayURL string,
-) (client.Client, error) {
+func (r *ObservabilityPlaneResult) GetK8sClient(provider kubernetesClient.ObservabilityPlaneClientProvider) (client.Client, error) {
+	if provider == nil {
+		return nil, fmt.Errorf("no ObservabilityPlaneClientProvider configured")
+	}
 	if r.ObservabilityPlane != nil {
-		return kubernetesClient.GetK8sClientFromObservabilityPlane(clientMgr, r.ObservabilityPlane, gatewayURL)
+		return provider.ObservabilityPlaneClient(r.ObservabilityPlane)
 	}
 	if r.ClusterObservabilityPlane != nil {
-		return kubernetesClient.GetK8sClientFromClusterObservabilityPlane(clientMgr, r.ClusterObservabilityPlane, gatewayURL)
+		return provider.ClusterObservabilityPlaneClient(r.ClusterObservabilityPlane)
 	}
 	return nil, fmt.Errorf("no observability plane set in result")
 }
@@ -353,15 +353,15 @@ func (r *WorkflowPlaneResult) GetNamespace() string {
 
 // GetK8sClient returns a Kubernetes client for this workflow plane result.
 // It dispatches to the correct client constructor based on whether this is a WorkflowPlane or ClusterWorkflowPlane.
-func (r *WorkflowPlaneResult) GetK8sClient(
-	clientMgr *kubernetesClient.KubeMultiClientManager,
-	gatewayURL string,
-) (client.Client, error) {
+func (r *WorkflowPlaneResult) GetK8sClient(provider kubernetesClient.WorkflowPlaneClientProvider) (client.Client, error) {
+	if provider == nil {
+		return nil, fmt.Errorf("no WorkflowPlaneClientProvider configured")
+	}
 	if r.WorkflowPlane != nil {
-		return kubernetesClient.GetK8sClientFromWorkflowPlane(clientMgr, r.WorkflowPlane, gatewayURL)
+		return provider.WorkflowPlaneClient(r.WorkflowPlane)
 	}
 	if r.ClusterWorkflowPlane != nil {
-		return kubernetesClient.GetK8sClientFromClusterWorkflowPlane(clientMgr, r.ClusterWorkflowPlane, gatewayURL)
+		return provider.ClusterWorkflowPlaneClient(r.ClusterWorkflowPlane)
 	}
 	return nil, fmt.Errorf("no workflow plane set in result")
 }

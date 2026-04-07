@@ -595,7 +595,6 @@ func TestDataPlaneResult_ToDataPlane_NeitherSet(t *testing.T) {
 // Tests for DataPlaneResult.GetObservabilityPlane
 // ============================================================================
 
-
 func TestDataPlaneResult_GetObservabilityPlane(t *testing.T) {
 	scheme := newScheme(t)
 	ctx := context.Background()
@@ -905,6 +904,7 @@ func TestResolveWorkflow(t *testing.T) {
 		})
 	}
 }
+
 // ============================================================================
 // Tests for WorkflowResult methods
 // ============================================================================

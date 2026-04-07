@@ -72,7 +72,7 @@ type Services struct {
 }
 
 // NewServices creates all K8s-native API services with authorization wrappers.
-func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, wpClientMgr *kubernetesClient.KubeMultiClientManager, gatewayURL string, logger *slog.Logger, gwClient *gatewayClient.Client, webhookProcessor autobuildsvc.WebhookProcessor) *Services {
+func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, planeClientProvider kubernetesClient.PlaneClientProvider, logger *slog.Logger, gwClient *gatewayClient.Client, webhookProcessor autobuildsvc.WebhookProcessor) *Services {
 	return &Services{
 		AutoBuildService:                              autobuildsvc.NewService(k8sClient, webhookProcessor, logger.With("component", "autobuild-service")),
 		AuthzService:                                  authzsvc.NewServiceWithAuthz(pap, pdp, logger.With("component", "authz-service")),
@@ -91,7 +91,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		ComponentReleaseService:                       componentreleasesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "componentrelease-service")),
 		ComponentTypeService:                          componenttypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "componenttype-service")),
 		EnvironmentService:                            environmentsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "environment-service")),
-		GitSecretService:                              gitsecretsvc.NewServiceWithAuthz(k8sClient, wpClientMgr, pdp, logger.With("component", "gitsecret-service"), gatewayURL),
+		GitSecretService:                              gitsecretsvc.NewServiceWithAuthz(k8sClient, planeClientProvider, pdp, logger.With("component", "gitsecret-service")),
 		ObservabilityAlertsNotificationChannelService: observabilityalertsnotificationchannelsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "observabilityalertsnotificationchannel-service")),
 		ObservabilityPlaneService:                     observabilityplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "observabilityplane-service")),
 		K8sResourcesService:                           k8sresourcessvc.NewServiceWithAuthz(k8sClient, gwClient, pdp, logger.With("component", "k8sresources-service")),
@@ -99,7 +99,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		SecretReferenceService:                        secretreferencesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "secretreference-service")),
 		TraitService:                                  traitsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "trait-service")),
 		WorkflowService:                               workflowsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workflow-service")),
-		WorkflowRunService:                            workflowrunsvc.NewServiceWithAuthz(k8sClient, wpClientMgr, gwClient, pdp, logger.With("component", "workflowrun-service")),
+		WorkflowRunService:                            workflowrunsvc.NewServiceWithAuthz(k8sClient, planeClientProvider, gwClient, pdp, logger.With("component", "workflowrun-service")),
 		WorkloadService:                               workloadsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workload-service")),
 	}
 }

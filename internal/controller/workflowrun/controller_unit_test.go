@@ -19,12 +19,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/stretchr/testify/mock"
+
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	k8sMocks "github.com/openchoreo/openchoreo/internal/clients/kubernetes/mocks"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 )
@@ -1918,13 +1919,12 @@ func TestReconcileWorkflowPlaneNotFound(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Deep Reconcile paths using pre-seeded KubeMultiClientManager
+// Deep Reconcile paths using mock PlaneClientProvider
 // ---------------------------------------------------------------------------
 
 // newReconcilerWithWorkflowPlane creates a Reconciler with a fake control-plane client containing
-// a ClusterWorkflow and ClusterWorkflowPlane, and a KubeMultiClientManager pre-seeded with
-// wpClient as the workflow plane client. This allows testing the full Reconcile path past
-// ResolveWorkflowPlane without real cluster infrastructure.
+// a ClusterWorkflow and ClusterWorkflowPlane, and a mock PlaneClientProvider that returns wpClient
+// for any workflow plane. This allows testing the full Reconcile path without real cluster infrastructure.
 func newReconcilerWithWorkflowPlane(
 	t *testing.T,
 	s *runtime.Scheme,
@@ -1939,22 +1939,16 @@ func newReconcilerWithWorkflowPlane(
 	cpBuilder := fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(cpObjects...).WithObjects(cwp)
 	fc := cpBuilder.Build()
 
-	mgr := kubernetesClient.NewManager()
-	// Pre-seed the client cache so getWorkflowPlaneClient returns our fake wpClient
-	// Key format: v2/clusterworkflowplane/{planeID}/{name} — planeID defaults to name
-	_, err := mgr.GetOrAddClient("v2/clusterworkflowplane/default/default", func() (client.Client, error) {
-		return wpClient.Build(), nil
-	})
-	if err != nil {
-		t.Fatalf("failed to seed client manager: %v", err)
-	}
+	builtWpClient := wpClient.Build()
+	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(builtWpClient, nil).Maybe()
+	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(builtWpClient, nil).Maybe()
 
 	return &Reconciler{
-		Client:       fc,
-		Scheme:       s,
-		K8sClientMgr: mgr,
-		Pipeline:     workflowpipeline.NewPipeline(),
-		GatewayURL:   "https://gateway.test:443",
+		Client:              fc,
+		Scheme:              s,
+		PlaneClientProvider: mockProvider,
+		Pipeline:            workflowpipeline.NewPipeline(),
 	}, cwp
 }
 
@@ -2061,17 +2055,15 @@ func TestReconcileFullRenderAndApply(t *testing.T) {
 
 	wpClient := fake.NewClientBuilder().WithScheme(s).Build()
 
-	mgr := kubernetesClient.NewManager()
-	_, _ = mgr.GetOrAddClient("v2/clusterworkflowplane/default/default", func() (client.Client, error) {
-		return wpClient, nil
-	})
+	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
+	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
 
 	r := &Reconciler{
-		Client:       cpClient,
-		Scheme:       s,
-		K8sClientMgr: mgr,
-		Pipeline:     workflowpipeline.NewPipeline(),
-		GatewayURL:   "https://gateway.test:443",
+		Client:              cpClient,
+		Scheme:              s,
+		PlaneClientProvider: mockProvider,
+		Pipeline:            workflowpipeline.NewPipeline(),
 	}
 
 	result, err := r.Reconcile(context.Background(), ctrl.Request{
@@ -2182,17 +2174,15 @@ func TestReconcileSyncsRunningWorkflow(t *testing.T) {
 		t.Fatalf("failed to update argo workflow status: %v", err)
 	}
 
-	mgr := kubernetesClient.NewManager()
-	_, _ = mgr.GetOrAddClient("v2/clusterworkflowplane/default/default", func() (client.Client, error) {
-		return wpClient, nil
-	})
+	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
+	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
 
 	r := &Reconciler{
-		Client:       cpClient,
-		Scheme:       s,
-		K8sClientMgr: mgr,
-		Pipeline:     workflowpipeline.NewPipeline(),
-		GatewayURL:   "https://gateway.test:443",
+		Client:              cpClient,
+		Scheme:              s,
+		PlaneClientProvider: mockProvider,
+		Pipeline:            workflowpipeline.NewPipeline(),
 	}
 
 	result, err := r.Reconcile(context.Background(), ctrl.Request{
@@ -2269,16 +2259,14 @@ func TestFinalizeWithResourceCleanup(t *testing.T) {
 	}}
 	wpClient := fake.NewClientBuilder().WithScheme(s).WithObjects(wpSecret, wpArgoWf).Build()
 
-	mgr := kubernetesClient.NewManager()
-	_, _ = mgr.GetOrAddClient("v2/clusterworkflowplane/default/default", func() (client.Client, error) {
-		return wpClient, nil
-	})
+	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
+	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
 
 	r := &Reconciler{
-		Client:       cpClient,
-		Scheme:       s,
-		K8sClientMgr: mgr,
-		GatewayURL:   "https://gateway.test:443",
+		Client:              cpClient,
+		Scheme:              s,
+		PlaneClientProvider: mockProvider,
 	}
 
 	result, err := r.finalize(context.Background(), wfr)
@@ -2420,17 +2408,15 @@ func TestReconcileRunReferenceWorkflowNotFound(t *testing.T) {
 	_ = argoproj.AddToScheme(wpScheme)
 	wpClient := fake.NewClientBuilder().WithScheme(wpScheme).Build()
 
-	mgr := kubernetesClient.NewManager()
-	_, _ = mgr.GetOrAddClient("v2/clusterworkflowplane/default/default", func() (client.Client, error) {
-		return wpClient, nil
-	})
+	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
+	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
 
 	r := &Reconciler{
-		Client:       cpClient,
-		Scheme:       s,
-		K8sClientMgr: mgr,
-		Pipeline:     workflowpipeline.NewPipeline(),
-		GatewayURL:   "https://gateway.test:443",
+		Client:              cpClient,
+		Scheme:              s,
+		PlaneClientProvider: mockProvider,
+		Pipeline:            workflowpipeline.NewPipeline(),
 	}
 
 	result, err := r.Reconcile(context.Background(), ctrl.Request{

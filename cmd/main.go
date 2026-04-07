@@ -103,6 +103,11 @@ func setupControlPlaneControllers(
 		setupLog.Info("gateway client initialized", "url", clusterGatewayURL)
 	}
 
+	// Create plane client provider for controllers that need to talk to remote planes.
+	// This wraps KubeMultiClientManager + gatewayURL behind an interface, keeping
+	// infrastructure concerns out of controller code.
+	planeClientProvider := kubernetesClient.NewPlaneClientProvider(k8sClientMgr, clusterGatewayURL)
+
 	// Setup shared field indexes before controllers are initialized.
 	if err := controller.SetupSharedIndexes(context.Background(), mgr); err != nil {
 		return fmt.Errorf("failed to setup shared indexes: %w", err)
@@ -123,10 +128,9 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&environment.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
+		Client:              mgr.GetClient(),
+		PlaneClientProvider: planeClientProvider,
+		Scheme:              mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
@@ -219,10 +223,9 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&renderedrelease.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
+		Client:              mgr.GetClient(),
+		PlaneClientProvider: planeClientProvider,
+		Scheme:              mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
@@ -242,11 +245,10 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&workflowrun.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
-		Pipeline:     workflowpipeline.NewPipeline(),
+		Client:              mgr.GetClient(),
+		PlaneClientProvider: planeClientProvider,
+		Scheme:              mgr.GetScheme(),
+		Pipeline:            workflowpipeline.NewPipeline(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
@@ -289,10 +291,9 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&observabilityalertsnotificationchannel.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
+		Client:              mgr.GetClient(),
+		PlaneClientProvider: planeClientProvider,
+		Scheme:              mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}

@@ -27,10 +27,9 @@ import (
 // Reconciler reconciles a Environment object
 type Reconciler struct {
 	client.Client
-	K8sClientMgr *kubernetesClient.KubeMultiClientManager
-	Scheme       *runtime.Scheme
-	Recorder     record.EventRecorder
-	GatewayURL   string
+	PlaneClientProvider kubernetesClient.DataPlaneClientProvider
+	Scheme              *runtime.Scheme
+	Recorder            record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch;create;update;patch;delete
@@ -103,10 +102,6 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		r.Recorder = mgr.GetEventRecorderFor("environment-controller")
 	}
 
-	if r.K8sClientMgr == nil {
-		r.K8sClientMgr = kubernetesClient.NewManager()
-	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Environment{}).
 		Watches(
@@ -132,7 +127,7 @@ func (r *Reconciler) getDPClient(ctx context.Context, env *openchoreov1alpha1.En
 		return nil, fmt.Errorf("failed to get dataplane for environment %s: %w", env.Name, err)
 	}
 
-	dpClient, err := dataPlaneResult.GetK8sClient(r.K8sClientMgr, r.GatewayURL)
+	dpClient, err := dataPlaneResult.GetK8sClient(r.PlaneClientProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DP client: %w", err)
 	}
