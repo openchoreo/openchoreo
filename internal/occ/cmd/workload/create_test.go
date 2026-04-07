@@ -54,6 +54,20 @@ spec:
 	return repoDir
 }
 
+const expectedBasicWorkloadYAML = `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: my-svc-workload
+  namespace: test-ns
+spec:
+  owner:
+    projectName: myproj
+    componentName: my-svc
+  container:
+    image: registry/my-svc:v1
+`
+
 // setupRepoWithWorkload creates a repo that already has a workload for the component.
 func setupRepoWithWorkload(t *testing.T) string {
 	t.Helper()
@@ -124,20 +138,7 @@ func TestCreate_FileSystem_NewWorkload_DryRun(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	expectedYAML := `
-apiVersion: openchoreo.dev/v1alpha1
-kind: Workload
-metadata:
-  name: my-svc-workload
-  namespace: test-ns
-spec:
-  owner:
-    projectName: myproj
-    componentName: my-svc
-  container:
-    image: registry/my-svc:v1
-`
-	th.AssertYAMLEquals(t, expectedYAML, th.ExtractYAML(out))
+	th.AssertYAMLEquals(t, expectedBasicWorkloadYAML, th.ExtractYAML(out))
 }
 
 func TestCreate_FileSystem_NewWorkload_Write(t *testing.T) {
@@ -208,7 +209,7 @@ func TestCreate_FileSystem_ExistingWorkload_ImageUpdate_DryRun(t *testing.T) {
 	assert.Contains(t, out, "Workload written to:")
 
 	// Verify the existing workload file was updated with new image
-	data, err := os.ReadFile(filepath.Join(repoDir, "projects/myproj/components/my-svc/workload.yaml"))
+	data, err := os.ReadFile(filepath.Join(repoDir, "projects", "myproj", "components", "my-svc", "workload.yaml"))
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "registry/my-svc:v2")
 }
@@ -238,7 +239,7 @@ func TestCreate_FileSystem_ExistingWorkload_ImageUpdate_Write(t *testing.T) {
 	assert.Contains(t, out, "Workload written to:")
 
 	// Read the workload file from the original location — the existing file should be overwritten
-	data, err := os.ReadFile(filepath.Join(repoDir, "projects/myproj/components/my-svc/workload.yaml"))
+	data, err := os.ReadFile(filepath.Join(repoDir, "projects", "myproj", "components", "my-svc", "workload.yaml"))
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "registry/my-svc:v2")
 	assert.Contains(t, string(data), "my-svc")
@@ -310,7 +311,7 @@ func TestCreate_FileSystem_SecondComponent_NewWorkload(t *testing.T) {
 	assert.Contains(t, out, "my-worker")
 
 	// Verify a workload was created for my-worker with correct content
-	workerWorkloadPath := filepath.Join(repoDir, "projects/myproj/components/my-worker/workload.yaml")
+	workerWorkloadPath := filepath.Join(repoDir, "projects", "myproj", "components", "my-worker", "workload.yaml")
 	data, err := os.ReadFile(workerWorkloadPath)
 	require.NoError(t, err)
 
@@ -347,20 +348,7 @@ func TestCreate_APIServer_Stdout(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	expectedYAML := `
-apiVersion: openchoreo.dev/v1alpha1
-kind: Workload
-metadata:
-  name: my-svc-workload
-  namespace: test-ns
-spec:
-  owner:
-    projectName: myproj
-    componentName: my-svc
-  container:
-    image: registry/my-svc:v1
-`
-	th.AssertYAMLEquals(t, expectedYAML, out)
+	th.AssertYAMLEquals(t, expectedBasicWorkloadYAML, out)
 }
 
 func TestCreate_APIServer_DefaultMode(t *testing.T) {
@@ -378,20 +366,7 @@ func TestCreate_APIServer_DefaultMode(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	expectedYAML := `
-apiVersion: openchoreo.dev/v1alpha1
-kind: Workload
-metadata:
-  name: my-svc-workload
-  namespace: test-ns
-spec:
-  owner:
-    projectName: myproj
-    componentName: my-svc
-  container:
-    image: registry/my-svc:v1
-`
-	th.AssertYAMLEquals(t, expectedYAML, out)
+	th.AssertYAMLEquals(t, expectedBasicWorkloadYAML, out)
 }
 
 func TestCreate_APIServer_OutputFile(t *testing.T) {
@@ -443,20 +418,7 @@ func TestCreate_APIServer_WithDescriptor(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	expectedYAML := `
-apiVersion: openchoreo.dev/v1alpha1
-kind: Workload
-metadata:
-  name: my-svc-workload
-  namespace: test-ns
-spec:
-  owner:
-    projectName: myproj
-    componentName: my-svc
-  container:
-    image: registry/my-svc:v1
-`
-	th.AssertYAMLEquals(t, expectedYAML, out)
+	th.AssertYAMLEquals(t, expectedBasicWorkloadYAML, out)
 }
 
 // --- Create: validation errors ---
