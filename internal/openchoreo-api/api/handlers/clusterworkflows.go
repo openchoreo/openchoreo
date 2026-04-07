@@ -24,9 +24,6 @@ func (h *Handler) ListClusterWorkflows(
 
 	result, err := h.services.ClusterWorkflowService.ListClusterWorkflows(ctx, opts)
 	if err != nil {
-		if errors.Is(err, services.ErrForbidden) {
-			return gen.ListClusterWorkflows403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
 		var validationErr *services.ValidationError
 		if errors.As(err, &validationErr) {
 			return gen.ListClusterWorkflows400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil

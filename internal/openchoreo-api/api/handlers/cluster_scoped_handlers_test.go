@@ -679,7 +679,6 @@ func TestListClusterWorkflowsHandler_MapsErrors(t *testing.T) {
 		svcErr  error
 		wantTyp any
 	}{
-		{"forbidden -> 403", svcpkg.ErrForbidden, gen.ListClusterWorkflows403JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.ListClusterWorkflows400JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.ListClusterWorkflows500JSONResponse{}},
 	}
