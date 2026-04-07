@@ -14,6 +14,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
+const sortOrderDesc = "desc"
+
 // sanitizeWildcardValue escapes OpenSearch wildcard metacharacters from user-provided values
 // to prevent wildcard injection attacks. Escaped characters: \, ", *, ?
 func sanitizeWildcardValue(s string) string {
@@ -665,14 +667,14 @@ func (qb *QueryBuilder) BuildTracesQuery(params TracesRequestParams) map[string]
 		{
 			"range": map[string]interface{}{
 				"startTime": map[string]interface{}{
-					"lte": params.EndTime,
+					"gte": params.StartTime,
 				},
 			},
 		},
 		{
 			"range": map[string]interface{}{
 				"endTime": map[string]interface{}{
-					"gte": params.StartTime,
+					"lte": params.EndTime,
 				},
 			},
 		},
@@ -732,6 +734,141 @@ func (qb *QueryBuilder) BuildTracesQuery(params TracesRequestParams) map[string]
 			{
 				"startTime": map[string]interface{}{
 					"order": params.SortOrder,
+				},
+			},
+		},
+	}
+
+	return query
+}
+
+// BuildTracesAggregationQuery builds an aggregation query that groups spans by traceId,
+// so that the limit parameter controls the number of distinct traces returned.
+func (qb *QueryBuilder) BuildTracesAggregationQuery(params TracesRequestParams) map[string]interface{} {
+	filterConditions := []map[string]interface{}{
+		{
+			"range": map[string]interface{}{
+				"startTime": map[string]interface{}{
+					"gte": params.StartTime,
+				},
+			},
+		},
+		{
+			"range": map[string]interface{}{
+				"endTime": map[string]interface{}{
+					"lte": params.EndTime,
+				},
+			},
+		},
+	}
+
+	// Add ComponentUIDs filter if present
+	if len(params.ComponentUIDs) > 0 {
+		shouldConditions := make([]map[string]interface{}, 0, len(params.ComponentUIDs))
+		for _, componentUID := range params.ComponentUIDs {
+			shouldConditions = append(shouldConditions, map[string]interface{}{
+				"term": map[string]interface{}{
+					"resource.openchoreo.dev/component-uid": componentUID,
+				},
+			})
+		}
+		filterConditions = append(filterConditions, map[string]interface{}{
+			"bool": map[string]interface{}{
+				"should": shouldConditions,
+			},
+		})
+	}
+
+	// Add EnvironmentUID filter if present
+	if params.EnvironmentUID != "" {
+		filterConditions = append(filterConditions, map[string]interface{}{
+			"term": map[string]interface{}{
+				"resource.openchoreo.dev/environment-uid": params.EnvironmentUID,
+			},
+		})
+	}
+
+	if params.ProjectUID != "" {
+		filterConditions = append(filterConditions, map[string]interface{}{
+			"term": map[string]interface{}{
+				"resource.openchoreo.dev/project-uid": params.ProjectUID,
+			},
+		})
+	}
+
+	sortOrder := params.SortOrder
+	if sortOrder == "" {
+		sortOrder = sortOrderDesc
+	}
+
+	query := map[string]interface{}{
+		"size": 0,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"filter": filterConditions,
+			},
+		},
+		"aggs": map[string]interface{}{
+			"trace_count": map[string]interface{}{
+				"cardinality": map[string]interface{}{
+					"field": "traceId",
+				},
+			},
+			"traces": map[string]interface{}{
+				"terms": map[string]interface{}{
+					"field": "traceId",
+					"size":  params.Limit,
+					"order": map[string]interface{}{
+						"min_start_time": sortOrder,
+					},
+				},
+				"aggs": map[string]interface{}{
+					"earliest_span": map[string]interface{}{
+						"top_hits": map[string]interface{}{
+							"size": 1,
+							"sort": []map[string]interface{}{
+								{
+									"startTime": map[string]interface{}{
+										"order": "asc",
+									},
+								},
+							},
+							"_source": []string{"spanId", "name", "parentSpanId", "startTime"},
+						},
+					},
+					"root_span": map[string]interface{}{
+						"filter": map[string]interface{}{
+							"term": map[string]interface{}{
+								"parentSpanId": "",
+							},
+						},
+						"aggs": map[string]interface{}{
+							"hit": map[string]interface{}{
+								"top_hits": map[string]interface{}{
+									"size":    1,
+									"_source": []string{"spanId", "name", "startTime"},
+								},
+							},
+						},
+					},
+					"latest_span": map[string]interface{}{
+						"top_hits": map[string]interface{}{
+							"size": 1,
+							"sort": []map[string]interface{}{
+								{
+									"endTime": map[string]interface{}{
+										"order": sortOrderDesc,
+									},
+								},
+							},
+							"_source": []string{"endTime"},
+						},
+					},
+					"min_start_time": map[string]interface{}{
+						"min": map[string]interface{}{
+							"field": "startTime",
+						},
+					},
 				},
 			},
 		},
@@ -1037,7 +1174,7 @@ func (qb *QueryBuilder) BuildComponentLogsQueryV1(params ComponentLogsQueryParam
 	// Set default sort order if not specified
 	sortOrder := params.SortOrder
 	if sortOrder == "" {
-		sortOrder = "desc"
+		sortOrder = sortOrderDesc
 	}
 
 	query := map[string]interface{}{
