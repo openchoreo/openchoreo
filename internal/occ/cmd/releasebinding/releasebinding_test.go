@@ -45,6 +45,8 @@ func captureStdout(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
+const testReleaseName = "rel-1"
+
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
@@ -56,7 +58,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	relName := "rel-1"
+	relName := testReleaseName
 	mc := mocks.NewMockClient(t)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{{
@@ -77,7 +79,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	rel1 := "rel-1"
+	rel1 := testReleaseName
 	rel2 := "rel-2"
 	mc := mocks.NewMockClient(t)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
@@ -264,7 +266,7 @@ func TestPrintReleaseBindings_StatusWithoutReadyCondition(t *testing.T) {
 }
 
 func TestPrintReleaseBindings_WithReadyCondition(t *testing.T) {
-	relName := "rel-1"
+	relName := testReleaseName
 	now := time.Now()
 	conds := []gen.Condition{
 		{Type: "Ready", Reason: "Available", LastTransitionTime: now, Status: "True"},
@@ -281,7 +283,7 @@ func TestPrintReleaseBindings_WithReadyCondition(t *testing.T) {
 	})
 	assert.Contains(t, out, "binding-ready")
 	assert.Contains(t, out, "dev")
-	assert.Contains(t, out, "rel-1")
+	assert.Contains(t, out, testReleaseName)
 	assert.Contains(t, out, "Available")
 }
 
