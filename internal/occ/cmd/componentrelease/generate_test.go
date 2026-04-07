@@ -11,56 +11,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
-	sigsyaml "sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/componentrelease/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	th "github.com/openchoreo/openchoreo/internal/occ/cmd/testhelpers"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
-
-// extractYAML strips non-YAML prefix lines (e.g. "Loading index...") from
-// captured stdout and returns only the YAML document(s).
-func extractYAML(out string) string {
-	lines := strings.Split(out, "\n")
-	for i, l := range lines {
-		trimmed := strings.TrimSpace(l)
-		if strings.HasPrefix(trimmed, "apiVersion:") || trimmed == "---" {
-			return strings.Join(lines[i:], "\n")
-		}
-	}
-	return out
-}
-
-// assertYAMLEquals parses both expected and actual YAML strings and compares
-// the resulting structures for equality, independent of key ordering or formatting.
-func assertYAMLEquals(t *testing.T, expectedYAML, actualYAML string) {
-	t.Helper()
-	var expected, actual map[string]interface{}
-	require.NoError(t, sigsyaml.Unmarshal([]byte(expectedYAML), &expected), "failed to parse expected YAML")
-	require.NoError(t, sigsyaml.Unmarshal([]byte(actualYAML), &actual), "failed to parse actual YAML")
-	assert.Equal(t, expected, actual)
-}
-
-// setupTestHome creates a temp HOME directory so LoadStoredConfig reads from
-// an isolated location. It overrides HOME/USERPROFILE for the duration of the test.
-func setupTestHome(t *testing.T) string {
-	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home) // Windows compat
-	return home
-}
-
-// writeOCConfig writes a StoredConfig YAML to ~/.openchoreo/config.
-func writeOCConfig(t *testing.T, home string, cfg *config.StoredConfig) {
-	t.Helper()
-	dir := filepath.Join(home, ".openchoreo")
-	require.NoError(t, os.MkdirAll(dir, 0755))
-	data, err := yaml.Marshal(cfg)
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "config"), data, 0600))
-}
 
 // --- Generate: mode validation (no filesystem needed) ---
 
@@ -94,7 +50,7 @@ func TestGenerate_InvalidModeRejected(t *testing.T) {
 // --- Generate: config loading ---
 
 func TestGenerate_NoConfigFile_NoCurrentContext(t *testing.T) {
-	setupTestHome(t)
+	th.SetupTestHome(t)
 	mc := mocks.NewMockClient(t)
 	cr := New(mc)
 	// file-system mode, but no config file → LoadStoredConfig returns empty → "no current context set"
@@ -106,8 +62,8 @@ func TestGenerate_NoConfigFile_NoCurrentContext(t *testing.T) {
 // --- Generate: context resolution ---
 
 func TestGenerate_EmptyCurrentContext(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "",
 		Contexts:       []config.Context{},
 	})
@@ -120,8 +76,8 @@ func TestGenerate_EmptyCurrentContext(t *testing.T) {
 }
 
 func TestGenerate_CurrentContextNotFound(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "missing-ctx",
 		Contexts: []config.Context{
 			{Name: "other-ctx", Namespace: "ns"},
@@ -138,8 +94,8 @@ func TestGenerate_CurrentContextNotFound(t *testing.T) {
 // --- Generate: namespace validation ---
 
 func TestGenerate_EmptyNamespaceInContext(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts: []config.Context{
 			{Name: "my-ctx", Namespace: ""},
@@ -163,8 +119,8 @@ func TestGenerate_EmptyNamespaceInContext(t *testing.T) {
 // --- Generate: component requires project ---
 
 func TestGenerate_ComponentRequiresProject(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts: []config.Context{
 			{Name: "my-ctx", Namespace: "test-ns"},
@@ -244,8 +200,8 @@ func TestPrintYAML_Success(t *testing.T) {
 // --- Generate: no-op when no scope specified ---
 
 func TestGenerate_NoScope_ReturnsNil(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts: []config.Context{
 			{Name: "my-ctx", Namespace: "test-ns"},
@@ -269,14 +225,6 @@ func TestGenerate_NoScope_ReturnsNil(t *testing.T) {
 // Happy-path tests for generateForComponent, generateForProject, generateAll
 // ===========================================================================
 
-// writeYAML is a helper that writes a YAML file to the given path under repoDir.
-func writeYAML(t *testing.T, repoDir, relPath, content string) {
-	t.Helper()
-	absPath := filepath.Join(repoDir, relPath)
-	require.NoError(t, os.MkdirAll(filepath.Dir(absPath), 0755))
-	require.NoError(t, os.WriteFile(absPath, []byte(content), 0600))
-}
-
 // setupRepoWithComponent creates a temp repo directory containing the minimal
 // resources needed for the ComponentRelease generator: a Component, a
 // ComponentType and a Workload.
@@ -284,7 +232,7 @@ func setupRepoWithComponent(t *testing.T) string {
 	t.Helper()
 	repoDir := t.TempDir()
 
-	writeYAML(t, repoDir, "projects/myproj/components/my-svc/component.yaml", `
+	th.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/component.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -298,7 +246,7 @@ spec:
     kind: ComponentType
 `)
 
-	writeYAML(t, repoDir, "platform/component-types/service.yaml", `
+	th.WriteYAML(t, repoDir, "platform/component-types/service.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentType
 metadata:
@@ -316,7 +264,7 @@ spec:
   schema: {}
 `)
 
-	writeYAML(t, repoDir, "projects/myproj/components/my-svc/workload.yaml", `
+	th.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/workload.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
@@ -338,7 +286,7 @@ func setupRepoWithTwoComponents(t *testing.T) string {
 	t.Helper()
 	repoDir := setupRepoWithComponent(t)
 
-	writeYAML(t, repoDir, "projects/myproj/components/my-worker/component.yaml", `
+	th.WriteYAML(t, repoDir, "projects/myproj/components/my-worker/component.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -352,7 +300,7 @@ spec:
     kind: ComponentType
 `)
 
-	writeYAML(t, repoDir, "projects/myproj/components/my-worker/workload.yaml", `
+	th.WriteYAML(t, repoDir, "projects/myproj/components/my-worker/workload.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
@@ -372,8 +320,8 @@ spec:
 // --- generateForComponent: dry-run ---
 
 func TestGenerate_SingleComponent_DryRun(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -420,14 +368,14 @@ spec:
     container:
       image: registry/my-svc:v1
 `
-	assertYAMLEquals(t, expectedYAML, extractYAML(out))
+	th.AssertYAMLEquals(t, expectedYAML, th.ExtractYAML(out))
 }
 
 // --- generateForComponent: write to disk ---
 
 func TestGenerate_SingleComponent_Write(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -466,8 +414,8 @@ func TestGenerate_SingleComponent_Write(t *testing.T) {
 // --- generateForComponent: write with custom output path ---
 
 func TestGenerate_SingleComponent_CustomOutputPath(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -496,8 +444,8 @@ func TestGenerate_SingleComponent_CustomOutputPath(t *testing.T) {
 // --- generateForProject: dry-run ---
 
 func TestGenerate_Project_DryRun(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -517,14 +465,16 @@ func TestGenerate_Project_DryRun(t *testing.T) {
 	})
 	// Should print release YAML for both components
 	assert.Contains(t, out, "kind: ComponentRelease")
+	assert.Contains(t, out, "my-svc")
+	assert.Contains(t, out, "my-worker")
 	assert.Contains(t, out, "Summary:")
 }
 
 // --- generateForProject: write ---
 
 func TestGenerate_Project_Write(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -542,14 +492,28 @@ func TestGenerate_Project_Write(t *testing.T) {
 		require.NoError(t, err)
 	})
 	assert.Contains(t, out, "Generated:")
+	assert.Contains(t, out, "my-svc")
+	assert.Contains(t, out, "my-worker")
 	assert.Contains(t, out, "Summary:")
+	// Verify exactly two generated files exist on disk
+	var generatedPaths []string
+	for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
+		if strings.HasPrefix(l, "Generated: ") {
+			generatedPaths = append(generatedPaths, strings.TrimPrefix(l, "Generated: "))
+		}
+	}
+	assert.Len(t, generatedPaths, 2, "expected two generated files")
+	for _, p := range generatedPaths {
+		_, err := os.Stat(p)
+		assert.NoError(t, err, "generated file should exist: %s", p)
+	}
 }
 
 // --- generateAll: dry-run ---
 
 func TestGenerate_All_DryRun(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -568,14 +532,16 @@ func TestGenerate_All_DryRun(t *testing.T) {
 		require.NoError(t, err)
 	})
 	assert.Contains(t, out, "kind: ComponentRelease")
+	assert.Contains(t, out, "my-svc")
+	assert.Contains(t, out, "my-worker")
 	assert.Contains(t, out, "Summary:")
 }
 
 // --- generateAll: write ---
 
 func TestGenerate_All_Write(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -593,14 +559,28 @@ func TestGenerate_All_Write(t *testing.T) {
 		require.NoError(t, err)
 	})
 	assert.Contains(t, out, "Generated:")
+	assert.Contains(t, out, "my-svc")
+	assert.Contains(t, out, "my-worker")
 	assert.Contains(t, out, "Summary:")
+	// Verify exactly two generated files exist on disk
+	var generatedPaths []string
+	for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
+		if strings.HasPrefix(l, "Generated: ") {
+			generatedPaths = append(generatedPaths, strings.TrimPrefix(l, "Generated: "))
+		}
+	}
+	assert.Len(t, generatedPaths, 2, "expected two generated files")
+	for _, p := range generatedPaths {
+		_, err := os.Stat(p)
+		assert.NoError(t, err, "generated file should exist: %s", p)
+	}
 }
 
 // --- generateForComponent: duplicate release name ---
 
 func TestGenerate_SingleComponent_DuplicateReleaseName(t *testing.T) {
-	home := setupTestHome(t)
-	writeOCConfig(t, home, &config.StoredConfig{
+	home := th.SetupTestHome(t)
+	th.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
