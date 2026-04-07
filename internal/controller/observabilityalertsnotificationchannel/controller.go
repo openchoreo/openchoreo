@@ -139,7 +139,7 @@ func (r *Reconciler) getObservabilityPlaneClient(ctx context.Context, channel *o
 		return nil, fmt.Errorf("failed to get environment %s: %w", channel.Spec.Environment, err)
 	}
 
-	dataPlaneResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, r.Client, env)
+	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, env.Namespace, env.Spec.DataPlaneRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", env.Name, err)
 	}
@@ -149,12 +149,7 @@ func (r *Reconciler) getObservabilityPlaneClient(ctx context.Context, channel *o
 		return nil, fmt.Errorf("failed to resolve observability plane for dataplane %s: %w", dataPlaneResult.GetName(), err)
 	}
 
-	var opClient client.Client
-	if obsResult.ObservabilityPlane != nil {
-		opClient, err = kubernetesClient.GetK8sClientFromObservabilityPlane(r.K8sClientMgr, obsResult.ObservabilityPlane, r.GatewayURL)
-	} else {
-		opClient, err = kubernetesClient.GetK8sClientFromClusterObservabilityPlane(r.K8sClientMgr, obsResult.ClusterObservabilityPlane, r.GatewayURL)
-	}
+	opClient, err := obsResult.GetK8sClient(r.K8sClientMgr, r.GatewayURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create observability plane client for %s: %w", obsResult.GetName(), err)
 	}

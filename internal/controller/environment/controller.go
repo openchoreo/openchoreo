@@ -127,17 +127,12 @@ func (r *Reconciler) makeExternalResourceHandlers(dpClient client.Client) []data
 }
 
 func (r *Reconciler) getDPClient(ctx context.Context, env *openchoreov1alpha1.Environment) (client.Client, error) {
-	dataPlaneResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, r.Client, env)
+	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, env.Namespace, env.Spec.DataPlaneRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dataplane for environment %s: %w", env.Name, err)
 	}
 
-	var dpClient client.Client
-	if dataPlaneResult.DataPlane != nil {
-		dpClient, err = kubernetesClient.GetK8sClientFromDataPlane(r.K8sClientMgr, dataPlaneResult.DataPlane, r.GatewayURL)
-	} else {
-		dpClient, err = kubernetesClient.GetK8sClientFromClusterDataPlane(r.K8sClientMgr, dataPlaneResult.ClusterDataPlane, r.GatewayURL)
-	}
+	dpClient, err := dataPlaneResult.GetK8sClient(r.K8sClientMgr, r.GatewayURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DP client: %w", err)
 	}

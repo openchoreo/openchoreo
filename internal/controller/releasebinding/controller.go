@@ -161,7 +161,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	// Fetch DataPlane or ClusterDataPlane object using the resolution function
-	dataPlaneResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, r.Client, environment)
+	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, environment.Namespace, environment.Spec.DataPlaneRef)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("DataPlane not found for environment %q", environment.Name)

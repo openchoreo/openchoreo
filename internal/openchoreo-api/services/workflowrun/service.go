@@ -392,7 +392,7 @@ func (s *workflowRunService) getArgoWorkflowRunLogs(
 
 // resolveWorkflowPlane resolves the workflow plane using the workflow's workflowPlaneRef.
 func (s *workflowRunService) resolveWorkflowPlane(ctx context.Context, namespaceName string, ref *openchoreov1alpha1.WorkflowPlaneRef) (*openchoreov1alpha1.WorkflowPlane, error) {
-	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, s.k8sClient, namespaceName, ref)
+	workflowPlaneResult, err := controller.GetWorkflowPlaneFromRef(ctx, s.k8sClient, namespaceName, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve workflow plane: %w", err)
 	}
@@ -433,7 +433,7 @@ func (s *workflowRunService) resolveWorkflowPlaneRef(ctx context.Context, namesp
 func (s *workflowRunService) getWorkflowPlaneClient(ctx context.Context, namespaceName string, gatewayURL string, ref *openchoreov1alpha1.WorkflowPlaneRef) (client.Client, error) {
 	s.logger.Debug("Getting workflow plane client", "namespace", namespaceName)
 
-	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, s.k8sClient, namespaceName, ref)
+	workflowPlaneResult, err := controller.GetWorkflowPlaneFromRef(ctx, s.k8sClient, namespaceName, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve workflow plane: %w", err)
 	}

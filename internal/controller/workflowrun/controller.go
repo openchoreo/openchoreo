@@ -149,7 +149,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		Spec: workflowSpec,
 	}
 
-	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, r.Client, workflowRun.Namespace, workflow.Spec.WorkflowPlaneRef)
+	workflowPlaneResult, err := controller.GetWorkflowPlaneFromRef(ctx, r.Client, workflowRun.Namespace, workflow.Spec.WorkflowPlaneRef)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("No workflow plane found for workflow",

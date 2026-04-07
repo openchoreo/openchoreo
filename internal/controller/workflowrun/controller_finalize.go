@@ -61,7 +61,7 @@ func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.
 	workflowPlaneRef := workflowResult.GetWorkflowSpec().WorkflowPlaneRef
 
 	// Get workflow plane client (supports both WorkflowPlane and ClusterWorkflowPlane)
-	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, r.Client, cwRun.Namespace, workflowPlaneRef)
+	workflowPlaneResult, err := controller.GetWorkflowPlaneFromRef(ctx, r.Client, cwRun.Namespace, workflowPlaneRef)
 	if err != nil {
 		// If workflow plane doesn't exist, we can't clean up - remove finalizer anyway
 		if errors.IsNotFound(err) {

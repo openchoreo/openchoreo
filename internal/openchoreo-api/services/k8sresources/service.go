@@ -225,7 +225,7 @@ func (s *k8sResourcesService) resolveReleaseContexts(ctx context.Context, namesp
 		return nil, fmt.Errorf("failed to get environment: %w", err)
 	}
 
-	dpResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, s.k8sClient, env)
+	dpResult, err := controller.GetDataPlaneFromRef(ctx, s.k8sClient, env.Namespace, env.Spec.DataPlaneRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve data plane: %w", err)
 	}

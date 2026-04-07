@@ -56,7 +56,7 @@ func (r *Reconciler) GetDataPlaneForEnvironment(ctx context.Context, obj client.
 		return nil
 	}
 
-	result, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, r.Client, environment)
+	result, err := controller.GetDataPlaneFromRef(ctx, r.Client, environment.Namespace, environment.Spec.DataPlaneRef)
 	if err != nil {
 		log.FromContext(ctx).Error(err, "Failed to resolve dataplane for environment",
 			"environment", environment.Name, "namespace", environment.Namespace)
