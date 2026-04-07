@@ -309,12 +309,25 @@ func TestCreate_FileSystem_SecondComponent_NewWorkload(t *testing.T) {
 	assert.Contains(t, out, "Workload written to:")
 	assert.Contains(t, out, "my-worker")
 
-	// Verify a workload was created for my-worker
+	// Verify a workload was created for my-worker with correct content
 	workerWorkloadPath := filepath.Join(repoDir, "projects/myproj/components/my-worker/workload.yaml")
 	data, err := os.ReadFile(workerWorkloadPath)
 	require.NoError(t, err)
-	assert.Contains(t, string(data), "kind: Workload")
-	assert.Contains(t, string(data), "registry/my-worker:v1")
+
+	expectedYAML := `
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: my-worker-workload
+  namespace: test-ns
+spec:
+  owner:
+    projectName: myproj
+    componentName: my-worker
+  container:
+    image: registry/my-worker:v1
+`
+	th.AssertYAMLEquals(t, expectedYAML, string(data))
 }
 
 // --- Create: API server mode ---
