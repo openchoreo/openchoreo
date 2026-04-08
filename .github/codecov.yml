@@ -23,7 +23,7 @@ ignore:
   - "test"                                                     # Test helpers and utilities
   - "internal/openchoreo-api/services/testutil"
   - "internal/controller/testutils"
-  - "internal/occ/cmd/testhelpers"                             # CLI test helpers
+  - "internal/occ/testhelpers"                                 # CLI test helpers
 
 comment:
   layout: "condensed_header, diff, condensed_files, condensed_footer"

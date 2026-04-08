@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/testhelpers"
+	"github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 

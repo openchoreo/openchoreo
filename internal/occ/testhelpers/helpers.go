@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-// Package testhelpers provides shared test utilities for the occ/cmd sub-packages.
+// Package testhelpers provides shared test utilities for the occ sub-packages.
 // It is intended to be imported only from *_test.go files.
 package testhelpers
 

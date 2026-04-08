@@ -14,7 +14,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/componentrelease/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	th "github.com/openchoreo/openchoreo/internal/occ/cmd/testhelpers"
+	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
 
