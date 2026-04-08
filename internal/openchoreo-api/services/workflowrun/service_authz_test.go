@@ -427,7 +427,7 @@ func TestGetWorkflowRunLogs_Authz(t *testing.T) {
 		// mockSvc.GetWorkflowRunLogs should NOT be called
 
 		svc := newAuthzService(t, mockSvc, mockPDP)
-		_, err := svc.GetWorkflowRunLogs(ctxWithSubject(), testNamespace, testRunName, "", "", nil)
+		_, err := svc.GetWorkflowRunLogs(ctxWithSubject(), testNamespace, testRunName, "", nil)
 		require.ErrorIs(t, err, services.ErrForbidden)
 	})
 
@@ -439,7 +439,7 @@ func TestGetWorkflowRunLogs_Authz(t *testing.T) {
 			Return(nil, workflowrun.ErrWorkflowRunNotFound)
 
 		svc := newAuthzService(t, mockSvc, mockPDP)
-		_, err := svc.GetWorkflowRunLogs(ctxWithSubject(), testNamespace, "nonexistent", "", "", nil)
+		_, err := svc.GetWorkflowRunLogs(ctxWithSubject(), testNamespace, "nonexistent", "", nil)
 		require.ErrorIs(t, err, workflowrun.ErrWorkflowRunNotFound)
 	})
 
@@ -450,11 +450,11 @@ func TestGetWorkflowRunLogs_Authz(t *testing.T) {
 		logEntries := []models.WorkflowRunLogEntry{{Timestamp: "2026-01-01T00:00:00Z", Log: "test log"}}
 		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
-		mockSvc.EXPECT().GetWorkflowRunLogs(mock.Anything, testNamespace, testRunName, "task-1", "gw-url", (*int64)(nil)).
+		mockSvc.EXPECT().GetWorkflowRunLogs(mock.Anything, testNamespace, testRunName, "task-1", (*int64)(nil)).
 			Return(logEntries, nil)
 
 		svc := newAuthzService(t, mockSvc, mockPDP)
-		result, err := svc.GetWorkflowRunLogs(ctxWithSubject(), testNamespace, testRunName, "task-1", "gw-url", nil)
+		result, err := svc.GetWorkflowRunLogs(ctxWithSubject(), testNamespace, testRunName, "task-1", nil)
 		require.NoError(t, err)
 		assert.Len(t, result, 1)
 		assert.Equal(t, "test log", result[0].Log)
@@ -476,7 +476,7 @@ func TestGetWorkflowRunEvents_Authz(t *testing.T) {
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil)
 
 		svc := newAuthzService(t, mockSvc, mockPDP)
-		_, err := svc.GetWorkflowRunEvents(ctxWithSubject(), testNamespace, testRunName, "", "")
+		_, err := svc.GetWorkflowRunEvents(ctxWithSubject(), testNamespace, testRunName, "")
 		require.ErrorIs(t, err, services.ErrForbidden)
 	})
 
@@ -488,7 +488,7 @@ func TestGetWorkflowRunEvents_Authz(t *testing.T) {
 			Return(nil, workflowrun.ErrWorkflowRunNotFound)
 
 		svc := newAuthzService(t, mockSvc, mockPDP)
-		_, err := svc.GetWorkflowRunEvents(ctxWithSubject(), testNamespace, "nonexistent", "", "")
+		_, err := svc.GetWorkflowRunEvents(ctxWithSubject(), testNamespace, "nonexistent", "")
 		require.ErrorIs(t, err, workflowrun.ErrWorkflowRunNotFound)
 	})
 
@@ -499,11 +499,11 @@ func TestGetWorkflowRunEvents_Authz(t *testing.T) {
 		events := []models.WorkflowRunEventEntry{{Timestamp: "2026-01-01T00:00:00Z", Type: "Normal", Reason: "Started", Message: "pod started"}}
 		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
-		mockSvc.EXPECT().GetWorkflowRunEvents(mock.Anything, testNamespace, testRunName, "task-1", "gw-url").
+		mockSvc.EXPECT().GetWorkflowRunEvents(mock.Anything, testNamespace, testRunName, "task-1").
 			Return(events, nil)
 
 		svc := newAuthzService(t, mockSvc, mockPDP)
-		result, err := svc.GetWorkflowRunEvents(ctxWithSubject(), testNamespace, testRunName, "task-1", "gw-url")
+		result, err := svc.GetWorkflowRunEvents(ctxWithSubject(), testNamespace, testRunName, "task-1")
 		require.NoError(t, err)
 		assert.Len(t, result, 1)
 		assert.Equal(t, "Started", result[0].Reason)
@@ -525,7 +525,7 @@ func TestGetWorkflowRunStatus_Authz(t *testing.T) {
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil)
 
 		svc := newAuthzService(t, mockSvc, mockPDP)
-		_, err := svc.GetWorkflowRunStatus(ctxWithSubject(), testNamespace, testRunName, "")
+		_, err := svc.GetWorkflowRunStatus(ctxWithSubject(), testNamespace, testRunName)
 		require.ErrorIs(t, err, services.ErrForbidden)
 	})
 
@@ -537,7 +537,7 @@ func TestGetWorkflowRunStatus_Authz(t *testing.T) {
 			Return(nil, workflowrun.ErrWorkflowRunNotFound)
 
 		svc := newAuthzService(t, mockSvc, mockPDP)
-		_, err := svc.GetWorkflowRunStatus(ctxWithSubject(), testNamespace, "nonexistent", "")
+		_, err := svc.GetWorkflowRunStatus(ctxWithSubject(), testNamespace, "nonexistent")
 		require.ErrorIs(t, err, workflowrun.ErrWorkflowRunNotFound)
 	})
 
@@ -548,10 +548,10 @@ func TestGetWorkflowRunStatus_Authz(t *testing.T) {
 		statusResp := &models.WorkflowRunStatusResponse{Status: workflowrun.ExportStatusPending}
 		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(run, nil)
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
-		mockSvc.EXPECT().GetWorkflowRunStatus(mock.Anything, testNamespace, testRunName, "").Return(statusResp, nil)
+		mockSvc.EXPECT().GetWorkflowRunStatus(mock.Anything, testNamespace, testRunName).Return(statusResp, nil)
 
 		svc := newAuthzService(t, mockSvc, mockPDP)
-		result, err := svc.GetWorkflowRunStatus(ctxWithSubject(), testNamespace, testRunName, "")
+		result, err := svc.GetWorkflowRunStatus(ctxWithSubject(), testNamespace, testRunName)
 		require.NoError(t, err)
 		assert.Equal(t, workflowrun.ExportStatusPending, result.Status)
 	})

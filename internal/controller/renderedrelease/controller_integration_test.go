@@ -9,11 +9,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	k8sMocks "github.com/openchoreo/openchoreo/internal/clients/kubernetes/mocks"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -112,20 +114,20 @@ func makeEnvironment(name, namespace, cdpName string) *openchoreov1alpha1.Enviro
 	}
 }
 
-// testReconcilerWithDPClient creates a Reconciler with a pre-seeded KubeMultiClientManager
-// so that getDPClient resolves successfully without a real data-plane cluster.
-func testReconcilerWithDPClient(dpClient client.Client, planeID, cdpName string) *Reconciler {
-	mgr := kubernetesClient.NewManager()
-	key := "v2/clusterdataplane/" + planeID + "/" + cdpName
-	//nolint:errcheck // test helper; panics are acceptable
-	mgr.GetOrAddClient(key, func() (client.Client, error) {
-		return dpClient, nil
-	})
+// testReconcilerWithDPClient creates a Reconciler with a mock PlaneClientProvider
+// that returns dpClient for any data plane. This allows testing without a real data-plane cluster.
+func testReconcilerWithDPClient(dpClient client.Client, _, _ string) *Reconciler {
+	mockProvider := &k8sMocks.MockPlaneClientProvider{}
+	mockProvider.EXPECT().DataPlaneClient(mock.Anything).Return(dpClient, nil).Maybe()
+	mockProvider.EXPECT().ClusterDataPlaneClient(mock.Anything).Return(dpClient, nil).Maybe()
+	mockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(dpClient, nil).Maybe()
+	mockProvider.EXPECT().ClusterObservabilityPlaneClient(mock.Anything).Return(dpClient, nil).Maybe()
+	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(dpClient, nil).Maybe()
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(dpClient, nil).Maybe()
 	return &Reconciler{
-		Client:       k8sClient,
-		Scheme:       k8sClient.Scheme(),
-		K8sClientMgr: mgr,
-		GatewayURL:   "https://gateway.test:443",
+		Client:              k8sClient,
+		Scheme:              k8sClient.Scheme(),
+		PlaneClientProvider: mockProvider,
 	}
 }
 
@@ -423,6 +425,89 @@ var _ = Describe("RenderedRelease Controller", func() {
 			Expect(fetched.Status.Resources).To(HaveLen(1))
 			Expect(fetched.Status.Resources[0].ID).To(Equal("res-1"))
 			Expect(fetched.Status.Resources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Happy path: full Reconcile applies resources and updates status
+	// ─────────────────────────────────────────────────────────────
+
+	Context("when a RenderedRelease has resources to apply", func() {
+		const (
+			releaseName = "release-happy-path"
+			envName     = "env-happy-path"
+			cdpName     = "cdp-happy-path"
+			planeID     = "plane-happy-path"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+		})
+
+		It("should apply resources to data plane and update status", func() {
+			By("Creating prerequisite ClusterDataPlane and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, testNs, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease with a ConfigMap resource in spec")
+			release := makeMinimalRelease(releaseName, envName)
+			cmJSON := []byte(`{
+				"apiVersion": "v1",
+				"kind": "ConfigMap",
+				"metadata": {
+					"name": "test-cm-happy",
+					"namespace": "default"
+				},
+				"data": {
+					"key": "value"
+				}
+			}`)
+			release.Spec.Resources = []openchoreov1alpha1.Resource{
+				{
+					ID:     "cm-happy-1",
+					Object: &runtime.RawExtension{Raw: cmJSON},
+				},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			By("Using the envtest client as the data-plane client (server-side apply requires a real API server)")
+			r := testReconcilerWithDPClient(k8sClient, planeID, cdpName)
+
+			By("First reconcile: adds finalizer")
+			mustReconcile(r, reconcileRequest(releaseName))
+			updated := fetchRelease(releaseName)
+			Expect(controllerutil.ContainsFinalizer(updated, DataPlaneCleanupFinalizer)).To(BeTrue())
+
+			By("Second reconcile: applies resources and persists status")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Third reconcile: status already persisted, reaches requeue logic")
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).NotTo(BeZero(), "should requeue for status polling")
+
+			By("Verifying the ConfigMap was applied to the data plane")
+			cm := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "test-cm-happy", Namespace: testNs}, cm)).To(Succeed())
+			Expect(cm.Data["key"]).To(Equal("value"))
+			Expect(cm.Labels[labels.LabelKeyRenderedReleaseResourceID]).To(Equal("cm-happy-1"))
+			Expect(cm.Labels[labels.LabelKeyManagedBy]).To(Equal(ControllerName))
+
+			By("Verifying the ResourcesApplied condition is set to True")
+			updated = fetchRelease(releaseName)
+			appliedCond := apimeta.FindStatusCondition(updated.Status.Conditions, ConditionResourcesApplied)
+			Expect(appliedCond).NotTo(BeNil())
+			Expect(appliedCond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(appliedCond.Reason).To(Equal(ReasonApplySucceeded))
+
+			By("Verifying the status resource inventory")
+			Expect(updated.Status.Resources).To(HaveLen(1))
+			Expect(updated.Status.Resources[0].ID).To(Equal("cm-happy-1"))
+			Expect(updated.Status.Resources[0].Kind).To(Equal("ConfigMap"))
+			Expect(updated.Status.Resources[0].Name).To(Equal("test-cm-happy"))
 		})
 	})
 

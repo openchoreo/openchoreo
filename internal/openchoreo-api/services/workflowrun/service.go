@@ -262,7 +262,7 @@ func (s *workflowRunService) DeleteWorkflowRun(ctx context.Context, namespaceNam
 }
 
 // GetWorkflowRunLogs retrieves logs from a workflow run.
-func (s *workflowRunService) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, taskName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
+func (s *workflowRunService) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, taskName string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
 	logger := s.logger.With("namespace", namespaceName, "run", runName, "task", taskName, "sinceSeconds", sinceSeconds)
 	logger.Debug("Getting workflow run logs")
 
@@ -293,14 +293,13 @@ func (s *workflowRunService) GetWorkflowRunLogs(ctx context.Context, namespaceNa
 		return nil, fmt.Errorf("failed to resolve workflow plane ref: %w", err)
 	}
 
-	return s.getArgoWorkflowRunLogs(ctx, namespaceName, gatewayURL, workflowRun.Status.RunReference, workflowPlaneRef, taskName, sinceSeconds)
+	return s.getArgoWorkflowRunLogs(ctx, namespaceName, workflowRun.Status.RunReference, workflowPlaneRef, taskName, sinceSeconds)
 }
 
 // getArgoWorkflowRunLogs retrieves logs from an Argo Workflow run.
 func (s *workflowRunService) getArgoWorkflowRunLogs(
 	ctx context.Context,
 	namespaceName string,
-	gatewayURL string,
 	runReference *openchoreov1alpha1.ResourceReference,
 	workflowPlaneRef *openchoreov1alpha1.WorkflowPlaneRef,
 	taskName string,
@@ -555,7 +554,7 @@ func (s *workflowRunService) getArgoWorkflowPodLogs(ctx context.Context, workflo
 }
 
 // GetWorkflowRunEvents retrieves events from a workflow run.
-func (s *workflowRunService) GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, taskName, gatewayURL string) ([]models.WorkflowRunEventEntry, error) {
+func (s *workflowRunService) GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, taskName string) ([]models.WorkflowRunEventEntry, error) {
 	logger := s.logger.With("namespace", namespaceName, "run", runName, "task", taskName)
 	logger.Debug("Getting workflow run events")
 
@@ -586,14 +585,13 @@ func (s *workflowRunService) GetWorkflowRunEvents(ctx context.Context, namespace
 		return nil, fmt.Errorf("failed to resolve workflow plane ref: %w", err)
 	}
 
-	return s.getArgoWorkflowRunEvents(ctx, namespaceName, gatewayURL, workflowRun.Status.RunReference, workflowPlaneRef, taskName)
+	return s.getArgoWorkflowRunEvents(ctx, namespaceName, workflowRun.Status.RunReference, workflowPlaneRef, taskName)
 }
 
 // getArgoWorkflowRunEvents retrieves events from an Argo Workflow run.
 func (s *workflowRunService) getArgoWorkflowRunEvents(
 	ctx context.Context,
 	namespaceName string,
-	gatewayURL string,
 	runReference *openchoreov1alpha1.ResourceReference,
 	workflowPlaneRef *openchoreov1alpha1.WorkflowPlaneRef,
 	taskName string,
@@ -713,7 +711,7 @@ const (
 )
 
 // GetWorkflowRunStatus retrieves the status and step information for a specific WorkflowRun.
-func (s *workflowRunService) GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.WorkflowRunStatusResponse, error) {
+func (s *workflowRunService) GetWorkflowRunStatus(ctx context.Context, namespaceName, runName string) (*models.WorkflowRunStatusResponse, error) {
 	logger := s.logger.With("namespace", namespaceName, "run", runName)
 	logger.Debug("Getting workflow run status")
 
@@ -749,7 +747,7 @@ func (s *workflowRunService) GetWorkflowRunStatus(ctx context.Context, namespace
 		steps = append(steps, step)
 	}
 
-	hasLiveObservability := s.argoWorkflowExists(ctx, namespaceName, gatewayURL, wfRun)
+	hasLiveObservability := s.argoWorkflowExists(ctx, namespaceName, wfRun)
 
 	return &models.WorkflowRunStatusResponse{
 		Status:               overallStatus,
@@ -760,7 +758,7 @@ func (s *workflowRunService) GetWorkflowRunStatus(ctx context.Context, namespace
 
 // argoWorkflowExists checks whether the Argo Workflow referenced by the given WorkflowRun
 // still exists on the workflow plane. Returns true if it exists.
-func (s *workflowRunService) argoWorkflowExists(ctx context.Context, namespaceName, gatewayURL string, wfRun *openchoreov1alpha1.WorkflowRun) bool {
+func (s *workflowRunService) argoWorkflowExists(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) bool {
 	runReference := wfRun.Status.RunReference
 	if runReference == nil || runReference.Name == "" || runReference.Namespace == "" {
 		return false

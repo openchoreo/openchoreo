@@ -158,11 +158,10 @@ func TestUpdateWorkflowRunHandler_ClearsStatusAndUsesPathName(t *testing.T) {
 func TestGetWorkflowRunLogsHandler_ParsesRFC3339AndRFC3339Nano(t *testing.T) {
 	ctx := testContext()
 	svc := workflowrunmocks.NewMockService(t)
-	svc.EXPECT().GetWorkflowRunLogs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, namespace, runName, taskName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
+	svc.EXPECT().GetWorkflowRunLogs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, namespace, runName, taskName string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
 		require.Equal(t, "test-ns", namespace)
 		require.Equal(t, "run-1", runName)
 		require.Equal(t, "task-a", taskName)
-		require.Equal(t, "https://gw", gatewayURL)
 		require.NotNil(t, sinceSeconds)
 		assert.Equal(t, int64(12), *sinceSeconds)
 		return []models.WorkflowRunLogEntry{
@@ -205,7 +204,7 @@ func TestGetWorkflowRunLogsHandler_ParsesRFC3339AndRFC3339Nano(t *testing.T) {
 func TestGetWorkflowRunEventsHandler_InvalidTimestampDoesNotPanic(t *testing.T) {
 	ctx := testContext()
 	svc := workflowrunmocks.NewMockService(t)
-	svc.EXPECT().GetWorkflowRunEvents(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, namespace, runName, taskName, gatewayURL string) ([]models.WorkflowRunEventEntry, error) {
+	svc.EXPECT().GetWorkflowRunEvents(mock.Anything, mock.Anything, mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, namespace, runName, taskName string) ([]models.WorkflowRunEventEntry, error) {
 		return []models.WorkflowRunEventEntry{
 			{Timestamp: "not-a-time", Type: "Warning", Reason: "X", Message: "bad ts"},
 			{Timestamp: "2026-01-02T03:04:05Z", Type: "Normal", Reason: "Y", Message: "good ts"},
@@ -782,7 +781,7 @@ func TestGetWorkflowRunStatusHandler(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		started := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 		svc := workflowrunmocks.NewMockService(t)
-		svc.EXPECT().GetWorkflowRunStatus(mock.Anything, ns, "run-1", "https://gw").Return(&models.WorkflowRunStatusResponse{
+		svc.EXPECT().GetWorkflowRunStatus(mock.Anything, ns, "run-1").Return(&models.WorkflowRunStatusResponse{
 			Status:               "Succeeded",
 			HasLiveObservability: true,
 			Steps: []models.WorkflowStepStatus{
@@ -821,7 +820,7 @@ func TestGetWorkflowRunStatusHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := workflowrunmocks.NewMockService(t)
-			svc.EXPECT().GetWorkflowRunStatus(mock.Anything, ns, "run-1", "https://gw").Return(nil, tt.svcErr)
+			svc.EXPECT().GetWorkflowRunStatus(mock.Anything, ns, "run-1").Return(nil, tt.svcErr)
 			h := &Handler{
 				services: &handlerservices.Services{WorkflowRunService: svc},
 				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -853,7 +852,7 @@ func TestGetWorkflowRunLogsHandler_MapsErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := workflowrunmocks.NewMockService(t)
-			svc.EXPECT().GetWorkflowRunLogs(mock.Anything, ns, "run-1", "", "https://gw", mock.Anything).Return(nil, tt.svcErr)
+			svc.EXPECT().GetWorkflowRunLogs(mock.Anything, ns, "run-1", "", mock.Anything).Return(nil, tt.svcErr)
 			h := &Handler{
 				services: &handlerservices.Services{WorkflowRunService: svc},
 				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -885,7 +884,7 @@ func TestGetWorkflowRunEventsHandler_MapsErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := workflowrunmocks.NewMockService(t)
-			svc.EXPECT().GetWorkflowRunEvents(mock.Anything, ns, "run-1", "", "https://gw").Return(nil, tt.svcErr)
+			svc.EXPECT().GetWorkflowRunEvents(mock.Anything, ns, "run-1", "").Return(nil, tt.svcErr)
 			h := &Handler{
 				services: &handlerservices.Services{WorkflowRunService: svc},
 				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),

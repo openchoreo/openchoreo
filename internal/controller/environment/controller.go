@@ -129,7 +129,7 @@ func (r *Reconciler) getDPClient(ctx context.Context, env *openchoreov1alpha1.En
 
 	dpClient, err := dataPlaneResult.GetK8sClient(r.PlaneClientProvider)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get DP client: %w", err)
+		return nil, fmt.Errorf("failed to get dataplane client for environment %s using plane %s: %w", env.Name, dataPlaneResult.GetName(), err)
 	}
 
 	return dpClient, nil

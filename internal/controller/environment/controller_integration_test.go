@@ -775,7 +775,7 @@ var _ = Describe("Environment Controller", func() {
 				_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).NotTo(ContainSubstring("failed to make environment context"))
-				Expect(err.Error()).To(ContainSubstring("DP client"))
+				Expect(err.Error()).To(ContainSubstring("dataplane client"))
 			})
 		})
 

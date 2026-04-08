@@ -607,7 +607,7 @@ func TestGetWorkflowRunStatus(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		svc := newService(t)
-		_, err := svc.GetWorkflowRunStatus(ctx, testNamespace, "nonexistent", "")
+		_, err := svc.GetWorkflowRunStatus(ctx, testNamespace, "nonexistent")
 		require.ErrorIs(t, err, ErrWorkflowRunNotFound)
 	})
 
@@ -615,7 +615,7 @@ func TestGetWorkflowRunStatus(t *testing.T) {
 		run := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
 		svc := newService(t, run)
 
-		result, err := svc.GetWorkflowRunStatus(ctx, testNamespace, testRunName, "")
+		result, err := svc.GetWorkflowRunStatus(ctx, testNamespace, testRunName)
 		require.NoError(t, err)
 		assert.Equal(t, workflowRunStatusPending, result.Status)
 		assert.Empty(t, result.Steps)
@@ -628,14 +628,14 @@ func TestGetWorkflowRunLogs(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		svc := newService(t)
-		_, err := svc.GetWorkflowRunLogs(ctx, testNamespace, "nonexistent", "", "", nil)
+		_, err := svc.GetWorkflowRunLogs(ctx, testNamespace, "nonexistent", "", nil)
 		require.ErrorIs(t, err, ErrWorkflowRunNotFound)
 	})
 
 	t.Run("missing run reference", func(t *testing.T) {
 		run := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
 		svc := newService(t, run)
-		_, err := svc.GetWorkflowRunLogs(ctx, testNamespace, testRunName, "", "", nil)
+		_, err := svc.GetWorkflowRunLogs(ctx, testNamespace, testRunName, "", nil)
 		require.ErrorIs(t, err, ErrWorkflowRunReferenceNotFound)
 	})
 }
@@ -645,14 +645,14 @@ func TestGetWorkflowRunEvents(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		svc := newService(t)
-		_, err := svc.GetWorkflowRunEvents(ctx, testNamespace, "nonexistent", "", "")
+		_, err := svc.GetWorkflowRunEvents(ctx, testNamespace, "nonexistent", "")
 		require.ErrorIs(t, err, ErrWorkflowRunNotFound)
 	})
 
 	t.Run("missing run reference", func(t *testing.T) {
 		run := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
 		svc := newService(t, run)
-		_, err := svc.GetWorkflowRunEvents(ctx, testNamespace, testRunName, "", "")
+		_, err := svc.GetWorkflowRunEvents(ctx, testNamespace, testRunName, "")
 		require.ErrorIs(t, err, ErrWorkflowRunReferenceNotFound)
 	})
 }

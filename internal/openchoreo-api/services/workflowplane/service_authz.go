@@ -30,7 +30,7 @@ var _ Service = (*workflowPlaneServiceWithAuthz)(nil)
 // NewServiceWithAuthz creates a workflow plane service with authorization checks.
 func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *slog.Logger) Service {
 	return &workflowPlaneServiceWithAuthz{
-		internal: NewService(k8sClient, nil, logger),
+		internal: NewService(k8sClient, nil, logger), // nil provider is OK — authz wrapper stubs GetWorkflowPlaneClient/ArgoWorkflowExists
 		authz:    services.NewAuthzChecker(authzPDP, logger),
 	}
 }
@@ -109,12 +109,11 @@ func (s *workflowPlaneServiceWithAuthz) DeleteWorkflowPlane(ctx context.Context,
 }
 
 // GetWorkflowPlaneClient is not implemented on the authz-wrapped service as it is not exposed externally.
-func (s *workflowPlaneServiceWithAuthz) GetWorkflowPlaneClient(_ context.Context, _, _ string) (client.Client, error) {
+func (s *workflowPlaneServiceWithAuthz) GetWorkflowPlaneClient(_ context.Context, _ string) (client.Client, error) {
 	return nil, errNotImplemented
 }
 
 // ArgoWorkflowExists is not implemented on the authz-wrapped service as it is not exposed externally.
-// not implemented on the authz-wrapped service as it is not exposed externally
-func (s *workflowPlaneServiceWithAuthz) ArgoWorkflowExists(_ context.Context, _, _ string, _ *openchoreov1alpha1.ResourceReference) bool {
+func (s *workflowPlaneServiceWithAuthz) ArgoWorkflowExists(_ context.Context, _ string, _ *openchoreov1alpha1.ResourceReference) bool {
 	return false
 }

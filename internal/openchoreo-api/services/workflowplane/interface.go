@@ -23,11 +23,11 @@ type Service interface {
 	UpdateWorkflowPlane(ctx context.Context, namespaceName string, wp *openchoreov1alpha1.WorkflowPlane) (*openchoreov1alpha1.WorkflowPlane, error)
 	DeleteWorkflowPlane(ctx context.Context, namespaceName, workflowPlaneName string) error
 
-	// GetWorkflowPlaneClient creates a Kubernetes client for the workflow plane cluster
-	// via the cluster gateway proxy. Used by internal services for cross-cluster operations.
-	GetWorkflowPlaneClient(ctx context.Context, namespaceName, gatewayURL string) (client.Client, error)
+	// GetWorkflowPlaneClient creates a Kubernetes client for the workflow plane cluster.
+	// Used by internal services for cross-cluster operations.
+	GetWorkflowPlaneClient(ctx context.Context, namespaceName string) (client.Client, error)
 
 	// ArgoWorkflowExists checks whether the Argo Workflow referenced by runReference
-	// still exists on the workflow plane.  Used by internal services
-	ArgoWorkflowExists(ctx context.Context, namespaceName, gatewayURL string, runReference *openchoreov1alpha1.ResourceReference) bool
+	// still exists on the workflow plane. Used by internal services.
+	ArgoWorkflowExists(ctx context.Context, namespaceName string, runReference *openchoreov1alpha1.ResourceReference) bool
 }

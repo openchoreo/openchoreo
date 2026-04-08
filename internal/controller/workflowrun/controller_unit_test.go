@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,8 +22,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	"github.com/stretchr/testify/mock"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	k8sMocks "github.com/openchoreo/openchoreo/internal/clients/kubernetes/mocks"
@@ -1941,8 +1940,7 @@ func newReconcilerWithWorkflowPlane(
 
 	builtWpClient := wpClient.Build()
 	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
-	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(builtWpClient, nil).Maybe()
-	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(builtWpClient, nil).Maybe()
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(builtWpClient, nil).Once()
 
 	return &Reconciler{
 		Client:              fc,
@@ -2056,8 +2054,7 @@ func TestReconcileFullRenderAndApply(t *testing.T) {
 	wpClient := fake.NewClientBuilder().WithScheme(s).Build()
 
 	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
-	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
-	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Once()
 
 	r := &Reconciler{
 		Client:              cpClient,
@@ -2175,8 +2172,7 @@ func TestReconcileSyncsRunningWorkflow(t *testing.T) {
 	}
 
 	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
-	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
-	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Once()
 
 	r := &Reconciler{
 		Client:              cpClient,
@@ -2260,8 +2256,7 @@ func TestFinalizeWithResourceCleanup(t *testing.T) {
 	wpClient := fake.NewClientBuilder().WithScheme(s).WithObjects(wpSecret, wpArgoWf).Build()
 
 	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
-	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
-	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Once()
 
 	r := &Reconciler{
 		Client:              cpClient,
@@ -2409,8 +2404,7 @@ func TestReconcileRunReferenceWorkflowNotFound(t *testing.T) {
 	wpClient := fake.NewClientBuilder().WithScheme(wpScheme).Build()
 
 	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
-	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
-	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Once()
 
 	r := &Reconciler{
 		Client:              cpClient,

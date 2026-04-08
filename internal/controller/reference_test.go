@@ -5,9 +5,11 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	k8sMocks "github.com/openchoreo/openchoreo/internal/clients/kubernetes/mocks"
 )
 
 // test helpers
@@ -496,6 +499,241 @@ func TestObservabilityPlaneResult_Methods(t *testing.T) {
 	assert.Equal(t, "", emptyResult.GetNamespace())
 	assert.Equal(t, "", emptyResult.GetObserverURL())
 	assert.Equal(t, "", emptyResult.GetPlaneID())
+}
+
+func TestDataPlaneResult_Methods(t *testing.T) {
+	// Namespace-scoped DataPlane
+	dpResult := &DataPlaneResult{
+		DataPlane: &openchoreov1alpha1.DataPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-dp", Namespace: "ns-a"},
+		},
+	}
+	assert.Equal(t, "my-dp", dpResult.GetName())
+	assert.Equal(t, "ns-a", dpResult.GetNamespace())
+
+	// Cluster-scoped ClusterDataPlane
+	cdpResult := &DataPlaneResult{
+		ClusterDataPlane: &openchoreov1alpha1.ClusterDataPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "shared-cdp"},
+		},
+	}
+	assert.Equal(t, "shared-cdp", cdpResult.GetName())
+	assert.Equal(t, "", cdpResult.GetNamespace())
+
+	// Empty result
+	emptyDP := &DataPlaneResult{}
+	assert.Equal(t, "", emptyDP.GetName())
+	assert.Equal(t, "", emptyDP.GetNamespace())
+}
+
+func TestWorkflowPlaneResult_Methods(t *testing.T) {
+	// Namespace-scoped WorkflowPlane
+	wpResult := &WorkflowPlaneResult{
+		WorkflowPlane: &openchoreov1alpha1.WorkflowPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-wp", Namespace: "ns-a"},
+		},
+	}
+	assert.Equal(t, "my-wp", wpResult.GetName())
+	assert.Equal(t, "ns-a", wpResult.GetNamespace())
+
+	// Cluster-scoped ClusterWorkflowPlane
+	cwpResult := &WorkflowPlaneResult{
+		ClusterWorkflowPlane: &openchoreov1alpha1.ClusterWorkflowPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "shared-cwp"},
+		},
+	}
+	assert.Equal(t, "shared-cwp", cwpResult.GetName())
+	assert.Equal(t, "", cwpResult.GetNamespace())
+
+	// Empty result
+	emptyWP := &WorkflowPlaneResult{}
+	assert.Equal(t, "", emptyWP.GetName())
+	assert.Equal(t, "", emptyWP.GetNamespace())
+}
+
+// ─────────────────────────────────────────────────────────────
+// GetK8sClient on Result types
+// ─────────────────────────────────────────────────────────────
+
+func TestDataPlaneResult_GetK8sClient(t *testing.T) {
+	fakeDP := fake.NewClientBuilder().Build()
+
+	tests := []struct {
+		name     string
+		result   *DataPlaneResult
+		provider *k8sMocks.MockPlaneClientProvider
+		wantErr  string
+	}{
+		{
+			name:   "namespace-scoped DataPlane dispatches to DataPlaneClient",
+			result: &DataPlaneResult{DataPlane: &openchoreov1alpha1.DataPlane{ObjectMeta: metav1.ObjectMeta{Name: "dp"}}},
+			provider: func() *k8sMocks.MockPlaneClientProvider {
+				m := &k8sMocks.MockPlaneClientProvider{}
+				m.EXPECT().DataPlaneClient(mock.Anything).Return(fakeDP, nil).Once()
+				return m
+			}(),
+		},
+		{
+			name:   "cluster-scoped ClusterDataPlane dispatches to ClusterDataPlaneClient",
+			result: &DataPlaneResult{ClusterDataPlane: &openchoreov1alpha1.ClusterDataPlane{ObjectMeta: metav1.ObjectMeta{Name: "cdp"}}},
+			provider: func() *k8sMocks.MockPlaneClientProvider {
+				m := &k8sMocks.MockPlaneClientProvider{}
+				m.EXPECT().ClusterDataPlaneClient(mock.Anything).Return(fakeDP, nil).Once()
+				return m
+			}(),
+		},
+		{
+			name:     "empty result returns error",
+			result:   &DataPlaneResult{},
+			provider: &k8sMocks.MockPlaneClientProvider{},
+			wantErr:  "no data plane set in result",
+		},
+		{
+			name:   "provider error is propagated",
+			result: &DataPlaneResult{DataPlane: &openchoreov1alpha1.DataPlane{}},
+			provider: func() *k8sMocks.MockPlaneClientProvider {
+				m := &k8sMocks.MockPlaneClientProvider{}
+				m.EXPECT().DataPlaneClient(mock.Anything).Return(nil, fmt.Errorf("connection refused")).Once()
+				return m
+			}(),
+			wantErr: "connection refused",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.result.GetK8sClient(tt.provider)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.Nil(t, got)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotNil(t, got)
+		})
+	}
+
+	t.Run("nil provider returns error", func(t *testing.T) {
+		result := &DataPlaneResult{DataPlane: &openchoreov1alpha1.DataPlane{}}
+		_, err := result.GetK8sClient(nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no DataPlaneClientProvider configured")
+	})
+}
+
+func TestObservabilityPlaneResult_GetK8sClient(t *testing.T) {
+	fakeOP := fake.NewClientBuilder().Build()
+
+	tests := []struct {
+		name     string
+		result   *ObservabilityPlaneResult
+		provider *k8sMocks.MockPlaneClientProvider
+		wantErr  string
+	}{
+		{
+			name:   "namespace-scoped ObservabilityPlane dispatches correctly",
+			result: &ObservabilityPlaneResult{ObservabilityPlane: &openchoreov1alpha1.ObservabilityPlane{ObjectMeta: metav1.ObjectMeta{Name: "op"}}},
+			provider: func() *k8sMocks.MockPlaneClientProvider {
+				m := &k8sMocks.MockPlaneClientProvider{}
+				m.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(fakeOP, nil).Once()
+				return m
+			}(),
+		},
+		{
+			name:   "cluster-scoped ClusterObservabilityPlane dispatches correctly",
+			result: &ObservabilityPlaneResult{ClusterObservabilityPlane: &openchoreov1alpha1.ClusterObservabilityPlane{ObjectMeta: metav1.ObjectMeta{Name: "cop"}}},
+			provider: func() *k8sMocks.MockPlaneClientProvider {
+				m := &k8sMocks.MockPlaneClientProvider{}
+				m.EXPECT().ClusterObservabilityPlaneClient(mock.Anything).Return(fakeOP, nil).Once()
+				return m
+			}(),
+		},
+		{
+			name:     "empty result returns error",
+			result:   &ObservabilityPlaneResult{},
+			provider: &k8sMocks.MockPlaneClientProvider{},
+			wantErr:  "no observability plane set in result",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.result.GetK8sClient(tt.provider)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.Nil(t, got)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotNil(t, got)
+		})
+	}
+
+	t.Run("nil provider returns error", func(t *testing.T) {
+		result := &ObservabilityPlaneResult{ObservabilityPlane: &openchoreov1alpha1.ObservabilityPlane{}}
+		_, err := result.GetK8sClient(nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no ObservabilityPlaneClientProvider configured")
+	})
+}
+
+func TestWorkflowPlaneResult_GetK8sClient(t *testing.T) {
+	fakeWP := fake.NewClientBuilder().Build()
+
+	tests := []struct {
+		name     string
+		result   *WorkflowPlaneResult
+		provider *k8sMocks.MockPlaneClientProvider
+		wantErr  string
+	}{
+		{
+			name:   "namespace-scoped WorkflowPlane dispatches correctly",
+			result: &WorkflowPlaneResult{WorkflowPlane: &openchoreov1alpha1.WorkflowPlane{ObjectMeta: metav1.ObjectMeta{Name: "wp"}}},
+			provider: func() *k8sMocks.MockPlaneClientProvider {
+				m := &k8sMocks.MockPlaneClientProvider{}
+				m.EXPECT().WorkflowPlaneClient(mock.Anything).Return(fakeWP, nil).Once()
+				return m
+			}(),
+		},
+		{
+			name:   "cluster-scoped ClusterWorkflowPlane dispatches correctly",
+			result: &WorkflowPlaneResult{ClusterWorkflowPlane: &openchoreov1alpha1.ClusterWorkflowPlane{ObjectMeta: metav1.ObjectMeta{Name: "cwp"}}},
+			provider: func() *k8sMocks.MockPlaneClientProvider {
+				m := &k8sMocks.MockPlaneClientProvider{}
+				m.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(fakeWP, nil).Once()
+				return m
+			}(),
+		},
+		{
+			name:     "empty result returns error",
+			result:   &WorkflowPlaneResult{},
+			provider: &k8sMocks.MockPlaneClientProvider{},
+			wantErr:  "no workflow plane set in result",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.result.GetK8sClient(tt.provider)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.Nil(t, got)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotNil(t, got)
+		})
+	}
+
+	t.Run("nil provider returns error", func(t *testing.T) {
+		result := &WorkflowPlaneResult{WorkflowPlane: &openchoreov1alpha1.WorkflowPlane{}}
+		_, err := result.GetK8sClient(nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no WorkflowPlaneClientProvider configured")
+	})
 }
 
 // ============================================================================

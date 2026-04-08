@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,8 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/stretchr/testify/mock"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	k8sMocks "github.com/openchoreo/openchoreo/internal/clients/kubernetes/mocks"
@@ -263,8 +262,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 		It("should successfully create ConfigMap and Secret", func() {
 			// Create a mock provider that returns the test client for any observability plane
 			localMockProvider := &k8sMocks.MockObservabilityPlaneClientProvider{}
-			localMockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
-			localMockProvider.EXPECT().ClusterObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
+			localMockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Once()
 
 			reconciler := &Reconciler{
 				Client:              k8sClient,
@@ -317,8 +315,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 
 		It("should mark the first channel in an environment as default", func() {
 			localMockProvider := &k8sMocks.MockObservabilityPlaneClientProvider{}
-			localMockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
-			localMockProvider.EXPECT().ClusterObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
+			localMockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Once()
 
 			reconciler := &Reconciler{
 				Client:              k8sClient,
@@ -491,8 +488,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 
 		It("should create Secret with resolved SMTP auth credentials and ConfigMap with TLS config", func() {
 			localMockProvider := &k8sMocks.MockObservabilityPlaneClientProvider{}
-			localMockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
-			localMockProvider.EXPECT().ClusterObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
+			localMockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Once()
 
 			reconciler := &Reconciler{
 				Client:              k8sClient,
@@ -679,7 +675,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			// Create a mock provider that returns the test client for any observability plane
 			mockProvider = &k8sMocks.MockObservabilityPlaneClientProvider{}
 			mockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
-			mockProvider.EXPECT().ClusterObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Maybe()
 		})
 
 		AfterEach(func() {
