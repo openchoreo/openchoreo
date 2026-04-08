@@ -15,7 +15,7 @@ OPENCHOREO_REF="main"
 OPENCHOREO_OP_VERSION="0.0.0-latest-dev"
 LOGS_OPENSEARCH_VERSION="0.3.11"
 TRACES_OPENSEARCH_VERSION="0.3.11"
-METRICS_PROMETHEUS_VERSION="0.2.5"
+METRICS_PROMETHEUS_VERSION="0.3.0"
 
 # -- derived constants --
 RAW_BASE="https://raw.githubusercontent.com/openchoreo/openchoreo/${OPENCHOREO_REF}"

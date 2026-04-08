@@ -681,13 +681,32 @@ helm upgrade --install observability-tracing-opensearch \
 
 ##### Metrics (observability-metrics-prometheus)
 
+Install the metrics receiver in the observability plane cluster:
+
 ```bash
 helm upgrade --install observability-metrics-prometheus \
   oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.2.5
+  --version 0.3.0 \
+  --set global.installationMode="multiClusterReceiver" \
+  --set-json 'prometheusCustomizations.http.hostnames=["prometheus.observability.openchoreo.localhost", "host.k3d.internal"]'
+```
+
+Install the metrics exporter in the data plane cluster:
+
+```bash
+helm upgrade --install observability-metrics-prometheus \
+  oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
+  --kube-context k3d-openchoreo-dp \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 0.3.0 \
+  --set global.installationMode="multiClusterExporter" \
+  --set prometheusCustomizations.http.observabilityPlaneUrl=http://host.k3d.internal:11080/api/v1/write \
+  --set kube-prometheus-stack.prometheus.enabled=false \
+  --set kube-prometheus-stack.alertmanager.enabled=false
 ```
 
 ### Register Observability Plane

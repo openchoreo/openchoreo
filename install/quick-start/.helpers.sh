@@ -1083,7 +1083,7 @@ install_observability_plane() {
         "--set" "fluent-bit.enabled=true"
 
     install_helm_chart "observability-metrics-prometheus" "$modules_repo/observability-metrics-prometheus" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
-        "--version" "0.2.5"
+        "--version" "0.3.0"
 }
 
 # Apply ClusterWorkflowTemplates required by the workflow plane

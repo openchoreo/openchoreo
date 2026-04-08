@@ -8,10 +8,3 @@ gateway:
   httpsPort: 19443
   tls:
     enabled: false
-
-kube-prometheus-stack:
-  enabled: true
-  prometheus:
-    prometheusSpec:
-      remoteWrite:
-      - url: "http://host.k3d.internal:11084/api/v1/write"
