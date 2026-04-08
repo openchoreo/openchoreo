@@ -888,7 +888,7 @@ spec:
 	t.Run("invalid params", func(t *testing.T) {
 		_, err := ConvertWorkloadDescriptorToWorkloadCR(descriptorPath, api.CreateWorkloadParams{})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid conversion parameters")
+		assert.Contains(t, err.Error(), "namespace name is required")
 	})
 
 	t.Run("missing descriptor file", func(t *testing.T) {
@@ -912,7 +912,7 @@ endpoints:
 		testhelpers.WriteYAML(t, badDir, "workload.yaml", badContent)
 		_, err := ConvertWorkloadDescriptorToWorkloadCR(filepath.Join(badDir, "workload.yaml"), params)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to convert descriptor to workload CR")
+		assert.Contains(t, err.Error(), `invalid endpoint visibility "bogus" for endpoint "ep"`)
 	})
 
 	t.Run("descriptor with invalid dependency propagates error", func(t *testing.T) {
@@ -930,7 +930,7 @@ dependencies:
 		testhelpers.WriteYAML(t, badDir, "workload.yaml", badContent)
 		_, err := ConvertWorkloadDescriptorToWorkloadCR(filepath.Join(badDir, "workload.yaml"), params)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to convert descriptor to workload CR")
+		assert.Contains(t, err.Error(), "component is required")
 	})
 
 	t.Run("descriptor with missing config file propagates error", func(t *testing.T) {
@@ -948,7 +948,7 @@ configurations:
 		testhelpers.WriteYAML(t, badDir, "workload.yaml", badContent)
 		_, err := ConvertWorkloadDescriptorToWorkloadCR(filepath.Join(badDir, "workload.yaml"), params)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to convert descriptor to workload CR")
+		assert.Contains(t, err.Error(), "failed to read file")
 	})
 }
 
