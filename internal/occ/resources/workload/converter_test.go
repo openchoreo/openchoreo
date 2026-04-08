@@ -4,6 +4,7 @@
 package synth
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/testhelpers"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
@@ -461,12 +463,500 @@ func TestConvertEnvVarSource(t *testing.T) {
 	}
 }
 
+func TestCreateBasicWorkload(t *testing.T) {
+	tests := []struct {
+		name    string
+		params  api.CreateWorkloadParams
+		wantErr string
+	}{
+		{
+			name: "creates workload from params",
+			params: api.CreateWorkloadParams{
+				NamespaceName: "test-ns",
+				ProjectName:   "test-project",
+				ComponentName: "test-component",
+				ImageURL:      "gcr.io/test/image:v1",
+			},
+		},
+		{
+			name: "fails on missing image",
+			params: api.CreateWorkloadParams{
+				NamespaceName: "ns",
+				ProjectName:   "proj",
+				ComponentName: "comp",
+			},
+			wantErr: "image URL is required",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w, err := CreateBasicWorkload(tt.params)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, w)
+			assert.Equal(t, tt.params.ComponentName+"-workload", w.Name)
+			assert.Equal(t, tt.params.NamespaceName, w.Namespace)
+			assert.Equal(t, tt.params.ProjectName, w.Spec.Owner.ProjectName)
+			assert.Equal(t, tt.params.ComponentName, w.Spec.Owner.ComponentName)
+			assert.Equal(t, tt.params.ImageURL, w.Spec.Container.Image)
+		})
+	}
+}
+
+func TestReadWorkloadDescriptor(t *testing.T) {
+	t.Run("reads valid descriptor from file", func(t *testing.T) {
+		dir := t.TempDir()
+		content := `apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: my-service
+endpoints:
+  - name: http
+    port: 8080
+    type: REST
+`
+		testhelpers.WriteYAML(t, dir, "workload.yaml", content)
+
+		desc, err := readWorkloadDescriptor(filepath.Join(dir, "workload.yaml"))
+		require.NoError(t, err)
+		assert.Equal(t, "my-service", desc.Metadata.Name)
+		assert.Len(t, desc.Endpoints, 1)
+	})
+
+	t.Run("returns error for missing file", func(t *testing.T) {
+		_, err := readWorkloadDescriptor("/nonexistent/workload.yaml")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to open file")
+	})
+}
+
+func TestReadSchemaFile(t *testing.T) {
+	t.Run("reads schema content", func(t *testing.T) {
+		dir := t.TempDir()
+		testhelpers.WriteYAML(t, dir, "schema.json", `{"openapi":"3.0.0"}`)
+
+		content, err := readSchemaFile(filepath.Join(dir, "schema.json"))
+		require.NoError(t, err)
+		assert.Equal(t, `{"openapi":"3.0.0"}`, content)
+	})
+
+	t.Run("returns error for missing file", func(t *testing.T) {
+		_, err := readSchemaFile("/nonexistent/schema.json")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read schema file")
+	})
+}
+
+func TestAddEndpointsFromDescriptorWithSchemaFile(t *testing.T) {
+	dir := t.TempDir()
+	descriptorPath := filepath.Join(dir, "workload.yaml")
+
+	// Write a schema file in the same directory
+	schemaContent := `openapi: "3.0.0"
+info:
+  title: Test API
+  version: "1.0"
+`
+	testhelpers.WriteYAML(t, dir, "openapi.yaml", schemaContent)
+
+	w := &openchoreov1alpha1.Workload{
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{},
+		},
+	}
+	desc := &WorkloadDescriptor{
+		Endpoints: []WorkloadDescriptorEndpoint{
+			{
+				Name:       "api",
+				Port:       8080,
+				Type:       "REST",
+				SchemaFile: "openapi.yaml",
+				Visibility: []string{"external"},
+			},
+		},
+	}
+
+	err := addEndpointsFromDescriptor(w, desc, descriptorPath)
+	require.NoError(t, err)
+	require.Contains(t, w.Spec.Endpoints, "api")
+	ep := w.Spec.Endpoints["api"]
+	require.NotNil(t, ep.Schema)
+	assert.Equal(t, "REST", ep.Schema.Type)
+	assert.Equal(t, schemaContent, ep.Schema.Content)
+}
+
+func TestAddEndpointsFromDescriptorSchemaFileMissing(t *testing.T) {
+	dir := t.TempDir()
+	descriptorPath := filepath.Join(dir, "workload.yaml")
+
+	w := &openchoreov1alpha1.Workload{
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{},
+		},
+	}
+	desc := &WorkloadDescriptor{
+		Endpoints: []WorkloadDescriptorEndpoint{
+			{
+				Name:       "api",
+				Port:       8080,
+				Type:       "REST",
+				SchemaFile: "nonexistent.yaml",
+				Visibility: []string{"external"},
+			},
+		},
+	}
+
+	err := addEndpointsFromDescriptor(w, desc, descriptorPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read schema file")
+}
+
+func TestAddConfigurationsFromDescriptor(t *testing.T) {
+	dir := t.TempDir()
+	descriptorPath := filepath.Join(dir, "workload.yaml")
+	configContent := "server.port=8080\nserver.host=0.0.0.0\n"
+	testhelpers.WriteYAML(t, dir, "app.properties", configContent)
+
+	tests := []struct {
+		name       string
+		descriptor *WorkloadDescriptor
+		wantEnvLen int
+		wantFiles  int
+		wantErr    string
+		verify     func(t *testing.T, w *openchoreov1alpha1.Workload)
+	}{
+		{
+			name: "env vars with inline values",
+			descriptor: &WorkloadDescriptor{
+				Configurations: WorkloadDescriptorConfiguration{
+					Env: []WorkloadDescriptorEnvVar{
+						{Name: "APP_PORT", Value: "8080"},
+						{Name: "APP_ENV", Value: "prod"},
+					},
+				},
+			},
+			wantEnvLen: 2,
+			verify: func(t *testing.T, w *openchoreov1alpha1.Workload) {
+				assert.Equal(t, "APP_PORT", w.Spec.Container.Env[0].Key)
+				assert.Equal(t, "8080", w.Spec.Container.Env[0].Value)
+				assert.Equal(t, "APP_ENV", w.Spec.Container.Env[1].Key)
+				assert.Equal(t, "prod", w.Spec.Container.Env[1].Value)
+			},
+		},
+		{
+			name: "env var from secret ref",
+			descriptor: &WorkloadDescriptor{
+				Configurations: WorkloadDescriptorConfiguration{
+					Env: []WorkloadDescriptorEnvVar{
+						{
+							Name: "DB_PASSWORD",
+							ValueFrom: &WorkloadDescriptorEnvVarSource{
+								SecretKeyRef: &WorkloadDescriptorSecretKeyRef{
+									Name: "db-secret",
+									Key:  "password",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantEnvLen: 1,
+			verify: func(t *testing.T, w *openchoreov1alpha1.Workload) {
+				env := w.Spec.Container.Env[0]
+				assert.Equal(t, "DB_PASSWORD", env.Key)
+				assert.Empty(t, env.Value)
+				require.NotNil(t, env.ValueFrom)
+				require.NotNil(t, env.ValueFrom.SecretKeyRef)
+				assert.Equal(t, "db-secret", env.ValueFrom.SecretKeyRef.Name)
+				assert.Equal(t, "password", env.ValueFrom.SecretKeyRef.Key)
+			},
+		},
+		{
+			name: "file with inline value",
+			descriptor: &WorkloadDescriptor{
+				Configurations: WorkloadDescriptorConfiguration{
+					Files: []WorkloadDescriptorFileVar{
+						{Name: "config", MountPath: "/etc/app/config.yaml", Value: "key: value"},
+					},
+				},
+			},
+			wantFiles: 1,
+			verify: func(t *testing.T, w *openchoreov1alpha1.Workload) {
+				f := w.Spec.Container.Files[0]
+				assert.Equal(t, "config", f.Key)
+				assert.Equal(t, "/etc/app/config.yaml", f.MountPath)
+				assert.Equal(t, "key: value", f.Value)
+				assert.Nil(t, f.ValueFrom)
+			},
+		},
+		{
+			name: "file from secret ref",
+			descriptor: &WorkloadDescriptor{
+				Configurations: WorkloadDescriptorConfiguration{
+					Files: []WorkloadDescriptorFileVar{
+						{
+							Name:      "tls-cert",
+							MountPath: "/etc/tls/cert.pem",
+							ValueFrom: &WorkloadDescriptorEnvVarSource{
+								SecretKeyRef: &WorkloadDescriptorSecretKeyRef{
+									Name: "tls-secret",
+									Key:  "cert",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantFiles: 1,
+			verify: func(t *testing.T, w *openchoreov1alpha1.Workload) {
+				f := w.Spec.Container.Files[0]
+				assert.Equal(t, "tls-cert", f.Key)
+				require.NotNil(t, f.ValueFrom)
+				require.NotNil(t, f.ValueFrom.SecretKeyRef)
+				assert.Equal(t, "tls-secret", f.ValueFrom.SecretKeyRef.Name)
+			},
+		},
+		{
+			name: "file from path",
+			descriptor: &WorkloadDescriptor{
+				Configurations: WorkloadDescriptorConfiguration{
+					Files: []WorkloadDescriptorFileVar{
+						{
+							Name:      "app-config",
+							MountPath: "/etc/app/config.properties",
+							ValueFrom: &WorkloadDescriptorEnvVarSource{
+								Path: "app.properties",
+							},
+						},
+					},
+				},
+			},
+			wantFiles: 1,
+			verify: func(t *testing.T, w *openchoreov1alpha1.Workload) {
+				f := w.Spec.Container.Files[0]
+				assert.Equal(t, "app-config", f.Key)
+				assert.Equal(t, configContent, f.Value)
+				assert.Nil(t, f.ValueFrom)
+			},
+		},
+		{
+			name: "file from missing path returns error",
+			descriptor: &WorkloadDescriptor{
+				Configurations: WorkloadDescriptorConfiguration{
+					Files: []WorkloadDescriptorFileVar{
+						{
+							Name:      "missing",
+							MountPath: "/etc/app/missing.conf",
+							ValueFrom: &WorkloadDescriptorEnvVarSource{
+								Path: "nonexistent.conf",
+							},
+						},
+					},
+				},
+			},
+			wantErr: "failed to read file",
+		},
+		{
+			name:       "empty configurations",
+			descriptor: &WorkloadDescriptor{},
+			verify: func(t *testing.T, w *openchoreov1alpha1.Workload) {
+				assert.Nil(t, w.Spec.Container.Env)
+				assert.Nil(t, w.Spec.Container.Files)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := &openchoreov1alpha1.Workload{
+				Spec: openchoreov1alpha1.WorkloadSpec{
+					WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{},
+				},
+			}
+			err := addConfigurationsFromDescriptor(w, tt.descriptor, descriptorPath)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			if tt.wantEnvLen > 0 {
+				assert.Len(t, w.Spec.Container.Env, tt.wantEnvLen)
+			}
+			if tt.wantFiles > 0 {
+				assert.Len(t, w.Spec.Container.Files, tt.wantFiles)
+			}
+			if tt.verify != nil {
+				tt.verify(t, w)
+			}
+		})
+	}
+}
+
+func TestConvertWorkloadDescriptorToWorkloadCR(t *testing.T) {
+	dir := t.TempDir()
+	descriptorPath := filepath.Join(dir, "workload.yaml")
+
+	// Write a schema file
+	testhelpers.WriteYAML(t, dir, "openapi.yaml", `openapi: "3.0.0"`)
+
+	descriptorContent := `apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: my-service
+endpoints:
+  - name: http
+    port: 8080
+    type: REST
+    basePath: /api
+    visibility:
+      - external
+    schemaFile: openapi.yaml
+dependencies:
+  endpoints:
+    - component: db-service
+      name: tcp
+      visibility: project
+      envBindings:
+        address: DB_URL
+configurations:
+  env:
+    - name: LOG_LEVEL
+      value: info
+  files:
+    - name: cfg
+      mountPath: /etc/app/cfg.yaml
+      value: "key: val"
+`
+	testhelpers.WriteYAML(t, dir, "workload.yaml", descriptorContent)
+
+	params := api.CreateWorkloadParams{
+		NamespaceName: "test-ns",
+		ProjectName:   "test-project",
+		ComponentName: "test-comp",
+		ImageURL:      "gcr.io/img:v1",
+	}
+
+	t.Run("full conversion", func(t *testing.T) {
+		w, err := ConvertWorkloadDescriptorToWorkloadCR(descriptorPath, params)
+		require.NoError(t, err)
+		require.NotNil(t, w)
+
+		yamlBytes, err := ConvertWorkloadCRToYAML(w)
+		require.NoError(t, err)
+
+		wantYAML := `apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: test-comp-workload
+  namespace: test-ns
+spec:
+  owner:
+    projectName: test-project
+    componentName: test-comp
+  container:
+    image: gcr.io/img:v1
+    env:
+      - key: LOG_LEVEL
+        value: info
+    files:
+      - key: cfg
+        mountPath: /etc/app/cfg.yaml
+        value: "key: val"
+  endpoints:
+    http:
+      port: 8080
+      type: REST
+      basePath: /api
+      schema:
+        type: REST
+        content: 'openapi: "3.0.0"'
+      visibility:
+        - external
+  dependencies:
+    endpoints:
+      - component: db-service
+        name: tcp
+        visibility: project
+        envBindings:
+          address: DB_URL
+`
+		testhelpers.AssertYAMLEquals(t, wantYAML, string(yamlBytes))
+	})
+
+	t.Run("invalid params", func(t *testing.T) {
+		_, err := ConvertWorkloadDescriptorToWorkloadCR(descriptorPath, api.CreateWorkloadParams{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid conversion parameters")
+	})
+
+	t.Run("missing descriptor file", func(t *testing.T) {
+		_, err := ConvertWorkloadDescriptorToWorkloadCR("/nonexistent/workload.yaml", params)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read workload descriptor")
+	})
+
+	t.Run("descriptor with invalid endpoint visibility propagates error", func(t *testing.T) {
+		badDir := t.TempDir()
+		badContent := `apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: bad-service
+endpoints:
+  - name: ep
+    port: 80
+    type: REST
+    visibility:
+      - bogus
+`
+		testhelpers.WriteYAML(t, badDir, "workload.yaml", badContent)
+		_, err := ConvertWorkloadDescriptorToWorkloadCR(filepath.Join(badDir, "workload.yaml"), params)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to convert descriptor to workload CR")
+	})
+
+	t.Run("descriptor with invalid dependency propagates error", func(t *testing.T) {
+		badDir := t.TempDir()
+		badContent := `apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: bad-deps
+dependencies:
+  endpoints:
+    - name: tcp
+      visibility: project
+      envBindings:
+        address: URL
+`
+		testhelpers.WriteYAML(t, badDir, "workload.yaml", badContent)
+		_, err := ConvertWorkloadDescriptorToWorkloadCR(filepath.Join(badDir, "workload.yaml"), params)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to convert descriptor to workload CR")
+	})
+
+	t.Run("descriptor with missing config file propagates error", func(t *testing.T) {
+		badDir := t.TempDir()
+		badContent := `apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: bad-cfg
+configurations:
+  files:
+    - name: cfg
+      mountPath: /etc/cfg
+      valueFrom:
+        path: does-not-exist.conf
+`
+		testhelpers.WriteYAML(t, badDir, "workload.yaml", badContent)
+		_, err := ConvertWorkloadDescriptorToWorkloadCR(filepath.Join(badDir, "workload.yaml"), params)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to convert descriptor to workload CR")
+	})
+}
+
 func TestConvertWorkloadCRToYAML(t *testing.T) {
 	tests := []struct {
-		name         string
-		workload     *openchoreov1alpha1.Workload
-		wantContains []string
-		wantErr      bool
+		name     string
+		workload *openchoreov1alpha1.Workload
+		wantYAML string
 	}{
 		{
 			name: "valid workload with endpoints",
@@ -497,17 +987,22 @@ func TestConvertWorkloadCRToYAML(t *testing.T) {
 					},
 				},
 			},
-			wantContains: []string{
-				"apiVersion: openchoreo.dev/v1alpha1",
-				"kind: Workload",
-				"name: test-workload",
-				"namespace: test-ns",
-				"projectName: test-project",
-				"componentName: test-component",
-				"image: gcr.io/test/image:v1",
-				"http:",
-				"port: 8080",
-			},
+			wantYAML: `apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: test-workload
+  namespace: test-ns
+spec:
+  owner:
+    projectName: test-project
+    componentName: test-component
+  container:
+    image: gcr.io/test/image:v1
+  endpoints:
+    http:
+      port: 8080
+      type: REST
+`,
 		},
 		{
 			name: "valid workload without endpoints",
@@ -531,26 +1026,24 @@ func TestConvertWorkloadCRToYAML(t *testing.T) {
 					},
 				},
 			},
-			wantContains: []string{
-				"apiVersion: openchoreo.dev/v1alpha1",
-				"kind: Workload",
-				"name: simple-workload",
-				"image: img:latest",
-			},
+			wantYAML: `apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: simple-workload
+spec:
+  owner:
+    projectName: proj
+    componentName: comp
+  container:
+    image: img:latest
+`,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			yamlBytes, err := ConvertWorkloadCRToYAML(tt.workload)
-			if tt.wantErr {
-				require.Error(t, err)
-				return
-			}
 			require.NoError(t, err)
-			yamlStr := string(yamlBytes)
-			for _, want := range tt.wantContains {
-				assert.Contains(t, yamlStr, want)
-			}
+			testhelpers.AssertYAMLEquals(t, tt.wantYAML, string(yamlBytes))
 		})
 	}
 }
