@@ -629,6 +629,9 @@ func workloadToServicePortsFunction(workload ref.Val) ref.Val {
 
 	result := make([]map[string]any, 0, len(endpointsMap))
 	usedNames := make(map[string]bool)
+	// Kubernetes Services require (port, protocol) to be unique across ports[],
+	// so skip endpoints that would produce a duplicate entry.
+	seenPortProto := make(map[string]bool)
 
 	for _, endpointName := range endpointNames {
 		endpointVal := endpointsMap[endpointName]
@@ -657,6 +660,12 @@ func workloadToServicePortsFunction(workload ref.Val) ref.Val {
 
 		endpointType, _ := endpoint["type"].(string)
 		protocol := mapEndpointTypeToProtocol(endpointType)
+
+		portProtoKey := fmt.Sprintf("%d/%s", port, protocol)
+		if seenPortProto[portProtoKey] {
+			continue
+		}
+		seenPortProto[portProtoKey] = true
 
 		// Sanitize endpoint name for Kubernetes port naming
 		sanitizedName := sanitizePortName(endpointName)

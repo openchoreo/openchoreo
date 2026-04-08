@@ -1668,6 +1668,55 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 				{"name": "http-3", "port": int64(8081), "targetPort": int64(8081), "protocol": "TCP"},
 			},
 		},
+		{
+			name: "endpoints sharing the same (port, protocol) are deduplicated",
+			expr: `workload.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"http": map[string]any{
+							"type": "HTTP",
+							"port": int64(8080),
+						},
+						"rest": map[string]any{
+							"type": "REST",
+							"port": int64(8080),
+						},
+						"grpc": map[string]any{
+							"type": "gRPC",
+							"port": int64(9090),
+						},
+					},
+				},
+			},
+			// "http" and "rest" both resolve to (8080, TCP); alphabetical sort keeps "http" first.
+			want: []map[string]any{
+				{"name": "grpc", "port": int64(9090), "targetPort": int64(9090), "protocol": "TCP"},
+				{"name": "http", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "same port with different protocols is kept",
+			expr: `workload.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"http": map[string]any{
+							"type": "HTTP",
+							"port": int64(8080),
+						},
+						"udp": map[string]any{
+							"type": "UDP",
+							"port": int64(8080),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "http", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+				{"name": "udp", "port": int64(8080), "targetPort": int64(8080), "protocol": "UDP"},
+			},
+		},
 	}
 
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
