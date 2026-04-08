@@ -9,33 +9,14 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	disabledAuthz "github.com/openchoreo/openchoreo/internal/authz"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
+	authzmocks "github.com/openchoreo/openchoreo/internal/authz/core/mocks"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
-
-// mockPDP is a test double for authz.PDP.
-type mockPDP struct {
-	evaluateFunc      func(ctx context.Context, req *authz.EvaluateRequest) (*authz.Decision, error)
-	batchEvaluateFunc func(ctx context.Context, req *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error)
-}
-
-func (m *mockPDP) Evaluate(ctx context.Context, req *authz.EvaluateRequest) (*authz.Decision, error) {
-	return m.evaluateFunc(ctx, req)
-}
-
-func (m *mockPDP) BatchEvaluate(ctx context.Context, req *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error) {
-	if m.batchEvaluateFunc == nil {
-		return &authz.BatchEvaluateResponse{}, nil
-	}
-	return m.batchEvaluateFunc(ctx, req)
-}
-
-func (m *mockPDP) GetSubjectProfile(ctx context.Context, req *authz.ProfileRequest) (*authz.UserCapabilitiesResponse, error) {
-	return nil, nil
-}
 
 // ctxWithSubject returns a context with the given SubjectContext set.
 func ctxWithSubject(subjectCtx *auth.SubjectContext) context.Context {
@@ -110,14 +91,9 @@ func TestCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pdp := &mockPDP{
-				evaluateFunc: func(_ context.Context, _ *authz.EvaluateRequest) (*authz.Decision, error) {
-					if tt.evalErr != nil {
-						return nil, tt.evalErr
-					}
-					return tt.decision, nil
-				},
-			}
+			pdp := authzmocks.NewMockPDP(t)
+			pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).
+				Return(tt.decision, tt.evalErr)
 			checker := newTestChecker(pdp)
 
 			err := checker.Check(ctxWithSubject(testSubjectContext()), testCheckRequest())
@@ -139,12 +115,9 @@ func TestCheck_NilSubject_DisabledAuthz(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestBatchCheck_EmptyRequests(t *testing.T) {
-	pdp := &mockPDP{
-		batchEvaluateFunc: func(_ context.Context, _ *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error) {
-			t.Fatal("BatchEvaluate should not be called for empty requests")
-			return nil, nil
-		},
-	}
+	// No expectations set — mockery panics if BatchEvaluate is called,
+	// which enforces that empty-request short-circuit skips the PDP.
+	pdp := authzmocks.NewMockPDP(t)
 	checker := newTestChecker(pdp)
 
 	results, err := checker.BatchCheck(ctxWithSubject(testSubjectContext()), []CheckRequest{})
@@ -153,15 +126,15 @@ func TestBatchCheck_EmptyRequests(t *testing.T) {
 }
 
 func TestBatchCheck_AllAllowed(t *testing.T) {
-	pdp := &mockPDP{
-		batchEvaluateFunc: func(_ context.Context, req *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error) {
+	pdp := authzmocks.NewMockPDP(t)
+	pdp.EXPECT().BatchEvaluate(mock.Anything, mock.Anything).
+		RunAndReturn(func(_ context.Context, req *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error) {
 			decisions := make([]authz.Decision, len(req.Requests))
 			for i := range decisions {
 				decisions[i] = authz.Decision{Decision: true}
 			}
 			return &authz.BatchEvaluateResponse{Decisions: decisions}, nil
-		},
-	}
+		})
 	checker := newTestChecker(pdp)
 
 	requests := []CheckRequest{testCheckRequest(), testCheckRequest()}
@@ -174,17 +147,15 @@ func TestBatchCheck_AllAllowed(t *testing.T) {
 }
 
 func TestBatchCheck_MixedDecisions(t *testing.T) {
-	pdp := &mockPDP{
-		batchEvaluateFunc: func(_ context.Context, _ *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error) {
-			return &authz.BatchEvaluateResponse{
-				Decisions: []authz.Decision{
-					{Decision: true},
-					{Decision: false},
-					{Decision: true},
-				},
-			}, nil
-		},
-	}
+	pdp := authzmocks.NewMockPDP(t)
+	pdp.EXPECT().BatchEvaluate(mock.Anything, mock.Anything).
+		Return(&authz.BatchEvaluateResponse{
+			Decisions: []authz.Decision{
+				{Decision: true},
+				{Decision: false},
+				{Decision: true},
+			},
+		}, nil)
 	checker := newTestChecker(pdp)
 
 	requests := []CheckRequest{testCheckRequest(), testCheckRequest(), testCheckRequest()}
@@ -196,11 +167,8 @@ func TestBatchCheck_MixedDecisions(t *testing.T) {
 
 func TestBatchCheck_EvaluateError(t *testing.T) {
 	batchErr := errors.New("batch pdp error")
-	pdp := &mockPDP{
-		batchEvaluateFunc: func(_ context.Context, _ *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error) {
-			return nil, batchErr
-		},
-	}
+	pdp := authzmocks.NewMockPDP(t)
+	pdp.EXPECT().BatchEvaluate(mock.Anything, mock.Anything).Return(nil, batchErr)
 	checker := newTestChecker(pdp)
 
 	_, err := checker.BatchCheck(ctxWithSubject(testSubjectContext()), []CheckRequest{testCheckRequest()})
@@ -218,13 +186,11 @@ func TestBatchCheck_NilSubject_DisabledAuthz(t *testing.T) {
 }
 
 func TestBatchCheck_SingleRequest(t *testing.T) {
-	pdp := &mockPDP{
-		batchEvaluateFunc: func(_ context.Context, _ *authz.BatchEvaluateRequest) (*authz.BatchEvaluateResponse, error) {
-			return &authz.BatchEvaluateResponse{
-				Decisions: []authz.Decision{{Decision: false}},
-			}, nil
-		},
-	}
+	pdp := authzmocks.NewMockPDP(t)
+	pdp.EXPECT().BatchEvaluate(mock.Anything, mock.Anything).
+		Return(&authz.BatchEvaluateResponse{
+			Decisions: []authz.Decision{{Decision: false}},
+		}, nil)
 	checker := newTestChecker(pdp)
 
 	results, err := checker.BatchCheck(ctxWithSubject(testSubjectContext()), []CheckRequest{testCheckRequest()})

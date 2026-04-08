@@ -12,11 +12,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	authzmocks "github.com/openchoreo/openchoreo/internal/authz/core/mocks"
 )
 
 // --- BuildListOptions ---
@@ -144,9 +146,13 @@ func denyDecision() *authzcore.Decision {
 }
 
 func newPaginationChecker(
+	t *testing.T,
 	evaluate func(ctx context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error),
 ) *AuthzChecker {
-	return NewAuthzChecker(&mockPDP{evaluateFunc: evaluate}, slog.Default())
+	t.Helper()
+	pdp := authzmocks.NewMockPDP(t)
+	pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).RunAndReturn(evaluate)
+	return NewAuthzChecker(pdp, slog.Default())
 }
 
 func TestEncodeCursor_DecodeCursor_RoundTrip(t *testing.T) {
@@ -313,7 +319,7 @@ func TestFilteredList_AllAllowed(t *testing.T) {
 		"": {items: []int{1, 2, 3}},
 	}, &calls)
 
-	checker := newPaginationChecker(func(_ context.Context, _ *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
+	checker := newPaginationChecker(t, func(_ context.Context, _ *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 		return alwaysAllowDecision(), nil
 	})
 
@@ -336,7 +342,7 @@ func TestFilteredList_SomeDenied(t *testing.T) {
 		return &ListResult[int]{Items: []int{1, 2, 3, 4}}, nil
 	}
 
-	checker := newPaginationChecker(func(_ context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
+	checker := newPaginationChecker(t, func(_ context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 		num, err := strconv.Atoi(req.Resource.ID)
 		require.NoError(t, err)
 		if num%2 == 0 {
@@ -365,7 +371,7 @@ func TestFilteredList_PaginationWithPartialAuthz(t *testing.T) {
 		"p2": {items: []int{4, 5, 6}},
 	}, &calls)
 
-	checker := newPaginationChecker(func(_ context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
+	checker := newPaginationChecker(t, func(_ context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 		num, err := strconv.Atoi(req.Resource.ID)
 		require.NoError(t, err)
 		if num%2 == 0 {
@@ -420,7 +426,7 @@ func TestFilteredList_RemainingCountCleared(t *testing.T) {
 		}, nil
 	}
 
-	checker := newPaginationChecker(func(_ context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
+	checker := newPaginationChecker(t, func(_ context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 		num, err := strconv.Atoi(req.Resource.ID)
 		require.NoError(t, err)
 		if num%2 == 0 {
@@ -448,7 +454,7 @@ func TestFilteredList_AuthzErrorPropagation(t *testing.T) {
 		return &ListResult[int]{Items: []int{1, 2}}, nil
 	}
 
-	checker := newPaginationChecker(func(_ context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
+	checker := newPaginationChecker(t, func(_ context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 		if req.Resource.ID == "2" {
 			return nil, authzErr
 		}
@@ -474,7 +480,7 @@ func TestFilteredList_EmptyCursor(t *testing.T) {
 		return &ListResult[int]{Items: []int{42}}, nil
 	}
 
-	checker := newPaginationChecker(func(_ context.Context, _ *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
+	checker := newPaginationChecker(t, func(_ context.Context, _ *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 		return alwaysAllowDecision(), nil
 	})
 

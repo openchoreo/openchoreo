@@ -5,13 +5,13 @@ package authz
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -255,12 +255,13 @@ func TestCheckAuthorization_NoSubjectContext(t *testing.T) {
 
 func TestCheckAuthorization_PDPEvaluateError(t *testing.T) {
 	upstreamErr := fmt.Errorf("upstream failure")
-	simpleMock := &simplePDPMock{evaluateErr: upstreamErr}
+	mockPDP := coremocks.NewMockPDP(t)
+	mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(nil, upstreamErr)
 
 	err := CheckAuthorization(
 		ctxWithSubject(),
 		noopLogger(),
-		simpleMock,
+		mockPDP,
 		ActionViewLogs,
 		ResourceTypeComponent,
 		"api",
@@ -271,14 +272,14 @@ func TestCheckAuthorization_PDPEvaluateError(t *testing.T) {
 }
 
 func TestCheckAuthorization_DecisionAllowed(t *testing.T) {
-	simpleMock := &simplePDPMock{
-		decision: &authzcore.Decision{Decision: true},
-	}
+	mockPDP := coremocks.NewMockPDP(t)
+	mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).
+		Return(&authzcore.Decision{Decision: true}, nil)
 
 	err := CheckAuthorization(
 		ctxWithSubject(),
 		noopLogger(),
-		simpleMock,
+		mockPDP,
 		ActionViewLogs,
 		ResourceTypeComponent,
 		"api",
@@ -288,14 +289,14 @@ func TestCheckAuthorization_DecisionAllowed(t *testing.T) {
 }
 
 func TestCheckAuthorization_DecisionDenied(t *testing.T) {
-	simpleMock := &simplePDPMock{
-		decision: &authzcore.Decision{Decision: false},
-	}
+	mockPDP := coremocks.NewMockPDP(t)
+	mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).
+		Return(&authzcore.Decision{Decision: false}, nil)
 
 	err := CheckAuthorization(
 		ctxWithSubject(),
 		noopLogger(),
-		simpleMock,
+		mockPDP,
 		ActionViewLogs,
 		ResourceTypeComponent,
 		"api",
@@ -306,16 +307,16 @@ func TestCheckAuthorization_DecisionDenied(t *testing.T) {
 
 func TestCheckAuthorization_BuildsCorrectRequest(t *testing.T) {
 	var capturedReq *authzcore.EvaluateRequest
-	captureMock := &simplePDPMock{
-		decision:       &authzcore.Decision{Decision: true},
-		captureRequest: func(r *authzcore.EvaluateRequest) { capturedReq = r },
-	}
+	mockPDP := coremocks.NewMockPDP(t)
+	mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, req *authzcore.EvaluateRequest) { capturedReq = req }).
+		Return(&authzcore.Decision{Decision: true}, nil)
 
 	hierarchy := authzcore.ResourceHierarchy{Namespace: "acme", Project: "payments", Component: "api"}
 	err := CheckAuthorization(
 		ctxWithSubject(),
 		noopLogger(),
-		captureMock,
+		mockPDP,
 		ActionViewLogs,
 		ResourceTypeComponent,
 		"api",
@@ -331,28 +332,4 @@ func TestCheckAuthorization_BuildsCorrectRequest(t *testing.T) {
 	assert.Equal(t, "user", capturedReq.SubjectContext.Type)
 	assert.Equal(t, "groups", capturedReq.SubjectContext.EntitlementClaim)
 	assert.Equal(t, []string{"dev-team"}, capturedReq.SubjectContext.EntitlementValues)
-}
-
-// ─────────────────────── test helpers ───────────────────────
-
-// simplePDPMock is a minimal hand-rolled mock for authzcore.PDP.
-type simplePDPMock struct {
-	decision       *authzcore.Decision
-	evaluateErr    error
-	captureRequest func(*authzcore.EvaluateRequest)
-}
-
-func (m *simplePDPMock) Evaluate(_ context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
-	if m.captureRequest != nil {
-		m.captureRequest(req)
-	}
-	return m.decision, m.evaluateErr
-}
-
-func (m *simplePDPMock) BatchEvaluate(_ context.Context, _ *authzcore.BatchEvaluateRequest) (*authzcore.BatchEvaluateResponse, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (m *simplePDPMock) GetSubjectProfile(_ context.Context, _ *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
-	return nil, errors.New("not implemented")
 }
