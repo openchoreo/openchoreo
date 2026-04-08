@@ -79,7 +79,7 @@ func expiredJWT(t *testing.T) string {
 }
 
 func TestNewPKCEAuth(t *testing.T) {
-	t.Run("initialises all fields from OIDCConfig", func(t *testing.T) {
+	t.Run("initializes all fields from OIDCConfig", func(t *testing.T) {
 		oidcCfg := &OIDCConfig{
 			AuthorizationEndpoint: "https://auth.example.com/authorize",
 			TokenEndpoint:         "https://auth.example.com/token",

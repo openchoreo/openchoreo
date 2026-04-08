@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workload/mocks"
+	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
 

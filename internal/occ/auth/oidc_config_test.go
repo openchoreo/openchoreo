@@ -39,6 +39,11 @@ func setTransport(t *testing.T, rt http.RoundTripper) {
 	http.DefaultTransport = rt
 }
 
+const (
+	mockAPIProtectedResource = "mock-api/.well-known/oauth-protected-resource"
+	mockIssuerOIDCDiscovery  = "mock-issuer/.well-known/openid-configuration"
+)
+
 func TestFetchOIDCConfig(t *testing.T) {
 	const issuer = "http://mock-issuer"
 	const apiURL = "http://mock-api"
@@ -46,13 +51,13 @@ func TestFetchOIDCConfig(t *testing.T) {
 	t.Run("happy path assembles OIDCConfig from both endpoints", func(t *testing.T) {
 		setTransport(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			switch r.URL.Host + r.URL.Path {
-			case "mock-api/.well-known/oauth-protected-resource":
+			case mockAPIProtectedResource:
 				return jsonResponse(t, protectedResourceResponse{
 					AuthorizationServers:      []string{issuer},
 					OpenChoreoClients:         []clientInfo{{Name: "cli", ClientID: "cli-client-id", Scopes: []string{"openid", "profile"}}},
 					OpenChoreoSecurityEnabled: true,
 				}), nil
-			case "mock-issuer/.well-known/openid-configuration":
+			case mockIssuerOIDCDiscovery:
 				return jsonResponse(t, oidcProviderDiscovery{
 					AuthorizationEndpoint: "https://auth.example.com/authorize",
 					TokenEndpoint:         "https://auth.example.com/token",
@@ -132,12 +137,12 @@ func TestFetchOIDCConfig(t *testing.T) {
 	t.Run("missing authorization_endpoint in discovery", func(t *testing.T) {
 		setTransport(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			switch r.URL.Host + r.URL.Path {
-			case "mock-api/.well-known/oauth-protected-resource":
+			case mockAPIProtectedResource:
 				return jsonResponse(t, protectedResourceResponse{
 					AuthorizationServers: []string{issuer},
 					OpenChoreoClients:    []clientInfo{{Name: "cli", ClientID: "c", Scopes: []string{"openid"}}},
 				}), nil
-			case "mock-issuer/.well-known/openid-configuration":
+			case mockIssuerOIDCDiscovery:
 				return jsonResponse(t, oidcProviderDiscovery{
 					TokenEndpoint: "https://auth.example.com/token",
 				}), nil
@@ -154,12 +159,12 @@ func TestFetchOIDCConfig(t *testing.T) {
 	t.Run("missing token_endpoint in discovery", func(t *testing.T) {
 		setTransport(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			switch r.URL.Host + r.URL.Path {
-			case "mock-api/.well-known/oauth-protected-resource":
+			case mockAPIProtectedResource:
 				return jsonResponse(t, protectedResourceResponse{
 					AuthorizationServers: []string{issuer},
 					OpenChoreoClients:    []clientInfo{{Name: "cli", ClientID: "c", Scopes: []string{"openid"}}},
 				}), nil
-			case "mock-issuer/.well-known/openid-configuration":
+			case mockIssuerOIDCDiscovery:
 				return jsonResponse(t, oidcProviderDiscovery{
 					AuthorizationEndpoint: "https://auth.example.com/authorize",
 				}), nil

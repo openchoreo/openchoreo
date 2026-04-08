@@ -15,9 +15,9 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding/mocks"
-	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
+	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
