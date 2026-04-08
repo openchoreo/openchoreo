@@ -19,14 +19,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 )
 
-// setDefaultTransport replaces http.DefaultTransport for the duration of the test.
-func setDefaultTransport(t *testing.T, rt http.RoundTripper) {
-	t.Helper()
-	orig := http.DefaultTransport
-	t.Cleanup(func() { http.DefaultTransport = orig })
-	http.DefaultTransport = rt
-}
-
 // oidcTransport returns a RoundTripper that serves the OIDC discovery endpoints
 // and a /token endpoint returning the given access token.
 func oidcTransport(t *testing.T, baseURL, accessToken string) http.RoundTripper {
@@ -107,7 +99,7 @@ func TestRefreshToken(t *testing.T) {
 
 	t.Run("refreshes via authorization_code grant when refresh token present", func(t *testing.T) {
 		home := testhelpers.SetupTestHome(t)
-		setDefaultTransport(t, oidcTransport(t, baseURL, "new-access-token"))
+		setTransport(t, oidcTransport(t, baseURL, "new-access-token"))
 
 		require.NoError(t, config.SaveStoredConfig(&config.StoredConfig{
 			CurrentContext: "ctx",
@@ -130,7 +122,7 @@ func TestRefreshToken(t *testing.T) {
 
 	t.Run("refreshes via client_credentials when no refresh token", func(t *testing.T) {
 		home := testhelpers.SetupTestHome(t)
-		setDefaultTransport(t, oidcTransport(t, baseURL, "new-cc-token"))
+		setTransport(t, oidcTransport(t, baseURL, "new-cc-token"))
 
 		require.NoError(t, config.SaveStoredConfig(&config.StoredConfig{
 			CurrentContext: "ctx",
@@ -161,7 +153,7 @@ func TestRefreshToken(t *testing.T) {
 
 	t.Run("returns error when client credentials are missing for refresh", func(t *testing.T) {
 		home := testhelpers.SetupTestHome(t)
-		setDefaultTransport(t, oidcTransport(t, baseURL, ""))
+		setTransport(t, oidcTransport(t, baseURL, ""))
 
 		require.NoError(t, config.SaveStoredConfig(&config.StoredConfig{
 			CurrentContext: "ctx",
