@@ -5,11 +5,20 @@ package clusteragent
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -550,6 +559,137 @@ func TestAgent_New_TLSEnabled_BadCert(t *testing.T) {
 	_, err := New(cfg, nil, k8sConfig, testLogger())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load client certificate")
+}
+
+// generateTestCertFiles creates ephemeral cert, key, and CA files in t.TempDir().
+func generateTestCertFiles(t *testing.T) (certPath, keyPath, caPath string) {
+	t.Helper()
+	dir := t.TempDir()
+
+	// Generate CA
+	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	caTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Test CA"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caKey.PublicKey, caKey)
+	require.NoError(t, err)
+
+	// Generate client cert signed by CA
+	clientKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	clientTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "Test Client"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	clientDER, err := x509.CreateCertificate(rand.Reader, clientTemplate, caTemplate, &clientKey.PublicKey, caKey)
+	require.NoError(t, err)
+
+	// Write cert PEM
+	certPath = filepath.Join(dir, "cert.pem")
+	certFile, err := os.Create(certPath)
+	require.NoError(t, err)
+	require.NoError(t, pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: clientDER}))
+	certFile.Close()
+
+	// Write key PEM
+	keyPath = filepath.Join(dir, "key.pem")
+	keyFile, err := os.Create(keyPath)
+	require.NoError(t, err)
+	keyDER, err := x509.MarshalECPrivateKey(clientKey)
+	require.NoError(t, err)
+	require.NoError(t, pem.Encode(keyFile, &pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER}))
+	keyFile.Close()
+
+	// Write CA PEM
+	caPath = filepath.Join(dir, "ca.pem")
+	caFile, err := os.Create(caPath)
+	require.NoError(t, err)
+	require.NoError(t, pem.Encode(caFile, &pem.Block{Type: "CERTIFICATE", Bytes: caDER}))
+	caFile.Close()
+
+	return certPath, keyPath, caPath
+}
+
+func TestAgent_New_TLSEnabled_Success(t *testing.T) {
+	certPath, keyPath, caPath := generateTestCertFiles(t)
+
+	cfg := &Config{
+		ServerURL:      "wss://localhost:8443",
+		PlaneType:      "dataplane",
+		PlaneID:        "test",
+		TLSEnabled:     true,
+		ClientCertPath: certPath,
+		ClientKeyPath:  keyPath,
+		ServerCAPath:   caPath,
+	}
+
+	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
+
+	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	require.NoError(t, err)
+	assert.NotNil(t, agent)
+	assert.NotNil(t, agent.serverCA)
+	assert.NotNil(t, agent.router)
+}
+
+func TestAgent_New_TLSEnabled_BadServerCA(t *testing.T) {
+	certPath, keyPath, _ := generateTestCertFiles(t)
+
+	// Write invalid PEM to a file
+	badCAPath := filepath.Join(t.TempDir(), "bad-ca.pem")
+	require.NoError(t, os.WriteFile(badCAPath, []byte("not valid pem"), 0o600))
+
+	cfg := &Config{
+		ServerURL:      "wss://localhost:8443",
+		PlaneType:      "dataplane",
+		PlaneID:        "test",
+		TLSEnabled:     true,
+		ClientCertPath: certPath,
+		ClientKeyPath:  keyPath,
+		ServerCAPath:   badCAPath,
+	}
+
+	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
+
+	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	// Should succeed but serverCA pool is nil (warn logged, not fatal)
+	require.NoError(t, err)
+	assert.NotNil(t, agent)
+	assert.Nil(t, agent.serverCA)
+}
+
+func TestAgent_New_TLSEnabled_MissingServerCA(t *testing.T) {
+	certPath, keyPath, _ := generateTestCertFiles(t)
+
+	cfg := &Config{
+		ServerURL:      "wss://localhost:8443",
+		PlaneType:      "dataplane",
+		PlaneID:        "test",
+		TLSEnabled:     true,
+		ClientCertPath: certPath,
+		ClientKeyPath:  keyPath,
+		ServerCAPath:   "/nonexistent/ca.pem",
+	}
+
+	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
+
+	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	// Should succeed (warn logged, continues without server verification)
+	require.NoError(t, err)
+	assert.NotNil(t, agent)
 }
 
 func TestAgent_HandleConnection_UnexpectedCloseError(t *testing.T) {

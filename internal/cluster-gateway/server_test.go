@@ -9,6 +9,8 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -699,4 +702,174 @@ func TestHandleHTTPProxy_NoAgentsRegistered(t *testing.T) {
 	s.handleHTTPProxy(w, req)
 
 	assert.Equal(t, http.StatusBadGateway, w.Code)
+}
+
+// --- handleConnection tests (using Connection interface) ---
+
+// mockGatewayConn implements Connection for testing handleConnection.
+type mockGatewayConn struct {
+	mu           sync.Mutex
+	readMessages [][]byte
+	readIndex    int
+	writtenMsgs  [][]byte
+	closed       bool
+}
+
+func (m *mockGatewayConn) ReadMessage() (int, []byte, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.readIndex >= len(m.readMessages) {
+		return 0, nil, fmt.Errorf("connection closed")
+	}
+	msg := m.readMessages[m.readIndex]
+	m.readIndex++
+	return websocket.TextMessage, msg, nil
+}
+
+func (m *mockGatewayConn) WriteMessage(_ int, data []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.writtenMsgs = append(m.writtenMsgs, data)
+	return nil
+}
+
+func (m *mockGatewayConn) WriteControl(_ int, _ []byte, _ time.Time) error { return nil }
+func (m *mockGatewayConn) SetReadDeadline(_ time.Time) error               { return nil }
+func (m *mockGatewayConn) SetPongHandler(_ func(string) error)             {}
+func (m *mockGatewayConn) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.closed = true
+	return nil
+}
+
+// closeErrorGatewayConn returns a specific error from ReadMessage.
+type closeErrorGatewayConn struct {
+	err error
+}
+
+func (c *closeErrorGatewayConn) ReadMessage() (int, []byte, error)               { return 0, nil, c.err }
+func (c *closeErrorGatewayConn) WriteMessage(_ int, _ []byte) error              { return nil }
+func (c *closeErrorGatewayConn) WriteControl(_ int, _ []byte, _ time.Time) error { return nil }
+func (c *closeErrorGatewayConn) SetReadDeadline(_ time.Time) error               { return nil }
+func (c *closeErrorGatewayConn) SetPongHandler(_ func(string) error)             {}
+func (c *closeErrorGatewayConn) Close() error                                    { return nil }
+
+func TestHandleConnection_ProcessesMessages(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	s := New(&Config{HeartbeatInterval: time.Hour, HeartbeatTimeout: time.Hour}, fakeClient, testLogger())
+
+	// Prepare a tunnel response message that handleConnection will receive
+	tunnelResp := &messaging.HTTPTunnelResponse{
+		RequestID:  "req-1",
+		StatusCode: 200,
+		Body:       []byte(`{"ok":true}`),
+	}
+	respData, err := json.Marshal(tunnelResp)
+	require.NoError(t, err)
+
+	mock := &mockGatewayConn{
+		readMessages: [][]byte{respData},
+	}
+
+	// Register a pending request so handleHTTPTunnelResponse has somewhere to deliver
+	replyChan := make(chan *messaging.HTTPTunnelResponse, 1)
+	s.requestsMu.Lock()
+	s.pendingHTTPRequests["req-1"] = replyChan
+	s.requestsMu.Unlock()
+
+	// Register the mock connection in connMgr
+	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil)
+	require.NoError(t, err)
+
+	s.handleConnection("dataplane/prod", connID, mock)
+
+	// Verify the response was delivered
+	select {
+	case got := <-replyChan:
+		assert.Equal(t, "req-1", got.RequestID)
+		assert.Equal(t, 200, got.StatusCode)
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for tunnel response")
+	}
+}
+
+func TestHandleConnection_InvalidMessage(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	s := New(&Config{HeartbeatInterval: time.Hour, HeartbeatTimeout: time.Hour}, fakeClient, testLogger())
+
+	mock := &mockGatewayConn{
+		readMessages: [][]byte{[]byte("not json")},
+	}
+
+	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil)
+	require.NoError(t, err)
+
+	// Should not panic — skips invalid message and exits when no more messages
+	s.handleConnection("dataplane/prod", connID, mock)
+}
+
+func TestHandleConnection_MissingRequestID(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	s := New(&Config{HeartbeatInterval: time.Hour, HeartbeatTimeout: time.Hour}, fakeClient, testLogger())
+
+	resp := &messaging.HTTPTunnelResponse{
+		StatusCode: 200,
+		// No RequestID
+	}
+	data, err := json.Marshal(resp)
+	require.NoError(t, err)
+
+	mock := &mockGatewayConn{
+		readMessages: [][]byte{data},
+	}
+
+	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil)
+	require.NoError(t, err)
+
+	// Should skip message and exit
+	s.handleConnection("dataplane/prod", connID, mock)
+}
+
+func TestHandleConnection_UnexpectedClose(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	s := New(&Config{HeartbeatInterval: time.Hour, HeartbeatTimeout: time.Hour}, fakeClient, testLogger())
+
+	// CloseError with code NOT in expected list → triggers unexpected close log
+	mock := &closeErrorGatewayConn{
+		err: &websocket.CloseError{
+			Code: websocket.CloseInternalServerErr,
+			Text: "internal error",
+		},
+	}
+
+	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil)
+	require.NoError(t, err)
+
+	// Should log "websocket error" and return
+	s.handleConnection("dataplane/prod", connID, mock)
+}
+
+func TestHandleConnection_NormalClose(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	s := New(&Config{HeartbeatInterval: time.Hour, HeartbeatTimeout: time.Hour}, fakeClient, testLogger())
+
+	// CloseGoingAway is in the expected list → normal disconnect
+	mock := &closeErrorGatewayConn{
+		err: &websocket.CloseError{
+			Code: websocket.CloseGoingAway,
+			Text: "going away",
+		},
+	}
+
+	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil)
+	require.NoError(t, err)
+
+	// Should log "agent disconnected" and return
+	s.handleConnection("dataplane/prod", connID, mock)
 }

@@ -34,6 +34,17 @@ const (
 	planeTypeObservabilityPlane = "observabilityplane"
 )
 
+// Connection abstracts a WebSocket connection for testability.
+// *websocket.Conn satisfies this interface.
+type Connection interface {
+	ReadMessage() (messageType int, p []byte, err error)
+	WriteMessage(messageType int, data []byte) error
+	WriteControl(messageType int, data []byte, deadline time.Time) error
+	SetReadDeadline(t time.Time) error
+	SetPongHandler(h func(appData string) error)
+	Close() error
+}
+
 type Server struct {
 	config              *Config
 	httpServer          *http.Server
@@ -281,7 +292,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	go s.handleConnection(planeIdentifier, connID, conn)
 }
 
-func (s *Server) handleConnection(planeName, connID string, conn *websocket.Conn) {
+func (s *Server) handleConnection(planeName, connID string, conn Connection) {
 	defer s.connMgr.Unregister(planeName, connID)
 
 	if err := conn.SetReadDeadline(time.Now().Add(s.config.HeartbeatTimeout)); err != nil {
