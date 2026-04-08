@@ -22,6 +22,7 @@ packages:
   github.com/openchoreo/openchoreo/internal/authz/core:
     interfaces:
       PDP:
+      PAP:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype:
     interfaces:
       Service:

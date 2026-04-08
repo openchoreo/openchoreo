@@ -5,15 +5,21 @@ package authz
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	authzcoremocks "github.com/openchoreo/openchoreo/internal/authz/core/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
 )
@@ -24,186 +30,36 @@ const (
 	testBindingName = "test-binding"
 )
 
-// --- Mock PAP ---
-
-type mockPAP struct {
-	clusterRoles           map[string]*openchoreov1alpha1.ClusterAuthzRole
-	namespacedRoles        map[string]*openchoreov1alpha1.AuthzRole
-	clusterRoleBindings    map[string]*openchoreov1alpha1.ClusterAuthzRoleBinding
-	namespacedRoleBindings map[string]*openchoreov1alpha1.AuthzRoleBinding
-}
-
-func newMockPAP() *mockPAP {
-	return &mockPAP{
-		clusterRoles:           make(map[string]*openchoreov1alpha1.ClusterAuthzRole),
-		namespacedRoles:        make(map[string]*openchoreov1alpha1.AuthzRole),
-		clusterRoleBindings:    make(map[string]*openchoreov1alpha1.ClusterAuthzRoleBinding),
-		namespacedRoleBindings: make(map[string]*openchoreov1alpha1.AuthzRoleBinding),
-	}
-}
-
-func nsKey(namespace, name string) string { return namespace + "/" + name }
-
-// Cluster Roles
-
-func (m *mockPAP) CreateClusterRole(_ context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error) {
-	stored := role.DeepCopy()
-	m.clusterRoles[role.Name] = stored
-	return stored.DeepCopy(), nil
-}
-
-func (m *mockPAP) GetClusterRole(context.Context, string) (*openchoreov1alpha1.ClusterAuthzRole, error) {
-	return nil, nil
-}
-
-func (m *mockPAP) ListClusterRoles(_ context.Context, _ int, _ string) (*authzcore.PaginatedList[openchoreov1alpha1.ClusterAuthzRole], error) {
-	items := make([]openchoreov1alpha1.ClusterAuthzRole, 0, len(m.clusterRoles))
-	for _, r := range m.clusterRoles {
-		items = append(items, *r.DeepCopy())
-	}
-	return &authzcore.PaginatedList[openchoreov1alpha1.ClusterAuthzRole]{Items: items, NextCursor: "next-cr"}, nil
-}
-
-func (m *mockPAP) UpdateClusterRole(_ context.Context, role *openchoreov1alpha1.ClusterAuthzRole) (*openchoreov1alpha1.ClusterAuthzRole, error) {
-	stored := role.DeepCopy()
-	m.clusterRoles[role.Name] = stored
-	return stored.DeepCopy(), nil
-}
-
-func (m *mockPAP) DeleteClusterRole(context.Context, string) error { return nil }
-
-// Namespaced Roles
-
-func (m *mockPAP) CreateNamespacedRole(_ context.Context, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error) {
-	stored := role.DeepCopy()
-	m.namespacedRoles[nsKey(role.Namespace, role.Name)] = stored
-	return stored.DeepCopy(), nil
-}
-
-func (m *mockPAP) GetNamespacedRole(context.Context, string, string) (*openchoreov1alpha1.AuthzRole, error) {
-	return nil, nil
-}
-
-func (m *mockPAP) ListNamespacedRoles(_ context.Context, namespace string, _ int, _ string) (*authzcore.PaginatedList[openchoreov1alpha1.AuthzRole], error) {
-	items := make([]openchoreov1alpha1.AuthzRole, 0)
-	for k, r := range m.namespacedRoles {
-		if len(k) > len(namespace) && k[:len(namespace)] == namespace && k[len(namespace)] == '/' {
-			items = append(items, *r.DeepCopy())
-		}
-	}
-	return &authzcore.PaginatedList[openchoreov1alpha1.AuthzRole]{Items: items, NextCursor: "next-nr"}, nil
-}
-
-func (m *mockPAP) UpdateNamespacedRole(_ context.Context, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error) {
-	stored := role.DeepCopy()
-	m.namespacedRoles[nsKey(role.Namespace, role.Name)] = stored
-	return stored.DeepCopy(), nil
-}
-
-func (m *mockPAP) DeleteNamespacedRole(context.Context, string, string) error { return nil }
-
-// Cluster Role Bindings
-
-func (m *mockPAP) CreateClusterRoleBinding(_ context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
-	stored := binding.DeepCopy()
-	m.clusterRoleBindings[binding.Name] = stored
-	return stored.DeepCopy(), nil
-}
-
-func (m *mockPAP) GetClusterRoleBinding(context.Context, string) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
-	return nil, nil
-}
-
-func (m *mockPAP) ListClusterRoleBindings(_ context.Context, _ int, _ string) (*authzcore.PaginatedList[openchoreov1alpha1.ClusterAuthzRoleBinding], error) {
-	items := make([]openchoreov1alpha1.ClusterAuthzRoleBinding, 0, len(m.clusterRoleBindings))
-	for _, b := range m.clusterRoleBindings {
-		items = append(items, *b.DeepCopy())
-	}
-	return &authzcore.PaginatedList[openchoreov1alpha1.ClusterAuthzRoleBinding]{Items: items, NextCursor: "next-crb"}, nil
-}
-
-func (m *mockPAP) UpdateClusterRoleBinding(_ context.Context, binding *openchoreov1alpha1.ClusterAuthzRoleBinding) (*openchoreov1alpha1.ClusterAuthzRoleBinding, error) {
-	stored := binding.DeepCopy()
-	m.clusterRoleBindings[binding.Name] = stored
-	return stored.DeepCopy(), nil
-}
-
-func (m *mockPAP) DeleteClusterRoleBinding(context.Context, string) error { return nil }
-
-// Namespaced Role Bindings
-
-func (m *mockPAP) CreateNamespacedRoleBinding(_ context.Context, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error) {
-	stored := binding.DeepCopy()
-	m.namespacedRoleBindings[nsKey(binding.Namespace, binding.Name)] = stored
-	return stored.DeepCopy(), nil
-}
-
-func (m *mockPAP) GetNamespacedRoleBinding(context.Context, string, string) (*openchoreov1alpha1.AuthzRoleBinding, error) {
-	return nil, nil
-}
-
-func (m *mockPAP) ListNamespacedRoleBindings(_ context.Context, namespace string, _ int, _ string) (*authzcore.PaginatedList[openchoreov1alpha1.AuthzRoleBinding], error) {
-	items := make([]openchoreov1alpha1.AuthzRoleBinding, 0)
-	for k, b := range m.namespacedRoleBindings {
-		if len(k) > len(namespace) && k[:len(namespace)] == namespace && k[len(namespace)] == '/' {
-			items = append(items, *b.DeepCopy())
-		}
-	}
-	return &authzcore.PaginatedList[openchoreov1alpha1.AuthzRoleBinding]{Items: items, NextCursor: "next-nrb"}, nil
-}
-
-func (m *mockPAP) UpdateNamespacedRoleBinding(_ context.Context, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error) {
-	stored := binding.DeepCopy()
-	m.namespacedRoleBindings[nsKey(binding.Namespace, binding.Name)] = stored
-	return stored.DeepCopy(), nil
-}
-
-func (m *mockPAP) DeleteNamespacedRoleBinding(context.Context, string, string) error { return nil }
-
-func (m *mockPAP) ListActions(context.Context) ([]authzcore.Action, error) { return nil, nil }
-
-// --- Mock PDP ---
-
-type mockPDP struct {
-	decisions []authzcore.Decision
-	evalErr   error
-}
-
-func (m *mockPDP) Evaluate(context.Context, *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
-	panic("not used by service")
-}
-
-func (m *mockPDP) BatchEvaluate(_ context.Context, _ *authzcore.BatchEvaluateRequest) (*authzcore.BatchEvaluateResponse, error) {
-	if m.evalErr != nil {
-		return nil, m.evalErr
-	}
-	return &authzcore.BatchEvaluateResponse{Decisions: m.decisions}, nil
-}
-
-func (m *mockPDP) GetSubjectProfile(context.Context, *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
-	return nil, nil
-}
-
-// --- Helper ---
-
-func newService(t *testing.T) (Service, *mockPAP, *mockPDP) {
+// newService constructs an authzService backed by mockery-generated PAP and PDP mocks.
+func newService(t *testing.T) (Service, *authzcoremocks.MockPAP, *authzcoremocks.MockPDP) {
 	t.Helper()
-	pap := newMockPAP()
-	pdp := &mockPDP{}
+	pap := authzcoremocks.NewMockPAP(t)
+	pdp := authzcoremocks.NewMockPDP(t)
 	svc := NewService(pap, pdp, testutil.TestLogger())
 	return svc, pap, pdp
 }
 
-// --- Cluster Roles: TypeMeta stamping + nil guard ---
+// newInvalidErr returns a k8s Invalid StatusError that triggers the
+// apierrors.IsInvalid → ValidationError branch.
+func newInvalidErr() error {
+	return apierrors.NewInvalid(
+		schema.GroupKind{Group: "openchoreo.dev", Kind: "AuthzRole"},
+		"bad request",
+		field.ErrorList{field.Invalid(field.NewPath("spec"), "x", "must be set")},
+	)
+}
+
+// --- Cluster Roles ---
 
 func TestCreateClusterRole(t *testing.T) {
 	ctx := context.Background()
+	role := &openchoreov1alpha1.ClusterAuthzRole{ObjectMeta: metav1.ObjectMeta{Name: testRoleName}}
 
-	t.Run("success stamps TypeMeta", func(t *testing.T) {
-		svc, _, _ := newService(t)
-		result, err := svc.CreateClusterRole(ctx, &openchoreov1alpha1.ClusterAuthzRole{
-			ObjectMeta: metav1.ObjectMeta{Name: testRoleName},
-		})
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("CreateClusterRole", mock.Anything, role).Return(role.DeepCopy(), nil)
+
+		result, err := svc.CreateClusterRole(ctx, role)
 		require.NoError(t, err)
 		assert.Equal(t, clusterAuthzRoleTypeMeta, result.TypeMeta)
 	})
@@ -214,16 +70,58 @@ func TestCreateClusterRole(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be nil")
 	})
+
+	t.Run("invalid error wrapped as ValidationError", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("CreateClusterRole", mock.Anything, role).Return(nil, newInvalidErr())
+
+		_, err := svc.CreateClusterRole(ctx, role)
+		var ve *services.ValidationError
+		require.ErrorAs(t, err, &ve)
+	})
+
+	t.Run("non-invalid error returned as-is", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("CreateClusterRole", mock.Anything, role).Return(nil, errFake)
+
+		_, err := svc.CreateClusterRole(ctx, role)
+		require.ErrorIs(t, err, errFake)
+	})
+}
+
+func TestGetClusterRole(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		stored := &openchoreov1alpha1.ClusterAuthzRole{ObjectMeta: metav1.ObjectMeta{Name: testRoleName}}
+		pap.On("GetClusterRole", mock.Anything, testRoleName).Return(stored, nil)
+
+		result, err := svc.GetClusterRole(ctx, testRoleName)
+		require.NoError(t, err)
+		assert.Equal(t, clusterAuthzRoleTypeMeta, result.TypeMeta)
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("GetClusterRole", mock.Anything, testRoleName).Return(nil, errFake)
+
+		_, err := svc.GetClusterRole(ctx, testRoleName)
+		require.ErrorIs(t, err, errFake)
+	})
 }
 
 func TestUpdateClusterRole(t *testing.T) {
 	ctx := context.Background()
+	role := &openchoreov1alpha1.ClusterAuthzRole{ObjectMeta: metav1.ObjectMeta{Name: testRoleName}}
 
-	t.Run("success stamps TypeMeta", func(t *testing.T) {
-		svc, _, _ := newService(t)
-		result, err := svc.UpdateClusterRole(ctx, &openchoreov1alpha1.ClusterAuthzRole{
-			ObjectMeta: metav1.ObjectMeta{Name: testRoleName},
-		})
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("UpdateClusterRole", mock.Anything, role).Return(role.DeepCopy(), nil)
+
+		result, err := svc.UpdateClusterRole(ctx, role)
 		require.NoError(t, err)
 		assert.Equal(t, clusterAuthzRoleTypeMeta, result.TypeMeta)
 	})
@@ -234,33 +132,91 @@ func TestUpdateClusterRole(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be nil")
 	})
+
+	t.Run("invalid error wrapped as ValidationError", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("UpdateClusterRole", mock.Anything, role).Return(nil, newInvalidErr())
+
+		_, err := svc.UpdateClusterRole(ctx, role)
+		var ve *services.ValidationError
+		require.ErrorAs(t, err, &ve)
+	})
+
+	t.Run("non-invalid error returned as-is", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("UpdateClusterRole", mock.Anything, role).Return(nil, errFake)
+
+		_, err := svc.UpdateClusterRole(ctx, role)
+		require.ErrorIs(t, err, errFake)
+	})
+}
+
+func TestDeleteClusterRole(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("DeleteClusterRole", mock.Anything, testRoleName).Return(nil)
+
+		require.NoError(t, svc.DeleteClusterRole(ctx, testRoleName))
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("DeleteClusterRole", mock.Anything, testRoleName).Return(errFake)
+
+		require.ErrorIs(t, svc.DeleteClusterRole(ctx, testRoleName), errFake)
+	})
 }
 
 func TestListClusterRoles(t *testing.T) {
 	ctx := context.Background()
-	svc, pap, _ := newService(t)
-	pap.clusterRoles["r1"] = &openchoreov1alpha1.ClusterAuthzRole{ObjectMeta: metav1.ObjectMeta{Name: "r1"}}
-	pap.clusterRoles["r2"] = &openchoreov1alpha1.ClusterAuthzRole{ObjectMeta: metav1.ObjectMeta{Name: "r2"}}
 
-	result, err := svc.ListClusterRoles(ctx, services.ListOptions{})
-	require.NoError(t, err)
-	assert.Len(t, result.Items, 2)
-	for _, item := range result.Items {
-		assert.Equal(t, clusterAuthzRoleTypeMeta, item.TypeMeta)
-	}
-	assert.Equal(t, "next-cr", result.NextCursor)
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		items := []openchoreov1alpha1.ClusterAuthzRole{
+			{ObjectMeta: metav1.ObjectMeta{Name: "r1"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "r2"}},
+		}
+		pap.On("ListClusterRoles", mock.Anything, 0, "").
+			Return(&authzcore.PaginatedList[openchoreov1alpha1.ClusterAuthzRole]{Items: items, NextCursor: "next-cr"}, nil)
+
+		result, err := svc.ListClusterRoles(ctx, services.ListOptions{})
+		require.NoError(t, err)
+		assert.Len(t, result.Items, 2)
+		for _, item := range result.Items {
+			assert.Equal(t, clusterAuthzRoleTypeMeta, item.TypeMeta)
+		}
+		assert.Equal(t, "next-cr", result.NextCursor)
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("ListClusterRoles", mock.Anything, 0, "").Return(nil, errFake)
+
+		_, err := svc.ListClusterRoles(ctx, services.ListOptions{})
+		require.ErrorIs(t, err, errFake)
+	})
 }
 
-// --- Namespace Roles: TypeMeta + namespace injection + nil guard ---
+// --- Namespace Roles ---
 
 func TestCreateNamespaceRole(t *testing.T) {
 	ctx := context.Background()
+	role := &openchoreov1alpha1.AuthzRole{ObjectMeta: metav1.ObjectMeta{Name: testRoleName}}
 
-	t.Run("sets namespace and stamps TypeMeta", func(t *testing.T) {
-		svc, _, _ := newService(t)
-		result, err := svc.CreateNamespaceRole(ctx, testNamespace, &openchoreov1alpha1.AuthzRole{
-			ObjectMeta: metav1.ObjectMeta{Name: testRoleName},
-		})
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("CreateNamespacedRole", mock.Anything, mock.MatchedBy(func(r *openchoreov1alpha1.AuthzRole) bool {
+			return r.Namespace == testNamespace && r.Name == testRoleName
+		})).Return(&openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: testRoleName, Namespace: testNamespace},
+		}, nil)
+
+		result, err := svc.CreateNamespaceRole(ctx, testNamespace, role)
 		require.NoError(t, err)
 		assert.Equal(t, authzRoleTypeMeta, result.TypeMeta)
 		assert.Equal(t, testNamespace, result.Namespace)
@@ -272,16 +228,68 @@ func TestCreateNamespaceRole(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be nil")
 	})
+
+	t.Run("invalid error wrapped as ValidationError", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("CreateNamespacedRole", mock.Anything, mock.Anything).Return(nil, newInvalidErr())
+
+		_, err := svc.CreateNamespaceRole(ctx, testNamespace, &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: testRoleName},
+		})
+		var ve *services.ValidationError
+		require.ErrorAs(t, err, &ve)
+	})
+
+	t.Run("non-invalid error returned as-is", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("CreateNamespacedRole", mock.Anything, mock.Anything).Return(nil, errFake)
+
+		_, err := svc.CreateNamespaceRole(ctx, testNamespace, &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: testRoleName},
+		})
+		require.ErrorIs(t, err, errFake)
+	})
+}
+
+func TestGetNamespaceRole(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		stored := &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: testRoleName, Namespace: testNamespace},
+		}
+		pap.On("GetNamespacedRole", mock.Anything, testRoleName, testNamespace).Return(stored, nil)
+
+		result, err := svc.GetNamespaceRole(ctx, testNamespace, testRoleName)
+		require.NoError(t, err)
+		assert.Equal(t, authzRoleTypeMeta, result.TypeMeta)
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("GetNamespacedRole", mock.Anything, testRoleName, testNamespace).Return(nil, errFake)
+
+		_, err := svc.GetNamespaceRole(ctx, testNamespace, testRoleName)
+		require.ErrorIs(t, err, errFake)
+	})
 }
 
 func TestUpdateNamespaceRole(t *testing.T) {
 	ctx := context.Background()
+	role := &openchoreov1alpha1.AuthzRole{ObjectMeta: metav1.ObjectMeta{Name: testRoleName}}
 
-	t.Run("sets namespace and stamps TypeMeta", func(t *testing.T) {
-		svc, _, _ := newService(t)
-		result, err := svc.UpdateNamespaceRole(ctx, testNamespace, &openchoreov1alpha1.AuthzRole{
-			ObjectMeta: metav1.ObjectMeta{Name: testRoleName},
-		})
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("UpdateNamespacedRole", mock.Anything, mock.MatchedBy(func(r *openchoreov1alpha1.AuthzRole) bool {
+			return r.Namespace == testNamespace && r.Name == testRoleName
+		})).Return(&openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: testRoleName, Namespace: testNamespace},
+		}, nil)
+
+		result, err := svc.UpdateNamespaceRole(ctx, testNamespace, role)
 		require.NoError(t, err)
 		assert.Equal(t, authzRoleTypeMeta, result.TypeMeta)
 		assert.Equal(t, testNamespace, result.Namespace)
@@ -293,32 +301,88 @@ func TestUpdateNamespaceRole(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be nil")
 	})
+
+	t.Run("invalid error wrapped as ValidationError", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("UpdateNamespacedRole", mock.Anything, mock.Anything).Return(nil, newInvalidErr())
+
+		_, err := svc.UpdateNamespaceRole(ctx, testNamespace, &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: testRoleName},
+		})
+		var ve *services.ValidationError
+		require.ErrorAs(t, err, &ve)
+	})
+
+	t.Run("non-invalid error returned as-is", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("UpdateNamespacedRole", mock.Anything, mock.Anything).Return(nil, errFake)
+
+		_, err := svc.UpdateNamespaceRole(ctx, testNamespace, &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: testRoleName},
+		})
+		require.ErrorIs(t, err, errFake)
+	})
+}
+
+func TestDeleteNamespaceRole(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("DeleteNamespacedRole", mock.Anything, testRoleName, testNamespace).Return(nil)
+
+		require.NoError(t, svc.DeleteNamespaceRole(ctx, testNamespace, testRoleName))
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("DeleteNamespacedRole", mock.Anything, testRoleName, testNamespace).Return(errFake)
+
+		require.ErrorIs(t, svc.DeleteNamespaceRole(ctx, testNamespace, testRoleName), errFake)
+	})
 }
 
 func TestListNamespaceRoles(t *testing.T) {
 	ctx := context.Background()
-	svc, pap, _ := newService(t)
-	pap.namespacedRoles[nsKey(testNamespace, "r1")] = &openchoreov1alpha1.AuthzRole{
-		ObjectMeta: metav1.ObjectMeta{Name: "r1", Namespace: testNamespace},
-	}
 
-	result, err := svc.ListNamespaceRoles(ctx, testNamespace, services.ListOptions{})
-	require.NoError(t, err)
-	require.Len(t, result.Items, 1)
-	assert.Equal(t, authzRoleTypeMeta, result.Items[0].TypeMeta)
-	assert.Equal(t, "next-nr", result.NextCursor)
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		items := []openchoreov1alpha1.AuthzRole{
+			{ObjectMeta: metav1.ObjectMeta{Name: "r1", Namespace: testNamespace}},
+		}
+		pap.On("ListNamespacedRoles", mock.Anything, testNamespace, 0, "").
+			Return(&authzcore.PaginatedList[openchoreov1alpha1.AuthzRole]{Items: items, NextCursor: "next-nr"}, nil)
+
+		result, err := svc.ListNamespaceRoles(ctx, testNamespace, services.ListOptions{})
+		require.NoError(t, err)
+		require.Len(t, result.Items, 1)
+		assert.Equal(t, authzRoleTypeMeta, result.Items[0].TypeMeta)
+		assert.Equal(t, "next-nr", result.NextCursor)
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("ListNamespacedRoles", mock.Anything, testNamespace, 0, "").Return(nil, errFake)
+
+		_, err := svc.ListNamespaceRoles(ctx, testNamespace, services.ListOptions{})
+		require.ErrorIs(t, err, errFake)
+	})
 }
 
-// --- Cluster Role Bindings: TypeMeta stamping + nil guard ---
+// --- Cluster Role Bindings ---
 
 func TestCreateClusterRoleBinding(t *testing.T) {
 	ctx := context.Background()
+	binding := &openchoreov1alpha1.ClusterAuthzRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: testBindingName}}
 
-	t.Run("success stamps TypeMeta", func(t *testing.T) {
-		svc, _, _ := newService(t)
-		result, err := svc.CreateClusterRoleBinding(ctx, &openchoreov1alpha1.ClusterAuthzRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: testBindingName},
-		})
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("CreateClusterRoleBinding", mock.Anything, binding).Return(binding.DeepCopy(), nil)
+
+		result, err := svc.CreateClusterRoleBinding(ctx, binding)
 		require.NoError(t, err)
 		assert.Equal(t, clusterAuthzRoleBindingTypeMeta, result.TypeMeta)
 	})
@@ -329,16 +393,58 @@ func TestCreateClusterRoleBinding(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be nil")
 	})
+
+	t.Run("invalid error wrapped as ValidationError", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("CreateClusterRoleBinding", mock.Anything, binding).Return(nil, newInvalidErr())
+
+		_, err := svc.CreateClusterRoleBinding(ctx, binding)
+		var ve *services.ValidationError
+		require.ErrorAs(t, err, &ve)
+	})
+
+	t.Run("non-invalid error returned as-is", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("CreateClusterRoleBinding", mock.Anything, binding).Return(nil, errFake)
+
+		_, err := svc.CreateClusterRoleBinding(ctx, binding)
+		require.ErrorIs(t, err, errFake)
+	})
+}
+
+func TestGetClusterRoleBinding(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		stored := &openchoreov1alpha1.ClusterAuthzRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: testBindingName}}
+		pap.On("GetClusterRoleBinding", mock.Anything, testBindingName).Return(stored, nil)
+
+		result, err := svc.GetClusterRoleBinding(ctx, testBindingName)
+		require.NoError(t, err)
+		assert.Equal(t, clusterAuthzRoleBindingTypeMeta, result.TypeMeta)
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("GetClusterRoleBinding", mock.Anything, testBindingName).Return(nil, errFake)
+
+		_, err := svc.GetClusterRoleBinding(ctx, testBindingName)
+		require.ErrorIs(t, err, errFake)
+	})
 }
 
 func TestUpdateClusterRoleBinding(t *testing.T) {
 	ctx := context.Background()
+	binding := &openchoreov1alpha1.ClusterAuthzRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: testBindingName}}
 
-	t.Run("success stamps TypeMeta", func(t *testing.T) {
-		svc, _, _ := newService(t)
-		result, err := svc.UpdateClusterRoleBinding(ctx, &openchoreov1alpha1.ClusterAuthzRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: testBindingName},
-		})
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("UpdateClusterRoleBinding", mock.Anything, binding).Return(binding.DeepCopy(), nil)
+
+		result, err := svc.UpdateClusterRoleBinding(ctx, binding)
 		require.NoError(t, err)
 		assert.Equal(t, clusterAuthzRoleBindingTypeMeta, result.TypeMeta)
 	})
@@ -349,30 +455,88 @@ func TestUpdateClusterRoleBinding(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be nil")
 	})
+
+	t.Run("invalid error wrapped as ValidationError", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("UpdateClusterRoleBinding", mock.Anything, binding).Return(nil, newInvalidErr())
+
+		_, err := svc.UpdateClusterRoleBinding(ctx, binding)
+		var ve *services.ValidationError
+		require.ErrorAs(t, err, &ve)
+	})
+
+	t.Run("non-invalid error returned as-is", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("UpdateClusterRoleBinding", mock.Anything, binding).Return(nil, errFake)
+
+		_, err := svc.UpdateClusterRoleBinding(ctx, binding)
+		require.ErrorIs(t, err, errFake)
+	})
+}
+
+func TestDeleteClusterRoleBinding(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("DeleteClusterRoleBinding", mock.Anything, testBindingName).Return(nil)
+
+		require.NoError(t, svc.DeleteClusterRoleBinding(ctx, testBindingName))
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("DeleteClusterRoleBinding", mock.Anything, testBindingName).Return(errFake)
+
+		require.ErrorIs(t, svc.DeleteClusterRoleBinding(ctx, testBindingName), errFake)
+	})
 }
 
 func TestListClusterRoleBindings(t *testing.T) {
 	ctx := context.Background()
-	svc, pap, _ := newService(t)
-	pap.clusterRoleBindings["b1"] = &openchoreov1alpha1.ClusterAuthzRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: "b1"}}
 
-	result, err := svc.ListClusterRoleBindings(ctx, services.ListOptions{})
-	require.NoError(t, err)
-	require.Len(t, result.Items, 1)
-	assert.Equal(t, clusterAuthzRoleBindingTypeMeta, result.Items[0].TypeMeta)
-	assert.Equal(t, "next-crb", result.NextCursor)
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		items := []openchoreov1alpha1.ClusterAuthzRoleBinding{
+			{ObjectMeta: metav1.ObjectMeta{Name: "b1"}},
+		}
+		pap.On("ListClusterRoleBindings", mock.Anything, 0, "").
+			Return(&authzcore.PaginatedList[openchoreov1alpha1.ClusterAuthzRoleBinding]{Items: items, NextCursor: "next-crb"}, nil)
+
+		result, err := svc.ListClusterRoleBindings(ctx, services.ListOptions{})
+		require.NoError(t, err)
+		require.Len(t, result.Items, 1)
+		assert.Equal(t, clusterAuthzRoleBindingTypeMeta, result.Items[0].TypeMeta)
+		assert.Equal(t, "next-crb", result.NextCursor)
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("ListClusterRoleBindings", mock.Anything, 0, "").Return(nil, errFake)
+
+		_, err := svc.ListClusterRoleBindings(ctx, services.ListOptions{})
+		require.ErrorIs(t, err, errFake)
+	})
 }
 
-// --- Namespace Role Bindings: TypeMeta + namespace injection + nil guard ---
+// --- Namespace Role Bindings ---
 
 func TestCreateNamespaceRoleBinding(t *testing.T) {
 	ctx := context.Background()
+	binding := &openchoreov1alpha1.AuthzRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: testBindingName}}
 
-	t.Run("sets namespace and stamps TypeMeta", func(t *testing.T) {
-		svc, _, _ := newService(t)
-		result, err := svc.CreateNamespaceRoleBinding(ctx, testNamespace, &openchoreov1alpha1.AuthzRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: testBindingName},
-		})
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("CreateNamespacedRoleBinding", mock.Anything, mock.MatchedBy(func(b *openchoreov1alpha1.AuthzRoleBinding) bool {
+			return b.Namespace == testNamespace && b.Name == testBindingName
+		})).Return(&openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: testBindingName, Namespace: testNamespace},
+		}, nil)
+
+		result, err := svc.CreateNamespaceRoleBinding(ctx, testNamespace, binding)
 		require.NoError(t, err)
 		assert.Equal(t, authzRoleBindingTypeMeta, result.TypeMeta)
 		assert.Equal(t, testNamespace, result.Namespace)
@@ -384,16 +548,68 @@ func TestCreateNamespaceRoleBinding(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be nil")
 	})
+
+	t.Run("invalid error wrapped as ValidationError", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("CreateNamespacedRoleBinding", mock.Anything, mock.Anything).Return(nil, newInvalidErr())
+
+		_, err := svc.CreateNamespaceRoleBinding(ctx, testNamespace, &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: testBindingName},
+		})
+		var ve *services.ValidationError
+		require.ErrorAs(t, err, &ve)
+	})
+
+	t.Run("non-invalid error returned as-is", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("CreateNamespacedRoleBinding", mock.Anything, mock.Anything).Return(nil, errFake)
+
+		_, err := svc.CreateNamespaceRoleBinding(ctx, testNamespace, &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: testBindingName},
+		})
+		require.ErrorIs(t, err, errFake)
+	})
+}
+
+func TestGetNamespaceRoleBinding(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		stored := &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: testBindingName, Namespace: testNamespace},
+		}
+		pap.On("GetNamespacedRoleBinding", mock.Anything, testBindingName, testNamespace).Return(stored, nil)
+
+		result, err := svc.GetNamespaceRoleBinding(ctx, testNamespace, testBindingName)
+		require.NoError(t, err)
+		assert.Equal(t, authzRoleBindingTypeMeta, result.TypeMeta)
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("GetNamespacedRoleBinding", mock.Anything, testBindingName, testNamespace).Return(nil, errFake)
+
+		_, err := svc.GetNamespaceRoleBinding(ctx, testNamespace, testBindingName)
+		require.ErrorIs(t, err, errFake)
+	})
 }
 
 func TestUpdateNamespaceRoleBinding(t *testing.T) {
 	ctx := context.Background()
+	binding := &openchoreov1alpha1.AuthzRoleBinding{ObjectMeta: metav1.ObjectMeta{Name: testBindingName}}
 
-	t.Run("sets namespace and stamps TypeMeta", func(t *testing.T) {
-		svc, _, _ := newService(t)
-		result, err := svc.UpdateNamespaceRoleBinding(ctx, testNamespace, &openchoreov1alpha1.AuthzRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: testBindingName},
-		})
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("UpdateNamespacedRoleBinding", mock.Anything, mock.MatchedBy(func(b *openchoreov1alpha1.AuthzRoleBinding) bool {
+			return b.Namespace == testNamespace && b.Name == testBindingName
+		})).Return(&openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: testBindingName, Namespace: testNamespace},
+		}, nil)
+
+		result, err := svc.UpdateNamespaceRoleBinding(ctx, testNamespace, binding)
 		require.NoError(t, err)
 		assert.Equal(t, authzRoleBindingTypeMeta, result.TypeMeta)
 		assert.Equal(t, testNamespace, result.Namespace)
@@ -405,33 +621,160 @@ func TestUpdateNamespaceRoleBinding(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be nil")
 	})
+
+	t.Run("invalid error wrapped as ValidationError", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("UpdateNamespacedRoleBinding", mock.Anything, mock.Anything).Return(nil, newInvalidErr())
+
+		_, err := svc.UpdateNamespaceRoleBinding(ctx, testNamespace, &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: testBindingName},
+		})
+		var ve *services.ValidationError
+		require.ErrorAs(t, err, &ve)
+	})
+
+	t.Run("non-invalid error returned as-is", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("UpdateNamespacedRoleBinding", mock.Anything, mock.Anything).Return(nil, errFake)
+
+		_, err := svc.UpdateNamespaceRoleBinding(ctx, testNamespace, &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: testBindingName},
+		})
+		require.ErrorIs(t, err, errFake)
+	})
+}
+
+func TestDeleteNamespaceRoleBinding(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		pap.On("DeleteNamespacedRoleBinding", mock.Anything, testBindingName, testNamespace).Return(nil)
+
+		require.NoError(t, svc.DeleteNamespaceRoleBinding(ctx, testNamespace, testBindingName))
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("DeleteNamespacedRoleBinding", mock.Anything, testBindingName, testNamespace).Return(errFake)
+
+		require.ErrorIs(t, svc.DeleteNamespaceRoleBinding(ctx, testNamespace, testBindingName), errFake)
+	})
 }
 
 func TestListNamespaceRoleBindings(t *testing.T) {
 	ctx := context.Background()
-	svc, pap, _ := newService(t)
-	pap.namespacedRoleBindings[nsKey(testNamespace, "b1")] = &openchoreov1alpha1.AuthzRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: "b1", Namespace: testNamespace},
-	}
 
-	result, err := svc.ListNamespaceRoleBindings(ctx, testNamespace, services.ListOptions{})
-	require.NoError(t, err)
-	require.Len(t, result.Items, 1)
-	assert.Equal(t, authzRoleBindingTypeMeta, result.Items[0].TypeMeta)
-	assert.Equal(t, "next-nrb", result.NextCursor)
+	t.Run("success", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		items := []openchoreov1alpha1.AuthzRoleBinding{
+			{ObjectMeta: metav1.ObjectMeta{Name: "b1", Namespace: testNamespace}},
+		}
+		pap.On("ListNamespacedRoleBindings", mock.Anything, testNamespace, 0, "").
+			Return(&authzcore.PaginatedList[openchoreov1alpha1.AuthzRoleBinding]{Items: items, NextCursor: "next-nrb"}, nil)
+
+		result, err := svc.ListNamespaceRoleBindings(ctx, testNamespace, services.ListOptions{})
+		require.NoError(t, err)
+		require.Len(t, result.Items, 1)
+		assert.Equal(t, authzRoleBindingTypeMeta, result.Items[0].TypeMeta)
+		assert.Equal(t, "next-nrb", result.NextCursor)
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("ListNamespacedRoleBindings", mock.Anything, testNamespace, 0, "").Return(nil, errFake)
+
+		_, err := svc.ListNamespaceRoleBindings(ctx, testNamespace, services.ListOptions{})
+		require.ErrorIs(t, err, errFake)
+	})
 }
 
-// --- Evaluate: error wrapping ---
+// --- Evaluate / ListActions / GetSubjectProfile ---
 
 func TestEvaluate(t *testing.T) {
 	ctx := context.Background()
+	requests := []authzcore.EvaluateRequest{{Action: "project:view"}}
+
+	t.Run("returns decisions from PDP", func(t *testing.T) {
+		svc, _, pdp := newService(t)
+		decisions := []authzcore.Decision{{Decision: true}}
+		pdp.On("BatchEvaluate", mock.Anything, &authzcore.BatchEvaluateRequest{Requests: requests}).
+			Return(&authzcore.BatchEvaluateResponse{Decisions: decisions}, nil)
+
+		result, err := svc.Evaluate(ctx, requests)
+		require.NoError(t, err)
+		assert.Equal(t, decisions, result)
+	})
 
 	t.Run("wraps PDP error", func(t *testing.T) {
 		svc, _, pdp := newService(t)
-		pdp.evalErr = fmt.Errorf("pdp unavailable")
-		_, err := svc.Evaluate(ctx, []authzcore.EvaluateRequest{{Action: "project:view"}})
+		errFake := fmt.Errorf("pdp unavailable")
+		pdp.On("BatchEvaluate", mock.Anything, &authzcore.BatchEvaluateRequest{Requests: requests}).
+			Return(nil, errFake)
+
+		_, err := svc.Evaluate(ctx, requests)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to evaluate")
-		assert.ErrorIs(t, err, pdp.evalErr)
+		assert.ErrorIs(t, err, errFake)
 	})
+}
+
+func TestListActions(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("delegates to PAP", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		actions := []authzcore.Action{{Name: "project:view"}}
+		pap.On("ListActions", mock.Anything).Return(actions, nil)
+
+		result, err := svc.ListActions(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, actions, result)
+	})
+
+	t.Run("pap error propagated", func(t *testing.T) {
+		svc, pap, _ := newService(t)
+		errFake := errors.New("fake error")
+		pap.On("ListActions", mock.Anything).Return(nil, errFake)
+
+		_, err := svc.ListActions(ctx)
+		require.ErrorIs(t, err, errFake)
+	})
+}
+
+func TestGetSubjectProfile(t *testing.T) {
+	ctx := context.Background()
+	req := &authzcore.ProfileRequest{
+		SubjectContext: &authzcore.SubjectContext{Type: "user"},
+	}
+
+	t.Run("delegates to PDP", func(t *testing.T) {
+		svc, _, pdp := newService(t)
+		resp := &authzcore.UserCapabilitiesResponse{User: req.SubjectContext}
+		pdp.On("GetSubjectProfile", mock.Anything, req).Return(resp, nil)
+
+		result, err := svc.GetSubjectProfile(ctx, req)
+		require.NoError(t, err)
+		assert.Equal(t, resp, result)
+	})
+
+	t.Run("pdp error propagated", func(t *testing.T) {
+		svc, _, pdp := newService(t)
+		errFake := errors.New("fake error")
+		pdp.On("GetSubjectProfile", mock.Anything, req).Return(nil, errFake)
+
+		_, err := svc.GetSubjectProfile(ctx, req)
+		require.ErrorIs(t, err, errFake)
+	})
+}
+
+// TestNewServiceWithAuthz verifies the constructor returns a non-nil Service.
+func TestNewServiceWithAuthz(t *testing.T) {
+	pap := authzcoremocks.NewMockPAP(t)
+	pdp := authzcoremocks.NewMockPDP(t)
+	svc := NewServiceWithAuthz(pap, pdp, testutil.TestLogger())
+	require.NotNil(t, svc)
 }
