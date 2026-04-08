@@ -130,7 +130,6 @@ func TestDisabledAuthorizer_GetSubjectProfile(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_ListActions verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_ListActions(t *testing.T) {
 	ctx := context.Background()
 
@@ -143,7 +142,6 @@ func TestDisabledAuthorizer_ListActions(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_DeleteClusterRole verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_DeleteClusterRole(t *testing.T) {
 	ctx := context.Background()
 
@@ -153,7 +151,6 @@ func TestDisabledAuthorizer_DeleteClusterRole(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_DeleteNamespacedRole verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_DeleteNamespacedRole(t *testing.T) {
 	ctx := context.Background()
 
@@ -163,7 +160,6 @@ func TestDisabledAuthorizer_DeleteNamespacedRole(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_DeleteClusterRoleBinding verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_DeleteClusterRoleBinding(t *testing.T) {
 	ctx := context.Background()
 
@@ -173,7 +169,6 @@ func TestDisabledAuthorizer_DeleteClusterRoleBinding(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_DeleteNamespacedRoleBinding verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_DeleteNamespacedRoleBinding(t *testing.T) {
 	ctx := context.Background()
 
@@ -183,7 +178,6 @@ func TestDisabledAuthorizer_DeleteNamespacedRoleBinding(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_CreateClusterRole verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_CreateClusterRole(t *testing.T) {
 	ctx := context.Background()
 
@@ -196,7 +190,6 @@ func TestDisabledAuthorizer_CreateClusterRole(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_GetClusterRole verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_GetClusterRole(t *testing.T) {
 	ctx := context.Background()
 
@@ -209,7 +202,6 @@ func TestDisabledAuthorizer_GetClusterRole(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_ListClusterRoles verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_ListClusterRoles(t *testing.T) {
 	ctx := context.Background()
 
@@ -222,7 +214,6 @@ func TestDisabledAuthorizer_ListClusterRoles(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_UpdateClusterRole verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_UpdateClusterRole(t *testing.T) {
 	ctx := context.Background()
 
@@ -235,7 +226,6 @@ func TestDisabledAuthorizer_UpdateClusterRole(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_CreateNamespacedRole verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_CreateNamespacedRole(t *testing.T) {
 	ctx := context.Background()
 
@@ -248,7 +238,6 @@ func TestDisabledAuthorizer_CreateNamespacedRole(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_GetNamespacedRole verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_GetNamespacedRole(t *testing.T) {
 	ctx := context.Background()
 
@@ -261,7 +250,6 @@ func TestDisabledAuthorizer_GetNamespacedRole(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_ListNamespacedRoles verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_ListNamespacedRoles(t *testing.T) {
 	ctx := context.Background()
 
@@ -274,7 +262,6 @@ func TestDisabledAuthorizer_ListNamespacedRoles(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_UpdateNamespacedRole verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_UpdateNamespacedRole(t *testing.T) {
 	ctx := context.Background()
 
@@ -287,7 +274,6 @@ func TestDisabledAuthorizer_UpdateNamespacedRole(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_CreateClusterRoleBinding verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_CreateClusterRoleBinding(t *testing.T) {
 	ctx := context.Background()
 
@@ -300,7 +286,6 @@ func TestDisabledAuthorizer_CreateClusterRoleBinding(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_GetClusterRoleBinding verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_GetClusterRoleBinding(t *testing.T) {
 	ctx := context.Background()
 
@@ -313,7 +298,6 @@ func TestDisabledAuthorizer_GetClusterRoleBinding(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_ListClusterRoleBindings verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_ListClusterRoleBindings(t *testing.T) {
 	ctx := context.Background()
 
@@ -326,7 +310,6 @@ func TestDisabledAuthorizer_ListClusterRoleBindings(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_UpdateClusterRoleBinding verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_UpdateClusterRoleBinding(t *testing.T) {
 	ctx := context.Background()
 
@@ -339,7 +322,6 @@ func TestDisabledAuthorizer_UpdateClusterRoleBinding(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_CreateNamespacedRoleBinding verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_CreateNamespacedRoleBinding(t *testing.T) {
 	ctx := context.Background()
 
@@ -352,7 +334,6 @@ func TestDisabledAuthorizer_CreateNamespacedRoleBinding(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_GetNamespacedRoleBinding verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_GetNamespacedRoleBinding(t *testing.T) {
 	ctx := context.Background()
 
@@ -365,7 +346,6 @@ func TestDisabledAuthorizer_GetNamespacedRoleBinding(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_ListNamespacedRoleBindings verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_ListNamespacedRoleBindings(t *testing.T) {
 	ctx := context.Background()
 
@@ -378,7 +358,6 @@ func TestDisabledAuthorizer_ListNamespacedRoleBindings(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_UpdateNamespacedRoleBinding verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_UpdateNamespacedRoleBinding(t *testing.T) {
 	ctx := context.Background()
 
