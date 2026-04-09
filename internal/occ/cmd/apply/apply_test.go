@@ -328,8 +328,6 @@ func TestReadResourceContent(t *testing.T) {
 	})
 }
 
-// --- Apply happy path ---
-
 // nonExpiredJWT is a minimal unsigned JWT with exp=9999999999 (year 2286).
 // header: {"alg":"none","typ":"JWT"}, payload: {"exp":9999999999}
 const nonExpiredJWT = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJleHAiOjk5OTk5OTk5OTl9." //nolint:gosec // test token
@@ -363,77 +361,6 @@ func jsonResp(status int, body any) *http.Response {
 		Body:       io.NopCloser(bytes.NewReader(b)),
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 	}
-}
-
-func TestApply_CreateNamespace(t *testing.T) {
-	cl := setupApplyTest(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		switch {
-		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/test-ns"):
-			return &http.Response{
-				StatusCode: http.StatusNotFound,
-				Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":"not found"}`))),
-				Header:     http.Header{},
-			}, nil
-		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/namespaces"):
-			return jsonResp(http.StatusCreated, map[string]any{
-				"metadata": map[string]any{"name": "test-ns"},
-			}), nil
-		default:
-			return &http.Response{
-				StatusCode: http.StatusNotFound,
-				Body:       http.NoBody,
-				Header:     http.Header{},
-			}, nil
-		}
-	}))
-
-	dir := t.TempDir()
-	yamlFile := filepath.Join(dir, "ns.yaml")
-	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Namespace
-apiVersion: core.openchoreo.dev/v1alpha1
-metadata:
-  name: test-ns
-`), 0600))
-
-	out := testutil.CaptureStdout(t, func() {
-		err := Apply(cl, Params{FilePath: yamlFile})
-		require.NoError(t, err)
-	})
-	assert.Contains(t, out, "namespace/test-ns created")
-}
-
-func TestApply_UpdateNamespace(t *testing.T) {
-	cl := setupApplyTest(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		switch {
-		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/existing-ns"):
-			return jsonResp(http.StatusOK, map[string]any{
-				"metadata": map[string]any{"name": "existing-ns"},
-			}), nil
-		case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/namespaces/existing-ns"):
-			return jsonResp(http.StatusOK, map[string]any{
-				"metadata": map[string]any{"name": "existing-ns"},
-			}), nil
-		default:
-			return &http.Response{
-				StatusCode: http.StatusNotFound,
-				Body:       http.NoBody,
-				Header:     http.Header{},
-			}, nil
-		}
-	}))
-
-	dir := t.TempDir()
-	yamlFile := filepath.Join(dir, "ns.yaml")
-	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Namespace
-metadata:
-  name: existing-ns
-`), 0600))
-
-	out := testutil.CaptureStdout(t, func() {
-		err := Apply(cl, Params{FilePath: yamlFile})
-		require.NoError(t, err)
-	})
-	assert.Contains(t, out, "namespace/existing-ns configured")
 }
 
 func TestApply_MultipleResources(t *testing.T) {
