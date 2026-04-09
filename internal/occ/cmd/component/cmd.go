@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package component
@@ -27,7 +27,7 @@ func NewComponentCmd(f client.NewClientFunc) *cobra.Command {
 		newDeleteCmd(f),
 		newScaffoldCmd(f),
 		newDeployCmd(f),
-		newLogsCmd(),
+		newLogsCmd(f),
 		newWorkflowCmd(f),
 		newWorkflowRunCmd(f),
 	)
@@ -198,7 +198,6 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
 				Release:       flags.GetRelease(cmd),
 				To:            flags.GetTo(cmd),
 				Set:           flags.GetSet(cmd),
-				OutputFormat:  flags.GetOutput(cmd),
 			})
 		},
 	}
@@ -207,11 +206,10 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
 	flags.AddRelease(cmd)
 	flags.AddTo(cmd)
 	flags.AddSet(cmd)
-	flags.AddOutput(cmd)
 	return cmd
 }
 
-func newLogsCmd() *cobra.Command {
+func newLogsCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs COMPONENT_NAME",
 		Short: "Get logs for a component",
@@ -225,10 +223,15 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 
   # Follow logs in real-time
   occ component logs my-component --env dev -f`,
-		Args: cmdutil.ExactOneArgWithUsage(),
+		Args:    cmdutil.ExactOneArgWithUsage(),
+		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := f()
+			if err != nil {
+				return err
+			}
 			tail := flags.GetTail(cmd)
-			return New(nil).Logs(LogsParams{
+			return New(cl).Logs(LogsParams{
 				Namespace:   flags.GetNamespace(cmd),
 				Project:     flags.GetProject(cmd),
 				Component:   args[0],
@@ -257,7 +260,7 @@ func newWorkflowCmd(f client.NewClientFunc) *cobra.Command {
 	}
 	cmd.AddCommand(
 		newStartWorkflowCmd(f),
-		newWorkflowLogsCmd(),
+		newWorkflowLogsCmd(f),
 	)
 	return cmd
 }
@@ -290,7 +293,7 @@ func newStartWorkflowCmd(f client.NewClientFunc) *cobra.Command {
 	return cmd
 }
 
-func newWorkflowLogsCmd() *cobra.Command {
+func newWorkflowLogsCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs [COMPONENT_NAME]",
 		Short: "Get logs for a component's workflow run",
@@ -302,7 +305,11 @@ Use --workflowrun to specify a particular run.`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return New(nil).WorkflowRunLogs(WorkflowRunLogsParams{
+			cl, err := f()
+			if err != nil {
+				return err
+			}
+			return New(cl).WorkflowRunLogs(WorkflowRunLogsParams{
 				Namespace:     flags.GetNamespace(cmd),
 				ComponentName: args[0],
 				RunName:       flags.GetWorkflowRun(cmd),
@@ -327,7 +334,7 @@ func newWorkflowRunCmd(f client.NewClientFunc) *cobra.Command {
 	}
 	cmd.AddCommand(
 		newListWorkflowRunCmd(f),
-		newWorkflowRunLogsCmd(),
+		newWorkflowRunLogsCmd(f),
 	)
 	return cmd
 }
@@ -356,7 +363,7 @@ func newListWorkflowRunCmd(f client.NewClientFunc) *cobra.Command {
 	return cmd
 }
 
-func newWorkflowRunLogsCmd() *cobra.Command {
+func newWorkflowRunLogsCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs [COMPONENT_NAME]",
 		Short: "Get logs for a component's workflow run",
@@ -368,7 +375,11 @@ Use --workflowrun to specify a particular run.`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return New(nil).WorkflowRunLogs(WorkflowRunLogsParams{
+			cl, err := f()
+			if err != nil {
+				return err
+			}
+			return New(cl).WorkflowRunLogs(WorkflowRunLogsParams{
 				Namespace:     flags.GetNamespace(cmd),
 				ComponentName: args[0],
 				RunName:       flags.GetWorkflowRun(cmd),
