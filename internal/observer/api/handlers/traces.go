@@ -316,6 +316,9 @@ func convertTracesResponseToGen(resp *types.TracesQueryResponse) *gen.TracesQuer
 			"endTime":      trace.EndTime,
 			"durationNs":   trace.DurationNs,
 		}
+		if trace.HasErrors {
+			traceData[i]["hasErrors"] = trace.HasErrors
+		}
 	}
 
 	// Use JSON round-trip to properly construct the generated type
@@ -352,6 +355,9 @@ func convertSpansResponseToGen(resp *types.SpansQueryResponse) *gen.TraceSpansQu
 		if span.SpanKind != "" {
 			spanData[i]["spanKind"] = span.SpanKind
 		}
+		if span.Status != "" {
+			spanData[i]["status"] = span.Status
+		}
 		if span.ParentSpanID != "" {
 			spanData[i]["parentSpanId"] = span.ParentSpanID
 		}
@@ -387,6 +393,9 @@ func convertSpanDetailsToGen(span *types.SpanInfo) map[string]interface{} {
 	}
 	if span.SpanKind != "" {
 		spanData["spanKind"] = span.SpanKind
+	}
+	if span.Status != "" {
+		spanData["status"] = span.Status
 	}
 	if span.ParentSpanID != "" {
 		spanData["parentSpanId"] = span.ParentSpanID

@@ -189,7 +189,7 @@ func TestWebhook_FirstAlert_FullProcessing(t *testing.T) {
 	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, gen.Success, *resp.Status)
+	assert.Equal(t, gen.AlertWebhookResponseStatusSuccess, *resp.Status)
 	assert.Contains(t, *resp.Message, "alert acknowledged")
 
 	// Alert entry must be persisted

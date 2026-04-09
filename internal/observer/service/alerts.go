@@ -212,7 +212,7 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 			s.logger.Info("Alert suppressed (duplicate within suppression window)",
 				"ruleName", ruleName, "ruleNamespace", ruleNamespace,
 				"suppressionWindow", s.config.Alerting.AlertSuppressionWindow)
-			suppressedStatus := gen.Success
+			suppressedStatus := gen.AlertWebhookResponseStatusSuccess
 			msg := "alert suppressed: duplicate within suppression window"
 			return &gen.AlertWebhookResponse{
 				Status:  &suppressedStatus,
@@ -381,7 +381,7 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		go s.triggerRCAAnalysis(alertID, alertDetails, alertRule)
 	}
 
-	successStatus := gen.Success
+	successStatus := gen.AlertWebhookResponseStatusSuccess
 	msg := fmt.Sprintf("alert acknowledged, alertID: %s", alertID)
 	return &gen.AlertWebhookResponse{
 		Status:  &successStatus,

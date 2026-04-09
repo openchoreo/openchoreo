@@ -38,11 +38,12 @@ type TracesAggregationResult struct {
 
 // TraceBucket represents a single trace bucket from the terms aggregation
 type TraceBucket struct {
-	Key          string             `json:"key"`
-	DocCount     int                `json:"doc_count"`
-	EarliestSpan AggTopHitsValue    `json:"earliest_span"`
-	RootSpan     AggFilteredTopHits `json:"root_span"`
-	LatestSpan   AggTopHitsValue    `json:"latest_span"`
+	Key            string             `json:"key"`
+	DocCount       int                `json:"doc_count"`
+	EarliestSpan   AggTopHitsValue    `json:"earliest_span"`
+	RootSpan       AggFilteredTopHits `json:"root_span"`
+	LatestSpan     AggTopHitsValue    `json:"latest_span"`
+	ErrorSpanCount AggFilteredTopHits `json:"error_span_count"`
 }
 
 // AggTopHitsValue represents a top_hits aggregation result
@@ -137,6 +138,7 @@ type Span struct {
 	SpanID                 string                 `json:"spanId"`
 	SpanKind               string                 `json:"spanKind"`
 	StartTime              time.Time              `json:"startTime"`
+	Status                 string                 `json:"status,omitempty"`
 	Attributes             map[string]interface{} `json:"attributes,omitempty"`
 	ResourceAttributes     map[string]interface{} `json:"resourceAttributes,omitempty"`
 }

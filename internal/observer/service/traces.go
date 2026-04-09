@@ -231,6 +231,7 @@ func (s *TracesService) GetSpanDetails(ctx context.Context, traceID string, span
 			StartTime:          &detail.StartTime,
 			EndTime:            &detail.EndTime,
 			DurationNs:         detail.DurationNs,
+			Status:             detail.Status,
 			Attributes:         detail.Attributes,
 			ResourceAttributes: detail.ResourceAttributes,
 		}, nil
@@ -259,6 +260,7 @@ func (s *TracesService) GetSpanDetails(ctx context.Context, traceID string, span
 		StartTime:          &span.StartTime,
 		EndTime:            &span.EndTime,
 		DurationNs:         span.DurationNanoseconds,
+		Status:             span.Status,
 		Attributes:         span.Attributes,
 		ResourceAttributes: span.ResourceAttributes,
 	}, nil
@@ -277,6 +279,7 @@ func (s *TracesService) convertToResponse(result *observability.TracesQueryResul
 			StartTime:    &trace.StartTime,
 			EndTime:      &trace.EndTime,
 			DurationNs:   trace.DurationNs,
+			HasErrors:    trace.HasErrors,
 		}
 	}
 
@@ -307,6 +310,7 @@ func (s *TracesService) convertSpansToResponse(result *observability.TracesQuery
 				StartTime:          &traceSpan.StartTime,
 				EndTime:            &traceSpan.EndTime,
 				DurationNs:         traceSpan.DurationNs,
+				Status:             traceSpan.Status,
 				Attributes:         traceSpan.Attributes,
 				ResourceAttributes: traceSpan.ResourceAttributes,
 			})
@@ -333,6 +337,7 @@ func (s *TracesService) convertAdapterSpansToResponse(result *observability.Span
 			StartTime:          &startTime,
 			EndTime:            &endTime,
 			DurationNs:         span.DurationNs,
+			Status:             span.Status,
 			Attributes:         span.Attributes,
 			ResourceAttributes: span.ResourceAttributes,
 		})
