@@ -7,7 +7,9 @@ package testutil
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +20,34 @@ import (
 	"gopkg.in/yaml.v3"
 	sigsyaml "sigs.k8s.io/yaml"
 )
+
+// NonExpiredJWT is a minimal unsigned JWT with exp=9999999999 (year 2286).
+// header: {"alg":"none","typ":"JWT"}, payload: {"exp":9999999999}
+const NonExpiredJWT = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJleHAiOjk5OTk5OTk5OTl9." //nolint:gosec // test token
+
+// RoundTripFunc lets a plain function satisfy http.RoundTripper.
+type RoundTripFunc func(*http.Request) (*http.Response, error)
+
+// RoundTrip implements http.RoundTripper.
+func (f RoundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// SetTransport replaces http.DefaultTransport for the duration of the test.
+func SetTransport(t *testing.T, rt http.RoundTripper) {
+	t.Helper()
+	original := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = original })
+	http.DefaultTransport = rt
+}
+
+// JSONResp builds an *http.Response with the given status and JSON body.
+func JSONResp(status int, body any) *http.Response {
+	b, _ := json.Marshal(body)
+	return &http.Response{
+		StatusCode: status,
+		Body:       io.NopCloser(bytes.NewReader(b)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}
+}
 
 // CaptureStdout runs fn while redirecting os.Stdout and returns what was written.
 func CaptureStdout(t *testing.T, fn func()) string {

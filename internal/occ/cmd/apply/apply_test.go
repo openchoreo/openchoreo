@@ -6,7 +6,6 @@ package apply
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,19 +22,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
-
-// roundTripFunc lets a plain function satisfy http.RoundTripper.
-type roundTripFunc func(*http.Request) (*http.Response, error)
-
-func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
-
-// setTransport replaces http.DefaultTransport for the duration of the test.
-func setTransport(t *testing.T, rt http.RoundTripper) {
-	t.Helper()
-	original := http.DefaultTransport
-	t.Cleanup(func() { http.DefaultTransport = original })
-	http.DefaultTransport = rt
-}
 
 // --- Params ---
 
@@ -328,13 +314,9 @@ func TestReadResourceContent(t *testing.T) {
 	})
 }
 
-// nonExpiredJWT is a minimal unsigned JWT with exp=9999999999 (year 2286).
-// header: {"alg":"none","typ":"JWT"}, payload: {"exp":9999999999}
-const nonExpiredJWT = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJleHAiOjk5OTk5OTk5OTl9." //nolint:gosec // test token
-
 // setupApplyTest configures a test home with OC config and mocks HTTP transport.
 // It returns a *client.Client ready for use.
-func setupApplyTest(t *testing.T, handler roundTripFunc) *client.Client {
+func setupApplyTest(t *testing.T, handler testutil.RoundTripFunc) *client.Client {
 	t.Helper()
 	const baseURL = "http://mock-api"
 
@@ -342,29 +324,19 @@ func setupApplyTest(t *testing.T, handler roundTripFunc) *client.Client {
 	testutil.WriteOCConfig(t, home, config.StoredConfig{
 		CurrentContext: "test",
 		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: baseURL}},
-		Credentials:    []config.Credential{{Name: "cred", Token: nonExpiredJWT}},
+		Credentials:    []config.Credential{{Name: "cred", Token: testutil.NonExpiredJWT}},
 		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
 	})
 
-	setTransport(t, handler)
+	testutil.SetTransport(t, handler)
 
 	cl, err := client.NewClient()
 	require.NoError(t, err)
 	return cl
 }
 
-// jsonResp builds an *http.Response with the given status and JSON body.
-func jsonResp(status int, body any) *http.Response {
-	b, _ := json.Marshal(body)
-	return &http.Response{
-		StatusCode: status,
-		Body:       io.NopCloser(bytes.NewReader(b)),
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-	}
-}
-
 func TestApply_MultipleResources(t *testing.T) {
-	cl := setupApplyTest(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		// All GETs return 404 (not found), all POSTs return 201 (created)
 		if r.Method == http.MethodGet {
 			return &http.Response{
@@ -374,7 +346,7 @@ func TestApply_MultipleResources(t *testing.T) {
 			}, nil
 		}
 		if r.Method == http.MethodPost {
-			return jsonResp(http.StatusCreated, map[string]any{}), nil
+			return testutil.JSONResp(http.StatusCreated, map[string]any{}), nil
 		}
 		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody, Header: http.Header{}}, nil
 	}))
@@ -400,7 +372,7 @@ metadata:
 }
 
 func TestApply_EmptyFilePath(t *testing.T) {
-	cl := setupApplyTest(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		t.Fatal("no HTTP call expected")
 		return nil, nil
 	}))
@@ -411,7 +383,7 @@ func TestApply_EmptyFilePath(t *testing.T) {
 }
 
 func TestApply_UnsupportedKind(t *testing.T) {
-	cl := setupApplyTest(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		t.Fatal("no HTTP call expected")
 		return nil, nil
 	}))
@@ -431,7 +403,7 @@ metadata:
 }
 
 func TestApply_ReadOnlyKind(t *testing.T) {
-	cl := setupApplyTest(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		t.Fatal("no HTTP call expected")
 		return nil, nil
 	}))
@@ -452,7 +424,7 @@ metadata:
 }
 
 func TestApply_CreateFails(t *testing.T) {
-	cl := setupApplyTest(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		if r.Method == http.MethodGet {
 			return &http.Response{
 				StatusCode: http.StatusNotFound,
@@ -461,7 +433,7 @@ func TestApply_CreateFails(t *testing.T) {
 			}, nil
 		}
 		if r.Method == http.MethodPost {
-			return jsonResp(http.StatusBadRequest, map[string]any{
+			return testutil.JSONResp(http.StatusBadRequest, map[string]any{
 				"code": "INVALID_REQUEST", "error": "name is required",
 			}), nil
 		}
@@ -483,7 +455,7 @@ metadata:
 }
 
 func TestApply_Directory(t *testing.T) {
-	cl := setupApplyTest(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		if r.Method == http.MethodGet {
 			return &http.Response{
 				StatusCode: http.StatusNotFound,
@@ -491,7 +463,7 @@ func TestApply_Directory(t *testing.T) {
 				Header:     http.Header{},
 			}, nil
 		}
-		return jsonResp(http.StatusCreated, map[string]any{}), nil
+		return testutil.JSONResp(http.StatusCreated, map[string]any{}), nil
 	}))
 
 	dir := t.TempDir()
@@ -509,7 +481,7 @@ func TestApply_Directory(t *testing.T) {
 }
 
 func TestApply_NamespacedResourceMissingNamespace(t *testing.T) {
-	cl := setupApplyTest(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		t.Fatal("no HTTP call expected")
 		return nil, nil
 	}))

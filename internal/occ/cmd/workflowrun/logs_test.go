@@ -5,7 +5,9 @@ package workflowrun
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +16,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -462,4 +466,229 @@ func TestParseSinceToSeconds(t *testing.T) {
 			assert.Equal(t, tt.want, parseSinceToSeconds(tt.since))
 		})
 	}
+}
+
+// --- fetchArchivedLogs ---
+
+// setupArchivedLogsConfig sets up a test home with OC config containing a non-expired JWT.
+func setupArchivedLogsConfig(t *testing.T) {
+	t.Helper()
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, config.StoredConfig{
+		CurrentContext: "test",
+		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock-api"}},
+		Credentials:    []config.Credential{{Name: "cred", Token: testutil.NonExpiredJWT}},
+		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
+	})
+}
+
+// setupMockForArchivedLogs configures the mock client for the standard archived logs resolution chain:
+// GetWorkflowRun → GetWorkflow → GetWorkflowPlane → GetObservabilityPlane.
+func setupMockForArchivedLogs(t *testing.T, mc *mocks.MockInterface, observerURL string) {
+	t.Helper()
+	mc.EXPECT().GetWorkflowRun(mock.Anything, "ns", "run-1").Return(&gen.WorkflowRun{
+		Spec: &gen.WorkflowRunSpec{
+			Workflow: gen.WorkflowRunConfig{Name: "my-wf"},
+		},
+	}, nil)
+	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "my-wf").Return(&gen.Workflow{
+		Spec: &gen.WorkflowSpec{
+			WorkflowPlaneRef: &gen.WorkflowPlaneRef{Kind: gen.WorkflowPlaneRefKindWorkflowPlane, Name: "my-wp"},
+		},
+	}, nil)
+	obsRef := &gen.ObservabilityPlaneRef{Kind: gen.ObservabilityPlaneRefKindObservabilityPlane, Name: "my-obs"}
+	mc.EXPECT().GetWorkflowPlane(mock.Anything, "ns", "my-wp").Return(
+		&gen.WorkflowPlane{Spec: &gen.WorkflowPlaneSpec{ObservabilityPlaneRef: obsRef}}, nil)
+	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "my-obs").Return(
+		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{ObserverURL: &observerURL}}, nil)
+}
+
+func TestFetchArchivedLogs_Success(t *testing.T) {
+	setupArchivedLogsConfig(t)
+
+	observerURL := "http://observer.test"
+	mc := mocks.NewMockInterface(t)
+
+	// Status returns no live observability → archived path
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
+	setupMockForArchivedLogs(t, mc, observerURL)
+
+	// Mock the observer HTTP call
+	testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, observerURL+"/api/v1/logs/query", r.URL.String())
+		return testutil.JSONResp(http.StatusOK, client.LogResponse{
+			Logs: []client.LogEntry{
+				{Timestamp: "2026-01-01T00:00:00Z", Log: "build started"},
+				{Timestamp: "2026-01-01T00:01:00Z", Log: "build completed"},
+			},
+			TotalCount: 2,
+		}), nil
+	}))
+
+	wr := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}))
+	})
+	assert.Contains(t, out, "build started")
+	assert.Contains(t, out, "build completed")
+}
+
+func TestFetchArchivedLogs_NoLogs(t *testing.T) {
+	setupArchivedLogsConfig(t)
+
+	observerURL := "http://observer.test"
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
+	setupMockForArchivedLogs(t, mc, observerURL)
+
+	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		return testutil.JSONResp(http.StatusOK, client.LogResponse{Logs: []client.LogEntry{}}), nil
+	}))
+
+	wr := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}))
+	})
+	assert.Contains(t, out, "No logs found")
+}
+
+func TestFetchArchivedLogs_WithFollowFlag(t *testing.T) {
+	setupArchivedLogsConfig(t)
+
+	observerURL := "http://observer.test"
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
+	setupMockForArchivedLogs(t, mc, observerURL)
+
+	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		return testutil.JSONResp(http.StatusOK, client.LogResponse{
+			Logs: []client.LogEntry{{Timestamp: "2026-01-01T00:00:00Z", Log: "done"}},
+		}), nil
+	}))
+
+	wr := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1", Follow: true}))
+	})
+	assert.Contains(t, out, "done")
+	assert.Contains(t, out, "Follow mode is not available for archived logs")
+}
+
+func TestFetchArchivedLogs_WithSince(t *testing.T) {
+	setupArchivedLogsConfig(t)
+
+	observerURL := "http://observer.test"
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
+	setupMockForArchivedLogs(t, mc, observerURL)
+
+	testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		// Verify the request body contains the expected time range
+		var body map[string]any
+		err := json.NewDecoder(r.Body).Decode(&body)
+		require.NoError(t, err)
+		assert.NotEmpty(t, body["startTime"])
+		assert.NotEmpty(t, body["endTime"])
+		return testutil.JSONResp(http.StatusOK, client.LogResponse{
+			Logs: []client.LogEntry{{Timestamp: "2026-01-01T00:00:00Z", Log: "recent log"}},
+		}), nil
+	}))
+
+	wr := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1", Since: "30m"}))
+	})
+	assert.Contains(t, out, "recent log")
+}
+
+func TestFetchArchivedLogs_GetWorkflowRunError(t *testing.T) {
+	setupArchivedLogsConfig(t)
+
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
+	mc.EXPECT().GetWorkflowRun(mock.Anything, "ns", "run-1").Return(nil, fmt.Errorf("not found"))
+
+	wr := New(mc)
+	err := wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1"})
+	assert.ErrorContains(t, err, "failed to get workflow run")
+}
+
+func TestFetchArchivedLogs_NoWorkflowRef(t *testing.T) {
+	setupArchivedLogsConfig(t)
+
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
+	mc.EXPECT().GetWorkflowRun(mock.Anything, "ns", "run-1").Return(&gen.WorkflowRun{
+		Spec: nil, // no spec means no workflow reference
+	}, nil)
+
+	wr := New(mc)
+	err := wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1"})
+	assert.ErrorContains(t, err, "has no workflow reference")
+}
+
+func TestFetchArchivedLogs_ObserverAPIError(t *testing.T) {
+	setupArchivedLogsConfig(t)
+
+	observerURL := "http://observer.test"
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
+	setupMockForArchivedLogs(t, mc, observerURL)
+
+	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		return testutil.JSONResp(http.StatusInternalServerError, map[string]string{"error": "internal"}), nil
+	}))
+
+	wr := New(mc)
+	err := wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1"})
+	assert.ErrorContains(t, err, "failed to fetch archived logs from observer")
+}
+
+func TestFetchArchivedLogs_CredentialError(t *testing.T) {
+	// Set up empty config with no credentials
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, config.StoredConfig{
+		CurrentContext: "test",
+		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock-api"}},
+		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp"}}, // no credentials ref
+	})
+
+	observerURL := "http://observer.test"
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
+	setupMockForArchivedLogs(t, mc, observerURL)
+
+	wr := New(mc)
+	err := wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1"})
+	assert.ErrorContains(t, err, "failed to get credentials")
+}
+
+func TestFetchArchivedLogs_ResolveObserverURLError(t *testing.T) {
+	setupArchivedLogsConfig(t)
+
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
+		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
+	mc.EXPECT().GetWorkflowRun(mock.Anything, "ns", "run-1").Return(&gen.WorkflowRun{
+		Spec: &gen.WorkflowRunSpec{
+			Workflow: gen.WorkflowRunConfig{Name: "my-wf"},
+		},
+	}, nil)
+	// Workflow not found, and no default observability planes
+	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "my-wf").Return(nil, fmt.Errorf("not found"))
+	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "default").Return(nil, fmt.Errorf("not found"))
+	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "default").Return(nil, fmt.Errorf("not found"))
+
+	wr := New(mc)
+	err := wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1"})
+	assert.ErrorContains(t, err, "failed to resolve observer URL")
 }

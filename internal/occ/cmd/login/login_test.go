@@ -5,7 +5,6 @@ package login
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -19,23 +18,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
-// roundTripFunc lets a plain function satisfy http.RoundTripper.
-type roundTripFunc func(*http.Request) (*http.Response, error)
-
-func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
-
-// jsonResponse builds a 200 OK *http.Response with a JSON body.
-func jsonResponse(t *testing.T, body any) *http.Response {
-	t.Helper()
-	b, err := json.Marshal(body)
-	require.NoError(t, err)
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(bytes.NewReader(b)),
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-	}
-}
-
 // mockOIDCTransport replaces http.DefaultTransport for the duration of the test.
 // It intercepts the three OIDC discovery/token calls and returns canned responses.
 // tokenStatus controls the HTTP status returned by the /token endpoint.
@@ -44,13 +26,10 @@ func mockOIDCTransport(t *testing.T, securityEnabled bool, tokenStatus int) stri
 	t.Helper()
 	const baseURL = "http://mock-control-plane"
 
-	original := http.DefaultTransport
-	t.Cleanup(func() { http.DefaultTransport = original })
-
-	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		switch r.URL.Path {
 		case "/.well-known/oauth-protected-resource":
-			return jsonResponse(t, map[string]any{
+			return testutil.JSONResp(http.StatusOK, map[string]any{
 				"authorization_servers": []string{baseURL},
 				"openchoreo_clients": []map[string]any{
 					{"name": "cli", "client_id": "cli-id", "scopes": []string{"openid"}},
@@ -59,7 +38,7 @@ func mockOIDCTransport(t *testing.T, securityEnabled bool, tokenStatus int) stri
 			}), nil
 
 		case "/.well-known/openid-configuration":
-			return jsonResponse(t, map[string]any{
+			return testutil.JSONResp(http.StatusOK, map[string]any{
 				"authorization_endpoint": baseURL + "/authorize",
 				"token_endpoint":         baseURL + "/token",
 			}), nil
@@ -72,7 +51,7 @@ func mockOIDCTransport(t *testing.T, securityEnabled bool, tokenStatus int) stri
 					Header:     http.Header{},
 				}, nil
 			}
-			return jsonResponse(t, map[string]any{
+			return testutil.JSONResp(http.StatusOK, map[string]any{
 				"access_token": "test-access-token",
 				"token_type":   "Bearer",
 				"expires_in":   3600,
@@ -81,7 +60,7 @@ func mockOIDCTransport(t *testing.T, securityEnabled bool, tokenStatus int) stri
 		default:
 			return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody, Header: http.Header{}}, nil
 		}
-	})
+	}))
 
 	return baseURL
 }

@@ -69,11 +69,11 @@ func TestNewApplyCmd_RunE_NoFile(t *testing.T) {
 	testutil.WriteOCConfig(t, home, config.StoredConfig{
 		CurrentContext: "test",
 		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock"}},
-		Credentials:    []config.Credential{{Name: "cred", Token: nonExpiredJWT}},
+		Credentials:    []config.Credential{{Name: "cred", Token: testutil.NonExpiredJWT}},
 		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
 	})
 
-	setTransport(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		t.Fatal("no HTTP call expected")
 		return nil, nil
 	}))
@@ -91,11 +91,11 @@ func TestNewApplyCmd_RunE_CreateNamespace(t *testing.T) {
 	testutil.WriteOCConfig(t, home, config.StoredConfig{
 		CurrentContext: "test",
 		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock-api"}},
-		Credentials:    []config.Credential{{Name: "cred", Token: nonExpiredJWT}},
+		Credentials:    []config.Credential{{Name: "cred", Token: testutil.NonExpiredJWT}},
 		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
 	})
 
-	setTransport(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		switch {
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/cmd-ns"):
 			return &http.Response{
@@ -104,7 +104,7 @@ func TestNewApplyCmd_RunE_CreateNamespace(t *testing.T) {
 				Header:     http.Header{},
 			}, nil
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/namespaces"):
-			return jsonResp(http.StatusCreated, map[string]any{
+			return testutil.JSONResp(http.StatusCreated, map[string]any{
 				"metadata": map[string]any{"name": "cmd-ns"},
 			}), nil
 		default:
@@ -141,18 +141,18 @@ func TestNewApplyCmd_RunE_UpdateNamespace(t *testing.T) {
 	testutil.WriteOCConfig(t, home, config.StoredConfig{
 		CurrentContext: "test",
 		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock-api"}},
-		Credentials:    []config.Credential{{Name: "cred", Token: nonExpiredJWT}},
+		Credentials:    []config.Credential{{Name: "cred", Token: testutil.NonExpiredJWT}},
 		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
 	})
 
-	setTransport(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		switch {
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/upd-ns"):
-			return jsonResp(http.StatusOK, map[string]any{
+			return testutil.JSONResp(http.StatusOK, map[string]any{
 				"metadata": map[string]any{"name": "upd-ns"},
 			}), nil
 		case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/namespaces/upd-ns"):
-			return jsonResp(http.StatusOK, map[string]any{
+			return testutil.JSONResp(http.StatusOK, map[string]any{
 				"metadata": map[string]any{"name": "upd-ns"},
 			}), nil
 		default:

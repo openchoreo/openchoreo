@@ -23,7 +23,7 @@ import (
 // and a /token endpoint returning the given access token.
 func oidcTransport(t *testing.T, baseURL, accessToken string) http.RoundTripper {
 	t.Helper()
-	return roundTripFunc(func(r *http.Request) (*http.Response, error) {
+	return testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		var body any
 		switch r.URL.Path {
 		case "/.well-known/oauth-protected-resource":
@@ -99,7 +99,7 @@ func TestRefreshToken(t *testing.T) {
 
 	t.Run("refreshes via authorization_code grant when refresh token present", func(t *testing.T) {
 		home := testutil.SetupTestHome(t)
-		setTransport(t, oidcTransport(t, baseURL, "new-access-token"))
+		testutil.SetTransport(t,oidcTransport(t, baseURL, "new-access-token"))
 
 		require.NoError(t, config.SaveStoredConfig(&config.StoredConfig{
 			CurrentContext: "ctx",
@@ -122,7 +122,7 @@ func TestRefreshToken(t *testing.T) {
 
 	t.Run("refreshes via client_credentials when no refresh token", func(t *testing.T) {
 		home := testutil.SetupTestHome(t)
-		setTransport(t, oidcTransport(t, baseURL, "new-cc-token"))
+		testutil.SetTransport(t,oidcTransport(t, baseURL, "new-cc-token"))
 
 		require.NoError(t, config.SaveStoredConfig(&config.StoredConfig{
 			CurrentContext: "ctx",
@@ -153,7 +153,7 @@ func TestRefreshToken(t *testing.T) {
 
 	t.Run("returns error when client credentials are missing for refresh", func(t *testing.T) {
 		home := testutil.SetupTestHome(t)
-		setTransport(t, oidcTransport(t, baseURL, ""))
+		testutil.SetTransport(t,oidcTransport(t, baseURL, ""))
 
 		require.NoError(t, config.SaveStoredConfig(&config.StoredConfig{
 			CurrentContext: "ctx",
