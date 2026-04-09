@@ -88,6 +88,22 @@ func TestPrint_NilTimestamp(t *testing.T) {
 	assert.Contains(t, out, "no-timestamp")
 }
 
+// --- Params tests ---
+
+func TestListParams_GetNamespace(t *testing.T) {
+	assert.Equal(t, "my-ns", ListParams{Namespace: "my-ns"}.GetNamespace())
+}
+
+func TestGetParams_GetNamespace(t *testing.T) {
+	assert.Equal(t, "my-ns", GetParams{Namespace: "my-ns"}.GetNamespace())
+}
+
+func TestDeleteParams_Getters(t *testing.T) {
+	p := DeleteParams{Namespace: "my-ns", DeploymentPipelineName: "pipeline-a"}
+	assert.Equal(t, "my-ns", p.GetNamespace())
+	assert.Equal(t, "pipeline-a", p.GetDeploymentPipelineName())
+}
+
 // --- List tests ---
 
 func TestList_ValidationError(t *testing.T) {

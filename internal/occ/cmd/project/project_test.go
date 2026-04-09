@@ -76,6 +76,22 @@ func TestPrintList_WithItems(t *testing.T) {
 	assert.Contains(t, out, "proj-b")
 }
 
+// --- Params tests ---
+
+func TestListParams_GetNamespace(t *testing.T) {
+	assert.Equal(t, "my-ns", ListParams{Namespace: "my-ns"}.GetNamespace())
+}
+
+func TestGetParams_GetNamespace(t *testing.T) {
+	assert.Equal(t, "my-ns", GetParams{Namespace: "my-ns"}.GetNamespace())
+}
+
+func TestDeleteParams_Getters(t *testing.T) {
+	p := DeleteParams{Namespace: "my-ns", ProjectName: "proj-a"}
+	assert.Equal(t, "my-ns", p.GetNamespace())
+	assert.Equal(t, "proj-a", p.GetProjectName())
+}
+
 // --- List tests ---
 
 func TestList_ValidationError(t *testing.T) {
