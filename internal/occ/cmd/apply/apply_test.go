@@ -4,8 +4,11 @@
 package apply
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,37 +19,22 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
-// --- NewApplyCmd ---
+// roundTripFunc lets a plain function satisfy http.RoundTripper.
+type roundTripFunc func(*http.Request) (*http.Response, error)
 
-func TestNewApplyCmd_Structure(t *testing.T) {
-	f := func() (client.Interface, error) { return nil, fmt.Errorf("unused") }
-	cmd := NewApplyCmd(f)
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
-	assert.Equal(t, "apply", cmd.Use)
-	assert.NotEmpty(t, cmd.Short)
-	assert.NotNil(t, cmd.RunE)
-	assert.NotNil(t, cmd.PreRunE)
-	assert.NotNil(t, cmd.Flags().Lookup("file"), "expected -f/--file flag")
-}
-
-func TestNewApplyCmd_FactoryError(t *testing.T) {
-	f := func() (client.Interface, error) { return nil, fmt.Errorf("factory failed") }
-	cmd := NewApplyCmd(f)
-
-	err := cmd.RunE(cmd, nil)
-	assert.EqualError(t, err, "factory failed")
-}
-
-func TestNewApplyCmd_FileFlag(t *testing.T) {
-	f := func() (client.Interface, error) { return nil, fmt.Errorf("unused") }
-	cmd := NewApplyCmd(f)
-
-	flag := cmd.Flags().Lookup("file")
-	require.NotNil(t, flag)
-	assert.Equal(t, "f", flag.Shorthand)
+// setTransport replaces http.DefaultTransport for the duration of the test.
+func setTransport(t *testing.T, rt http.RoundTripper) {
+	t.Helper()
+	original := http.DefaultTransport
+	t.Cleanup(func() { http.DefaultTransport = original })
+	http.DefaultTransport = rt
 }
 
 // --- Params ---
@@ -338,4 +326,277 @@ func TestReadResourceContent(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "HTTP 404")
 	})
+}
+
+// --- Apply happy path ---
+
+// nonExpiredJWT is a minimal unsigned JWT with exp=9999999999 (year 2286).
+// header: {"alg":"none","typ":"JWT"}, payload: {"exp":9999999999}
+const nonExpiredJWT = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJleHAiOjk5OTk5OTk5OTl9." //nolint:gosec // test token
+
+// setupApplyTest configures a test home with OC config and mocks HTTP transport.
+// It returns a *client.Client ready for use.
+func setupApplyTest(t *testing.T, handler roundTripFunc) *client.Client {
+	t.Helper()
+	const baseURL = "http://mock-api"
+
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, config.StoredConfig{
+		CurrentContext: "test",
+		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: baseURL}},
+		Credentials:    []config.Credential{{Name: "cred", Token: nonExpiredJWT}},
+		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
+	})
+
+	setTransport(t, handler)
+
+	cl, err := client.NewClient()
+	require.NoError(t, err)
+	return cl
+}
+
+// jsonResp builds an *http.Response with the given status and JSON body.
+func jsonResp(status int, body any) *http.Response {
+	b, _ := json.Marshal(body)
+	return &http.Response{
+		StatusCode: status,
+		Body:       io.NopCloser(bytes.NewReader(b)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+	}
+}
+
+func TestApply_CreateNamespace(t *testing.T) {
+	cl := setupApplyTest(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch {
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/test-ns"):
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":"not found"}`))),
+				Header:     http.Header{},
+			}, nil
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/namespaces"):
+			return jsonResp(http.StatusCreated, map[string]any{
+				"metadata": map[string]any{"name": "test-ns"},
+			}), nil
+		default:
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       http.NoBody,
+				Header:     http.Header{},
+			}, nil
+		}
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "ns.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Namespace
+apiVersion: core.openchoreo.dev/v1alpha1
+metadata:
+  name: test-ns
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		err := Apply(cl, Params{FilePath: yamlFile})
+		require.NoError(t, err)
+	})
+	assert.Contains(t, out, "namespace/test-ns created")
+}
+
+func TestApply_UpdateNamespace(t *testing.T) {
+	cl := setupApplyTest(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch {
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/existing-ns"):
+			return jsonResp(http.StatusOK, map[string]any{
+				"metadata": map[string]any{"name": "existing-ns"},
+			}), nil
+		case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/namespaces/existing-ns"):
+			return jsonResp(http.StatusOK, map[string]any{
+				"metadata": map[string]any{"name": "existing-ns"},
+			}), nil
+		default:
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       http.NoBody,
+				Header:     http.Header{},
+			}, nil
+		}
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "ns.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Namespace
+metadata:
+  name: existing-ns
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		err := Apply(cl, Params{FilePath: yamlFile})
+		require.NoError(t, err)
+	})
+	assert.Contains(t, out, "namespace/existing-ns configured")
+}
+
+func TestApply_MultipleResources(t *testing.T) {
+	cl := setupApplyTest(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		// All GETs return 404 (not found), all POSTs return 201 (created)
+		if r.Method == http.MethodGet {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":"not found"}`))),
+				Header:     http.Header{},
+			}, nil
+		}
+		if r.Method == http.MethodPost {
+			return jsonResp(http.StatusCreated, map[string]any{}), nil
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody, Header: http.Header{}}, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "multi.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Namespace
+metadata:
+  name: ns1
+---
+kind: Namespace
+metadata:
+  name: ns2
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		err := Apply(cl, Params{FilePath: yamlFile})
+		require.NoError(t, err)
+	})
+	assert.Contains(t, out, "namespace/ns1 created")
+	assert.Contains(t, out, "namespace/ns2 created")
+	assert.Contains(t, out, "Applied 2 resource(s) from 1 file(s)")
+}
+
+func TestApply_EmptyFilePath(t *testing.T) {
+	cl := setupApplyTest(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		t.Fatal("no HTTP call expected")
+		return nil, nil
+	}))
+
+	err := Apply(cl, Params{FilePath: ""})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "file path is required")
+}
+
+func TestApply_UnsupportedKind(t *testing.T) {
+	cl := setupApplyTest(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		t.Fatal("no HTTP call expected")
+		return nil, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "bad.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: FakeResource
+metadata:
+  name: fake
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		err := Apply(cl, Params{FilePath: yamlFile})
+		require.Error(t, err)
+	})
+	assert.Contains(t, out, "unsupported kind")
+}
+
+func TestApply_ReadOnlyKind(t *testing.T) {
+	cl := setupApplyTest(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		t.Fatal("no HTTP call expected")
+		return nil, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "ro.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: RenderedRelease
+metadata:
+  name: rr1
+  namespace: test
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		err := Apply(cl, Params{FilePath: yamlFile})
+		require.Error(t, err)
+	})
+	assert.Contains(t, out, "read-only resource")
+}
+
+func TestApply_CreateFails(t *testing.T) {
+	cl := setupApplyTest(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte(`{}`))),
+				Header:     http.Header{},
+			}, nil
+		}
+		if r.Method == http.MethodPost {
+			return jsonResp(http.StatusBadRequest, map[string]any{
+				"code": "INVALID_REQUEST", "error": "name is required",
+			}), nil
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody, Header: http.Header{}}, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "fail.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Namespace
+metadata:
+  name: bad-ns
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		err := Apply(cl, Params{FilePath: yamlFile})
+		require.Error(t, err)
+	})
+	assert.Contains(t, out, "name is required")
+}
+
+func TestApply_Directory(t *testing.T) {
+	cl := setupApplyTest(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte(`{}`))),
+				Header:     http.Header{},
+			}, nil
+		}
+		return jsonResp(http.StatusCreated, map[string]any{}), nil
+	}))
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.yaml"), []byte("kind: Namespace\nmetadata:\n  name: ns-a\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.yml"), []byte("kind: Namespace\nmetadata:\n  name: ns-b\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "c.txt"), []byte("not yaml"), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		err := Apply(cl, Params{FilePath: dir})
+		require.NoError(t, err)
+	})
+	assert.Contains(t, out, "namespace/ns-a created")
+	assert.Contains(t, out, "namespace/ns-b created")
+	assert.Contains(t, out, "Applied 2 resource(s) from 2 file(s)")
+}
+
+func TestApply_NamespacedResourceMissingNamespace(t *testing.T) {
+	cl := setupApplyTest(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		t.Fatal("no HTTP call expected")
+		return nil, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "project.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Project
+metadata:
+  name: my-project
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		err := Apply(cl, Params{FilePath: yamlFile})
+		require.Error(t, err)
+	})
+	assert.Contains(t, out, "namespace is required")
 }
