@@ -1,0 +1,71 @@
+## Resource Metrics Analysis
+{{ if .Stats.CPUUsage -}}
+### CPU Metrics
+{{ if .Stats.CPUUsage.StartTime -}}
+**Time Range:** {{ .Stats.CPUUsage.StartTime }} to {{ .Stats.CPUUsage.EndTime }}
+{{ end -}}
+**CPU Usage:**
+- Mean: {{ printf "%.4f" .Stats.CPUUsage.Mean }}, Median: {{ printf "%.4f" .Stats.CPUUsage.Median }}
+- Range: {{ printf "%.4f" .Stats.CPUUsage.Min }} – {{ printf "%.4f" .Stats.CPUUsage.Max }}
+- Std Dev: {{ printf "%.4f" .Stats.CPUUsage.StdDev }}, CV: {{ printf "%.2f" .Stats.CPUUsage.CoefficientOfVariation }}
+- P90: {{ printf "%.4f" .Stats.CPUUsage.P90 }}, P95: {{ printf "%.4f" .Stats.CPUUsage.P95 }}
+{{ if and .Anomalies.CPUUsage (gt .Anomalies.CPUUsage.SpikeCount 0) -}}
+- **Anomalies:** {{ .Anomalies.CPUUsage.SpikeCount }} spikes detected (max magnitude: {{ printf "%.2f" .Anomalies.CPUUsage.MaxSpikeMagnitude }}σ)
+{{ end -}}
+{{ if .ConfigValues.CPURequests -}}
+**CPU Requests:** {{ printf "%.4f" .ConfigValues.CPURequests }}
+{{ end -}}
+{{ if .ConfigValues.CPULimits -}}
+**CPU Limits:** {{ printf "%.4f" .ConfigValues.CPULimits }}
+{{ end -}}
+{{ if .CPUPressure -}}
+**CPU Resource Pressure:**
+- Usage to Request ratio: {{ printf "%.1f" (mul .CPUPressure.AvgUsageToRequestRatio 100) }}%
+- Usage to Limit ratio: {{ printf "%.1f" (mul .CPUPressure.AvgUsageToLimitRatio 100) }}%
+{{ if .CPUPressure.ExceededRequests -}}
+- CPU usage exceeded requests at some point
+{{ end -}}
+{{ if .CPUPressure.ExceededLimits -}}
+- CPU usage exceeded limits at some point (throttling likely occurred)
+{{ end -}}
+{{ end -}}
+{{ end -}}
+{{ if .Stats.MemoryUsage -}}
+### Memory Metrics
+{{ if .Stats.MemoryUsage.StartTime -}}
+**Time Range:** {{ .Stats.MemoryUsage.StartTime }} to {{ .Stats.MemoryUsage.EndTime }}
+{{ end -}}
+**Memory Usage:**
+- Mean: {{ printf "%.0f" .Stats.MemoryUsage.Mean }} bytes ({{ printf "%.2f" (toMB .Stats.MemoryUsage.Mean) }} MB)
+- Median: {{ printf "%.0f" .Stats.MemoryUsage.Median }} bytes ({{ printf "%.2f" (toMB .Stats.MemoryUsage.Median) }} MB)
+- Range: {{ printf "%.0f" .Stats.MemoryUsage.Min }} – {{ printf "%.0f" .Stats.MemoryUsage.Max }} bytes
+- Std Dev: {{ printf "%.0f" .Stats.MemoryUsage.StdDev }}, CV: {{ printf "%.2f" .Stats.MemoryUsage.CoefficientOfVariation }}
+- P90: {{ printf "%.2f" (toMB .Stats.MemoryUsage.P90) }} MB, P95: {{ printf "%.2f" (toMB .Stats.MemoryUsage.P95) }} MB
+{{ if and .Anomalies.MemoryUsage (gt .Anomalies.MemoryUsage.SpikeCount 0) -}}
+- **Anomalies:** {{ .Anomalies.MemoryUsage.SpikeCount }} spikes detected (max magnitude: {{ printf "%.2f" .Anomalies.MemoryUsage.MaxSpikeMagnitude }}σ)
+{{ if lt .Anomalies.MemoryUsage.LargestDrop -1048576.0 -}}
+- Largest drop: {{ printf "%.2f" (toMB .Anomalies.MemoryUsage.LargestDrop) }} MB
+{{ end -}}
+{{ end -}}
+{{ if .ConfigValues.MemoryRequests -}}
+**Memory Requests:** {{ printf "%.0f" .ConfigValues.MemoryRequests }} bytes ({{ printf "%.2f" (toMB .ConfigValues.MemoryRequests) }} MB)
+{{ end -}}
+{{ if .ConfigValues.MemoryLimits -}}
+**Memory Limits:** {{ printf "%.0f" .ConfigValues.MemoryLimits }} bytes ({{ printf "%.2f" (toMB .ConfigValues.MemoryLimits) }} MB)
+{{ end -}}
+{{ if .MemoryPressure -}}
+**Memory Resource Pressure:**
+- Usage to Request ratio: {{ printf "%.1f" (mul .MemoryPressure.AvgUsageToRequestRatio 100) }}%
+- Usage to Limit ratio: {{ printf "%.1f" (mul .MemoryPressure.AvgUsageToLimitRatio 100) }}%
+{{ if .MemoryPressure.ExceededRequests -}}
+- Memory usage exceeded requests at some point
+{{ end -}}
+{{ if .MemoryPressure.ExceededLimits -}}
+- Memory usage exceeded limits at some point (OOM risk/occurred)
+{{ end -}}
+{{ end -}}
+{{ end -}}
+{{ if hasKey .Correlations "CPUMemory" -}}
+### Correlations
+- CPU Usage vs Memory: {{ printf "%.4f" .Correlations.CPUMemory }}
+{{ end -}}

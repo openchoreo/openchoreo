@@ -1,0 +1,346 @@
+$defs:
+  ConfidenceLevel:
+    type: string
+    enum: [high, medium, low]
+    description: Confidence level in root cause determination
+
+  LogLevel:
+    type: string
+    enum: [ERROR, WARN, INFO, DEBUG, UNDEFINED]
+    description: Log severity levels
+
+  NoRootCauseOutcome:
+    type: string
+    enum: [no_anomaly_detected, insufficient_data, transient, external_dependency]
+    description: Categorized outcomes when no root cause is identified
+
+  AlertCondition:
+    type: object
+    required: [window, interval, operator, threshold]
+    additionalProperties: false
+    properties:
+      window:
+        type: string
+        description: Time window for the condition
+      interval:
+        type: string
+        description: Evaluation interval
+      operator:
+        type: string
+        description: Comparison operator
+      threshold:
+        type: number
+        description: Threshold value that was exceeded
+
+  ReportAlertContext:
+    type: object
+    required: [alert_id, alert_name, triggered_at, trigger_value, condition, component, project, environment]
+    additionalProperties: false
+    properties:
+      alert_id:
+        type: string
+        description: Unique identifier of the alert
+      alert_name:
+        type: string
+        description: Name of the alert rule that triggered
+      alert_description:
+        type: string
+        description: Description of the alert rule
+      severity:
+        type: string
+        description: Alert severity level
+      triggered_at:
+        type: string
+        description: ISO 8601 timestamp when alert fired
+      trigger_value:
+        type: number
+        description: The value that triggered the alert
+      source_type:
+        type: string
+        description: "Alert source type (e.g., 'log', 'metric')"
+      source_query:
+        type: string
+        description: The query used to detect this alert if source type is log
+      source_metric:
+        type: string
+        description: The metric name if source type is metric
+      condition:
+        $ref: '#/$defs/AlertCondition'
+        description: The condition that triggered the alert
+      component:
+        type: string
+        description: Component name the alert was configured on
+      project:
+        type: string
+        description: Project name of the relevant component
+      environment:
+        type: string
+        description: Environment name of the relevant project
+
+  TimeRange:
+    type: object
+    required: [start, end]
+    additionalProperties: false
+    properties:
+      start:
+        type: string
+        description: ISO 8601 timestamp for range start
+      end:
+        type: string
+        description: ISO 8601 timestamp for range end
+
+  LogLine:
+    type: object
+    required: [timestamp, level, log]
+    additionalProperties: false
+    properties:
+      timestamp:
+        type: string
+        description: ISO 8601 timestamp when the log was emitted
+      level:
+        $ref: '#/$defs/LogLevel'
+        description: Log severity level
+      log:
+        type: string
+        description: The log message content
+
+  LogEvidence:
+    type: object
+    required: [type, log_lines]
+    additionalProperties: false
+    properties:
+      type:
+        const: log
+      log_lines:
+        type: array
+        items:
+          $ref: '#/$defs/LogLine'
+        minItems: 1
+        description: Relevant log lines (can be 1 or multiple related lines)
+      repetition:
+        type: string
+        description: "One sentence explaining repetition pattern if applicable (e.g., 'This error repeated 47 times over 5 minutes')"
+
+  MetricEvidence:
+    type: object
+    required: [type, summary]
+    additionalProperties: false
+    properties:
+      type:
+        const: metric
+      summary:
+        type: string
+        description: "Summary of the metric behavior. Use backticks to highlight key info (e.g., 'Avg `85%`, peaked at `99%`')"
+
+  TraceEvidence:
+    type: object
+    required: [type, trace_id, summary]
+    additionalProperties: false
+    properties:
+      type:
+        const: trace
+      trace_id:
+        type: string
+        description: Trace ID for linking to trace viewer
+      span_id:
+        type: string
+        description: Span ID for linking to specific span
+      summary:
+        type: string
+        description: "Summary of the trace issue. Use backticks to highlight key info (e.g., 'db.query took `4,800ms`')"
+      is_error:
+        type: boolean
+        description: Whether this span had an error
+        default: false
+      error_message:
+        type: string
+        description: Error message if is_error is True
+      repetition:
+        type: string
+        description: "One sentence explaining repetition pattern if applicable (e.g., 'Similar slow spans seen in 23 traces')"
+
+  Evidence:
+    oneOf:
+      - $ref: '#/$defs/LogEvidence'
+      - $ref: '#/$defs/MetricEvidence'
+      - $ref: '#/$defs/TraceEvidence'
+
+  Finding:
+    type: object
+    required: [observation, component, time_range, evidence]
+    additionalProperties: false
+    properties:
+      observation:
+        type: string
+        description: Human-readable summary of the finding
+      component:
+        type: string
+        description: Component name this finding relates to
+      time_range:
+        $ref: '#/$defs/TimeRange'
+        description: Time range for deep-dive linking
+      evidence:
+        $ref: '#/$defs/Evidence'
+        description: The supporting evidence
+
+  RootCause:
+    type: object
+    required: [summary, confidence, analysis, supporting_findings]
+    additionalProperties: false
+    properties:
+      summary:
+        type: string
+        description: One sentence summary of the root cause
+      confidence:
+        $ref: '#/$defs/ConfidenceLevel'
+        description: Confidence level in this root cause determination
+      analysis:
+        type: string
+        description: "2-3 sentence concise explanation of how findings correlate to support this root cause. Do not repeat the summary. Use backticks to highlight key values"
+      supporting_findings:
+        type: array
+        items:
+          $ref: '#/$defs/Finding'
+        minItems: 1
+        description: "Include only evidence-backed observations directly supporting this root cause. If a finding has multiple insights within a rootcause, do not split it into multiple findings"
+
+  TimelineEvent:
+    type: object
+    required: [timestamp, event]
+    additionalProperties: false
+    properties:
+      timestamp:
+        type: string
+        description: ISO 8601 timestamp when the event occurred
+      component:
+        type: string
+        description: Which component (None for alert/system-level events)
+      event:
+        type: string
+        description: "What happened - include only significant system-level events in the causal chain. Use backticks to highlight key info"
+
+  InvestigationStep:
+    type: object
+    required: [action, outcome]
+    additionalProperties: false
+    properties:
+      action:
+        type: string
+        description: "What the agent investigated (e.g., 'Analyzed error logs from analytics-service')"
+      outcome:
+        type: string
+        description: What the agent found or concluded. Use backticks to highlight key info
+      rationale:
+        type: string
+        description: Why the agent took this step
+
+  ExcludedCause:
+    type: object
+    required: [description, rationale]
+    additionalProperties: false
+    properties:
+      description:
+        type: string
+        description: The potential cause that was investigated and excluded
+      rationale:
+        type: string
+        description: Why this was ruled out as a root cause based on evidence. Use backticks to highlight key info
+
+  Action:
+    type: object
+    required: [description]
+    additionalProperties: false
+    properties:
+      description:
+        type: string
+        description: Description of the action to take
+      rationale:
+        type: string
+        description: Why this action is recommended. Use backticks to highlight key info
+
+  Recommendations:
+    type: object
+    additionalProperties: false
+    properties:
+      recommended_actions:
+        type: array
+        items:
+          $ref: '#/$defs/Action'
+        maxItems: 3
+        description: "Top 2-3 prioritized actions to mitigate and prevent recurrence. Only include more than 2 if absolutely necessary"
+      observability_recommendations:
+        type: array
+        items:
+          $ref: '#/$defs/Action'
+        maxItems: 2
+        description: Up to 2 suggestions for improving telemetry/monitoring for better future RCA
+
+  RootCauseIdentified:
+    type: object
+    required: [type, root_causes, timeline, recommendations]
+    additionalProperties: false
+    properties:
+      type:
+        const: root_cause_identified
+      root_causes:
+        type: array
+        items:
+          $ref: '#/$defs/RootCause'
+        minItems: 1
+        description: Identified root causes in order of significance
+      timeline:
+        type: array
+        items:
+          $ref: '#/$defs/TimelineEvent'
+        minItems: 1
+        description: Chronological sequence of significant system events. Include only system(project) level events
+      excluded_causes:
+        type: array
+        items:
+          $ref: '#/$defs/ExcludedCause'
+        description: Potential causes that were investigated and ruled out
+      recommendations:
+        $ref: '#/$defs/Recommendations'
+        description: Actionable practical recommendations to prevent recurrence
+
+  NoRootCauseIdentified:
+    type: object
+    required: [type, outcome, explanation]
+    additionalProperties: false
+    properties:
+      type:
+        const: no_root_cause_identified
+      outcome:
+        $ref: '#/$defs/NoRootCauseOutcome'
+        description: Categorized reason why no root cause was identified
+      explanation:
+        type: string
+        description: Detailed explanation of why no root cause was identified
+      recommendations:
+        $ref: '#/$defs/Recommendations'
+        description: Recommendations for improving observability if applicable
+
+  RCAResult:
+    oneOf:
+      - $ref: '#/$defs/RootCauseIdentified'
+      - $ref: '#/$defs/NoRootCauseIdentified'
+
+type: object
+required: [alert_context, summary, result, investigation_path]
+additionalProperties: false
+properties:
+  alert_context:
+    $ref: '#/$defs/ReportAlertContext'
+    description: The alert that triggered this RCA
+  summary:
+    type: string
+    description: Concise summary of the investigation outcome (1 sentence)
+  result:
+    $ref: '#/$defs/RCAResult'
+    description: "The RCA result - either root causes identified, or explanation of why not"
+  investigation_path:
+    type: array
+    items:
+      $ref: '#/$defs/InvestigationStep'
+    minItems: 1
+    description: Sequential steps the agent took during investigation

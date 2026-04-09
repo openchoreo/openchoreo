@@ -1,0 +1,4 @@
+## Trace Spans ({{ .Total }} total)
+{{ range .Spans -}}
+{{ .Indent }}{{ .SpanName }} [{{ .ServiceName }} ns={{ .Namespace }} project={{ .Project }} component={{ .Component }}] {{ printf "%.2f" .DurationMs }}ms{{ range $k, $v := .Attributes }} | {{ $k }}={{ $v }}{{ end }}
+{{ end -}}

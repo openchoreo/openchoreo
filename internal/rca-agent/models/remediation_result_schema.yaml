@@ -1,0 +1,89 @@
+$defs:
+  ActionStatus:
+    type: string
+    enum: [suggested, revised]
+
+  EnvVarChange:
+    type: object
+    required: [key, value]
+    additionalProperties: false
+    properties:
+      key:
+        type: string
+        description: Environment variable name
+      value:
+        type: string
+        description: New value for the environment variable
+
+  FileChange:
+    type: object
+    required: [key, mount_path, value]
+    additionalProperties: false
+    properties:
+      key:
+        type: string
+        description: File key of the existing mount
+      mount_path:
+        type: string
+        description: Mount path that identifies the file mount
+      value:
+        type: string
+        description: New file content
+
+  FieldChange:
+    type: object
+    required: [json_pointer, value]
+    additionalProperties: false
+    properties:
+      json_pointer:
+        type: string
+        description: RFC 6901 JSON Pointer
+      value:
+        description: Scalar value to set at the JSON Pointer location
+
+  ResourceChange:
+    type: object
+    required: [release_binding]
+    additionalProperties: false
+    properties:
+      release_binding:
+        type: string
+        description: Name of the ReleaseBinding to modify
+      env:
+        type: array
+        items:
+          $ref: '#/$defs/EnvVarChange'
+      files:
+        type: array
+        items:
+          $ref: '#/$defs/FileChange'
+      fields:
+        type: array
+        items:
+          $ref: '#/$defs/FieldChange'
+
+  RemediationAction:
+    type: object
+    required: [description, status]
+    additionalProperties: false
+    properties:
+      description:
+        type: string
+        description: Description of the remediation action
+      rationale:
+        type: string
+        description: Why this action is recommended
+      status:
+        $ref: '#/$defs/ActionStatus'
+      change:
+        $ref: '#/$defs/ResourceChange'
+
+type: object
+required: [recommended_actions]
+additionalProperties: false
+properties:
+  recommended_actions:
+    type: array
+    items:
+      $ref: '#/$defs/RemediationAction'
+    description: Recommended actions to resolve root causes

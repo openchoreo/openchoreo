@@ -20,7 +20,7 @@ jobs:
           - observer
           - cluster-gateway
           - cluster-agent
-          - ai-rca-agent
+          - rca-agent
     steps:
       - name: Set image tag
         id: tag

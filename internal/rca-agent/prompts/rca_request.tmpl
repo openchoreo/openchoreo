@@ -1,0 +1,50 @@
+## Root Cause Analysis Request
+
+An alert has been triggered in OpenChoreo. Systematically investigate and identify the root cause(s) of this incident.
+
+- **Current Namespace:** {{ .Scope.Namespace }}
+- **Current Environment:** {{ .Scope.Environment }}
+- **Current Project:** {{ .Scope.Project }}
+
+All your analysis should be scoped to the current namespace and environment and project. Everything else is considered external to your investigation
+
+### Alert Details
+
+- **Rule Name:** {{ .Alert.Rule.Name }}
+- **Alert ID:** {{ .Alert.ID }}
+- **Triggered Value:** {{ .Alert.Value }}
+- **Timestamp:** {{ .Alert.Timestamp }}
+{{ if .Alert.Rule.Severity -}}
+- **Severity:** {{ .Alert.Rule.Severity }}
+{{ end -}}
+{{ if .Alert.Rule.Description -}}
+- **Description:** {{ .Alert.Rule.Description }}
+{{ end -}}
+
+### Alert Origin
+
+- **Component:** {{ .Scope.Component }}
+{{ if .Alert.Rule.Source }}
+### Alert Rule Source
+
+- **Type:** {{ .Alert.Rule.Source.Type }}
+{{ if .Alert.Rule.Source.Query -}}
+- **Query:** `{{ .Alert.Rule.Source.Query }}`
+{{ end -}}
+{{ if .Alert.Rule.Source.Metric -}}
+- **Metric:** `{{ .Alert.Rule.Source.Metric }}`
+{{ end -}}
+{{ end -}}
+{{ if .Alert.Rule.Condition }}
+### Alert Rule Condition
+
+- **Window:** {{ .Alert.Rule.Condition.Window }}
+- **Interval:** {{ .Alert.Rule.Condition.Interval }}
+- **Operator:** {{ .Alert.Rule.Condition.Operator }}
+- **Threshold:** {{ .Alert.Rule.Condition.Threshold }}
+{{ end -}}
+{{ if .Meta }}
+### Additional Context
+
+{{ toJSON .Meta }}
+{{ end -}}

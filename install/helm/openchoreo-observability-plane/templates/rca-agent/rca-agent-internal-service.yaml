@@ -1,0 +1,18 @@
+{{- if .Values.rca.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.rca.name }}-internal
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" .Values.rca.name) | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: {{ if .Values.rca.internalService }}{{ .Values.rca.internalService.port | default 8081 }}{{ else }}8081{{ end }}
+    targetPort: http-internal
+    protocol: TCP
+    name: http-internal
+  selector:
+    {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" .Values.rca.name) | nindent 4 }}
+{{- end }}

@@ -1,0 +1,14 @@
+## Logs
+
+- **Namespace:** {{ .NamespaceName }}
+- **Project:** {{ .ProjectName }}
+- **Environment:** {{ .EnvironmentName }}
+{{ range .Components }}
+### {{ .ComponentName }}
+
+| Timestamp | Log Level | Message |
+|-----------|-----------|---------|
+{{ range .Logs -}}
+| {{ .Timestamp }} | {{ .Level }} | {{ escapeMD .Log }} |
+{{ end }}
+{{ end -}}

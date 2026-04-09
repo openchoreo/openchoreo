@@ -380,9 +380,9 @@ components:
 
     RCAResponse:
       type: object
-      required: [report_id, status]
+      required: [reportId, status]
       properties:
-        report_id:
+        reportId:
           type: string
         status:
           type: string

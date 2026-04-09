@@ -1470,7 +1470,7 @@
               "title": "pullPolicy"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/ai-rca-agent",
+              "default": "ghcr.io/openchoreo/rca-agent",
               "description": "Container image repository",
               "title": "repository",
               "type": "string"
@@ -1484,6 +1484,23 @@
           },
           "required": [],
           "title": "image",
+          "type": "object"
+        },
+        "internalService": {
+          "additionalProperties": false,
+          "description": "Internal Kubernetes service configuration (for analyze endpoint)",
+          "properties": {
+            "port": {
+              "default": 8081,
+              "description": "Internal service port",
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "port",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "internalService",
           "type": "object"
         },
         "llm": {
@@ -1508,7 +1525,7 @@
           "type": "string"
         },
         "name": {
-          "default": "ai-rca-agent",
+          "default": "rca-agent",
           "description": "Name of the RCA agent deployment",
           "title": "name",
           "type": "string"

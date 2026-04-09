@@ -1,0 +1,11 @@
+type: object
+required: [message]
+additionalProperties: false
+properties:
+  message:
+    type: string
+    description: Response text in markdown format
+  actions:
+    type: array
+    items: {}
+    description: Structured actions for the UI

@@ -16,6 +16,7 @@ GO_BUILD_BINARIES := \
 	occ:$(PROJECT_DIR)/cmd/occ/main.go \
 	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/main.go \
 	observer:$(PROJECT_DIR)/cmd/observer/main.go \
+	rca-agent:$(PROJECT_DIR)/cmd/rca-agent \
 	cluster-gateway:$(PROJECT_DIR)/cmd/cluster-gateway \
 	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent
 

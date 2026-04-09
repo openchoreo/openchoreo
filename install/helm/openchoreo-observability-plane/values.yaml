@@ -1315,9 +1315,9 @@ rca:
   # @schema
   # type: string
   # description: Name of the RCA agent deployment
-  # default: ai-rca-agent
+  # default: rca-agent
   # @schema
-  name: ai-rca-agent
+  name: rca-agent
 
   # @schema
   # type: integer
@@ -1363,9 +1363,9 @@ rca:
     # @schema
     # type: string
     # description: Container image repository
-    # default: ghcr.io/openchoreo/ai-rca-agent
+    # default: ghcr.io/openchoreo/rca-agent
     # @schema
-    repository: ghcr.io/openchoreo/ai-rca-agent
+    repository: ghcr.io/openchoreo/rca-agent
     # @schema
     # type: string
     # description: Container image tag (defaults to Chart.AppVersion if empty)
@@ -1398,6 +1398,20 @@ rca:
     # default: 8080
     # @schema
     port: 8080
+
+  # @schema
+  # type: object
+  # description: Internal Kubernetes service configuration (for analyze endpoint)
+  # @schema
+  internalService:
+    # @schema
+    # type: integer
+    # description: Internal service port
+    # minimum: 1
+    # maximum: 65535
+    # default: 8081
+    # @schema
+    port: 8081
 
   # @schema
   # type: object

@@ -173,6 +173,12 @@ packages:
         config:
           dir: "internal/occ/resources/client/mocks"
           outpkg: mocks
+  github.com/openchoreo/openchoreo/internal/rca-agent/store:
+    interfaces:
+      ReportStore:
+  github.com/openchoreo/openchoreo/internal/rca-agent/api:
+    interfaces:
+      AgentService:
   github.com/openchoreo/openchoreo/internal/observer/service:
     interfaces:
       HealthChecker:
