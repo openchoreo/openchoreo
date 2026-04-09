@@ -24,6 +24,9 @@ ignore:
   - "internal/openchoreo-api/services/testutil"
   - "internal/controller/testutils"
   - "internal/occ/testhelpers"                                 # CLI test helpers
+  # Copied from upstream open-source projects
+  - "internal/dataplane/kubernetes/types/argoproj.io"          # Copied from Argo project
+  - "internal/dataplane/kubernetes/types/cilium.io"            # Copied from Cilium project
 
 comment:
   layout: "header, diff, files, footer"
