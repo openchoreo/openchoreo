@@ -4,10 +4,7 @@
 package workflowplane
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -16,46 +13,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
-
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
 
 // --- printList tests ---
 
 func TestPrintList_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
 	assert.Contains(t, out, "No workflow planes found")
 }
 
 func TestPrintList_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList([]gen.WorkflowPlane{}))
 	})
 	assert.Contains(t, out, "No workflow planes found")
@@ -67,7 +39,7 @@ func TestPrintList_WithItems(t *testing.T) {
 		{Metadata: gen.ObjectMeta{Name: "wf-plane-1", CreationTimestamp: &now}},
 		{Metadata: gen.ObjectMeta{Name: "wf-plane-2"}},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 	assert.Contains(t, out, "NAME")
@@ -101,7 +73,7 @@ func TestList_Success(t *testing.T) {
 	}, nil)
 
 	wp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wp.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "wf-plane-1")
@@ -119,7 +91,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	wp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wp.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "wf-plane-1")
@@ -134,7 +106,7 @@ func TestList_Empty(t *testing.T) {
 	}, nil)
 
 	wp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wp.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "No workflow planes found")
@@ -164,7 +136,7 @@ func TestGet_Success(t *testing.T) {
 	}, nil)
 
 	wp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wp.Get(GetParams{Namespace: "org-a", WorkflowPlaneName: "wf-plane-1"}))
 	})
 	assert.Contains(t, out, "name: wf-plane-1")
@@ -192,7 +164,7 @@ func TestDelete_Success(t *testing.T) {
 	mc.EXPECT().DeleteWorkflowPlane(mock.Anything, "org-a", "wf-plane-1").Return(nil)
 
 	wp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wp.Delete(DeleteParams{Namespace: "org-a", WorkflowPlaneName: "wf-plane-1"}))
 	})
 	assert.Contains(t, out, "WorkflowPlane 'wf-plane-1' deleted")

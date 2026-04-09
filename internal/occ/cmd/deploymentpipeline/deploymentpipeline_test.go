@@ -4,10 +4,7 @@
 package deploymentpipeline
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -16,44 +13,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
-
 func TestPrint_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
 	assert.Contains(t, out, "No deployment pipelines found")
 }
 
 func TestPrint_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList([]gen.DeploymentPipeline{}))
 	})
 	assert.Contains(t, out, "No deployment pipelines found")
@@ -66,7 +38,7 @@ func TestPrint_WithItems(t *testing.T) {
 		{Metadata: gen.ObjectMeta{Name: "hotfix-pipeline"}},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -81,7 +53,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 		{Metadata: gen.ObjectMeta{Name: "no-timestamp", CreationTimestamp: nil}},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -129,7 +101,7 @@ func TestList_Success(t *testing.T) {
 	}, nil)
 
 	dp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, dp.List(ListParams{Namespace: "my-org"}))
 	})
 	assert.Contains(t, out, "main-pipeline")
@@ -147,7 +119,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	dp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, dp.List(ListParams{Namespace: "my-org"}))
 	})
 	assert.Contains(t, out, "main-pipeline")
@@ -162,7 +134,7 @@ func TestList_Empty(t *testing.T) {
 	}, nil)
 
 	dp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, dp.List(ListParams{Namespace: "my-org"}))
 	})
 	assert.Contains(t, out, "No deployment pipelines found")
@@ -192,7 +164,7 @@ func TestGet_Success(t *testing.T) {
 	}, nil)
 
 	dp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, dp.Get(GetParams{Namespace: "my-org", DeploymentPipelineName: "main-pipeline"}))
 	})
 	assert.Contains(t, out, "name: main-pipeline")
@@ -220,7 +192,7 @@ func TestDelete_Success(t *testing.T) {
 	mc.EXPECT().DeleteDeploymentPipeline(mock.Anything, "my-org", "main-pipeline").Return(nil)
 
 	dp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, dp.Delete(DeleteParams{Namespace: "my-org", DeploymentPipelineName: "main-pipeline"}))
 	})
 	assert.Contains(t, out, "DeploymentPipeline 'main-pipeline' deleted")

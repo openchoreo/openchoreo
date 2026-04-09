@@ -4,10 +4,7 @@
 package releasebinding
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -16,34 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
-
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
 
 const testReleaseName = "rel-1"
 
@@ -69,7 +41,7 @@ func TestList_Success(t *testing.T) {
 	}, nil)
 
 	rb := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, rb.List(ListParams{Namespace: "ns"}))
 	})
 
@@ -91,7 +63,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	rb := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, rb.List(ListParams{Namespace: "ns"}))
 	})
 
@@ -109,7 +81,7 @@ func TestList_Empty(t *testing.T) {
 	}, nil)
 
 	rb := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, rb.List(ListParams{Namespace: "ns"}))
 	})
 
@@ -133,7 +105,7 @@ func TestGet_Success(t *testing.T) {
 	}, nil)
 
 	rb := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, rb.Get(GetParams{Namespace: "ns", ReleaseBindingName: "binding-1"}))
 	})
 
@@ -155,7 +127,7 @@ func TestDelete_Success(t *testing.T) {
 	mc.EXPECT().DeleteReleaseBinding(mock.Anything, "ns", "binding-1").Return(nil)
 
 	rb := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, rb.Delete(DeleteParams{Namespace: "ns", ReleaseBindingName: "binding-1"}))
 	})
 
@@ -204,7 +176,7 @@ func TestNew(t *testing.T) {
 // --- printReleaseBindings pure function tests ---
 
 func TestPrintReleaseBindings_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printReleaseBindings(nil))
 	})
 	assert.Contains(t, out, "No release bindings found")
@@ -214,7 +186,7 @@ func TestPrintReleaseBindings_NilTimestamp(t *testing.T) {
 	items := []gen.ReleaseBinding{
 		{Metadata: gen.ObjectMeta{Name: "binding-no-ts"}, Spec: &gen.ReleaseBindingSpec{Environment: "dev"}},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printReleaseBindings(items))
 	})
 	assert.Contains(t, out, "binding-no-ts")
@@ -225,7 +197,7 @@ func TestPrintReleaseBindings_NilSpec(t *testing.T) {
 	items := []gen.ReleaseBinding{
 		{Metadata: gen.ObjectMeta{Name: "binding-nil-spec"}, Spec: nil},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printReleaseBindings(items))
 	})
 	assert.Contains(t, out, "binding-nil-spec")
@@ -239,7 +211,7 @@ func TestPrintReleaseBindings_NilStatus(t *testing.T) {
 			Status:   nil,
 		},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printReleaseBindings(items))
 	})
 	assert.Contains(t, out, "binding-nil-status")
@@ -257,7 +229,7 @@ func TestPrintReleaseBindings_StatusWithoutReadyCondition(t *testing.T) {
 			Status:   &gen.ReleaseBindingStatus{Conditions: &conds},
 		},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printReleaseBindings(items))
 	})
 	assert.Contains(t, out, "binding-no-ready")
@@ -278,7 +250,7 @@ func TestPrintReleaseBindings_WithReadyCondition(t *testing.T) {
 			Status:   &gen.ReleaseBindingStatus{Conditions: &conds},
 		},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printReleaseBindings(items))
 	})
 	assert.Contains(t, out, "binding-ready")
@@ -294,7 +266,7 @@ func TestPrintReleaseBindings_NilReleaseName(t *testing.T) {
 			Spec:     &gen.ReleaseBindingSpec{Environment: "staging", ReleaseName: nil},
 		},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printReleaseBindings(items))
 	})
 	assert.Contains(t, out, "binding-nil-rel")
@@ -310,7 +282,7 @@ func TestPrintReleaseBindings_EmptyConditions(t *testing.T) {
 			Status:   &gen.ReleaseBindingStatus{Conditions: &conds},
 		},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printReleaseBindings(items))
 	})
 	assert.Contains(t, out, "binding-empty-conds")
@@ -328,7 +300,7 @@ func TestList_WithComponentFilter(t *testing.T) {
 	}, nil)
 
 	rb := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, rb.List(ListParams{Namespace: "ns", Component: "my-comp"}))
 	})
 	assert.Contains(t, out, "binding-1")
@@ -357,7 +329,7 @@ func TestList_Pagination(t *testing.T) {
 	}, nil).Once()
 
 	rb := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, rb.List(ListParams{Namespace: "ns"}))
 	})
 	assert.Contains(t, out, "binding-page1")
@@ -374,7 +346,7 @@ func TestList_NilTimestamp(t *testing.T) {
 	}, nil)
 
 	rb := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, rb.List(ListParams{Namespace: "ns"}))
 	})
 	assert.Contains(t, out, "binding-no-ts")

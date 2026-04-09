@@ -13,8 +13,8 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 // mockFactory returns a NewClientFunc that provides the given mock.

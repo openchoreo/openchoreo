@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
 // Shared schemas used across scaffold tests.
@@ -148,7 +149,7 @@ func TestScaffold_Success_Stdout(t *testing.T) {
 	mc.EXPECT().GetComponentTypeSchema(mock.Anything, "ns", "web-app").Return(&minimalCTSchema, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Scaffold(ScaffoldParams{
 			ComponentName: "my-comp",
 			Namespace:     "ns",
@@ -170,7 +171,7 @@ func TestScaffold_Success_OutputPath(t *testing.T) {
 	outFile := filepath.Join(t.TempDir(), "component.yaml")
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Scaffold(ScaffoldParams{
 			ComponentName: "my-comp",
 			Namespace:     "ns",
@@ -196,7 +197,7 @@ func TestScaffold_WithTrait(t *testing.T) {
 	mc.EXPECT().GetTraitSchema(mock.Anything, "ns", "ingress").Return(&minimalTraitSchema, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Scaffold(ScaffoldParams{
 			ComponentName: "my-comp",
 			Namespace:     "ns",
@@ -218,7 +219,7 @@ func TestScaffold_WithClusterTrait(t *testing.T) {
 	mc.EXPECT().GetClusterTraitSchema(mock.Anything, "ingress").Return(&minimalTraitSchema, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Scaffold(ScaffoldParams{
 			ComponentName: "my-comp",
 			Namespace:     "ns",
@@ -240,7 +241,7 @@ func TestScaffold_WithWorkflow(t *testing.T) {
 	mc.EXPECT().GetWorkflowSchema(mock.Anything, "ns", "build-wf").Return(&minimalWFSchema, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Scaffold(ScaffoldParams{
 			ComponentName: "my-comp",
 			Namespace:     "ns",
@@ -262,7 +263,7 @@ func TestScaffold_WithClusterWorkflow(t *testing.T) {
 	mc.EXPECT().GetClusterWorkflowSchema(mock.Anything, "build-wf").Return(&minimalWFSchema, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Scaffold(ScaffoldParams{
 			ComponentName:       "my-comp",
 			Namespace:           "ns",
@@ -283,7 +284,7 @@ func TestScaffold_WithClusterComponentType(t *testing.T) {
 	mc.EXPECT().GetClusterComponentTypeSchema(mock.Anything, "web-app").Return(&minimalCTSchema, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Scaffold(ScaffoldParams{
 			ComponentName:        "my-comp",
 			Namespace:            "ns",
@@ -305,7 +306,7 @@ func TestScaffold_AllClusterScoped(t *testing.T) {
 	mc.EXPECT().GetClusterWorkflowSchema(mock.Anything, "build-wf").Return(&minimalWFSchema, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Scaffold(ScaffoldParams{
 			ComponentName:        "my-comp",
 			Namespace:            "ns",

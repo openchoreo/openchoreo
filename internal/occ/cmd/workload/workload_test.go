@@ -4,10 +4,7 @@
 package workload
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -16,46 +13,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
-
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
 
 // --- printWorkloadList tests ---
 
 func TestPrintWorkloadList_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printWorkloadList(nil))
 	})
 	assert.Contains(t, out, "No workloads found")
 }
 
 func TestPrintWorkloadList_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printWorkloadList([]gen.Workload{}))
 	})
 	assert.Contains(t, out, "No workloads found")
@@ -67,7 +39,7 @@ func TestPrintWorkloadList_WithItems(t *testing.T) {
 		{Metadata: gen.ObjectMeta{Name: "workload-1", CreationTimestamp: &now}},
 		{Metadata: gen.ObjectMeta{Name: "workload-2"}},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printWorkloadList(items))
 	})
 	assert.Contains(t, out, "NAME")
@@ -94,7 +66,7 @@ func TestList_Success(t *testing.T) {
 	}, nil)
 
 	w := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, w.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "workload-1")
@@ -112,7 +84,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	w := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, w.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "workload-1")
@@ -127,7 +99,7 @@ func TestList_Empty(t *testing.T) {
 	}, nil)
 
 	w := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, w.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "No workloads found")
@@ -150,7 +122,7 @@ func TestGet_Success(t *testing.T) {
 	}, nil)
 
 	w := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, w.Get(GetParams{Namespace: "org-a", WorkloadName: "workload-1"}))
 	})
 	assert.Contains(t, out, "name: workload-1")
@@ -171,7 +143,7 @@ func TestDelete_Success(t *testing.T) {
 	mc.EXPECT().DeleteWorkload(mock.Anything, "org-a", "workload-1").Return(nil)
 
 	w := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, w.Delete(DeleteParams{Namespace: "org-a", WorkloadName: "workload-1"}))
 	})
 	assert.Contains(t, out, "Workload 'workload-1' deleted")
@@ -247,7 +219,7 @@ func TestPrintWorkloadList_NilTimestamp(t *testing.T) {
 	items := []gen.Workload{
 		{Metadata: gen.ObjectMeta{Name: "wl-no-ts", CreationTimestamp: nil}},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printWorkloadList(items))
 	})
 	assert.Contains(t, out, "wl-no-ts")
@@ -278,7 +250,7 @@ func TestList_Pagination(t *testing.T) {
 	}, nil).Once()
 
 	w := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, w.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "wl-page1")
@@ -295,7 +267,7 @@ func TestList_NilTimestamp(t *testing.T) {
 	}, nil)
 
 	w := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, w.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "wl-no-ts")
@@ -317,7 +289,7 @@ func TestGet_SuccessWithSpec(t *testing.T) {
 	}, nil)
 
 	w := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, w.Get(GetParams{Namespace: "org-a", WorkloadName: "wl-1"}))
 	})
 	assert.Contains(t, out, "name: wl-1")

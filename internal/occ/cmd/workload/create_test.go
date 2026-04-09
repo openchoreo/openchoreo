@@ -16,6 +16,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
 // --- helpers ---
@@ -125,7 +126,7 @@ func TestCreate_FileSystem_NewWorkload_DryRun(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := w.Create(CreateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -152,7 +153,7 @@ func TestCreate_FileSystem_NewWorkload_Write(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := w.Create(CreateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -194,7 +195,7 @@ func TestCreate_FileSystem_ExistingWorkload_ImageUpdate_DryRun(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := w.Create(CreateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -229,7 +230,7 @@ func TestCreate_FileSystem_ExistingWorkload_ImageUpdate_Write(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := w.Create(CreateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -266,7 +267,7 @@ func TestCreate_FileSystem_CustomOutputPath(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := w.Create(CreateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -300,7 +301,7 @@ func TestCreate_FileSystem_SecondComponent_NewWorkload(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := w.Create(CreateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -341,7 +342,7 @@ func TestCreate_APIServer_Stdout(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := w.Create(CreateParams{
 			Mode:          flags.ModeAPIServer,
 			NamespaceName: "test-ns",
@@ -360,7 +361,7 @@ func TestCreate_APIServer_DefaultMode(t *testing.T) {
 	w := New(mc)
 
 	// Empty Mode defaults to api-server
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := w.Create(CreateParams{
 			NamespaceName: "test-ns",
 			ProjectName:   "myproj",
@@ -379,7 +380,7 @@ func TestCreate_APIServer_OutputFile(t *testing.T) {
 
 	outFile := filepath.Join(t.TempDir(), "workload.yaml")
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := w.Create(CreateParams{
 			Mode:          flags.ModeAPIServer,
 			NamespaceName: "test-ns",
@@ -410,7 +411,7 @@ func TestCreate_APIServer_WithDescriptor(t *testing.T) {
 `
 	require.NoError(t, os.WriteFile(descriptorFile, []byte(descriptor), 0600))
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := w.Create(CreateParams{
 			Mode:          flags.ModeAPIServer,
 			NamespaceName: "test-ns",

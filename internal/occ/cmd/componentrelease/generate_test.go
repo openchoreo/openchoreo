@@ -16,6 +16,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
 // --- Generate: mode validation (no filesystem needed) ---
@@ -191,7 +192,7 @@ func TestPrintYAML_Success(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 	data := map[string]string{"name": "test"}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cr.printYAML(data))
 	})
 	assert.Contains(t, out, "name: test")
@@ -330,7 +331,7 @@ func TestGenerate_SingleComponent_DryRun(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := cr.Generate(GenerateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -384,7 +385,7 @@ func TestGenerate_SingleComponent_Write(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := cr.Generate(GenerateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -426,7 +427,7 @@ func TestGenerate_SingleComponent_CustomOutputPath(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := cr.Generate(GenerateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -454,7 +455,7 @@ func TestGenerate_Project_DryRun(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := cr.Generate(GenerateParams{
 			Mode:        flags.ModeFileSystem,
 			RootDir:     repoDir,
@@ -483,7 +484,7 @@ func TestGenerate_Project_Write(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := cr.Generate(GenerateParams{
 			Mode:        flags.ModeFileSystem,
 			RootDir:     repoDir,
@@ -522,7 +523,7 @@ func TestGenerate_All_DryRun(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := cr.Generate(GenerateParams{
 			Mode:    flags.ModeFileSystem,
 			RootDir: repoDir,
@@ -550,7 +551,7 @@ func TestGenerate_All_Write(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := cr.Generate(GenerateParams{
 			Mode:    flags.ModeFileSystem,
 			RootDir: repoDir,
@@ -591,7 +592,7 @@ func TestGenerate_SingleComponent_DuplicateReleaseName(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 
-	captureStdout(t, func() {
+	testutil.CaptureStdout(t, func() {
 		err := cr.Generate(GenerateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,

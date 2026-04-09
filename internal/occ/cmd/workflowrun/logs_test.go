@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -137,7 +138,7 @@ func TestLogs_LiveLogs_Success(t *testing.T) {
 		}, nil)
 
 	wr := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}))
 	})
 	assert.Contains(t, out, "step started")
@@ -167,7 +168,7 @@ func TestLogs_LiveLogs_WithSince(t *testing.T) {
 	})).Return([]gen.WorkflowRunLogEntry{{Timestamp: &now, Log: "recent"}}, nil)
 
 	wr := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wr.Logs(LogsParams{Namespace: "ns", WorkflowRunName: "run-1", Since: "5m"}))
 	})
 	assert.Contains(t, out, "recent")
@@ -218,7 +219,7 @@ func TestFollowLiveLogs_ContextCancelled(t *testing.T) {
 	cancel() // cancel immediately so the poll loop exits right away
 
 	wr := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wr.followLiveLogs(ctx, mc, LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}, 0))
 	})
 	assert.Contains(t, out, "Stopping log streaming...")
@@ -244,7 +245,7 @@ func TestFollowLiveLogs_RunCompleted(t *testing.T) {
 		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
 
 	wr := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wr.followLiveLogs(context.Background(), mc, LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}, 0))
 	})
 	assert.Contains(t, out, "Workflow run completed. Live logs are no longer available.")
@@ -418,7 +419,7 @@ func TestFollowLiveLogs_PollNewLogs(t *testing.T) {
 		}).Once()
 
 	wr := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wr.followLiveLogs(ctx, mc, LogsParams{Namespace: "ns", WorkflowRunName: "run-1"}, 0))
 	})
 	assert.Equal(t, 1, strings.Count(out, "first"), "duplicate suppression: 'first' should appear exactly once")

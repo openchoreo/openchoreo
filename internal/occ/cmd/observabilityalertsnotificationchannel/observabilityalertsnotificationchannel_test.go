@@ -4,10 +4,7 @@
 package observabilityalertsnotificationchannel
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -16,46 +13,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
-
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
 
 // --- printList tests ---
 
 func TestPrintList_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
 	assert.Contains(t, out, "No observability alerts notification channels found")
 }
 
 func TestPrintList_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList([]gen.ObservabilityAlertsNotificationChannel{}))
 	})
 	assert.Contains(t, out, "No observability alerts notification channels found")
@@ -67,7 +39,7 @@ func TestPrintList_WithItems(t *testing.T) {
 		{Metadata: gen.ObjectMeta{Name: "channel-1", CreationTimestamp: &now}},
 		{Metadata: gen.ObjectMeta{Name: "channel-2"}},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 	assert.Contains(t, out, "NAME")
@@ -101,7 +73,7 @@ func TestList_Success(t *testing.T) {
 	}, nil)
 
 	o := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, o.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "channel-1")
@@ -119,7 +91,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	o := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, o.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "channel-1")
@@ -134,7 +106,7 @@ func TestList_Empty(t *testing.T) {
 	}, nil)
 
 	o := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, o.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "No observability alerts notification channels found")
@@ -164,7 +136,7 @@ func TestGet_Success(t *testing.T) {
 	}, nil)
 
 	o := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, o.Get(GetParams{Namespace: "org-a", ChannelName: "channel-1"}))
 	})
 	assert.Contains(t, out, "name: channel-1")
@@ -192,7 +164,7 @@ func TestDelete_Success(t *testing.T) {
 	mc.EXPECT().DeleteObservabilityAlertsNotificationChannel(mock.Anything, "org-a", "channel-1").Return(nil)
 
 	o := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, o.Delete(DeleteParams{Namespace: "org-a", ChannelName: "channel-1"}))
 	})
 	assert.Contains(t, out, "ObservabilityAlertsNotificationChannel 'channel-1' deleted")

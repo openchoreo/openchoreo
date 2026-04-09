@@ -4,10 +4,7 @@
 package componenttype
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -16,45 +13,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// captureStdout captures stdout output from a function call.
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
-
 func TestPrint_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
 	assert.Contains(t, out, "No component types found")
 }
 
 func TestPrint_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList([]gen.ComponentType{}))
 	})
 	assert.Contains(t, out, "No component types found")
@@ -80,7 +51,7 @@ func TestPrint_WithItems(t *testing.T) {
 		},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -104,7 +75,7 @@ func TestPrint_NilSpec(t *testing.T) {
 		},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -146,7 +117,7 @@ func TestList_Success(t *testing.T) {
 	}, nil)
 
 	ct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, ct.List(ListParams{Namespace: "my-org"}))
 	})
 
@@ -171,7 +142,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	ct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, ct.List(ListParams{Namespace: "my-org"}))
 	})
 
@@ -187,7 +158,7 @@ func TestList_Empty(t *testing.T) {
 	}, nil)
 
 	ct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, ct.List(ListParams{Namespace: "my-org"}))
 	})
 
@@ -211,7 +182,7 @@ func TestGet_Success(t *testing.T) {
 	}, nil)
 
 	ct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, ct.Get(GetParams{Namespace: "my-org", ComponentTypeName: "web-app"}))
 	})
 
@@ -233,7 +204,7 @@ func TestDelete_Success(t *testing.T) {
 	mc.EXPECT().DeleteComponentType(mock.Anything, "my-org", "web-app").Return(nil)
 
 	ct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, ct.Delete(DeleteParams{Namespace: "my-org", ComponentTypeName: "web-app"}))
 	})
 

@@ -19,6 +19,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
@@ -309,7 +310,7 @@ func TestPrintYAML_Success(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	data := map[string]string{"name": "test"}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, rb.printYAML(data))
 	})
 	assert.Contains(t, out, "name: test")
@@ -477,7 +478,7 @@ func TestGenerate_SingleComponent_DryRun(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := rb.Generate(GenerateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -518,7 +519,7 @@ func TestGenerate_SingleComponent_Write(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := rb.Generate(GenerateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -559,7 +560,7 @@ func TestGenerate_SingleComponent_CustomOutputPath(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := rb.Generate(GenerateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -587,7 +588,7 @@ func TestGenerate_Project_DryRun(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := rb.Generate(GenerateParams{
 			Mode:        flags.ModeFileSystem,
 			RootDir:     repoDir,
@@ -616,7 +617,7 @@ func TestGenerate_Project_Write(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := rb.Generate(GenerateParams{
 			Mode:        flags.ModeFileSystem,
 			RootDir:     repoDir,
@@ -656,7 +657,7 @@ func TestGenerate_All_DryRun(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := rb.Generate(GenerateParams{
 			Mode:        flags.ModeFileSystem,
 			RootDir:     repoDir,
@@ -686,7 +687,7 @@ func TestGenerate_All_Write(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := rb.Generate(GenerateParams{
 			Mode:        flags.ModeFileSystem,
 			RootDir:     repoDir,
@@ -728,7 +729,7 @@ func TestGenerate_PipelineDerivedFromProject(t *testing.T) {
 	rb := New(mc)
 
 	// Don't specify UsePipeline — it should be derived from the Project's deploymentPipelineRef
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := rb.Generate(GenerateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,
@@ -757,7 +758,7 @@ func TestGenerate_TargetEnvDefaultsToRoot(t *testing.T) {
 	rb := New(mc)
 
 	// Don't specify TargetEnv — it should default to pipeline root ("dev")
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		err := rb.Generate(GenerateParams{
 			Mode:          flags.ModeFileSystem,
 			RootDir:       repoDir,

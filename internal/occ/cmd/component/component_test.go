@@ -4,12 +4,9 @@
 package component
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -18,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -415,32 +413,6 @@ func TestUnmarshalSchema(t *testing.T) {
 	}
 }
 
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
-
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
@@ -459,7 +431,7 @@ func TestList_Success(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.List(ListParams{Namespace: "ns"}))
 	})
 
@@ -478,7 +450,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.List(ListParams{Namespace: "ns"}))
 	})
 
@@ -494,7 +466,7 @@ func TestList_Empty(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.List(ListParams{Namespace: "ns"}))
 	})
 
@@ -518,7 +490,7 @@ func TestGet_Success(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Get(GetParams{Namespace: "ns", ComponentName: "my-comp"}))
 	})
 
@@ -540,7 +512,7 @@ func TestDelete_Success(t *testing.T) {
 	mc.EXPECT().DeleteComponent(mock.Anything, "ns", "my-comp").Return(nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Delete(DeleteParams{Namespace: "ns", ComponentName: "my-comp"}))
 	})
 
@@ -598,7 +570,7 @@ func TestStartWorkflow_Success(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.StartWorkflow(StartWorkflowParams{
 			Namespace:     "ns",
 			ComponentName: "my-comp",
@@ -654,7 +626,7 @@ func TestListWorkflowRuns_FiltersByComponent(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.ListWorkflowRuns(ListWorkflowRunsParams{Namespace: "ns", ComponentName: "my-comp"}))
 	})
 	assert.Contains(t, out, "run-match")
@@ -669,7 +641,7 @@ func TestListWorkflowRuns_Empty(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.ListWorkflowRuns(ListWorkflowRunsParams{Namespace: "ns", ComponentName: "my-comp"}))
 	})
 	assert.Contains(t, out, "No workflow runs found")
@@ -733,7 +705,7 @@ func TestDeploy_DeployToLowestEnv_CreateBinding(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Deploy(DeployParams{
 			Namespace:     "ns",
 			Project:       "my-project",
@@ -767,7 +739,7 @@ func TestDeploy_DeployToLowestEnv_UpdateExistingBinding(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Deploy(DeployParams{
 			Namespace:     "ns",
 			Project:       "my-project",
@@ -806,7 +778,7 @@ func TestDeploy_Promote_Success(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Deploy(DeployParams{
 			Namespace:     "ns",
 			Project:       "my-project",
@@ -835,7 +807,7 @@ func TestDeploy_DeployWithSet_UpdateBinding(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Deploy(DeployParams{
 			Namespace:     "ns",
 			Project:       "my-project",
@@ -875,7 +847,7 @@ func TestDeploy_Promote_UpdateExisting(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.Deploy(DeployParams{
 			Namespace:     "ns",
 			Project:       "my-project",
@@ -994,7 +966,7 @@ func TestWorkflowRunLogs_ResolvedFromComponent(t *testing.T) {
 		[]gen.WorkflowRunLogEntry{{Timestamp: &now, Log: "build log"}}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.WorkflowRunLogs(WorkflowRunLogsParams{
 			Namespace:     "ns",
 			ComponentName: "my-comp",
@@ -1092,7 +1064,7 @@ func TestWorkflowRunLogs_WithRunName(t *testing.T) {
 		[]gen.WorkflowRunLogEntry{{Timestamp: &now, Log: "build output"}}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.WorkflowRunLogs(WorkflowRunLogsParams{
 			Namespace:     "ns",
 			ComponentName: "my-comp",
@@ -1333,7 +1305,7 @@ func TestList_Pagination(t *testing.T) {
 	}, nil).Once()
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.List(ListParams{Namespace: "ns"}))
 	})
 	assert.Contains(t, out, "comp-1")
@@ -1350,7 +1322,7 @@ func TestList_WithProjectFilter(t *testing.T) {
 	}, nil)
 
 	cp := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cp.List(ListParams{Namespace: "ns", Project: "my-project"}))
 	})
 	assert.Contains(t, out, "comp-1")

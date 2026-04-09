@@ -4,10 +4,7 @@
 package workflow
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -17,6 +14,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -126,32 +124,6 @@ func TestApplySetOverrides(t *testing.T) {
 	})
 }
 
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
-
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
@@ -170,7 +142,7 @@ func TestList_Success(t *testing.T) {
 	}, nil)
 
 	wf := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wf.List(ListParams{Namespace: "ns"}))
 	})
 
@@ -189,7 +161,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	wf := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wf.List(ListParams{Namespace: "ns"}))
 	})
 
@@ -205,7 +177,7 @@ func TestList_Empty(t *testing.T) {
 	}, nil)
 
 	wf := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wf.List(ListParams{Namespace: "ns"}))
 	})
 
@@ -229,7 +201,7 @@ func TestGet_Success(t *testing.T) {
 	}, nil)
 
 	wf := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wf.Get(GetParams{Namespace: "ns", WorkflowName: "my-workflow"}))
 	})
 
@@ -251,7 +223,7 @@ func TestDelete_Success(t *testing.T) {
 	mc.EXPECT().DeleteWorkflow(mock.Anything, "ns", "my-workflow").Return(nil)
 
 	wf := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wf.Delete(DeleteParams{Namespace: "ns", WorkflowName: "my-workflow"}))
 	})
 
@@ -281,7 +253,7 @@ func TestStartRun_Success(t *testing.T) {
 	}, nil)
 
 	wf := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wf.StartRun(StartRunParams{
 			Namespace:    "ns",
 			WorkflowName: "my-wf",
@@ -356,7 +328,7 @@ func TestLogs_WithRunName_LiveLogs(t *testing.T) {
 		[]gen.WorkflowRunLogEntry{{Timestamp: &now, Log: "build step"}}, nil)
 
 	wf := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wf.Logs(LogsParams{Namespace: "ns", WorkflowName: "my-wf", RunName: "run-1"}))
 	})
 	assert.Contains(t, out, "build step")
@@ -427,7 +399,7 @@ func TestLogs_WithoutRunName_ResolvesLatest(t *testing.T) {
 		[]gen.WorkflowRunLogEntry{{Timestamp: &now, Log: "auto-resolved log"}}, nil)
 
 	wf := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wf.Logs(LogsParams{Namespace: "ns", WorkflowName: "my-wf"}))
 	})
 	assert.Contains(t, out, "auto-resolved log")
@@ -490,7 +462,7 @@ func TestList_Pagination(t *testing.T) {
 	}, nil).Once()
 
 	wf := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wf.List(ListParams{Namespace: "ns"}))
 	})
 	assert.Contains(t, out, "wf-1")
@@ -517,7 +489,7 @@ func TestStartRun_WithParametersAndLabels(t *testing.T) {
 	}, nil)
 
 	wf := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, wf.StartRun(StartRunParams{
 			Namespace:    "ns",
 			WorkflowName: "my-wf",

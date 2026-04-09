@@ -4,10 +4,7 @@
 package project
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -16,46 +13,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
-
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
 
 // --- printList tests ---
 
 func TestPrintList_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
 	assert.Contains(t, out, "No projects found")
 }
 
 func TestPrintList_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList([]gen.Project{}))
 	})
 	assert.Contains(t, out, "No projects found")
@@ -67,7 +39,7 @@ func TestPrintList_WithItems(t *testing.T) {
 		{Metadata: gen.ObjectMeta{Name: "proj-a", CreationTimestamp: &now}},
 		{Metadata: gen.ObjectMeta{Name: "proj-b"}},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 	assert.Contains(t, out, "NAME")
@@ -117,7 +89,7 @@ func TestList_Success(t *testing.T) {
 	}, nil)
 
 	p := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, p.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "proj-a")
@@ -135,7 +107,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	p := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, p.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "proj-a")
@@ -150,7 +122,7 @@ func TestList_Empty(t *testing.T) {
 	}, nil)
 
 	p := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, p.List(ListParams{Namespace: "org-a"}))
 	})
 	assert.Contains(t, out, "No projects found")
@@ -180,7 +152,7 @@ func TestGet_Success(t *testing.T) {
 	}, nil)
 
 	p := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, p.Get(GetParams{Namespace: "org-a", ProjectName: "proj-a"}))
 	})
 	assert.Contains(t, out, "name: proj-a")
@@ -208,7 +180,7 @@ func TestDelete_Success(t *testing.T) {
 	mc.EXPECT().DeleteProject(mock.Anything, "org-a", "proj-a").Return(nil)
 
 	p := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, p.Delete(DeleteParams{Namespace: "org-a", ProjectName: "proj-a"}))
 	})
 	assert.Contains(t, out, "Project 'proj-a' deleted")

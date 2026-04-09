@@ -4,10 +4,7 @@
 package clusterobservabilityplane
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -16,44 +13,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
-
 func TestPrint_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
 	assert.Contains(t, out, "No cluster observability planes found")
 }
 
 func TestPrint_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList([]gen.ClusterObservabilityPlane{}))
 	})
 	assert.Contains(t, out, "No cluster observability planes found")
@@ -66,7 +38,7 @@ func TestPrint_WithItems(t *testing.T) {
 		{Metadata: gen.ObjectMeta{Name: "obs-dev"}},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -81,7 +53,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 		{Metadata: gen.ObjectMeta{Name: "no-timestamp", CreationTimestamp: nil}},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -106,7 +78,7 @@ func TestList_Success(t *testing.T) {
 	}, nil)
 
 	cop := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cop.List())
 	})
 	assert.Contains(t, out, "obs-prod")
@@ -124,7 +96,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	cop := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cop.List())
 	})
 	assert.Contains(t, out, "obs-prod")
@@ -139,7 +111,7 @@ func TestList_Empty(t *testing.T) {
 	}, nil)
 
 	cop := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cop.List())
 	})
 	assert.Contains(t, out, "No cluster observability planes found")
@@ -162,7 +134,7 @@ func TestGet_Success(t *testing.T) {
 	}, nil)
 
 	cop := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cop.Get(GetParams{ClusterObservabilityPlaneName: "obs-prod"}))
 	})
 	assert.Contains(t, out, "name: obs-prod")
@@ -183,7 +155,7 @@ func TestDelete_Success(t *testing.T) {
 	mc.EXPECT().DeleteClusterObservabilityPlane(mock.Anything, "obs-prod").Return(nil)
 
 	cop := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cop.Delete(DeleteParams{ClusterObservabilityPlaneName: "obs-prod"}))
 	})
 	assert.Contains(t, out, "ClusterObservabilityPlane 'obs-prod' deleted")
