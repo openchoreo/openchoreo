@@ -181,6 +181,9 @@ func buildTraceFromBucket(bucket opensearch.TraceBucket) observability.Trace {
 				trace.RootSpanName = name
 				trace.TraceName = name
 			}
+			if spanKind, ok := src["kind"].(string); ok {
+				trace.RootSpanKind = spanKind
+			}
 		}
 	} else if len(bucket.EarliestSpan.Hits.Hits) > 0 {
 		src := bucket.EarliestSpan.Hits.Hits[0].Source
@@ -191,6 +194,9 @@ func buildTraceFromBucket(bucket opensearch.TraceBucket) observability.Trace {
 			if name, ok := src["name"].(string); ok {
 				trace.RootSpanName = name
 				trace.TraceName = name
+			}
+			if spanKind, ok := src["kind"].(string); ok {
+				trace.RootSpanKind = spanKind
 			}
 		}
 	}
@@ -260,6 +266,7 @@ func convertToObservabilityTrace(traceID string, spans []opensearch.Span) observ
 		traceSpans[i] = observability.TraceSpan{
 			SpanID:             span.SpanID,
 			Name:               span.Name,
+			SpanKind:           span.SpanKind,
 			ParentSpanID:       span.ParentSpanID,
 			StartTime:          span.StartTime,
 			EndTime:            span.EndTime,
@@ -281,6 +288,7 @@ func convertToObservabilityTrace(traceID string, spans []opensearch.Span) observ
 	if rootSpan != nil {
 		trace.RootSpanID = rootSpan.SpanID
 		trace.RootSpanName = rootSpan.Name
+		trace.RootSpanKind = rootSpan.SpanKind
 		trace.TraceName = rootSpan.Name
 	}
 

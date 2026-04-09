@@ -25,6 +25,7 @@ func TestConvertToObservabilityTrace_SingleSpan(t *testing.T) {
 		{
 			SpanID:              testSpanID,
 			Name:                "http.request",
+			SpanKind:            "SERVER",
 			ParentSpanID:        "",
 			StartTime:           now,
 			EndTime:             now.Add(100 * time.Millisecond),
@@ -38,6 +39,8 @@ func TestConvertToObservabilityTrace_SingleSpan(t *testing.T) {
 	assert.Equal(t, 1, trace.SpanCount)
 	assert.Equal(t, testSpanID, trace.RootSpanID)
 	assert.Equal(t, "http.request", trace.RootSpanName)
+	assert.Equal(t, "SERVER", trace.RootSpanKind)
+	assert.Equal(t, "SERVER", trace.Spans[0].SpanKind)
 }
 
 func TestConvertToObservabilityTrace_MultipleSpans(t *testing.T) {
@@ -507,6 +510,7 @@ func TestBuildTraceFromBucket(t *testing.T) {
 		RootSpan: makeFilteredTopHits(map[string]interface{}{
 			"spanId": "root-span-id",
 			"name":   "GET /users",
+			"kind":   "SERVER",
 		}),
 		LatestSpan: makeTopHits(map[string]interface{}{
 			"endTime": "2024-01-01T10:00:02.623456789Z",
@@ -520,6 +524,7 @@ func TestBuildTraceFromBucket(t *testing.T) {
 	assert.Equal(t, "root-span-id", trace.RootSpanID)
 	assert.Equal(t, "GET /users", trace.RootSpanName)
 	assert.Equal(t, "GET /users", trace.TraceName)
+	assert.Equal(t, "SERVER", trace.RootSpanKind)
 	assert.Equal(t, int64(2500000000), trace.DurationNs)
 	assert.Equal(t, "2024-01-01T10:00:00.123456789Z", trace.StartTime.Format(time.RFC3339Nano))
 	assert.Equal(t, "2024-01-01T10:00:02.623456789Z", trace.EndTime.Format(time.RFC3339Nano))
@@ -565,6 +570,7 @@ func TestBuildTraceFromBucket_RootSpanDiffersFromEarliestSpan(t *testing.T) {
 		RootSpan: makeFilteredTopHits(map[string]interface{}{
 			"spanId": "root-span-id",
 			"name":   "GET /users",
+			"kind":   "CLIENT",
 		}),
 		LatestSpan: makeTopHits(map[string]interface{}{
 			"endTime": "2024-01-01T10:00:02.000000000Z",
@@ -579,6 +585,7 @@ func TestBuildTraceFromBucket_RootSpanDiffersFromEarliestSpan(t *testing.T) {
 	assert.Equal(t, "root-span-id", trace.RootSpanID)
 	assert.Equal(t, "GET /users", trace.RootSpanName)
 	assert.Equal(t, "GET /users", trace.TraceName)
+	assert.Equal(t, "CLIENT", trace.RootSpanKind)
 	// Start time should still come from earliest span
 	assert.Equal(t, "2024-01-01T10:00:00Z", trace.StartTime.Format(time.RFC3339Nano))
 	assert.Equal(t, int64(2000000000), trace.DurationNs)

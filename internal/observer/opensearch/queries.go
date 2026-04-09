@@ -833,7 +833,7 @@ func (qb *QueryBuilder) BuildTracesAggregationQuery(params TracesRequestParams) 
 									},
 								},
 							},
-							"_source": []string{"spanId", "name", "parentSpanId", "startTime"},
+							"_source": []string{"spanId", "name", "parentSpanId", "startTime", "kind"},
 						},
 					},
 					"root_span": map[string]interface{}{
@@ -846,7 +846,7 @@ func (qb *QueryBuilder) BuildTracesAggregationQuery(params TracesRequestParams) 
 							"hit": map[string]interface{}{
 								"top_hits": map[string]interface{}{
 									"size":    1,
-									"_source": []string{"spanId", "name", "startTime"},
+									"_source": []string{"spanId", "name", "startTime", "kind"},
 								},
 							},
 						},

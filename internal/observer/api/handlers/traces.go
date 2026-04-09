@@ -349,6 +349,9 @@ func convertSpansResponseToGen(resp *types.SpansQueryResponse) *gen.TraceSpansQu
 			"endTime":    span.EndTime,
 			"durationNs": span.DurationNs,
 		}
+		if span.SpanKind != "" {
+			spanData[i]["spanKind"] = span.SpanKind
+		}
 		if span.ParentSpanID != "" {
 			spanData[i]["parentSpanId"] = span.ParentSpanID
 		}
@@ -381,6 +384,9 @@ func convertSpanDetailsToGen(span *types.SpanInfo) map[string]interface{} {
 		"startTime":  span.StartTime,
 		"endTime":    span.EndTime,
 		"durationNs": span.DurationNs,
+	}
+	if span.SpanKind != "" {
+		spanData["spanKind"] = span.SpanKind
 	}
 	if span.ParentSpanID != "" {
 		spanData["parentSpanId"] = span.ParentSpanID

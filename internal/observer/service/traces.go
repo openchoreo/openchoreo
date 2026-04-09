@@ -226,6 +226,7 @@ func (s *TracesService) GetSpanDetails(ctx context.Context, traceID string, span
 		return &types.SpanInfo{
 			SpanID:             detail.SpanID,
 			SpanName:           detail.SpanName,
+			SpanKind:           detail.SpanKind,
 			ParentSpanID:       detail.ParentSpanID,
 			StartTime:          &detail.StartTime,
 			EndTime:            &detail.EndTime,
@@ -253,6 +254,7 @@ func (s *TracesService) GetSpanDetails(ctx context.Context, traceID string, span
 	return &types.SpanInfo{
 		SpanID:             span.SpanID,
 		SpanName:           span.Name,
+		SpanKind:           span.SpanKind,
 		ParentSpanID:       span.ParentSpanID,
 		StartTime:          &span.StartTime,
 		EndTime:            &span.EndTime,
@@ -300,6 +302,7 @@ func (s *TracesService) convertSpansToResponse(result *observability.TracesQuery
 			spans = append(spans, types.SpanInfo{
 				SpanID:             traceSpan.SpanID,
 				SpanName:           traceSpan.Name,
+				SpanKind:           traceSpan.SpanKind,
 				ParentSpanID:       traceSpan.ParentSpanID,
 				StartTime:          &traceSpan.StartTime,
 				EndTime:            &traceSpan.EndTime,
@@ -325,6 +328,7 @@ func (s *TracesService) convertAdapterSpansToResponse(result *observability.Span
 		spans = append(spans, types.SpanInfo{
 			SpanID:             span.SpanID,
 			SpanName:           span.Name,
+			SpanKind:           span.SpanKind,
 			ParentSpanID:       span.ParentSpanID,
 			StartTime:          &startTime,
 			EndTime:            &endTime,
