@@ -29,9 +29,9 @@ func NewWorkflowPlaneCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List workflow planes",
-		Long:    `List all workflow planes in a namespace.`,
+		Use:   "list",
+		Short: "List workflow planes",
+		Long:  `List all workflow planes in a namespace.`,
 		Example: `  # List all workflow planes in a namespace
   occ workflowplane list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -51,9 +51,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [WORKFLOWPLANE_NAME]",
-		Short:   "Get a workflow plane",
-		Long:    `Get a workflow plane and display its details in YAML format.`,
+		Use:   "get [WORKFLOWPLANE_NAME]",
+		Short: "Get a workflow plane",
+		Long:  `Get a workflow plane and display its details in YAML format.`,
 		Example: `  # Get a workflow plane
   occ workflowplane get primary-workflowplane --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -75,9 +75,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [WORKFLOWPLANE_NAME]",
-		Short:   "Delete a workflow plane",
-		Long:    `Delete a workflow plane by name.`,
+		Use:   "delete [WORKFLOWPLANE_NAME]",
+		Short: "Delete a workflow plane",
+		Long:  `Delete a workflow plane by name.`,
 		Example: `  # Delete a workflow plane
   occ workflowplane delete primary-workflowplane --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

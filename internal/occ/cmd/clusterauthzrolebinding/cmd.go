@@ -28,9 +28,9 @@ func NewClusterAuthzRoleBindingCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
-		Short:   "List cluster authz role bindings",
-		Long:    `List all cluster-scoped authorization role bindings.`,
+		Use:   "list",
+		Short: "List cluster authz role bindings",
+		Long:  `List all cluster-scoped authorization role bindings.`,
 		Example: `  # List all cluster authz role bindings
   occ clusterauthzrolebinding list`,
 		PreRunE: auth.RequireLogin(),
@@ -46,9 +46,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "get [CLUSTER_AUTHZ_ROLE_BINDING_NAME]",
-		Short:   "Get a cluster authz role binding",
-		Long:    `Get a cluster authz role binding and display its details in YAML format.`,
+		Use:   "get [CLUSTER_AUTHZ_ROLE_BINDING_NAME]",
+		Short: "Get a cluster authz role binding",
+		Long:  `Get a cluster authz role binding and display its details in YAML format.`,
 		Example: `  # Get a cluster authz role binding
   occ clusterauthzrolebinding get my-binding`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -65,9 +65,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "delete [CLUSTER_AUTHZ_ROLE_BINDING_NAME]",
-		Short:   "Delete a cluster authz role binding",
-		Long:    `Delete a cluster authz role binding by name.`,
+		Use:   "delete [CLUSTER_AUTHZ_ROLE_BINDING_NAME]",
+		Short: "Delete a cluster authz role binding",
+		Long:  `Delete a cluster authz role binding by name.`,
 		Example: `  # Delete a cluster authz role binding
   occ clusterauthzrolebinding delete my-binding`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

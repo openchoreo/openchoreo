@@ -100,9 +100,9 @@ func newGenerateCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List release bindings",
-		Long:    `List all release bindings for a specific component.`,
+		Use:   "list",
+		Short: "List release bindings",
+		Long:  `List all release bindings for a specific component.`,
 		Example: `  # List all release bindings for a component
   occ releasebinding list --namespace acme-corp --project online-store --component product-catalog`,
 		PreRunE: auth.RequireLogin(),
@@ -126,9 +126,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [RELEASE_BINDING_NAME]",
-		Short:   "Get a release binding",
-		Long:    `Get a release binding and display its details in YAML format.`,
+		Use:   "get [RELEASE_BINDING_NAME]",
+		Short: "Get a release binding",
+		Long:  `Get a release binding and display its details in YAML format.`,
 		Example: `  # Get a release binding
   occ releasebinding get my-binding --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -150,9 +150,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [RELEASE_BINDING_NAME]",
-		Short:   "Delete a release binding",
-		Long:    `Delete a release binding by name.`,
+		Use:   "delete [RELEASE_BINDING_NAME]",
+		Short: "Delete a release binding",
+		Long:  `Delete a release binding by name.`,
 		Example: `  # Delete a release binding
   occ releasebinding delete my-binding --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

@@ -31,9 +31,9 @@ func NewWorkflowCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List workflows",
-		Long:    `List all workflows available in a namespace.`,
+		Use:   "list",
+		Short: "List workflows",
+		Long:  `List all workflows available in a namespace.`,
 		Example: `  # List all workflows in a namespace
   occ workflow list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -53,9 +53,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [WORKFLOW_NAME]",
-		Short:   "Get a workflow",
-		Long:    `Get a workflow and display its details in YAML format.`,
+		Use:   "get [WORKFLOW_NAME]",
+		Short: "Get a workflow",
+		Long:  `Get a workflow and display its details in YAML format.`,
 		Example: `  # Get a workflow
   occ workflow get docker --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -77,9 +77,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [WORKFLOW_NAME]",
-		Short:   "Delete a workflow",
-		Long:    `Delete a workflow by name.`,
+		Use:   "delete [WORKFLOW_NAME]",
+		Short: "Delete a workflow",
+		Long:  `Delete a workflow by name.`,
 		Example: `  # Delete a workflow
   occ workflow delete my-workflow --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

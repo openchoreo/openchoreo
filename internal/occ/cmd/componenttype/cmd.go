@@ -29,9 +29,9 @@ func NewComponentTypeCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List component types",
-		Long:    `List all component types available in a namespace.`,
+		Use:   "list",
+		Short: "List component types",
+		Long:  `List all component types available in a namespace.`,
 		Example: `  # List all component types in a namespace
   occ componenttype list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -51,9 +51,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [COMPONENT_TYPE_NAME]",
-		Short:   "Get a component type",
-		Long:    `Get a component type and display its details in YAML format.`,
+		Use:   "get [COMPONENT_TYPE_NAME]",
+		Short: "Get a component type",
+		Long:  `Get a component type and display its details in YAML format.`,
 		Example: `  # Get a component type
   occ componenttype get web-app --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -75,9 +75,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [COMPONENT_TYPE_NAME]",
-		Short:   "Delete a component type",
-		Long:    `Delete a component type by name.`,
+		Use:   "delete [COMPONENT_TYPE_NAME]",
+		Short: "Delete a component type",
+		Long:  `Delete a component type by name.`,
 		Example: `  # Delete a component type
   occ componenttype delete web-app --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

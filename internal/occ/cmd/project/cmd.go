@@ -29,9 +29,9 @@ func NewProjectCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List projects",
-		Long:    `List all projects in a namespace.`,
+		Use:   "list",
+		Short: "List projects",
+		Long:  `List all projects in a namespace.`,
 		Example: `  # List all projects in a namespace
   occ project list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -51,9 +51,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [PROJECT_NAME]",
-		Short:   "Get a project",
-		Long:    `Get a project and display its details in YAML format.`,
+		Use:   "get [PROJECT_NAME]",
+		Short: "Get a project",
+		Long:  `Get a project and display its details in YAML format.`,
 		Example: `  # Get a project
   occ project get my-project --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -75,9 +75,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [PROJECT_NAME]",
-		Short:   "Delete a project",
-		Long:    `Delete a project by name.`,
+		Use:   "delete [PROJECT_NAME]",
+		Short: "Delete a project",
+		Long:  `Delete a project by name.`,
 		Example: `  # Delete a project
   occ project delete my-project --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

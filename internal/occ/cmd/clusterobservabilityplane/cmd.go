@@ -28,9 +28,9 @@ func NewClusterObservabilityPlaneCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
-		Short:   "List cluster observability planes",
-		Long:    `List all cluster-scoped observability planes available across the cluster.`,
+		Use:   "list",
+		Short: "List cluster observability planes",
+		Long:  `List all cluster-scoped observability planes available across the cluster.`,
 		Example: `  # List all cluster observability planes
   occ clusterobservabilityplane list`,
 		PreRunE: auth.RequireLogin(),
@@ -46,9 +46,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "get [CLUSTER_OBSERVABILITY_PLANE_NAME]",
-		Short:   "Get a cluster observability plane",
-		Long:    `Get a cluster observability plane and display its details in YAML format.`,
+		Use:   "get [CLUSTER_OBSERVABILITY_PLANE_NAME]",
+		Short: "Get a cluster observability plane",
+		Long:  `Get a cluster observability plane and display its details in YAML format.`,
 		Example: `  # Get a cluster observability plane
   occ clusterobservabilityplane get default`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -65,9 +65,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "delete [CLUSTER_OBSERVABILITY_PLANE_NAME]",
-		Short:   "Delete a cluster observability plane",
-		Long:    `Delete a cluster observability plane by name.`,
+		Use:   "delete [CLUSTER_OBSERVABILITY_PLANE_NAME]",
+		Short: "Delete a cluster observability plane",
+		Long:  `Delete a cluster observability plane by name.`,
 		Example: `  # Delete a cluster observability plane
   occ clusterobservabilityplane delete default`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

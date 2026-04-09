@@ -28,9 +28,9 @@ func NewClusterComponentTypeCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
-		Short:   "List cluster component types",
-		Long:    `List all cluster-scoped component types available across the cluster.`,
+		Use:   "list",
+		Short: "List cluster component types",
+		Long:  `List all cluster-scoped component types available across the cluster.`,
 		Example: `  # List all cluster component types
   occ clustercomponenttype list`,
 		PreRunE: auth.RequireLogin(),
@@ -46,9 +46,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "get [CLUSTER_COMPONENT_TYPE_NAME]",
-		Short:   "Get a cluster component type",
-		Long:    `Get a cluster component type and display its details in YAML format.`,
+		Use:   "get [CLUSTER_COMPONENT_TYPE_NAME]",
+		Short: "Get a cluster component type",
+		Long:  `Get a cluster component type and display its details in YAML format.`,
 		Example: `  # Get a cluster component type
   occ clustercomponenttype get web-app`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -65,9 +65,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "delete [CLUSTER_COMPONENT_TYPE_NAME]",
-		Short:   "Delete a cluster component type",
-		Long:    `Delete a cluster component type by name.`,
+		Use:   "delete [CLUSTER_COMPONENT_TYPE_NAME]",
+		Short: "Delete a cluster component type",
+		Long:  `Delete a cluster component type by name.`,
 		Example: `  # Delete a cluster component type
   occ clustercomponenttype delete web-app`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

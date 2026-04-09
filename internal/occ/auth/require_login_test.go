@@ -39,14 +39,14 @@ func oidcSecurityTransport(t *testing.T, securityEnabled bool) http.RoundTripper
 	t.Helper()
 	return roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		path := r.URL.Host + r.URL.Path
-		switch {
-		case path == mockAPIProtectedResource:
+		switch path {
+		case mockAPIProtectedResource:
 			return jsonResponse(t, protectedResourceResponse{
 				AuthorizationServers:      []string{"http://mock-issuer"},
 				OpenChoreoClients:         []clientInfo{{Name: "cli", ClientID: "cli-id", Scopes: []string{"openid"}}},
 				OpenChoreoSecurityEnabled: securityEnabled,
 			}), nil
-		case path == mockIssuerOIDCDiscovery:
+		case mockIssuerOIDCDiscovery:
 			return jsonResponse(t, oidcProviderDiscovery{
 				AuthorizationEndpoint: "https://auth.example.com/authorize",
 				TokenEndpoint:         "https://auth.example.com/token",

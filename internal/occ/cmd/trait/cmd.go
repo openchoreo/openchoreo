@@ -29,9 +29,9 @@ func NewTraitCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List traits",
-		Long:    `List all traits available in a namespace.`,
+		Use:   "list",
+		Short: "List traits",
+		Long:  `List all traits available in a namespace.`,
 		Example: `  # List all traits in a namespace
   occ trait list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -51,9 +51,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [TRAIT_NAME]",
-		Short:   "Get a trait",
-		Long:    `Get a trait and display its details in YAML format.`,
+		Use:   "get [TRAIT_NAME]",
+		Short: "Get a trait",
+		Long:  `Get a trait and display its details in YAML format.`,
 		Example: `  # Get a trait
   occ trait get ingress --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -75,9 +75,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [TRAIT_NAME]",
-		Short:   "Delete a trait",
-		Long:    `Delete a trait by name.`,
+		Use:   "delete [TRAIT_NAME]",
+		Short: "Delete a trait",
+		Long:  `Delete a trait by name.`,
 		Example: `  # Delete a trait
   occ trait delete ingress --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

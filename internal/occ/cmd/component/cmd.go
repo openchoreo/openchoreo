@@ -36,9 +36,9 @@ func NewComponentCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List components",
-		Long:    `List all components in a project.`,
+		Use:   "list",
+		Short: "List components",
+		Long:  `List all components in a project.`,
 		Example: `  # List all components in a project
   occ component list --namespace acme-corp --project online-store`,
 		PreRunE: auth.RequireLogin(),
@@ -60,9 +60,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [COMPONENT_NAME]",
-		Short:   "Get a component",
-		Long:    `Get a component and display its details in YAML format.`,
+		Use:   "get [COMPONENT_NAME]",
+		Short: "Get a component",
+		Long:  `Get a component and display its details in YAML format.`,
 		Example: `  # Get a component
   occ component get my-component --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -84,9 +84,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [COMPONENT_NAME]",
-		Short:   "Delete a component",
-		Long:    `Delete a component by name.`,
+		Use:   "delete [COMPONENT_NAME]",
+		Short: "Delete a component",
+		Long:  `Delete a component by name.`,
 		Example: `  # Delete a component
   occ component delete my-component --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

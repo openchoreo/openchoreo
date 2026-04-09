@@ -100,9 +100,9 @@ func newGenerateCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List component releases",
-		Long:    `List all component releases for a specific component.`,
+		Use:   "list",
+		Short: "List component releases",
+		Long:  `List all component releases for a specific component.`,
 		Example: `  # List all component releases for a component
   occ componentrelease list --namespace acme-corp --project online-store --component product-catalog`,
 		PreRunE: auth.RequireLogin(),
@@ -126,9 +126,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [COMPONENT_RELEASE_NAME]",
-		Short:   "Get a component release",
-		Long:    `Get a component release and display its details in YAML format.`,
+		Use:   "get [COMPONENT_RELEASE_NAME]",
+		Short: "Get a component release",
+		Long:  `Get a component release and display its details in YAML format.`,
 		Example: `  # Get a component release
   occ componentrelease get my-release --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -150,9 +150,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [COMPONENT_RELEASE_NAME]",
-		Short:   "Delete a component release",
-		Long:    `Delete a component release by name.`,
+		Use:   "delete [COMPONENT_RELEASE_NAME]",
+		Short: "Delete a component release",
+		Long:  `Delete a component release by name.`,
 		Example: `  # Delete a component release
   occ componentrelease delete my-release --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

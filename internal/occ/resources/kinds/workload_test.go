@@ -1,5 +1,6 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package kinds
 
 import (
@@ -14,6 +15,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources"
 	synth "github.com/openchoreo/openchoreo/internal/occ/resources/workload"
 )
+
 func TestNewWorkloadResource(t *testing.T) {
 	t.Run("with namespace", func(t *testing.T) {
 		wr, err := NewWorkloadResource(resources.WorkloadV1Config, "my-ns")

@@ -29,9 +29,9 @@ func NewObservabilityAlertsNotificationChannelCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List observability alerts notification channels",
-		Long:    `List all observability alerts notification channels in a namespace.`,
+		Use:   "list",
+		Short: "List observability alerts notification channels",
+		Long:  `List all observability alerts notification channels in a namespace.`,
 		Example: `  # List all observability alerts notification channels
   occ observabilityalertsnotificationchannel list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -51,9 +51,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [CHANNEL_NAME]",
-		Short:   "Get an observability alerts notification channel",
-		Long:    `Get an observability alerts notification channel and display its details in YAML format.`,
+		Use:   "get [CHANNEL_NAME]",
+		Short: "Get an observability alerts notification channel",
+		Long:  `Get an observability alerts notification channel and display its details in YAML format.`,
 		Example: `  # Get an observability alerts notification channel
   occ observabilityalertsnotificationchannel get my-channel --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -75,9 +75,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [CHANNEL_NAME]",
-		Short:   "Delete an observability alerts notification channel",
-		Long:    `Delete an observability alerts notification channel by name.`,
+		Use:   "delete [CHANNEL_NAME]",
+		Short: "Delete an observability alerts notification channel",
+		Long:  `Delete an observability alerts notification channel by name.`,
 		Example: `  # Delete an observability alerts notification channel
   occ observabilityalertsnotificationchannel delete my-channel --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

@@ -29,9 +29,9 @@ func NewAuthzRoleCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List authz roles",
-		Long:    `List all authorization roles in a namespace.`,
+		Use:   "list",
+		Short: "List authz roles",
+		Long:  `List all authorization roles in a namespace.`,
 		Example: `  # List all authz roles in a namespace
   occ authzrole list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -51,9 +51,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [AUTHZ_ROLE_NAME]",
-		Short:   "Get an authz role",
-		Long:    `Get an authorization role and display its details in YAML format.`,
+		Use:   "get [AUTHZ_ROLE_NAME]",
+		Short: "Get an authz role",
+		Long:  `Get an authorization role and display its details in YAML format.`,
 		Example: `  # Get an authz role
   occ authzrole get my-role --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -75,9 +75,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [AUTHZ_ROLE_NAME]",
-		Short:   "Delete an authz role",
-		Long:    `Delete an authorization role by name.`,
+		Use:   "delete [AUTHZ_ROLE_NAME]",
+		Short: "Delete an authz role",
+		Long:  `Delete an authorization role by name.`,
 		Example: `  # Delete an authz role
   occ authzrole delete my-role --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

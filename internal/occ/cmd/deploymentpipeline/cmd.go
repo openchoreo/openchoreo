@@ -29,9 +29,9 @@ func NewDeploymentPipelineCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List deployment pipelines",
-		Long:    `List all deployment pipelines in a namespace.`,
+		Use:   "list",
+		Short: "List deployment pipelines",
+		Long:  `List all deployment pipelines in a namespace.`,
 		Example: `  # List all deployment pipelines in a namespace
   occ deploymentpipeline list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -51,9 +51,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [DEPLOYMENT_PIPELINE_NAME]",
-		Short:   "Get a deployment pipeline",
-		Long:    `Get a deployment pipeline and display its details in YAML format.`,
+		Use:   "get [DEPLOYMENT_PIPELINE_NAME]",
+		Short: "Get a deployment pipeline",
+		Long:  `Get a deployment pipeline and display its details in YAML format.`,
 		Example: `  # Get a deployment pipeline
   occ deploymentpipeline get my-pipeline --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -75,9 +75,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [DEPLOYMENT_PIPELINE_NAME]",
-		Short:   "Delete a deployment pipeline",
-		Long:    `Delete a deployment pipeline by name.`,
+		Use:   "delete [DEPLOYMENT_PIPELINE_NAME]",
+		Short: "Delete a deployment pipeline",
+		Long:  `Delete a deployment pipeline by name.`,
 		Example: `  # Delete a deployment pipeline
   occ deploymentpipeline delete my-pipeline --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

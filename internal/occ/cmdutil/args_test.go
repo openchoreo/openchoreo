@@ -19,9 +19,9 @@ func TestExtractArgName(t *testing.T) {
 		{"get [NAMESPACE_NAME]", "NAMESPACE_NAME"},
 		{"run WORKFLOW_NAME", "WORKFLOW_NAME"},
 		{"delete [NAME]", "NAME"},
-		{"list", "NAME"},      // no arg part → fallback
-		{"", "NAME"},          // empty → fallback
-		{"cmd []", "NAME"},    // empty brackets → fallback
+		{"list", "NAME"},   // no arg part → fallback
+		{"", "NAME"},       // empty → fallback
+		{"cmd []", "NAME"}, // empty brackets → fallback
 	}
 	for _, tt := range tests {
 		t.Run(tt.use, func(t *testing.T) {

@@ -28,9 +28,9 @@ func NewClusterDataPlaneCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
-		Short:   "List cluster data planes",
-		Long:    `List all cluster-scoped data planes available across the cluster.`,
+		Use:   "list",
+		Short: "List cluster data planes",
+		Long:  `List all cluster-scoped data planes available across the cluster.`,
 		Example: `  # List all cluster data planes
   occ clusterdataplane list`,
 		PreRunE: auth.RequireLogin(),
@@ -46,9 +46,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "get [CLUSTER_DATA_PLANE_NAME]",
-		Short:   "Get a cluster data plane",
-		Long:    `Get a cluster data plane and display its details in YAML format.`,
+		Use:   "get [CLUSTER_DATA_PLANE_NAME]",
+		Short: "Get a cluster data plane",
+		Long:  `Get a cluster data plane and display its details in YAML format.`,
 		Example: `  # Get a cluster data plane
   occ clusterdataplane get default`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -65,9 +65,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "delete [CLUSTER_DATA_PLANE_NAME]",
-		Short:   "Delete a cluster data plane",
-		Long:    `Delete a cluster data plane by name.`,
+		Use:   "delete [CLUSTER_DATA_PLANE_NAME]",
+		Short: "Delete a cluster data plane",
+		Long:  `Delete a cluster data plane by name.`,
 		Example: `  # Delete a cluster data plane
   occ clusterdataplane delete default`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

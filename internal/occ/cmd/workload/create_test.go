@@ -14,8 +14,8 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workload/mocks"
-	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
+	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 )
 
 // --- helpers ---

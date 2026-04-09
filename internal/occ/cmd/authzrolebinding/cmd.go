@@ -29,9 +29,9 @@ func NewAuthzRoleBindingCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List authz role bindings",
-		Long:    `List all authorization role bindings in a namespace.`,
+		Use:   "list",
+		Short: "List authz role bindings",
+		Long:  `List all authorization role bindings in a namespace.`,
 		Example: `  # List all authz role bindings in a namespace
   occ authzrolebinding list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -51,9 +51,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [AUTHZ_ROLE_BINDING_NAME]",
-		Short:   "Get an authz role binding",
-		Long:    `Get an authorization role binding and display its details in YAML format.`,
+		Use:   "get [AUTHZ_ROLE_BINDING_NAME]",
+		Short: "Get an authz role binding",
+		Long:  `Get an authorization role binding and display its details in YAML format.`,
 		Example: `  # Get an authz role binding
   occ authzrolebinding get my-binding --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -75,9 +75,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [AUTHZ_ROLE_BINDING_NAME]",
-		Short:   "Delete an authz role binding",
-		Long:    `Delete an authorization role binding by name.`,
+		Use:   "delete [AUTHZ_ROLE_BINDING_NAME]",
+		Short: "Delete an authz role binding",
+		Long:  `Delete an authorization role binding by name.`,
 		Example: `  # Delete an authz role binding
   occ authzrolebinding delete my-binding --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

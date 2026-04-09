@@ -28,9 +28,9 @@ func NewClusterAuthzRoleCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
-		Short:   "List cluster authz roles",
-		Long:    `List all cluster-scoped authorization roles.`,
+		Use:   "list",
+		Short: "List cluster authz roles",
+		Long:  `List all cluster-scoped authorization roles.`,
 		Example: `  # List all cluster authz roles
   occ clusterauthzrole list`,
 		PreRunE: auth.RequireLogin(),
@@ -46,9 +46,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "get [CLUSTER_AUTHZ_ROLE_NAME]",
-		Short:   "Get a cluster authz role",
-		Long:    `Get a cluster authz role and display its details in YAML format.`,
+		Use:   "get [CLUSTER_AUTHZ_ROLE_NAME]",
+		Short: "Get a cluster authz role",
+		Long:  `Get a cluster authz role and display its details in YAML format.`,
 		Example: `  # Get a cluster authz role
   occ clusterauthzrole get my-role`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -65,9 +65,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "delete [CLUSTER_AUTHZ_ROLE_NAME]",
-		Short:   "Delete a cluster authz role",
-		Long:    `Delete a cluster authz role by name.`,
+		Use:   "delete [CLUSTER_AUTHZ_ROLE_NAME]",
+		Short: "Delete a cluster authz role",
+		Long:  `Delete a cluster authz role by name.`,
 		Example: `  # Delete a cluster authz role
   occ clusterauthzrole delete my-role`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

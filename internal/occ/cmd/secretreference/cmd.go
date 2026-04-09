@@ -29,9 +29,9 @@ func NewSecretReferenceCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List secret references",
-		Long:    `List all secret references in a namespace.`,
+		Use:   "list",
+		Short: "List secret references",
+		Long:  `List all secret references in a namespace.`,
 		Example: `  # List all secret references in a namespace
   occ secretreference list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -51,9 +51,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [SECRET_REFERENCE_NAME]",
-		Short:   "Get a secret reference",
-		Long:    `Get a secret reference and display its details in YAML format.`,
+		Use:   "get [SECRET_REFERENCE_NAME]",
+		Short: "Get a secret reference",
+		Long:  `Get a secret reference and display its details in YAML format.`,
 		Example: `  # Get a secret reference
   occ secretreference get my-secret --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -75,9 +75,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [SECRET_REFERENCE_NAME]",
-		Short:   "Delete a secret reference",
-		Long:    `Delete a secret reference by name.`,
+		Use:   "delete [SECRET_REFERENCE_NAME]",
+		Short: "Delete a secret reference",
+		Long:  `Delete a secret reference by name.`,
 		Example: `  # Delete a secret reference
   occ secretreference delete my-secret --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

@@ -29,9 +29,9 @@ func NewObservabilityPlaneCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List observability planes",
-		Long:    `List all observability planes in a namespace.`,
+		Use:   "list",
+		Short: "List observability planes",
+		Long:  `List all observability planes in a namespace.`,
 		Example: `  # List all observability planes in a namespace
   occ observabilityplane list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -51,9 +51,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [OBSERVABILITYPLANE_NAME]",
-		Short:   "Get an observability plane",
-		Long:    `Get an observability plane and display its details in YAML format.`,
+		Use:   "get [OBSERVABILITYPLANE_NAME]",
+		Short: "Get an observability plane",
+		Long:  `Get an observability plane and display its details in YAML format.`,
 		Example: `  # Get an observability plane
   occ observabilityplane get primary-observabilityplane --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -75,9 +75,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [OBSERVABILITYPLANE_NAME]",
-		Short:   "Delete an observability plane",
-		Long:    `Delete an observability plane by name.`,
+		Use:   "delete [OBSERVABILITYPLANE_NAME]",
+		Short: "Delete an observability plane",
+		Long:  `Delete an observability plane by name.`,
 		Example: `  # Delete an observability plane
   occ observabilityplane delete primary-observabilityplane --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

@@ -76,9 +76,9 @@ Examples:
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List workloads",
-		Long:    `List all workloads in a namespace.`,
+		Use:   "list",
+		Short: "List workloads",
+		Long:  `List all workloads in a namespace.`,
 		Example: `  # List all workloads in a namespace
   occ workload list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -98,9 +98,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [WORKLOAD_NAME]",
-		Short:   "Get a workload",
-		Long:    `Get a workload and display its details in YAML format.`,
+		Use:   "get [WORKLOAD_NAME]",
+		Short: "Get a workload",
+		Long:  `Get a workload and display its details in YAML format.`,
 		Example: `  # Get a workload
   occ workload get my-workload --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -122,9 +122,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [WORKLOAD_NAME]",
-		Short:   "Delete a workload",
-		Long:    `Delete a workload by name.`,
+		Use:   "delete [WORKLOAD_NAME]",
+		Short: "Delete a workload",
+		Long:  `Delete a workload by name.`,
 		Example: `  # Delete a workload
   occ workload delete my-workload --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

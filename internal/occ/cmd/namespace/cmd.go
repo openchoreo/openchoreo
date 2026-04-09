@@ -28,9 +28,9 @@ func NewNamespaceCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
-		Short:   "List namespaces",
-		Long:    `List all namespaces.`,
+		Use:   "list",
+		Short: "List namespaces",
+		Long:  `List all namespaces.`,
 		Example: `  # List all namespaces
   occ namespace list`,
 		PreRunE: auth.RequireLogin(),
@@ -46,9 +46,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "get [NAMESPACE_NAME]",
-		Short:   "Get a namespace",
-		Long:    `Get a namespace and display its details in YAML format.`,
+		Use:   "get [NAMESPACE_NAME]",
+		Short: "Get a namespace",
+		Long:  `Get a namespace and display its details in YAML format.`,
 		Example: `  # Get a namespace
   occ namespace get acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -65,9 +65,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "delete [NAMESPACE_NAME]",
-		Short:   "Delete a namespace",
-		Long:    `Delete a namespace by name.`,
+		Use:   "delete [NAMESPACE_NAME]",
+		Short: "Delete a namespace",
+		Long:  `Delete a namespace by name.`,
 		Example: `  # Delete a namespace
   occ namespace delete acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

@@ -28,9 +28,9 @@ func NewClusterWorkflowPlaneCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
-		Short:   "List cluster workflow planes",
-		Long:    `List all cluster-scoped workflow planes available across the cluster.`,
+		Use:   "list",
+		Short: "List cluster workflow planes",
+		Long:  `List all cluster-scoped workflow planes available across the cluster.`,
 		Example: `  # List all cluster workflow planes
   occ clusterworkflowplane list`,
 		PreRunE: auth.RequireLogin(),
@@ -46,9 +46,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "get [CLUSTER_WORKFLOW_PLANE_NAME]",
-		Short:   "Get a cluster workflow plane",
-		Long:    `Get a cluster workflow plane and display its details in YAML format.`,
+		Use:   "get [CLUSTER_WORKFLOW_PLANE_NAME]",
+		Short: "Get a cluster workflow plane",
+		Long:  `Get a cluster workflow plane and display its details in YAML format.`,
 		Example: `  # Get a cluster workflow plane
   occ clusterworkflowplane get default`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -65,9 +65,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "delete [CLUSTER_WORKFLOW_PLANE_NAME]",
-		Short:   "Delete a cluster workflow plane",
-		Long:    `Delete a cluster workflow plane by name.`,
+		Use:   "delete [CLUSTER_WORKFLOW_PLANE_NAME]",
+		Short: "Delete a cluster workflow plane",
+		Long:  `Delete a cluster workflow plane by name.`,
 		Example: `  # Delete a cluster workflow plane
   occ clusterworkflowplane delete default`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

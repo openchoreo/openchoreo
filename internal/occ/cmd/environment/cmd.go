@@ -29,9 +29,9 @@ func NewEnvironmentCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List environments",
-		Long:    `List all environments in a namespace.`,
+		Use:   "list",
+		Short: "List environments",
+		Long:  `List all environments in a namespace.`,
 		Example: `  # List all environments in a namespace
   occ environment list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -51,9 +51,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [ENVIRONMENT_NAME]",
-		Short:   "Get an environment",
-		Long:    `Get an environment and display its details in YAML format.`,
+		Use:   "get [ENVIRONMENT_NAME]",
+		Short: "Get an environment",
+		Long:  `Get an environment and display its details in YAML format.`,
 		Example: `  # Get an environment
   occ environment get dev --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -75,9 +75,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [ENVIRONMENT_NAME]",
-		Short:   "Delete an environment",
-		Long:    `Delete an environment by name.`,
+		Use:   "delete [ENVIRONMENT_NAME]",
+		Short: "Delete an environment",
+		Long:  `Delete an environment by name.`,
 		Example: `  # Delete an environment
   occ environment delete dev --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

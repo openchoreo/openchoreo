@@ -29,9 +29,9 @@ func NewWorkflowRunCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List workflow runs",
-		Long:    `List all workflow runs in a namespace.`,
+		Use:   "list",
+		Short: "List workflow runs",
+		Long:  `List all workflow runs in a namespace.`,
 		Example: `  # List all workflow runs in a namespace
   occ workflowrun list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -55,9 +55,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [WORKFLOW_RUN_NAME]",
-		Short:   "Get a workflow run",
-		Long:    `Get a workflow run and display its details in YAML format.`,
+		Use:   "get [WORKFLOW_RUN_NAME]",
+		Short: "Get a workflow run",
+		Long:  `Get a workflow run and display its details in YAML format.`,
 		Example: `  # Get a workflow run
   occ workflowrun get my-run --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

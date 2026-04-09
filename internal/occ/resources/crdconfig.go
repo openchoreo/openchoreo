@@ -7,7 +7,7 @@ package resources
 type APIVersion = string
 
 const (
-	ChoreoGroup = "core.choreo.dev"
+	ChoreoGroup            = "core.choreo.dev"
 	V1Alpha1    APIVersion = "v1alpha1"
 )
 

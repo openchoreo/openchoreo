@@ -31,9 +31,9 @@ func NewClusterWorkflowCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
-		Short:   "List cluster workflows",
-		Long:    `List all cluster-scoped workflows available across the cluster.`,
+		Use:   "list",
+		Short: "List cluster workflows",
+		Long:  `List all cluster-scoped workflows available across the cluster.`,
 		Example: `  # List all cluster workflows
   occ clusterworkflow list`,
 		PreRunE: auth.RequireLogin(),
@@ -49,9 +49,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "get [CLUSTER_WORKFLOW_NAME]",
-		Short:   "Get a cluster workflow",
-		Long:    `Get a cluster workflow and display its details in YAML format.`,
+		Use:   "get [CLUSTER_WORKFLOW_NAME]",
+		Short: "Get a cluster workflow",
+		Long:  `Get a cluster workflow and display its details in YAML format.`,
 		Example: `  # Get a cluster workflow
   occ clusterworkflow get build-go`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -68,9 +68,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "delete [CLUSTER_WORKFLOW_NAME]",
-		Short:   "Delete a cluster workflow",
-		Long:    `Delete a cluster workflow by name.`,
+		Use:   "delete [CLUSTER_WORKFLOW_NAME]",
+		Short: "Delete a cluster workflow",
+		Long:  `Delete a cluster workflow by name.`,
 		Example: `  # Delete a cluster workflow
   occ clusterworkflow delete build-go`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

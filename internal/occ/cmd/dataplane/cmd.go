@@ -29,9 +29,9 @@ func NewDataPlaneCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "list",
-		Short:   "List data planes",
-		Long:    `List all data planes in a namespace.`,
+		Use:   "list",
+		Short: "List data planes",
+		Long:  `List all data planes in a namespace.`,
 		Example: `  # List all data planes in a namespace
   occ dataplane list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -51,9 +51,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "get [DATAPLANE_NAME]",
-		Short:   "Get a data plane",
-		Long:    `Get a data plane and display its details in YAML format.`,
+		Use:   "get [DATAPLANE_NAME]",
+		Short: "Get a data plane",
+		Long:  `Get a data plane and display its details in YAML format.`,
 		Example: `  # Get a data plane
   occ dataplane get primary-dataplane --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -75,9 +75,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "delete [DATAPLANE_NAME]",
-		Short:   "Delete a data plane",
-		Long:    `Delete a data plane by name.`,
+		Use:   "delete [DATAPLANE_NAME]",
+		Short: "Delete a data plane",
+		Long:  `Delete a data plane by name.`,
 		Example: `  # Delete a data plane
   occ dataplane delete primary-dataplane --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

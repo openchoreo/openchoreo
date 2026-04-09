@@ -28,9 +28,9 @@ func NewClusterTraitCmd() *cobra.Command {
 
 func newListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "list",
-		Short:   "List cluster traits",
-		Long:    `List all cluster-scoped traits available across the cluster.`,
+		Use:   "list",
+		Short: "List cluster traits",
+		Long:  `List all cluster-scoped traits available across the cluster.`,
 		Example: `  # List all cluster traits
   occ clustertrait list`,
 		PreRunE: auth.RequireLogin(),
@@ -46,9 +46,9 @@ func newListCmd() *cobra.Command {
 
 func newGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "get [CLUSTER_TRAIT_NAME]",
-		Short:   "Get a cluster trait",
-		Long:    `Get a cluster trait and display its details in YAML format.`,
+		Use:   "get [CLUSTER_TRAIT_NAME]",
+		Short: "Get a cluster trait",
+		Long:  `Get a cluster trait and display its details in YAML format.`,
 		Example: `  # Get a cluster trait
   occ clustertrait get ingress`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -65,9 +65,9 @@ func newGetCmd() *cobra.Command {
 
 func newDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "delete [CLUSTER_TRAIT_NAME]",
-		Short:   "Delete a cluster trait",
-		Long:    `Delete a cluster trait by name.`,
+		Use:   "delete [CLUSTER_TRAIT_NAME]",
+		Short: "Delete a cluster trait",
+		Long:  `Delete a cluster trait by name.`,
 		Example: `  # Delete a cluster trait
   occ clustertrait delete ingress`,
 		Args:    cmdutil.ExactOneArgWithUsage(),

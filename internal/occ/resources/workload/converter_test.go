@@ -1,5 +1,6 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
+
 package synth
 
 import (
@@ -14,6 +15,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 )
+
 func TestValidateConversionParams(t *testing.T) {
 	tests := []struct {
 		name    string
