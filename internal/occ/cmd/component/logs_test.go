@@ -20,6 +20,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+const observerTestURL = "http://observer.test"
+
 // setupLogsConfig sets up a test home with OC config containing a non-expired JWT.
 func setupLogsConfig(t *testing.T) {
 	t.Helper()
@@ -218,11 +220,11 @@ func setupMockForLogs(t *testing.T, mc *mocks.MockInterface, observerURL string)
 func TestLogs_Success(t *testing.T) {
 	setupLogsConfig(t)
 
-	observerURL := "http://observer.test"
+	observerURL := observerTestURL
 	mc := mocks.NewMockInterface(t)
 	setupMockForLogs(t, mc, observerURL)
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, observerURL+"/api/v1/logs/query", r.URL.String())
 		return testutil.JSONResp(http.StatusOK, client.LogResponse{
@@ -246,7 +248,7 @@ func TestLogs_Success(t *testing.T) {
 func TestLogs_WithExplicitEnvironment(t *testing.T) {
 	setupLogsConfig(t)
 
-	observerURL := "http://observer.test"
+	observerURL := observerTestURL
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{}, nil)
 	// No pipeline lookup when environment is explicit
@@ -272,7 +274,7 @@ func TestLogs_WithExplicitEnvironment(t *testing.T) {
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "my-obs").Return(
 		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{ObserverURL: &observerURL}}, nil)
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		return testutil.JSONResp(http.StatusOK, client.LogResponse{
 			Logs: []client.LogEntry{{Timestamp: "2026-01-01T00:00:00Z", Log: "staging log"}},
 		}), nil
@@ -309,7 +311,7 @@ func TestLogs_PipelineError(t *testing.T) {
 func TestLogs_InvalidSince(t *testing.T) {
 	setupLogsConfig(t)
 
-	observerURL := "http://observer.test"
+	observerURL := observerTestURL
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{}, nil)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-proj").Return(
@@ -352,7 +354,7 @@ func TestLogs_CredentialError(t *testing.T) {
 		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp"}}, // no credentials ref
 	})
 
-	observerURL := "http://observer.test"
+	observerURL := observerTestURL
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{}, nil)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-proj").Return(
@@ -387,11 +389,11 @@ func TestLogs_CredentialError(t *testing.T) {
 func TestLogs_ObserverAPIError(t *testing.T) {
 	setupLogsConfig(t)
 
-	observerURL := "http://observer.test"
+	observerURL := observerTestURL
 	mc := mocks.NewMockInterface(t)
 	setupMockForLogs(t, mc, observerURL)
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		return testutil.JSONResp(http.StatusInternalServerError, map[string]string{"error": "internal"}), nil
 	}))
 
@@ -403,11 +405,11 @@ func TestLogs_ObserverAPIError(t *testing.T) {
 func TestLogs_WithTail(t *testing.T) {
 	setupLogsConfig(t)
 
-	observerURL := "http://observer.test"
+	observerURL := observerTestURL
 	mc := mocks.NewMockInterface(t)
 	setupMockForLogs(t, mc, observerURL)
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		// Verify the request body has desc sort order for tail
 		var body map[string]any
 		err := json.NewDecoder(r.Body).Decode(&body)

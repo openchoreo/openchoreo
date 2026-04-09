@@ -23,6 +23,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+const observerTestURL = "http://observer.test"
+
 func TestFilterNewEntries(t *testing.T) {
 	now := time.Now()
 	earlier := now.Add(-time.Hour)
@@ -506,7 +508,7 @@ func setupMockForArchivedLogs(t *testing.T, mc *mocks.MockInterface, observerURL
 func TestFetchArchivedLogs_Success(t *testing.T) {
 	setupArchivedLogsConfig(t)
 
-	observerURL := "http://observer.test"
+	observerURL := observerTestURL
 	mc := mocks.NewMockInterface(t)
 
 	// Status returns no live observability → archived path
@@ -515,7 +517,7 @@ func TestFetchArchivedLogs_Success(t *testing.T) {
 	setupMockForArchivedLogs(t, mc, observerURL)
 
 	// Mock the observer HTTP call
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, observerURL+"/api/v1/logs/query", r.URL.String())
 		return testutil.JSONResp(http.StatusOK, client.LogResponse{
@@ -538,13 +540,13 @@ func TestFetchArchivedLogs_Success(t *testing.T) {
 func TestFetchArchivedLogs_NoLogs(t *testing.T) {
 	setupArchivedLogsConfig(t)
 
-	observerURL := "http://observer.test"
+	observerURL := observerTestURL
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
 		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
 	setupMockForArchivedLogs(t, mc, observerURL)
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		return testutil.JSONResp(http.StatusOK, client.LogResponse{Logs: []client.LogEntry{}}), nil
 	}))
 
@@ -558,13 +560,13 @@ func TestFetchArchivedLogs_NoLogs(t *testing.T) {
 func TestFetchArchivedLogs_WithFollowFlag(t *testing.T) {
 	setupArchivedLogsConfig(t)
 
-	observerURL := "http://observer.test"
+	observerURL := observerTestURL
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
 		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
 	setupMockForArchivedLogs(t, mc, observerURL)
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		return testutil.JSONResp(http.StatusOK, client.LogResponse{
 			Logs: []client.LogEntry{{Timestamp: "2026-01-01T00:00:00Z", Log: "done"}},
 		}), nil
@@ -581,13 +583,13 @@ func TestFetchArchivedLogs_WithFollowFlag(t *testing.T) {
 func TestFetchArchivedLogs_WithSince(t *testing.T) {
 	setupArchivedLogsConfig(t)
 
-	observerURL := "http://observer.test"
+	observerURL := observerTestURL
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
 		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
 	setupMockForArchivedLogs(t, mc, observerURL)
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		// Verify the request body contains the expected time range
 		var body map[string]any
 		err := json.NewDecoder(r.Body).Decode(&body)
@@ -637,13 +639,13 @@ func TestFetchArchivedLogs_NoWorkflowRef(t *testing.T) {
 func TestFetchArchivedLogs_ObserverAPIError(t *testing.T) {
 	setupArchivedLogsConfig(t)
 
-	observerURL := "http://observer.test"
+	observerURL := observerTestURL
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
 		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)
 	setupMockForArchivedLogs(t, mc, observerURL)
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		return testutil.JSONResp(http.StatusInternalServerError, map[string]string{"error": "internal"}), nil
 	}))
 
@@ -661,7 +663,7 @@ func TestFetchArchivedLogs_CredentialError(t *testing.T) {
 		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp"}}, // no credentials ref
 	})
 
-	observerURL := "http://observer.test"
+	observerURL := observerTestURL
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
 		&gen.WorkflowRunStatusResponse{HasLiveObservability: false}, nil)

@@ -25,7 +25,7 @@ func TestFetchOIDCConfig(t *testing.T) {
 	const apiURL = "http://mock-api"
 
 	t.Run("happy path assembles OIDCConfig from both endpoints", func(t *testing.T) {
-		testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 			switch r.URL.Host + r.URL.Path {
 			case mockAPIProtectedResource:
 				return testutil.JSONResp(http.StatusOK, protectedResourceResponse{
@@ -56,7 +56,7 @@ func TestFetchOIDCConfig(t *testing.T) {
 	})
 
 	t.Run("no authorization servers", func(t *testing.T) {
-		testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 			return testutil.JSONResp(http.StatusOK, protectedResourceResponse{
 				AuthorizationServers: []string{},
 				OpenChoreoClients:    []clientInfo{{Name: "cli", ClientID: "c", Scopes: []string{"openid"}}},
@@ -69,7 +69,7 @@ func TestFetchOIDCConfig(t *testing.T) {
 	})
 
 	t.Run("no CLI client in openchoreo_clients", func(t *testing.T) {
-		testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 			return testutil.JSONResp(http.StatusOK, protectedResourceResponse{
 				AuthorizationServers: []string{issuer},
 				OpenChoreoClients:    []clientInfo{{Name: "web", ClientID: "web-id", Scopes: []string{"openid"}}},
@@ -82,7 +82,7 @@ func TestFetchOIDCConfig(t *testing.T) {
 	})
 
 	t.Run("404 from protected resource includes URL hint", func(t *testing.T) {
-		testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusNotFound,
 				Body:       io.NopCloser(bytes.NewReader([]byte("not found"))),
@@ -97,7 +97,7 @@ func TestFetchOIDCConfig(t *testing.T) {
 	})
 
 	t.Run("non-404 error from protected resource", func(t *testing.T) {
-		testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusInternalServerError,
 				Body:       io.NopCloser(bytes.NewReader([]byte("internal error"))),
@@ -111,7 +111,7 @@ func TestFetchOIDCConfig(t *testing.T) {
 	})
 
 	t.Run("missing authorization_endpoint in discovery", func(t *testing.T) {
-		testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 			switch r.URL.Host + r.URL.Path {
 			case mockAPIProtectedResource:
 				return testutil.JSONResp(http.StatusOK, protectedResourceResponse{
@@ -133,7 +133,7 @@ func TestFetchOIDCConfig(t *testing.T) {
 	})
 
 	t.Run("missing token_endpoint in discovery", func(t *testing.T) {
-		testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 			switch r.URL.Host + r.URL.Path {
 			case mockAPIProtectedResource:
 				return testutil.JSONResp(http.StatusOK, protectedResourceResponse{

@@ -64,9 +64,9 @@ func TestFetchServerVersion_Success(t *testing.T) {
 		GoVersion:   "go1.23.0",
 	}
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		assert.Equal(t, cpURL+"/version", r.URL.String())
-		return testutil.JSONResp(http.StatusOK,expected), nil
+		return testutil.JSONResp(http.StatusOK, expected), nil
 	}))
 	writeTestConfig(t, cpURL)
 
@@ -93,7 +93,7 @@ func TestFetchServerVersion_Success(t *testing.T) {
 func TestFetchServerVersion_ServerError(t *testing.T) {
 	const cpURL = "http://mock-control-plane"
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: http.StatusInternalServerError,
 			Body:       http.NoBody,
@@ -156,7 +156,7 @@ func TestFetchServerVersion_EmptyURL(t *testing.T) {
 func TestFetchServerVersion_NetworkError(t *testing.T) {
 	const cpURL = "http://mock-control-plane"
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("connection refused")
 	}))
 	writeTestConfig(t, cpURL)
@@ -169,7 +169,7 @@ func TestFetchServerVersion_NetworkError(t *testing.T) {
 func TestFetchServerVersion_InvalidJSON(t *testing.T) {
 	const cpURL = "http://mock-control-plane"
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       io.NopCloser(bytes.NewReader([]byte("not json"))),

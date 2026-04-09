@@ -73,7 +73,7 @@ func TestNewApplyCmd_RunE_NoFile(t *testing.T) {
 		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
 	})
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		t.Fatal("no HTTP call expected")
 		return nil, nil
 	}))
@@ -95,7 +95,7 @@ func TestNewApplyCmd_RunE_CreateNamespace(t *testing.T) {
 		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
 	})
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		switch {
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/cmd-ns"):
 			return &http.Response{
@@ -145,7 +145,7 @@ func TestNewApplyCmd_RunE_UpdateNamespace(t *testing.T) {
 		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
 	})
 
-	testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		switch {
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/upd-ns"):
 			return testutil.JSONResp(http.StatusOK, map[string]any{

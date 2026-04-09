@@ -83,7 +83,7 @@ func TestIsLoggedIn(t *testing.T) {
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock-api"}},
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp"}},
 		})
-		testutil.SetTransport(t,oidcSecurityTransport(t, false))
+		testutil.SetTransport(t, oidcSecurityTransport(t, false))
 		assert.True(t, IsLoggedIn())
 	})
 
@@ -93,7 +93,7 @@ func TestIsLoggedIn(t *testing.T) {
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock-api"}},
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp"}},
 		})
-		testutil.SetTransport(t,testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusInternalServerError,
 				Body:       http.NoBody,
@@ -109,7 +109,7 @@ func TestIsLoggedIn(t *testing.T) {
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock-api"}},
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp"}}, // no credentials field
 		})
-		testutil.SetTransport(t,oidcSecurityTransport(t, true))
+		testutil.SetTransport(t, oidcSecurityTransport(t, true))
 		assert.False(t, IsLoggedIn())
 	})
 
@@ -120,7 +120,7 @@ func TestIsLoggedIn(t *testing.T) {
 			Credentials:    []config.Credential{{Name: "cred", Token: ""}},
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp", Credentials: "cred"}},
 		})
-		testutil.SetTransport(t,oidcSecurityTransport(t, true))
+		testutil.SetTransport(t, oidcSecurityTransport(t, true))
 		assert.False(t, IsLoggedIn())
 	})
 
@@ -131,7 +131,7 @@ func TestIsLoggedIn(t *testing.T) {
 			Credentials:    []config.Credential{{Name: "cred", Token: validToken(t)}},
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp", Credentials: "cred"}},
 		})
-		testutil.SetTransport(t,oidcSecurityTransport(t, true))
+		testutil.SetTransport(t, oidcSecurityTransport(t, true))
 		assert.True(t, IsLoggedIn())
 	})
 }
@@ -152,7 +152,7 @@ func TestRequireLogin(t *testing.T) {
 			Credentials:    []config.Credential{{Name: "cred", Token: validToken(t)}},
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp", Credentials: "cred"}},
 		})
-		testutil.SetTransport(t,oidcSecurityTransport(t, true))
+		testutil.SetTransport(t, oidcSecurityTransport(t, true))
 		fn := RequireLogin()
 		require.NoError(t, fn(nil, nil))
 	})
