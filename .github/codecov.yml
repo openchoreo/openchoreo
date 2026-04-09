@@ -4,9 +4,11 @@ coverage:
   status:
     project:
       default:
-        informational: true
+        target: auto
+        threshold: 2%
     patch:
       default:
+        target: 70%
         informational: true
 
 ignore:
