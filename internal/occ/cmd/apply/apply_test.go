@@ -15,7 +15,46 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
+
+// --- NewApplyCmd ---
+
+func TestNewApplyCmd_Structure(t *testing.T) {
+	f := func() (client.Interface, error) { return nil, fmt.Errorf("unused") }
+	cmd := NewApplyCmd(f)
+
+	assert.Equal(t, "apply", cmd.Use)
+	assert.NotEmpty(t, cmd.Short)
+	assert.NotNil(t, cmd.RunE)
+	assert.NotNil(t, cmd.PreRunE)
+	assert.NotNil(t, cmd.Flags().Lookup("file"), "expected -f/--file flag")
+}
+
+func TestNewApplyCmd_FactoryError(t *testing.T) {
+	f := func() (client.Interface, error) { return nil, fmt.Errorf("factory failed") }
+	cmd := NewApplyCmd(f)
+
+	err := cmd.RunE(cmd, nil)
+	assert.EqualError(t, err, "factory failed")
+}
+
+func TestNewApplyCmd_FileFlag(t *testing.T) {
+	f := func() (client.Interface, error) { return nil, fmt.Errorf("unused") }
+	cmd := NewApplyCmd(f)
+
+	flag := cmd.Flags().Lookup("file")
+	require.NotNil(t, flag)
+	assert.Equal(t, "f", flag.Shorthand)
+}
+
+// --- Params ---
+
+func TestParams_GetFilePath(t *testing.T) {
+	p := Params{FilePath: "/tmp/test.yaml"}
+	assert.Equal(t, "/tmp/test.yaml", p.GetFilePath())
+}
 
 func TestExtractResourceInfo(t *testing.T) {
 	tests := []struct {
