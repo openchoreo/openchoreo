@@ -6,6 +6,7 @@ package version
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -93,26 +94,26 @@ func TestFetchServerVersion_Success(t *testing.T) {
 		assert.Equal(t, cpURL+"/version", r.URL.String())
 		return jsonResponse(t, expected), nil
 	}))
+	writeTestConfig(t, cpURL)
 
-	home := testutil.SetupTestHome(t)
-	testutil.WriteOCConfig(t, home, map[string]any{
-		"currentContext": "test",
-		"contexts": []map[string]any{
-			{"name": "test", "controlplane": "test-cp", "credentials": "test-cred"},
-		},
-		"controlplanes": []map[string]any{
-			{"name": "test-cp", "url": cpURL},
-		},
-		"credentials": []map[string]any{
-			{"name": "test-cred"},
-		},
-	})
-
+	// Verify fetchServerVersion returns the correct data.
 	result, err := fetchServerVersion()
 	require.NoError(t, err)
 	assert.Equal(t, expected.Version, result.Version)
 	assert.Equal(t, expected.GitRevision, result.GitRevision)
 	assert.Equal(t, expected.GoOS, result.GoOS)
+
+	// Verify the command prints both client and server sections.
+	cmd := NewVersionCmd()
+	out := testutil.CaptureStdout(t, func() {
+		err := cmd.RunE(cmd, nil)
+		require.NoError(t, err)
+	})
+
+	assert.Contains(t, out, "Client:")
+	assert.Contains(t, out, "Server:")
+	assert.Contains(t, out, expected.Version)
+	assert.Contains(t, out, expected.GitRevision)
 }
 
 func TestFetchServerVersion_ServerError(t *testing.T) {
@@ -150,4 +151,60 @@ func TestFetchServerVersion_NoConfig(t *testing.T) {
 
 	_, err := fetchServerVersion()
 	require.Error(t, err)
+}
+
+// writeTestConfig writes a minimal OC config pointing at the given control plane URL.
+func writeTestConfig(t *testing.T, cpURL string) {
+	t.Helper()
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, map[string]any{
+		"currentContext": "test",
+		"contexts": []map[string]any{
+			{"name": "test", "controlplane": "test-cp", "credentials": "test-cred"},
+		},
+		"controlplanes": []map[string]any{
+			{"name": "test-cp", "url": cpURL},
+		},
+		"credentials": []map[string]any{
+			{"name": "test-cred"},
+		},
+	})
+}
+
+func TestFetchServerVersion_EmptyURL(t *testing.T) {
+	writeTestConfig(t, "")
+
+	_, err := fetchServerVersion()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "control plane URL not configured")
+}
+
+func TestFetchServerVersion_NetworkError(t *testing.T) {
+	const cpURL = "http://mock-control-plane"
+
+	setTransport(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		return nil, fmt.Errorf("connection refused")
+	}))
+	writeTestConfig(t, cpURL)
+
+	_, err := fetchServerVersion()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to fetch server version")
+}
+
+func TestFetchServerVersion_InvalidJSON(t *testing.T) {
+	const cpURL = "http://mock-control-plane"
+
+	setTransport(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader([]byte("not json"))),
+			Header:     http.Header{},
+		}, nil
+	}))
+	writeTestConfig(t, cpURL)
+
+	_, err := fetchServerVersion()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse server version")
 }
