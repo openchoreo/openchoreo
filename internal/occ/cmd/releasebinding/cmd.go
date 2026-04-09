@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package releasebinding
@@ -21,7 +21,7 @@ func NewReleaseBindingCmd(f client.NewClientFunc) *cobra.Command {
 		Use:     "releasebinding",
 		Aliases: []string{"releasebindings", "rb"},
 		Short:   "Manage release bindings",
-		Long:    "Commands for managing release bindings in file-system mode.",
+		Long:    "Commands for managing release bindings.",
 	}
 	cmd.AddCommand(
 		newGenerateCmd(),
