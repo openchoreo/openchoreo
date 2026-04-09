@@ -57,17 +57,6 @@ func GetEnvironment(cmd *cobra.Command) string {
 	return val
 }
 
-// --- Output ---
-
-func AddOutput(cmd *cobra.Command) {
-	cmd.Flags().StringP("output", "o", "", "Output format [yaml]")
-}
-
-func GetOutput(cmd *cobra.Command) string {
-	val, _ := cmd.Flags().GetString("output")
-	return val
-}
-
 // --- Follow ---
 
 func AddFollow(cmd *cobra.Command) {
