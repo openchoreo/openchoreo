@@ -116,20 +116,22 @@ type ComponentContextInput struct {
 	DefaultNotificationChannel string
 }
 
-// TraitContextInput contains all inputs needed to build a trait rendering context.
-type TraitContextInput struct {
-	// Trait is the trait definition.
-	Trait *v1alpha1.Trait `validate:"required"`
+// TraitContextBase contains the inputs common to building both regular and embedded trait
+// contexts (metadata, dataplane, environment, workload data, configurations, dependencies,
+// notification channel). Pipeline callers typically build this once at the start of a render
+// and embed it in each TraitContextInput / EmbeddedTraitContextInput inside the trait loops.
+type TraitContextBase struct {
+	// Metadata provides structured naming and labeling information.
+	// Required - controller must provide this.
+	Metadata MetadataContext `validate:"required"`
 
-	// Instance contains the specific instance configuration.
-	Instance v1alpha1.ComponentTrait `validate:"required"`
+	// DataPlane contains the data plane configuration.
+	// Required - controller must provide this.
+	DataPlane *v1alpha1.DataPlane `validate:"required"`
 
-	// Component is the component this trait is being applied to.
-	Component *v1alpha1.Component `validate:"required"`
-
-	// ReleaseBinding contains release reference and environment-specific overrides.
-	// Can be nil if no overrides are needed.
-	ReleaseBinding *v1alpha1.ReleaseBinding
+	// Environment contains the environment configuration.
+	// Required - controller must provide this.
+	Environment *v1alpha1.Environment `validate:"required"`
 
 	// WorkloadData is the pre-computed workload data (containers, endpoints).
 	// Should be computed once by the caller using ExtractWorkloadData and shared.
@@ -140,31 +142,52 @@ type TraitContextInput struct {
 	// and shared across ComponentContext and all TraitContexts.
 	Configurations ContainerConfigurations
 
-	// Metadata provides structured naming and labeling information.
-	// Required - controller must provide this.
-	Metadata MetadataContext `validate:"required"`
-
 	// Dependencies contains pre-computed dependency environment variables.
 	// Optional - if not provided, dependencies context will be empty.
 	Dependencies ConnectionsData
+
+	// DefaultNotificationChannel is the default notification channel name for the environment.
+	// Optional - if not provided, the defaultNotificationChannel field in EnvironmentData will be empty.
+	DefaultNotificationChannel string
+}
+
+// TraitContextInput contains all inputs needed to build a trait rendering context.
+//
+// Both component-level and embedded traits use this input. The only difference is how
+// callers obtain the resolved parameter and environmentConfigs maps:
+//   - Component-level traits: use ExtractTraitInstanceBindings to deserialize the
+//     ComponentTrait instance and ReleaseBinding override.
+//   - Embedded traits: use ResolveEmbeddedTraitBindings to evaluate CEL expressions
+//     against the component context.
+//
+// By the time the input reaches BuildTraitContext both flows look identical.
+type TraitContextInput struct {
+	// TraitContextBase contains the fields shared across every trait built in a render
+	// (metadata, dataplane, environment, workload data, configurations, dependencies,
+	// notification channel). Pipeline callers typically build it once and embed it here.
+	TraitContextBase
+
+	// Trait is the trait definition.
+	Trait *v1alpha1.Trait `validate:"required"`
+
+	// InstanceName is the unique instance name for this trait within the component.
+	InstanceName string `validate:"required"`
+
+	// ResolvedParameters contains the parameter map after resolution. For component-level
+	// traits this is JSON-deserialized from the ComponentTrait instance. For embedded
+	// traits this is the result of CEL evaluation against the component context.
+	ResolvedParameters map[string]any
+
+	// ResolvedEnvironmentConfigs contains the environmentConfigs map after resolution.
+	// For component-level traits it comes from ReleaseBinding.Spec.TraitEnvironmentConfigs;
+	// for embedded traits it comes from CEL-evaluated bindings.
+	ResolvedEnvironmentConfigs map[string]any
 
 	// SchemaCache is an optional cache for schema bundles, keyed by trait kind+name with suffix.
 	// Used to avoid rebuilding schemas for the same trait used multiple times.
 	// BuildTraitContext will check this cache before building and populate it after.
 	// Cache keys use format "{kind}:{traitName}:parameters" and "{kind}:{traitName}:environmentConfigs".
 	SchemaCache map[string]*SchemaBundle
-
-	// DataPlane contains the data plane configuration.
-	// Required - controller must provide this.
-	DataPlane *v1alpha1.DataPlane `validate:"required"`
-
-	// Environment contains the environment configuration.
-	// Required - controller must provide this.
-	Environment *v1alpha1.Environment `validate:"required"`
-
-	// DefaultNotificationChannel is the default notification channel name for the environment.
-	// Optional - if not provided, the defaultNotificationChannel field in EnvironmentData will be empty.
-	DefaultNotificationChannel string
 }
 
 // SchemaInput contains schema information for building structural and JSON schemas.

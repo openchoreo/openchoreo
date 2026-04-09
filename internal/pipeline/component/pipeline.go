@@ -91,6 +91,18 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Items: input.DependencyItems,
 	}
 
+	// Build the trait context base once and reuse it for every trait built in this render.
+	// Both regular and embedded trait inputs embed TraitContextBase.
+	traitBase := context.TraitContextBase{
+		Metadata:                   input.Metadata,
+		DataPlane:                  input.DataPlane,
+		Environment:                input.Environment,
+		WorkloadData:               workloadData,
+		Configurations:             configurations,
+		Dependencies:               dependenciesData,
+		DefaultNotificationChannel: input.DefaultNotificationChannel,
+	}
+
 	// Build component context
 	componentContext, err := context.BuildComponentContext(&context.ComponentContextInput{
 		Component:                  input.Component,
@@ -108,11 +120,15 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		return nil, fmt.Errorf("failed to build component context: %w", err)
 	}
 
+	// Convert component context to map once and reuse for validation, base rendering,
+	// and embedded trait binding resolution.
+	componentContextMap := componentContext.ToMap()
+
 	// Evaluate ComponentType validation rules
 	if err := renderer.EvaluateValidationRules(
 		p.templateEngine,
 		input.ComponentType.Spec.Validations,
-		componentContext.ToMap(),
+		componentContextMap,
 	); err != nil {
 		return nil, fmt.Errorf("component type validation failed: %w", err)
 	}
@@ -123,7 +139,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	resourceRenderer := renderer.NewRenderer(p.templateEngine)
 	renderedResources, err := resourceRenderer.RenderResources(
 		input.ComponentType.Spec.Resources,
-		componentContext.ToMap(),
+		componentContextMap,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render base resources: %w", err)
@@ -162,7 +178,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		resolvedParams, resolvedEnvironmentConfigs, err := context.ResolveEmbeddedTraitBindings(
 			p.templateEngine,
 			embeddedTrait,
-			componentContext.ToMap(),
+			componentContextMap,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve embedded trait bindings for %s/%s: %w",
@@ -170,39 +186,27 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		}
 
 		// Build embedded trait context
-		traitContext, err := context.BuildEmbeddedTraitContext(&context.EmbeddedTraitContextInput{
+		traitContext, err := context.BuildTraitContext(&context.TraitContextInput{
+			TraitContextBase:           traitBase,
 			Trait:                      t,
 			InstanceName:               embeddedTrait.InstanceName,
 			ResolvedParameters:         resolvedParams,
 			ResolvedEnvironmentConfigs: resolvedEnvironmentConfigs,
-			Component:                  input.Component,
-			WorkloadData:               workloadData,
-			Configurations:             configurations,
-			Dependencies:               dependenciesData,
-			Metadata:                   input.Metadata,
 			SchemaCache:                schemaCache,
-			DataPlane:                  input.DataPlane,
-			Environment:                input.Environment,
-			DefaultNotificationChannel: input.DefaultNotificationChannel,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build embedded trait context for %s/%s: %w",
 				embeddedTrait.Name, embeddedTrait.InstanceName, err)
 		}
 
-		// Evaluate trait validation rules
-		if err := renderer.EvaluateValidationRules(
-			p.templateEngine,
-			t.Spec.Validations,
-			traitContext.ToMap(),
-		); err != nil {
+		traitContextMap := traitContext.ToMap()
+		if err := renderer.EvaluateValidationRules(p.templateEngine, t.Spec.Validations, traitContextMap); err != nil {
 			return nil, fmt.Errorf("trait %s/%s validation failed: %w",
 				embeddedTrait.Name, embeddedTrait.InstanceName, err)
 		}
 
-		// Process trait (creates + patches)
 		beforeCount := len(renderedResources)
-		renderedResources, err = traitProcessor.ProcessTraits(renderedResources, t, traitContext.ToMap())
+		renderedResources, err = traitProcessor.ProcessTraits(renderedResources, t, traitContextMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process embedded trait %s/%s: %w",
 				embeddedTrait.Name, embeddedTrait.InstanceName, err)
@@ -223,39 +227,35 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			return nil, fmt.Errorf("trait %s referenced but not found in traits list", traitInstance.Name)
 		}
 
+		// Resolve the component-level trait's instance bindings (just JSON deserialization)
+		resolvedParams, resolvedEnvironmentConfigs, err := context.ExtractTraitInstanceBindings(traitInstance, input.ReleaseBinding)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract trait bindings for %s/%s: %w",
+				traitInstance.Name, traitInstance.InstanceName, err)
+		}
+
 		// Build trait context (BuildTraitContext will handle schema caching)
 		traitContext, err := context.BuildTraitContext(&context.TraitContextInput{
+			TraitContextBase:           traitBase,
 			Trait:                      t,
-			Instance:                   traitInstance,
-			Component:                  input.Component,
-			ReleaseBinding:             input.ReleaseBinding,
-			WorkloadData:               workloadData,
-			Configurations:             configurations,
-			Dependencies:               dependenciesData,
-			Metadata:                   input.Metadata,
+			InstanceName:               traitInstance.InstanceName,
+			ResolvedParameters:         resolvedParams,
+			ResolvedEnvironmentConfigs: resolvedEnvironmentConfigs,
 			SchemaCache:                schemaCache,
-			DataPlane:                  input.DataPlane,
-			Environment:                input.Environment,
-			DefaultNotificationChannel: input.DefaultNotificationChannel,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build trait context for %s/%s: %w",
 				traitInstance.Name, traitInstance.InstanceName, err)
 		}
 
-		// Evaluate trait validation rules
-		if err := renderer.EvaluateValidationRules(
-			p.templateEngine,
-			t.Spec.Validations,
-			traitContext.ToMap(),
-		); err != nil {
+		traitContextMap := traitContext.ToMap()
+		if err := renderer.EvaluateValidationRules(p.templateEngine, t.Spec.Validations, traitContextMap); err != nil {
 			return nil, fmt.Errorf("trait %s/%s validation failed: %w",
 				traitInstance.Name, traitInstance.InstanceName, err)
 		}
 
-		// Process trait (creates + patches)
 		beforeCount := len(renderedResources)
-		renderedResources, err = traitProcessor.ProcessTraits(renderedResources, t, traitContext.ToMap())
+		renderedResources, err = traitProcessor.ProcessTraits(renderedResources, t, traitContextMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process trait %s/%s: %w",
 				traitInstance.Name, traitInstance.InstanceName, err)

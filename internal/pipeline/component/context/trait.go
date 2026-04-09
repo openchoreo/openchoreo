@@ -5,12 +5,8 @@ package context
 
 import (
 	"fmt"
-	"maps"
-
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/schema"
 )
 
 // Note: validator is initialized in component.go
@@ -18,33 +14,87 @@ import (
 // BuildTraitContext builds a CEL evaluation context for rendering trait resources.
 //
 // The context includes:
-//   - parameters: From TraitInstance.Parameters (pruned to Trait.Spec.Parameters schema) - access via ${parameters.*}
-//   - environmentConfigs: From ReleaseBinding.Spec.TraitEnvironmentConfigs[instanceName] (pruned to Trait.Spec.EnvironmentConfigs schema) - access via ${environmentConfigs.*}
-//   - trait: Trait metadata (name, instanceName) - access via ${trait.*}
-//   - metadata: Structured naming and labeling information - access via ${metadata.*}
+//   - parameters: ResolvedParameters pruned to Trait.Spec.Parameters schema — access via ${parameters.*}
+//   - environmentConfigs: ResolvedEnvironmentConfigs pruned to Trait.Spec.EnvironmentConfigs schema — access via ${environmentConfigs.*}
+//   - trait: Trait metadata (name, instanceName) — access via ${trait.*}
+//   - metadata: Structured naming and labeling information — access via ${metadata.*}
 //
 // Schema defaults are applied to both parameters and environmentConfigs sections.
 //
-// Note: TraitEnvironmentConfigs is keyed by instanceName (not traitName), as instanceNames
-// must be unique across all traits in a component.
+// Both component-level and embedded traits use this builder. Callers obtain the resolved
+// parameter/environmentConfigs maps separately:
+//   - Component-level traits call ExtractTraitInstanceBindings.
+//   - Embedded traits call ResolveEmbeddedTraitBindings.
+//
+// By the time the input reaches BuildTraitContext both flows look identical.
 func BuildTraitContext(input *TraitContextInput) (*TraitContext, error) {
 	if err := validate.Struct(input); err != nil {
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
-	// Additional validation for InstanceName (can't use struct tags on API types)
-	if input.Instance.InstanceName == "" {
-		return nil, fmt.Errorf("trait instance name is required")
-	}
-
-	// Process parameters and environmentConfigs separately
-	parameters, envConfigs, err := processTraitParameters(input)
+	parametersBundle, envConfigsBundle, err := getOrBuildTraitSchemaBundles(input.Trait, input.SchemaCache)
 	if err != nil {
 		return nil, err
 	}
 
-	// Ensure metadata maps are always initialized
-	metadata := input.Metadata
+	parameters, err := applySchemaSection(input.ResolvedParameters, parametersBundle, "parameters")
+	if err != nil {
+		return nil, err
+	}
+
+	envConfigs, err := applySchemaSection(input.ResolvedEnvironmentConfigs, envConfigsBundle, "environmentConfigs")
+	if err != nil {
+		return nil, err
+	}
+
+	return makeTraitContext(input, parameters, envConfigs), nil
+}
+
+// ExtractTraitInstanceBindings produces concrete parameter and environmentConfigs maps for a
+// component-level trait instance. Unlike ResolveEmbeddedTraitBindings, no CEL evaluation
+// happens here — values are already concrete and we just JSON-deserialize them.
+//
+// The instance parameters come from instance.Parameters (a runtime.RawExtension); the
+// environmentConfigs come from rb.Spec.TraitEnvironmentConfigs[instance.InstanceName], if
+// present. A nil ReleaseBinding or a missing instance entry produces an empty envConfigs map.
+//
+// Note: TraitEnvironmentConfigs is keyed by instanceName (not traitName), as instanceNames
+// must be unique across all traits in a component.
+func ExtractTraitInstanceBindings(
+	instance v1alpha1.ComponentTrait,
+	rb *v1alpha1.ReleaseBinding,
+) (parameters map[string]any, envConfigs map[string]any, err error) {
+	parameters, err = extractParameters(instance.Parameters)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to extract trait instance parameters: %w", err)
+	}
+
+	envConfigs, err = extractTraitEnvConfigs(rb, instance.InstanceName)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return parameters, envConfigs, nil
+}
+
+// ToMap converts the TraitContext to map[string]any for CEL evaluation.
+func (t *TraitContext) ToMap() map[string]any {
+	result, err := structToMap(t)
+	if err != nil {
+		// This should never happen with well-formed TraitContext
+		return make(map[string]any)
+	}
+	return result
+}
+
+// makeTraitContext builds the final TraitContext struct from an input and the already-
+// processed parameters and environmentConfigs maps. Metadata maps (Labels, Annotations,
+// PodSelectors) are normalized to non-nil, and dataplane/environment/gateway data are
+// extracted from the base. Called once by BuildTraitContext after schema processing.
+func makeTraitContext(input *TraitContextInput, parameters, envConfigs map[string]any) *TraitContext {
+	base := input.TraitContextBase
+
+	metadata := base.Metadata
 	if metadata.Labels == nil {
 		metadata.Labels = make(map[string]string)
 	}
@@ -61,105 +111,61 @@ func BuildTraitContext(input *TraitContextInput) (*TraitContext, error) {
 		Metadata:           metadata,
 		Trait: TraitMetadata{
 			Name:         input.Trait.Name,
-			InstanceName: input.Instance.InstanceName,
+			InstanceName: input.InstanceName,
 		},
 	}
 
-	ctx.DataPlane = extractDataPlaneData(input.DataPlane)
-	ctx.Environment = extractEnvironmentData(input.Environment, input.DataPlane, input.DefaultNotificationChannel)
+	ctx.DataPlane = extractDataPlaneData(base.DataPlane)
+	ctx.Environment = extractEnvironmentData(base.Environment, base.DataPlane, base.DefaultNotificationChannel)
 	ctx.Gateway = ctx.Environment.Gateway
-	ctx.Workload = input.WorkloadData
-	ctx.Configurations = input.Configurations
-	ctx.Dependencies = newDependenciesContextData(input.Dependencies)
+	ctx.Workload = base.WorkloadData
+	ctx.Configurations = base.Configurations
+	ctx.Dependencies = newDependenciesContextData(base.Dependencies)
 
-	return ctx, nil
+	return ctx
 }
 
-// ToMap converts the TraitContext to map[string]any for CEL evaluation.
-func (t *TraitContext) ToMap() map[string]any {
-	result, err := structToMap(t)
-	if err != nil {
-		// This should never happen with well-formed TraitContext
-		return make(map[string]any)
-	}
-	return result
-}
+// getOrBuildTraitSchemaBundles retrieves the parameters and environmentConfigs schema bundles
+// for a trait from the cache, building and caching them if either is missing. If either bundle
+// is missing both are rebuilt in a single call so types unmarshaling is shared, matching the
+// prior cache contract.
+func getOrBuildTraitSchemaBundles(trait *v1alpha1.Trait, cache map[string]*SchemaBundle) (*SchemaBundle, *SchemaBundle, error) {
+	cacheKey := traitSchemaCacheKey(trait)
+	parametersBundle := getCachedSchemaBundle(cache, cacheKey+":parameters")
+	envConfigsBundle := getCachedSchemaBundle(cache, cacheKey+":environmentConfigs")
 
-// processTraitParameters processes trait parameters and environmentConfigs separately,
-// validates each against their respective schemas, and returns them as separate maps.
-// Parameters come from TraitInstance.Parameters only.
-// EnvironmentConfigs come from ReleaseBinding.Spec.TraitEnvironmentConfigs[instanceName] only.
-func processTraitParameters(input *TraitContextInput) (map[string]any, map[string]any, error) {
-	traitCacheKey := traitSchemaCacheKey(input.Trait)
-
-	// Build or retrieve separate schema bundles for parameters and environmentConfigs
-	parametersBundle := getCachedSchemaBundle(input.SchemaCache, traitCacheKey+":parameters")
-	envConfigsBundle := getCachedSchemaBundle(input.SchemaCache, traitCacheKey+":environmentConfigs")
-
-	// If either bundle is missing, build both in one call to share types unmarshaling
 	if parametersBundle == nil || envConfigsBundle == nil {
 		var err error
 		parametersBundle, envConfigsBundle, err = BuildStructuralSchemas(&SchemaInput{
-			ParametersSchema:         input.Trait.Spec.Parameters,
-			EnvironmentConfigsSchema: input.Trait.Spec.EnvironmentConfigs,
+			ParametersSchema:         trait.Spec.Parameters,
+			EnvironmentConfigsSchema: trait.Spec.EnvironmentConfigs,
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to build trait schemas: %w", err)
 		}
-		setCachedSchemaBundle(input.SchemaCache, traitCacheKey+":parameters", parametersBundle)
-		setCachedSchemaBundle(input.SchemaCache, traitCacheKey+":environmentConfigs", envConfigsBundle)
+		setCachedSchemaBundle(cache, cacheKey+":parameters", parametersBundle)
+		setCachedSchemaBundle(cache, cacheKey+":environmentConfigs", envConfigsBundle)
 	}
 
-	// Extract trait instance parameters (for parameters section only)
-	instanceParams, err := extractParameters(input.Instance.Parameters)
+	return parametersBundle, envConfigsBundle, nil
+}
+
+// extractTraitEnvConfigs pulls the environmentConfigs override for a specific trait instance
+// from the ReleaseBinding, returning an empty map if the ReleaseBinding is nil or the instance
+// has no override.
+func extractTraitEnvConfigs(rb *v1alpha1.ReleaseBinding, instanceName string) (map[string]any, error) {
+	if rb == nil || rb.Spec.TraitEnvironmentConfigs == nil {
+		return make(map[string]any), nil
+	}
+	instanceOverride, ok := rb.Spec.TraitEnvironmentConfigs[instanceName]
+	if !ok {
+		return make(map[string]any), nil
+	}
+	envConfigs, err := extractParameters(&instanceOverride)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to extract trait instance parameters: %w", err)
+		return nil, fmt.Errorf("failed to extract trait environment configs: %w", err)
 	}
-
-	// Process parameters: prune to parameters schema, apply defaults, validate
-	var parameters map[string]any
-	if parametersBundle != nil {
-		parameters = make(map[string]any, len(instanceParams))
-		maps.Copy(parameters, instanceParams)
-		pruning.Prune(parameters, parametersBundle.Structural, false)
-		parameters = schema.ApplyDefaults(parameters, parametersBundle.Structural)
-		if err := schema.ValidateWithJSONSchema(parameters, parametersBundle.JSONSchema); err != nil {
-			return nil, nil, fmt.Errorf("parameters validation failed: %w", err)
-		}
-	} else {
-		// No parameters schema defined - discard all parameters
-		parameters = make(map[string]any)
-	}
-
-	// Process environmentConfigs: ONLY from ReleaseBinding (no merging with trait instance)
-	var envConfigs map[string]any
-	instanceName := input.Instance.InstanceName
-	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.TraitEnvironmentConfigs != nil {
-		if instanceOverride, ok := input.ReleaseBinding.Spec.TraitEnvironmentConfigs[instanceName]; ok {
-			envConfigs, err = extractParameters(&instanceOverride)
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to extract trait environment configs: %w", err)
-			}
-		} else {
-			envConfigs = make(map[string]any)
-		}
-	} else {
-		envConfigs = make(map[string]any)
-	}
-
-	// Prune against schema, apply defaults, and validate
-	if envConfigsBundle != nil {
-		pruning.Prune(envConfigs, envConfigsBundle.Structural, false)
-		envConfigs = schema.ApplyDefaults(envConfigs, envConfigsBundle.Structural)
-		if err := schema.ValidateWithJSONSchema(envConfigs, envConfigsBundle.JSONSchema); err != nil {
-			return nil, nil, fmt.Errorf("environmentConfigs validation failed: %w", err)
-		}
-	} else {
-		// No environmentConfigs schema defined - discard all environmentConfigs
-		envConfigs = make(map[string]any)
-	}
-
-	return parameters, envConfigs, nil
+	return envConfigs, nil
 }
 
 // traitSchemaCacheKey returns a cache key that includes both kind and name,

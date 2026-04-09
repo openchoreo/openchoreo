@@ -592,41 +592,43 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			// Build input from YAML
 			input := &TraitContextInput{
-				Metadata: MetadataContext{
-					Name:               "test-component-dev-12345678",
-					Namespace:          "test-namespace",
-					ComponentName:      "test-component",
-					ComponentUID:       "a1b2c3d4-5678-90ab-cdef-1234567890ab",
-					ComponentNamespace: "test-namespace",
-					ProjectName:        "test-project",
-					ProjectUID:         "b2c3d4e5-6789-01bc-def0-234567890abc",
-					DataPlaneName:      "test-dataplane",
-					DataPlaneUID:       "c3d4e5f6-7890-12cd-ef01-34567890abcd",
-					EnvironmentName:    "dev",
-					EnvironmentUID:     "d4e5f6a7-8901-23de-f012-4567890abcde",
-					Labels: func() map[string]string {
-						if tt.additionalMetadata == nil {
-							return map[string]string{}
-						}
-						return tt.additionalMetadata
-					}(),
-					Annotations: map[string]string{},
-					PodSelectors: map[string]string{
-						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
-					},
-				},
-				DataPlane: &v1alpha1.DataPlane{
-					Spec: v1alpha1.DataPlaneSpec{
-						SecretStoreRef: &v1alpha1.SecretStoreRef{
-							Name: "test-secret-store",
+				TraitContextBase: TraitContextBase{
+					Metadata: MetadataContext{
+						Name:               "test-component-dev-12345678",
+						Namespace:          "test-namespace",
+						ComponentName:      "test-component",
+						ComponentUID:       "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+						ComponentNamespace: "test-namespace",
+						ProjectName:        "test-project",
+						ProjectUID:         "b2c3d4e5-6789-01bc-def0-234567890abc",
+						DataPlaneName:      "test-dataplane",
+						DataPlaneUID:       "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+						EnvironmentName:    "dev",
+						EnvironmentUID:     "d4e5f6a7-8901-23de-f012-4567890abcde",
+						Labels: func() map[string]string {
+							if tt.additionalMetadata == nil {
+								return map[string]string{}
+							}
+							return tt.additionalMetadata
+						}(),
+						Annotations: map[string]string{},
+						PodSelectors: map[string]string{
+							"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 						},
 					},
-				},
-				Environment: &v1alpha1.Environment{
-					Spec: v1alpha1.EnvironmentSpec{
-						DataPlaneRef: &v1alpha1.DataPlaneRef{
-							Kind: v1alpha1.DataPlaneRefKindDataPlane,
-							Name: "test-dataplane",
+					DataPlane: &v1alpha1.DataPlane{
+						Spec: v1alpha1.DataPlaneSpec{
+							SecretStoreRef: &v1alpha1.SecretStoreRef{
+								Name: "test-secret-store",
+							},
+						},
+					},
+					Environment: &v1alpha1.Environment{
+						Spec: v1alpha1.EnvironmentSpec{
+							DataPlaneRef: &v1alpha1.DataPlaneRef{
+								Kind: v1alpha1.DataPlaneRefKindDataPlane,
+								Name: "test-dataplane",
+							},
 						},
 					},
 				},
@@ -641,32 +643,32 @@ spec:
 				input.Trait = trait
 			}
 
-			// Parse component
-			if tt.componentYAML != "" {
-				comp := &v1alpha1.Component{}
-				if err := yaml.Unmarshal([]byte(tt.componentYAML), comp); err != nil {
-					t.Fatalf("Failed to parse Component YAML: %v", err)
-				}
-				input.Component = comp
-			}
-
-			// Parse trait instance
+			// Parse trait instance and resolve its bindings (mirrors the pipeline flow:
+			// component-level traits go through ExtractTraitInstanceBindings before
+			// reaching BuildTraitContext).
+			var instance v1alpha1.ComponentTrait
 			if tt.instanceYAML != "" {
-				instance := v1alpha1.ComponentTrait{}
 				if err := yaml.Unmarshal([]byte(tt.instanceYAML), &instance); err != nil {
 					t.Fatalf("Failed to parse trait instance YAML: %v", err)
 				}
-				input.Instance = instance
+				input.InstanceName = instance.InstanceName
 			}
 
 			// Parse env settings
+			var releaseBinding *v1alpha1.ReleaseBinding
 			if tt.envSettingsYAML != "" {
-				settings := &v1alpha1.ReleaseBinding{}
-				if err := yaml.Unmarshal([]byte(tt.envSettingsYAML), settings); err != nil {
+				releaseBinding = &v1alpha1.ReleaseBinding{}
+				if err := yaml.Unmarshal([]byte(tt.envSettingsYAML), releaseBinding); err != nil {
 					t.Fatalf("Failed to parse ReleaseBinding YAML: %v", err)
 				}
-				input.ReleaseBinding = settings
 			}
+
+			resolvedParams, resolvedEnvConfigs, err := ExtractTraitInstanceBindings(instance, releaseBinding)
+			if err != nil {
+				t.Fatalf("ExtractTraitInstanceBindings failed: %v", err)
+			}
+			input.ResolvedParameters = resolvedParams
+			input.ResolvedEnvironmentConfigs = resolvedEnvConfigs
 
 			// Compute workload data and configurations (like pipeline would do)
 			// These tests don't have workloads, so both will be empty
