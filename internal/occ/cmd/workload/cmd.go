@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package workload
@@ -39,35 +39,34 @@ and describes the endpoints and configuration for your workload.
 
 Examples:
   # Create workload from descriptor
-  occ workload create workload.yaml --namespace acme-corp --project online-store \
+  occ workload create --descriptor workload.yaml --namespace acme-corp --project online-store \
     --component product-catalog --image myimage:latest
 
   # Create workload and save to file
-  occ workload create workload.yaml --namespace acme-corp --project online-store \
-    --component product-catalog --image myimage:latest --output workload-cr.yaml`,
+  occ workload create --descriptor workload.yaml --namespace acme-corp --project online-store \
+    --component product-catalog --image myimage:latest --output-path workload-cr.yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			descriptor, _ := cmd.Flags().GetString("descriptor")
 			image, _ := cmd.Flags().GetString("image")
-			name, _ := cmd.Flags().GetString("name")
 			return New(nil).Create(CreateParams{
 				FilePath:      descriptor,
 				NamespaceName: flags.GetNamespace(cmd),
 				ProjectName:   flags.GetProject(cmd),
 				ComponentName: flags.GetComponent(cmd),
 				ImageURL:      image,
-				OutputPath:    name,
+				OutputPath:    flags.GetOutputPath(cmd),
 				DryRun:        flags.GetDryRun(cmd),
 				Mode:          flags.GetMode(cmd),
 				RootDir:       flags.GetRootDir(cmd),
 			})
 		},
 	}
-	cmd.Flags().String("name", "", "Name of the resource (must be lowercase letters, numbers, or hyphens)")
 	cmd.Flags().String("image", "", "Name of the Docker image (e.g., product-catalog:latest)")
 	cmd.Flags().String("descriptor", "", "Path to the workload descriptor file (e.g., workload.yaml)")
 	flags.AddNamespace(cmd)
 	flags.AddProject(cmd)
 	flags.AddComponent(cmd)
+	flags.AddOutputPath(cmd)
 	flags.AddDryRun(cmd)
 	flags.AddMode(cmd)
 	flags.AddRootDir(cmd)
