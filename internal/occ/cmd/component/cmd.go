@@ -185,7 +185,8 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
 
   # Promote to a specific environment
   occ component deploy api-service --namespace acme-corp --project online-store --to staging`,
-		Args: cmdutil.ExactOneArgWithUsage(),
+		Args:    cmdutil.ExactOneArgWithUsage(),
+		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cl, err := f()
 			if err != nil {
