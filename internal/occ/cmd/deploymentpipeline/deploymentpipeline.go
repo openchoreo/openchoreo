@@ -13,7 +13,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -36,7 +36,7 @@ func New(client Client) *DeploymentPipeline {
 
 // List lists all deployment pipelines in a namespace
 func (d *DeploymentPipeline) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceDeploymentPipeline, params); err != nil {
+	if err := cmdutil.RequireFields("list", "deploymentpipeline", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -66,7 +66,7 @@ func (d *DeploymentPipeline) List(params ListParams) error {
 
 // Get retrieves a single deployment pipeline and outputs it as YAML
 func (d *DeploymentPipeline) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceDeploymentPipeline, params); err != nil {
+	if err := cmdutil.RequireFields("get", "deploymentpipeline", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -88,7 +88,7 @@ func (d *DeploymentPipeline) Get(params GetParams) error {
 
 // Delete deletes a single deployment pipeline
 func (d *DeploymentPipeline) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceDeploymentPipeline, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "deploymentpipeline", map[string]string{"namespace": params.Namespace, "name": params.DeploymentPipelineName}); err != nil {
 		return err
 	}
 

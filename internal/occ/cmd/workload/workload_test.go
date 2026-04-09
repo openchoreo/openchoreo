@@ -325,7 +325,7 @@ func TestGet_SuccessWithSpec(t *testing.T) {
 	assert.Contains(t, out, "projectName: proj-1")
 }
 
-// --- toAPIParams ---
+// --- toSynthParams ---
 
 func TestToAPIParams(t *testing.T) {
 	p := CreateParams{
@@ -339,7 +339,7 @@ func TestToAPIParams(t *testing.T) {
 		Mode:          "file-system",
 		RootDir:       "/repo",
 	}
-	ap := toAPIParams(p)
+	ap := toSynthParams(p)
 	assert.Equal(t, p.FilePath, ap.FilePath)
 	assert.Equal(t, p.NamespaceName, ap.NamespaceName)
 	assert.Equal(t, p.ProjectName, ap.ProjectName)

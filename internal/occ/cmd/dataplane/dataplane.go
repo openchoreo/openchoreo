@@ -13,7 +13,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -36,7 +36,7 @@ func New(client Client) *DataPlane {
 
 // List lists all data planes in a namespace
 func (d *DataPlane) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceDataPlane, params); err != nil {
+	if err := cmdutil.RequireFields("list", "dataplane", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -67,7 +67,7 @@ func (d *DataPlane) List(params ListParams) error {
 
 // Get retrieves a single data plane and outputs it as YAML
 func (d *DataPlane) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceDataPlane, params); err != nil {
+	if err := cmdutil.RequireFields("get", "dataplane", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -89,7 +89,7 @@ func (d *DataPlane) Get(params GetParams) error {
 
 // Delete deletes a single data plane
 func (d *DataPlane) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceDataPlane, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "dataplane", map[string]string{"namespace": params.Namespace, "name": params.DataPlaneName}); err != nil {
 		return err
 	}
 

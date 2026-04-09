@@ -10,7 +10,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -18,7 +18,7 @@ import (
 // If RunName is provided, it delegates directly to workflowrun.Logs.
 // Otherwise, it finds the latest workflow run and uses that.
 func (w *Workflow) Logs(params LogsParams) error {
-	if err := validation.ValidateParams(validation.CmdLogs, validation.ResourceWorkflow, params); err != nil {
+	if err := cmdutil.RequireFields("logs", "workflow", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 

@@ -13,7 +13,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -36,7 +36,7 @@ func New(client Client) *ComponentType {
 
 // List lists all component types in a namespace
 func (ct *ComponentType) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponentType, params); err != nil {
+	if err := cmdutil.RequireFields("list", "componenttype", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -66,7 +66,7 @@ func (ct *ComponentType) List(params ListParams) error {
 
 // Get retrieves a single component type and outputs it as YAML
 func (ct *ComponentType) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponentType, params); err != nil {
+	if err := cmdutil.RequireFields("get", "componenttype", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -88,7 +88,7 @@ func (ct *ComponentType) Get(params GetParams) error {
 
 // Delete deletes a single component type
 func (ct *ComponentType) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceComponentType, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "componenttype", map[string]string{"namespace": params.Namespace, "name": params.ComponentTypeName}); err != nil {
 		return err
 	}
 

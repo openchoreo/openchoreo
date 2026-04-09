@@ -20,7 +20,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	scaffold "github.com/openchoreo/openchoreo/internal/scaffold/component"
 )
@@ -80,7 +80,7 @@ func New(client Client) *Component {
 
 // List lists all components in a project
 func (cp *Component) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponent, params); err != nil {
+	if err := cmdutil.RequireFields("list", "component", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -177,7 +177,7 @@ func (cp *Component) ListWorkflowRuns(params ListWorkflowRunsParams) error {
 
 // Get retrieves a single component and outputs it as YAML
 func (cp *Component) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponent, params); err != nil {
+	if err := cmdutil.RequireFields("get", "component", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -199,7 +199,7 @@ func (cp *Component) Get(params GetParams) error {
 
 // Delete deletes a single component
 func (cp *Component) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceComponent, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "component", map[string]string{"namespace": params.Namespace, "name": params.ComponentName}); err != nil {
 		return err
 	}
 
@@ -221,7 +221,7 @@ func (cp *Component) Scaffold(params ScaffoldParams) error {
 // Deploy deploys or promotes a component
 func (cp *Component) Deploy(params DeployParams) error {
 	// Validate required params
-	if err := validation.ValidateParams(validation.CmdDeploy, validation.ResourceComponent, params); err != nil {
+	if err := cmdutil.RequireFields("deploy", "component", map[string]string{"namespace": params.Namespace, "project": params.Project}); err != nil {
 		return err
 	}
 

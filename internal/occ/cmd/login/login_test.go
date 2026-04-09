@@ -17,7 +17,6 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/testhelpers"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // roundTripFunc lets a plain function satisfy http.RoundTripper.
@@ -111,7 +110,7 @@ func TestLoginWithClientCredentials(t *testing.T) {
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp", Credentials: "cred"}},
 		})
 
-		err := NewAuthImpl().Login(api.LoginParams{
+		err := NewAuthImpl().Login(LoginParams{
 			ClientCredentials: true,
 			ClientID:          "my-client",
 			ClientSecret:      "my-secret",
@@ -137,7 +136,7 @@ func TestLoginWithClientCredentials(t *testing.T) {
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp"}},
 		})
 
-		err := NewAuthImpl().Login(api.LoginParams{
+		err := NewAuthImpl().Login(LoginParams{
 			ClientCredentials: true,
 			ClientID:          "my-client",
 			ClientSecret:      "my-secret",
@@ -165,7 +164,7 @@ func TestLoginWithClientCredentials(t *testing.T) {
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp", Credentials: "cred"}},
 		})
 
-		err := NewAuthImpl().Login(api.LoginParams{
+		err := NewAuthImpl().Login(LoginParams{
 			ClientCredentials: true,
 			CredentialName:    "cred",
 		})
@@ -184,7 +183,7 @@ func TestLoginWithClientCredentials(t *testing.T) {
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp", Credentials: "cred"}},
 		})
 
-		err := NewAuthImpl().Login(api.LoginParams{ClientCredentials: true})
+		err := NewAuthImpl().Login(LoginParams{ClientCredentials: true})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "client ID and client secret are required")
 	})
@@ -200,7 +199,7 @@ func TestLoginWithClientCredentials(t *testing.T) {
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp"}},
 		})
 
-		err := NewAuthImpl().Login(api.LoginParams{
+		err := NewAuthImpl().Login(LoginParams{
 			ClientCredentials: true,
 			ClientID:          "id",
 			ClientSecret:      "secret",
@@ -220,7 +219,7 @@ func TestLoginWithClientCredentials(t *testing.T) {
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp", Credentials: "cred"}},
 		})
 
-		err := NewAuthImpl().Login(api.LoginParams{
+		err := NewAuthImpl().Login(LoginParams{
 			ClientCredentials: true,
 			ClientID:          "id",
 			ClientSecret:      "secret",
@@ -233,7 +232,7 @@ func TestLoginWithClientCredentials(t *testing.T) {
 		testhelpers.SetupTestHome(t)
 		// No config file — no current context
 
-		err := NewAuthImpl().Login(api.LoginParams{
+		err := NewAuthImpl().Login(LoginParams{
 			ClientCredentials: true,
 			ClientID:          "id",
 			ClientSecret:      "secret",
@@ -253,7 +252,7 @@ func TestLoginWithClientCredentials(t *testing.T) {
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp", Credentials: "cred"}},
 		})
 
-		err := NewAuthImpl().Login(api.LoginParams{
+		err := NewAuthImpl().Login(LoginParams{
 			ClientCredentials: true,
 			ClientID:          "id",
 			ClientSecret:      "secret",
@@ -311,7 +310,7 @@ func TestLoginConfigFilePersistence(t *testing.T) {
 			Contexts:       []config.Context{{Name: "ctx", ControlPlane: "cp", Credentials: "cred"}},
 		})
 
-		err := NewAuthImpl().Login(api.LoginParams{
+		err := NewAuthImpl().Login(LoginParams{
 			ClientCredentials: true,
 			ClientID:          "id",
 			ClientSecret:      "secret",

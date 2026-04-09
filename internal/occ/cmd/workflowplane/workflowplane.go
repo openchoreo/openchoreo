@@ -13,7 +13,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -36,7 +36,7 @@ func New(client Client) *WorkflowPlane {
 
 // List lists all workflow planes in a namespace
 func (b *WorkflowPlane) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkflowPlane, params); err != nil {
+	if err := cmdutil.RequireFields("list", "workflowplane", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -66,7 +66,7 @@ func (b *WorkflowPlane) List(params ListParams) error {
 
 // Get retrieves a single workflow plane and outputs it as YAML
 func (b *WorkflowPlane) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceWorkflowPlane, params); err != nil {
+	if err := cmdutil.RequireFields("get", "workflowplane", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -88,7 +88,7 @@ func (b *WorkflowPlane) Get(params GetParams) error {
 
 // Delete deletes a single workflow plane
 func (b *WorkflowPlane) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceWorkflowPlane, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "workflowplane", map[string]string{"namespace": params.Namespace, "name": params.WorkflowPlaneName}); err != nil {
 		return err
 	}
 

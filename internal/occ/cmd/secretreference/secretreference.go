@@ -13,7 +13,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -36,7 +36,7 @@ func New(client Client) *SecretReference {
 
 // List lists all secret references in a namespace
 func (s *SecretReference) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceSecretReference, params); err != nil {
+	if err := cmdutil.RequireFields("list", "secretreference", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -66,7 +66,7 @@ func (s *SecretReference) List(params ListParams) error {
 
 // Get retrieves a single secret reference and outputs it as YAML
 func (s *SecretReference) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceSecretReference, params); err != nil {
+	if err := cmdutil.RequireFields("get", "secretreference", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -87,7 +87,7 @@ func (s *SecretReference) Get(params GetParams) error {
 
 // Delete deletes a single secret reference
 func (s *SecretReference) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceSecretReference, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "secretreference", map[string]string{"namespace": params.Namespace, "name": params.SecretReferenceName}); err != nil {
 		return err
 	}
 

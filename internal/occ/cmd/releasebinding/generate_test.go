@@ -18,7 +18,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
-	"github.com/openchoreo/openchoreo/pkg/cli/flags"
+	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 

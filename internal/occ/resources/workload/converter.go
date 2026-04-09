@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // WorkloadDescriptor represents the structure of a workload.yaml file
@@ -110,7 +109,7 @@ type ConversionParams struct {
 }
 
 // ConvertWorkloadDescriptorToWorkloadCR converts a workload.yaml descriptor to a Workload CR
-func ConvertWorkloadDescriptorToWorkloadCR(descriptorPath string, params api.CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
+func ConvertWorkloadDescriptorToWorkloadCR(descriptorPath string, params CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
 	// Read the workload descriptor file
 	descriptor, err := readWorkloadDescriptor(descriptorPath)
 	if err != nil {
@@ -162,7 +161,7 @@ func readWorkloadDescriptorFromReader(reader io.Reader) (*WorkloadDescriptor, er
 	return &descriptor, nil
 }
 
-func validateConversionParams(params api.CreateWorkloadParams) error {
+func validateConversionParams(params CreateWorkloadParams) error {
 	if params.NamespaceName == "" {
 		return fmt.Errorf("namespace name is required")
 	}
@@ -179,7 +178,7 @@ func validateConversionParams(params api.CreateWorkloadParams) error {
 }
 
 // createBaseWorkload creates the basic workload structure with common fields
-func createBaseWorkload(workloadName string, params api.CreateWorkloadParams) *openchoreov1alpha1.Workload {
+func createBaseWorkload(workloadName string, params CreateWorkloadParams) *openchoreov1alpha1.Workload {
 	workload := &openchoreov1alpha1.Workload{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "openchoreo.dev/v1alpha1",
@@ -205,7 +204,7 @@ func createBaseWorkload(workloadName string, params api.CreateWorkloadParams) *o
 	return workload
 }
 
-func convertDescriptorToWorkload(descriptor *WorkloadDescriptor, params api.CreateWorkloadParams, descriptorPath string) (*openchoreov1alpha1.Workload, error) {
+func convertDescriptorToWorkload(descriptor *WorkloadDescriptor, params CreateWorkloadParams, descriptorPath string) (*openchoreov1alpha1.Workload, error) {
 	// Determine workload name
 	workloadName := params.ComponentName + "-workload"
 	if workloadName == "" {
@@ -416,7 +415,7 @@ func convertEnvVarSource(source *WorkloadDescriptorEnvVarSource) *openchoreov1al
 }
 
 // CreateBasicWorkload creates a basic Workload CR without reading from a descriptor file
-func CreateBasicWorkload(params api.CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
+func CreateBasicWorkload(params CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
 	// Validate conversion parameters
 	if err := validateConversionParams(params); err != nil {
 		return nil, fmt.Errorf("invalid conversion parameters: %w", err)

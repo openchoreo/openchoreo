@@ -7,15 +7,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 )
 
 func TestNewResourceBase_NoOptions(t *testing.T) {
 	base := NewResourceBase()
 	assert.NotNil(t, base)
 	assert.Empty(t, base.GetNamespace())
-	assert.Equal(t, constants.CRDConfig{}, base.GetConfig())
+	assert.Equal(t, CRDConfig{}, base.GetConfig())
 }
 
 func TestNewResourceBase_WithNamespace(t *testing.T) {
@@ -24,9 +22,9 @@ func TestNewResourceBase_WithNamespace(t *testing.T) {
 }
 
 func TestNewResourceBase_WithConfig(t *testing.T) {
-	cfg := constants.CRDConfig{
+	cfg := CRDConfig{
 		Group:   "openchoreo.dev",
-		Version: constants.V1Alpha1,
+		Version: V1Alpha1,
 		Kind:    "Workload",
 	}
 	base := NewResourceBase(WithResourceConfig(cfg))
@@ -34,9 +32,9 @@ func TestNewResourceBase_WithConfig(t *testing.T) {
 }
 
 func TestNewResourceBase_MultipleOptions(t *testing.T) {
-	cfg := constants.CRDConfig{
+	cfg := CRDConfig{
 		Group:   "openchoreo.dev",
-		Version: constants.V1Alpha1,
+		Version: V1Alpha1,
 		Kind:    "Component",
 	}
 	base := NewResourceBase(
@@ -50,7 +48,6 @@ func TestNewResourceBase_MultipleOptions(t *testing.T) {
 func TestResourceBase_SetNamespace(t *testing.T) {
 	base := NewResourceBase(WithResourceNamespace("old-ns"))
 	assert.Equal(t, "old-ns", base.GetNamespace())
-
 	base.SetNamespace("new-ns")
 	assert.Equal(t, "new-ns", base.GetNamespace())
 }
@@ -58,7 +55,6 @@ func TestResourceBase_SetNamespace(t *testing.T) {
 func TestResourceBase_SetNamespace_FromEmpty(t *testing.T) {
 	base := NewResourceBase()
 	assert.Empty(t, base.GetNamespace())
-
 	base.SetNamespace("my-ns")
 	assert.Equal(t, "my-ns", base.GetNamespace())
 }
@@ -69,6 +65,6 @@ func TestWithResourceNamespace_EmptyString(t *testing.T) {
 }
 
 func TestWithResourceConfig_ZeroValue(t *testing.T) {
-	base := NewResourceBase(WithResourceConfig(constants.CRDConfig{}))
-	assert.Equal(t, constants.CRDConfig{}, base.GetConfig())
+	base := NewResourceBase(WithResourceConfig(CRDConfig{}))
+	assert.Equal(t, CRDConfig{}, base.GetConfig())
 }

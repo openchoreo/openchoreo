@@ -22,9 +22,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/pipeline"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/pkg/cli/flags"
+	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
@@ -53,7 +53,7 @@ func New(client Client) *ReleaseBinding {
 
 // List lists all release bindings for a component
 func (r *ReleaseBinding) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceReleaseBinding, params); err != nil {
+	if err := cmdutil.RequireFields("list", "releasebinding", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -208,7 +208,7 @@ func (r *ReleaseBinding) Generate(params GenerateParams) error {
 
 // Get retrieves a single release binding and outputs it as YAML
 func (r *ReleaseBinding) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceReleaseBinding, params); err != nil {
+	if err := cmdutil.RequireFields("get", "releasebinding", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -230,7 +230,7 @@ func (r *ReleaseBinding) Get(params GetParams) error {
 
 // Delete deletes a single release binding
 func (r *ReleaseBinding) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceReleaseBinding, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "releasebinding", map[string]string{"namespace": params.Namespace, "name": params.ReleaseBindingName}); err != nil {
 		return err
 	}
 

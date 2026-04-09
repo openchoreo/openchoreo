@@ -13,7 +13,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -36,7 +36,7 @@ func New(client Client) *Environment {
 
 // List lists all environments in a namespace
 func (e *Environment) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceEnvironment, params); err != nil {
+	if err := cmdutil.RequireFields("list", "environment", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -67,7 +67,7 @@ func (e *Environment) List(params ListParams) error {
 
 // Get retrieves a single environment and outputs it as YAML
 func (e *Environment) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceEnvironment, params); err != nil {
+	if err := cmdutil.RequireFields("get", "environment", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -89,7 +89,7 @@ func (e *Environment) Get(params GetParams) error {
 
 // Delete deletes a single environment
 func (e *Environment) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceEnvironment, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "environment", map[string]string{"namespace": params.Namespace, "name": params.EnvironmentName}); err != nil {
 		return err
 	}
 

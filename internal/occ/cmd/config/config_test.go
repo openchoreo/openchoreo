@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/pkg/cli/flags"
+	
 )
 
 func TestMaskToken(t *testing.T) {
@@ -1019,9 +1019,9 @@ func TestEnsureContext(t *testing.T) {
 func TestApplyContextDefaults(t *testing.T) {
 	newCmd := func() *cobra.Command {
 		cmd := &cobra.Command{Use: "test"}
-		cmd.Flags().String(flags.Namespace.Name, "", "")
-		cmd.Flags().String(flags.Project.Name, "", "")
-		cmd.Flags().String(flags.Component.Name, "", "")
+		cmd.Flags().String("namespace", "", "")
+		cmd.Flags().String("project", "", "")
+		cmd.Flags().String("component", "", "")
 		return cmd
 	}
 
@@ -1063,9 +1063,9 @@ func TestApplyContextDefaults(t *testing.T) {
 		})
 		cmd := newCmd()
 		require.NoError(t, ApplyContextDefaults(cmd))
-		assert.Equal(t, "ns1", cmd.Flags().Lookup(flags.Namespace.Name).Value.String())
-		assert.Equal(t, "proj1", cmd.Flags().Lookup(flags.Project.Name).Value.String())
-		assert.Equal(t, "comp1", cmd.Flags().Lookup(flags.Component.Name).Value.String())
+		assert.Equal(t, "ns1", cmd.Flags().Lookup("namespace").Value.String())
+		assert.Equal(t, "proj1", cmd.Flags().Lookup("project").Value.String())
+		assert.Equal(t, "comp1", cmd.Flags().Lookup("component").Value.String())
 	})
 
 	t.Run("does not override explicitly set flags", func(t *testing.T) {
@@ -1075,10 +1075,10 @@ func TestApplyContextDefaults(t *testing.T) {
 			Contexts:       []Context{{Name: "ctx1", Namespace: "from-config", Project: "from-config"}},
 		})
 		cmd := newCmd()
-		require.NoError(t, cmd.Flags().Set(flags.Namespace.Name, "explicit"))
+		require.NoError(t, cmd.Flags().Set("namespace", "explicit"))
 		require.NoError(t, ApplyContextDefaults(cmd))
-		assert.Equal(t, "explicit", cmd.Flags().Lookup(flags.Namespace.Name).Value.String())
-		assert.Equal(t, "from-config", cmd.Flags().Lookup(flags.Project.Name).Value.String())
+		assert.Equal(t, "explicit", cmd.Flags().Lookup("namespace").Value.String())
+		assert.Equal(t, "from-config", cmd.Flags().Lookup("project").Value.String())
 	})
 }
 

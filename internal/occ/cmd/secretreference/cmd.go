@@ -1,0 +1,98 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package secretreference
+
+import (
+	"github.com/spf13/cobra"
+
+	"github.com/openchoreo/openchoreo/internal/occ/auth"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/flags"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+)
+
+func NewSecretReferenceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "secretreference",
+		Aliases: []string{"sr", "secretreferences", "secretref"},
+		Short:   "Manage secret references",
+		Long:    `Manage secret references for OpenChoreo.`,
+	}
+	cmd.AddCommand(
+		newListCmd(),
+		newGetCmd(),
+		newDeleteCmd(),
+	)
+	return cmd
+}
+
+func newListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list",
+		Short:   "List secret references",
+		Long:    `List all secret references in a namespace.`,
+		Example: `  # List all secret references in a namespace
+  occ secretreference list --namespace acme-corp`,
+		PreRunE: auth.RequireLogin(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := client.NewClient()
+			if err != nil {
+				return err
+			}
+			return New(cl).List(ListParams{
+				Namespace: flags.GetNamespace(cmd),
+			})
+		},
+	}
+	flags.AddNamespace(cmd)
+	return cmd
+}
+
+func newGetCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get [SECRET_REFERENCE_NAME]",
+		Short:   "Get a secret reference",
+		Long:    `Get a secret reference and display its details in YAML format.`,
+		Example: `  # Get a secret reference
+  occ secretreference get my-secret --namespace acme-corp`,
+		Args:    cmdutil.ExactOneArgWithUsage(),
+		PreRunE: auth.RequireLogin(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := client.NewClient()
+			if err != nil {
+				return err
+			}
+			return New(cl).Get(GetParams{
+				Namespace:           flags.GetNamespace(cmd),
+				SecretReferenceName: args[0],
+			})
+		},
+	}
+	flags.AddNamespace(cmd)
+	return cmd
+}
+
+func newDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "delete [SECRET_REFERENCE_NAME]",
+		Short:   "Delete a secret reference",
+		Long:    `Delete a secret reference by name.`,
+		Example: `  # Delete a secret reference
+  occ secretreference delete my-secret --namespace acme-corp`,
+		Args:    cmdutil.ExactOneArgWithUsage(),
+		PreRunE: auth.RequireLogin(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := client.NewClient()
+			if err != nil {
+				return err
+			}
+			return New(cl).Delete(DeleteParams{
+				Namespace:           flags.GetNamespace(cmd),
+				SecretReferenceName: args[0],
+			})
+		},
+	}
+	flags.AddNamespace(cmd)
+	return cmd
+}

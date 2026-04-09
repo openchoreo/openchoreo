@@ -13,7 +13,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -36,7 +36,7 @@ func New(client Client) *ObservabilityAlertsNotificationChannel {
 
 // List lists all observability alerts notification channels in a namespace
 func (o *ObservabilityAlertsNotificationChannel) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceObservabilityAlertsNotificationChannel, params); err != nil {
+	if err := cmdutil.RequireFields("list", "observabilityalertsnotificationchannel", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -65,7 +65,7 @@ func (o *ObservabilityAlertsNotificationChannel) List(params ListParams) error {
 
 // Get retrieves a single observability alerts notification channel and outputs it as YAML
 func (o *ObservabilityAlertsNotificationChannel) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceObservabilityAlertsNotificationChannel, params); err != nil {
+	if err := cmdutil.RequireFields("get", "observabilityalertsnotificationchannel", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -86,7 +86,7 @@ func (o *ObservabilityAlertsNotificationChannel) Get(params GetParams) error {
 
 // Delete deletes a single observability alerts notification channel
 func (o *ObservabilityAlertsNotificationChannel) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceObservabilityAlertsNotificationChannel, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "observabilityalertsnotificationchannel", map[string]string{"namespace": params.Namespace, "name": params.ChannelName}); err != nil {
 		return err
 	}
 

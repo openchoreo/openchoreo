@@ -13,7 +13,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -36,7 +36,7 @@ func New(client Client) *ObservabilityPlane {
 
 // List lists all observability planes in a namespace
 func (o *ObservabilityPlane) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceObservabilityPlane, params); err != nil {
+	if err := cmdutil.RequireFields("list", "observabilityplane", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -66,7 +66,7 @@ func (o *ObservabilityPlane) List(params ListParams) error {
 
 // Get retrieves a single observability plane and outputs it as YAML
 func (o *ObservabilityPlane) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceObservabilityPlane, params); err != nil {
+	if err := cmdutil.RequireFields("get", "observabilityplane", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -88,7 +88,7 @@ func (o *ObservabilityPlane) Get(params GetParams) error {
 
 // Delete deletes a single observability plane
 func (o *ObservabilityPlane) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceObservabilityPlane, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "observabilityplane", map[string]string{"namespace": params.Namespace, "name": params.ObservabilityPlaneName}); err != nil {
 		return err
 	}
 

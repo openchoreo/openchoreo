@@ -17,7 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/setoverride"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -51,7 +51,7 @@ func New(client Client) *Workflow {
 
 // List lists all workflows in a namespace.
 func (w *Workflow) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkflow, params); err != nil {
+	if err := cmdutil.RequireFields("list", "workflow", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -113,7 +113,7 @@ func (w *Workflow) Get(params GetParams) error {
 
 // Delete deletes a single workflow
 func (w *Workflow) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceWorkflow, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "workflow", map[string]string{"namespace": params.Namespace, "name": params.WorkflowName}); err != nil {
 		return err
 	}
 

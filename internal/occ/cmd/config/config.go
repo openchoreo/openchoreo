@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-
-	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 )
 
 // Config implements context-related commands.
@@ -283,9 +281,9 @@ func ApplyContextDefaults(cmd *cobra.Command) error {
 	}
 
 	// Apply context-based defaults only if flags not explicitly set
-	applyIfNotSet(cmd, flags.Namespace.Name, curCtx.Namespace)
-	applyIfNotSet(cmd, flags.Project.Name, curCtx.Project)
-	applyIfNotSet(cmd, flags.Component.Name, curCtx.Component)
+	applyIfNotSet(cmd, "namespace", curCtx.Namespace)
+	applyIfNotSet(cmd, "project", curCtx.Project)
+	applyIfNotSet(cmd, "component", curCtx.Component)
 
 	return nil
 }

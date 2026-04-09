@@ -13,7 +13,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -21,7 +21,7 @@ const defaultPlaneName = "default"
 
 // Logs fetches and displays logs for a workflow run
 func (w *WorkflowRun) Logs(params LogsParams) error {
-	if err := validation.ValidateParams(validation.CmdLogs, validation.ResourceWorkflowRun, params); err != nil {
+	if err := cmdutil.RequireFields("logs", "workflowrun", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
